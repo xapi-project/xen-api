@@ -49,3 +49,9 @@ external get_host_reserved_memory: debug_info -> int64 = ""
 
 external get_host_initial_free_memory: debug_info -> int64 = ""
 
+type domain_zero_policy =
+   | Fixed_size of int64 (** it will never be ballooned *)
+   | Auto_balloon of int64 * int64 (** it will auto-balloon over a range *)
+
+external get_domain_zero_policy: debug_info -> domain_zero_policy = ""
+
