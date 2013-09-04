@@ -37,7 +37,7 @@ let _ =
 	let module Server = Memory_interface.Server(Memory_server) in
 
 	let server = Xcp_service.make 
-		~path:Memory_interface.json_path
+		~path:Memory_interface.xml_path
 		~queue_name:Memory_interface.queue_name
 		~rpc_fn:(Server.process ())
 		() in
