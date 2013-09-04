@@ -626,34 +626,21 @@ let request_config_file_sync ~__context ~host ~hash =
   let master_address = Helpers.get_main_ip_address () in
   Config_file_sync.maybe_fetch_config_files ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret ~hash
 
-let syslog_config_write host host_only enable_remote =
-	(* write the new configuration file *)
-	let buf = (if host <> "" then
-			 Printf.sprintf "SYSLOG_HOST=\"%s\"\nSYSLOG_REMOTE_ONLY=\"%s\"\n"
-			   host (if host_only then "1" else "0")
-		   else "") ^
-			  (if enable_remote then "SYSLOGD_OPTIONS=\"-r $SYSLOGD_OPTIONS\"\n" else "")
-		  in
-	let fd = Unix.openfile (Filename.concat Fhs.etcdir "syslog.conf")
-						   [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ]
-				   0o640 in
-	ignore (Unix.write fd buf 0 (String.length buf));
-	Unix.close fd;
-	(* restart the service *)
-	let args = [| "/etc/init.d/syslog"; "restart" |] in
-	ignore (Unixext.spawnvp args.(0) args);
-	()
-
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
 let syslog_reconfigure ~__context ~host =
 	let localhost = Helpers.get_localhost ~__context in
 	let logging = Db.Host.get_logging ~__context ~self:localhost in
 
 	let destination = try List.assoc "syslog_destination" logging with _ -> "" in
-	let destination_only = try bool_of_string (List.assoc "syslog_destination_only" logging) with _ -> false in
-	let listen_remote = try bool_of_string (List.assoc "syslog_listen_remote" logging) with _ -> false in
-
-	syslog_config_write destination destination_only listen_remote
+	let flag = match destination with
+		| "" ->
+			"--noremote"
+		| _ ->
+			"--remote="^destination
+	in
+	  
+	let args = [| Filename.concat Fhs.libexecdir "xe-syslog-reconfigure"; flag |] in
+	ignore (Unixext.spawnvp args.(0) args)
 
 let get_management_interface ~__context ~host =
 	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
@@ -1161,22 +1148,12 @@ let set_license_params ~__context ~self ~value =
 	Db.Host.set_license_params ~__context ~self ~value;
 	Pool_features.update_pool_features ~__context
 
-let apply_edition_internal	~__context ~host ~edition ~additional =
-	let db_update_license edition features additional =
-		Db.Host.set_edition ~__context ~self:host ~value:edition;
-		copy_license_to_db ~__context ~host ~features ~additional in
-	try
-		let edition, features, additional =
-			V6client.apply_edition ~__context edition additional in
-		db_update_license edition features additional
-	with e ->
-		(* If we catch an exception, retrieve what v6d thinks are the
-		   current license parameters and rethrow the exception. *)
-		let new_edition, features, additional =
-			V6client.get_current_edition ~__context additional in
-		warn "v6d: couldn't apply '%s' edition; new edition is '%s'" edition new_edition ;
-		db_update_license new_edition features additional ;
-		raise e
+let apply_edition_internal  ~__context ~host ~edition ~additional =
+	let edition', features, additional =
+		V6client.apply_edition ~__context edition additional
+	in
+	Db.Host.set_edition ~__context ~self:host ~value:edition';
+	copy_license_to_db ~__context ~host ~features ~additional
 
 let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)

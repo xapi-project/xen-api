@@ -434,7 +434,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			(* Configure IPv6 parameters *)
 			let ipv6_conf, ipv6_gateway =
 				match rc.API.pIF_ipv6_configuration_mode with
-				| `None -> None6, None
+				| `None -> Linklocal6, None
 				| `DHCP -> DHCP6, None
 				| `Autoconf -> Autoconf6, None
 				| `Static ->

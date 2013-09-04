@@ -127,8 +127,12 @@ let rm_device_state ~xs (x: device) =
 	safe_rm ~xs (backend_error_path_of_device ~xs x);
 	safe_rm ~xs (Filename.dirname (error_path_of_device ~xs x))
 
+
+(* The surprise-remove flag is now ignored: a vbd-unplug --force will
+	 unplug regardless of surprise-remove. Leave this code here for now,
+	 to warn the user in the logs. *)
 let can_surprise_remove ~xs (x: device) =
-  (* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
+				(* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
         let key = backend_path_of_device ~xs x ^ "/info" in
 	try
 	  let info = Int64.of_string (xs.Xs.read key) in
@@ -1186,6 +1190,7 @@ let write_string_to_file file s =
 let do_flr device =
 	debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
+	let device_reset_file = Printf.sprintf "/sys/bus/pci/devices/%s/reset" device in
 	let script = Filename.concat Fhs.libexecdir "pci-flr" in
 	let callscript s devstr =
 		if Sys.file_exists script then begin
@@ -1194,7 +1199,12 @@ let do_flr device =
 		end
 	in
 	callscript "flr-pre" device;
-	( try write_string_to_file doflr device with _ -> (); );
+	(
+		if Sys.file_exists device_reset_file then
+			try write_string_to_file device_reset_file "1" with _ -> ()
+		else
+			try write_string_to_file doflr device with _ -> ()
+	);
 	callscript "flr-post" device
 
 let bind pcidevs =

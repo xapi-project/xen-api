@@ -24,6 +24,11 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config =
 	pgpu
 
 let update_gpus ~__context ~host =
+	let pci_id_blacklist =
+		match Xapi_pci.get_system_display_device () with
+		| Some device -> [device]
+		| None -> []
+	in
 	let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
 	let class_id = Xapi_pci.find_class_id Xapi_pci.Display_controller in
 	let pcis = List.filter (fun self ->
@@ -33,16 +38,21 @@ let update_gpus ~__context ~host =
 	let rec find_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
-			let pgpu =
-				try
-					List.find (fun (rf, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
-				with Not_found ->
-					let self = create ~__context ~pCI:pci ~gPU_group:(Ref.null) ~host ~other_config:[] in
-					let group = Xapi_gpu_group.find_or_create ~__context self in
-					Db.PGPU.set_GPU_group ~__context ~self ~value:group;
-					self, Db.PGPU.get_record ~__context ~self
-			in
-			find_or_create (pgpu :: cur) remaining_pcis
+			let pci_id = Db.PCI.get_pci_id ~__context ~self:pci in
+			if List.mem pci_id pci_id_blacklist
+			then find_or_create cur remaining_pcis
+			else begin
+				let pgpu =
+					try
+						List.find (fun (rf, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
+					with Not_found ->
+						let self = create ~__context ~pCI:pci ~gPU_group:(Ref.null) ~host ~other_config:[] in
+						let group = Xapi_gpu_group.find_or_create ~__context self in
+						Db.PGPU.set_GPU_group ~__context ~self ~value:group;
+						self, Db.PGPU.get_record ~__context ~self
+				in
+				find_or_create (pgpu :: cur) remaining_pcis
+			end
 	in
 	let current_pgpus = find_or_create [] pcis in
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in

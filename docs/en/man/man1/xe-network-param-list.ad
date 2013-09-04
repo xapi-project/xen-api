@@ -30,7 +30,7 @@ To display all parameters for a specific network:
 
 SEE ALSO
 --------
-*xe help network-param-list*, *xe network-list*(1), *xe-network-param-remove*(1), *xe-network-param-set*(1), *xe-network-param-clear*(1), xe-pif-list*(1), *xe-vif-list*(1)
+*xe help network-param-list*, *xe network-list*(1), *xe-network-param-remove*(1), *xe-network-param-set*(1), *xe-network-param-clear*(1), *xe-pif-list*(1), *xe-vif-list*(1)
 
 AUTHORS
 -------

@@ -523,7 +523,8 @@ let _ =
     ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
   error Api_errors.pif_tunnel_still_exists ["PIF"]
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
-
+	error Api_errors.bridge_not_available [ "bridge" ]
+    ~doc:"Could not find bridge required by VM." ();
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -6840,8 +6841,18 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "PV_drivers_up_to_date"
 	"true if the PV drivers appear to be up to date";
 
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String))
+        ~lifecycle:[
+          Published, rel_rio, "free/used/total";
+          Removed, rel_george, "Disabled in favour of the RRDs, to improve scalability"
+        ]
+        "memory" "This field exists but has no data. Use the memory and memory_internal_free RRD data-sources instead.";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String))
+        ~lifecycle:[
+          Published, rel_rio, "Disk configuration/free space";
+          Removed, rel_orlando, "No data"
+        ]
+        "disks" "This field exists but has no data.";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
       field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";

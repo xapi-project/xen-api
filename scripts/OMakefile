@@ -129,6 +129,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 
 sdk-install: install
 	mkdir -p $(SDK)

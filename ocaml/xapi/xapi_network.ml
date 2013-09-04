@@ -190,10 +190,6 @@ let create_new_blob ~__context ~network ~name ~mime_type ~public =
 	blob
 
 let set_default_locking_mode ~__context ~network ~value =
-	if (value = `disabled) then begin
-		(* Don't allow locking of a network if a vswitch controller is present. *)
-		Helpers.assert_vswitch_controller_not_active ~__context
-	end;
 	(* Get all VIFs which are attached and associated with this network. *)
 	let open Db_filter_types in
 	match Db.VIF.get_records_where ~__context

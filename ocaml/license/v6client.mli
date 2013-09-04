@@ -27,6 +27,3 @@ val get_editions : string -> (string * string * string * int) list
 (** Call the [get_version] function on the v6d *)
 val get_version : string -> string
 
-(** Call the [get_current_edition] function on the v6d *)
-val get_current_edition : __context:Context.t -> (string * string) list ->
-	string * Features.feature list * (string * string) list
