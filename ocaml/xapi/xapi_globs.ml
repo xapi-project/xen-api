@@ -771,7 +771,13 @@ let options_of_xapi_globs_spec =
 
 let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
 
-let use_libvirt = ref false
+let xenopsd_queues = ref ([
+  "org.xen.xcp.xenops.classic";
+  "org.xen.xcp.xenops.simulator";
+  "org.xen.xcp.xenops.xenlight";
+])
+
+let default_xenopsd = ref "org.xen.xcp.xenops.xenlight"
 
 let other_options = [
   "logconfig", Arg.Set_string log_config_file, 
@@ -789,8 +795,11 @@ let other_options = [
   "onsystemboot", Arg.Set on_system_boot, 
     (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
 
-  "libvirt", Arg.Set use_libvirt,
-    (fun () -> string_of_bool !use_libvirt), "true if we expect a libvirt xenopsd";
+  "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
+    (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
+
+  "xenopsd-default", Arg.Set_string default_xenopsd,
+    (fun () -> !default_xenopsd), "default xenopsd to use";
 ] 
 
 let resources = [

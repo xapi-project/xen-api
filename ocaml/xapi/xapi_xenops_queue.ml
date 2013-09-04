@@ -25,10 +25,8 @@ let make_client queue_name =
 	end) in
 	(module Client: XENOPS)
 
-let all_known_xenopsds () = List.map
-	(fun x -> !Xenops_interface.queue_name ^ "." ^ x)
-	([ "xenlight"; "classic"; "simulator" ] @ (if !Xapi_globs.use_libvirt then [ "libvirt" ] else []))
-let default_xenopsd () = List.hd (all_known_xenopsds ())
+let all_known_xenopsds () = !Xapi_globs.xenopsd_queues
+let default_xenopsd () = !Xapi_globs.default_xenopsd
 
 let queue_of_other_config oc =
 	if List.mem_assoc "xenops" oc then begin
