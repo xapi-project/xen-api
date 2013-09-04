@@ -282,7 +282,7 @@ let update_memory xc doms =
 				let mem_free = IntMap.find domid !current_meminfofree_values in
 				Some (
 					VM uuid,
-					ds_make ~name:"memory_internal_free" ~units:"B"
+					ds_make ~name:"memory_internal_free" ~units:"KiB"
 						~description:"Memory used as reported by the guest agent"
 						~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
 				)
