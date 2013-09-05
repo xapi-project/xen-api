@@ -1725,6 +1725,45 @@ module VM = struct
 		end else
 			Some (queue_operation dbg id op)
 
+	let path_separator = Re_str.regexp_string "/"
+
+	let receive_memory uri cookies s context : unit =
+		let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let dbg = List.assoc "dbg" cookies in
+		let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
+		Debug.with_thread_associated dbg
+		(fun () ->
+			let is_localhost, id = Debug.with_thread_associated dbg
+				debug "VM.receive_memory";
+				let remote_instance = List.assoc "instance_id" cookies in
+				let is_localhost = instance_id = remote_instance in
+				(* The URI is /service/xenops/memory/id *)
+				let bits = Re_str.split_delim path_separator (Uri.path uri) in
+				let id = bits |> List.rev |> List.hd in
+				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
+				is_localhost, id
+			in
+			match context.transferred_fd with
+			| Some transferred_fd ->
+				let op = VM_receive_memory(id, memory_limit, transferred_fd) in
+				(* If it's a localhost migration then we're already in the queue *)
+				let task =
+					if is_localhost then begin
+						immediate_operation dbg id op;
+						None
+					end else
+						Some (queue_operation dbg id op)
+				in
+				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
+			| None ->
+				let headers = Cohttp.Header.of_list [
+					"User-agent", "xenopsd"
+				] in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+				Response.write (fun _ _ -> ()) response s;
+		) ()
+
 	let generate_state_string _ dbg vm =
 		let module B = (val get_backend () : S) in
 		B.VM.generate_state_string vm

@@ -53,6 +53,36 @@ let rpc_fn call =
 	let context = { Xenops_server.transferred_fd = None } in
 	Server.process context call
 
+let handle_received_fd this_connection =
+	let msg_size = 16384 in
+	let buf = String.make msg_size '\000' in
+	debug "Calling recv_fd()";
+	let len, _, received_fd = Fd_send_recv.recv_fd this_connection buf 0 msg_size [] in
+	debug "recv_fd ok (len = %d)" len;
+	finally
+		(fun () ->
+			let req = String.sub buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
+			debug "Received request = [%s]\n%!" (req |> Xenops_migrate.Forwarded_http_request.rpc_of_t |> Jsonrpc.to_string);
+			let expected_prefix = "/services/xenops/memory/" in
+			let uri = req.Xenops_migrate.Forwarded_http_request.uri in
+			if String.length uri < String.length expected_prefix || (String.sub uri 0 (String.length expected_prefix) <> expected_prefix) then begin
+				error "Expected URI prefix %s, got %s" expected_prefix uri;
+				let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+				let headers = Cohttp.Header.of_list [
+					"User-agent", "xenopsd"
+				] in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
+				Response.write (fun _ _ -> ()) response this_connection;
+			end else begin
+				let context = {
+					Xenops_server.transferred_fd = Some received_fd
+				} in
+				let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
+				Xenops_server.VM.receive_memory uri req.Xenops_migrate.Forwarded_http_request.cookie this_connection context
+			end
+		) (fun () -> Unix.close received_fd)
+
+
 let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) backend =
 	Debug.output := Debug.syslog (Filename.basename Sys.argv.(0)) ();
 
@@ -63,6 +93,10 @@ let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_noness
 		~essentials:(Path.essentials @ specific_essential_paths)
 		~nonessentials:(Path.nonessentials @ specific_nonessential_paths) in
 	Xcp_service.configure ~options ~resources ();
+
+	(* Listen for transferred file descriptors *)
+	let forwarded_server = Xcp_service.make_socket_server (forwarded_path ())
+		handle_received_fd in
 
 	(* TODO: this should be indirected through the switch *)
 
@@ -88,9 +122,8 @@ let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_noness
 	Debug.with_thread_associated "main"
 	(fun () ->
 (*
-		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever domain_server) () in
+		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever domain_server) () in *)
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever forwarded_server) () in
-*)
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever xml_server) () in
 		()
 	) ();
