@@ -1759,7 +1759,7 @@ module VBD = struct
 
 				let device_number = device_number_of_device device in
 				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
-				xs.Xs.rm (vdi_path_of_device ~xs device);
+				safe_rm (vdi_path_of_device ~xs device);
 				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)
 			) Oldest vm
 
@@ -2060,7 +2060,7 @@ module VIF = struct
 				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
 				let path = Hotplug.get_private_data_path_of_device device in
 				(* Delete the old keys *)
-				List.iter (fun x -> xs.Xs.rm (path ^ "/" ^ x)) locking_mode_keys;
+				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
 				let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
 				let disconnect_path, flag = disconnect_flag device disconnected in
