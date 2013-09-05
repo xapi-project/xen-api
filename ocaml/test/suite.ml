@@ -24,6 +24,7 @@ let base_suite =
 			Test_pool_license.test;
 			Test_platformdata.test;
 			Test_sm_features.test;
+			Test_xenopsd_metadata.test;
 		]
 
 let _ = run_test_tt_main base_suite
