@@ -1759,7 +1759,7 @@ module VBD = struct
 
 				let device_number = device_number_of_device device in
 				Device.Vbd.media_eject ~xs ~device_number frontend_domid;
-				safe_rm (vdi_path_of_device ~xs device);
+				safe_rm xs (vdi_path_of_device ~xs device);
 				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)
 			) Oldest vm
 
