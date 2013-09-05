@@ -402,21 +402,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 
 	(* Remove our reference to the /vm/<uuid> directory *)
 	let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
-	Opt.iter (fun vm_path -> xs.Xs.rm (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
-
-	let vss_path = try Some (xs.Xs.read (dom_path ^ "/vss")) with _ -> None in
-	(* If there are no more references then remove /vm/<uuid> and /vss/<uuid> *)
-	Opt.iter (fun vm_path ->
-		let domains = List.filter (fun x -> x <> "") (xs.Xs.directory (vm_path ^ "/domains")) in
-		if domains = [] then begin
-			debug "xenstore-rm %s" vm_path;
-			xs.Xs.rm vm_path;
-			Opt.iter (fun vss_path ->
-				debug "xenstore-rm %s" vss_path;
-				xs.Xs.rm vss_path
-			) vss_path
-		end
-	) vm_path;
+	Opt.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
 	(* Delete the /local/domain/<domid> and all the backend device paths *)
 	debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;
