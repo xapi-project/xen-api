@@ -37,11 +37,30 @@ let respond req rpc s =
 
 let list_drivers req s = respond req (System_domains.rpc_of_services (System_domains.list_services ())) s
 
+let fix_cookie cookie =
+  let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
+
+  let cookie_re = Re_str.regexp "[;,][ \t]*" in
+  let equals_re = Re_str.regexp_string "=" in
+
+  let comps = Re_str.split_delim cookie_re str_cookie in
+          (* We don't handle $Path, $Domain, $Port, $Version (or $anything
+             $else) *)
+  let cookies = List.filter (fun s -> s.[0] != '$') comps in
+  let split_pair nvp =
+    match Re_str.split_delim equals_re nvp with
+    | [] -> ("","")
+    | n :: [] -> (n, "")
+    | n :: v :: _ -> (n, v)
+  in 
+  (List.map split_pair cookies)
+
 (* Transmits [req] and [s] to the service listening on [path] *)
 let hand_over_connection req s path =
 	try
 		debug "hand_over_connection %s %s to %s" (Http.string_of_method_t req.Http.Request.m) req.Http.Request.uri path;
 		let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+		let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 		finally
 			(fun () ->
 				Unix.connect control_fd (Unix.ADDR_UNIX path);
