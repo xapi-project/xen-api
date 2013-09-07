@@ -136,8 +136,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 				      Actions.watch_fired xc xs path !domains !watches) in
 
 				let register_for_watches () =
-				  (* Use a separate client to avoid deadlocking the watching thread *)
-				  let c = Xenstore.Client.make () in
+				  let c = get_client () in
 				  Client.with_xs c
 				    (fun xs ->
                                       Client.set_watch_callback c (process_one_watch c);
