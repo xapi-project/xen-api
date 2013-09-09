@@ -123,7 +123,10 @@ def add_vif_rules(name):
     run(ON_ERROR_FAIL, ["setup-vif-rules", type, domid, devid, "filter"])     
 
 ## Read xenopsd internal VIF metadata
-import json
+try:
+	import json
+except ImportError:
+	import simplejson as json
 
 class VIF:
     def __init__(self, vm_uuid, devid):

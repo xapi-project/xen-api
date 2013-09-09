@@ -158,7 +158,7 @@ add_to_bridge()
         ${BRCTL} addif "${bridge}" "${dev}"             || logger -t scripts-vif "Failed to brctl addif ${bridge} ${dev}"
         ;;
     openvswitch)
-        if [ "$TYPE" = "vif" ] ; then
+        if [ "$XENBUS_TYPE" = "vif" ] ; then
             local vif_details=$(handle_vswitch_vif_details $bridge)
         fi
 
@@ -167,13 +167,13 @@ add_to_bridge()
     esac
 
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $TYPE $DOMID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID filter"
+    $setup_vif_rules $XENOPSD_BACKEND $XENBUS_TYPE $DOMUUID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $XENBUS_TYPE $DOMID $DEVID filter"
 }
 
 remove_from_bridge()
 {
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $TYPE $DOMID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $TYPE $DOMID $DEVID clear"
+    $setup_vif_rules $XENOPSD_BACKEND $XENBUS_TYPE $DOMUUID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $XENBUS_TYPE $DOMID $DEVID clear"
 
     case $NETWORK_MODE in
     bridge)
@@ -224,19 +224,7 @@ call_hook_script() {
 
 ACTION=$1
 
-# Older versions of XenServer do not pass in the type as an argument
-if [[ $# -lt 2 ]]; then
-    TYPE=vif
-else
-# This script is invoked by the udev script xen-backend.rules, which
-# for XCP/XS lives in xen-api.git. However, there is also a version 
-# included in the xen repo. For the sake of compatibility we retain 
-# the format of the xen scripts, for which the format of $2 is something 
-# like: type_if=vif. In this case, we here set TYPE to 'vif'.
-    TYPE=`echo $2 | cut -d= -f2`
-fi
-
-case ${TYPE} in
+case ${XENBUS_TYPE} in
     vif)
         if [ -z ${XENBUS_PATH} ]; then
             DOMID=$3
@@ -254,10 +242,13 @@ case ${TYPE} in
         DEVID=`echo ${dev#tap} | cut -f 2 -d '.'`
         ;;
     *)  
-        logger -t scripts-vif "unknown interface type ${TYPE}"
+        logger -t scripts-vif "unknown interface type ${XENBUS_TYPE}"
         exit 1
         ;;
 esac
+
+VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
+DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
 
 XAPI=/xapi/${DOMID}/hotplug/vif/${DEVID}
 HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
@@ -289,7 +280,7 @@ fi
 logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in
 online)
-    if [ "${TYPE}" = "vif" ] ; then
+    if [ "${XENBUS_TYPE}" = "vif" ] ; then
         handle_ethtool rx
         handle_ethtool tx
         handle_ethtool sg
@@ -312,13 +303,13 @@ online)
     ;;
 
 add)
-    if [ "${TYPE}" = "tap" ] ; then
+    if [ "${XENBUS_TYPE}" = "tap" ] ; then
         add_to_bridge
     fi
     ;;
 
 remove)
-    if [ "${TYPE}" = "vif" ] ;then
+    if [ "${XENBUS_TYPE}" = "vif" ] ;then
         call_hook_script $DOMID "${ACTION}"
 		# Unclear whether this is necessary, since netback also does it:
         logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
@@ -332,7 +323,7 @@ remove)
     ;;
 
 move)
-    if [ "${TYPE}" = "vif" ] ;then
+    if [ "${XENBUS_TYPE}" = "vif" ] ;then
         add_to_bridge
     fi
 esac
