@@ -365,10 +365,12 @@ let assert_can_see_networks ~__context ~self ~host =
 		)
 		avail_nets
 
-(* Currently, this check assumes that IOMMU (VT-d) is required iff the host
- * has a vGPU. This will likely need to be modified in future. *)
+(* IOMMU (VT-d) is required iff the VM has any vGPUs which require PCI
+ * passthrough. *)
 let vm_needs_iommu ~__context ~self =
-	Db.VM.get_VGPUs ~__context ~self <> []
+	List.exists
+		(fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu)
+		(Db.VM.get_VGPUs ~__context ~self)
 
 let assert_host_has_iommu ~__context ~host =
 	let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
