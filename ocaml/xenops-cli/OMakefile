@@ -26,7 +26,5 @@ install:
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)
-	rm -f ./xenopstest
-
-
-
+	rm -f ./xn_cfg_parser.ml ./xn_cfg_parser.mli ./xn_cfg_lexer.ml
+	rm -f ./xenopstest ./xn
