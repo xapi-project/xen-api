@@ -112,12 +112,117 @@ type attached_vdi = {
 	attach_info: Storage_interface.attach_info;
 }
 
+(* The following module contains left-overs from the "classic" domain.ml *)
+module Domain = struct
+	type create_info = {
+		ssidref: int32;
+		hvm: bool;
+		hap: bool;
+		name: string;
+		xsdata: (string * string) list;
+		platformdata: (string * string) list;
+		bios_strings: (string * string) list;
+	} with rpc
+
+	type build_hvm_info = {
+		shadow_multiplier: float;
+		video_mib: int;
+	} with rpc
+
+	type build_pv_info = {
+		cmdline: string;
+		ramdisk: string option;
+	} with rpc
+
+	type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
+	with rpc
+
+	type build_info = {
+		memory_max: int64;    (* memory max in kilobytes *)
+		memory_target: int64; (* memory target in kilobytes *)
+		kernel: string;       (* in hvm case, point to hvmloader *)
+		vcpus: int;           (* vcpus max *)
+		priv: builder_spec_info;
+	} with rpc
+
+	let allowed_xsdata_prefixes = [ "vm-data"; "FIST" ]
+
+	let set_xsdata ~xs domid xsdata =
+		(* disallowed by default; allowed only if it has one of a set of prefixes *)
+		let filtered_xsdata =
+			let allowed (x, _) =
+				List.fold_left (||) false
+					(List.map
+						 (fun p -> String.startswith (p ^ "/") x)
+						 allowed_xsdata_prefixes) in
+			List.filter allowed in
+
+		let dom_path = Printf.sprintf "/local/domain/%d" domid in
+		Xs.transaction xs (fun t ->
+			List.iter (fun x -> t.Xst.rm (dom_path ^ "/" ^ x)) allowed_xsdata_prefixes;
+			t.Xst.writev dom_path (filtered_xsdata xsdata))
+
+	let wait_xen_free_mem ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
+		let open Memory in
+		let open Xenlight.Physinfo in
+		let rec wait accumulated_wait_time_seconds =
+			let host_info = with_ctx (fun ctx -> get ctx) in
+			let free_memory_kib =
+				kib_of_pages host_info.free_pages in
+			let scrub_memory_kib =
+				kib_of_pages host_info.scrub_pages in
+			(* At exponentially increasing intervals, write *)
+			(* a debug message saying how long we've waited: *)
+			if is_power_of_2 accumulated_wait_time_seconds then debug
+				"Waited %i second(s) for memory to become available: \
+			%Ld KiB free, %Ld KiB scrub, %Ld KiB required"
+				accumulated_wait_time_seconds
+				free_memory_kib scrub_memory_kib required_memory_kib;
+			if free_memory_kib >= required_memory_kib
+			(* We already have enough memory. *)
+			then true else
+				if scrub_memory_kib = 0L
+				(* We'll never have enough memory. *)
+				then false else
+					if accumulated_wait_time_seconds >= maximum_wait_time_seconds
+					(* We've waited long enough. *)
+					then false else
+						begin
+							Thread.delay 1.0;
+							wait (accumulated_wait_time_seconds + 1)
+						end in
+		wait 0
+
+	let set_memory_dynamic_range ~xc ~xs ~min ~max domid =
+		let kvs = [
+			"dynamic-min", string_of_int min;
+			"dynamic-max", string_of_int max;
+		] in
+		let uuid = get_uuid domid in
+		debug "VM = %s; domid = %d; set_memory_dynamic_range min = %d; max = %d"
+			uuid domid min max;
+		xs.Xs.writev (Printf.sprintf "%s/memory" (xs.Xs.getdomainpath domid)) kvs
+
+	let set_action_request ~xs domid x =
+		let path = xs.Xs.getdomainpath domid ^ "/action-request" in
+		match x with
+		| None -> xs.Xs.rm path
+		| Some v -> xs.Xs.write path v
+
+	let get_action_request ~xs domid =
+		let path = xs.Xs.getdomainpath domid ^ "/action-request" in
+		try
+			Some (xs.Xs.read path)
+		with Xs_protocol.Enoent _ -> None
+
+end
+
 module VmExtra = struct
 	(** Extra data we store per VM. The persistent data is preserved when
-		the domain is suspended so it can be re-used in the following 'create'
-		which is part of 'resume'. The non-persistent data will be regenerated.
-		When a VM is shutdown for other reasons (eg reboot) we throw all this
-		information away and generate fresh data on the following 'create' *)
+			the domain is suspended so it can be re-used in the following 'create'
+			which is part of 'resume'. The non-persistent data will be regenerated.
+			When a VM is shutdown for other reasons (eg reboot) we throw all this
+			information away and generate fresh data on the following 'create' *)
 	type persistent_t = {
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
@@ -1676,7 +1781,7 @@ module VM = struct
 		let curshadow = Xenctrl.shadow_allocation_get xc domid in
 		let needed_mib = newshadow - curshadow in
 		debug "VM = %s; domid = %d; Domain has %d MiB shadow; an increase of %d MiB requested" vm.Vm.id domid curshadow needed_mib;
-		if not(Domain.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
+		if not(Domain.wait_xen_free_mem (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
 			error "VM = %s; domid = %d; Failed waiting for Xen to free %d MiB: some memory is not properly accounted" vm.Vm.id domid needed_mib;
 			raise (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib)))
 		end;
