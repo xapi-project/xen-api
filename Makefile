@@ -1,8 +1,3 @@
-real-configure: configure.ml
-	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o real-configure configure.ml
-	@rm -f configure.cm*
-
-
 dist/build/lib-xcp-inventory/xcp-inventory.cmxa: lib/xcp_inventory_config.ml
 	obuild configure
 	obuild build
@@ -16,6 +11,10 @@ install:
 
 uninstall:
 	ocamlfind remove xcp-inventory
+
+real-configure: configure.ml
+	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o real-configure configure.ml
+	@rm -f configure.cm*
 
 .PHONY: clean distclean
 clean:
