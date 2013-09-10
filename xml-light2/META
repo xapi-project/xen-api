@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 32438fa928194d5f0d3c9c48f1ec751a)
-version = "0.9.1"
+# DO NOT EDIT (digest: c6eae4c7bcf9af88dbbc9fa479f9b620)
+version = "0.9.2"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "xmlm stdext threads"
 archive(byte) = "xmllight2.cma"

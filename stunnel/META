@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 90cfcc43185ba89c0eb496660bde9387)
-version = "0.9.1"
+# DO NOT EDIT (digest: 1564063ca7b46b7f577a6b0334875aad)
+version = "0.9.2"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "forkexec threads stdext log"
 archive(byte) = "stunnel.cma"
