@@ -131,13 +131,13 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 				  if path = _introduceDomain || path = _releaseDomain
 				  then look_for_different_domains ()
 				  else 
-				    Client.with_xs c (fun h -> 
+				    Client.immediate c (fun h -> 
 				      let xs = Xs.ops h in
 				      Actions.watch_fired xc xs path !domains !watches) in
 
 				let register_for_watches () =
 				  let c = get_client () in
-				  Client.with_xs c
+				  Client.immediate c
 				    (fun xs ->
                                       Client.set_watch_callback c (process_one_watch c);
                                       Client.watch xs _introduceDomain "";
