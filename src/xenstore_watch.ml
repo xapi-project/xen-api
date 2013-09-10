@@ -92,7 +92,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 		  let look_for_different_domains () =
 		    let domains' = list_domains xc in
 		    let different = list_different_domains !domains domains' in
-		    Xs.with_xs client
+		    Xs.immediate client
 		      (fun xs ->
 			List.iter
 			  (fun domid ->
@@ -131,7 +131,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 		      Actions.watch_fired xc path !domains !watches in
 		  
 		  let register_for_watches () =
-		    Xs.with_xs client
+		    Xs.immediate client
 		      (fun xs ->
                         Xs.set_watch_callback client (process_one_watch);
                         Xs.watch xs _introduceDomain "";

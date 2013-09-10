@@ -17,7 +17,7 @@ module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
 
 (** {2 XC and XS interface helpers.} *)
 let with_xc_and_xs xs_client f =
-	Xenctrl.with_intf (fun xc -> Xs.with_xs xs_client (fun xs -> f xc xs))
+	Xenctrl.with_intf (fun xc -> Xs.immediate xs_client (fun xs -> f xc xs))
 
 let with_xc_and_xs_final xs_client f cf =
 	with_xc_and_xs xs_client (fun xc xs -> finally (fun () -> f xc xs) cf)
