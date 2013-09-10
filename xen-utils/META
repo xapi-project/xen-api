@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 473b458527df1945d37b3e002ea563dc)
-version = "0.1"
+# DO NOT EDIT (digest: 89e02fb185d3a864d1dfca0c652027ce)
+version = "0.9.1"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "stdext threads forkexec"
 archive(byte) = "xenutils.cma"

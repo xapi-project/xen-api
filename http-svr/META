@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: a106cbb5968a8ae3975aa49b4ef3ec2f)
-version = "0.1"
+# DO NOT EDIT (digest: 7d61acd68a80b06f5483c6bedecafc65)
+version = "0.9.1"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "stdext threads rpclib rpclib.syntax xml-light2 log stunnel"
 archive(byte) = "httpsvr.cma"

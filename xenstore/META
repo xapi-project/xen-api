@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 05c2bdb94e60851503981aaca2084977)
-version = "0.1"
+# DO NOT EDIT (digest: 0f5dbeb04bfc8d286d38b9d6234ae7f2)
+version = "0.9.1"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "xenstore.unix xenstore_transport.unix threads stdext"
 archive(byte) = "xenstore.cma"
