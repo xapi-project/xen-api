@@ -1,5 +1,5 @@
 name: squeezed
-version: 0.10.0
+version: 0.10.2
 synopsis: Xen host memory ballooning daemon
 obuild-ver: 1
 
