@@ -1,3 +1,6 @@
+0.9.23 (10-Sep-2013):
+* update to xenstore 1.2.3
+
 0.9.22 (10-Sep-2013):
 * fix bug setting up VIFs on systems with python 2.4
 * fix bug where updates from the guest agent were lost
