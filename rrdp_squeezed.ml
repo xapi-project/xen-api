@@ -65,7 +65,7 @@ module MemoryActions = struct
 			else
 				try
 				        let client = Xs.get_client () in
-					let value = Xs.with_xs client (fun xs -> Xs.read xs path) |> Int64.of_string |> Int64.mul 1024L (* convert from KiB to bytes *) in
+					let value = Xs.immediate client (fun xs -> Xs.read xs path) |> Int64.of_string |> Int64.mul 1024L (* convert from KiB to bytes *) in
 					current_memory_values := IntMap.add domid value !current_memory_values
 				with Xs_protocol.Enoent _ ->
 					D.info "Couldn't read path %s; forgetting last known value for domain %d" path domid;
