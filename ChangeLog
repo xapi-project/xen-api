@@ -1,3 +1,8 @@
+0.9.1 (10-Sep-2013):
+* Add CPUID masking support for Intel Haswell DT and Ivy Bridge EN and EP
+* Removed spurious http_critical logging
+* Use SO_KEEPALIVE for our TLS connections
+
 0.9.0 (5-Jun-2013):
 * first public release
 
