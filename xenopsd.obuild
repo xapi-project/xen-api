@@ -1,5 +1,5 @@
 name: xenopsd
-version: 0.9.18
+version: 0.9.22
 synopsis: Xen domain manager
 obuild-ver: 1
 
