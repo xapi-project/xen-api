@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xenopsd
-Version:     0.9.23
+Version:     0.9.24
 Synopsis:    XenServer domain managers
 Authors:     Dave Scott
 License:     LGPL-2.1 with OCaml linking exception
