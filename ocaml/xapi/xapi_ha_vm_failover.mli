@@ -42,13 +42,13 @@ type configuration_change = {
 val no_configuration_change : configuration_change
 
 (** Update the Pool.ha_* fields with the current planning status *)
-val update_pool_status : __context:Context.t -> bool
+val update_pool_status : __context:Context.t -> ?live_set:API.ref_host list -> unit -> bool
 
 (** Consider all possible failures of 'n' hosts *)
-val plan_for_n_failures : __context:Context.t -> all_protected_vms:((API.ref_VM * API.vM_t) list) -> ?change:configuration_change -> int -> result
+val plan_for_n_failures : __context:Context.t -> all_protected_vms:((API.ref_VM * API.vM_t) list) -> ?live_set:API.ref_host list -> ?change:configuration_change -> int -> result
 
 (** Compute the maximum plan size we can currently find *)
-val compute_max_host_failures_to_tolerate : __context:Context.t -> ?protected_vms:((API.ref_VM * API.vM_t) list) -> unit -> int64
+val compute_max_host_failures_to_tolerate : __context:Context.t -> ?live_set:API.ref_host list -> ?protected_vms:((API.ref_VM * API.vM_t) list) -> unit -> int64
 
 (** HA admission control functions: aim is to block operations which would make us become overcommitted: *)  
 val assert_vm_placement_preserves_ha_plan : __context:Context.t -> ?leaving:(API.ref_host * (API.ref_VM * API.vM_t)) list -> ?arriving:(API.ref_host * (API.ref_VM * API.vM_t)) list -> unit -> unit
