@@ -95,9 +95,9 @@ module Xs = struct
         introduce = Client.introduce h;
         set_target = Client.set_target h;
     }
-    let with_xs f = Client.with_xs (get_client ()) (fun h -> f (ops h))
+    let with_xs f = Client.immediate (get_client ()) (fun h -> f (ops h))
     let wait f = Client.wait (get_client ()) (fun h -> f (ops h))
-	let transaction _ f = Client.with_xst (get_client ()) (fun h -> f (ops h))
+	let transaction _ f = Client.transaction (get_client ()) (fun h -> f (ops h))
 
 end
 

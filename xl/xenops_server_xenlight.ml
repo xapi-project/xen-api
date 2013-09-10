@@ -2580,7 +2580,7 @@ let look_for_xen () = match detect_hypervisor () with
 
 let register_for_watches xc =
 	let client = Xenstore.Client.make () in
-	Xenstore.Client.with_xs client
+	Xenstore.Client.immediate client
 		(fun h ->
 			let xs = Xenstore.Xs.ops h in
 			Xenstore.Client.set_watch_callback client enqueue_watches;

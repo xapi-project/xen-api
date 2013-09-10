@@ -30,7 +30,7 @@ let make_domain0_vm () =
 	(* This client is created before daemonizing so it will be
 	   broken post-fork(). We don't want to cache it. *)
 	let client = Xenstore.make_client () in
-	Xenstore.Client.with_xs client (fun h ->
+	Xenstore.Client.immediate client (fun h ->
 		Xenstore.Client.write h (Printf.sprintf "/vm/%s/domains/0" uuid) "/local/domain/0"
 	)
 
