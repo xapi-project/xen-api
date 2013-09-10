@@ -1,3 +1,6 @@
+0.9.2 (10-Sep-2013):
+* Update to xenstore 1.2.3
+
 0.9.1 (10-Sep-2013):
 * Add CPUID masking support for Intel Haswell DT and Ivy Bridge EN and EP
 * Removed spurious http_critical logging
