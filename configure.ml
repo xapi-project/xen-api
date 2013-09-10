@@ -1,7 +1,3 @@
-#!/usr/bin/env ocaml
-
-#use "topfind"
-#require "cmdliner"
 
 let config_mk = "config.mk"
 

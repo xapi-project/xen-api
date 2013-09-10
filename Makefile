@@ -20,11 +20,12 @@ distclean: clean
 
 -include config.mk
 
-config.mk:
-	@echo
-	@echo "Please run configure before building"
-	@echo
-	@exit 1
+config.mk: configure
+	./configure
+
+configure: configure.ml
+	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o configure configure.ml
+	@rm -f configure.cm*
 
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
