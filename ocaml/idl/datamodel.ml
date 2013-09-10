@@ -170,7 +170,7 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
-let autusta_release =
+let augusta_release =
 	{ internal = get_product_releases rel_augusta
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
