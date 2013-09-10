@@ -121,7 +121,7 @@ module Domain = struct
 						  debug "Adding watches for domid: %d" domid;
 						  List.iter (fun x ->
 							  try
-								  Client.with_xs (get_client ()) (fun xs -> Client.watch xs x x)
+								  Client.immediate (get_client ()) (fun xs -> Client.watch xs x x)
 							  with e ->
 								  error "watch %s: %s" x (Printexc.to_string e)
 						  ) (watches domid);
@@ -132,7 +132,7 @@ module Domain = struct
 						  debug "Removing watches for domid: %d" domid;
 						  List.iter (fun x ->
 							  try
-								  Client.with_xs (get_client ()) (fun xs -> Client.unwatch xs x x)
+								  Client.immediate (get_client ()) (fun xs -> Client.unwatch xs x x)
 							  with e ->
 								  error "unwatch %s: %s" x (Printexc.to_string e)
 						  ) (watches domid);
@@ -202,7 +202,7 @@ module Domain = struct
 					| _  -> debug "Ignoring unexpected watch: %s" path in
 
 			let register_for_watches xc =
-				Client.with_xs (get_client ())
+				Client.immediate (get_client ())
 				(fun xs ->
 					Client.set_watch_callback (get_client ()) enqueue_watches;
 					Client.watch xs _introduceDomain "";
@@ -269,7 +269,7 @@ module Domain = struct
 				  then Hashtbl.find per_domain.keys key
 				  else begin
 					  let x =
-						  try Some (Client.with_xs (get_client ()) (fun xs -> Client.read xs (per_domain.path ^ key)))
+						  try Some (Client.immediate (get_client ()) (fun xs -> Client.read xs (per_domain.path ^ key)))
 						  with Xs_protocol.Enoent _ -> None in
 					  Hashtbl.replace per_domain.keys key x;
 					  x
@@ -287,7 +287,7 @@ module Domain = struct
 	| Some per_domain ->
 		if not(Hashtbl.mem per_domain.keys key) || Hashtbl.find per_domain.keys key <> (Some value) then begin
 			try
-				Client.with_xst (get_client ())
+				Client.transaction (get_client ())
 					(fun t ->
 						(* Fail if the directory has been deleted *)
 						ignore (Client.read t per_domain.path);
@@ -306,7 +306,7 @@ module Domain = struct
 	| None -> ()
 	| Some per_domain ->
 		Hashtbl.replace per_domain.keys key None;
-		try Client.with_xs (get_client ()) (fun xs -> Client.rm xs (per_domain.path ^ key))
+		try Client.immediate (get_client ()) (fun xs -> Client.rm xs (per_domain.path ^ key))
 		with e -> error "xenstore-rm %d %s: %s" domid key (Printexc.to_string e)
 
   (** {High-level functions} *)
@@ -631,7 +631,7 @@ let is_host_memory_unbalanced ~xc =
 let configure_domain_zero () =
   (* Domain.write_noexn will drop the write if the directory doesn't exist
      we make sure it already exists. *)
-  Client.with_xs (get_client ()) (fun xs ->
+  Client.immediate (get_client ()) (fun xs ->
     Client.mkdir xs "/local/domain/0"
   );
   Xenctrl.with_intf

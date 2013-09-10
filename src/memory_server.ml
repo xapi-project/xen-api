@@ -75,7 +75,7 @@ let login _ dbg service_name =
 		(* remove any existing reservations associated with this service *)
 		Xenctrl.with_intf
 		(fun xc ->
-			try Client.with_xs (get_client ()) (fun xs -> Client.rm xs (state_path _service ^ "/" ^ service_name)) with Xs_protocol.Enoent _ -> ()
+			try Client.immediate (get_client ()) (fun xs -> Client.rm xs (state_path _service ^ "/" ^ service_name)) with Xs_protocol.Enoent _ -> ()
 		);
 		service_name
 	)
@@ -128,9 +128,9 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
 		Xenctrl.with_intf
 		(fun xc ->
 			try
-				let kib = Client.with_xs (get_client ()) (fun xs -> Client.read xs (reservation_path _service session_id reservation_id)) in
+				let kib = Client.immediate (get_client ()) (fun xs -> Client.read xs (reservation_path _service session_id reservation_id)) in
 				(* This code is single-threaded, no need to make this transactional: *)
-				Client.with_xs (get_client ()) (fun xs -> Client.write xs (Printf.sprintf "/local/domain/%d/memory/initial-reservation" domid) kib);
+				Client.immediate (get_client ()) (fun xs -> Client.write xs (Printf.sprintf "/local/domain/%d/memory/initial-reservation" domid) kib);
 				Opt.iter
 					(fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
 					(try Some (Int64.of_string kib) with _ -> None);
