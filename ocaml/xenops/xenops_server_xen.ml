@@ -565,6 +565,13 @@ module VM = struct
 
 	let will_be_hvm vm = match vm.ty with HVM _ -> true | _ -> false
 
+	let compute_overhead domain =
+		let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
+		let memory_overhead_mib =
+			(if domain.VmExtra.create_info.Domain.hvm then Memory.HVM.overhead_mib else Memory.Linux.overhead_mib)
+			static_max_mib domain.VmExtra.vcpu_max domain.VmExtra.shadow_multiplier in
+		Memory.bytes_of_mib memory_overhead_mib
+
 	let shutdown_reason = function
 		| Reboot -> Domain.Reboot
 		| PowerOff -> Domain.PowerOff
@@ -692,6 +699,7 @@ module VM = struct
 							persistent, non_persistent
 						end in
 				let open Memory in
+				let overhead_bytes = compute_overhead non_persistent in
                 let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
 				(* If we are resuming then we know exactly how much memory is needed. If we are
 				   live migrating then we will only know an upper bound. If we are starting from
@@ -708,11 +716,11 @@ module VM = struct
 							debug "VM = %s; using memory_dynamic_min = %Ld and memory_dynamic_max = %Ld" vm.Vm.id vm.memory_dynamic_min vm.memory_dynamic_max;
 							vm.memory_dynamic_min, vm.memory_dynamic_max
 						end in
-				let min_kib = kib_of_bytes_used min_bytes
-				and max_kib = kib_of_bytes_used max_bytes in
+				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
+				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
 				Mem.with_reservation task.Xenops_task.dbg min_kib max_kib
-					(fun target_kib reservation_id ->
+					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
@@ -731,7 +739,8 @@ module VM = struct
 								()
 						end;
 						let initial_target =
-							let target_bytes = bytes_of_kib target_kib in
+							let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
+							let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 							min vm.memory_dynamic_max target_bytes in
 						set_initial_target ~xs domid (Int64.div initial_target 1024L);
 
