@@ -147,7 +147,9 @@ let create_tools_sr __context =
       create_magic_sr Xapi_globs.miami_tools_sr_name
 	"XenServer Tools ISOs"
 	"iso" "iso"
-	["location", Xapi_globs.tools_sr_dir; "legacy_mode", "true"]
+	["path", Xapi_globs.tools_sr_dir; (* for ffs *)
+	 "location", Xapi_globs.tools_sr_dir; (* for legacy iso *)
+	 "legacy_mode", "true"]
 	[Xapi_globs.xensource_internal, "true";
 	 Xapi_globs.tools_sr_tag, "true";
 	 Xapi_globs.i18n_key, "xenserver-tools";
