@@ -735,6 +735,17 @@ end
 
 (* Start a set of servers for all SMAPIv1 plugins *)
 let start_smapiv1_servers () =
+	let drivers =
+		if Pool_role.is_master ()
+		then Sm.supported_drivers ()
+		else Server_helpers.exec_with_new_task "start_smapiv1_servers" (fun __context ->
+		let all = Db.SM.get_all_records ~__context in
+		let needed = List.filter (fun (_, x) ->
+			let version = Xapi_sm.version_of_string x.API.sM_version in
+			version < [ 2; 0 ]
+		) all in
+		List.map (fun (_, x) -> x.API.sM_type) needed
+	) in
 	List.iter (fun ty ->
 		let path = !Storage_interface.default_path ^ "/" ^ ty in
 		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
@@ -742,7 +753,7 @@ let start_smapiv1_servers () =
 		let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
 		()
-	) (Sm.supported_drivers ())
+	) drivers
 
 let make_service uuid ty =
 	{
