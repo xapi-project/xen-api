@@ -150,6 +150,8 @@ let put_handler (req: Http.Request.t) s _ =
 		(fun __context ->
 			match String.split '/' req.Http.Request.uri with
 				| "" :: services :: "xenops" :: "memory" :: [ id ] when services = _services ->
+					req.Http.Request.close <- true;
+					let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 					info "XXX cookie = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ", " ^ v) req.Http.Request.cookie));
 					let open Xapi_xenops_queue in
 					let dbg = Context.string_of_task __context in
