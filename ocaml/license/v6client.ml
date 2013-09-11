@@ -84,7 +84,8 @@ let get_editions dbg =
 		else
 			raise V6DaemonFailure
 	with _ ->
-		raise (Api_errors.Server_error (Api_errors.v6d_failure, []))
+		info "Failed to contact v6d, assuming edition = xenserver-core";
+		[ "free", "xenserver-core", "xenserver-core", 0 ]
 
 let get_version dbg =
 	try
