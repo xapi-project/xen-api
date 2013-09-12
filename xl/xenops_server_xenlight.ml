@@ -1168,6 +1168,7 @@ module VIF = struct
 			List.map (fun (k, v) -> "other-config/" ^ k, v) vif.other_config @
 			(if mtu > 0 then [ "MTU", string_of_int mtu ] else []) @
 			[ "xenopsd-backend", "xenlight" ] @
+			[ "network-backend", get_network_backend () ] @
 			[ "setup-vif-rules", !Xl_path.setup_vif_rules ] @
 			(id :: vif.extra_private_keys @ locking_mode)
 		in
