@@ -580,14 +580,11 @@ module PCI = struct
 		let dev = pci.dev in
 		let bus = pci.bus in
 		let domain = pci.domain in
-		let vdevfn = 0l in
-		let vfunc_mask = 0l in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
-		let permissive = true in
 		let open Xenlight.Device_pci in
-		let pci' = {
-			func; dev; bus; domain; vdevfn; vfunc_mask; msitranslate; power_mgmt; permissive;
+		let pci' = {with_ctx (fun ctx -> default ctx ()) with
+			func; dev; bus; domain; msitranslate; power_mgmt;
 		} in
 		pci'
 
@@ -612,16 +609,13 @@ module PCI = struct
 		let dev = pci.dev in
 		let bus = pci.bus in
 		let domain = pci.domain in
-		let vdevfn = 0l in
-		let vfunc_mask = 0l in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
-		let permissive = true in
 		on_frontend (fun _ _ frontend_domid _ ->
 			with_ctx (fun ctx ->
 				let open Xenlight.Device_pci in
-				let pci' = {
-					func; dev; bus; domain; vdevfn; vfunc_mask; msitranslate; power_mgmt; permissive;
+				let pci' = {default ctx () with
+					func; dev; bus; domain; msitranslate; power_mgmt
 				} in
 				debug "Calling Xenlight.Device_pci.destroy";
 				Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> destroy ctx pci' frontend_domid ()));
@@ -787,10 +781,11 @@ module VBD = struct
 
 		(* call libxenlight to plug vbd *)
 		let open Xenlight.Device_disk in
-		let disk = {
-			backend_domid; pdev_path; vdev = Some vdev; backend; format; script; removable;
-			readwrite; is_cdrom;
-		} in
+		let disk = with_ctx (fun ctx ->
+			{default ctx () with
+				backend_domid; pdev_path; vdev = Some vdev; backend; format; script; removable;
+				readwrite; is_cdrom;
+			}) in
 		disk, devid, extra_backend_keys, backend_domid
 
 	let plug task vm vbd =
@@ -1182,10 +1177,11 @@ module VIF = struct
 		write_private backend_domid vm devid extra_private_keys;
 
 		let open Xenlight.Device_nic in
-		let nic = {
-			backend_domid; devid; mtu; model = None; mac; ip = None; bridge = Some bridge; ifname = None;
-			script = Some script; nictype; rate_bytes_per_interval; rate_interval_usecs;
-		} in
+		let nic = with_ctx (fun ctx ->
+			{default ctx () with
+				backend_domid; devid; mtu; model = None; mac; ip = None; bridge = Some bridge; ifname = None;
+				script = Some script; nictype; rate_bytes_per_interval; rate_interval_usecs;
+			}) in
 		nic
 
 	let plug_exn task vm vif =
@@ -1888,7 +1884,7 @@ module VM = struct
 					extra_hvm = [];
 					sched_params = Xenlight.Domain_sched_params.({with_ctx (fun ctx -> default ctx ()) with weight = -1; cap = -1; period = -1; slice = -1; latency = -1; extratime = -1});
 				}) in
-				let domain_config = Xenlight.Domain_config.({
+				let domain_config = Xenlight.Domain_config.({ with_ctx (fun ctx -> default ctx ()) with
 					c_info;
 					b_info;
 					disks;
