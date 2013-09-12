@@ -895,19 +895,25 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VIF.move %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
-					B.VIF.move t (VIF_DB.vm_of id) (VIF_DB.read_exn id) network;
+				        let vif = VIF_DB.read_exn id in
+					B.VIF.move t (VIF_DB.vm_of id) vif network;
+					VIF_DB.write id {vif with Vif.backend = network}
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_carrier (id, carrier) ->
 			debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier;
 			finally
 				(fun () ->
-					B.VIF.set_carrier t (VIF_DB.vm_of id) (VIF_DB.read_exn id) carrier;
+				        let vif = VIF_DB.read_exn id in
+					B.VIF.set_carrier t (VIF_DB.vm_of id) vif carrier;
+					VIF_DB.write id {vif with Vif.carrier = carrier}
 				) (fun () -> VIF_DB.signal id)
                 | VIF_set_locking_mode (id, mode) ->
 			debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
 			finally
 				(fun () ->
-					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
+				        let vif = VIF_DB.read_exn id in
+					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode;
+					VIF_DB.write id {vif with Vif.locking_mode = mode}
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_active (id, b) ->
 			debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;

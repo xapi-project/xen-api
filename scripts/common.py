@@ -203,7 +203,10 @@ class VIF:
         }
         private = self.json["extra_private_keys"]
         if "locking_mode" in self.json:
-            results["locking_mode"] = self.json["locking_mode"].lower()
+            if type(self.json["locking_mode"]) is list:
+                results["locking_mode"] = self.json["locking_mode"][0].lower()
+            else:
+                results["locking_mode"] = self.json["locking_mode"].lower()
         if "ipv4-allowed" in private:
             results["ipv4_allowed"] = get_words(private["ipv4-allowed"].lower(), ",")
         if "ipv6-allowed" in private:
