@@ -767,6 +767,14 @@ module VBD = struct
 	| "vhd" -> Xenlight.DISK_FORMAT_VHD
 	| _ -> Xenlight.DISK_FORMAT_UNKNOWN
 
+	let can_surprise_remove ~xs (x: Device_common.device) =
+		(* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
+		let key = Device_common.backend_path_of_device ~xs x ^ "/info" in
+		try
+			let info = Int64.of_string (xs.Xs.read key) in
+			(Int64.logand info 2L) <> 0L
+		with _ -> false
+
 	let create_vbd_frontend ~xs task frontend_domid vdi =
 		let frontend_vm_id = get_uuid frontend_domid in
 		let backend_vm_id = get_uuid vdi.domid in
@@ -976,7 +984,7 @@ module VBD = struct
 						let vdev = Opt.map Device_number.to_linux_device vbd.position in
 						match vdev, domid, device with
 						| Some vdev, Some domid, Some device ->
-							if force && (not (Device.can_surprise_remove ~xs device)) then
+							if force && (not (can_surprise_remove ~xs device)) then
 								debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
 							let disk = Xenlight.Device_disk.of_vdev ctx domid vdev in
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd)) (fun () ->
@@ -998,13 +1006,6 @@ module VBD = struct
 					(* We now have a shutdown device but an active DP: we should unconditionally destroy the DP *)
 					finally
 						(fun () ->
-							(* libxl will do it:
-							Opt.iter
-								(fun device ->
-									Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-										(fun () -> Device.Vbd.release task ~xs device);
-								) device;
-							*)
 							(* If we have a qemu frontend, detach this too. *)
 							Opt.iter (fun vm_t ->
 								let non_persistent = vm_t.VmExtra.non_persistent in
