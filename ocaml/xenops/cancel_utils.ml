@@ -35,7 +35,7 @@ let string_of = function
 	| Qemu (backend, frontend) -> Printf.sprintf "qemu backend = %d; frontend = %d" backend frontend
 	| TestPath x -> x
 
-let cancel_path_of ~xs = function
+let cancel_path_of_key ~xs = function
 	| Device device ->
 		(* Device operations can be cancelled separately *)
 		backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
@@ -46,7 +46,10 @@ let cancel_path_of ~xs = function
 		Printf.sprintf "%s/cancel" (Device_common.device_model_path ~qemu_domid:backend frontend)
 	| TestPath x -> x
 
-let domain_shutdown_path_of ~xs = function
+let cancel_path_of task =
+	Printf.sprintf "/xenops/task/%s/remove-to-cancel" task.Xenops_task.id
+
+let shutdown_path_of ~xs = function
 	| Device device -> frontend_path_of_device ~xs device ^ "/tools/xenops/shutdown"
 	| Domain domid -> Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath domid)
 	| Qemu (backend, _) ->
@@ -55,20 +58,20 @@ let domain_shutdown_path_of ~xs = function
 		Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath backend)
 	| TestPath x -> x
 
-let watches_of ~xs key = [
-	Watch.key_to_disappear (cancel_path_of ~xs key);
-	Watch.value_to_become (domain_shutdown_path_of ~xs key) ""
+let watches_of ~xs task key = [
+	Watch.key_to_disappear (cancel_path_of task);
+	Watch.value_to_become (shutdown_path_of ~xs key) ""
 ]
 
-let cancel ~xs key =
-	let path = cancel_path_of ~xs key in
+let cancel ~xs task key =
+	let path = cancel_path_of task in
 	if try ignore(xs.Xs.read path); true with _ -> false then begin
 		info "Cancelling operation on device: %s" (string_of key);
 		xs.Xs.rm path
 	end
 
 let on_shutdown ~xs domid =
-	let path = domain_shutdown_path_of ~xs (Domain domid) in
+	let path = shutdown_path_of ~xs (Domain domid) in
 	(* Only write if the guest domain still exists *)
 	Xs.transaction xs
 		(fun t ->
@@ -83,8 +86,7 @@ let on_shutdown ~xs domid =
 			else info "Not cancelling watches associated with domid: %d- domain nolonger exists" domid
 		)
 
-let with_path ~xs key f =
-	let path = cancel_path_of ~xs key in
+let with_path ~xs path f =
 	finally
 		(fun () ->
 			xs.Xs.write path "";
@@ -101,14 +103,14 @@ let with_path ~xs key f =
 		)
 
 let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
-	with_path ~xs key
+	with_path ~xs (cancel_path_of task)
 		(fun () ->
 			Xenops_task.with_cancel task
 				(fun () ->
-					with_xs (fun xs -> cancel ~xs key)
+					with_xs (fun xs -> cancel ~xs task key)
 				)
 				(fun () ->
-					let cancel_watches = watches_of ~xs key in
+					let cancel_watches = watches_of ~xs task key in
 					let rec loop () =
 						let _, _ = Watch.wait_for ~xs ~timeout (Watch.any_of
 							(List.map (fun w -> (), w) (good_watches @ error_watches @ cancel_watches))
