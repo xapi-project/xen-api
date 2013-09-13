@@ -1116,6 +1116,13 @@ module VBD = struct
 		| None -> "None"
 		| Some x -> x |> Vbd.rpc_of_qos |> Jsonrpc.to_string
 
+	let media_is_ejected ~xs ~device_number domid =
+		let devid = Device_number.to_xenstore_key device_number in
+		let back_dom_path = xs.Xs.getdomainpath 0 in
+		let backend = Printf.sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
+		let path = backend ^ "/params" in
+		try xs.Xs.read path = "" with _ -> true
+
 	let get_state vm vbd =
 		with_xc_and_xs
 			(fun xc xs ->
@@ -1126,7 +1133,7 @@ module VBD = struct
 					let device_number = device_number_of_device device in
 					let domid = device.Device_common.frontend.Device_common.domid in
 					let backend_present =
-						if Device.Vbd.media_is_ejected ~xs ~device_number domid
+						if media_is_ejected ~xs ~device_number domid
 						then None
 						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
 					{
@@ -1391,7 +1398,8 @@ module VIF = struct
 				try
 					(* If the device is gone then this is ok *)
 					let device = device_by_id xs vm Device_common.Vif Newest (id_of vif) in
-					Device.Vif.set_carrier ~xs device carrier
+					let disconnect_path = Hotplug.vif_disconnect_path device in
+					xs.Xs.write disconnect_path (if carrier then "0" else "1");
 				with
 					| (Does_not_exist(_,_)) ->
 						debug "VM = %s; Ignoring missing domain" (id_of vif)
@@ -1499,6 +1507,16 @@ module ShutdownWatchers = struct
 			)
 		) all
 end
+
+
+let get_private_key ~xs vm kind devid x =
+	let private_data_path = Hotplug.get_private_data_path_of_device' vm kind devid in
+	let key = private_data_path ^ "/" ^x in
+	try
+		xs.Xs.read key
+	with e ->
+		error "read %s: Noent" key;
+		raise e
 
 module VM = struct
 	include Xenops_server_skeleton.VM
@@ -1694,7 +1712,7 @@ module VM = struct
 		let devices = Device_common.list_frontends ~xs domid in
 		let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
 		let vbds = List.map (fun device -> Device_common.(device.frontend.devid)) vbds in
-		let dps = List.map (fun devid -> Device.Generic.get_private_key' ~xs vm.id "vbd" devid _dp_id) vbds in
+		let dps = List.map (fun devid -> get_private_key ~xs vm.id "vbd" devid _dp_id) vbds in
 
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
@@ -1744,12 +1762,26 @@ module VM = struct
 		if di.domain_type = Xenlight.DOMAIN_TYPE_HVM then
 			raise (Unimplemented("vcpu hotplug for HVM domains"));
 
+		let set ~xs ~devid domid online =
+			let path = Printf.sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
+			xs.Xs.write path (if online then "online" else "offline")
+		in
+
+		let status ~xs ~devid domid =
+			let path = Printf.sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
+			try match xs.Xs.read path with
+			| "online"  -> true
+			| "offline" -> false
+			| _         -> (* garbage, assuming false *) false
+			with Xs_protocol.Enoent _ -> false
+		in
+
 		let domid = di.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
 		let current =
 			let n = ref (-1) in
 			for i = 0 to vm.Vm.vcpu_max - 1
-			do if Device.Vcpu.status ~xs ~devid:i domid then n := i
+			do if status ~xs ~devid:i domid then n := i
 			done;
 			!n + 1 in
 
@@ -1757,13 +1789,13 @@ module VM = struct
 			(* need to deplug cpus *)
 			for i = current - 1 downto target
 			do
-				Device.Vcpu.set ~xs ~devid:i domid false
+				set ~xs ~devid:i domid false
 			done
 		) else if current < target then (
 			(* need to plug cpus *)
 			for i = current to (target - 1)
 			do
-				Device.Vcpu.set ~xs ~devid:i domid true
+				set ~xs ~devid:i domid true
 			done
 		)
 	) Newest task vm
@@ -2197,8 +2229,8 @@ module VM = struct
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
 						let vbds = List.map (fun device -> Device_common.(device.frontend.devid)) vbds in
 						List.iter (fun devid ->
-							let backend = Device.Generic.get_private_key' ~xs k "vbd" devid _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
-							let dp = Device.Generic.get_private_key' ~xs k "vbd" devid _dp_id in
+							let backend = get_private_key ~xs k "vbd" devid _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+							let dp = get_private_key ~xs k "vbd" devid _dp_id in
 							match backend with
 								| None (* can never happen due to 'filter' above *)
 								| Some (Local _) -> ()
