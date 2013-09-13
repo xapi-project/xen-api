@@ -687,14 +687,12 @@ module VBD = struct
 	let write_extra backend_domid frontend_domid devid kv_list =
 		with_xs (fun xs ->
 			let path = Printf.sprintf "/local/domain/%d/backend/vbd/%d/%d" backend_domid frontend_domid devid in
-			debug "ROB: writing to %s: %s" path (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) kv_list));
 			xs.Xs.writev path kv_list;
 		)
 
 	let write_private backend_domid vm devid private_list =
 		with_xs (fun xs ->
 			let private_data_path = Hotplug.get_private_data_path_of_device' vm "vbd" devid in
-			debug "ROB: writing to %s: %s" private_data_path (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) private_list));
 			Xs.transaction xs (fun t ->
 				t.Xst.mkdir private_data_path;
 				t.Xst.setperms private_data_path
@@ -2258,7 +2256,7 @@ module VM = struct
 					| Some d ->
 						if d.shutdown
 						then Some (match d.shutdown_reason with
-							| Xenlight.SHUTDOWN_REASON_POWEROFF -> debug "ROB needs poweroff"; Needs_poweroff
+							| Xenlight.SHUTDOWN_REASON_POWEROFF -> Needs_poweroff
 							| Xenlight.SHUTDOWN_REASON_REBOOT -> Needs_reboot
 							| Xenlight.SHUTDOWN_REASON_SUSPEND -> Needs_suspend
 							| Xenlight.SHUTDOWN_REASON_CRASH -> Needs_crashdump
