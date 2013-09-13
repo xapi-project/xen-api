@@ -2225,23 +2225,13 @@ module VM = struct
 			)
 		)
 
-	let s3suspend =
-		let open Xenlight.Dominfo in
-		(* XXX: TODO: monitor the guest's response; track the s3 state *)
-		(* TODO: libxl *)
-		on_domain
-			(fun xc xs task vm di ->
-				Domain.shutdown ~xc ~xs di.domid Domain.S3Suspend
-			) Newest
+	(* TODO: libxl *)
+	let s3suspend task vm =
+		raise (Unimplemented "s3suspend")
 
-	let s3resume =
-		let open Xenlight.Dominfo in
-		(* XXX: TODO: monitor the guest's response; track the s3 state *)
-		(* TODO: libxl *)
-		on_domain
-			(fun xc xs task vm di ->
-				Domain.send_s3resume ~xc di.domid
-			) Newest
+	(* TODO: libxl *)
+	let s3resume task vm =
+		raise (Unimplemented "s3resume")
 
 	let get_state vm =
 		let open Xenlight.Dominfo in
