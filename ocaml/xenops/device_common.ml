@@ -167,7 +167,7 @@ let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
 let list_devices ~xs domid =
-	let path = Printf.sprintf "/xapi/%d/private" domid in
+	let path = Printf.sprintf "/xenops/%d/private" domid in
 	let kinds = list_kinds ~xs path in
 	List.concat (List.map
 		(fun k ->
