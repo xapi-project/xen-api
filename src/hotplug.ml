@@ -49,9 +49,9 @@ exception Loopdev_all_busy
 (* We store some transient data elsewhere in xenstore to avoid it getting
    deleted by accident when a domain shuts down. We should always zap this
    tree on boot. *)
-let private_path = "/xapi"
+let private_path = "/xenops"
 
-(* The private data path is only used by xapi and ignored by frontend and backend *)
+(* The private data path is only used by xenops and ignored by frontend and backend *)
 let get_private_path domid = sprintf "%s/%d" private_path domid
 
 let get_private_data_path_of_device (x: device) = 
