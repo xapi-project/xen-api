@@ -2040,6 +2040,14 @@ module VM = struct
 				let vfbs = [||] in
 				let vkbs = [||] in
 
+				(* choice of QEMU *)
+				let device_model_version =
+					if !Xenopsd.use_upstream_qemu then
+						Xenlight.DEVICE_MODEL_VERSION_QEMU_XEN
+					else
+						Xenlight.DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL
+				in
+
 				(* create and build structures *)
 				let c_info = Xenlight.Domain_create_info.({ with_ctx (fun ctx -> default ctx ()) with
 					ty = (if hvm then Xenlight.DOMAIN_TYPE_HVM else Xenlight.DOMAIN_TYPE_PV);
@@ -2057,7 +2065,7 @@ module VM = struct
 					video_memkb;
 					shadow_memkb;
 					rtc_timeoffset = 0l;
-					device_model_version = Xenlight.DEVICE_MODEL_VERSION_QEMU_XEN;
+					device_model_version;
 					(* device_model_stubdomain = None; *)
 					(* device_model = Some "/usr/lib/xen/bin/qemu-system-i386"; *)
 					extra = [];
