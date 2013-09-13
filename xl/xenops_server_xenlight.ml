@@ -344,52 +344,6 @@ let domid_of_uuid ~xs domain_selection uuid =
 		error "Failed to read %s: has this domain already been cleaned up?" dir;
 		None
 
-let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
-	let frontend_vm_id = get_uuid frontend_domid in
-	let backend_vm_id = get_uuid vdi.domid in
-	match domid_of_uuid ~xs Expect_only_one (uuid_of_string backend_vm_id) with
-		| None ->
-			error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
-			raise (Does_not_exist("domain", backend_vm_id))
-		| Some backend_domid when backend_domid = frontend_domid && vdi.attach_info.Storage_interface.xenstore_data = [] -> (* FIXME *)
-			(* There's no need to use a PV disk if we're in the same domain *)
-			Name vdi.attach_info.Storage_interface.params
-		| Some backend_domid ->
-			let t = {
-				Device.Vbd.mode = Device.Vbd.ReadWrite;
-				device_number = None; (* we don't mind *)
-				phystype = Device.Vbd.Phys;
-				params = vdi.attach_info.Storage_interface.params;
-				dev_type = Device.Vbd.Disk;
-				unpluggable = true;
-				protocol = None;
-				extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (vdi.attach_info.Storage_interface.xenstore_data);
-				extra_private_keys = [];
-				backend_domid = backend_domid;
-			} in
-			let device = Xenops_task.with_subtask task "Vbd.add"
-				(fun () -> Device.Vbd.add task ~xs ~hvm:false ~backend_kind:Device_common.Qdisk t frontend_domid) in
-			Device device
-
-let block_device_of_vbd_frontend = function
-	| Name x -> x
-	| Device device ->
-		let open Device_common in
-		device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
-
-let destroy_vbd_frontend ~xs task disk =
-	match disk with
-		| Name _ -> ()
-		| Device device ->
-			Xenops_task.with_subtask task "Vbd.clean_shutdown"
-				(fun () ->
-					(* Outstanding requests may cause a transient 'refusing to close'
-					   but this can be safely ignored because we're controlling the
-					   frontend and all users of it. *)
-					Device.Vbd.clean_shutdown_async ~xs device;
-					Device.Vbd.clean_shutdown_wait task ~xs ~ignore_transients:true device
-				)
-
 module Storage = struct
 	open Storage
 	open Storage_interface
@@ -414,30 +368,6 @@ module Storage = struct
 	let dp_destroy = dp_destroy
 	let get_disk_by_name = get_disk_by_name
 end
-
-(* TODO: libxl *)
-let with_disk ~xc ~xs task disk write f = match disk with
-	| Local path -> f path
-	| VDI path ->
-		let open Storage_interface in
-		let open Storage in
-		let sr, vdi = get_disk_by_name task path in
-		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
-		finally
-			(fun () ->
-				let frontend_domid = this_domid ~xs in
-				let frontend_vm = get_uuid frontend_domid in
-				let vdi = attach_and_activate ~xs task frontend_vm dp sr vdi write in
-				let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
-				finally
-					(fun () ->
-						device |> block_device_of_vbd_frontend |> f
-					)
-					(fun () ->
-						destroy_vbd_frontend ~xs task device
-					)
-			)
-			(fun () -> dp_destroy task dp)
 
 module Mem = struct
 	let wrap f =
@@ -836,6 +766,94 @@ module VBD = struct
 	| "raw" -> Xenlight.DISK_FORMAT_RAW
 	| "vhd" -> Xenlight.DISK_FORMAT_VHD
 	| _ -> Xenlight.DISK_FORMAT_UNKNOWN
+
+	let create_vbd_frontend ~xs task frontend_domid vdi =
+		let frontend_vm_id = get_uuid frontend_domid in
+		let backend_vm_id = get_uuid vdi.domid in
+		match domid_of_uuid ~xs Expect_only_one (uuid_of_string backend_vm_id) with
+			| None ->
+				error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
+				raise (Does_not_exist("domain", backend_vm_id))
+			| Some backend_domid when backend_domid = frontend_domid && vdi.attach_info.Storage_interface.xenstore_data = [] -> (* FIXME *)
+				(* There's no need to use a PV disk if we're in the same domain *)
+				Name vdi.attach_info.Storage_interface.params
+			| Some backend_domid ->
+				let device_number = Device_number.make (free_device ~xs Device_number.Xen frontend_domid) in
+				let devid = Device_number.to_xenstore_key device_number in
+				let vdev = Device_number.to_linux_device device_number in
+				let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (vdi.attach_info.Storage_interface.xenstore_data) in
+				with_ctx (fun ctx ->
+					let open Xenlight.Device_disk in
+					let disk = {default ctx () with
+						backend_domid;
+						pdev_path = Some (vdi.attach_info.Storage_interface.params);
+						vdev = Some vdev;
+						backend = Xenlight.DISK_BACKEND_QDISK;
+						format = Xenlight.DISK_FORMAT_RAW;
+						script = Some !Xl_path.vbd_script;
+						removable = 1;
+						readwrite = 1;
+						is_cdrom = 0;
+					} in
+					debug "Calling Xenlight.Device_disk.add";
+					Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> add ctx disk frontend_domid ()));
+					(* Xenlight_events.async (add ctx disk frontend_domid); *)
+					debug "Call Xenlight.Device_disk.add completed"
+				);
+				(* write extra XS keys *)
+				write_extra backend_domid frontend_domid devid extra_backend_keys;
+
+				(* wait for plug *)
+				let device =
+					let open Device_common in
+					let frontend = { domid = frontend_domid; kind = Vbd; devid = devid } in
+					let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+					{ backend = backend; frontend = frontend }
+				in
+				with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+
+				(* 'Normally' we connect devices to other domains, and cannot know whether the
+				   device is 'available' from their userspace (or even if they have a userspace).
+				   The best we can do is just to wait for the backend hotplug scripts to run,
+				   indicating that the backend has locked the resource.
+				   In the case of domain 0 we can do better: we have custom hotplug scripts
+				   which call us back when the device is actually available to userspace. We need
+				   to wait for this condition to make the template installers work.
+				   NB if the custom hotplug script fires this implies that the xenbus state
+				   reached "connected", so we don't have to check for that first. *)
+				if frontend_domid = 0 then begin
+					let path = "/dev/" ^ vdev in
+					debug "Waiting for %s to appear" path;
+					let start = Unix.gettimeofday () in
+					while not (Sys.file_exists path) && (Unix.gettimeofday () -. start < 30.) do
+						Thread.delay 0.2
+					done
+				end;
+
+				Device device
+
+	let block_device_of_vbd_frontend = function
+		| Name x -> x
+		| Device device ->
+			let open Device_common in
+			device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
+
+	let destroy_vbd_frontend ~xs task disk =
+		match disk with
+			| Name _ -> ()
+			| Device device ->
+				with_ctx (fun ctx ->
+					let open Device_common in
+					let vdev = device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
+					let domid = device.frontend.domid in
+					let disk = Xenlight.Device_disk.of_vdev ctx domid vdev in
+					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown") (fun () ->
+						debug "Calling Xenlight.Device_disk.remove";
+						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Device_disk.remove ctx disk domid ()));
+						(* Xenlight_events.async (Xenlight.Device_disk.remove ctx disk domid); *)
+						debug "Call Xenlight.Device_disk.remove completed"
+					)
+				)
 
 	let pre_plug task vm hvm vbd =
 		debug "VBD.pre_plug";
@@ -1508,6 +1526,28 @@ module ShutdownWatchers = struct
 		) all
 end
 
+let with_disk ~xs task disk write f = match disk with
+	| Local path -> f path
+	| VDI path ->
+		let open Storage_interface in
+		let open Storage in
+		let sr, vdi = get_disk_by_name task path in
+		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
+		finally
+			(fun () ->
+				let frontend_domid = this_domid ~xs in
+				let frontend_vm = get_uuid frontend_domid in
+				let vdi = attach_and_activate ~xs task frontend_vm dp sr vdi write in
+				let device = VBD.create_vbd_frontend ~xs task frontend_domid vdi in
+				finally
+					(fun () ->
+						device |> VBD.block_device_of_vbd_frontend |> f
+					)
+					(fun () ->
+						VBD.destroy_vbd_frontend ~xs task device
+					)
+			)
+			(fun () -> dp_destroy task dp)
 
 let get_private_key ~xs vm kind devid x =
 	let private_data_path = Hotplug.get_private_data_path_of_device' vm kind devid in
@@ -1944,25 +1984,32 @@ module VM = struct
 							| { ty = Pv b_info_pv_default } -> b_info_pv_default
 							| _ -> failwith "Expected PV build_info here!"
 						in
-						(* We can't use libxl's builtin support for a bootloader because it
-						   doesn't understand the convention used by eliloader. *)
-						(* TODO: libxl *)
-						with_disk ~xc ~xs task d false
-							(fun dev ->
-								let b = Bootloader.extract task
-									~bootloader:i.Xenops_interface.Vm.bootloader
-									~legacy_args:i.legacy_args ~extra_args:i.extra_args
-									~pv_bootloader_args:i.Xenops_interface.Vm.bootloader_args
-									~disk:dev ~vm:vm.Vm.id () in
-								kernel_to_cleanup := Some b;
-								{ b_info_default with
-									ty = Pv { b_info_pv_default with
-										kernel = Some b.Bootloader.kernel_path;
-										cmdline = Some b.Bootloader.kernel_args;
-										ramdisk = b.Bootloader.initrd_path
+						if restore_fd = None then
+							(* We can't use libxl's builtin support for a bootloader because it
+							   doesn't understand the convention used by eliloader. *)
+							with_disk ~xs task d false
+								(fun dev ->
+									let b = Bootloader.extract task
+										~bootloader:i.Xenops_interface.Vm.bootloader
+										~legacy_args:i.legacy_args ~extra_args:i.extra_args
+										~pv_bootloader_args:i.Xenops_interface.Vm.bootloader_args
+										~disk:dev ~vm:vm.Vm.id () in
+									kernel_to_cleanup := Some b;
+									{ b_info_default with
+										ty = Pv { b_info_pv_default with
+											kernel = Some b.Bootloader.kernel_path;
+											cmdline = Some b.Bootloader.kernel_args;
+											ramdisk = b.Bootloader.initrd_path
+										}
 									}
+								)
+						else
+							{ b_info_default with
+								ty = Pv { b_info_pv_default with
+									bootloader = Some i.Xenops_interface.Vm.bootloader;
+									bootloader_args = (*i.bootloader_args :: i.legacy_args :: i.extra_args ::*) [];
 								}
-							);
+							}
 				in
 				let k = vm.Vm.id in
 				let d = DB.read_exn vm.Vm.id in
@@ -2171,9 +2218,9 @@ module VM = struct
 
 	(** open a file, and make sure the close is always done *)
 
-	let with_data ~xc ~xs task data write f = match data with
+	let with_data ~xs task data write f = match data with
 		| Disk disk ->
-			with_disk ~xc ~xs task disk write
+			with_disk ~xs task disk write
 				(fun path ->
 					if write then mke2fs path;
 					with_mounted_dir path
@@ -2202,11 +2249,10 @@ module VM = struct
 
 	let save task progress_callback vm flags data =
 		let open Xenlight.Dominfo in
-		(* TODO: libxl *)
 		on_domain
 			(fun xc xs (task:Xenops_task.t) vm di ->
 				let domid = di.domid in
-				with_data ~xc ~xs task data true
+				with_data ~xs task data true
 					(fun fd ->
 						debug "Calling Xenlight.Domain.suspend domid=%d" domid;
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.suspend ctx domid fd ()));
@@ -2222,22 +2268,33 @@ module VM = struct
 						let k = vm.Vm.id in
 						let d = DB.read_exn vm.Vm.id in
 
-						let devices = Device_common.list_frontends ~xs domid in
-						let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
-						List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
-						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
-						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
-						let vbds = List.map (fun device -> Device_common.(device.frontend.devid)) vbds in
-						List.iter (fun devid ->
-							let backend = get_private_key ~xs k "vbd" devid _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
-							let dp = get_private_key ~xs k "vbd" devid _dp_id in
-							match backend with
-								| None (* can never happen due to 'filter' above *)
-								| Some (Local _) -> ()
-								| Some (VDI path) ->
-									let sr, vdi = Storage.get_disk_by_name task path in
-									Storage.deactivate task dp sr vdi
-						) vbds;
+						with_ctx (fun ctx ->
+							let open Xenlight.Device_disk in
+							let disks = list ctx domid in
+							List.iter (fun disk ->
+								debug "Calling Xenlight.Device_disk.destroy";
+								Mutex.execute Xenlight_events.xl_m (fun () -> destroy ctx disk domid ());
+								debug "Call Xenlight.Device_disk.destroy completed";
+							) disks;
+							debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
+
+							List.iter (fun disk ->
+								match disk.vdev with
+								| Some vdev ->
+									let devid = vdev |> Device_number.of_linux_device |> Device_number.to_xenstore_key in
+									let backend = get_private_key ~xs k "vbd" devid _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+									let dp = get_private_key ~xs k "vbd" devid _dp_id in
+									begin match backend with
+										| None (* can never happen due to 'filter' above *)
+										| Some (Local _) -> ()
+										| Some (VDI path) ->
+											let sr, vdi = Storage.get_disk_by_name task path in
+											Storage.deactivate task dp sr vdi
+									end
+								| None -> warn "No vdev found for disk!"
+							) disks;
+						);
+
 						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
 						let non_persistent = { d.VmExtra.non_persistent with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
@@ -2249,9 +2306,8 @@ module VM = struct
 			) Oldest task vm
 
 	let restore task progress_callback vm vbds vifs data =
-		(* TODO: libxl *)
-		with_xc_and_xs (fun xc xs ->
-			with_data ~xc ~xs task data false (fun fd ->
+		with_xs (fun xs ->
+			with_data ~xs task data false (fun fd ->
 				build ~restore_fd:fd task vm vbds vifs
 			)
 		)
