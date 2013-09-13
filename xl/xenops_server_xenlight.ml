@@ -796,7 +796,7 @@ module VBD = struct
 						backend_domid;
 						pdev_path = Some (vdi.attach_info.Storage_interface.params);
 						vdev = Some vdev;
-						backend = Xenlight.DISK_BACKEND_QDISK;
+						backend = if !Xenopsd.use_qdisk then Xenlight.DISK_BACKEND_QDISK else Xenlight.DISK_BACKEND_PHY;
 						format = Xenlight.DISK_FORMAT_RAW;
 						script = Some !Xl_path.vbd_script;
 						removable = 1;
@@ -874,17 +874,24 @@ module VBD = struct
 		let backend_domid = vdi.domid in
 		let pdev_path = if vbd.backend = None then None else Some (vdi.attach_info.Storage_interface.params) in
 		let devid, vdev = devid_and_vdev_of_vbd vm vbd in
+
 		let backend, format, script =
-			(* empty CDROM *)
-			if vbd.backend = None
-			then Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
-			(* FIXME: "regular" block devices *)
-			else if vdi.attach_info.Storage_interface.xenstore_data = []
-			then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
-			(* FIXME: "magic" block devices via qemu *)
-			else if List.mem_assoc "format" vdi.attach_info.Storage_interface.xenstore_data
-			then Xenlight.DISK_BACKEND_QDISK, format_of_string (List.assoc "format" vdi.attach_info.Storage_interface.xenstore_data), None
-			else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None in
+			if vbd.backend = None then
+				(* empty CDROM *)
+				Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+			else
+				if !Xenopsd.use_qdisk then
+					(* FIXME: "regular" block devices *)
+					if vdi.attach_info.Storage_interface.xenstore_data = []
+					then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+					(* FIXME: "magic" block devices via qemu *)
+					else if List.mem_assoc "format" vdi.attach_info.Storage_interface.xenstore_data
+					then Xenlight.DISK_BACKEND_QDISK, format_of_string (List.assoc "format" vdi.attach_info.Storage_interface.xenstore_data), None
+					else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None
+				else
+					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+			in
+
 		let removable = if vbd.unpluggable then 1 else 0 in
 		let readwrite = match vbd.mode with
 			| ReadOnly -> 0

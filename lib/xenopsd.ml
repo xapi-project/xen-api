@@ -28,6 +28,7 @@ let worker_pool_size = ref 4
 let run_hotplug_scripts = ref true
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
+let use_qdisk = ref false
 
 let watch_queue_length = ref 1000
 
@@ -41,6 +42,7 @@ let options = [
     "hotplug_timeout", Arg.Set_float hotplug_timeout, (fun () -> string_of_float !hotplug_timeout), "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, (fun () -> string_of_float !qemu_dm_ready_timeout), "Time before we assume qemu has become stuck";
     "watch_queue_length", Arg.Set_int watch_queue_length, (fun () -> string_of_int !watch_queue_length), "Maximum number of unprocessed xenstore watch events before we restart";
+    "use-qdisk", Arg.Bool (fun x -> use_qdisk := x), (fun () -> string_of_bool !use_qdisk), "True if we want to use QEMU as our storage backend";
 ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
