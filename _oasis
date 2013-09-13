@@ -79,5 +79,5 @@ Executable xenopsd_xenlight_main
   Custom:             true
   Install:            false
   BuildDepends:       xenlight, xenlight.xentoollog, xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, xcp-inventory
-  CSources:           fsync_stubs.c, xenctrlext_stubs.c, poll_stubs.c
+  CSources:           fsync_stubs.c, poll_stubs.c
 
