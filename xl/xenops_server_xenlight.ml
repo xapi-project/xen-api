@@ -1586,13 +1586,6 @@ module VM = struct
 	let destroy = on_domain_if_exists (fun xc xs task vm di ->
 		let open Xenlight.Dominfo in
 		let domid = di.domid in
-		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
-		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
-		Opt.iter
-			(fun stubdom_domid ->
-				Domain.destroy task ~xc ~xs ~qemu_domid stubdom_domid
-			) (get_stubdom ~xs domid);
-
 		let devices = Device_common.list_frontends ~xs domid in
 		let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
 		let vbds = List.map (fun device -> Device_common.(device.frontend.devid)) vbds in
