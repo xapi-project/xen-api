@@ -167,13 +167,13 @@ add_to_bridge()
     esac
 
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $XENBUS_TYPE $DOMUUID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $XENBUS_TYPE $DOMID $DEVID filter"
+    $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMID $DEVID filter"
 }
 
 remove_from_bridge()
 {
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
-    $setup_vif_rules $XENOPSD_BACKEND $XENBUS_TYPE $DOMUUID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $XENBUS_TYPE $DOMID $DEVID clear"
+    $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMID $DEVID clear"
 
     case $NETWORK_MODE in
     bridge)
