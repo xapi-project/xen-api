@@ -912,8 +912,11 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			finally
 				(fun () ->
 				        let vif = VIF_DB.read_exn id in
-					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode;
-					VIF_DB.write id {vif with Vif.locking_mode = mode}
+                                        (* Nb, this VIF_DB write needs to come before the call to set_locking_mode 
+                                           as the scripts will read from the disk! *)
+					VIF_DB.write id {vif with Vif.locking_mode = mode};
+					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
+
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_active (id, b) ->
 			debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
