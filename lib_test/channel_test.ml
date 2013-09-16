@@ -29,7 +29,7 @@ let check_for_leak () =
   assert_equal ~printer:string_of_int (before + 1) after;
   Unix.close stdout2;
   let after' = count_fds () in
-  assert_equal ~printer:string_of_int before after
+  assert_equal ~printer:string_of_int before after'
 
 
 let _ =
