@@ -18,16 +18,6 @@ BuildArch: noarch
 %description
 XCP toolstack.
 
-%package backend-udev
-Summary: The udev rules and scripts needed by a network/block driver domain
-Group: System/Hypervisor
-Requires: util-linux ethtool bridge-utils iproute
-# + openvswitch
-# + a package with xenstore-{ls,read,write}
-
-%description backend-udev
-The udev rules are triggered by blkback/netback and implement part of the disk/network hotplug protocol. All driver domains must install this package (or a similar one)
-
 %package www
 Summary: The XenAPI www interface
 Group: System/Hypervisor
@@ -57,18 +47,6 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
-
-%files backend-udev
-%defattr(-,root,root,-)
-/etc/udev/rules.d/xen-backend.rules
-/etc/udev/rules.d/xen-frontend.rules
-/etc/udev/xen-backend.rules
-/etc/udev/xen-frontend.rules
-/etc/xensource/scripts/block-frontend
-/etc/xensource/scripts/tap
-/etc/xensource/scripts/vif
-/etc/xensource/scripts/block
-@OPTDIR@/libexec/setup-vif-rules
 
 %files www
 %defattr(-,root,root,-)

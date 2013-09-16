@@ -5,18 +5,7 @@ SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; prin
 .SUBDIRS: examples host-backup-restore poweron templates
 
 noarch-install:
-	mkdir -p $(DESTDIR)$(UDEVDIR)
-	$(IPROG) xen-backend.rules $(DESTDIR)$(UDEVDIR)
-	$(IPROG) xen-frontend.rules $(DESTDIR)$(UDEVDIR)
-	mkdir -p $(DESTDIR)$(UDEVDIR)/rules.d
-	sh -c \
-	'cd $(DESTDIR)$(UDEVDIR)/rules.d; \
-	ln -sf ../xen-backend.rules; \
-	ln -sf ../xen-frontend.rules'
-	mkdir -p $(DESTDIR)$(SCRIPTSDIR)
-	$(IPROG) block-frontend vif tap block $(DESTDIR)$(SCRIPTSDIR)
-	mkdir -p $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) setup-vif-rules $(DESTDIR)$(LIBEXECDIR)
+	echo removed
 
 install:
 	mkdir -p $(DESTDIR)$(BINDIR)
