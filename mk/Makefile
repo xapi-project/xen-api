@@ -82,7 +82,6 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	# Make sure the right RPMs appear on the install CD
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-core-*.rpm $(MY_MAIN_PACKAGES)
-	cp $(RPM_RPMSDIR)/noarch/xapi-noarch-backend-udev-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-tests-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/noarch/xapi-noarch-www-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_MAIN_PACKAGES)
