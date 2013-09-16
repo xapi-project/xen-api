@@ -194,8 +194,11 @@ let receive protocols =
   | Unix_sendmsg(_, path, token) ->
     Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
     let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-    Unix.connect s (Unix.ADDR_UNIX path);
-    let (_: int) = Unix.send s token 0 (String.length token) [] in
-    let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
-    fd
+    finally
+      (fun () ->
+        Unix.connect s (Unix.ADDR_UNIX path);
+        let (_: int) = Unix.send s token 0 (String.length token) [] in
+        let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
+        fd
+      ) (fun () -> Unix.close s)
 
