@@ -1643,13 +1643,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm
 
-		let pool_migrate ~__context ~vm ~host ~options =
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					Client.VM.suspend rpc session_id vm;
-					Client.VM.resume_on rpc session_id vm host false false
-				)
-
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
 			Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
