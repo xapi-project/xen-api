@@ -69,9 +69,24 @@ Group:   Development/Libraries
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
 
+%package www
+Summary: The XenAPI www interface
+Group: System/Hypervisor
+
+%description www
+This package contains the XenAPI www interface
+
+%package docs
+Summary: Xen-API documentation and examples
+Group:   Development/Documentation
+
+%description docs
+This package contains Xen-API documentation and examples in several programming languages.
+
 %prep 
 %setup -q
 %patch0 -p0 -b xapi-version.patch
+cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 
 %build
 COMPILE_JAVA=no %{__make}
@@ -81,6 +96,7 @@ COMPILE_JAVA=no %{__make} test
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
+DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
 
 SITEDIR=$(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 for f in XenAPI XenAPIPlugin inventory; do
@@ -293,6 +309,58 @@ rm -rf $RPM_BUILD_ROOT
 %files datamodel-devel
 %defattr(-,root,root,-)
 /usr/lib/ocaml/xapi-datamodel/*
+
+%files www
+%defattr(-,root,root,-)
+#@OPTDIR@/debug/www/XenServerConsole.jar
+@OPTDIR@/debug/www/api.js
+@OPTDIR@/debug/www/apicall.css
+@OPTDIR@/debug/www/apicall.js
+@OPTDIR@/debug/www/construct_tree.js
+@OPTDIR@/debug/www/devweb.css
+@OPTDIR@/debug/www/devweb.js
+@OPTDIR@/debug/www/editables.js
+@OPTDIR@/debug/www/graphs.js
+@OPTDIR@/debug/www/haplan.css
+@OPTDIR@/debug/www/haplan.js
+@OPTDIR@/debug/www/images/xen_logo.gif
+@OPTDIR@/debug/www/index.html
+@OPTDIR@/debug/www/jquery/jqDnR.css
+@OPTDIR@/debug/www/jquery/jqDnR.js
+@OPTDIR@/debug/www/jquery/jqModal.css
+@OPTDIR@/debug/www/jquery/jqModal.js
+@OPTDIR@/debug/www/jquery/jquery-1.3.2.js
+@OPTDIR@/debug/www/jquery/jquery-dom.js
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.css
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.js
+@OPTDIR@/debug/www/jquery/jquery.bgiframe.js
+@OPTDIR@/debug/www/jquery/jquery.color.js
+@OPTDIR@/debug/www/jquery/jquery.cookie.js
+@OPTDIR@/debug/www/jquery/jquery.jeditable.js
+@OPTDIR@/debug/www/jquery/jquery.rpc.js
+@OPTDIR@/debug/www/jquery/jquery.treeview.js
+@OPTDIR@/debug/www/main.js
+@OPTDIR@/debug/www/messages.js
+@OPTDIR@/debug/www/networks.css
+@OPTDIR@/debug/www/networks.js
+@OPTDIR@/debug/www/objectviewoverrides.js
+@OPTDIR@/debug/www/offline.js
+@OPTDIR@/debug/www/process_rrd.js
+@OPTDIR@/debug/www/tree.css
+@OPTDIR@/debug/www/vmsearch.js
+@OPTDIR@/debug/www/xenapi.js
+
+%files docs
+%defattr(-,root,root,-)
+/usr/share/doc/xapi/*
+#/usr/share/doc/xapi/client-examples/*/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/index.html
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Explicit/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Implicit/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Fields/*
+#/usr/share/doc/xapi/docs/html/*
+#/usr/share/doc/xapi/docs/html/images/*
+#/usr/share/doc/xapi/docs/pdf/xenenterpriseapi.pdf
 
 %changelog
 
