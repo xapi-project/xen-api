@@ -1447,11 +1447,13 @@ module VIF = struct
 				xs.Xs.write disconnect_path flag;
 
 				let devid = string_of_int device.frontend.devid in
-                ignore (run !Xl_path.setup_vif_rules ["xenlight"; "vif"; vm; devid; "filter"]);
-                (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
+				let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
+				let tap_interface_name = Printf.sprintf "vif%d.%s-emu" device.frontend.domid devid in
+				ignore (run !Xl_path.setup_vif_rules ["xenlight"; vif_interface_name; vm; devid; "filter"]);
+				(* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = with_ctx (fun ctx -> Xenlight.Dominfo.get ctx device.frontend.domid) in
 				if di.Xenlight.Dominfo.domain_type = Xenlight.DOMAIN_TYPE_HVM
- 				then ignore (run !Xl_path.setup_vif_rules ["xenlight"; "tap"; vm; devid; "filter"])
+ 				then ignore (run !Xl_path.setup_vif_rules ["xenlight"; tap_interface_name; vm; devid; "filter"])
 			)
 
 	let get_state vm vif =

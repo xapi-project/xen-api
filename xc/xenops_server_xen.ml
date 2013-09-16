@@ -2067,11 +2067,13 @@ module VIF = struct
 				xs.Xs.write disconnect_path flag;
 
 				let devid = string_of_int device.frontend.devid in
-                ignore (run !Xc_path.setup_vif_rules ["classic"; "vif"; vm; devid; "filter"]);
-                (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
+				let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
+				let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
+				ignore (run !Xc_path.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
+				(* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
 				if di.Xenctrl.hvm_guest
-				then ignore (run !Xc_path.setup_vif_rules ["classic"; "tap"; vm; devid; "filter"])
+				then ignore (run !Xc_path.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
 			)
 
 	let get_state vm vif =
