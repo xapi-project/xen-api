@@ -175,7 +175,10 @@ let put_handler (req: Http.Request.t) s _ =
 					info "got queue";
 					info "importing VM %s memory image via %s" id queue_name;
 					let module Client = (val (make_client queue_name) : XENOPS) in
-					ignore(Client.VM.migrate_receive_memory dbg id memory_limit instance_id (Xcp_channel.t_of_file_descr s))
+					let task = Client.VM.migrate_receive_memory dbg id memory_limit instance_id (Xcp_channel.t_of_file_descr s) in
+					info "waiting for migrate_receive_memory to complete";
+					Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task;
+					info "handler complete"
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
