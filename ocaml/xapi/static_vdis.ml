@@ -85,8 +85,8 @@ let gc () =
 (** If we just rebooted and failed to attach our static VDIs then this can be called to reattempt the attach:
 	this is necessary for HA to start. *)
 let reattempt_on_boot_attach () =
-	let script = "/etc/init.d/attach-static-vdis" in
+	let script = "attach-static-vdis" in
 	try
-		ignore(Helpers.call_script script [ "start" ])
+		ignore(Helpers.call_script "/sbin/service" [ script; "start" ])
 	with e ->
 		warn "Attempt to reattach static VDIs via '%s start' failed: %s" script (ExnHelper.string_of_exn e)
