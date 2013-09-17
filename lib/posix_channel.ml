@@ -101,6 +101,7 @@ let unix = ref "/tmp"
 let send proxy_socket =
   let to_close = ref [] in
   let to_unlink = ref [] in
+
   finally
     (fun () ->
       let s_ip = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
@@ -137,6 +138,13 @@ let send proxy_socket =
         (* The thread takes over management of the listening sockets *)
         let to_close = ref fds in
         let to_unlink = ref paths in
+
+        let close fd =
+          if List.mem fd !to_close then begin
+            to_close := List.filter (fun x -> x <> fd) !to_close;
+            Unix.close fd;
+          end in
+
         finally
           (fun () -> 
             let readable, _, _ = Unix.select [ s_ip; s_unix ] [] [] (-1.0) in
@@ -152,11 +160,13 @@ let send proxy_socket =
               end
             end else if List.mem s_ip readable then begin
               let fd, peer = Unix.accept s_ip in
+
+              List.iter close !to_close;
               to_close := fd :: !to_close;
               proxy fd proxy_socket
             end else assert false (* can never happen *)
          ) (fun () ->
-           List.iter Unix.close !to_close;
+           List.iter close !to_close;
            List.iter Unix.unlink !to_unlink;
          )
       ) (!to_close, !to_unlink) in
@@ -177,25 +187,24 @@ let receive protocols =
   | V4V_proxy(_, _) -> 0 in
   let protocol = match List.sort (fun a b -> compare (weight b) (weight a)) protocols with
   | [] ->
-    Printf.fprintf stderr "the advertisement included zero protocols\n";
     raise Channel_setup_failed
   | best :: _ ->
     if weight best = 0 then begin
-      Printf.fprintf stderr "none of the advertised protocols will work\n";
       raise Channel_setup_failed
     end else best in
   match protocol with
   | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
   | TCP_proxy(ip, port) ->
-    Printf.fprintf stderr "Attempting to connect to %s:%d\n%!" ip port;
     let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
     s
   | Unix_sendmsg(_, path, token) ->
-    Printf.fprintf stderr "Attempting to exchange a fd over %s\n%!" path;
     let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-    Unix.connect s (Unix.ADDR_UNIX path);
-    let (_: int) = Unix.send s token 0 (String.length token) [] in
-    let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
-    fd
+    finally
+      (fun () ->
+        Unix.connect s (Unix.ADDR_UNIX path);
+        let (_: int) = Unix.send s token 0 (String.length token) [] in
+        let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
+        fd
+      ) (fun () -> Unix.close s)
 

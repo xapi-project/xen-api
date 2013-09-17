@@ -68,3 +68,16 @@ Executable channel_helper
   Custom:             true
   Install:            false
   BuildDepends:       xcp, lwt, lwt.unix, cmdliner
+
+Executable channel_test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             channel_test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, xcp, threads, rpclib, oUnit
+
+Test channel_test
+  Command:            ./channel_test.native
+  Run:                true
+
