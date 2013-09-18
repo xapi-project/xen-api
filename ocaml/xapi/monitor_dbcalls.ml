@@ -107,7 +107,7 @@ let get_vm_memory_changes xc =
 
 let get_pif_and_bond_changes () =
 	(* Read fresh PIF information from networkd. *)
-	let open Network_monitor in
+	let open Network_stats in
 	let stats = read_stats () in
 	List.iter (fun (dev, stat) ->
 		if not (String.startswith "vif" dev) then (

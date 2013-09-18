@@ -58,7 +58,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 		fail_req_with s "get_vm_rrd: missing the 'uuid' parameter"
 			Http.http_400_badrequest
 	else if Rrdd.has_vm_rrd ~vm_uuid then (
-		ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path)
+		ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 	) else (
 		Xapi_http.with_context ~dummy:true "Get VM RRD." req s
 			(fun __context ->
@@ -75,7 +75,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 					Http_svr.headers s (Http.http_302_redirect url) in
 				let unarchive () =
 					let req = {req with uri = Constants.rrd_unarchive_uri} in
-					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path) in
+					ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path)) in
 				(* List of conditions involved. *)
 				let is_unarchive_request = List.mem_assoc Constants.rrd_unarchive query in
 				let is_master = Pool_role.is_master () in
@@ -118,11 +118,11 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 				) else (
 					debug "get_host_rrd_forwarder: forward to unarchive";
 					let req = {req with Http.Request.uri = Constants.rrd_unarchive_uri} in
-					ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path)
+					ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 				)
 			) else ( (* Normal request. *)
 				debug "get_host_rrd_forwarder: normal";
-				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path)
+				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 			)
 		)
 
@@ -134,7 +134,7 @@ let get_rrd_updates_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	Xapi_http.with_context ~dummy:true "Get RRD updates." req s
 		(fun __context ->
 			if List.mem_assoc "start" query then
-				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path)
+				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 			else
 				fail_req_with s "get_rrd_updates: missing the 'start' parameter"
 					Http.http_400_badrequest
@@ -188,7 +188,7 @@ let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 				let req = {req with
 					Http.Request.query = is_host_key_val::domid_key_val::query
 				} in
-				ignore (Xapi_services.hand_over_connection req s Rrdd_interface.http_fwd_path)
+				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 		)
 
 let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =

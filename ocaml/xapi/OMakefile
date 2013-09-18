@@ -1,13 +1,13 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr log stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory
+
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
+	../auth ../license ../client_records ../rfb ../gpg ../rrdd/interface ..
 
-UseCamlp4(rpclib.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
-UseCamlp4(rpclib.idl, storage_interface)
+UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -17,7 +17,7 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 # (the same holds for OCaml packages)
-XEN_OCAML_LIBS = ../xenops/xenops_client ../auth/pam
+XEN_OCAML_LIBS = ../auth/pam
 XEN_OCAMLINCLUDES =
 XEN_OCAMLPACKS = xenctrl xenctrlext xenstore-compat cpuid # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
@@ -39,10 +39,7 @@ OCamlProgram(sparse_dd, sparse_dd sparse_encoding ../util/stats)
 OCamlProgram(show_bat, show_bat)
 #OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
-storage_interface.mli: storage_interface.ml vdi_automaton.cmi
-	ocamlfind ocamlc -package rpclib.idl -syntax camlp4o -i $< > $@
-
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_interface vdi_automaton storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
 
 OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
 
@@ -50,8 +47,6 @@ COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
 	network \
-	../network/network_interface \
-	../network/network_monitor \
 	nm \
 	xapi_mgmt_iface \
 	smint \
@@ -69,6 +64,7 @@ OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 #OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
+	network \
 	../util/table \
 	balloon \
 	system_domains \
@@ -81,6 +77,7 @@ XAPI_MODULES = $(COMMON) \
 	../client_records/record_util \
 	../xenops/task_server \
 	../xenops/updates \
+	../xenops/memory \
 	storage_task \
 	storage_access \
 	storage_mux \
@@ -90,8 +87,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_services \
 	sm_exec \
 	sm \
-	storage_interface \
-	vdi_automaton \
 	storage_impl \
 	storage_locks \
 	console \
@@ -200,8 +195,6 @@ XAPI_MODULES = $(COMMON) \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
-	../xenops/memory_client \
-	../xenops/memory_interface \
 	dbsync \
 	dbsync_slave \
 	dbsync_master \
@@ -266,14 +259,11 @@ XAPI_MODULES = $(COMMON) \
 	xapi_gpu_group \
 	xapi_vgpu \
 	rrdd_proxy \
+	rrdd_helper \
 	../util/rpc_retry \
 	../rrdd/interface/rrdd_fake_common \
 	../rrdd/interface/rrdd_common \
 	../rrdd/interface/monitor_types \
-	../rrdd/interface/ds \
-	../rrdd/interface/rrd \
-	../rrdd/interface/data_source \
-	../rrdd/interface/rrdd_interface \
 	../rrdd/interface/rrdd
 
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
