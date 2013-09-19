@@ -90,7 +90,7 @@ def _get_vfs():
         if not r:
             raise "Failed to parse VF number for %s" % (vfnode)
         vfnum = r.group(1)
-        netdevs = glob.glob("%s/physfn/net:eth*" % (vfnode))
+        netdevs = glob.glob("%s/physfn/net/eth*" % (vfnode))
         if len(netdevs) != 1:
             raise "Unexpected length of netdev list for %s: %s" % (vfnode, str(netdevs))
         r = re_netdev.search(netdevs[0])
