@@ -10,7 +10,6 @@ OCamlLibrary(fhs, fhs)
 	ptoken \
 	autogen \
 	xe-cli \
-	sm-cli \
 	client_records \
 	idl \
 	util \
@@ -36,9 +35,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	network \
-	xenops-cli \
-	network \
 	rrdd \
 	test
 

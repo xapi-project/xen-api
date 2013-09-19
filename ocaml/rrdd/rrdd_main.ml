@@ -104,7 +104,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 open Listext
 open Stringext
 open Threadext
-open Network_monitor
+open Network_stats
 open Rrdd_shared
 open Ds
 open Monitor_types
@@ -303,7 +303,7 @@ let update_loadavg () =
 (*****************************************************)
 
 let update_netdev doms =
-	let stats = Network_monitor.read_stats () in
+	let stats = Network_stats.read_stats () in
 	let dss, sum_rx, sum_tx =
 	List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
 		if not (String.startswith "vif" dev) then

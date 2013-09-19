@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+(*
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -8,26 +8,20 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- */
-/*
- */
+ *)
 
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <linux/sockios.h>
 
-#ifndef SIOCBRADDBR
-#include "sockios_compat.h"
-#endif
+open Data_source
 
-#define CHECK_IOCTL(err, S)	\
-	if (err < 0) {		\
-		caml_failwith(S ": ioctl failed");	\
-	}
+let to_API_data_source (ds : t) = {
+	API.data_source_name_label = ds.name;
+	data_source_name_description = ds.description;
+	data_source_enabled = ds.enabled;
+	data_source_standard = ds.standard;
+	data_source_units = ds.units;
+	data_source_min = ds.min;
+	data_source_max = ds.max;
+	data_source_value = 0.;
+}

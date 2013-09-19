@@ -38,20 +38,6 @@ Group: System/Hypervisor
 %description tests
 This package contains a series of simple regression tests.
 
-%package squeezed
-Summary: The memory ballooning daemon
-Group: System/Hypervisor
-
-%description squeezed
-This package contains the Xen virtual firmware (hvmloader)
-
-%package xenopsd
-Summary: The xenops daemon
-Group: System/Hypervisor
-
-%description xenopsd
-This package contains the xenops daemon.
-
 %package v6d
 Summary: The editions and features daemon
 Group: System/Hypervisor
@@ -59,23 +45,6 @@ Group: System/Hypervisor
 %description v6d
 This package contains daemon that defines and controls XCP editions and
 associated features
-
-%package networkd
-Summary: The networking daemon
-Group: System/Hypervisor
-
-%description networkd
-This package contains a daemon that is able to configure network
-interfaces and bridges
-
-%package rrdd
-Summary: The RRD daemon
-Group: System/Hypervisor
-
-%description rrdd
-This package contains a daemon that continually collects performance metrics
-from the host and its VMs, stores the data in host's memory, and occasionally
-synchronises the data to host's local storage.
 
 %package xenops
 Summary: Low-level debugging tools
@@ -100,24 +69,24 @@ Group:   Development/Libraries
 This package contains the internal xapi datamodel as a library suitable
 for writing additional code generators.
 
-%package rrd-devel
-Summary: rrd-client headers and libraries
-Group:   Development/Libraries
+%package www
+Summary: The XenAPI www interface
+Group: System/Hypervisor
 
-%description rrd-devel
-This package contains rrd functions as a library suitable for writing tools 
-related to rrd. Needed for rrd2csv and rrdd-plugins.
+%description www
+This package contains the XenAPI www interface
 
-%package xenstore-watch-devel
-Summary: xenstore-watch headers and libraries
-Group:   Development/Libraries
+%package docs
+Summary: Xen-API documentation and examples
+Group:   Development/Documentation
 
-%description xenstore-watch-devel
-This package contains a library of functions for watching xenstore.
+%description docs
+This package contains Xen-API documentation and examples in several programming languages.
 
 %prep 
 %setup -q
 %patch0 -p0 -b xapi-version.patch
+cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 
 %build
 COMPILE_JAVA=no %{__make}
@@ -127,6 +96,7 @@ COMPILE_JAVA=no %{__make} test
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
+DESTDIR=$RPM_BUILD_ROOT %{__make} noarch-install
 
 SITEDIR=$(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 for f in XenAPI XenAPIPlugin inventory; do
@@ -134,10 +104,6 @@ for f in XenAPI XenAPIPlugin inventory; do
 		echo $SITEDIR/$f.$e
 	done
 done > core-files
-
-for e in py pyc pyo; do
-	echo $SITEDIR/rrdd.$e
-done > rrdd-files
 
 ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
 
@@ -150,18 +116,6 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
-
-%post networkd
-[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-networkd
-
-%post rrdd
-[ ! -x /sbin/chkconfig ] || chkconfig --add xcp-rrdd
-
-%post squeezed
-[ ! -x /sbin/chkconfig ] || chkconfig squeezed on
-
-%post xenopsd
-[ ! -x /sbin/chkconfig ] || chkconfig xenopsd on
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -271,7 +225,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/print-custom-templates
 @OPTDIR@/libexec/probe-device-for-file
 @OPTDIR@/libexec/genptoken
-@OPTDIR@/libexec/qemu-dm-wrapper
 @OPTDIR@/libexec/restore-sr-metadata.py
 @OPTDIR@/libexec/restore-sr-metadata.pyo
 @OPTDIR@/libexec/restore-sr-metadata.pyc
@@ -301,47 +254,13 @@ rm -rf $RPM_BUILD_ROOT
 %files xe
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xe
-@OPTDIR@/debug/sm
 /usr/bin/xe
 /etc/bash_completion.d/xe
-
-%files squeezed
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/squeezed
-/etc/rc.d/init.d/squeezed
-%config(noreplace) /etc/squeezed.conf
-
-%files xenopsd
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xenopsd
-/etc/rc.d/init.d/xenopsd
-%config(noreplace) /etc/xenopsd.conf
-@OPTDIR@/bin/xn
-/usr/bin/xn
-/etc/xensource/bugtool/xenopsd.xml
-/etc/xensource/bugtool/xenopsd/stuff.xml
-@OPTDIR@/libexec/xn_diagnostics
-@OPTDIR@/libexec/domain_sethandle
 
 %files v6d
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/v6d
 /etc/rc.d/init.d/v6d
-
-%files networkd
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xcp-networkd
-/etc/rc.d/init.d/xcp-networkd
-@OPTDIR@/libexec/networkd_db
-
-%files rrdd -f rrdd-files
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/xcp-rrdd
-/etc/rc.d/init.d/xcp-rrdd
-%config(noreplace) /etc/xcp-rrdd.conf
-@OPTDIR@/libexec/rrdd-example.py
-@OPTDIR@/libexec/rrdd-example.pyc
-@OPTDIR@/libexec/rrdd-example.pyo
 
 %files xenops
 %defattr(-,root,root,-)
@@ -391,13 +310,57 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 /usr/lib/ocaml/xapi-datamodel/*
 
-%files rrd-devel
+%files www
 %defattr(-,root,root,-)
-/usr/lib/ocaml/rrd-client/*
+#@OPTDIR@/debug/www/XenServerConsole.jar
+@OPTDIR@/debug/www/api.js
+@OPTDIR@/debug/www/apicall.css
+@OPTDIR@/debug/www/apicall.js
+@OPTDIR@/debug/www/construct_tree.js
+@OPTDIR@/debug/www/devweb.css
+@OPTDIR@/debug/www/devweb.js
+@OPTDIR@/debug/www/editables.js
+@OPTDIR@/debug/www/graphs.js
+@OPTDIR@/debug/www/haplan.css
+@OPTDIR@/debug/www/haplan.js
+@OPTDIR@/debug/www/images/xen_logo.gif
+@OPTDIR@/debug/www/index.html
+@OPTDIR@/debug/www/jquery/jqDnR.css
+@OPTDIR@/debug/www/jquery/jqDnR.js
+@OPTDIR@/debug/www/jquery/jqModal.css
+@OPTDIR@/debug/www/jquery/jqModal.js
+@OPTDIR@/debug/www/jquery/jquery-1.3.2.js
+@OPTDIR@/debug/www/jquery/jquery-dom.js
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.css
+@OPTDIR@/debug/www/jquery/jquery.autocomplete.js
+@OPTDIR@/debug/www/jquery/jquery.bgiframe.js
+@OPTDIR@/debug/www/jquery/jquery.color.js
+@OPTDIR@/debug/www/jquery/jquery.cookie.js
+@OPTDIR@/debug/www/jquery/jquery.jeditable.js
+@OPTDIR@/debug/www/jquery/jquery.rpc.js
+@OPTDIR@/debug/www/jquery/jquery.treeview.js
+@OPTDIR@/debug/www/main.js
+@OPTDIR@/debug/www/messages.js
+@OPTDIR@/debug/www/networks.css
+@OPTDIR@/debug/www/networks.js
+@OPTDIR@/debug/www/objectviewoverrides.js
+@OPTDIR@/debug/www/offline.js
+@OPTDIR@/debug/www/process_rrd.js
+@OPTDIR@/debug/www/tree.css
+@OPTDIR@/debug/www/vmsearch.js
+@OPTDIR@/debug/www/xenapi.js
 
-%files xenstore-watch-devel
+%files docs
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xenstore-watch/*
+/usr/share/doc/xapi/*
+#/usr/share/doc/xapi/client-examples/*/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/index.html
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Explicit/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Implicit/*
+#/usr/share/doc/xapi/docs/html/API/Classes/*/Fields/*
+#/usr/share/doc/xapi/docs/html/*
+#/usr/share/doc/xapi/docs/html/images/*
+#/usr/share/doc/xapi/docs/pdf/xenenterpriseapi.pdf
 
 %changelog
 

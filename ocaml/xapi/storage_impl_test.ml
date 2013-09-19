@@ -151,6 +151,8 @@ module Debug_print_impl = struct
 					end else Hashtbl.remove activated key);
 			info "VDI.deactivate dp:%s sr:%s vdi:%s" dp sr vdi
 
+		let resize context ~dbg ~sr ~vdi ~new_size = assert false
+
         let get_url context ~dbg ~sr ~vdi = assert false
 		let compose context ~dbg ~sr ~vdi1 ~vdi2 = assert false
 		let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value = assert false
@@ -202,6 +204,7 @@ module Debug_print_impl = struct
 			info "SR.detach sr:%s" sr;
 			fail_if_anything_leaked ()
 		let reset context ~dbg ~sr = assert false
+		let stat context ~dbg ~sr = assert false
 		let destroy context ~dbg ~sr =
 			info "SR.destroy sr:%s" sr;
 			fail_if_anything_leaked ()

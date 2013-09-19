@@ -418,6 +418,8 @@ module MD = struct
 				(* If we don't need to reflect anything, the carrier is set to "true" *)
 				true
 		in
+                let dbg = Context.string_of_task __context in
+
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
@@ -429,9 +431,10 @@ module MD = struct
 			other_config = vif.API.vIF_other_config;
 			locking_mode = locking_mode;
 			extra_private_keys = [
-                "vif-uuid", vif.API.vIF_uuid;
-				"network-uuid", net.API.network_uuid
-			]
+                                "vif-uuid", vif.API.vIF_uuid;
+				"network-uuid", net.API.network_uuid;
+                                "network-backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
+                        ]
 		}
 
 	let pcis_of_vm ~__context (vmref, vm) =
