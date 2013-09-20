@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Threadext
 open Xcp_service
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
@@ -20,6 +21,7 @@ open Xs_protocol
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 
 let myclient = ref None 
+let myclient_m = Mutex.create ()
 
 let open_client () =
         try
@@ -44,10 +46,23 @@ let open_client () =
                 raise e
 
 let get_client () =
-	match !myclient with 
-	| None -> 
-		let client = open_client () in
-		myclient := Some client;
-		client
-	| Some c -> c
-
+	Mutex.execute myclient_m
+	(fun () ->
+		match !myclient with 
+		| None ->
+			let finished = ref false in
+			while not !finished do
+				try
+					let client = open_client () in
+					myclient := Some client;
+					finished := true
+				with e ->
+					error "Caught %s connecting to xenstore; waiting 5s before retrying" (Printexc.to_string e);
+					Thread.delay 5.
+			done;
+			begin match !myclient with
+			| None -> assert false
+			| Some x -> x
+			end
+		| Some c -> c
+	)
