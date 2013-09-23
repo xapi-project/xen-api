@@ -25,8 +25,23 @@ open Unixext
 open Pervasiveext
 open Client
 
-let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
-	Chunk.fold (fun () -> Chunk.write fd) () s
+let vhd_tool = "/usr/sbin/vhd-tool"
+
+let receive protocol (s: Unix.file_descr) (path: string) =
+  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let args = [ "serve";
+               "--direct";
+               "--source-protocol"; protocol;
+               "--source-fd"; s';
+               "--destination"; "file://" ^ path;
+               "--destination-format"; "raw" ] in
+  info "Executing %s %s" vhd_tool (String.concat " " args);
+  let pid = Forkhelpers.safe_close_and_exec None None None [ s', s ] vhd_tool args in
+  let (_, status) = Forkhelpers.waitpid pid in
+  if status <> Unix.WEXITED 0 then begin
+   error "vhd-tool failed, returning VDI_IO_ERROR";
+   raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"])) 
+  end
 
 let vdi_of_req ~__context (req: Request.t) = 
 	let all = req.Request.query @ req.Request.cookie in
@@ -55,19 +70,15 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 	| None ->
 		Server_helpers.exec_with_new_task "VDI.import" 
 		(fun __context -> 
-		 Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
-		   (fun fd ->
+		 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
+		   (fun path ->
 			   let headers = Http.http_200_ok ~keep_alive:false () @
 				   [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
 				   content_type ] in
                Http_svr.headers s headers;
-			   try
 			     if chunked
-			     then receive_chunks s fd
-			     else ignore(Unixext.copy_file ?limit:req.Request.content_length s fd);
-			     Unixext.fsync fd;
-			   with Unix.Unix_error(Unix.EIO, _, _) ->
-			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
+			     then receive "chunked" s path
+			     else receive "none" s path
 		   )
 	    );
 	    TaskHelper.complete ~__context [];
