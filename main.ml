@@ -286,6 +286,16 @@ let string_of_file filename =
     close_in ic;
     Buffer.contents output
 
+let mirror_list common_opts =
+  wrap common_opts (fun () -> 
+      let list = Client.DATA.MIRROR.list ~dbg in
+      let open Storage_interface.Mirror in
+      List.iter (fun (id,status) ->
+          Printf.printf "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n" 
+	    id status.source_vdi status.dest_vdi
+            (String.concat "," (List.map (fun s -> match s with | Receiving -> "Receiving" | Sending -> "Sending") status.state))
+            status.failed) list)
+
 let sr_attach common_opts sr device_config = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
@@ -398,6 +408,21 @@ let on_vdi f common_opts sr vdi = match sr, vdi with
   | Some sr, Some vdi ->
     wrap common_opts (fun () -> f sr vdi)
 
+let mirror_start common_opts sr vdi dp url dest =
+  on_vdi (fun sr vdi ->
+      let get_opt x err =
+        match x with Some y -> y | None -> failwith err in
+      let dp = get_opt dp "Need a local data path" in
+      let url = get_opt url "Need a URL" in
+      let dest = get_opt dest "Need a destination SR" in
+      let task = Client.DATA.MIRROR.start ~dbg ~sr ~vdi ~dp ~url ~dest in
+      Printf.printf "Task id: %s\n" task) common_opts sr vdi
+
+let mirror_stop common_opts id =
+  wrap common_opts (fun () -> 
+      match id with Some id -> Client.DATA.MIRROR.stop ~dbg ~id 
+                  | None -> failwith "Need an ID")
+
 let vdi_clone common_opts sr vdi name descr = on_vdi
   (fun sr vdi ->
     wrap common_opts (fun () ->
@@ -465,6 +490,44 @@ let sr_arg =
 let vdi_arg =
   let doc = "unique identifier for this VDI within this storage repository" in
   Arg.(value & pos 1 (some string) None & info [] ~docv:"VDI" ~doc)
+
+let mirror_list_cmd =
+  let doc = "List the active VDI mirror operations" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Lists any receiving or sending mirror operations that are currently active";
+  ] @ help in
+  Term.(ret(pure mirror_list $ common_options_t)),
+  Term.info "mirror-list" ~sdocs:_common_options ~doc ~man
+
+let mirror_start_cmd =
+  let doc = "Start mirroring a VDI to a different SR" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Start a mirror operation that will initialise and then actively mirror the contents of a VDI to a different (possibly remote) SR.";
+    `P "The local datapath needs to be attached already"] @ help in
+  let dp = 
+    let doc = "Local data path attaching the VDI" in
+    Arg.(value & pos 2 (some string) None & info [] ~docv:"DP" ~doc) in
+  let url =
+    let doc = "URL of the (possibly remote) storage service" in
+    Arg.(value & pos 3 (some string) None & info [] ~docv:"URL" ~doc) in
+  let dest =
+    let doc = "Destination SR" in
+    Arg.(value & pos 4 (some string) None & info [] ~docv:"REMOTESR" ~doc) in
+  Term.(ret(pure mirror_start $ common_options_t $ sr_arg $ vdi_arg $ dp $ url $ dest)),
+  Term.info "mirror-start" ~sdocs:_common_options ~doc ~man
+
+let mirror_stop_cmd =
+  let doc = "Stop a currently-active mirror" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Stop a currently-active mirror";] in
+  let id = 
+    let doc = "ID of the mirror" in
+    Arg.(value & pos 0 (some string) None & info [] ~docv:"ID" ~doc) in
+  Term.(ret(pure mirror_stop $ common_options_t $ id)),
+  Term.info "mirror-stop" ~sdocs:_common_options ~doc ~man
 
 let sr_attach_cmd =
   let doc = "storage repository configuration in the form of key=value pairs" in
@@ -612,7 +675,8 @@ let default_cmd =
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
-            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd]
+            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd; 
+            mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
