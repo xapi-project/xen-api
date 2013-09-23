@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 68
+let schema_minor_vsn = 69
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -51,9 +51,12 @@ let clearwater_release_schema_minor_vsn = 67
 let vgpu_tech_preview_release_schema_major_vsn = 5
 let vgpu_tech_preview_release_schema_minor_vsn = 68
 
+let vgpu_productisation_release_schema_major_vsn = 5
+let vgpu_productisation_release_schema_minor_vsn = 69
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = clearwater_release_schema_major_vsn
-let last_release_schema_minor_vsn = clearwater_release_schema_minor_vsn
+let last_release_schema_major_vsn = vgpu_tech_preview_release_schema_major_vsn
+let last_release_schema_minor_vsn = vgpu_tech_preview_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -170,6 +173,12 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
+
+let vgpu_productisation_release =
+	{ internal=get_product_releases rel_vgpu_productisation
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
 
 let vgpu_tech_preview_release =
 	{ internal=get_product_releases rel_vgpu_tech_preview
