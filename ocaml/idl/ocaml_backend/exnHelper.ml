@@ -20,7 +20,7 @@ open Api_errors
 open Printf
 open Stringext
 
-module D = Debug.Debugger(struct let name="backtrace" end)
+module D = Debug.Make(struct let name="backtrace" end)
 open D
 
 let error_of_exn e =

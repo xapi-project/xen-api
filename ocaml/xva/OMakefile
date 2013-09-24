@@ -1,4 +1,4 @@
-OCAMLPACKS = stdext xml-light2 log
+OCAMLPACKS = stdext xml-light2 xcp
 
 .PHONY: clean
 clean:

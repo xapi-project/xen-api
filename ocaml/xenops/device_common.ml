@@ -41,7 +41,7 @@ exception Hotplug_script_expecting_field of device * string
 exception Unknown_device_type of string
 exception Unknown_device_protocol of string
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 open Printf

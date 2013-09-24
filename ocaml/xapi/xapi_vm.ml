@@ -27,7 +27,7 @@ open Listext
  * If VM.{start,resume}_on is supplied another host reference, they will fail.
  *)
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 exception InvalidOperation of string

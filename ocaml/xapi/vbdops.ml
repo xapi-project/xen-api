@@ -21,10 +21,10 @@ open Stringext
 open Pervasiveext
 open Client
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
-module L = Debug.Debugger(struct let name="license" end)
+module L = Debug.Make(struct let name="license" end)
 
 
 (** Thrown if an empty VBD which isn't a CDROM is attached to an HVM guest *)

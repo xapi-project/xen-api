@@ -19,7 +19,7 @@ open Monitor_types
 open Db_filter_types
 open Network
 
-module D = Debug.Debugger(struct let name = "monitor_master" end)
+module D = Debug.Make(struct let name = "monitor_master" end)
 open D
 
 let update_configuration_from_master () =

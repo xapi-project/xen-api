@@ -12,10 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="storage_migrate" end)
+module D=Debug.Make(struct let name="storage_migrate" end)
 open D
 
-module SMPERF=Debug.Debugger(struct let name="SMPERF" end)
+module SMPERF=Debug.Make(struct let name="SMPERF" end)
 
 open Listext
 open Fun

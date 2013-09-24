@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Audit = Debug.Debugger(struct let name="audit" end)
-module D = Debug.Debugger(struct let name="rbac_audit" end)
+module Audit = Debug.Make(struct let name="audit" end)
+module D = Debug.Make(struct let name="rbac_audit" end)
 
 (* Rbac Audit fields:
 

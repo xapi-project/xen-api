@@ -17,7 +17,7 @@
  
 open Printf
 
-module D=Debug.Debugger(struct let name="dbsync" end)
+module D=Debug.Make(struct let name="dbsync" end)
 open D
 
 (* Update the database to reflect current state. Called for both start of day and after

@@ -15,7 +15,7 @@
  * @group Import and Export
  *)
 
-module D=Debug.Debugger(struct let name="import" end)
+module D=Debug.Make(struct let name="import" end)
 open D
 
 open Http

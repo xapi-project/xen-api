@@ -20,7 +20,7 @@
 open Fun
 open Http
 
-module D = Debug.Debugger(struct let name="console" end)
+module D = Debug.Make(struct let name="console" end)
 open D
 
 exception Failure

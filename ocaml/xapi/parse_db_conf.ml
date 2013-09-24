@@ -14,7 +14,7 @@
 (* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
 
 open Stringext
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 type db_connection_mode = Write_limit | No_limit

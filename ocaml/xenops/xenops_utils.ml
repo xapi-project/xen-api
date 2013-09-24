@@ -19,7 +19,7 @@ open Threadext
 open Fun
 open Xenops_interface
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Make(struct let name = service_name end)
 open D
 
 module Unix = struct

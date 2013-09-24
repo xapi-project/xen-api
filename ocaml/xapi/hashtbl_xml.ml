@@ -13,7 +13,7 @@
  *)
 (* Simple code to serialise and deserialise a (string, string) Hashtbl.t as XML via Xmlm *)
 
-module D=Debug.Debugger(struct let name="hashtbl_xml" end)
+module D=Debug.Make(struct let name="hashtbl_xml" end)
 open D
 
 type h = (string, string) Hashtbl.t

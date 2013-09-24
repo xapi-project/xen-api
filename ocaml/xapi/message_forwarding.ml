@@ -22,10 +22,10 @@ open Stringext
 open Server_helpers
 open Client
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
-module Audit = Debug.Debugger(struct let name="audit" end)
+module Audit = Debug.Make(struct let name="audit" end)
 let info = Audit.debug
 
 

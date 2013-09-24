@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger(struct let name = "taskhelper" end)
+module D = Debug.Make(struct let name = "taskhelper" end)
 open D
 
 (*open API*)

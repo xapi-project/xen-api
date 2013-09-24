@@ -1,6 +1,6 @@
 
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen ..
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr rpclib uuid gzip xcp-inventory
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr sexpr rpclib uuid gzip xcp-inventory
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
 

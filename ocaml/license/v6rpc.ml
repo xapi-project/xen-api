@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name="v6rpc" end)
+module D = Debug.Make(struct let name="v6rpc" end)
 open D
 
 type apply_edition_in = {

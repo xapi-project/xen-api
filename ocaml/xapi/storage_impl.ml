@@ -89,7 +89,7 @@ let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
 			Printf.printf "%s %s %s\n" (time_of_float (Unix.gettimeofday ())) prefix s;
 			flush stdout) fmt
 
-module D=Debug.Debugger(struct let name="storage_impl" end)
+module D=Debug.Make(struct let name="storage_impl" end)
 let debug (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "debug" fmt else D.debug fmt
 let error (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "error" fmt else D.error fmt
 let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "info" fmt else D.info fmt

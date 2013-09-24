@@ -17,7 +17,7 @@ open Xenstore
 open Xenops_helpers
 open Threadext
 
-module D = Debug.Debugger(struct let name = "xenstore_watch" end)
+module D = Debug.Make(struct let name = "xenstore_watch" end)
 open D
 
 let _introduceDomain = "@introduceDomain"

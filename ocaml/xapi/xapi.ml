@@ -25,12 +25,12 @@ open Auth_signature
 open Extauth
 open Db_filter_types
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 let info s = info s; debug s (* write info to both info and debug log *)
 
-module L=Debug.Debugger(struct let name="license" end)
-module W=Debug.Debugger(struct let name="watchdog" end)
+module L=Debug.Make(struct let name="license" end)
+module W=Debug.Make(struct let name="watchdog" end)
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
@@ -1147,6 +1147,7 @@ tolerance, the next tweak will be %f seconds away at the earliest."
 
 
 let _ =
+	Debug.set_facility Syslog.Local5;
 	init_args(); (* need to read args to find out whether to daemonize or not *)
   Xcp_service.maybe_daemonize ();
 

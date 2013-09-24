@@ -20,7 +20,7 @@ open Xenops_helpers
 open Xenops_task
 open Device_common
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 type key =

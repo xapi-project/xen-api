@@ -15,7 +15,7 @@
 
 open Db_interface
 
-module D=Debug.Debugger(struct let name="db_cache" end)
+module D=Debug.Make(struct let name="db_cache" end)
 open D
 
 

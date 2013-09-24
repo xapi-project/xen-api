@@ -16,7 +16,7 @@
 
 open Threadext
 
-module D = Debug.Debugger(struct let name="xapi_fuse" end)
+module D = Debug.Make(struct let name="xapi_fuse" end)
 open D
 
 let time f = 

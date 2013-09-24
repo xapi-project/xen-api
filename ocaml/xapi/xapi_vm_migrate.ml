@@ -24,10 +24,10 @@ open Pervasiveext
 open Printf
 open Threadext
 
-module DD=Debug.Debugger(struct let name="xapi" end)
+module DD=Debug.Make(struct let name="xapi" end)
 open DD
 
-module SMPERF=Debug.Debugger(struct let name="SMPERF" end)
+module SMPERF=Debug.Make(struct let name="SMPERF" end)
 
 open Client
 open Xmlrpc_client

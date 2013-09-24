@@ -17,7 +17,7 @@
 
 open Stringext
 
-module D = Debug.Debugger(struct let name = "xapi_secret" end)
+module D = Debug.Make(struct let name = "xapi_secret" end)
 open D
 
 let introduce ~__context ~uuid ~value ~other_config =

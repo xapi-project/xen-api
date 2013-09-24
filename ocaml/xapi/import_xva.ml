@@ -20,7 +20,7 @@ open Http
 open Importexport
 open Xva
 
-module D = Debug.Debugger(struct let name="import_xva" end)
+module D = Debug.Make(struct let name="import_xva" end)
 open D
 
 open Client

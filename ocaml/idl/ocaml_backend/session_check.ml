@@ -16,7 +16,7 @@
 open Pervasiveext
 exception Non_master_login_on_slave
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (* Allows us to hook in an optional "local session" predicate *)

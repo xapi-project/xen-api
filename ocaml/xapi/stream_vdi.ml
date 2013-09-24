@@ -23,7 +23,7 @@ open Pervasiveext
 
 exception Failure of string
 
-module D = Debug.Debugger(struct let name="stream_vdi" end)
+module D = Debug.Make(struct let name="stream_vdi" end)
 open D
 
 (** Inside the tar we divide each VDI into small 'chunk_size' blocks: *)

@@ -2,7 +2,7 @@ open Threadext
 open Fun
 open Storage_interface
 
-module D=Debug.Debugger(struct let name=Storage_interface.service_name end)
+module D=Debug.Make(struct let name=Storage_interface.service_name end)
 open D
 
 module Storage_task = Task_server.Task(Storage_interface)

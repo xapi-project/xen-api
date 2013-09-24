@@ -18,7 +18,7 @@ open Xapi_globs
 open Printf
 open Stringext
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 let log_if_not_empty format_string value =

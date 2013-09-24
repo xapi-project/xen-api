@@ -16,7 +16,7 @@
  *)
  
 open Client
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 let plug_all_pbds __context rpc session_id =

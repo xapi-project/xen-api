@@ -1,6 +1,6 @@
 OCAMLINCLUDES = ..
 OCAML_LIBS = ../fhs
-OCAMLPACKS    = http-svr log uuid xcp-inventory
+OCAMLPACKS    = http-svr uuid xcp-inventory
 
 OCamlLibrary(version, version)
 #OCamlDocLibrary(version, version_pre)

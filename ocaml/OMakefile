@@ -2,7 +2,7 @@
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
 OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
-OCAMLPACKS    = stdext uuid log gzip xcp-inventory
+OCAMLPACKS    = stdext uuid gzip xcp-inventory
 
 OCamlLibrary(fhs, fhs)
 

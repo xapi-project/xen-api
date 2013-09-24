@@ -19,7 +19,7 @@ open Fun
 open Stringext
 open Threadext
 
-module D=Debug.Debugger(struct let name="xapi_guest_metrics" end)
+module D=Debug.Make(struct let name="xapi_guest_metrics" end)
 open D
 
 module IntSet = Set.Make(struct type t=int let compare=compare end)

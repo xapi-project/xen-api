@@ -13,7 +13,7 @@
  *)
 open Pervasiveext
 
-module D = Debug.Debugger(struct let name="xapi_ha_vm_failover" end)
+module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
 
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)

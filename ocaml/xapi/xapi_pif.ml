@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger (struct let name="xapi" end)
+module D = Debug.Make (struct let name="xapi" end)
 open D
 
-module L = Debug.Debugger (struct let name="license" end)
+module L = Debug.Make (struct let name="license" end)
 
 open Db_filter_types
 open Fun

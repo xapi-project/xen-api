@@ -19,7 +19,7 @@ open Pervasiveext
 open Event_types
 open Fun
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let delete_disks rpc session_id disks =

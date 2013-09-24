@@ -15,7 +15,7 @@
  * @group Access Control
  *)
 
-module D = Debug.Debugger(struct let name="extauth_plugin_ADlikewise" end)
+module D = Debug.Make(struct let name="extauth_plugin_ADlikewise" end)
 open D
 
 module AuthADlw : Auth_signature.AUTH_MODULE =

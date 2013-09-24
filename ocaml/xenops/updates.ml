@@ -16,7 +16,7 @@ end
 
 module Updates = functor(Interface : INTERFACE) -> struct
 
-module D = Debug.Debugger(struct let name = Interface.service_name end)
+module D = Debug.Make(struct let name = Interface.service_name end)
 open D
 
 module Int64Map = Map.Make(struct type t = int64 let compare = compare end)

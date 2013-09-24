@@ -91,7 +91,7 @@
 open Pervasiveext
 
 let name = "block_device_io"
-module R = Debug.Debugger(struct let name = name end)
+module R = Debug.Make(struct let name = name end)
 
 let magic = "redo-log--------" (* 16 bytes *)
 

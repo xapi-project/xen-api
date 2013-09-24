@@ -22,7 +22,7 @@ open Ocamltest
 
 module Uds = struct (* {{{1 *)
 
-	module D = Debug.Debugger(struct let name = "quicktest_http:Uds" end)
+	module D = Debug.Make(struct let name = "quicktest_http:Uds" end)
 	open D 
 
 	exception Parse_error of string
@@ -106,7 +106,7 @@ end
 
 module HTML_Escaping = struct (* {{{1 *)
 
-	module D = Debug.Debugger(struct let name = "quicktest_http:HTML_Escaping" end)
+	module D = Debug.Make(struct let name = "quicktest_http:HTML_Escaping" end)
 	open D
 
 	let non_resource_cmd = "GET /foo<>'\"& HTTP/1.0\r\n\r\n"

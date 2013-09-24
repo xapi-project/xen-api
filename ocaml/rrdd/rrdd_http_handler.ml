@@ -1,4 +1,4 @@
-module D = Debug.Debugger(struct let name="rrdd_http_handler" end)
+module D = Debug.Make(struct let name="rrdd_http_handler" end)
 open D
 
 open Threadext

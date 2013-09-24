@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name="backgroundscheduler" end)
+module D = Debug.Make(struct let name="backgroundscheduler" end)
 open D
 
 open Threadext 

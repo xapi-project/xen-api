@@ -15,7 +15,7 @@ open Http
 open Pervasiveext
 open Forkhelpers
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let vncsnapshot = "/usr/bin/vncsnapshot"

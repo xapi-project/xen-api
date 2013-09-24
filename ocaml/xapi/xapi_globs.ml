@@ -17,7 +17,7 @@
 open Stringext
 open Printf
 
-module D = Debug.Debugger(struct let name="xapi_globs" end)
+module D = Debug.Make(struct let name="xapi_globs" end)
 
 (* set this to true to use the experimental codepath *)
 let use_xenopsd = ref false

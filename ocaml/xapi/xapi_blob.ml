@@ -13,7 +13,7 @@
  *)
 (** Binary blob management *)
 
-module D = Debug.Debugger(struct let name="xapi_blob" end)
+module D = Debug.Make(struct let name="xapi_blob" end)
 open D
 
 let create ~__context ~mime_type ~public =

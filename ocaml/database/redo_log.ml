@@ -15,7 +15,7 @@ open Pervasiveext
 open Threadext
 open Stringext
 
-module R = Debug.Debugger(struct let name = "redo_log" end)
+module R = Debug.Make(struct let name = "redo_log" end)
 
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)

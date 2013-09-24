@@ -19,7 +19,7 @@ open API
 open Listext
 open Threadext
 
-module D=Debug.Debugger(struct let name="db_gc" end)
+module D=Debug.Make(struct let name="db_gc" end)
 open D
 
 let db_GC_TIMER = 30.0

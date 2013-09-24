@@ -16,10 +16,10 @@
 open Stringext
 open Printf
 
-module D=Debug.Debugger(struct let name="v6daemon" end)
+module D=Debug.Make(struct let name="v6daemon" end)
 open D
 
-module W=Debug.Debugger(struct let name="watchdog" end)
+module W=Debug.Make(struct let name="watchdog" end)
 
 let xmlrpc_handler process req bio _ =
 	Debug.with_thread_associated "v6d_handler" (fun () ->

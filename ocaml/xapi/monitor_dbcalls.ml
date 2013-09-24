@@ -18,7 +18,7 @@ open Monitor_types
 open Stringext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "monitor_dbcalls" end)
+module D = Debug.Make(struct let name = "monitor_dbcalls" end)
 open D
 
 (* Helper map functions. *)

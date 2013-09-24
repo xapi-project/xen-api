@@ -22,7 +22,7 @@ open Db_filter_types
 open Create_misc
 open Network
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let host_bugreport_upload = Filename.concat Fhs.libexecdir "host-bugreport-upload"

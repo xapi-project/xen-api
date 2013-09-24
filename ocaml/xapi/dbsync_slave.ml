@@ -25,7 +25,7 @@ open Pervasiveext
 
 open Network
 
-module D=Debug.Debugger(struct let name="dbsync" end)
+module D=Debug.Make(struct let name="dbsync" end)
 open D
 
 let ( ++ ) = Int64.add

@@ -17,7 +17,7 @@
 
 open Threadext
 
-module D=Debug.Debugger(struct let name="system_domains" end)
+module D=Debug.Make(struct let name="system_domains" end)
 open D
 
 (** If a VM is a system domain then xapi will perform lifecycle operations on demand,

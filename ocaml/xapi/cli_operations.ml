@@ -23,7 +23,7 @@ open Pervasiveext
 open Listext
 open Fun
 
-module D=Debug.Debugger(struct let name="cli" end)
+module D=Debug.Make(struct let name="cli" end)
 open D
 
 open Records

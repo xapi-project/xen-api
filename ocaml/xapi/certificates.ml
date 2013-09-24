@@ -20,7 +20,7 @@ open Api_errors
 
 open Client
 
-module D=Debug.Debugger(struct let name="certificates" end)
+module D=Debug.Make(struct let name="certificates" end)
 open D
 
 let server_cert = Filename.concat Fhs.etcdir "xapi-ssl.pem"

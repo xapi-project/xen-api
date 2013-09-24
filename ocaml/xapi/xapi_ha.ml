@@ -18,7 +18,7 @@
 	* @group High Availability (HA)
  *)
 
-module D = Debug.Debugger(struct let name="xapi_ha" end)
+module D = Debug.Make(struct let name="xapi_ha" end)
 open D
 
 open Listext
