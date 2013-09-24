@@ -433,7 +433,6 @@ module MD = struct
 			extra_private_keys = [
                                 "vif-uuid", vif.API.vIF_uuid;
 				"network-uuid", net.API.network_uuid;
-                                "network-backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
                         ]
 		}
 
