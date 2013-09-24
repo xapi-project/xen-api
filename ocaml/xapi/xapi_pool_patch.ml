@@ -22,7 +22,7 @@ open Forkhelpers
 open Xml
 open Helpers
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 (** Patches contain their own metadata in XML format. When the signature has been verified
     the patch is executed with argument "info" and it emits XML like the following:

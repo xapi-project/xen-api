@@ -17,7 +17,7 @@
 open Threadext
 open Pervasiveext
 
-module D=Debug.Debugger(struct let name="localdb" end)
+module D=Debug.Make(struct let name="localdb" end)
 open D
 
 let db = Hashtbl.create 10 (* in-memory cache *)

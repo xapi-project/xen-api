@@ -22,7 +22,7 @@ open Listext
 open Xenstore
 open Fun
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 let compute_memory_overhead ~__context ~vm =

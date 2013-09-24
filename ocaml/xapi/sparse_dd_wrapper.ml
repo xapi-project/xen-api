@@ -18,7 +18,7 @@ open Client
 open Printf
 open Threadext
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 let sparse_dd_path = Filename.concat Fhs.libexecdir "sparse_dd"

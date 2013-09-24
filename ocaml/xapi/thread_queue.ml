@@ -18,7 +18,7 @@
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name="thread_queue" end)
+module D = Debug.Make(struct let name="thread_queue" end)
 open D
 
 (** The type of the function which processes elements taken from the queue *)

@@ -20,7 +20,7 @@ open Client
 
 open Db_cache_types
 
-module D = Debug.Debugger(struct let name="pool_db_sync" end)
+module D = Debug.Make(struct let name="pool_db_sync" end)
 open D
 
 let octet_stream = Http.Hdr.content_type ^": application/octet-stream"

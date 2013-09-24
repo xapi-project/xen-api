@@ -266,9 +266,9 @@ let gen_module api : O.Module.t =
     ~args:[_custom ^ " : Custom_actions." ^ Gen_empty_custom.signature_name;
 	   _forward ^ " : Custom_actions." ^ Gen_empty_custom.signature_name]
     ~preamble:[
-      "module D = Debug.Debugger(struct let name = \"dispatcher\" end)";
-      "module ApiLogRead = Debug.Debugger(struct let name = \"api_readonly\" end)";
-      "module ApiLogSideEffect = Debug.Debugger(struct let name = \"api_effect\" end)"
+      "module D = Debug.Make(struct let name = \"dispatcher\" end)";
+      "module ApiLogRead = Debug.Make(struct let name = \"api_readonly\" end)";
+      "module ApiLogSideEffect = Debug.Make(struct let name = \"api_effect\" end)"
 (*      "exception Invalid_operation"; *)
     ]
     ~elements:[

@@ -8,7 +8,7 @@ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext log cdrom netdev oUnit uuid xcp.storage xcp.xen # xenlight
+OCAMLPACKS     = oclock xml-light2 sexpr stunnel http-svr netdev rpclib threads xenctrl xenstore-compat xenctrlext stdext xcp cdrom netdev oUnit uuid xcp.storage xcp.xen # xenlight
 
 OCAMLFLAGS    += -thread
 

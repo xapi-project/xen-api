@@ -13,7 +13,7 @@
  *)
 (* Remote command execution *)
 
-module D = Debug.Debugger(struct let name="remotecmd" end)
+module D = Debug.Make(struct let name="remotecmd" end)
 open D
 
 

@@ -13,7 +13,7 @@
  *)
 (* Synchronise the locally stored objects between the hosts in a pool *)
 
-module D = Debug.Debugger(struct let name="sync" end)
+module D = Debug.Make(struct let name="sync" end)
 open D
 
 open Threadext

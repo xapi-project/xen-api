@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="mux" end)
+module D=Debug.Make(struct let name="mux" end)
 open D
 
 type processor = Rpc.call -> Rpc.response

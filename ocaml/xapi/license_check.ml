@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module L = Debug.Debugger(struct let name="license" end)
+module L = Debug.Make(struct let name="license" end)
 open Stringext
 
 let get_expiry_date ~__context ~host =

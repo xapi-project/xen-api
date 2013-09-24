@@ -47,7 +47,7 @@ end
    lognormal transformations here.
  *)
 
-module D=Debug.Debugger(struct let name="stats" end)
+module D=Debug.Make(struct let name="stats" end)
 open D
 open Threadext
 open Pervasiveext

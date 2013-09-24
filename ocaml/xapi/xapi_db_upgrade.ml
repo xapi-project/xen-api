@@ -16,7 +16,7 @@
    rows in db_upgrade.ml:non_generic_db_upgrade_rules (a context is required,
    which would have to be built manually).
 *)
-module D = Debug.Debugger(struct let name = "db_hiupgrade" end)
+module D = Debug.Make(struct let name = "db_hiupgrade" end)
 open D
 
 open Stringext

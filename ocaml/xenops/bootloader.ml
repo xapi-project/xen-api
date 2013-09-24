@@ -24,7 +24,7 @@ open Pervasiveext
 open Forkhelpers
 open Xenops_task
 
-module D=Debug.Debugger(struct let name="bootloader" end)
+module D=Debug.Make(struct let name="bootloader" end)
 open D
 
 let pygrub_path = "/usr/bin/pygrub"

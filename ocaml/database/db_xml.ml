@@ -13,7 +13,7 @@
  *)
 open Db_cache_types
 open Pervasiveext
-module R = Debug.Debugger(struct let name = "redo_log" end)
+module R = Debug.Make(struct let name = "redo_log" end)
 
 (** Functions to marshall/unmarshall the database as XML *)
 

@@ -20,7 +20,7 @@
  * same-named methods in rrdd.
  *)
 
-module D = Debug.Debugger(struct let name="rrdd_proxy" end)
+module D = Debug.Make(struct let name="rrdd_proxy" end)
 open D
 
 (* Helper methods. Should probably be moved to the Http.Request module. *)

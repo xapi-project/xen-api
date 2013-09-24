@@ -92,7 +92,7 @@ module Server = Server.Make (Actions) (Forwarder)
 
 (** Here are the functions to forward calls made on the unix domain socket on a slave to a master *)
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (** Forward a call to the master *)

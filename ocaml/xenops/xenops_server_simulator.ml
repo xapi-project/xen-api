@@ -19,7 +19,7 @@ open Xenops_utils
 open Fun
 open Xenops_task
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Make(struct let name = service_name end)
 open D
 
 module Domain = struct

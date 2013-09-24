@@ -17,7 +17,7 @@
 
 open Threadext
  
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let get_allowed_messages ~__context ~self = []

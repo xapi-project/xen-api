@@ -34,7 +34,7 @@
 open Printf
 open Threadext
 
-module D = Debug.Debugger(struct let name = "remote_requests" end)
+module D = Debug.Make(struct let name = "remote_requests" end)
 open D
 
 exception Timed_out

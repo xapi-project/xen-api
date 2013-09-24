@@ -18,7 +18,7 @@
 open Threadext
 open Client
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 (** Execute scripts in the "master-scripts" dir when changing role from master

@@ -13,7 +13,7 @@
  *)
 open Threadext
 
-module R = Debug.Debugger(struct let name = "redo_log" end)
+module R = Debug.Make(struct let name = "redo_log" end)
 open R
 
 let raise_system_alert (name, priority) body =

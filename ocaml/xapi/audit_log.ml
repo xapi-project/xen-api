@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger(struct let name="audit_log" end)
+module D = Debug.Make(struct let name="audit_log" end)
 open D
 
 open Http

@@ -17,7 +17,7 @@
  
 open Pervasiveext
 
-module D=Debug.Debugger(struct let name="smint" end)
+module D=Debug.Make(struct let name="smint" end)
 open D
 
 type vdi_info = {

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger(struct let name = "xapi-db-process" end)
+module D = Debug.Make(struct let name = "xapi-db-process" end)
 open D
 
 open Db_cache_types
@@ -24,7 +24,7 @@ let config = ref ""
 let iqn = ref ""
 let xmltostdout = ref false
 
-let init_logs() = Debug.set_facility Syslog_transitional.Local5
+let init_logs() = Debug.set_facility Syslog.Local5
 
 let fatal_error s =
   print_string s;
