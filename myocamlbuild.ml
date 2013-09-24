@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: a4548fdfe0761f64b3d33566dee24d1b) *)
+(* DO NOT EDIT (digest: 58e96e49697d74ac1c490e9ef286d426) *)
 module OASISGettext = struct
 (* # 21 "src/oasis/OASISGettext.ml" *)
 
@@ -486,7 +486,7 @@ let package_default =
           ("xcp_xen", ["xen"]);
           ("xcp_memory", ["memory"])
        ];
-     lib_c = [];
+     lib_c = [("xcp", "lib", [])];
      flags = [];
      includes =
        [

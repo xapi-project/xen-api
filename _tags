@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ad082ed0dc3a96726fb756174796d34d)
+# DO NOT EDIT (digest: 8781692cadc0f62dc6a1904c2a3da958)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -15,6 +15,19 @@
 "_darcs": not_hygienic
 # Library xcp
 "lib/xcp.cmxs": use_xcp
+<lib/xcp.{cma,cmxa}>: use_libxcp_stubs
+"lib/syslog_stubs.c": pkg_threads
+"lib/syslog_stubs.c": pkg_rpclib
+"lib/syslog_stubs.c": pkg_rpclib.syntax
+"lib/syslog_stubs.c": pkg_uri
+"lib/syslog_stubs.c": pkg_re
+"lib/syslog_stubs.c": pkg_cohttp
+"lib/syslog_stubs.c": pkg_xmlm
+"lib/syslog_stubs.c": pkg_unix
+"lib/syslog_stubs.c": pkg_rpclib.xml
+"lib/syslog_stubs.c": pkg_message_switch
+"lib/syslog_stubs.c": pkg_message_switch.unix
+"lib/syslog_stubs.c": pkg_fd-send-recv
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
 # Executable storage_test
@@ -31,7 +44,6 @@
 <storage/storage_test.{native,byte}>: pkg_xmlm
 <storage/storage_test.{native,byte}>: pkg_unix
 <storage/storage_test.{native,byte}>: pkg_rpclib.xml
-<storage/storage_test.{native,byte}>: pkg_syslog
 <storage/storage_test.{native,byte}>: pkg_message_switch
 <storage/storage_test.{native,byte}>: pkg_message_switch.unix
 <storage/storage_test.{native,byte}>: pkg_fd-send-recv
@@ -48,7 +60,6 @@
 <storage/*.ml{,i}>: pkg_xmlm
 <storage/*.ml{,i}>: pkg_unix
 <storage/*.ml{,i}>: pkg_rpclib.xml
-<storage/*.ml{,i}>: pkg_syslog
 <storage/*.ml{,i}>: pkg_message_switch
 <storage/*.ml{,i}>: pkg_message_switch.unix
 <storage/*.ml{,i}>: pkg_fd-send-recv
@@ -64,7 +75,6 @@
 <network/*.ml{,i}>: pkg_xmlm
 <network/*.ml{,i}>: pkg_unix
 <network/*.ml{,i}>: pkg_rpclib.xml
-<network/*.ml{,i}>: pkg_syslog
 <network/*.ml{,i}>: pkg_message_switch
 <network/*.ml{,i}>: pkg_message_switch.unix
 <network/*.ml{,i}>: pkg_fd-send-recv
@@ -81,7 +91,6 @@
 <rrd/*.ml{,i}>: pkg_xmlm
 <rrd/*.ml{,i}>: pkg_unix
 <rrd/*.ml{,i}>: pkg_rpclib.xml
-<rrd/*.ml{,i}>: pkg_syslog
 <rrd/*.ml{,i}>: pkg_message_switch
 <rrd/*.ml{,i}>: pkg_message_switch.unix
 <rrd/*.ml{,i}>: pkg_fd-send-recv
@@ -97,7 +106,6 @@
 <xen/*.ml{,i}>: pkg_xmlm
 <xen/*.ml{,i}>: pkg_unix
 <xen/*.ml{,i}>: pkg_rpclib.xml
-<xen/*.ml{,i}>: pkg_syslog
 <xen/*.ml{,i}>: pkg_message_switch
 <xen/*.ml{,i}>: pkg_message_switch.unix
 <xen/*.ml{,i}>: pkg_fd-send-recv
@@ -113,7 +121,6 @@
 <memory/*.ml{,i}>: pkg_xmlm
 <memory/*.ml{,i}>: pkg_unix
 <memory/*.ml{,i}>: pkg_rpclib.xml
-<memory/*.ml{,i}>: pkg_syslog
 <memory/*.ml{,i}>: pkg_message_switch
 <memory/*.ml{,i}>: pkg_message_switch.unix
 <memory/*.ml{,i}>: pkg_fd-send-recv
@@ -131,7 +138,6 @@
 <lib/channel_helper.{native,byte}>: pkg_xmlm
 <lib/channel_helper.{native,byte}>: pkg_unix
 <lib/channel_helper.{native,byte}>: pkg_rpclib.xml
-<lib/channel_helper.{native,byte}>: pkg_syslog
 <lib/channel_helper.{native,byte}>: pkg_message_switch
 <lib/channel_helper.{native,byte}>: pkg_message_switch.unix
 <lib/channel_helper.{native,byte}>: pkg_fd-send-recv
@@ -148,7 +154,6 @@
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: pkg_unix
 <lib/*.ml{,i}>: pkg_rpclib.xml
-<lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_message_switch
 <lib/*.ml{,i}>: pkg_message_switch.unix
 <lib/*.ml{,i}>: pkg_fd-send-recv
@@ -167,7 +172,6 @@
 <lib_test/channel_test.{native,byte}>: pkg_xmlm
 <lib_test/channel_test.{native,byte}>: pkg_unix
 <lib_test/channel_test.{native,byte}>: pkg_rpclib.xml
-<lib_test/channel_test.{native,byte}>: pkg_syslog
 <lib_test/channel_test.{native,byte}>: pkg_message_switch
 <lib_test/channel_test.{native,byte}>: pkg_message_switch.unix
 <lib_test/channel_test.{native,byte}>: pkg_fd-send-recv
@@ -184,7 +188,6 @@
 <lib_test/*.ml{,i}>: pkg_xmlm
 <lib_test/*.ml{,i}>: pkg_unix
 <lib_test/*.ml{,i}>: pkg_rpclib.xml
-<lib_test/*.ml{,i}>: pkg_syslog
 <lib_test/*.ml{,i}>: pkg_message_switch
 <lib_test/*.ml{,i}>: pkg_message_switch.unix
 <lib_test/*.ml{,i}>: pkg_fd-send-recv

@@ -12,18 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type BRAND = sig val name: string end
-
-module Debug : sig
-	module Make(Brand: BRAND): sig
-		val debug : ('a, unit, string, unit) format4 -> 'a
-		val info  : ('a, unit, string, unit) format4 -> 'a
-		val warn  : ('a, unit, string, unit) format4 -> 'a
-		val error : ('a, unit, string, unit) format4 -> 'a
-
-	end
-end
-
 val common_prefix: string
 
 type opt = string * Arg.spec * (unit -> string) * string
