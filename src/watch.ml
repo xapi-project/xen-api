@@ -13,7 +13,7 @@
  *)
 (** Helper functions for handling common types of xenstore watches *)
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 type path = string

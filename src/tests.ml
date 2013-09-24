@@ -14,7 +14,7 @@
 open Printf
 open Pervasiveext
 
-module D=Debug.Debugger(struct let name="testsuite" end)
+module D=Debug.Make(struct let name="testsuite" end)
 open D
 
 exception Domain_left_behind

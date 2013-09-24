@@ -14,7 +14,7 @@
 
 open Xenops_helpers
 
-module D = Debug.Debugger(struct let name = "xenstore_watch" end)
+module D = Debug.Make(struct let name = "xenstore_watch" end)
 open D
 
 exception Watch_overflow

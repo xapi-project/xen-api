@@ -31,7 +31,7 @@ exception Device_not_found
 
 exception Cdrom
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 let qemu_dm_ready_timeout = 60. *. 20. (* seconds *)

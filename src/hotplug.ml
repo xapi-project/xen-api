@@ -17,7 +17,7 @@ open Stringext
 
 open Device_common
 
-module D = Debug.Debugger(struct let name = "hotplug" end)
+module D = Debug.Make(struct let name = "hotplug" end)
 open D
 
 (** Time we allow for the hotplug scripts to run before we assume something bad has
