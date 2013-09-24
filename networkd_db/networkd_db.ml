@@ -88,7 +88,7 @@ let _ =
 							| Some addr -> ["gatewayv6", Unix.string_of_inet_addr addr]
 						in
 						mode @ addrs @ gateway
-					| None6 -> []
+					| None6 | Linklocal6 -> []
 				in
 				let data = datav4 @ datav6 in
 				List.iter (fun (k, v) -> Printf.printf "%s=%s\n" k v) data
