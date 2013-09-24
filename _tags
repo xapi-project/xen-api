@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6adfdcd89fb0d753f9b9b283e10815f6)
+# DO NOT EDIT (digest: 5c2e2b7e36393ffd36642a4bdd4bbefa)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -20,7 +20,6 @@
 <lib/*.ml{,i}>: pkg_xcp
 <lib/*.ml{,i}>: pkg_xcp.storage
 <lib/*.ml{,i}>: pkg_sexplib
-<lib/*.ml{,i}>: pkg_syslog
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_threads.posix
 <lib/*.ml{,i}>: pkg_uuidm
@@ -51,7 +50,6 @@
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp.memory
 <xc/xenops_xc_main.{native,byte}>: pkg_sexplib
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp-inventory
-<xc/xenops_xc_main.{native,byte}>: pkg_syslog
 <xc/xenops_xc_main.{native,byte}>: pkg_threads
 <xc/xenops_xc_main.{native,byte}>: pkg_threads.posix
 <xc/xenops_xc_main.{native,byte}>: pkg_uuidm
@@ -74,7 +72,6 @@
 <xc/*.ml{,i}>: pkg_xcp.memory
 <xc/*.ml{,i}>: pkg_sexplib
 <xc/*.ml{,i}>: pkg_xcp-inventory
-<xc/*.ml{,i}>: pkg_syslog
 <xc/*.ml{,i}>: pkg_threads
 <xc/*.ml{,i}>: pkg_threads.posix
 <xc/*.ml{,i}>: pkg_uuidm
@@ -97,7 +94,6 @@
 "xc/fsync_stubs.c": pkg_xcp.memory
 "xc/fsync_stubs.c": pkg_sexplib
 "xc/fsync_stubs.c": pkg_xcp-inventory
-"xc/fsync_stubs.c": pkg_syslog
 "xc/fsync_stubs.c": pkg_threads
 "xc/fsync_stubs.c": pkg_threads.posix
 "xc/fsync_stubs.c": pkg_uuidm
@@ -120,7 +116,6 @@
 "xc/xenctrlext_stubs.c": pkg_xcp.memory
 "xc/xenctrlext_stubs.c": pkg_sexplib
 "xc/xenctrlext_stubs.c": pkg_xcp-inventory
-"xc/xenctrlext_stubs.c": pkg_syslog
 "xc/xenctrlext_stubs.c": pkg_threads
 "xc/xenctrlext_stubs.c": pkg_threads.posix
 "xc/xenctrlext_stubs.c": pkg_uuidm
@@ -138,7 +133,6 @@
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp.storage
 <simulator/xenops_simulator_main.{native,byte}>: pkg_sexplib
-<simulator/xenops_simulator_main.{native,byte}>: pkg_syslog
 <simulator/xenops_simulator_main.{native,byte}>: pkg_threads
 <simulator/xenops_simulator_main.{native,byte}>: pkg_threads.posix
 <simulator/xenops_simulator_main.{native,byte}>: pkg_uuidm
@@ -154,7 +148,6 @@
 <simulator/*.ml{,i}>: pkg_xcp
 <simulator/*.ml{,i}>: pkg_xcp.storage
 <simulator/*.ml{,i}>: pkg_sexplib
-<simulator/*.ml{,i}>: pkg_syslog
 <simulator/*.ml{,i}>: pkg_threads
 <simulator/*.ml{,i}>: pkg_threads.posix
 <simulator/*.ml{,i}>: pkg_uuidm
@@ -173,7 +166,6 @@
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xcp.storage
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_sexplib
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_libvirt
-<libvirt/xenops_libvirt_main.{native,byte}>: pkg_syslog
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_threads
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_threads.posix
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_uuidm
@@ -190,7 +182,6 @@
 <libvirt/*.ml{,i}>: pkg_xcp.storage
 <libvirt/*.ml{,i}>: pkg_sexplib
 <libvirt/*.ml{,i}>: pkg_libvirt
-<libvirt/*.ml{,i}>: pkg_syslog
 <libvirt/*.ml{,i}>: pkg_threads
 <libvirt/*.ml{,i}>: pkg_threads.posix
 <libvirt/*.ml{,i}>: pkg_uuidm
@@ -218,7 +209,6 @@
 <xl/xenops_xl_main.{native,byte}>: pkg_xcp.memory
 <xl/xenops_xl_main.{native,byte}>: pkg_sexplib
 <xl/xenops_xl_main.{native,byte}>: pkg_xcp-inventory
-<xl/xenops_xl_main.{native,byte}>: pkg_syslog
 <xl/xenops_xl_main.{native,byte}>: pkg_threads
 <xl/xenops_xl_main.{native,byte}>: pkg_threads.posix
 <xl/xenops_xl_main.{native,byte}>: pkg_uuidm
@@ -243,7 +233,6 @@
 <xl/*.ml{,i}>: pkg_xcp.memory
 <xl/*.ml{,i}>: pkg_sexplib
 <xl/*.ml{,i}>: pkg_xcp-inventory
-<xl/*.ml{,i}>: pkg_syslog
 <xl/*.ml{,i}>: pkg_threads
 <xl/*.ml{,i}>: pkg_threads.posix
 <xl/*.ml{,i}>: pkg_uuidm
@@ -268,7 +257,6 @@
 "xl/fsync_stubs.c": pkg_xcp.memory
 "xl/fsync_stubs.c": pkg_sexplib
 "xl/fsync_stubs.c": pkg_xcp-inventory
-"xl/fsync_stubs.c": pkg_syslog
 "xl/fsync_stubs.c": pkg_threads
 "xl/fsync_stubs.c": pkg_threads.posix
 "xl/fsync_stubs.c": pkg_uuidm
@@ -293,7 +281,6 @@
 "xl/poll_stubs.c": pkg_xcp.memory
 "xl/poll_stubs.c": pkg_sexplib
 "xl/poll_stubs.c": pkg_xcp-inventory
-"xl/poll_stubs.c": pkg_syslog
 "xl/poll_stubs.c": pkg_threads
 "xl/poll_stubs.c": pkg_threads.posix
 "xl/poll_stubs.c": pkg_uuidm
