@@ -16,7 +16,7 @@ Library forkexec
   Path:               lib
   Findlibname:        forkexec
   Modules:            Forkhelpers, Fecomms, Fe
-  BuildDepends:       stdext, syslog, threads, uuidm, rpclib, rpclib.syntax, fd-send-recv
+  BuildDepends:       stdext, threads, uuidm, rpclib, rpclib.syntax, fd-send-recv, xcp
 
 Executable forexecd
   CompiledObject:     best
@@ -24,7 +24,7 @@ Executable forexecd
   MainIs:             fe_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext, forkexec, uuidm, syslog, re.str
+  BuildDepends:       stdext, forkexec, uuidm, re.str
 
 Executable fe_test
   CompiledObject:     best
@@ -32,7 +32,7 @@ Executable fe_test
   MainIs:             fe_test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext, forkexec, uuidm, syslog
+  BuildDepends:       stdext, forkexec, uuidm
 
 
 Executable fe_cli
@@ -41,4 +41,4 @@ Executable fe_cli
   MainIs:             fe_cli.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext, forkexec, uuidm, syslog
+  BuildDepends:       stdext, forkexec, uuidm

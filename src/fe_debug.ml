@@ -1,4 +1,5 @@
-let syslog = Syslog.openlog ~facility:`LOG_SYSLOG ~flags:[`LOG_PID] "fe"
+module D=Debug.Make(struct let name="forkexecd" end)
+include D
 
 let log_path = "/var/log/fe.log"
 
@@ -19,6 +20,6 @@ let debug (fmt : ('a, unit, string, unit) format4) =
   Printf.kprintf (fun s -> debug_log := Printf.sprintf "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s :: !debug_log) fmt
 
 let write_log () =
-  List.iter (Syslog.syslog syslog `LOG_ERR) (List.rev !debug_log);
+  List.iter (fun l -> warn "%s" l) (List.rev !debug_log);
   reset ()
 

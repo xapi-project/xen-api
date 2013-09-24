@@ -173,7 +173,7 @@ let run state comms_sock fd_sock fd_sock_path =
 		let limit = 80 - 3 in
 		let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
 		if code=0 && name = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
-			Syslog.syslog Fe_debug.syslog `LOG_ERR (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
+                       Fe_debug.error "%d (%s) %s %d" result cmdline' reason code in
 
 	  let status = ref (Unix.WEXITED (-1)) in
 	  finally
@@ -184,7 +184,7 @@ let run state comms_sock fd_sock fd_sock_path =
 					  (* Read from the child's stdout and write each one to syslog *)
 					  Unixext.lines_iter
 						  (fun line ->
-							Syslog.syslog Fe_debug.syslog ~fac:`LOG_DAEMON `LOG_INFO (Printf.sprintf "%s[%d]: %s" key result line)
+							Fe_debug.info "%s[%d]: %s" key result line
 						  ) (Unix.in_channel_of_descr in_fd)
 				  ) !in_childlogging
 		  ) (fun () -> status := snd (Unix.waitpid [] result));
