@@ -68,19 +68,23 @@ let union_type_lists ~type_lists =
 	in
 	VGPU_type_set.elements union_set
 
-let get_enabled_VGPU_types ~__context ~self =
+let update_enabled_VGPU_types ~__context ~self =
 	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
-	union_type_lists
+	let enabled_VGPU_types = union_type_lists
 		(List.map
 			(fun pgpu -> Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu)
 			pgpus)
+	in
+	Db.GPU_group.set_enabled_VGPU_types ~__context ~self ~value:enabled_VGPU_types
 
-let get_supported_VGPU_types ~__context ~self =
+let update_supported_VGPU_types ~__context ~self =
 	let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
-	union_type_lists
+	let supported_VGPU_types = union_type_lists
 		(List.map
 			(fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
 			pgpus)
+	in
+	Db.GPU_group.set_supported_VGPU_types ~__context ~self ~value:supported_VGPU_types
 
 let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 	(* If there is capacity in the group for this VGPU type, we return the

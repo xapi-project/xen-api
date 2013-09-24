@@ -7888,26 +7888,6 @@ let gpu_group =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
-	let get_enabled_VGPU_types = call
-		~name:"get_enabled_VGPU_types"
-		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
-		~params:[
-			Ref _gpu_group, "self", "The GPU group to query"
-		]
-		~result:(Set (Ref _vgpu_type), "The list of VGPU types which are enabled on at least one PGPU in this group")
-		~allowed_roles:_R_READ_ONLY
-		()
-	in
-	let get_supported_VGPU_types = call
-		~name:"get_supported_VGPU_types"
-		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
-		~params:[
-			Ref _gpu_group, "self", "The GPU group to query"
-		]
-		~result:(Set (Ref _vgpu_type), "The list of VGPU types which are supported on at least one PGPU in this group")
-		~allowed_roles:_R_READ_ONLY
-		()
-	in
 	let get_remaining_capacity = call
 		~name:"get_remaining_capacity"
 		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -7936,8 +7916,6 @@ let gpu_group =
 		~messages:[
 			create;
 			destroy;
-			get_enabled_VGPU_types;
-			get_supported_VGPU_types;
 			get_remaining_capacity;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
@@ -7951,6 +7929,8 @@ let gpu_group =
 			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:RW ~ty:allocation_algorithm ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "allocation_algorithm" "Current allocation of vGPUs to pGPUs for this group" ~default_value:(Some (VEnum "depth_first"));
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
 			]
 		()
 
@@ -8029,7 +8009,9 @@ let vgpu_type =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "VGPUs" "List of VGPUs of this type";
-			field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use."
+			field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use.";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
 		]
 	()
 
@@ -8160,6 +8142,8 @@ let all_relations =
     (_vgpu, "resident_on"), (_pgpu, "resident_VGPUs");
     (_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs");
     (_pgpu, "enabled_VGPU_types"), (_vgpu_type, "enabled_on_PGPUs");
+    (_gpu_group, "supported_VGPU_types"), (_vgpu_type, "supported_on_GPU_groups");
+    (_gpu_group, "enabled_VGPU_types"), (_vgpu_type, "enabled_on_GPU_groups");
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
