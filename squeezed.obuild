@@ -11,7 +11,7 @@ library squeeze
 executable squeezed
   main: squeezed.ml
   src-dir: src
-  build-deps: stdext, squeeze, xenctrl, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, xcp, xcp.memory, rpclib.syntax, uuidm
+  build-deps: stdext, squeeze, xenctrl, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, xcp, xcp.memory, rpclib.syntax, uuidm, re, re.str
   pp: camlp4o
 
 executable test

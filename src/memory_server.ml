@@ -19,6 +19,7 @@ open Memory_interface
 open Squeezed_state
 open Squeezed_xenstore
 open Threadext
+open Pervasiveext
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
@@ -153,18 +154,35 @@ let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_host_initial_free_memory _ dbg = 0L (* XXX *)
 
+(* The total amount of memory addressable by this OS, read without
+   asking xen (which may not be running if we've just installed
+   the packages and are now setting them up) *)
+let get_total_memory () =
+	let ic = open_in "/proc/meminfo" in
+	let r = Re_str.regexp "[ \t\n]+" in
+	finally
+		(fun () ->
+			let rec loop () =
+				match Re_str.split_delim r (input_line ic) with
+				| [ "MemTotal:"; total; "kB" ] ->
+					Int64.(mul (of_string total) 1024L)
+				| _ -> loop () in
+			try
+				loop ()
+			with End_of_file ->
+				error "Failed to read MemTotal from /proc/meminfo";
+				failwith "Failed to read MemTotal from /proc/meminfo"
+
+		) (fun () -> close_in ic)
+
 let get_domain_zero_policy _ dbg =
 	wrap dbg
 	(fun () ->
-		Xenctrl.with_intf
-		(fun xc ->
-			let di = Xenctrl.domain_getinfo xc 0 in
-			let dom0_max = Int64.mul 1024L (Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages)) in
-			if !Squeeze.manage_domain_zero
-			then Auto_balloon(!Squeeze.domain_zero_dynamic_min, match !Squeeze.domain_zero_dynamic_max with
-				| None -> dom0_max
-				| Some x -> x)
-			else Fixed_size dom0_max
-		)
+		let dom0_max = get_total_memory () in
+		if !Squeeze.manage_domain_zero
+		then Auto_balloon(!Squeeze.domain_zero_dynamic_min, match !Squeeze.domain_zero_dynamic_max with
+			| None -> dom0_max
+			| Some x -> x)
+		else Fixed_size dom0_max
 	)
 
