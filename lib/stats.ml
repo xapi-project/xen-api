@@ -47,10 +47,18 @@ end
    lognormal transformations here.
  *)
 
-module D=Debug.Debugger(struct let name="stats" end)
+module D=Debug.Make(struct let name="stats" end)
 open D
-open Threadext
-open Pervasiveext
+
+module Mutex = struct
+	include Mutex
+	(** execute the function f with the mutex hold *)
+	let execute lock f =
+		Mutex.lock lock;
+		let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
+		Mutex.unlock lock;
+		r
+end
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 let timings_m = Mutex.create ()
@@ -91,14 +99,20 @@ let sample (name: string) (x: float) : unit =
 (** Helper function to time a specific thing *)
 let time_this (name: string) f = 
   let start_time = Unix.gettimeofday () in
-  finally f
-    (fun () ->
-       try
-	 let end_time = Unix.gettimeofday () in
-	 sample name (end_time -. start_time)
-       with e ->
-	 warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
-    )
+  let endfn () =
+    try
+      let end_time = Unix.gettimeofday () in
+      sample name (end_time -. start_time)
+    with e ->
+      warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
+  in
+  try
+    let result = f () in
+    endfn ();
+    result
+  with e -> 
+    endfn ();
+    raise e
        
 let summarise () = 
   Mutex.execute timings_m

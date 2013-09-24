@@ -4,7 +4,7 @@ open Rrdd_shared
 open Rrd
 open Ds
 
-module D = Debug.Debugger(struct let name = "rrdd_monitor" end)
+module D = Debug.Make(struct let name = "rrdd_monitor" end)
 open D
 
 let create_rras use_min_max =

@@ -26,7 +26,7 @@
  * 4) xapi occasionally sends data to rrdd through rrdd's interface.
  *)
 
-module D = Debug.Debugger(struct let name = "rrdd_main" end)
+module D = Debug.Make(struct let name = "rrdd_main" end)
 open D
 
 open Fun
@@ -652,7 +652,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Enable the new logging library. *)
-	Debug.set_facility Syslog_transitional.Local5;
+	Debug.set_facility Syslog.Local5;
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";

@@ -15,7 +15,7 @@
  * @group Performance Monitoring
  *)
 
-module D = Debug.Debugger(struct let name = "rrdd_stats" end)
+module D = Debug.Make(struct let name = "rrdd_stats" end)
 open D
 
 (** Represents a subset of the data in /proc/meminfo *)
