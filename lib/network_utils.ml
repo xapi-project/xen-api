@@ -17,7 +17,7 @@ open Stringext
 open Fun
 open Network_interface
 
-module D = Debug.Debugger(struct let name = "network_utils" end)
+module D = Debug.Make(struct let name = "network_utils" end)
 open D
 
 let iproute2 = "/sbin/ip"

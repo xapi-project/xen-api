@@ -6,14 +6,14 @@ obuild-ver: 1
 library network-libs
   src-dir: lib
   modules: network_config, network_utils
-  build-deps: forkexec, stdext, threads, rpclib, log, stdext, xcp-inventory, xcp.network
+  build-deps: forkexec, stdext, threads, rpclib, stdext, xcp-inventory, xcp.network
   cdir: lib
   c-sources: link_stubs.c
 
 executable xcp-networkd
   main: networkd.ml
   src-dir: networkd
-  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, log, http-svr, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network
+  build-deps: threads, rpclib, rpclib.unix, forkexec, stdext, http-svr, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network
   pp: camlp4o
 
 executable networkd_db

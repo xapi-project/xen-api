@@ -19,7 +19,7 @@ open Stringext
 open Listext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "network_monitor_thread" end)
+module D = Debug.Make(struct let name = "network_monitor_thread" end)
 open D
 
 (** Table for bonds status. *)

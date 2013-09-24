@@ -19,7 +19,7 @@ open Fun
 open Stringext
 open Listext
 
-module D = Debug.Debugger(struct let name = "network_server" end)
+module D = Debug.Make(struct let name = "network_server" end)
 open D
 
 type context = unit
