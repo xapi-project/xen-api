@@ -95,22 +95,30 @@ let update_gpus ~__context ~host =
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
 	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
 
+let update_group_enabled_VGPU_types ~__context ~self =
+	let group = Db.PGPU.get_GPU_group ~__context ~self in
+	if Db.is_valid_ref __context group
+	then Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:group
+
 let add_enabled_VGPU_types ~__context ~self ~value =
 	Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context
 		~self ~vgpu_type:value;
-	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
 	Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context
 		~self ~vgpu_type:value;
-	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let set_enabled_VGPU_types ~__context ~self ~value =
 	List.iter
 		(fun vgpu_type ->
 			Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~vgpu_type)
 		value;
-	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
