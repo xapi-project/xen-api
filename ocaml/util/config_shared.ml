@@ -14,7 +14,7 @@
 
 open Stringext
 
-module D = Debug.Debugger(struct let name = "config_shared" end)
+module D = Debug.Make(struct let name = "config_shared" end)
 open D
 
 let disable_logging_for =

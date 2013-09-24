@@ -17,7 +17,7 @@ open Xenops_utils
 open Xenops_client
 open Fun
 
-module D = Debug.Debugger(struct let name = service_name end)
+module D = Debug.Make(struct let name = service_name end)
 open D
 
 (*

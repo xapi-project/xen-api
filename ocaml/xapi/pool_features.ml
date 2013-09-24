@@ -12,7 +12,7 @@
  *)
 
 open Features
-module D = Debug.Debugger(struct let name="pool_features" end)
+module D = Debug.Make(struct let name="pool_features" end)
 open D
 
 let all_flags = List.map (fun (k, v) -> k) (to_assoc_list all_features)

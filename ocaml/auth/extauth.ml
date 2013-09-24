@@ -18,7 +18,7 @@
 open Db_actions
 open Auth_signature
 
-module D = Debug.Debugger(struct let name="extauth" end)
+module D = Debug.Make(struct let name="extauth" end)
 open D
 
 exception Unknown_extauth_type of string

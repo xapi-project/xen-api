@@ -30,7 +30,7 @@ open Unixext
 open Client
 open Records 
 
-module D=Debug.Debugger(struct let name="cli" end)
+module D=Debug.Make(struct let name="cli" end)
 open D
 
 let failwith str = raise (Cli_util.Cli_failure str)

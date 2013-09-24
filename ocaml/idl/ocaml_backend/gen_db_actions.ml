@@ -439,7 +439,7 @@ let db_action api : O.Module.t =
     ~name:_db_action
     ~preamble:[ 
                 "open Db_cache_types";
-		"module D=Debug.Debugger(struct let name=\"db\" end)";
+		"module D=Debug.Make(struct let name=\"db\" end)";
 		"open D";
 	      ]
     ~elements:(List.map (fun x -> O.Module.Module x) modules) ()

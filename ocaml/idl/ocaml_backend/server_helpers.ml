@@ -16,7 +16,7 @@ open Stringext
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "dispatcher" end)
+module D = Debug.Make(struct let name = "dispatcher" end)
 open D
 
 exception Dispatcher_FieldNotFound of string

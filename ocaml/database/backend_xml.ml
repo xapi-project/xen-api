@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name = "sql" end)
+module D = Debug.Make(struct let name = "sql" end)
 open D
 
 open Db_cache_types

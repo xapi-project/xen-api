@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name="license" end)
+module D = Debug.Make(struct let name="license" end)
 open D
 
 let v6_initialise ~__context ~edition ~params =

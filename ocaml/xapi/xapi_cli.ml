@@ -22,7 +22,7 @@ open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
 
-module D = Debug.Debugger(struct let name = "cli" end)
+module D = Debug.Make(struct let name = "cli" end)
 open D
 
 exception Unknown_command of string

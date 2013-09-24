@@ -17,7 +17,7 @@
 
 open Threadext
  
-module D=Debug.Debugger(struct let name="startup" end)
+module D=Debug.Make(struct let name="startup" end)
 open D
 
 type flag = OnlyMaster | OnlySlave | NoExnRaising | OnThread

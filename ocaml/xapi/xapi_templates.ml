@@ -22,7 +22,7 @@
    leave the VM in a state such that it comes up properly on subsequent reboots. *)
 
 (** Should make a dummy one of these for in-guest installers: *)
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 (** A record which describes a disk provision request *)

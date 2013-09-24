@@ -20,7 +20,7 @@ open Pervasiveext
 open Forkhelpers
 open Helpers
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let host_backup = Filename.concat Fhs.libexecdir "host-backup"

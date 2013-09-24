@@ -17,7 +17,7 @@ open Pervasiveext
 open Stringext
 open Threadext
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let inventory_filename = Util_globs_inventory.inventory_filename

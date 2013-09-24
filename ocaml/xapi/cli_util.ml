@@ -15,7 +15,7 @@
  * @group Command-Line Interface (CLI)
  *)
  
-module D = Debug.Debugger(struct let name = "cli" end)
+module D = Debug.Make(struct let name = "cli" end)
 open D
 
 open Stringext

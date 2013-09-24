@@ -15,7 +15,7 @@
  * @group Import and Export
  *)
 
-module D = Debug.Debugger(struct let name="export_raw_vdi" end)
+module D = Debug.Make(struct let name="export_raw_vdi" end)
 open D
 
 let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_descr) =

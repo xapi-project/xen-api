@@ -13,7 +13,7 @@
  *)
 
 (* Simple generation count implementation *)
-module D = Debug.Debugger(struct let name = "sql" end)
+module D = Debug.Make(struct let name = "sql" end)
 open D
 
 type t = int64

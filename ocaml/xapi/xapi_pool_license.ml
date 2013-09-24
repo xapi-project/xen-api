@@ -14,7 +14,7 @@
 
 open Fun
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (* Compare two date options, where None is always greater than (Some _) *)

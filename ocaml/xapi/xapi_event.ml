@@ -17,7 +17,7 @@ open Listext
 open Event_types
 open Stringext
 
-module D=Debug.Debugger(struct let name="xapi_event" end)
+module D=Debug.Make(struct let name="xapi_event" end)
 open D
 
 module Token = struct

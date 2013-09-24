@@ -17,7 +17,7 @@ module XenAPI = Client.Client
 open Fun
 open Storage_interface
 
-module D=Debug.Debugger(struct let name="storage_access" end)
+module D=Debug.Make(struct let name="storage_access" end)
 open D
 
 exception No_VDI

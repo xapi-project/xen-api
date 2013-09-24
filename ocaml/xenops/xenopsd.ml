@@ -15,7 +15,7 @@ open Xenops_utils
 open Pervasiveext 
 open Fun
 
-module D = Debug.Debugger(struct let name = Xenops_interface.service_name end)
+module D = Debug.Make(struct let name = Xenops_interface.service_name end)
 open D
 
 let name = "xenopsd"
@@ -197,7 +197,7 @@ let start (domain_sock, forwarded_sock, json_sock) process =
 		)
 
 let _ = 
-	Debug.set_facility Syslog_transitional.Local5;
+	Debug.set_facility Syslog.Local5;
 
 	debug "xenopsd version %d.%d starting" major_version minor_version;
 

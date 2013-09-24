@@ -91,7 +91,7 @@
 open Pervasiveext
 
 let name = "block_device_io"
-module R = Debug.Debugger(struct let name = name end)
+module R = Debug.Make(struct let name = name end)
 
 let magic = "redo-log--------" (* 16 bytes *)
 
@@ -120,8 +120,8 @@ exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
 let initialise_logging () =
-	Debug.set_facility Syslog_transitional.Local5;
-	Debug.disable ~level:Syslog_transitional.Debug name
+	Debug.set_facility Syslog.Local5;
+	Debug.disable ~level:Syslog.Debug name
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)

@@ -37,7 +37,7 @@ type header =
 
 exception Version_mismatch of string
 
-module D=Debug.Debugger(struct let name="importexport" end)
+module D=Debug.Make(struct let name="importexport" end)
 open D
 
 let find kvpairs where x = 

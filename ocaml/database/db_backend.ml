@@ -17,7 +17,7 @@ open Db_cache_types
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "sql" end)
+module D = Debug.Make(struct let name = "sql" end)
 open D
 
 (* --------------------- Constants/data-structures for storing db contents *)

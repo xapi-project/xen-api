@@ -19,8 +19,8 @@ open Stringext
 open Listext
 open Network
 
-module L = Debug.Debugger(struct let name="license" end)
-module D=Debug.Debugger(struct let name="xapi" end)
+module L = Debug.Make(struct let name="license" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (* Surpress exceptions *)

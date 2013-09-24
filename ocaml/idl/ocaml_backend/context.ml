@@ -15,8 +15,8 @@ open Pervasiveext
 open Fun
 open Stringext
 
-module Real = Debug.Debugger(struct let name = "taskhelper" end)
-module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
+module Real = Debug.Make(struct let name = "taskhelper" end)
+module Dummy = Debug.Make(struct let name = "dummytaskhelper" end)
 
 (** Every operation has an origin: either the HTTP connection it came from or
     an internal subsystem (eg synchroniser thread / event handler

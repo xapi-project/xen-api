@@ -13,7 +13,7 @@
  *)
 open Pervasiveext (* for ignore_exn *)
 
-module R = Debug.Debugger(struct let name = "redo_log" end)
+module R = Debug.Make(struct let name = "redo_log" end)
 
 exception NoGeneration
 exception DeltaTooOld

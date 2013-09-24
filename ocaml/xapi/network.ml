@@ -15,7 +15,7 @@
 open Xmlrpc_client
 open Network_interface
 
-module D=Debug.Debugger(struct let name="network" end)
+module D=Debug.Make(struct let name="network" end)
 open D
 
 module Net = Network_client.Client

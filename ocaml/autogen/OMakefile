@@ -1,7 +1,7 @@
 AUTOGEN_HELPER_DIR = ../database
 
 OCAMLINCLUDES = ../idl/ocaml_backend $(AUTOGEN_HELPER_DIR) ../idl
-OCAMLPACKS    = xml-light2 sexpr http-svr log rpclib
+OCAMLPACKS    = xml-light2 sexpr http-svr xcp rpclib
 
 .PHONY: clean
 clean:
