@@ -1,6 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c61dbb9eaf2c3d208325bd4f41d641bf)
+# DO NOT EDIT (digest: 5e1a4e45613cb05e51a082b97ff4ddcf)
 fsync_stubs.o
-xenctrlext_stubs.o
 poll_stubs.o
 # OASIS_STOP

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7eeb627a0a367218ab868db082a93abc)
+# DO NOT EDIT (digest: b0fbc77077fef1ce0dd61a6a02190cb1)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -283,31 +283,6 @@
 "xl/fsync_stubs.c": pkg_rpclib.syntax
 "xl/fsync_stubs.c": pkg_fd-send-recv
 "xl/fsync_stubs.c": pkg_xcp.xen
-"xl/xenctrlext_stubs.c": use_xenopsd
-"xl/xenctrlext_stubs.c": pkg_xenlight
-"xl/xenctrlext_stubs.c": pkg_xenlight.xentoollog
-"xl/xenctrlext_stubs.c": pkg_xenctrl
-"xl/xenctrlext_stubs.c": pkg_xenstore
-"xl/xenctrlext_stubs.c": pkg_xenstore.unix
-"xl/xenctrlext_stubs.c": pkg_xenstore_transport
-"xl/xenctrlext_stubs.c": pkg_xenstore_transport.unix
-"xl/xenctrlext_stubs.c": pkg_rpclib
-"xl/xenctrlext_stubs.c": pkg_forkexec
-"xl/xenctrlext_stubs.c": pkg_xcp
-"xl/xenctrlext_stubs.c": pkg_xcp.storage
-"xl/xenctrlext_stubs.c": pkg_xcp.memory
-"xl/xenctrlext_stubs.c": pkg_sexplib
-"xl/xenctrlext_stubs.c": pkg_xcp-inventory
-"xl/xenctrlext_stubs.c": pkg_syslog
-"xl/xenctrlext_stubs.c": pkg_threads
-"xl/xenctrlext_stubs.c": pkg_threads.posix
-"xl/xenctrlext_stubs.c": pkg_uuidm
-"xl/xenctrlext_stubs.c": pkg_xmlm
-"xl/xenctrlext_stubs.c": pkg_cohttp
-"xl/xenctrlext_stubs.c": pkg_uri
-"xl/xenctrlext_stubs.c": pkg_rpclib.syntax
-"xl/xenctrlext_stubs.c": pkg_fd-send-recv
-"xl/xenctrlext_stubs.c": pkg_xcp.xen
 "xl/poll_stubs.c": use_xenopsd
 "xl/poll_stubs.c": pkg_xenlight
 "xl/poll_stubs.c": pkg_xenlight.xentoollog

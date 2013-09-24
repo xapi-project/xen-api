@@ -895,19 +895,28 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VIF.move %s" (VIF_DB.string_of_id id);
 			finally
 				(fun () ->
-					B.VIF.move t (VIF_DB.vm_of id) (VIF_DB.read_exn id) network;
+				        let vif = VIF_DB.read_exn id in
+					B.VIF.move t (VIF_DB.vm_of id) vif network;
+					VIF_DB.write id {vif with Vif.backend = network}
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_carrier (id, carrier) ->
 			debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier;
 			finally
 				(fun () ->
-					B.VIF.set_carrier t (VIF_DB.vm_of id) (VIF_DB.read_exn id) carrier;
+				        let vif = VIF_DB.read_exn id in
+					B.VIF.set_carrier t (VIF_DB.vm_of id) vif carrier;
+					VIF_DB.write id {vif with Vif.carrier = carrier}
 				) (fun () -> VIF_DB.signal id)
                 | VIF_set_locking_mode (id, mode) ->
 			debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
 			finally
 				(fun () ->
-					B.VIF.set_locking_mode t (VIF_DB.vm_of id) (VIF_DB.read_exn id) mode;
+				        let vif = VIF_DB.read_exn id in
+                                        (* Nb, this VIF_DB write needs to come before the call to set_locking_mode 
+                                           as the scripts will read from the disk! *)
+					VIF_DB.write id {vif with Vif.locking_mode = mode};
+					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
+
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_active (id, b) ->
 			debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
@@ -947,7 +956,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			let vbd_t = VBD_DB.read_exn id in
 			let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
 			begin match power with
-				| Running _ | Paused ->
+				| Running | Paused ->
 					B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
 					VBD_DB.signal id
 				| _ -> raise (Bad_power_state(power, Running))
@@ -958,7 +967,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			if vbd_t.Vbd.ty = Vbd.Disk then raise (Media_not_ejectable);
 			let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
 			begin match power with
-				| Running _ | Paused ->
+				| Running | Paused ->
 					B.VBD.eject t (VBD_DB.vm_of id) vbd_t;
 					VBD_DB.signal id
 				| _ -> raise (Bad_power_state(power, Running))
@@ -967,7 +976,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.remove %s" id;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
 			begin match power with
-				| Running _ | Paused -> raise (Bad_power_state(power, Halted))
+				| Running | Paused -> raise (Bad_power_state(power, Halted))
 				| Halted | Suspended ->
 					B.VM.remove (VM_DB.read_exn id);
 					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);

@@ -1,0 +1,7 @@
+SUBSYSTEM=="xen-backend", KERNEL=="tap*", RUN+="/usr/libexec/xenopsd/tap $env{ACTION}"
+SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="/usr/libexec/xenopsd/block $env{ACTION}"
+
+SUBSYSTEM=="xen-backend", KERNEL=="vif*", RUN+="/usr/libexec/xenopsd/vif $env{ACTION} type_if=vif"
+SUBSYSTEM=="net",         KERNEL=="tap*", RUN+="/usr/libexec/xenopsd/vif $env{ACTION} type_if=tap"
+
+KERNEL=="evtchn", NAME="xen/%k"
