@@ -15,7 +15,7 @@
 open Client
 open Stringext
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let make_task ~__context =

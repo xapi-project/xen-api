@@ -13,7 +13,7 @@
  *)
 (* Functions to help create HTTP handlers which check the user is properly authenticated. *)
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let validate_session __context session_id realm = 

@@ -19,7 +19,7 @@ open Pervasiveext
 open Stringext
 open Xapi_support
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 

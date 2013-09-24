@@ -17,7 +17,7 @@ open Listext
 
 (** Allow VMs to be locked to prevent API calls racing with the background event thread *)
 
-module D = Debug.Debugger(struct let name = "locking_helpers" end)
+module D = Debug.Make(struct let name = "locking_helpers" end)
 open D
 
 type resource = 

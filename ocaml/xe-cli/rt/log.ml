@@ -18,7 +18,7 @@ type level =
 | Debug
 | Info
 
-module D=Debug.Debugger(struct let name="rt" end)
+module D=Debug.Make(struct let name="rt" end)
 
 let log (fmt: ('a, unit, string, 'b) format4) =
 	Printf.kprintf (fun s -> D.info "%s" s) fmt

@@ -3,7 +3,7 @@ open Ds
 
 open Rrdd_fake_common
 
-module D = Debug.Debugger(struct let name="rrdd_fake" end)
+module D = Debug.Make(struct let name="rrdd_fake" end)
 open D
 
 let read_fakestats fname ty =

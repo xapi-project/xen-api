@@ -16,7 +16,7 @@ open Listext
 open Client
 open Db_filter_types
 
-module D=Debug.Debugger(struct let name="sync_networking" end)
+module D=Debug.Make(struct let name="sync_networking" end)
 open D
 
 (** Ensures that all bonds follow the new rules of Boston: nothing can use bond slaves anymore *)

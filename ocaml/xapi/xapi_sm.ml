@@ -27,7 +27,7 @@ open Fun
 type version = int list
 let version_of_string = List.map int_of_string ++ (String.split '.')
  
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 let create_from_query_result ~__context q =

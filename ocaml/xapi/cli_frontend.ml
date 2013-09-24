@@ -23,7 +23,7 @@ open Cli_util
 open Cli_cmdtable
 open Stringext
 
-module D = Debug.Debugger(struct let name = "cli" end)
+module D = Debug.Make(struct let name = "cli" end)
 open D
 
 (* ---------------------------------------------------------------------

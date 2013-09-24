@@ -18,7 +18,7 @@
 open Xapi_pv_driver_version
 open Listext
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)

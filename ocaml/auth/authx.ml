@@ -15,7 +15,7 @@
  * @group Access Control
  *)
  
-module D = Debug.Debugger(struct let name="extauth_plugin_PAM_NSS" end)
+module D = Debug.Make(struct let name="extauth_plugin_PAM_NSS" end)
 open D
 
 module AuthX : Auth_signature.AUTH_MODULE =

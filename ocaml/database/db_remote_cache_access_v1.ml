@@ -10,7 +10,7 @@ module DBCacheRemoteListener = struct
 	exception DBCacheListenerInvalidMessageReceived
 	exception DBCacheListenerUnknownMessageName of string
 		
-	module D = Debug.Debugger(struct let name = "db_server" end)
+	module D = Debug.Make(struct let name = "db_server" end)
 	open D
 	
 	let ctr_mutex = Mutex.create()

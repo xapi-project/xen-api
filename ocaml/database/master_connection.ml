@@ -21,7 +21,7 @@
 open Threadext
 
 type db_record = (string * string) list * (string * (string list)) list
-module D = Debug.Debugger(struct let name = "master_connection" end)
+module D = Debug.Make(struct let name = "master_connection" end)
 open D
 
 let my_connection : Stunnel.t option ref = ref None
@@ -84,7 +84,7 @@ let start_master_connection_watchdog() =
     )
     ()
 
-module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
+module StunnelDebug=Debug.Make(struct let name="stunnel" end)
 
 (** Called when the connection to the master is (re-)established. This will be called once
     on slave start and then every time after the master restarts and we reconnect. *)

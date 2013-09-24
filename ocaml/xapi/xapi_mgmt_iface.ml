@@ -15,7 +15,7 @@ open Db_filter_types
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 (** Keep track of the management interface server thread *)
