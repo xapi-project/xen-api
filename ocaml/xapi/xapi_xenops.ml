@@ -418,8 +418,6 @@ module MD = struct
 				(* If we don't need to reflect anything, the carrier is set to "true" *)
 				true
 		in
-                let dbg = Context.string_of_task __context in
-
 		let open Vif in {
 			id = (vm.API.vM_uuid, vif.API.vIF_device);
 			position = int_of_string vif.API.vIF_device;
