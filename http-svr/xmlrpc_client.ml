@@ -15,10 +15,10 @@ open Stringext
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "xmlrpc_client" end)
+module D = Debug.Make(struct let name = "xmlrpc_client" end)
 open D
 
-module E = Debug.Debugger(struct let name = "mscgen" end)
+module E = Debug.Make(struct let name = "mscgen" end)
 
 module Internal = struct
 	let set_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
@@ -41,7 +41,7 @@ let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_o
 (** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
 exception Connection_reset
 
-module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
+module StunnelDebug=Debug.Make(struct let name="stunnel" end)
 let write_to_log x = StunnelDebug.debug "%s" (String.strip String.isspace x)
 
 (** Return true if this fd is connected to an HTTP server by sending an XMLRPC request

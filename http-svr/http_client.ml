@@ -15,7 +15,7 @@
 
 open Stringext
 
-module D = Debug.Debugger(struct let name="http" end)
+module D = Debug.Make(struct let name="http" end)
 open D
 
 (** Thrown when no data is received from the remote HTTP server. This could happen if

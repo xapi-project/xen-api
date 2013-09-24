@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="http_proxy" end)
+module D=Debug.Make(struct let name="http_proxy" end)
 open D
 
 open Xmlrpc_client

@@ -13,9 +13,6 @@
  *)
 (* Buffered IO with timeouts *)
 
-module D=Debug.Debugger(struct let name="buf_io" end)
-open D
-
 type t = 
     { 
       fd : Unix.file_descr;

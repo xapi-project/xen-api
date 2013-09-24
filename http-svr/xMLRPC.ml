@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D=Debug.Debugger(struct let name="xmlrpc" end)
+module D=Debug.Make(struct let name="xmlrpc" end)
 open D
 
 exception RunTimeTypeError of string * Xml.xml

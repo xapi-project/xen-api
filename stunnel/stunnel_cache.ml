@@ -20,7 +20,7 @@
      the connection should be kept-alive
  *)
 
-module D=Debug.Debugger(struct let name="stunnel_cache" end)
+module D=Debug.Make(struct let name="stunnel_cache" end)
 open D
 
 (* Disable debug-level logging but leave higher-priority enabled.  It would be

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: e6663df7d3bb9ccbdbb933b1f85e6c38) *)
+(* DO NOT EDIT (digest: 373dd6d54c64af56d9b7664c7f8c53d0) *)
 module OASISGettext = struct
 (* # 21 "src/oasis/OASISGettext.ml" *)
 
@@ -488,23 +488,16 @@ let package_default =
           ("pciutil", ["pciutil"]);
           ("uuid", ["uuid"]);
           ("xmllight2", ["xml-light2"]);
-          ("log", ["log"]);
           ("stunnel", ["stunnel"]);
           ("httpsvr", ["http-svr"]);
           ("sexpr", ["sexpr"])
        ];
-     lib_c =
-       [
-          ("xenctrlext", "xenctrlext", []);
-          ("cpuid", "cpuid", []);
-          ("log", "log", [])
-       ];
+     lib_c = [("xenctrlext", "xenctrlext", []); ("cpuid", "cpuid", [])];
      flags = [];
      includes =
        [
           ("xenctrlext", ["xenstore"]);
-          ("stunnel", ["log"]);
-          ("http-svr", ["log"; "stunnel"; "xml-light2"]);
+          ("http-svr", ["stunnel"; "xml-light2"]);
           ("cpuid", ["xen-utils"; "xenctrlext"])
        ];
      }
@@ -512,6 +505,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 516 "myocamlbuild.ml"
+# 509 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

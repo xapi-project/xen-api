@@ -33,7 +33,7 @@ open Http
 open Stringext
 open Pervasiveext
 
-module D = Debug.Debugger(struct let name="http" end)
+module D = Debug.Make(struct let name="http" end)
 open D
 
 type uri_path = string 

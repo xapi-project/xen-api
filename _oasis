@@ -63,22 +63,16 @@ Library xmllight2
   Modules: Xml, Xmlpp
   BuildDepends: xmlm, stdext, threads
 
-Library log
-  Path: log
-  Modules: Debug, Syslog_transitional
-  CSources: syslog_transitional_stubs.c
-  BuildDepends: stdext, threads
-
 Library stunnel
   Path: stunnel
   Modules: Stunnel, Stunnel_cache
-  BuildDepends: forkexec, threads, stdext, log
+  BuildDepends: forkexec, threads, stdext, xcp
 
 Library httpsvr
   Path: http-svr
   Findlibname: http-svr
   Modules: Buf_io, Http_client, Http, Http_proxy, Http_svr, Mime, Radix_tree, Server_io, Ws_helpers, Xmlrpc_client, XMLRPC
-  BuildDepends: stdext, threads, rpclib, rpclib.syntax, xml-light2, log, stunnel
+  BuildDepends: stdext, threads, rpclib, rpclib.syntax, xml-light2, stunnel, xcp
 
 Library sexpr
   Path: sexpr

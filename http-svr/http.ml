@@ -25,7 +25,7 @@ exception Method_not_implemented
 exception Malformed_url of string
 
 
-module D = Debug.Debugger(struct let name = "http" end)
+module D = Debug.Make(struct let name = "http" end)
 open D
 
 let http_403_forbidden ?(version="1.1") () =

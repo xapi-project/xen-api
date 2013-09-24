@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2c4f0b9051c49d32276e01d3cf031a40)
+# DO NOT EDIT (digest: 88aa25b14f1152858f49926ca7be1a11)
 version = "0.9.2"
 description = "Temporary set of to-be-deprecated libraries"
-requires = "stdext threads rpclib rpclib.syntax xml-light2 log stunnel"
+requires = "stdext threads rpclib rpclib.syntax xml-light2 stunnel xcp"
 archive(byte) = "httpsvr.cma"
 archive(byte, plugin) = "httpsvr.cma"
 archive(native) = "httpsvr.cmxa"
