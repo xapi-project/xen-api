@@ -17,7 +17,7 @@ open Network_interface
 open Fun
 open Stringext
 
-module D = Debug.Debugger(struct let name = "network_config" end)
+module D = Debug.Make(struct let name = "network_config" end)
 open D
 
 exception Read_error

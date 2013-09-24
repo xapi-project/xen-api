@@ -16,7 +16,7 @@ open Pervasiveext
 open Fun
 open Network_utils
 
-module D = Debug.Debugger(struct let name = "networkd" end)
+module D = Debug.Make(struct let name = "networkd" end)
 open D
 
 module Server = Network_interface.Server(Network_server)
@@ -65,7 +65,7 @@ let _ =
 
 	Xcp_service.maybe_daemonize ();
 
-	Debug.set_facility Syslog_transitional.Local5;
+	Debug.set_facility Syslog.Local5;
 
 	(* We should make the following configurable *)
 	Debug.disable "http";
