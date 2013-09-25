@@ -180,9 +180,7 @@ let query_subject_information subject_identifier =
 			if (String.length passwd < 1) 
 			then true (* no password *)
 			else	
-				passwd.[0] = '*'  (* disabled account *)
-				or 
-				passwd.[0] = '!'  (* disabled password *)
+				passwd.[0] = '*'  (* disabled account *)|| passwd.[0] = '!'  (* disabled password *)
 		in
 		[	("subject-name", List.nth infolist 0);
 			(*("subject-pwd", List.nth infolist 1);*)
