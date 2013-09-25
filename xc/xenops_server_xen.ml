@@ -177,8 +177,9 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 			  try 
 			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
 			  with e ->
-			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
-			    0L
+                            warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+                            warn "Defaulting to 'now'";
+                            Oclock.gettime Oclock.monotonic
 			in
 			compare (create_time a) (create_time b)
 		) possible in
@@ -1925,7 +1926,6 @@ module VIF = struct
 				let id = _device_id Device_common.Vif, id_of vif in
 
 				let setup_vif_rules = [ "setup-vif-rules", !Xc_path.setup_vif_rules ] in
-				let network_backend = [ "network-backend", get_network_backend () ] in
 				let xenopsd_backend = [ "xenopsd-backend", "classic" ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 
@@ -1944,7 +1944,7 @@ module VIF = struct
 								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
 								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
-								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @ network_backend @ xenopsd_backend)
+								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @ xenopsd_backend)
 								frontend_domid in
 						let (_: Device_common.device) = create task frontend_domid in
 

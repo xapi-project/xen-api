@@ -139,16 +139,9 @@ class VIF:
             f.close()
     def get_mode(self):
         x = MODE_BRIDGE
-        if "network-backend" in self.json["extra_private_keys"]:
-            b = self.json["extra_private_keys"]["network-backend"]
-            if b == "openvswitch" or b == "vswitch":
-                x = MODE_OPENVSWITCH
-            elif b == "bridge":
-                x = MODE_BRIDGE
-            else:
-                send_to_syslog("VIF %s/%s: unknown network-backend %s, assuming bridge" % (self.vm_uuid, self.devid))
-        else:
-            send_to_syslog("VIF %s/%d: no network-backend provided, assuming bridge" % (self.vm_uuid, self.devid))
+        if(os.path.exists("/sys/module/openvswitch")):
+            x = MODE_OPENVSWITCH
+        send_to_syslog("common.py: Detected network backend as: '%s'" % x)
         return x
     def get_bridge(self):
         network = self.json["backend"]
