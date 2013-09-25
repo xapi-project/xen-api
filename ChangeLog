@@ -1,3 +1,11 @@
+0.9.3 (24-Sep-2013):
+* Allow the Bond.create to carry on even if the MTU size is invalid
+* network monitor: better represent duplex mode for NIC bonds
+* Use "ip link" to find the MAC address and MTU of a NIC
+* Batch IP monitor changes for 1 second
+* Signal xapi when an IP address is removed
+* networkd: introduce Linklocal6 IPv6 address mode
+
 0.9.1 (7-Jun-2013):
 * monitor IPv4 address changes as well as IPv6
 
