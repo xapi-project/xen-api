@@ -541,7 +541,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 				raise (Api_errors.Server_error
 					(Api_errors.invalid_ip_address_specified, [msg]))
 		in
-		if (pl_int < 0 or pl_int > 128) then
+		if (pl_int < 0 || pl_int > 128) then
 			raise (Api_errors.Server_error
 				(Api_errors.invalid_ip_address_specified, ["Prefix length must be between 0 and 128"]))
 	end;
