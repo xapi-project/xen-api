@@ -129,7 +129,28 @@ type res = {
 let default_resources = [
 ]
 
-let canonicalise x = Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
+let colon = Re_str.regexp_string ":"
+
+let canonicalise x =
+	if not(Filename.is_relative x)
+	then x
+	else begin
+		(* Search the PATH for the executable *)
+		let paths = Re_str.split colon (Sys.getenv "PATH") in
+		let first_hit = List.fold_left (fun found path -> match found with
+			| Some hit -> found
+			| None ->
+				let possibility = Filename.concat path x in
+				if Sys.file_exists possibility
+				then Some possibility
+				else None
+		) None paths in
+		match first_hit with
+		| None ->
+			warn "Failed to find %s on $PATH ( = %s)" x (Sys.getenv "PATH");
+			x
+		| Some hit -> hit
+	end
 
 let to_opt = List.map (fun f -> f.name, Arg.String (fun x -> f.path := canonicalise x), (fun () -> !(f.path)), f.description)
 
