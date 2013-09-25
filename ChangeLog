@@ -1,3 +1,6 @@
+0.9.3 (25-Sep-2013):
+* Log to syslog via xcp-idl
+
 0.9.2 (10-Sep-2013):
 * Update to xenstore 1.2.3
 
