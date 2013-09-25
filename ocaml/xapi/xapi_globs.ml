@@ -39,7 +39,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 
 (* api version *)
 let api_version_major = 2L
-let api_version_minor = 0L
+let api_version_minor = 1L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
