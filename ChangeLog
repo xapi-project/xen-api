@@ -1,4 +1,4 @@
-0.9.12 (25-Sep-2013):
+0.9.13 (25-Sep-2013):
 * network: introduce Linklocal6 IPv6 address mode
 * memory: consistently use XML rather than JSON for backward compat
 * memory: allow domain 0 memory to be managed (i.e. auto-ballooned)
