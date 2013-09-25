@@ -400,10 +400,11 @@ let update_vbds doms =
 		let rd_file = statdir ^ "rd_sect" in
 		let wr_file = statdir ^ "wr_sect" in
 		let rd_usecs_file = statdir ^ "rd_usecs" in
+		let wr_usecs_file = statdir ^ "wr_usecs" in
 		let rd_bytes = Int64.mul (read_int_file rd_file) blksize in
 		let wr_bytes = Int64.mul (read_int_file wr_file) blksize in
 		let rd_reqs, rd_avg_usecs, rd_max_usecs = read_usecs_file rd_usecs_file in
-		let wr_reqs, wr_avg_usecs, wr_max_usecs = read_usecs_file rd_usecs_file in
+		let wr_reqs, wr_avg_usecs, wr_max_usecs = read_usecs_file wr_usecs_file in
 		let domid, devid =
 			if istap then Scanf.sscanf vbd "tap-%d-%d" (fun id devid -> (id, devid))
 			else Scanf.sscanf vbd "vbd-%d-%d" (fun id devid -> (id, devid))
