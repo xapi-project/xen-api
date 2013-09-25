@@ -622,18 +622,15 @@ let on_enable config_params =
 	|Auth_signature.Auth_service_error (errtag,errmsg) as e ->
 		(*errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Error enabling external authentication for domain %s and user %s: %s" domain user errmsg;
-		if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
-			or has_substr errmsg "0x9C84" (* The user account is invalid *)
+		if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *) || has_substr errmsg "0x9C84" (* The user account is invalid *)
 		then begin
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password is wrong."))
 		end
-		else if has_substr errmsg "(0x5)" (* Windows ERROR_ACCESS_DENIED error *) 
-			or has_substr errmsg "(0x57)" (* CA-39450 INVALID_PARAMETER meaning permission-denied *)
+		else if has_substr errmsg "(0x5)" (* Windows ERROR_ACCESS_DENIED error *) || has_substr errmsg "(0x57)" (* CA-39450 INVALID_PARAMETER meaning permission-denied *)
 		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to join the domain or to modify the machine account in the Active Directory database."))
 		end
-		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)
-			or has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
+		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *) || has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
 		then begin (* this seems to be a wrong domain controller name error... *)
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_LOOKUP,"Failed to look up the domain controller for the given domain."))
 		end
@@ -684,13 +681,11 @@ let on_disable config_params =
 		(* errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Internal Likewise error when disabling external authentication: %s" errmsg;
 
-    if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
-      or has_substr errmsg "0x9C84" (* The user account is invalid *)
+    if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)|| has_substr errmsg "0x9C84" (* The user account is invalid *)
     then begin
 			Some (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password was wrong and did not disable the machine account in the Active Directory database."))
 		end
-		else if has_substr errmsg "0x400A" (* Unkown error *)
-			or has_substr errmsg "(0xD)" (* ERROR_INVALID_DATA *)
+		else if has_substr errmsg "0x400A" (* Unkown error *)|| has_substr errmsg "(0xD)" (* ERROR_INVALID_DATA *)
 		then begin (* this seems to be a non-admin valid user error... *)
 			Some (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to disable the machine account in the Active Directory database."))
 		end

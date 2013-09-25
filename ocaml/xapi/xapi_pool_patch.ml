@@ -760,7 +760,7 @@ let apply ~__context ~self ~host =
 let pool_apply ~__context ~self =
   let hosts =
     List.filter 
-      (fun x->not (patch_is_applied_to ~__context ~patch:self ~host:x or is_oem ~__context ~host:x)) 
+      (fun x->not (patch_is_applied_to ~__context ~patch:self ~host:x || is_oem ~__context ~host:x)) 
       (Db.Host.get_all ~__context) 
   in
   let (_: string list) = 

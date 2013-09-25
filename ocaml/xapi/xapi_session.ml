@@ -677,7 +677,7 @@ let logout_subject_identifier ~__context ~subject_identifier=
 		(
 		(* 3.1. the sid of the authenticated user *)
 		(Db.Session.get_auth_user_sid ~__context ~self:s) = subject_identifier
-			or
+		||
 		(* 3.2. any sids of the group that authenticated the user *)
 		(* TODO: better to look up the membership closure *)
 		(get_group_subject_identifier_from_session ~__context ~session:s)	= subject_identifier
