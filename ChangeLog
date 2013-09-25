@@ -1,3 +1,6 @@
+0.10.4 (24-Sep-2013):
+* Use new xcp-idl Syslog interface
+
 0.10.2 (10-Sep-2013):
 * Update to use the xenstore 1.2.3 interface
 
