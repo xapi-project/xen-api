@@ -1,3 +1,11 @@
+0.9.12 (25-Sep-2013):
+* network: introduce Linklocal6 IPv6 address mode
+* memory: consistently use XML rather than JSON for backward compat
+* memory: allow domain 0 memory to be managed (i.e. auto-ballooned)
+* all: fix an fd leak in the channel-passing functions
+* all: add the ability to log directly to Syslog
+* all: optionally search PATH for executables rather than hard-code paths
+
 0.9.11 (15-Aug-2013):
 * Resync with xen-api f45d493e7ed9b5a60fed1db64ce52708c76465a6
 
