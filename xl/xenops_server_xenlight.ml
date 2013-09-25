@@ -2096,11 +2096,8 @@ module VM = struct
 					match restore_fd with
 					| None ->
 						debug "Calling Xenlight.domain_create_new";
-						(try
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()))
-						with e ->
-							exit 1)
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_restore ctx domain_config fd ()))
