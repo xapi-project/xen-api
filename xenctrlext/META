@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: d64eeb77f6aeac646820d1d4607087f2)
-version = "0.9.2"
+# DO NOT EDIT (digest: 2c15508aab1106aafcf47f217a7d8d85)
+version = "0.9.3"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "xenctrl xenstore-compat"
 archive(byte) = "xenctrlext.cma"
