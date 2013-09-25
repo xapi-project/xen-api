@@ -177,8 +177,9 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 			  try 
 			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
 			  with e ->
-			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
-			    0L
+                            warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+                            warn "Defaulting to 'now'";
+                            Oclock.gettime Oclock.monotonic
 			in
 			compare (create_time a) (create_time b)
 		) possible in
