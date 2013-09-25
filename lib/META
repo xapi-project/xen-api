@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: d1c472797e78953b86859996be2f38e8)
-version = "0.9.0"
+# DO NOT EDIT (digest: 7055eddf44f9a4ea6e27146b8440d9e0)
+version = "0.9.1"
 description = "Fork and exec daemon"
 requires = "stdext threads uuidm rpclib rpclib.syntax fd-send-recv xcp"
 archive(byte) = "forkexec.cma"
