@@ -7888,6 +7888,26 @@ let gpu_group =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
+	let update_enabled_VGPU_types = call
+		~name:"update_enabled_VGPU_types"
+		~hide_from_docs:true
+		~lifecycle:[Published, rel_vgpu_productisation, ""]
+		~params:[
+			Ref _gpu_group, "self", "The GPU group to update";
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let update_supported_VGPU_types = call
+		~name:"update_supported_VGPU_types"
+		~hide_from_docs:true
+		~lifecycle:[Published, rel_vgpu_productisation, ""]
+		~params:[
+			Ref _gpu_group, "self", "The GPU group to update";
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	let get_remaining_capacity = call
 		~name:"get_remaining_capacity"
 		~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -7916,6 +7936,8 @@ let gpu_group =
 		~messages:[
 			create;
 			destroy;
+			update_enabled_VGPU_types;
+			update_supported_VGPU_types;
 			get_remaining_capacity;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
