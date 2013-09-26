@@ -35,5 +35,7 @@
 *.cmt
 *.cmti
 *.so
+*.native
 config.mk
 dist
+_build
