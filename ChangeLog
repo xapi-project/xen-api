@@ -1,3 +1,6 @@
+0.9.14 (26-Sep-2013):
+* services: search the PATH as well as the XCP_PATH for executables
+
 0.9.13 (25-Sep-2013):
 * network: introduce Linklocal6 IPv6 address mode
 * memory: consistently use XML rather than JSON for backward compat
