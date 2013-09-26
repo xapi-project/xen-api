@@ -1969,7 +1969,7 @@ module VM = struct
 								serial = hvm_info.Xenops_interface.Vm.serial;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
-								usbdevice = Some "tablet";
+								usbdevice_list = [ "tablet" ];
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->
