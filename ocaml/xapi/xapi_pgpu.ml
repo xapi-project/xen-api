@@ -144,13 +144,22 @@ let set_GPU_group ~__context ~self ~value =
 		and group_types = Db.GPU_group.get_GPU_types ~__context ~self:value in
 		match check_compatibility gpu_type group_types with
 		| true, new_types ->
+			let old_group = Db.PGPU.get_GPU_group ~__context ~self in
 			Db.PGPU.set_GPU_group ~__context ~self ~value;
 			(* Group inherits the device type *)
 			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types;
 			debug "PGPU %s moved to GPU group %s. Group GPU types = [ %s ]."
 				(Db.PGPU.get_uuid ~__context ~self)
 				(Db.GPU_group.get_uuid ~__context ~self:value)
-				(String.concat "; " new_types)
+				(String.concat "; " new_types);
+			(* Update the old and new groups' cached lists of VGPU_types. *)
+			if Db.is_valid_ref __context old_group
+			then begin
+				Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:old_group;
+				Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:old_group;
+			end;
+			Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:value;
+			Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:value
 		| false, _ ->
 			raise (Api_errors.Server_error
 				(Api_errors.pgpu_not_compatible_with_gpu_group,
