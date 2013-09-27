@@ -1955,7 +1955,17 @@ module VM = struct
 								b_info_hvm_default
 							| _ -> failwith "Expected HVM build_info here!"
 						in
-						let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
+						let vnc_info =
+							let listen =
+								if !Xenopsd.use_upstream_qemu then
+									let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
+									Some console_path
+								else None
+							in
+							let open Xenlight.Vnc_info in
+							let vnc_info_default = with_ctx (fun ctx -> default ctx ()) in
+							{ vnc_info_default with enable = Some true; listen = listen }
+						in
 						{ b_info_default with
 							ty = Hvm { b_info_hvm_default with
 								pae = Some true;
@@ -1964,12 +1974,12 @@ module VM = struct
 								nx = Some true;
 								timeoffset = Some hvm_info.Xenops_interface.Vm.timeoffset;
 								nested_hvm = Some true;
-								vnc = Xenlight.Vnc_info.({enable = Some true; listen = Some console_path; passwd = None; display = 0; findunused = None});
+								vnc = vnc_info;
 								keymap = hvm_info.Xenops_interface.Vm.keymap;
 								serial = hvm_info.Xenops_interface.Vm.serial;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
-								usbdevice = Some "tablet";
+								usbdevice_list = [ "tablet" ];
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->
@@ -2096,11 +2106,8 @@ module VM = struct
 					match restore_fd with
 					| None ->
 						debug "Calling Xenlight.domain_create_new";
-						(try
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()))
-						with e ->
-							exit 1)
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_restore ctx domain_config fd ()))
