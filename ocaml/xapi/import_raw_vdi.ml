@@ -36,12 +36,19 @@ let receive protocol (s: Unix.file_descr) (path: string) =
                "--destination"; "file://" ^ path;
                "--destination-format"; "raw" ] in
   info "Executing %s %s" vhd_tool (String.concat " " args);
-  let pid = Forkhelpers.safe_close_and_exec None None None [ s', s ] vhd_tool args in
-  let (_, status) = Forkhelpers.waitpid pid in
-  if status <> Unix.WEXITED 0 then begin
-   error "vhd-tool failed, returning VDI_IO_ERROR";
-   raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"])) 
-  end
+  let open Forkhelpers in
+  match with_logfile_fd "vhd-tool"
+    (fun log_fd ->
+      let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [ s', s ] vhd_tool args in
+      let (_, status) = waitpid pid in
+      if status <> Unix.WEXITED 0 then begin
+        error "vhd-tool failed, returning VDI_IO_ERROR";
+        raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"])) 
+      end
+    ) with
+  | Success(out, _) -> debug "%s" out
+  | Failure(out, e) -> error "vhd-tool output: %s" out; raise e
+
 
 let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
   req.Request.close <- true;
