@@ -878,7 +878,10 @@ module VBD = struct
 		let backend, format, script =
 			if vbd.backend = None then
 				(* empty CDROM *)
-				Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+				if !Xenopsd.use_qdisk then
+					Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+				else
+					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
 			else
 				if !Xenopsd.use_qdisk then
 					(* FIXME: "regular" block devices *)

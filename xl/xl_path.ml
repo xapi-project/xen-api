@@ -13,7 +13,7 @@
  *)
 
 let vif_script = ref "/usr/lib/xcp/scripts/vif-xl"
-let vbd_script = ref "/etc/xen/scripts/block"
+let vbd_script = ref "/usr/lib/xcp/scripts/block-xl"
 
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 
@@ -31,7 +31,7 @@ let vnc_dir = ref ""
 open Unix
 
 let essentials = [
-	X_OK, "vbd-script", vbd_script, "path to the vbd backend script";
+	X_OK, "vbd-xl-script", vbd_script, "path to the vbd-xl backend script";
 	X_OK, "vif-xl-script", vif_script, "path to the vif-xl backend script";
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";
 	X_OK, "xenguest", xenguest, "path to the xenguest binary";
