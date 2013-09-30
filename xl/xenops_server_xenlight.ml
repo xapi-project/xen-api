@@ -1931,7 +1931,6 @@ module VM = struct
 				let avail_vcpus = Array.init max_vcpus (fun i -> i < vm.vcpus) in
 				let max_memkb = vm.memory_static_max /// 1024L in
 				let target_memkb =
-					let open Memory in
 					let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
 					let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 					let target_bytes = min vm.memory_dynamic_max target_bytes in
