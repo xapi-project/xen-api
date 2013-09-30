@@ -93,7 +93,23 @@ let update_gpus ~__context ~host =
 	in
 	let current_pgpus = find_or_create [] pcis in
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
-	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
+	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus;
+	(* Update the supported/enabled VGPU types on any affected GPU groups. *)
+	let groups_to_update = List.setify
+		(List.map
+			(fun (_, pgpu_rec) -> pgpu_rec.API.pGPU_GPU_group)
+			(current_pgpus @ obsolete_pgpus))
+	in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			List.iter
+				(fun gpu_group ->
+					let open Client in
+					Client.GPU_group.update_enabled_VGPU_types
+						~rpc ~session_id ~self:gpu_group;
+					Client.GPU_group.update_supported_VGPU_types
+						~rpc ~session_id ~self:gpu_group)
+				groups_to_update)
 
 let update_group_enabled_VGPU_types ~__context ~self =
 	let group = Db.PGPU.get_GPU_group ~__context ~self in
