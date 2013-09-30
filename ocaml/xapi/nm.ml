@@ -99,26 +99,27 @@ let create_bond ~__context bond mtu persistent =
 	let master = Db.Bond.get_master ~__context ~self:bond in
 	let master_rc = Db.PIF.get_record ~__context ~self:master in
 	let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-	let slave_devices_and_bridges = List.map (fun pif ->
+	let slave_devices_bridges_and_config = List.map (fun pif ->
 		let device = Db.PIF.get_device ~__context ~self:pif in
 		let bridge =
 			let network = Db.PIF.get_network ~__context ~self:pif in
 			Db.Network.get_bridge ~__context ~self:network
 		in
-		device, bridge
+		let other_config = Db.PIF.get_other_config ~__context ~self:pif in
+		let (ethtool_settings, ethtool_offload) = determine_ethtool_settings other_config in
+		let config = {default_interface with mtu; ethtool_settings; ethtool_offload;
+			persistent_i=persistent} in
+		device, bridge, config
 	) slaves in
 	let master_net_rc = Db.Network.get_record ~__context ~self:master_rc.API.pIF_network in
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
 
-	(* clean up bond slaves *)
-	let cleanup = List.map (fun (_, bridge) -> bridge, true) slave_devices_and_bridges in
+	(* clean up and configure bond slaves *)
+	let cleanup = List.map (fun (_, bridge, _) -> bridge, true) slave_devices_bridges_and_config in
 	let interface_config =
-		List.map (fun (device, bridge) ->
-			device, {default_interface with mtu; persistent_i=persistent}
-		) slave_devices_and_bridges
-	in
+		List.map (fun (device, _, config) -> device, config) slave_devices_bridges_and_config in
 
 	let port = master_rc.API.pIF_device in
 	let mac = master_rc.API.pIF_MAC in
@@ -167,7 +168,7 @@ let create_bond ~__context bond mtu persistent =
 			[]
 	in
 
-	let ports = [port, {interfaces=(List.map (fun (device, _) -> device) slave_devices_and_bridges);
+	let ports = [port, {interfaces=(List.map (fun (device, _, _) -> device) slave_devices_bridges_and_config);
 		bond_properties=props; bond_mac=Some mac}] in
 	cleanup,
 	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
