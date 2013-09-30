@@ -1084,8 +1084,8 @@ module VBD = struct
 					| Some vdev, Some domid ->
 						let open Xenlight.Device_disk in
 						let disk' = {of_vdev ctx domid vdev with
-							pdev_path = None;
 							format = Xenlight.DISK_FORMAT_EMPTY;
+							script = Some !Xl_path.vbd_script;
 						} in
 
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.eject %s" (id_of vbd)) (fun () ->
