@@ -17,11 +17,26 @@ open D
 open Listext
 open Threadext
 
+let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
+	List.map
+		(fun vgpu_type ->
+			let max_capacity =
+				if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
+				then Db.PCI.get_functions ~__context ~self:pCI
+				else Int64.div size (Db.VGPU_type.get_size ~__context ~self:vgpu_type)
+			in
+			vgpu_type, max_capacity)
+		supported_VGPU_types
+
 let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types ~size =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let supported_VGPU_max_capacities =
+		calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types
+	in
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
-		~gPU_group ~host ~other_config ~size;
+		~gPU_group ~host ~other_config ~size
+		~supported_VGPU_max_capacities;
 	Db.PGPU.set_supported_VGPU_types ~__context
 		~self:pgpu ~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context
@@ -61,6 +76,16 @@ let update_gpus ~__context ~host =
 							Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf in
 						(* Pick up any new supported vGPU configs on the host *)
 						Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+						(* Calculate the maximum capacities of the supported types. *)
+						let max_capacities =
+							calculate_max_capacities
+								~__context
+								~pCI:pci
+								~size:(Db.PGPU.get_size ~__context ~self:rf)
+								~supported_VGPU_types
+						in
+						Db.PGPU.set_supported_VGPU_max_capacities ~__context
+							~self:rf ~value:max_capacities;
 						(* Enable any new supported types. *)
 						let new_types_to_enable =
 							List.filter
