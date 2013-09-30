@@ -1931,7 +1931,6 @@ module VM = struct
 				let avail_vcpus = Array.init max_vcpus (fun i -> i < vm.vcpus) in
 				let max_memkb = vm.memory_static_max /// 1024L in
 				let target_memkb =
-					let open Memory in
 					let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
 					let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 					let target_bytes = min vm.memory_dynamic_max target_bytes in
@@ -1941,7 +1940,9 @@ module VM = struct
 					match vm.ty with
 						| HVM hvm_info ->
 							Int64.mul (Int64.of_int hvm_info.video_mib) 1024L,
-							Memory.HVM.shadow_mib (max_memkb /// 1025L) max_vcpus hvm_info.shadow_multiplier
+							Int64.mul
+								(Memory.HVM.shadow_mib (max_memkb /// 1024L) max_vcpus hvm_info.shadow_multiplier)
+								1024L
 						| PV _ -> 0L, 0L
 				in
 				let b_info =
