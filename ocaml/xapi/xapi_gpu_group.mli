@@ -30,11 +30,11 @@ val destroy : __context:Context.t -> self:[ `GPU_group ] Ref.t -> unit
 val find_or_create :
   __context:Context.t -> [ `PGPU ] Ref.t -> [ `GPU_group ] Ref.t
 
-val get_enabled_VGPU_types :
-	__context:Context.t -> self:[ `GPU_group ] Ref.t -> [ `VGPU_type ] Ref.t list
+val update_enabled_VGPU_types :
+	__context:Context.t -> self:[ `GPU_group ] Ref.t -> unit
 
-val get_supported_VGPU_types :
-	__context:Context.t -> self:[ `GPU_group ] Ref.t -> [ `VGPU_type ] Ref.t list
+val update_supported_VGPU_types :
+	__context:Context.t -> self:[ `GPU_group ] Ref.t -> unit
 
 val get_remaining_capacity_internal :
 	__context:Context.t ->

@@ -17,11 +17,26 @@ open D
 open Listext
 open Threadext
 
+let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
+	List.map
+		(fun vgpu_type ->
+			let max_capacity =
+				if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
+				then Db.PCI.get_functions ~__context ~self:pCI
+				else Int64.div size (Db.VGPU_type.get_size ~__context ~self:vgpu_type)
+			in
+			vgpu_type, max_capacity)
+		supported_VGPU_types
+
 let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types ~size =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let supported_VGPU_max_capacities =
+		calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types
+	in
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
-		~gPU_group ~host ~other_config ~size;
+		~gPU_group ~host ~other_config ~size
+		~supported_VGPU_max_capacities;
 	Db.PGPU.set_supported_VGPU_types ~__context
 		~self:pgpu ~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context
@@ -61,6 +76,16 @@ let update_gpus ~__context ~host =
 							Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf in
 						(* Pick up any new supported vGPU configs on the host *)
 						Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+						(* Calculate the maximum capacities of the supported types. *)
+						let max_capacities =
+							calculate_max_capacities
+								~__context
+								~pCI:pci
+								~size:(Db.PGPU.get_size ~__context ~self:rf)
+								~supported_VGPU_types
+						in
+						Db.PGPU.set_supported_VGPU_max_capacities ~__context
+							~self:rf ~value:max_capacities;
 						(* Enable any new supported types. *)
 						let new_types_to_enable =
 							List.filter
@@ -93,24 +118,48 @@ let update_gpus ~__context ~host =
 	in
 	let current_pgpus = find_or_create [] pcis in
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
-	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus
+	List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus;
+	(* Update the supported/enabled VGPU types on any affected GPU groups. *)
+	let groups_to_update = List.setify
+		(List.map
+			(fun (_, pgpu_rec) -> pgpu_rec.API.pGPU_GPU_group)
+			(current_pgpus @ obsolete_pgpus))
+	in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			List.iter
+				(fun gpu_group ->
+					let open Client in
+					Client.GPU_group.update_enabled_VGPU_types
+						~rpc ~session_id ~self:gpu_group;
+					Client.GPU_group.update_supported_VGPU_types
+						~rpc ~session_id ~self:gpu_group)
+				groups_to_update)
+
+let update_group_enabled_VGPU_types ~__context ~self =
+	let group = Db.PGPU.get_GPU_group ~__context ~self in
+	if Db.is_valid_ref __context group
+	then Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:group
 
 let add_enabled_VGPU_types ~__context ~self ~value =
 	Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context
 		~self ~vgpu_type:value;
-	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
 	Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context
 		~self ~vgpu_type:value;
-	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let set_enabled_VGPU_types ~__context ~self ~value =
 	List.iter
 		(fun vgpu_type ->
 			Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~vgpu_type)
 		value;
-	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value
+	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value;
+	update_group_enabled_VGPU_types ~__context ~self
 
 let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
@@ -136,13 +185,22 @@ let set_GPU_group ~__context ~self ~value =
 		and group_types = Db.GPU_group.get_GPU_types ~__context ~self:value in
 		match check_compatibility gpu_type group_types with
 		| true, new_types ->
+			let old_group = Db.PGPU.get_GPU_group ~__context ~self in
 			Db.PGPU.set_GPU_group ~__context ~self ~value;
 			(* Group inherits the device type *)
 			Db.GPU_group.set_GPU_types ~__context ~self:value ~value:new_types;
 			debug "PGPU %s moved to GPU group %s. Group GPU types = [ %s ]."
 				(Db.PGPU.get_uuid ~__context ~self)
 				(Db.GPU_group.get_uuid ~__context ~self:value)
-				(String.concat "; " new_types)
+				(String.concat "; " new_types);
+			(* Update the old and new groups' cached lists of VGPU_types. *)
+			if Db.is_valid_ref __context old_group
+			then begin
+				Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:old_group;
+				Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:old_group;
+			end;
+			Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:value;
+			Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:value
 		| false, _ ->
 			raise (Api_errors.Server_error
 				(Api_errors.pgpu_not_compatible_with_gpu_group,
