@@ -59,7 +59,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 		end in
 
-	(* I Cannot joint a Pool if it has HA enabled on it *)
+	(* I Cannot join a Pool if it has HA enabled on it *)
 	let ha_is_not_enable_on_the_distant_pool () =
 		let pool = List.hd (Client.Pool.get_all rpc session_id) in
 		if Client.Pool.get_ha_enabled rpc session_id pool then begin
