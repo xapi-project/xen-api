@@ -6,6 +6,7 @@ let suite =
       (*Channel_test.tests; TODO: Turn these on when the code works. *)
       Config_file_test.tests;
       Xen_test.tests;
+      Http_test.tests;
     ]
 
 let () =
