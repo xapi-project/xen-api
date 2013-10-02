@@ -92,7 +92,7 @@ module Unbuffered_IO = struct
       try
         let eol = find_crlf buf i in
         let line = String.sub buf i (eol - i) in
-        ic.header_buffer_idx <- i + 4;
+        ic.header_buffer_idx <- eol + 2;
         Some line
       with Not_found -> Some ""
     end
