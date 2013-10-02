@@ -378,9 +378,11 @@ let _ =
   error Api_errors.license_cannot_downgrade_in_pool []
     ~doc:"Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on hosts separately." ();
   error Api_errors.license_does_not_support_pooling []
-    ~doc:"This host cannot join a pool because it's license does not support pooling" ();
+    ~doc:"This host cannot join a pool because its license does not support pooling." ();
+  error Api_errors.license_host_pool_mismatch []
+    ~doc:"Host and pool have incompatible licenses (editions)." ();
   error Api_errors.license_does_not_support_xha []
-    ~doc:"XHA cannot be enabled because this host's license does not allow it" ();
+    ~doc:"XHA cannot be enabled because this host's license does not allow it." ();
 
   error Api_errors.v6d_failure []
     ~doc:"There was a problem with the license daemon (v6d). Is it running?" ();

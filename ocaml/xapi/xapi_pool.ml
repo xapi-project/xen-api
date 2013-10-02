@@ -70,25 +70,43 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	(* CA-26975: Pool edition MUST match *)
 	let assert_restrictions_match () =
-		let editions = V6client.get_editions "assert_restrictions_match" in
-		let edition_to_int e =
-			match List.find (fun (name, _, _, _) -> name = e) editions with _, _, _, a -> a
-		in
-		let min_edition l =
-			List.fold_left (fun m e -> if edition_to_int e < edition_to_int m then e else m) (List.hd l) l
-		in
-		(* get pool edition: the "minimum" edition among all hosts *)
+		let my_edition = Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context) in
 		let host_records = List.map snd (Client.Host.get_all_records ~rpc ~session_id) in
 		let pool_editions = List.map (fun host_r -> host_r.API.host_edition) host_records in
-		let pool_edition = min_edition pool_editions in
-		(* compare my edition to pool edition *)
-		let my_edition = Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context) in
-		if (edition_to_int pool_edition) <> (edition_to_int my_edition) then begin
-			error "Pool.join failed because of editions mismatch";
-			error "Remote has %s" pool_edition;
-			error "Local has  %s" my_edition;
-			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-		end
+		(* If all hosts have the same edition string, we need do no more. *)
+		if List.fold_left (fun b edn -> edn = my_edition && b) true pool_editions then ()
+		else try
+			(* We have different edition strings so must consult v6d for their significance.
+			 * This will fail with v6d_failure if v6d is not running. *)
+			let editions = V6client.get_editions "assert_restrictions_match" in
+			let edition_to_int e =
+				try
+					match List.find (fun (name, _, _, _) -> name = e) editions with _, _, _, a -> a
+				with Not_found ->
+					(* Happens if pool has edition "free/libre" (no v6d) *)
+					error "Pool.join failed: pool has a host with edition unknown to v6d: %s" e;
+					raise (Api_errors.Server_error(Api_errors.license_host_pool_mismatch,
+					["Edition \"" ^ e ^ "\" from pool is not known to v6d."]))
+			in
+			let min_edition l =
+				List.fold_left (fun m e -> if edition_to_int e < edition_to_int m then e else m) (List.hd l) l
+			in
+			(* get pool edition: the "minimum" edition among all hosts *)
+			let pool_edition = min_edition pool_editions in
+			(* compare my edition to pool edition *)
+			if (edition_to_int pool_edition) <> (edition_to_int my_edition) then begin
+				error "Pool.join failed due to edition mismatch";
+				error "Remote has %s" pool_edition;
+				error "Local has  %s" my_edition;
+				raise (Api_errors.Server_error(Api_errors.license_host_pool_mismatch,
+				["host edition = \""^my_edition^"\""; "pool edition = \""^pool_edition^"\""]))
+			end
+		with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
+			error "Pool.join failed because edition strings differ and local has no license daemon running.";
+			let pool_edn_list_str = "[" ^ (String.concat "; " pool_editions) ^ "]" in
+			error "Remote editions: %s" pool_edn_list_str;
+			error "Local edition: %s" my_edition;
+			raise (Api_errors.Server_error (code, ["The pool uses v6d. Pool edition list = " ^ pool_edn_list_str]))
 	in
 
 	(* CA-73264 Applied patches must match *) 
