@@ -1,0 +1,6 @@
+0.6.0 (2013-08-02)
+* sparse_dd: use O_DIRECT by default
+* sparse_dd: allow encryption to be enabled and disabled via config file
+* sparse_dd: experimental options to bypass tapdisk for reads and writes
+* vhd-tool CLI prototype
+
