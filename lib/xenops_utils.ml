@@ -456,11 +456,13 @@ module TypedTable = functor(I: ITEM) -> struct
 	let write (k: I.key) (x: t) =
 		let module FS = (val get_fs_backend () : FS) in
 		let path = k |> I.key |> of_key in
+		debug "TypedTable: Writing %s" (String.concat "/" path);
 		FS.write path (rpc_of_t x)
 	let exists (k: I.key) =
 		let module FS = (val get_fs_backend () : FS) in
 		FS.exists (k |> I.key |> of_key)
 	let delete (k: I.key) =
+		debug "TypedTable: Deleting %s" (k |> I.key |> of_key |> String.concat "/");
 		let module FS = (val get_fs_backend () : FS) in
 		FS.rm (k |> I.key |> of_key)
 
@@ -469,15 +471,17 @@ module TypedTable = functor(I: ITEM) -> struct
 		FS.readdir (k |> of_key)
 
 	let add (k: I.key) (x: t) =
+                let path = k |> I.key |> of_key |> String.concat "/" in
+                debug "TypedTable: Adding %s" path;
 		if exists k then begin
-			let path = k |> I.key |> of_key |> String.concat "/" in
 			debug "Key %s already exists" path;
 			raise (Already_exists(I.namespace, path))
 		end else write k x
 
 	let remove (k: I.key) =
-		if not(exists k) then begin
-			let path = k |> I.key |> of_key |> String.concat "/" in
+                let path = k |> I.key |> of_key |> String.concat "/" in
+                debug "TypedTable: Removing %s" path;
+		if not(exists k) then begin	
 			debug "Key %s does not exist" path;
 			raise (Does_not_exist(I.namespace, path))
 		end else delete k
