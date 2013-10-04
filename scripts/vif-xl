@@ -251,9 +251,8 @@ case ${TYPE} in
         ;;
     tap)
         dev=$INTERFACE
-        # typical value: vif13.0-emu
-        DOMID=`echo ${dev#vif} | cut -d '-' -f 1 | cut -f 1 -d '.'`
-        DEVID=`echo ${dev#vif} | cut -d '-' -f 1 | cut -f 2 -d '.'`
+        DOMID=`echo ${dev#tap} | cut -f 1 -d '.'`
+        DEVID=`echo ${dev#tap} | cut -f 2 -d '.'`
         ;;
     *)  
         logger -t scripts-vif "unknown interface type ${TYPE}"

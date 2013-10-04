@@ -510,7 +510,7 @@ let device_by_id xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind kind) device.frontend.devid in
+				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
@@ -2074,6 +2074,7 @@ module VM = struct
 					uuid = vm.Vm.id;
 					xsdata = vm.Vm.xsdata;
 					platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
+					run_hotplug_scripts = Some !Xenopsd.run_hotplug_scripts;
 				}) in
 				let b_info = Xenlight.Domain_build_info.({ b_info with
 					max_vcpus;
@@ -2118,6 +2119,35 @@ module VM = struct
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd)) *)
 				in
 				debug "Xenlight has created domain %d" domid;
+
+				(* Wait for device hotplugs to finish, and write remaining xenstore keys *)
+
+				List.iter (fun vif ->
+					(* wait for plug (to be removed if possible) *)
+					let open Device_common in
+					let open Vif in
+					let devid = vif.position in
+					let backend_domid = with_xs (fun xs -> VIF.backend_domid_of xs vif) in
+					let frontend = { domid; kind = Vif; devid = devid } in
+					let backend = { domid = backend_domid; kind = Vif; devid = devid } in
+					let device = { backend = backend; frontend = frontend } in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+
+					(* add disconnect flag *)
+					let disconnect_path, flag = VIF.disconnect_flag device vif.locking_mode in
+					with_xs (fun xs -> xs.Xs.write disconnect_path flag);
+				) vifs;
+
+				List.iter (fun (_, devid, _, backend_domid) ->
+					(* wait for plug *)
+					let device =
+						let open Device_common in
+						let frontend = { domid; kind = Vbd; devid = devid } in
+						let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+						{ backend = backend; frontend = frontend }
+					in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+				) vbds_extra;
 
 				(* Write remaining xenstore keys *)
 				let dom_path = xs.Xs.getdomainpath domid in
