@@ -510,7 +510,7 @@ let device_by_id xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind kind) device.frontend.devid in
+				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
