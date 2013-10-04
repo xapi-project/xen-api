@@ -2117,6 +2117,35 @@ module VM = struct
 				in
 				debug "Xenlight has created domain %d" domid;
 
+				(* Wait for device hotplugs to finish, and write remaining xenstore keys *)
+
+				List.iter (fun vif ->
+					(* wait for plug (to be removed if possible) *)
+					let open Device_common in
+					let open Vif in
+					let devid = vif.position in
+					let backend_domid = with_xs (fun xs -> VIF.backend_domid_of xs vif) in
+					let frontend = { domid; kind = Vif; devid = devid } in
+					let backend = { domid = backend_domid; kind = Vif; devid = devid } in
+					let device = { backend = backend; frontend = frontend } in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+
+					(* add disconnect flag *)
+					let disconnect_path, flag = VIF.disconnect_flag device vif.locking_mode in
+					with_xs (fun xs -> xs.Xs.write disconnect_path flag);
+				) vifs;
+
+				List.iter (fun (_, devid, _, backend_domid) ->
+					(* wait for plug *)
+					let device =
+						let open Device_common in
+						let frontend = { domid; kind = Vbd; devid = devid } in
+						let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+						{ backend = backend; frontend = frontend }
+					in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+				) vbds_extra;
+
 				(* Write remaining xenstore keys *)
 				let dom_path = xs.Xs.getdomainpath domid in
 				let vm_path = "/vm/" ^ vm.Vm.id in
