@@ -2071,6 +2071,7 @@ module VM = struct
 					uuid = vm.Vm.id;
 					xsdata = vm.Vm.xsdata;
 					platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
+					run_hotplug_scripts = Some !Xenopsd.run_hotplug_scripts;
 				}) in
 				let b_info = Xenlight.Domain_build_info.({ b_info with
 					max_vcpus;
