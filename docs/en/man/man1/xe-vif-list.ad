@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-vif-list - Display all virtual interfaces and their parameters
+xe-vif-list - Display all virtual interfaces (VIF) and their parameters
 
 SYNOPSIS
 -------- 
