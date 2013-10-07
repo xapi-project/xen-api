@@ -222,12 +222,29 @@ let stream_raw common c s prezeroed ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-type protocol = Nbd | Chunked | Human | NoProtocol
+let stream_tar common c s _ ?(progress = no_progress_bar) () =
+  let wrap stream =
+    let rec loop acc s =
+      let open Int64 in
+      let open Element in
+      s >>= fun next -> match next with
+      | End -> return End
+      | Cons(Sectors s, next) -> return (Cons(Sectors s, fun () -> loop acc (next ())))
+      | Cons(Empty n, next) -> return (Cons(Empty n, fun () -> loop acc (next ())))
+      | Cons(Copy(h, ofs, len), next) -> return (Cons(Copy(h, ofs, len), fun () -> loop acc (next ())))
+    in
+    loop () (return stream.elements) >>= fun elements ->
+    return { stream with elements } in
+
+  wrap s >>= fun s ->
+  stream_raw common c s true ~progress ()
+
+type protocol = Nbd | Chunked | Human | Tar | NoProtocol
 let protocol_of_string = function
-  | "nbd" -> Nbd | "chunked" -> Chunked | "human" -> Human | "none" -> NoProtocol
+  | "nbd" -> Nbd | "chunked" -> Chunked | "human" -> Human | "tar" -> Tar | "none" -> NoProtocol
   | x -> failwith (Printf.sprintf "Unsupported protocol: %s" x)
 let string_of_protocol = function
-  | Nbd -> "nbd" | Chunked -> "chunked" | Human -> "human" | NoProtocol -> "none"
+  | Nbd -> "nbd" | Chunked -> "chunked" | Human -> "human" | Tar -> "tar" | NoProtocol -> "none"
 
 type endpoint =
   | Stdout
@@ -387,6 +404,7 @@ let write_stream common s destination source_protocol destination_protocol preze
           | Nbd -> stream_nbd
           | Human -> stream_human
           | Chunked -> stream_chunked
+          | Tar -> stream_tar
           | NoProtocol -> stream_raw) common c s prezeroed ~progress () >>= fun p ->
       c.Channels.close () >>= fun () ->
       match p with

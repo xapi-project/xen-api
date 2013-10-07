@@ -154,6 +154,7 @@ let stream_cmd =
     `P "  nbd:     the Network Block Device protocol";
     `P "  chunked: the XenServer chunked disk upload protocol";
     `P "  none:    unencoded write";
+    `P "  tar:     the XenServer import/export encoding using tar";
     `P "  human:   human-readable description of the contents";
     `P "The default behaviour is to auto-detect based on the destination.";
     `S "SOURCES and DESTINATIONS";
