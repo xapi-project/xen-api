@@ -199,7 +199,9 @@ let stream_cmd =
   let progress =
     let doc = "Display a progress bar." in
     Arg.(value & flag & info ["progress"] ~doc) in
-  Term.(ret(pure Impl.stream $ common_options_t $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress)),
+  let stream_args_t =
+    Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress) in
+  Term.(ret(pure Impl.stream $ common_options_t $ stream_args_t)),
   Term.info "stream" ~sdocs:_common_options ~doc ~man
 
 

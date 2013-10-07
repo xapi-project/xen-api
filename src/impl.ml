@@ -239,12 +239,7 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
   wrap s >>= fun s ->
   stream_raw common c s true ~progress ()
 
-type protocol = Nbd | Chunked | Human | Tar | NoProtocol
-let protocol_of_string = function
-  | "nbd" -> Nbd | "chunked" -> Chunked | "human" -> Human | "tar" -> Tar | "none" -> NoProtocol
-  | x -> failwith (Printf.sprintf "Unsupported protocol: %s" x)
-let string_of_protocol = function
-  | Nbd -> "nbd" | Chunked -> "chunked" | Human -> "human" | Tar -> "tar" | NoProtocol -> "none"
+open StreamCommon
 
 type endpoint =
   | Stdout
@@ -433,28 +428,17 @@ let write_stream common s destination source_protocol destination_protocol preze
       | None -> return ()
 
 
-let stream_t common source relative_to source_format destination_format destination source_protocol destination_protocol prezeroed ?(progress = no_progress_bar) () =
-  make_stream common source relative_to source_format destination_format >>= fun s ->
-  write_stream common s destination source_protocol destination_protocol prezeroed progress
+let stream_t common args ?(progress = no_progress_bar) () =
+  make_stream common args.StreamCommon.source args.StreamCommon.relative_to args.StreamCommon.source_format args.StreamCommon.destination_format >>= fun s ->
+  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress
 
-let stream common (source: string) (relative_to: string option) (source_format: string) (destination_format: string) (destination: string) (source_protocol: string option) (destination_protocol: string option) prezeroed progress =
+let stream common args =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
-    let source_protocol = require "source-protocol" source_protocol in
+    let progress_bar = if args.StreamCommon.progress then console_progress_bar else no_progress_bar in
 
-    let supported_formats = [ "raw"; "vhd"; "hybrid" ] in
-    let destination_protocol = match destination_protocol with
-      | None -> None
-      | Some x -> Some (protocol_of_string x) in
-    if not (List.mem source_format supported_formats)
-    then failwith (Printf.sprintf "%s is not a supported format" source_format);
-    if not (List.mem destination_format supported_formats)
-    then failwith (Printf.sprintf "%s is not a supported format" destination_format);
-
-    let progress_bar = if progress then console_progress_bar else no_progress_bar in
-
-    let thread = stream_t common source relative_to source_format destination_format destination source_protocol destination_protocol prezeroed ~progress:progress_bar () in
+    let thread = stream_t common args ~progress:progress_bar () in
     Lwt_main.run thread;
     `Ok ()
   with Failure x ->
