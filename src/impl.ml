@@ -426,22 +426,22 @@ let write_stream common s destination source_protocol destination_protocol preze
     | File path ->
       Lwt_unix.openfile path [ Unix.O_RDWR ] 0o0 >>= fun fd ->
       Channels.of_seekable_fd fd >>= fun c ->
-      return (c, [ NoProtocol; Human ])
+      return (c, [ NoProtocol; Human; Tar ])
     | Null ->
       Lwt_unix.openfile "/dev/null" [ Unix.O_RDWR ] 0o0 >>= fun fd ->
       Channels.of_raw_fd fd >>= fun c ->
-      return (c, [ NoProtocol; Human ])
+      return (c, [ NoProtocol; Human; Tar ])
     | Stdout ->
       Channels.of_raw_fd Lwt_unix.stdout >>= fun c ->
-      return (c, [ NoProtocol; Human ])
+      return (c, [ NoProtocol; Human; Tar ])
     | File_descr fd ->
       Channels.of_raw_fd fd >>= fun c ->
-      return (c, [ Nbd; NoProtocol; Chunked; Human ])
+      return (c, [ Nbd; NoProtocol; Chunked; Human; Tar ])
     | Sockaddr sockaddr ->
       let sock = socket sockaddr in
       Lwt_unix.connect sock sockaddr >>= fun () ->
       Channels.of_raw_fd sock >>= fun c ->
-      return (c, [ Nbd; NoProtocol; Chunked; Human ])
+      return (c, [ Nbd; NoProtocol; Chunked; Human; Tar ])
     | Https uri'
     | Http uri' ->
       (* TODO: https is not currently implemented *)
