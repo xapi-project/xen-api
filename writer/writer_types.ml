@@ -71,7 +71,7 @@ module PageWriter (P: Rrd_protocol.PROTOCOL) = MakeWriter(struct
 		Printf.printf
 			"sharing pages with references [%s] with domid %d\n%!"
 			(String.concat ";"
-				(List.map string_of_grant_table_index share.Gntshr.refs))
+				(List.map string_of_int share.Gntshr.refs))
 			domid;
 		share
 

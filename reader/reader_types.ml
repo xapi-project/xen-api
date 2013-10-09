@@ -57,7 +57,7 @@ module PageReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 	open Gnt
 
 	type t = Rrd_protocol.payload
-	type id_t = int * (int32 list)
+	type id_t = int * (int list)
 	type state_t = Gnttab.Local_mapping.t
 
 	let init (domid, refs) =
@@ -66,7 +66,7 @@ module PageReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 				(fun ref ->
 					{
 						Gnttab.domid = domid;
-						Gnttab.ref = grant_table_index_of_int32 ref
+						Gnttab.ref = ref
 					})
 				refs
 		in

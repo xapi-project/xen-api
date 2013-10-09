@@ -36,7 +36,7 @@ let read_page_cmd =
 	in
 	let grantref =
 		let doc = "The grant reference of the shared page which will be read from" in
-		Arg.(required & pos 1 (some int32) None & info [] ~docv:"GRANTREF" ~doc)
+		Arg.(required & pos 1 (some int) None & info [] ~docv:"GRANTREF" ~doc)
 	in
 	let protocol =
 		let doc = "The protocol to use to read the rrd data" in
