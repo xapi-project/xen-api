@@ -6,4 +6,4 @@ obuild-ver: 1
 library xcp-rrd-plugin
   src-dir: lib
   modules: rrdp_common
-  build-deps: forkexec, log, stdext, xcp-rrd, xcp.rrd
+  build-deps: forkexec, stdext, xcp-rrd, xcp.rrd

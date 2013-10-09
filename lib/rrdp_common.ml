@@ -9,7 +9,7 @@ module RRDD = Rrd_client.Client
 
 module Common = functor (N : (sig val name : string end)) -> struct
 
-module D = Debug.Debugger(struct let name=N.name end)
+module D = Debug.Make(struct let name=N.name end)
 open D
 
 let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
@@ -142,7 +142,7 @@ let initialise () =
 		signals_to_catch;
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
-	Debug.set_facility Syslog_transitional.Local0;
+	Debug.set_facility Syslog.Local0;
 
 	let pidfile = ref "" in
 	let daemonize = ref false in
