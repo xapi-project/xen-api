@@ -171,6 +171,18 @@ def bring_down_interface(pif, destroy=False):
         log("bring_down_interface: %s is a VLAN" % interface)
         netdev_down(interface)
 
+        # Robustness enhancement: ensure there are no other VLANs in the bridge
+        bridge = pif_bridge_name(pif)
+        try:
+            brifs = os.listdir(root_prefix() + "/sys/class/net/%s/brif" % bridge)
+            brifs = filter(lambda name: name[:3] == 'eth' or name[:4] == 'bond', brifs)
+        except:
+            brifs = []
+        log("Removing these non-VIF interfaces found on the bridge: %s" % ", ".join(brifs))
+        for device in brifs:
+            run_command(["/usr/sbin/brctl", "delif", bridge, device])
+            netdev_down(device)
+
         if destroy:
             destroy_vlan(pif)
             destroy_bridge(pif)
