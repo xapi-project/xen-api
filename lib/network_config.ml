@@ -34,8 +34,8 @@ let read_management_conf () =
 		let device = List.assoc "LABEL" args in
 		Inventory.reread_inventory ();
 		let bridge_name = Inventory.lookup Inventory._management_interface in
-		let mac = Network_utils.Ip.get_mac bridge_name in
 		debug "Management bridge in inventory file: %s" bridge_name;
+		let mac = Network_utils.Ip.get_mac device in
 		let ipv4_conf, ipv4_gateway, dns =
 			match List.assoc "MODE" args with
 			| "static" ->
