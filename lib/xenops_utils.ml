@@ -239,6 +239,39 @@ module Unixext = struct
 
 	let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
 
+	(** Makes a new file in the same directory as 'otherfile' *)
+	let temp_file_in_dir otherfile =
+		let base_dir = Filename.dirname otherfile in
+		let rec keep_trying () =
+			try
+				let uuid =  Uuidm.to_string (Uuidm.create `V4) in
+				let newfile = base_dir ^ "/" ^ uuid in
+				Unix.close (Unix.openfile newfile [Unix.O_CREAT; Unix.O_TRUNC; Unix.O_EXCL] 0o600);
+				newfile
+			with
+				Unix.Unix_error (Unix.EEXIST, _, _)  -> keep_trying ()
+		in keep_trying ()
+
+
+	let atomic_write_to_file fname perms f =
+		let tmp = Filenameext.temp_file_in_dir fname in
+		Unix.chmod tmp perms;
+		finally
+			(fun () ->
+				let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
+				let result = finally
+					(fun () -> f fd)
+					(fun () -> Unix.close fd) in
+				Unix.rename tmp fname; (* Nb this only happens if an exception wasn't raised in the application of f *)
+			result)
+			(fun () -> unlink_safe tmp)
+
+	let write_string_to_file fname s =
+		atomic_write_to_file fname 0o644 (fun fd ->
+			let len = String.length s in
+			let written = Unix.write fd s 0 len in
+			if written <> len then (failwith "Short write occured!"))
+
 	exception Process_still_alive
 
 	let kill_and_wait ?(signal = Sys.sigterm) ?(timeout=10.) pid =
@@ -314,26 +347,15 @@ module FileFS = struct
 	let paths_of k = List.map filename_of (prefixes_of k)
 
 	let mkdir path = Unixext.mkdir_rec (filename_of path) 0o755
-
 	let read path =
-		try
-			let ic = open_in (filename_of path) in
-			let data = finally
-				(fun () -> Jsonrpc.of_fct (fun () -> input_char ic))
-				(fun () -> close_in ic) in
-			Some data
-		with e ->
-			None
-
+	  try
+	    Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
+	  with e ->
+	    None
 	let write path x =
 		let filename = filename_of path in
 		Unixext.mkdir_rec (Filename.dirname filename) 0o755;
-		let oc = open_out_gen [ Open_trunc; Open_creat; Open_wronly ] 0o0644 filename in
-		finally
-			(fun () ->
-				Jsonrpc.to_fct x (output_string oc)
-			) (fun () -> close_out oc)
-
+		Unixext.write_string_to_file filename (Jsonrpc.to_string x)
 	let exists path = Sys.file_exists (filename_of path)
 	let rm path =
 		List.iter
