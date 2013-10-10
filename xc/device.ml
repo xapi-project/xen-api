@@ -341,14 +341,6 @@ let devty_of_string = function
 	| "disk"  -> Disk
 	| _       -> invalid_arg "devty_of_string"
 
-let kind_of_physty physty =
-	match physty with
-	| Qcow -> Tap
-	| Vhd  -> Tap
-	| Aio  -> Tap
-	| Phys -> Vbd
-	| File -> Vbd
-
 let add_backend_keys ~xs (x: device) subdir keys =
 	let backend_stub = backend_path_of_device ~xs x in
 	let backend = backend_stub ^ "/" ^ subdir in
@@ -487,6 +479,10 @@ type t = {
 	backend_domid: int;
 }
 
+let device_kind_of_backend_keys backend_keys =
+	try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
+	with Not_found -> Device_common.default_vbd_backend
+
 let add_async ~xs ~hvm x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
 	let open Device_number in
@@ -496,8 +492,9 @@ let add_async ~xs ~hvm x domid =
 		| None ->
 			make (free_device ~xs (if hvm then Ide else Xen) domid) in
 	let devid = to_xenstore_key device_number in
+	let kind = device_kind_of_backend_keys x.extra_backend_keys in
 	let device = 
-	  let backend = { domid = x.backend_domid; kind = Vbd; devid = devid } 
+	  let backend = { domid = x.backend_domid; kind = kind; devid = devid }
 	  in  device_of_backend backend domid
 	in
 
@@ -615,15 +612,6 @@ let qemu_media_change ~xs ~device_number domid _type params =
 	] in
 	Xs.transaction xs (fun t -> t.Xst.writev backend back_delta);
 	debug "Media changed: params = %s" pathtowrite
-
-let media_tray_is_locked ~xs ~device_number domid =
-	let devid = Device_number.to_xenstore_key device_number in
-  let backend = { domid = 0; kind = Vbd; devid = devid } in
-  let path = sprintf "%s/locked" (backend_path ~xs backend domid) in
-    try
-      xs.Xs.read path = "true"
-    with _ ->
-      false
 
 let media_eject ~xs ~device_number domid =
 	qemu_media_change ~xs ~device_number domid "" ""
@@ -1491,7 +1479,7 @@ end
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown task ~xs x
-  | Vbd | Tap -> Vbd.hard_shutdown task ~xs x
+  | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
   | Pci -> PCI.hard_shutdown task ~xs x
   | Vfs -> Vfs.hard_shutdown task ~xs x
   | Vfb -> Vfb.hard_shutdown task ~xs x
@@ -1499,7 +1487,7 @@ let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind w
 
 let clean_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown task ~xs x
-  | Vbd | Tap -> Vbd.clean_shutdown task ~xs x
+  | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
   | Pci -> PCI.clean_shutdown task ~xs x
   | Vfs -> Vfs.clean_shutdown task ~xs x
   | Vfb -> Vfb.clean_shutdown task ~xs x

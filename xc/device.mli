@@ -38,7 +38,6 @@ sig
 	type physty = File | Phys | Qcow | Vhd | Aio
 	val string_of_physty : physty -> string
 	val physty_of_string : string -> physty
-	val kind_of_physty : physty -> kind
 	val uses_blktap : phystype:physty -> bool
 
 	type devty = CDROM | Disk
@@ -58,6 +57,8 @@ sig
 		backend_domid: int;
 	}
 
+	val device_kind_of_backend_keys : (string * string) list -> kind
+
 	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
 	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
@@ -65,7 +66,6 @@ sig
 	val media_insert : xs:Xenstore.Xs.xsh -> device_number:Device_number.t
 	                -> params:string -> phystype:physty -> int -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
-	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
 	val clean_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
