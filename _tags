@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5c2e2b7e36393ffd36642a4bdd4bbefa)
+# DO NOT EDIT (digest: 5898393603d08e616bc5d242ee8c4dc9)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -29,6 +29,7 @@
 <lib/*.ml{,i}>: pkg_rpclib.syntax
 <lib/*.ml{,i}>: pkg_fd-send-recv
 <lib/*.ml{,i}>: pkg_xcp.xen
+<lib/*.ml{,i}>: pkg_uutf
 # Executable xenguest
 <xenguest/xenguest_main.{native,byte}>: pkg_xenctrl
 <xenguest/xenguest_main.{native,byte}>: pkg_unix
@@ -59,6 +60,7 @@
 <xc/xenops_xc_main.{native,byte}>: pkg_rpclib.syntax
 <xc/xenops_xc_main.{native,byte}>: pkg_fd-send-recv
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp.xen
+<xc/xenops_xc_main.{native,byte}>: pkg_uutf
 <xc/*.ml{,i}>: use_xenopsd
 <xc/*.ml{,i}>: pkg_xenctrl
 <xc/*.ml{,i}>: pkg_xenstore
@@ -81,6 +83,7 @@
 <xc/*.ml{,i}>: pkg_rpclib.syntax
 <xc/*.ml{,i}>: pkg_fd-send-recv
 <xc/*.ml{,i}>: pkg_xcp.xen
+<xc/*.ml{,i}>: pkg_uutf
 "xc/fsync_stubs.c": use_xenopsd
 "xc/fsync_stubs.c": pkg_xenctrl
 "xc/fsync_stubs.c": pkg_xenstore
@@ -103,6 +106,7 @@
 "xc/fsync_stubs.c": pkg_rpclib.syntax
 "xc/fsync_stubs.c": pkg_fd-send-recv
 "xc/fsync_stubs.c": pkg_xcp.xen
+"xc/fsync_stubs.c": pkg_uutf
 "xc/xenctrlext_stubs.c": use_xenopsd
 "xc/xenctrlext_stubs.c": pkg_xenctrl
 "xc/xenctrlext_stubs.c": pkg_xenstore
@@ -125,6 +129,7 @@
 "xc/xenctrlext_stubs.c": pkg_rpclib.syntax
 "xc/xenctrlext_stubs.c": pkg_fd-send-recv
 "xc/xenctrlext_stubs.c": pkg_xcp.xen
+"xc/xenctrlext_stubs.c": pkg_uutf
 <xc/xenops_xc_main.{native,byte}>: custom
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte}>: use_xenopsd
@@ -142,6 +147,7 @@
 <simulator/xenops_simulator_main.{native,byte}>: pkg_rpclib.syntax
 <simulator/xenops_simulator_main.{native,byte}>: pkg_fd-send-recv
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp.xen
+<simulator/xenops_simulator_main.{native,byte}>: pkg_uutf
 <simulator/*.ml{,i}>: use_xenopsd
 <simulator/*.ml{,i}>: pkg_rpclib
 <simulator/*.ml{,i}>: pkg_forkexec
@@ -157,6 +163,7 @@
 <simulator/*.ml{,i}>: pkg_rpclib.syntax
 <simulator/*.ml{,i}>: pkg_fd-send-recv
 <simulator/*.ml{,i}>: pkg_xcp.xen
+<simulator/*.ml{,i}>: pkg_uutf
 <simulator/xenops_simulator_main.{native,byte}>: custom
 # Executable xenopsd_libvirt_main
 <libvirt/xenops_libvirt_main.{native,byte}>: use_xenopsd
@@ -175,6 +182,7 @@
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_rpclib.syntax
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_fd-send-recv
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xcp.xen
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_uutf
 <libvirt/*.ml{,i}>: use_xenopsd
 <libvirt/*.ml{,i}>: pkg_rpclib
 <libvirt/*.ml{,i}>: pkg_forkexec
@@ -191,6 +199,7 @@
 <libvirt/*.ml{,i}>: pkg_rpclib.syntax
 <libvirt/*.ml{,i}>: pkg_fd-send-recv
 <libvirt/*.ml{,i}>: pkg_xcp.xen
+<libvirt/*.ml{,i}>: pkg_uutf
 <libvirt/xenops_libvirt_main.{native,byte}>: custom
 # Executable xenopsd_xenlight_main
 <xl/xenops_xl_main.{native,byte}>: use_libxenopsd_xenlight_main_stubs
@@ -218,6 +227,7 @@
 <xl/xenops_xl_main.{native,byte}>: pkg_rpclib.syntax
 <xl/xenops_xl_main.{native,byte}>: pkg_fd-send-recv
 <xl/xenops_xl_main.{native,byte}>: pkg_xcp.xen
+<xl/xenops_xl_main.{native,byte}>: pkg_uutf
 <xl/*.ml{,i}>: use_xenopsd
 <xl/*.ml{,i}>: pkg_xenlight
 <xl/*.ml{,i}>: pkg_xenlight.xentoollog
@@ -242,6 +252,7 @@
 <xl/*.ml{,i}>: pkg_rpclib.syntax
 <xl/*.ml{,i}>: pkg_fd-send-recv
 <xl/*.ml{,i}>: pkg_xcp.xen
+<xl/*.ml{,i}>: pkg_uutf
 "xl/fsync_stubs.c": use_xenopsd
 "xl/fsync_stubs.c": pkg_xenlight
 "xl/fsync_stubs.c": pkg_xenlight.xentoollog
@@ -266,6 +277,7 @@
 "xl/fsync_stubs.c": pkg_rpclib.syntax
 "xl/fsync_stubs.c": pkg_fd-send-recv
 "xl/fsync_stubs.c": pkg_xcp.xen
+"xl/fsync_stubs.c": pkg_uutf
 "xl/poll_stubs.c": use_xenopsd
 "xl/poll_stubs.c": pkg_xenlight
 "xl/poll_stubs.c": pkg_xenlight.xentoollog
@@ -290,6 +302,7 @@
 "xl/poll_stubs.c": pkg_rpclib.syntax
 "xl/poll_stubs.c": pkg_fd-send-recv
 "xl/poll_stubs.c": pkg_xcp.xen
+"xl/poll_stubs.c": pkg_uutf
 <xl/xenops_xl_main.{native,byte}>: custom
 # OASIS_STOP
 <lib/updates.ml>: syntax_camlp4o, pkg_rpc.syntax

@@ -89,6 +89,24 @@ let ignore_string (_: string) = ()
 let ignore_bool (_: bool) = ()
 let ignore_int (_: int) = ()
 
+(* Recode an incoming string as valid UTF-8 *)
+let utf8_recode str = 
+	let out_encoding = `UTF_8 in
+	let b = Buffer.create 1024 in
+	let dst = `Buffer b in
+	let src = `String str in
+	let rec loop d e =
+		match Uutf.decode d with 
+		| `Uchar _ as u -> ignore (Uutf.encode e u); loop d e 
+		| `End -> ignore (Uutf.encode e `End)
+		|`Malformed _ -> ignore (Uutf.encode e (`Uchar Uutf.u_rep)); loop d e 
+		| `Await -> assert false
+	in
+	let d = Uutf.decoder src in 
+	let e = Uutf.encoder out_encoding dst in
+	loop d e;
+	Buffer.contents b
+
 module Mutex = struct
 	include Mutex
 	let execute m f =
