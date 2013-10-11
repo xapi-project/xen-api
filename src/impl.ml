@@ -111,7 +111,7 @@ let console_progress_bar total_work =
 
 let no_progress_bar _ _ = ()
 
-let stream_human common _ s _ ?(progress = no_progress_bar) () =
+let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
   (* How much space will we need for the sector numbers? *)
   let sectors = Int64.(shift_right (add s.size.total 511L) sector_shift) in
   let decimal_digits = int_of_float (ceil (log10 (Int64.to_float sectors))) in
@@ -130,7 +130,7 @@ let stream_human common _ s _ ?(progress = no_progress_bar) () =
   Printf.printf "# end of stream\n";
   return None
 
-let stream_nbd common c s prezeroed ?(progress = no_progress_bar) () =
+let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
   let c = { Nbd_lwt_client.read = c.Channels.really_read; write = c.Channels.really_write } in
 
   Nbd_lwt_client.negotiate c >>= fun (server, size, flags) ->
@@ -160,7 +160,7 @@ let stream_nbd common c s prezeroed ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-let stream_chunked common c s prezeroed ?(progress = no_progress_bar) () =
+let stream_chunked common c s prezeroed _ ?(progress = no_progress_bar) () =
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
@@ -195,7 +195,7 @@ let stream_chunked common c s prezeroed ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-let stream_raw common c s prezeroed ?(progress = no_progress_bar) () =
+let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
@@ -251,9 +251,9 @@ module TarStream = struct
     let buffer'': (int,  Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Obj.magic buffer' in
     Sha1.update_buffer ctx buffer''
 
-  let make_tar_header disk_name counter suffix file_size =
+  let make_tar_header prefix counter suffix file_size =
     Tar.Header.({
-      file_name = Printf.sprintf "%s/%08d%s" disk_name counter suffix;
+      file_name = Printf.sprintf "%s%08d%s" prefix counter suffix;
       file_mode = 0o644;
       user_id = 0;
       group_id = 0;
@@ -264,7 +264,7 @@ module TarStream = struct
     })      
 end
 
-let stream_tar common c s _ ?(progress = no_progress_bar) () =
+let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
   let open TarStream in
   let block_size = 1024 * 1024 in
   let header = Memory.alloc Tar.Header.length in
@@ -272,7 +272,6 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
   for i = 0 to Cstruct.len zeroes - 1 do
     Cstruct.set_uint8 zeroes i 0
   done;
-  let disk_name = "XXX" in
   (* This undercounts by missing the tar headers and occasional empty sector *)
   let total_work = Int64.(add s.size.metadata s.size.copy) in
   let p = progress total_work in
@@ -313,7 +312,7 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
     (* If we have unwritten data then output the next header *)
     ( if nr_bytes_remaining = 0 && Cstruct.len rest > 0 then begin
         (* XXX the last block might be smaller than block_size *)
-        let hdr = make_tar_header disk_name state.next_counter "" block_size in
+        let hdr = make_tar_header prefix state.next_counter "" block_size in
         Tar.Header.marshal header hdr;
         c.Channels.really_write header >>= fun () ->
         return { state with nr_bytes_remaining = block_size;
@@ -437,7 +436,7 @@ let make_stream common source relative_to source_format destination_format =
     Raw_input.raw t
   | _, _ -> assert false
 
-let write_stream common s destination source_protocol destination_protocol prezeroed progress = 
+let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix = 
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -523,7 +522,7 @@ let write_stream common s destination source_protocol destination_protocol preze
           | Human -> stream_human
           | Chunked -> stream_chunked
           | Tar -> stream_tar
-          | NoProtocol -> stream_raw) common c s prezeroed ~progress () >>= fun p ->
+          | NoProtocol -> stream_raw) common c s prezeroed tar_filename_prefix ~progress () >>= fun p ->
       c.Channels.close () >>= fun () ->
       match p with
       | Some p ->
@@ -553,7 +552,7 @@ let write_stream common s destination source_protocol destination_protocol preze
 
 let stream_t common args ?(progress = no_progress_bar) () =
   make_stream common args.StreamCommon.source args.StreamCommon.relative_to args.StreamCommon.source_format args.StreamCommon.destination_format >>= fun s ->
-  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress
+  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix
 
 let stream common args =
   try

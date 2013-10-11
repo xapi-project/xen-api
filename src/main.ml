@@ -176,6 +176,7 @@ let stream_cmd =
     `S "OTHER OPTIONS";
     `P "When transferring a raw format image onto a medium which is completely empty (i.e. full of zeroes) it is possible to optimise the transfer by avoiding writing empty blocks. The default behaviour is to write zeroes, which is always safe. If you know your media is empty then supply the '--prezeroed' argument.";
     `P "When running interactively, the --progress argument will cause a progress bar and summary statistics to be printed.";
+    `P "When generating a tar/sha stream, the --tar-filename-prefix will be prefixed onto each disk data block. This is typically used to place the disk blocks of separate disks in different directories.";
     `S "NOTES";
     `P "Not all protocols can be used with all destinations. For example the NBD protocol needs the ability to read (responses) and write (requests); it therefore will not work with the stdout: destination";
     `S "EXAMPLES";
@@ -199,8 +200,11 @@ let stream_cmd =
   let progress =
     let doc = "Display a progress bar." in
     Arg.(value & flag & info ["progress"] ~doc) in
+  let tar_filename_prefix =
+    let doc = "Filename prefix for tar/sha disk blocks" in
+    Arg.(value & opt string "" & info ["tar-filename-prefix"] ~doc) in
   let stream_args_t =
-    Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress) in
+    Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress $ tar_filename_prefix) in
   Term.(ret(pure Impl.stream $ common_options_t $ stream_args_t)),
   Term.info "stream" ~sdocs:_common_options ~doc ~man
 
