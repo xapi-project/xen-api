@@ -27,7 +27,7 @@ let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 
-let alternatives = ref "/usr/lib/xcp/alternatives"
+let alternatives = ref "/usr/lib/xapi/alternatives"
 
 open Unix
 
