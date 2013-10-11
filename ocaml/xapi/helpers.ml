@@ -563,8 +563,7 @@ let pool_has_different_host_platform_versions ~__context =
 	List.fold_left (||) false (List.map is_different_to_me platform_versions)
 
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
-let ballooning_enabled_for_vm ~__context vm_record =
-	not vm_record.API.vM_is_control_domain
+let ballooning_enabled_for_vm ~__context vm_record = true
 
 let get_vm_metrics ~__context ~self =
     let metrics = Db.VM.get_metrics ~__context ~self in
