@@ -222,47 +222,56 @@ let stream_raw common c s prezeroed ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-type tar_state = {
-  work_done: int64;
-  ctx: Sha1.ctx;
-  nr_bytes_remaining: int; (* start at 0 *)
-  next_counter: int;
-  mutable header: Tar.Header.t option;
-}
+module TarStream = struct
+  type t = {
+    work_done: int64;
+    total_size: int64;
+    ctx: Sha1.ctx;
+    nr_bytes_remaining: int; (* start at 0 *)
+    next_counter: int;
+    mutable header: Tar.Header.t option;
+  }
 
-let initial () = {
-  work_done = 0L; ctx = Sha1.init (); nr_bytes_remaining = 0;
-  next_counter = 0; header = None
-}
+  let to_string t =
+    Printf.sprintf "work_done = %Ld; nr_bytes_remaining = %d; next_counter = %d; filename = %s"
+      t.work_done t.nr_bytes_remaining t.next_counter
+      (match t.header with None -> "None" | Some h -> h.Tar.Header.file_name)
 
-let sha1_update_cstruct ctx buffer =
-  let ofs = buffer.Cstruct.off in
-  let len = buffer.Cstruct.len in
-  let buf = buffer.Cstruct.buffer in
-  let buffer' : (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Bigarray.Array1.sub buf ofs len in
-  (* XXX: need a better way to do this *)
-  let buffer'': (int,  Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Obj.magic buffer' in
-  Sha1.update_buffer ctx buffer''
+  let initial total_size = {
+    work_done = 0L; ctx = Sha1.init (); nr_bytes_remaining = 0;
+    next_counter = 0; header = None; total_size
+  }
 
-let make_tar_header disk_name counter suffix file_size =
-  Tar.Header.({
-    file_name = Printf.sprintf "%s/%08d%s" disk_name counter suffix;
-    file_mode = 0o644;
-    user_id = 0;
-    group_id = 0;
-    file_size = Int64.of_int file_size;
-    mod_time = Int64.of_float (Unix.gettimeofday ());
-    link_indicator = Tar.Header.Link.Normal;
-    link_name = ""
-  })      
+  let sha1_update_cstruct ctx buffer =
+    let ofs = buffer.Cstruct.off in
+    let len = buffer.Cstruct.len in
+    let buf = buffer.Cstruct.buffer in
+    let buffer' : (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Bigarray.Array1.sub buf ofs len in
+    (* XXX: need a better way to do this *)
+    let buffer'': (int,  Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Obj.magic buffer' in
+    Sha1.update_buffer ctx buffer''
+
+  let make_tar_header disk_name counter suffix file_size =
+    Tar.Header.({
+      file_name = Printf.sprintf "%s/%08d%s" disk_name counter suffix;
+      file_mode = 0o644;
+      user_id = 0;
+      group_id = 0;
+      file_size = Int64.of_int file_size;
+      mod_time = Int64.of_float (Unix.gettimeofday ());
+      link_indicator = Tar.Header.Link.Normal;
+      link_name = ""
+    })      
+end
 
 let stream_tar common c s _ ?(progress = no_progress_bar) () =
-  let header = Memory.alloc Tar.Header.length in
-  let zero_sector = Memory.alloc 512 in
-  for i = 0 to 511 do
-    Cstruct.set_uint8 zero_sector i 0
-  done;
+  let open TarStream in
   let block_size = 1024 * 1024 in
+  let header = Memory.alloc Tar.Header.length in
+  let zeroes = Memory.alloc block_size in
+  for i = 0 to Cstruct.len zeroes - 1 do
+    Cstruct.set_uint8 zeroes i 0
+  done;
   let disk_name = "XXX" in
   (* This undercounts by missing the tar headers and occasional empty sector *)
   let total_work = Int64.(add s.size.metadata s.size.copy) in
@@ -271,7 +280,7 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
   expand_copy s >>= fun s ->
 
   (* Write [data] to the tar-format stream currnetly in [state] *)
-  let rec input state data =  
+  let rec input state data =
     (* Write as much as we can into the current file *)
     let len = Cstruct.len data in
     let this_block_len = min len state.nr_bytes_remaining in
@@ -279,6 +288,7 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
     sha1_update_cstruct state.ctx this_block;
     c.Channels.really_write this_block >>= fun () ->
     let nr_bytes_remaining = state.nr_bytes_remaining - this_block_len in
+    let state = { state with nr_bytes_remaining } in
     let rest = Cstruct.shift data this_block_len in
     (* If we've hit the end of a block then output the hash *)
     ( if nr_bytes_remaining = 0 then match state.header with
@@ -295,7 +305,7 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
         Cstruct.blit_from_string hash 0 header 0 (String.length hash);
         c.Channels.really_write (Cstruct.sub header 0 (String.length hash)) >>= fun () ->
         c.Channels.really_write (Tar.Header.zero_padding hdr') >>= fun () ->
-        return { state with ctx }
+        return { state with ctx; header = None }
       | None ->
         return state
       else return state ) >>= fun state ->
@@ -303,10 +313,12 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
     (* If we have unwritten data then output the next header *)
     ( if nr_bytes_remaining = 0 && Cstruct.len rest > 0 then begin
         (* XXX the last block might be smaller than block_size *)
-        Tar.Header.marshal header (make_tar_header disk_name state.next_counter "" block_size);
+        let hdr = make_tar_header disk_name state.next_counter "" block_size in
+        Tar.Header.marshal header hdr;
         c.Channels.really_write header >>= fun () ->
-        let state = { state with nr_bytes_remaining = block_size; next_counter = state.next_counter + 1 } in
-        return state
+        return { state with nr_bytes_remaining = block_size;
+                 next_counter = state.next_counter + 1;
+                 header = Some hdr }
       end else return { state with nr_bytes_remaining } ) >>= fun state ->
 
     if Cstruct.len rest > 0
@@ -314,19 +326,25 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
     else return state in
 
   let rec empty state bytes =
-    let write bytes =
-      let this = min (Int64.(to_int (min (of_int state.nr_bytes_remaining) bytes))) (Cstruct.len zero_sector) in
-      input state (Cstruct.sub zero_sector 0 this) >>= fun state ->
+    let write state bytes =
+      let this = Int64.(to_int (min bytes (of_int (Cstruct.len zeroes)))) in
+      input state (Cstruct.sub zeroes 0 this) >>= fun state ->
       empty state Int64.(sub bytes (of_int this)) in
     if bytes = 0L
     then return state
-    (* If nr_bytes_remaining <> block_size then we need to flush this file with explicit zeroes *)
-    else if state.nr_bytes_remaining <> block_size
-    then write bytes
+    (* If we're in the middle of a block, then complete it *)
+    else if 0 < state.nr_bytes_remaining && state.nr_bytes_remaining < block_size
+    then begin
+      let this = min (Int64.of_int state.nr_bytes_remaining) bytes in
+      write state this >>= fun state ->
+      empty state (Int64.sub bytes this)
+    (* If we're the first or last block then always include *)
+    end else if state.work_done = 0L || Int64.(sub state.total_size state.work_done <= (of_int block_size))
+    then write state bytes
     else if bytes >= (Int64.of_int block_size) then begin
       (* If n > block_size (in sectors) then we can omit empty blocks *)
       empty { state with next_counter = state.next_counter + 1 } Int64.(sub bytes (of_int block_size))
-    end else write bytes in
+    end else write state bytes in
 
   fold_left (fun state x ->
     (match x with
@@ -334,12 +352,12 @@ let stream_tar common c s _ ?(progress = no_progress_bar) () =
         input state data
       | Element.Empty n ->
         empty state (Int64.(mul n 512L))
-      | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Element.to_string x))) ) >>= fun work ->
-    let work = Element.len x in
+      | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Element.to_string x))) ) >>= fun state ->
+    let work = Int64.mul (Element.len x) 512L in
     let work_done = Int64.add state.work_done work in
     p work_done;
     return { state with work_done }
-  ) (initial ()) s.elements >>= fun _ ->
+  ) (initial s.size.total) s.elements >>= fun _ ->
   p total_work;
 
   return (Some total_work)
