@@ -28,38 +28,6 @@ module type PROTOCOL = sig
 	val write_payload : (int -> Cstruct.t) -> payload -> unit
 end
 
-module MakeProtocol = functor (P: PROTOCOL) -> struct
-	module Page = struct
-		open Gnt
-
-		let read mapping =
-			let cs = Cstruct.of_bigarray (Gnttab.Local_mapping.to_buf mapping) in
-			P.read_payload cs
-
-		let write share payload =
-			let alloc_cstruct size =
-				if size > Bigarray.Array1.dim share.Gntshr.mapping then
-					raise Payload_too_large;
-				Cstruct.of_bigarray share.Gntshr.mapping
-			in
-			P.write_payload alloc_cstruct payload
-	end
-
-	module File = struct
-		let read fd =
-			let buf = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
-			let cs = Cstruct.of_bigarray buf in
-			P.read_payload cs
-
-		let write fd payload =
-			let alloc_cstruct size =
-				let buf = Bigarray.(Array1.map_file fd char c_layout true size) in
-				Cstruct.of_bigarray buf
-			in
-			P.write_payload alloc_cstruct payload
-	end
-end
-
 module V1 = struct
 	module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
