@@ -761,9 +761,10 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 let move ~xs (x: device) bridge =
 	let xs_bridge_path = Hotplug.get_private_data_path_of_device x ^ "/bridge" in
 	xs.Xs.write xs_bridge_path bridge;
-	let domid = string_of_int x.frontend.domid in
-	let devid = string_of_int x.frontend.devid in
-	ignore (Forkhelpers.execute_command_get_output !Xc_path.vif_script ["move"; "vif"; domid; devid])
+	Hotplug.run_hotplug_script x ["move"; "type_if=vif"];
+	(* Maybe there's a tap, too *)
+	try Hotplug.run_hotplug_script {x with backend={x.backend with kind=Tap}}  ["move"; "type_if=tap"] with _ -> ()
+
 end
 
 (*****************************************************************************)
