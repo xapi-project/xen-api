@@ -19,9 +19,12 @@ let v6_initialise ~__context ~edition ~params =
 	try
 		V6client.apply_edition ~__context edition params
 	with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
-		(* Couldn't communicate with v6d, so fall back to running in free mode,
-		 * with all standard features enabled and no additional features advertised. *)
-		"free", Features.all_features, []
+		(* Couldn't communicate with v6d, so fall back to running in free/libre
+		 * "xcp" mode, with all standard features enabled and no additional
+		 * features advertised. This is the same as the "free" edition from v6d
+		 * for most purposes but not for pool-join: see assert_restrictions_match
+		 * in pre_join_checks in ocaml/xapi/xapi_pool.ml *)
+		"free/libre", Features.all_features, []
 
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
