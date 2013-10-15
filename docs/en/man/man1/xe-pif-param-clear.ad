@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-clear - Clears a specific writable parameter for a PIF
+xe-pif-param-clear - Clears a specific writable parameter for a physical interface (PIF)
 
 SYNOPSIS
 --------

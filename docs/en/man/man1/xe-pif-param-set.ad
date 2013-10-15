@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-set - Set parameters for a physical interface
+xe-pif-param-set - Set parameters for a physical interface (PIF)
 
 SYNOPSIS
 --------

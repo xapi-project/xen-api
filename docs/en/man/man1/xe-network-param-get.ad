@@ -20,15 +20,15 @@ DESCRIPTION
 REQUIRED PARAMETERS
 -------------------
 *uuid*::
-	Network UUID - Use *xe network-list* to obtain a list of network UUIDs.
+	Network UUID - Use *xe network-list* to obtain a list of network UUIDs
 
 *param-name*::
-	The network parameter value to return.
+	The network parameter value to return - Use *xe network-param-list* to obtain a list of network parameters
 	
 OPTIONAL PARAMETERS
 -------------------
 *param-key*::
-	The network key value to return.  
+	The network key value to return
 
 EXAMPLES
 --------
