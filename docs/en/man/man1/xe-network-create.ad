@@ -25,7 +25,8 @@ REQUIRED PARAMETERS
 OPTIONAL PARAMETER
 -------------------
 *MTU*::
-	MTU for the network. The MTU default is 1500.	
+	MTU for the network. The MTU default is 1500.
+
 *name-description*::
 	Description of the network
 
@@ -35,7 +36,7 @@ To create a network with a *name-description*
 
 - *xe network-create* name-label="Example Network" name-description="This is an Example Network"
 
-To create a network with a custom *MTU*: ::
+To create a network with a custom *MTU*:
 
 - *xe network-create* name-label="MTU Example Network" MTU="9000"
 

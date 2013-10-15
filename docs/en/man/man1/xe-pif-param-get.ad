@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-get - Returns a parameter for a PIF
+xe-pif-param-get - Returns a parameter for a physical interface (PIF)
 
 SYNOPSIS
 --------
@@ -21,13 +21,14 @@ REQUIRED PARAMETERS
 -------------------
 *uuid*::
 	PIF UUID - Use *xe pif-list* to obtain PIF UUIDs.
+	
 *param-name*::
-	The PIF parameter value to return	
+	The PIF parameter value to return - Use *xe pif-param-list* to obtain a list of a PIF parameters 
 
 OPTIONAL PARAMETERS
 -------------------
 *param-key*::
-	The PIF map parameter key value to return
+	The PIF key value to return
 	
 EXAMPLES
 --------

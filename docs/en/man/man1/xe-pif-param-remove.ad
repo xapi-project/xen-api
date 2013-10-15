@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-remove - Removes a key or key/value pair from a physical interface
+xe-pif-param-remove - Removes a key or key/value pair from a physical interface (PIF)
 
 SYNOPSIS
 --------
