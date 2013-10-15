@@ -1,7 +1,7 @@
 open Rrd_protocol
 module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
-let get_second_data_source_flag =
+let get_extra_data_sources_flag =
 	let counter = ref 0 in
 	(fun () ->
 		let result = match !counter / 8 with
@@ -18,17 +18,26 @@ let generate_time_data_source () =
 		~value:(Rrd.VT_Int64 current_time) ~ty:(Rrd.Gauge)
 		~default:true ~units:"seconds" (), Rrd.Host
 
-let generate_random_data_source () =
-	Ds.ds_make ~name:"random_number"
-		~description:"A random number"
+let generate_random_int_data_source () =
+	Ds.ds_make ~name:"random_int"
+		~description:"A random integer"
 		~value:(Rrd.VT_Int64 (Random.int64 256L)) ~ty:(Rrd.Absolute)
 		~default:true ~units:"things" (), Rrd.Host
 
+let generate_random_float_data_source () =
+	Ds.ds_make ~name:"random_float"
+		~description:"A random float"
+		~value:(Rrd.VT_Float (Random.float 1.0)) ~ty:(Rrd.Absolute)
+		~default:true ~units:"bits of things" (), Rrd.Host
+
 let generate_data_sources () =
-	let include_second_data_source = get_second_data_source_flag () in
+	let include_extra_data_sources = get_extra_data_sources_flag () in
 	[generate_time_data_source ()] @
-	if include_second_data_source
-	then [generate_random_data_source ()]
+	if include_extra_data_sources
+	then [
+		generate_random_int_data_source ();
+		generate_random_float_data_source ();
+	]
 	else []
 
 let generate_payload () = {
