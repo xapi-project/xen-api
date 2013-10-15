@@ -383,13 +383,19 @@ module V2 = struct
 		(* Check that the data checksum has changed. Since the checksummed data
 		 * includes the timestamp, this should change with every update. *)
 		let data_checksum = Read.data_checksum cs in
-		if data_checksum = !last_data_checksum
-		then raise No_update
-		else last_data_checksum := data_checksum;
-		(* TODO: Check data checksum is correct. *)
+		if data_checksum = !last_data_checksum then raise No_update;
 		let metadata_checksum = Read.metadata_checksum cs in
 		let datasource_count = Read.datasource_count cs in
 		let timestamp = Read.timestamp cs in
+		(* Check the data checksum is correct. *)
+		let data_checksum_calculated =
+			Cstruct_hash.md5sum cs
+				timestamp_start
+				(timestamp_bytes + datasource_count * datasource_value_bytes)
+		in
+		if not (data_checksum = data_checksum_calculated)
+		then raise Invalid_checksum
+		else last_data_checksum := data_checksum;
 		(* Read the datasource values. *)
 		let datasources =
 			if metadata_checksum = !last_metadata_checksum then begin
