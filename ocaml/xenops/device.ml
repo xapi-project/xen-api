@@ -461,7 +461,7 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	 * to unplug as well as the backend. CA-13506 *)
 	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
-let free_device ~xs bus_type domid =
+let free_device ~xs hvm domid =
 	let disks = List.map
 		(fun x -> x.frontend.devid
 		|> Device_number.of_xenstore_key
@@ -469,6 +469,8 @@ let free_device ~xs bus_type domid =
 		|> (fun (_, disk, _) -> disk))
 		(Device_common.list_frontends ~xs domid) in
 	let next = List.fold_left max 0 disks + 1 in
+	let open Device_number in
+        let bus_type = if (hvm && next < 4) then Ide else Xen in	
 	bus_type, next, 0
 
 type t = {
@@ -495,7 +497,7 @@ let add_async ~xs ~hvm x domid =
 	let device_number = match x.device_number with
 		| Some x -> x
 		| None ->
-			make (free_device ~xs (if hvm then Ide else Xen) domid) in
+			make (free_device ~xs hvm domid) in
 	let devid = to_xenstore_key device_number in
 	let kind = device_kind_of_backend_keys x.extra_backend_keys in
 	let device = 
