@@ -1287,8 +1287,10 @@ module VM = struct
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
 						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
 						if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
-							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-							Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
+							try
+								debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
+								Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
+							with e -> debug "Domain.destroy failed. Re-raising original error."
 						end;
 						raise e
 				end;
