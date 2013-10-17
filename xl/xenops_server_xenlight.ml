@@ -2290,7 +2290,7 @@ module VM = struct
 							let flags =
 								if write
 								then [ Unix.O_WRONLY; Unix.O_CREAT ]
-								else [ Unix.O_RDONLY ] in
+								else [ Unix.O_RDONLY; Unix.O_CLOEXEC ] in
 							let filename = dir ^ "/suspend-image" in
 							Unixext.with_file filename flags 0o600
 								(fun fd ->
