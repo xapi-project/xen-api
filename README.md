@@ -7,3 +7,4 @@ Build dependencies:
 * [xenctrl](https://github.com/xen-org/ocaml-xen-lowlevel-libs)
 * [xcp-rrd](https://github.com/xen-org/xcp-rrd)
 * [xcp-rrd-plugin](https://github.com/johnelse/xcp-rrd-plugin)
+* [cstruct-hash](https://github.com/johnelse/cstruct-hash)
