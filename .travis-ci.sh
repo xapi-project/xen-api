@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="lwt cohttp oclock re cmdliner"
+OPAM_PACKAGES="lwt ssl rpc cohttp oclock re cmdliner"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
