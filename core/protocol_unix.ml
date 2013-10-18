@@ -79,11 +79,22 @@ module IO = struct
 	let connect port =
 		let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
 		let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-		let () = Unix.connect fd sockaddr in
-		Unix.setsockopt fd Unix.TCP_NODELAY true;
-		let ic = Unix.in_channel_of_descr fd in
-		let oc = Unix.out_channel_of_descr fd in
-		(ic, oc)
+		let result = ref None in
+		while !result = None do
+			try
+				let () = Unix.connect fd sockaddr in
+				Unix.setsockopt fd Unix.TCP_NODELAY true;
+				let ic = Unix.in_channel_of_descr fd in
+				let oc = Unix.out_channel_of_descr fd in
+				result := Some (ic, oc)
+			with Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+				(* wait for the server to start *)
+				Thread.delay 5.
+			| e -> raise e
+		done;
+		match !result with
+		| None -> assert false
+		| Some x -> x
 end
 
 module Connection = Protocol.Connection(IO)
