@@ -88,6 +88,8 @@ let handle_received_fd this_connection =
 
 
 let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) backend =
+	Debug.set_facility Syslog.Local5;
+
 	debug "xenopsd version %d.%d starting" major_version minor_version;
 
 	let options = options @ specific_options in

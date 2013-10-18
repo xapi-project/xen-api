@@ -783,10 +783,14 @@ let rec atomics_of_operation = function
 			VM_destroy id
 		]
 	| VM_restore_devices id ->
+		(* Note: VBD_plug does not take a "simplify" modifier, because VM_restore
+		 * never attaches the storage, even in "simplified" backends. This is necessary when
+		 * migrating a VM, where the storage can be attached only after the sender host
+		 * has detached itself. *)
 		[
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
-		) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
+		) @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
 		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
 			(VIF_DB.vifs id)

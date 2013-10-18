@@ -510,7 +510,7 @@ let device_by_id xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind kind) device.frontend.devid in
+				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
@@ -878,7 +878,10 @@ module VBD = struct
 		let backend, format, script =
 			if vbd.backend = None then
 				(* empty CDROM *)
-				Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+				if !Xenopsd.use_qdisk then
+					Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
+				else
+					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
 			else
 				if !Xenopsd.use_qdisk then
 					(* FIXME: "regular" block devices *)
@@ -1084,8 +1087,8 @@ module VBD = struct
 					| Some vdev, Some domid ->
 						let open Xenlight.Device_disk in
 						let disk' = {of_vdev ctx domid vdev with
-							pdev_path = None;
 							format = Xenlight.DISK_FORMAT_EMPTY;
+							script = Some !Xl_path.vbd_script;
 						} in
 
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.eject %s" (id_of vbd)) (fun () ->
@@ -1931,7 +1934,6 @@ module VM = struct
 				let avail_vcpus = Array.init max_vcpus (fun i -> i < vm.vcpus) in
 				let max_memkb = vm.memory_static_max /// 1024L in
 				let target_memkb =
-					let open Memory in
 					let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
 					let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
 					let target_bytes = min vm.memory_dynamic_max target_bytes in
@@ -1941,7 +1943,9 @@ module VM = struct
 					match vm.ty with
 						| HVM hvm_info ->
 							Int64.mul (Int64.of_int hvm_info.video_mib) 1024L,
-							Memory.HVM.shadow_mib (max_memkb /// 1025L) max_vcpus hvm_info.shadow_multiplier
+							Int64.mul
+								(Memory.HVM.shadow_mib (max_memkb /// 1024L) max_vcpus hvm_info.shadow_multiplier)
+								1024L
 						| PV _ -> 0L, 0L
 				in
 				let b_info =
@@ -1955,7 +1959,17 @@ module VM = struct
 								b_info_hvm_default
 							| _ -> failwith "Expected HVM build_info here!"
 						in
-						let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
+						let vnc_info =
+							let listen =
+								if !Xenopsd.use_upstream_qemu then
+									let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
+									Some console_path
+								else None
+							in
+							let open Xenlight.Vnc_info in
+							let vnc_info_default = with_ctx (fun ctx -> default ctx ()) in
+							{ vnc_info_default with enable = Some true; listen = listen }
+						in
 						{ b_info_default with
 							ty = Hvm { b_info_hvm_default with
 								pae = Some true;
@@ -1964,12 +1978,12 @@ module VM = struct
 								nx = Some true;
 								timeoffset = Some hvm_info.Xenops_interface.Vm.timeoffset;
 								nested_hvm = Some true;
-								vnc = Xenlight.Vnc_info.({enable = Some true; listen = Some console_path; passwd = None; display = 0; findunused = None});
+								vnc = vnc_info;
 								keymap = hvm_info.Xenops_interface.Vm.keymap;
 								serial = hvm_info.Xenops_interface.Vm.serial;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
-								usbdevice = Some "tablet";
+								usbdevice_list = [ "tablet" ];
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->
@@ -2060,6 +2074,7 @@ module VM = struct
 					uuid = vm.Vm.id;
 					xsdata = vm.Vm.xsdata;
 					platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
+					run_hotplug_scripts = Some !Xenopsd.run_hotplug_scripts;
 				}) in
 				let b_info = Xenlight.Domain_build_info.({ b_info with
 					max_vcpus;
@@ -2096,17 +2111,43 @@ module VM = struct
 					match restore_fd with
 					| None ->
 						debug "Calling Xenlight.domain_create_new";
-						(try
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()))
-						with e ->
-							exit 1)
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_restore ctx domain_config fd ()))
 					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd)) *)
 				in
 				debug "Xenlight has created domain %d" domid;
+
+				(* Wait for device hotplugs to finish, and write remaining xenstore keys *)
+
+				List.iter (fun vif ->
+					(* wait for plug (to be removed if possible) *)
+					let open Device_common in
+					let open Vif in
+					let devid = vif.position in
+					let backend_domid = with_xs (fun xs -> VIF.backend_domid_of xs vif) in
+					let frontend = { domid; kind = Vif; devid = devid } in
+					let backend = { domid = backend_domid; kind = Vif; devid = devid } in
+					let device = { backend = backend; frontend = frontend } in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+
+					(* add disconnect flag *)
+					let disconnect_path, flag = VIF.disconnect_flag device vif.locking_mode in
+					with_xs (fun xs -> xs.Xs.write disconnect_path flag);
+				) vifs;
+
+				List.iter (fun (_, devid, _, backend_domid) ->
+					(* wait for plug *)
+					let device =
+						let open Device_common in
+						let frontend = { domid; kind = Vbd; devid = devid } in
+						let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+						{ backend = backend; frontend = frontend }
+					in
+					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+				) vbds_extra;
 
 				(* Write remaining xenstore keys *)
 				let dom_path = xs.Xs.getdomainpath domid in
@@ -2249,7 +2290,7 @@ module VM = struct
 							let flags =
 								if write
 								then [ Unix.O_WRONLY; Unix.O_CREAT ]
-								else [ Unix.O_RDONLY ] in
+								else [ Unix.O_RDONLY; Unix.O_CLOEXEC ] in
 							let filename = dir ^ "/suspend-image" in
 							Unixext.with_file filename flags 0o600
 								(fun fd ->
@@ -2325,10 +2366,10 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm vbds vifs data =
+	let restore task progress_callback vm _ vifs data =
 		with_xs (fun xs ->
 			with_data ~xs task data false (fun fd ->
-				build ~restore_fd:fd task vm vbds vifs
+				build ~restore_fd:fd task vm [] vifs
 			)
 		)
 
