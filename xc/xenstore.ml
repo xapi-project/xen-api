@@ -39,14 +39,16 @@ let make_client () =
 		end;
 		raise e
 
-let get_client =
-	let client = ref None in
-	fun () -> match !client with
-		| None ->
-			let c = make_client () in
-			client := Some c;
-			c
-		| Some c -> c
+let client = ref None
+
+let get_client () = match !client with
+| None ->
+	let c = make_client () in
+	client := Some c;
+	c
+| Some c -> c
+
+let forget_client () = client := None
 
 type domid = int
 
