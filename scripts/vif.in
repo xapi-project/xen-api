@@ -15,7 +15,7 @@
 # 
 # we pass these as arguments to the real vif udev script
 
-REAL_UDEV_SCRIPT=/usr/lib/xenopsd/vif-real
+REAL_UDEV_SCRIPT=@LIBEXEC@/vif-real
 ACTION=$1
 
 TYPE=`echo $2 | cut -d= -f2`
