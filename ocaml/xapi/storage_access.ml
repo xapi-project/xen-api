@@ -17,7 +17,7 @@ module XenAPI = Client.Client
 open Fun
 open Storage_interface
 
-module D=Debug.Debugger(struct let name="storage_access" end)
+module D=Debug.Make(struct let name="storage_access" end)
 open D
 
 exception No_VDI
@@ -226,6 +226,32 @@ module SMAPIv1 = struct
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
 									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
+									raise e
+						)
+				)
+
+		let stat context ~dbg ~sr:sr' =
+			Server_helpers.exec_with_new_task "SR.stat" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
+					Sm.call_sm_functions ~__context ~sR:sr
+						(fun device_config _type ->
+							try
+								Sm.sr_update device_config _type sr;
+								let r = Db.SR.get_record ~__context ~self:sr in
+								let total_space = r.API.sR_physical_size in
+								let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
+								{ total_space; free_space }
+							with
+								| Smint.Not_implemented_in_backend ->
+									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+								| Api_errors.Server_error(code, params) ->
+									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
+									raise (Backend_error(code, params))
+								| Sm.MasterOnly -> redirect sr
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
 									raise e
 						)
 				)
@@ -476,6 +502,24 @@ module SMAPIv1 = struct
 
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
+
+        let resize context ~dbg ~sr ~vdi ~new_size =
+            try
+                let vi = for_vdi ~dbg ~sr ~vdi "VDI.resize"
+                    (fun device_config _type sr self ->
+                        Sm.vdi_resize device_config _type sr self new_size
+                    ) in
+                Server_helpers.exec_with_new_task "VDI.resize" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+                        let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
+                        Db.VDI.get_virtual_size ~__context ~self
+                    )
+            with
+                                | Api_errors.Server_error(code, params) ->
+                                        raise (Backend_error(code, params))
+                                | Smint.Not_implemented_in_backend ->
+                                        raise (Unimplemented "VDI.resize")
+                                | Sm.MasterOnly -> redirect sr
 
         let destroy context ~dbg ~sr ~vdi =
             try

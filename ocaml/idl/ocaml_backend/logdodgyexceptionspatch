@@ -31,7 +31,7 @@ diff -r cfceb249cbfd -r 212dd2e2b166 ocaml/idl/ocaml_backend/server_helpers.ml
  open Stringext
 +
  
- module D = Debug.Debugger(struct let name = "dispatcher" end)
+ module D = Debug.Make(struct let name = "dispatcher" end)
  open D
 @@ -88,10 +89,29 @@ let empty_context =
      Context.origin = Context.Internal "server_helpers: empty_context";

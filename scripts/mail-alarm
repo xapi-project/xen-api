@@ -94,6 +94,10 @@ def get_destination(other_config):
     if other_config.has_key('mail-destination'):
         return other_config['mail-destination']
 
+def get_sender(other_config):
+    if other_config.has_key('mail-sender'):
+        return other_config['mail-sender']
+
 def get_config_file():
     try:
         return open('/etc/mail-alarm.conf').read()
@@ -385,10 +389,14 @@ def main():
 
     search_replace = get_search_replace(other_config)
     destination = get_destination(other_config)
+    sender = get_sender(other_config)
 
     if not destination:
         log_err("pool:other-config:mail-destination not specified")
         return 1
+
+    if not sender:
+        sender = "noreply@%s" % getfqdn().encode('utf-8')
 
     # Replace macros in config file using search_replace list
     for s,r in search_replace:
@@ -402,7 +410,7 @@ def main():
 
         # Run ssmtp to send mail
         chld_stdin, chld_stdout = os.popen2(["/usr/sbin/ssmtp", "-C%s" % fname, destination])
-        chld_stdin.write("From: noreply@%s\n" % getfqdn().encode('utf-8'))
+        chld_stdin.write("From: %s\n" % sender)
         chld_stdin.write('Content-Type: text/plain; charset="utf-8"\n')
         chld_stdin.write("To: %s\n" % destination.encode('utf-8'))
         chld_stdin.write("Subject: %s\n" % msg.generate_email_subject().encode('utf-8'))

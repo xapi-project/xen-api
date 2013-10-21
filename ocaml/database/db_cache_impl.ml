@@ -25,9 +25,9 @@ open Db_lock
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "sql" end)
+module D = Debug.Make(struct let name = "sql" end)
 open D
-module W = Debug.Debugger(struct let name = "db_write" end)
+module W = Debug.Make(struct let name = "db_write" end)
     
 open Db_cache_types
 open Db_ref

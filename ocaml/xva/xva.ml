@@ -13,7 +13,7 @@
  *)
 open Stringext
 
-module D=Debug.Debugger(struct let name="xva" end)
+module D=Debug.Make(struct let name="xva" end)
 open D
 
 (** A more descriptive exception to throw rather than 'Not_found' *)

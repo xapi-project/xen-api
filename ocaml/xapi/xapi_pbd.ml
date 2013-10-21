@@ -19,7 +19,7 @@ open Client
 open Db_filter
 open Db_filter_types
 
-module D=Debug.Debugger(struct let name="xapi_pbd" end)
+module D=Debug.Make(struct let name="xapi_pbd" end)
 open D
 
 let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other_config =

@@ -12,15 +12,5 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Rpc : Rrdd_interface.RPC = Rpc_retry.Make(
-	struct
-		let client_name = "xapi"
-		let server_name = Rrdd_interface.name
-		let server_path = Filename.concat "/var/lib/xcp" Rrdd_interface.name
-		let should_retry = false
-	end
-)
-module Client = Rrdd_interface.Client(Rpc)
+include Rrd_client.Client
 
-(* Make the interface available directly to anyone using this module.*)
-include Client

@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger (struct let name="xapi" end)
+module D = Debug.Make (struct let name="xapi" end)
 open D
 
-module L = Debug.Debugger (struct let name="license" end)
+module L = Debug.Make (struct let name="license" end)
 
 open Db_filter_types
 open Fun
@@ -541,7 +541,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 				raise (Api_errors.Server_error
 					(Api_errors.invalid_ip_address_specified, [msg]))
 		in
-		if (pl_int < 0 or pl_int > 128) then
+		if (pl_int < 0 || pl_int > 128) then
 			raise (Api_errors.Server_error
 				(Api_errors.invalid_ip_address_specified, ["Prefix length must be between 0 and 128"]))
 	end;

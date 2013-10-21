@@ -20,9 +20,9 @@ open Stringext
 open Printf
 open Smint
 
-module D=Debug.Debugger(struct let name="sm_exec" end)
+module D=Debug.Make(struct let name="sm_exec" end)
 open D
-module E=Debug.Debugger(struct let name="mscgen" end)
+module E=Debug.Make(struct let name="mscgen" end)
 
 let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
 

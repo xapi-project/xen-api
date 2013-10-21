@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-add - Add a key/value to a parameter for a PIF 
+xe-pif-param-add - Add a key/value to a parameter for a physical interface (PIF)
 
 SYNOPSIS
 --------

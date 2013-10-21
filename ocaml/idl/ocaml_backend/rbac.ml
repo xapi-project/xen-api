@@ -14,7 +14,7 @@
 
 open Listext
 
-module D = Debug.Debugger(struct let name="rbac" end)
+module D = Debug.Make(struct let name="rbac" end)
 open D
 
 let trackid session_id = (Context.trackid_of_session (Some session_id))

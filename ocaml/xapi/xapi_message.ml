@@ -32,7 +32,7 @@ open Listext
 open Stringext
 open Threadext
  
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let message_dir = Xapi_globs.xapi_blob_location ^ "/messages"

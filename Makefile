@@ -33,7 +33,6 @@ PLUGINDIR=/usr/lib/xcp/plugins
 HOOKSDIR=/etc/xcp/hook-scripts
 INVENTORY=/etc/xcp/inventory
 XAPICONF=/etc/xcp/xapi.conf
-RRDDCONF=/etc/xcp/rrdd.conf
 LIBEXECDIR=/usr/lib/xcp/lib
 SCRIPTSDIR=/usr/lib/xcp/scripts
 SHAREDIR=/usr/share/xcp
@@ -54,7 +53,6 @@ PLUGINDIR=/etc/xapi.d/plugins
 HOOKSDIR=/etc/xapi.d
 INVENTORY=/etc/xensource-inventory
 XAPICONF=/etc/xapi.conf
-RRDDCONF=/etc/xcp-rrdd.conf
 LIBEXECDIR=/opt/xensource/libexec
 SCRIPTSDIR=/etc/xensource/scripts
 SHAREDIR=/opt/xensource
@@ -70,7 +68,7 @@ EXTRA_INSTALL_PATH=
 endif
 
 
-export ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF RRDDCONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR UDEVDIR OCAMLPATH EXTRA_INSTALL_PATH
+export ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR UDEVDIR OCAMLPATH EXTRA_INSTALL_PATH
 
 .PHONY: all
 all: version ocaml/fhs.ml
@@ -92,13 +90,9 @@ test:
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
 	@./ocaml/test/suite -verbose
-	@echo @ xenops-cli unit test
-	@./ocaml/xenops-cli/runtest.sh 2> /dev/null
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
-	@echo @ squeezed test
-	@./ocaml/xenops/squeeze_test
 #	The following test no longer runs:
 #	./ocaml/database/database_test
 #	The following test no longer compiles:
@@ -182,7 +176,6 @@ ocaml/fhs.ml :
 	let hooksdir=\"$(HOOKSDIR)\"\n \
 	let libexecdir=\"$(LIBEXECDIR)\"\n \
 	let xapiconf=\"$(XAPICONF)\"\n \
-	let rrddconf=\"$(RRDDCONF)\"\n \
 	let scriptsdir=\"$(SCRIPTSDIR)\"\n \
 	let varpatchdir=\"$(VARPATCHDIR)\"\n \
 	let webdir=\"$(WEBDIR)\"\n \
@@ -196,26 +189,21 @@ ocaml/fhs.ml :
  clean:
 
 xapi.spec: xapi.spec.in
-noarch.spec: noarch.spec.in
-
-%.spec: %.spec.in
 	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
 	sed -i "s!@OPTDIR@!${OPTDIR}!g" $@
 
 .PHONY: srpm
-srpm: xapi.spec noarch.spec
+srpm: xapi.spec
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
-	git archive --prefix=xapi-noarch-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-noarch-0.2.tar.bz2 # xen-api/Makefile
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
-	cp -f xapi.spec noarch.spec $(RPM_SPECSDIR)/
-	chown root.root $(RPM_SPECSDIR)/xapi.spec $(RPM_SPECSDIR)/noarch.spec || true
+	cp -f xapi.spec $(RPM_SPECSDIR)/
+	chown root.root $(RPM_SPECSDIR)/xapi.spec || true
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
-	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/noarch.spec
 
 
 .PHONY: build

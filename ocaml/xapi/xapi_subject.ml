@@ -15,7 +15,7 @@
  * @group XenAPI functions
  *)
  
-module D = Debug.Debugger(struct let name="xapi_subject" end)
+module D = Debug.Make(struct let name="xapi_subject" end)
 open D
 
 let run_hook_script_after_subject_add () =

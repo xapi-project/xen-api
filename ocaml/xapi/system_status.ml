@@ -22,7 +22,7 @@ let xen_bugtool = "/usr/sbin/xen-bugtool"
 let task_label = "Retrieving system status"
 let module_key = "system_status"
 
-module D=Debug.Debugger(struct let name=module_key end)
+module D=Debug.Make(struct let name=module_key end)
 open D
 
 let get_capabilities () =

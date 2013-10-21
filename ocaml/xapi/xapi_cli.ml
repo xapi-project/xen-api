@@ -22,7 +22,7 @@ open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
 
-module D = Debug.Debugger(struct let name = "cli" end)
+module D = Debug.Make(struct let name = "cli" end)
 open D
 
 exception Unknown_command of string
@@ -144,18 +144,17 @@ let exec_command req cmd s session args =
 		else false in
 	let u = try List.assoc "username" params with _ -> "" in
 	let p = try List.assoc "password" params with _ -> "" in
-	(* Before we log, hide the values of any keys which might be sensitive. *)
-	let param_keys_to_hide = [
-		"config:pass"; (* AD authentication password. *)
-		"remote-password"; (* Cross-pool migration remote XS password. *)
-		"password"; (* Local XS password. *)
+	(* Create a list of commands and their associated arguments which might be sensitive. *)
+	let commands_and_params_to_hide = [
+		"user-password-change", ["old"; "new"];
+		"secret-create", ["value"];
+		"secret-param-set", ["value"];
+		"vm-migrate", ["remote-password"];
+		"sr-create", ["device-config-chappassword"; "device-config-incoming_chappassword"];
+		"pool-enable-external-auth", ["config:pass"];
+		"pool-disable-external-auth", ["config:pass"];
+		"host-call-plugin", ["args:url"];
 	] in
-	let params = List.fold_left
-		(fun acc param ->
-			if List.mem_assoc param acc
-			then List.replace_assoc param "null" acc
-			else acc)
-		params param_keys_to_hide in
 	let rpc = Helpers.get_rpc () req s in
 	Cli_frontend.populate_cmdtable rpc Ref.null;
 	(* Log the actual CLI command to help diagnose failures like CA-25516 *)
@@ -166,11 +165,8 @@ let exec_command req cmd s session args =
 			List.exists
 				(fun k -> String.endswith k cmd_name) uninteresting_cmd_postfixes in
 		let do_log = if uninteresting then debug else info in
-		if String.startswith "secret-" cmd_name
-		then
-			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
-		else
-			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		let params_to_hide = (try List.assoc cmd_name commands_and_params_to_hide with _ -> []) @ ["password"] in
+		do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if List.mem k params_to_hide then "(omitted)" else v in k ^ "=" ^ v') params));
 		do_rpcs req s u p minimal cmd session args
 
 let get_line str i =

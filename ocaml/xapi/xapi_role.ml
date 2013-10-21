@@ -15,7 +15,7 @@
  * @group XenAPI functions
  *)
 
-module D = Debug.Debugger(struct let name="xapi_role" end)
+module D = Debug.Make(struct let name="xapi_role" end)
 open D
 
 open Db_actions

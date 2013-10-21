@@ -19,7 +19,7 @@
 open Pervasiveext
 open Threadext
 
-module D = Debug.Debugger(struct let name="at_least_once_more" end)
+module D = Debug.Make(struct let name="at_least_once_more" end)
 open D
 
 (** Type of the function executed in the background *)

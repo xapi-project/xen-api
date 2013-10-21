@@ -22,10 +22,10 @@ open Stringext
 open Server_helpers
 open Client
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
-module Audit = Debug.Debugger(struct let name="audit" end)
+module Audit = Debug.Make(struct let name="audit" end)
 let info = Audit.debug
 
 
@@ -2329,7 +2329,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Local.Host.create_new_blob ~__context ~host ~name ~mime_type ~public
 
 		let call_plugin ~__context ~host ~plugin ~fn ~args =
-			info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s'; args = [ %s ]" (host_uuid ~__context host) plugin fn (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) args));
+			let plugins_to_protect = [
+				"prepare_host_upgrade.py";
+			] in
+			if List.mem plugin plugins_to_protect
+			then
+				info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s' args = [ 'hidden' ]" (host_uuid ~__context host) plugin fn
+			else
+				info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s'; args = [ %s ]" (host_uuid ~__context host) plugin fn (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) args));
 			let local_fn = Local.Host.call_plugin ~host ~plugin ~fn ~args in
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.call_plugin rpc session_id host plugin fn args)

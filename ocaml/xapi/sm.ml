@@ -20,7 +20,7 @@ open Smint
 open Printf
 open Pervasiveext
 
-module D=Debug.Debugger(struct let name="sm" end)
+module D=Debug.Make(struct let name="sm" end)
 open D
 
 

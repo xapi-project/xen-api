@@ -30,7 +30,7 @@ include Helper_process
 
 open Network
 
-module D=Debug.Debugger(struct let name="helpers" end)
+module D=Debug.Make(struct let name="helpers" end)
 open D
 
 module StringSet = Set.Make(String)

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger(struct let name="audit_log" end)
+module D = Debug.Make(struct let name="audit_log" end)
 open D
 
 open Http
@@ -42,7 +42,7 @@ let write_line line fd ?filter since =
 	let line_timestamp =
 		String.sub line (timestamp_index line) line_timestamp_length
 	in
-	if since="" or ((String.compare line_timestamp since) >= 0)
+	if since="" || ((String.compare line_timestamp since) >= 0)
 	then
 	if went_through ?filter line
   then

@@ -21,7 +21,7 @@ open Forkhelpers
 open Xapi_templates
 open Attach_helpers
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let allowed_dom0_directory_for_provision_scripts =

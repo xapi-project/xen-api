@@ -26,7 +26,7 @@
  * 4) xapi occasionally sends data to rrdd through rrdd's interface.
  *)
 
-module D = Debug.Debugger(struct let name = "rrdd_main" end)
+module D = Debug.Make(struct let name = "rrdd_main" end)
 open D
 
 open Fun
@@ -104,7 +104,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 open Listext
 open Stringext
 open Threadext
-open Network_monitor
+open Network_stats
 open Rrdd_shared
 open Ds
 open Monitor_types
@@ -303,7 +303,7 @@ let update_loadavg () =
 (*****************************************************)
 
 let update_netdev doms =
-	let stats = Network_monitor.read_stats () in
+	let stats = Network_stats.read_stats () in
 	let dss, sum_rx, sum_tx =
 	List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
 		if not (String.startswith "vif" dev) then
@@ -645,7 +645,7 @@ let _ =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
 
 	(* Enable the new logging library. *)
-	Debug.set_facility Syslog_transitional.Local5;
+	Debug.set_facility Syslog.Local5;
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";

@@ -22,7 +22,7 @@ open Stringext
 open Threadext
 open Rrdd_shared
 
-module D = Debug.Debugger(struct let name="rrdd_server" end)
+module D = Debug.Make(struct let name="rrdd_server" end)
 open D
 
 let plugin_default = ref false

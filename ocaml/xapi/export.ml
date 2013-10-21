@@ -38,7 +38,7 @@
 open Importexport
 open Pervasiveext
 
-module D=Debug.Debugger(struct let name="export" end)
+module D=Debug.Make(struct let name="export" end)
 open D
 
 

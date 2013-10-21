@@ -13,7 +13,7 @@
  *)
 (* Lock shared between client/slave implementations *)
 
-  module D = Debug.Debugger(struct let name = "db_lock" end)
+  module D = Debug.Make(struct let name = "db_lock" end)
   open D
 
   open Threadext

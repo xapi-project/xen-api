@@ -26,7 +26,7 @@ OCAMLDEP_MODULES_ENABLED = false
 
 USE_OCAMLFIND = true
 
-OCAMLFLAGS = -g -dtypes -thread -warn-error +a-4-6-9-27-28-29
+OCAMLFLAGS = -g -dtypes -bin-annot -thread -warn-error +a-4-6-9-27-28-29
 
 # c compiling stuff
 OCAMLCFLAGS += -g
@@ -128,9 +128,7 @@ export
 # Ocaml #############################################################################
 OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= \
-  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) \
-  $(if $(BYTE_ENABLED), ocaml/rrdd/rrd_client.cma) $(if $(NATIVE_ENABLED), ocaml/rrdd/rrd_client.cmxa) \
-  ocaml/rrdd/xcp-rrdd ocaml/rrdd/rrdd_test
+  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) 
 
 # JS ################################################################################
 JS_PHASE1=
@@ -154,8 +152,6 @@ JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
 OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
 	allxenops \
-	ocaml/xenops-cli/xn \
-	ocaml/xenops-cli/xenopstest \
 	ocaml/xenops/cancel_utils_test \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
@@ -163,9 +159,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/cancel_tests \
-	ocaml/license/v6d \
-	ocaml/network/xcp-networkd \
-	ocaml/network/networkd_db
+	ocaml/license/v6d
 
 #ocaml/xapi/monitor_fake_plugin
 
@@ -174,8 +168,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauth \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
-	ocaml/sm-cli/sm \
-	ocaml/sm-cli/smtest \
 	ocaml/xsh/xsh \
 	ocaml/xe-cli/rt/test_host \
 	ocaml/xe-cli/rt/gtclient \
@@ -226,4 +218,4 @@ phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
 phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
 
 .PHONY: test
-test: ocaml/xenops/xenopsd ocaml/xenops-cli/xenopstest ocaml/xenops-cli/runtest.sh ocaml/test/suite ocaml/database/database_test ocaml/xenops/squeeze_test
+test: ocaml/test/suite ocaml/database/database_test

@@ -65,7 +65,7 @@ end
 
 module Task = functor (Interface : INTERFACE) -> struct		
 
-module D = Debug.Debugger(struct let name = Interface.service_name end)
+module D = Debug.Make(struct let name = Interface.service_name end)
 open D
 
 module SMap = Map.Make(struct type t = string let compare = compare end)

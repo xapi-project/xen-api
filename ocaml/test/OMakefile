@@ -1,5 +1,5 @@
-OCAMLPACKS = oUnit sexpr log xmlm stunnel xml-light2 http-svr uuid netdev \
-             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil oclock gzip sha1
+OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid netdev \
+             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil oclock gzip sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory
 
 OCAMLINCLUDES = \
 	../database \
@@ -7,8 +7,7 @@ OCAMLINCLUDES = \
 	../xenops \
 	../idl \
 	../idl/ocaml_backend \
-	../autogen \
-	../network \
+	../autogen 
 
 OCAML_LIBS = \
 	../fhs \
@@ -16,11 +15,9 @@ OCAML_LIBS = \
 	../idl/ocaml_backend/common \
 	../idl/ocaml_backend/client \
 	../idl/ocaml_backend/server \
-	../xenops/xenops_client \
 	../auth/pam \
 	../util/stats \
-	../xapi/xapi \
-	../network/network_utils \
+	../xapi/xapi 
 
 OCAML_OBJS = \
 	../idl/api_lowlevel \
@@ -32,7 +29,6 @@ OCAML_OBJS = \
 	test_xapi_db_upgrade \
 	test_ca91480 \
 	test_vdi_allowed_operations \
-	test_pr1510 \
 	test_pool_apply_edition \
 	test_pool_license \
 	test_platformdata \

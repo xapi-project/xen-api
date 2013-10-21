@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="mux" end)
+module D=Debug.Make(struct let name="mux" end)
 open D
 
 type processor = Rpc.call -> Rpc.response
@@ -160,6 +160,9 @@ module Mux = struct
 		let destroy context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.destroy ~dbg ~sr
+		let stat context ~dbg ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.stat ~dbg ~sr
 		let scan context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.scan ~dbg ~sr
@@ -183,6 +186,9 @@ module Mux = struct
         let clone context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.clone ~dbg ~sr ~vdi_info
+		let resize context ~dbg ~sr ~vdi ~new_size =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.resize ~dbg ~sr ~vdi ~new_size
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi

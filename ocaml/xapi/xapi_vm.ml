@@ -27,7 +27,7 @@ open Listext
  * If VM.{start,resume}_on is supplied another host reference, they will fail.
  *)
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 exception InvalidOperation of string
@@ -688,7 +688,7 @@ let get_boot_record ~__context ~self =
 	Helpers.get_boot_record ~__context ~self
 
 let get_data_sources ~__context ~self =
-	List.map Data_source.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
+	List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
 
 let record_data_source ~__context ~self ~data_source =
 	Rrdd.add_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self)

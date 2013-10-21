@@ -1,6 +1,6 @@
 OCAML_LIBS    =
 OCAMLINCLUDES = 
-OCAMLPACKS    = str xml-light2 log netdev
+OCAMLPACKS    = str xml-light2 xcp netdev
 
 .SUBDIRS:geneva
 

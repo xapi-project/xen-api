@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Audit = Debug.Debugger(struct let name="audit" end)
-module D = Debug.Debugger(struct let name="rbac_audit" end)
+module Audit = Debug.Make(struct let name="audit" end)
+module D = Debug.Make(struct let name="rbac_audit" end)
 
 (* Rbac Audit fields:
 
@@ -303,9 +303,7 @@ let rec sexpr_args_of __context name rpc_value action =
     )
   in
 	(* heuristic 1: print descriptive arguments in the xapi call *)
-	if (List.mem name ["name";"label";"description";"name_label";"name_description";"new_name"]) (* param for any action *)
-		or (* action+param pair *)
-    (is_selected_action_param action_params_whitelist)
+	if (List.mem name ["name";"label";"description";"name_label";"name_description";"new_name"]) (* param for any action *) || (is_selected_action_param action_params_whitelist) (* action+param pair *)
 	then
 	( match rpc_value with
 		| Rpc.String value ->

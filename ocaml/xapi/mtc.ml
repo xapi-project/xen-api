@@ -29,7 +29,7 @@ open Printf
 
 open Network
 
-module DD=Debug.Debugger(struct let name="MTC:" end)
+module DD=Debug.Make(struct let name="MTC:" end)
 open DD
 
 module Internal = struct

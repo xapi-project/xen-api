@@ -2,7 +2,7 @@
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
 OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
-OCAMLPACKS    = stdext uuid log gzip
+OCAMLPACKS    = stdext uuid gzip
 
 OCamlLibrary(fhs, fhs)
 
@@ -10,7 +10,6 @@ OCamlLibrary(fhs, fhs)
 	ptoken \
 	autogen \
 	xe-cli \
-	sm-cli \
 	client_records \
 	idl \
 	util \
@@ -36,9 +35,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	network \
-	xenops-cli \
-	network \
 	rrdd \
 	test
 

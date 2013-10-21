@@ -22,7 +22,7 @@ open Db_filter_types
 open Create_misc
 open Network
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let host_bugreport_upload = Filename.concat Fhs.libexecdir "host-bugreport-upload"
@@ -799,7 +799,7 @@ let compute_free_memory ~__context ~host =
 let compute_memory_overhead ~__context ~host =
 	Memory_check.host_compute_memory_overhead ~__context ~host
 
-let get_data_sources ~__context ~host = List.map Data_source.to_API_data_source (Rrdd.query_possible_host_dss ())
+let get_data_sources ~__context ~host = List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_host_dss ())
 
 let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds ~ds_name:data_source
 

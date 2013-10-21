@@ -7,7 +7,7 @@ XE(1)
 
 NAME
 ----
-xe-pif-param-list - Displays all parameters for a PIF.
+xe-pif-param-list - Displays all parameters for a physical interface (PIF)
 
 SYNOPSIS
 --------

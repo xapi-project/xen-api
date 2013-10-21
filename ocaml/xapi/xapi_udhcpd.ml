@@ -15,7 +15,7 @@
 
 open Stringext
 
-module D = Debug.Debugger(struct let name="xapi_udhcpd" end)
+module D = Debug.Make(struct let name="xapi_udhcpd" end)
 open D
 
 open Forkhelpers

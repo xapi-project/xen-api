@@ -15,7 +15,7 @@ open Stringext
 open Printf
 open Xenstore
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 let sysfs_stem = "/sys/devices/system/xen_memory/xen_memory0/"

@@ -25,7 +25,7 @@ open Device_common
 open Xenops_task
 open Xenops_utils
 
-module D = Debug.Debugger(struct let name = "xenops" end)
+module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 type create_info = {

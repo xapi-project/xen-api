@@ -160,7 +160,7 @@ let gen_client_types highapi =
 			O.Signature.strings_of (Gen_client.gen_signature highapi);
 			[ "module Legacy = struct";
 			  "open XMLRPC";
-			  "module D=Debug.Debugger(struct let name=\"legacy_marshallers\" end)";
+			  "module D=Debug.Make(struct let name=\"legacy_marshallers\" end)";
 			  "open D" ]; 
 			GenOCaml.gen_of_xmlrpc highapi all_types;
             GenOCaml.gen_to_xmlrpc highapi all_types;

@@ -16,7 +16,7 @@
 open Stringext
 open Pervasiveext
 
-module D = Debug.Debugger(struct let name="gpg" end)
+module D = Debug.Make(struct let name="gpg" end)
 open D
 
 (* Set from config file: *)

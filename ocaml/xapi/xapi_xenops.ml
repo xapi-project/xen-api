@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="xenops" end)
+module D=Debug.Make(struct let name="xenops" end)
 open D
 
 open Network
@@ -429,9 +429,9 @@ module MD = struct
 			other_config = vif.API.vIF_other_config;
 			locking_mode = locking_mode;
 			extra_private_keys = [
-                "vif-uuid", vif.API.vIF_uuid;
-				"network-uuid", net.API.network_uuid
-			]
+                                "vif-uuid", vif.API.vIF_uuid;
+				"network-uuid", net.API.network_uuid;
+                        ]
 		}
 
 	let pcis_of_vm ~__context (vmref, vm) =

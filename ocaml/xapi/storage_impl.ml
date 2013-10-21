@@ -89,7 +89,7 @@ let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
 			Printf.printf "%s %s %s\n" (time_of_float (Unix.gettimeofday ())) prefix s;
 			flush stdout) fmt
 
-module D=Debug.Debugger(struct let name="storage_impl" end)
+module D=Debug.Make(struct let name="storage_impl" end)
 let debug (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "debug" fmt else D.debug fmt
 let error (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "error" fmt else D.error fmt
 let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "info" fmt else D.info fmt
@@ -482,6 +482,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let snapshot = snapshot_and_clone "VDI.snapshot" Impl.VDI.snapshot
 		let clone = snapshot_and_clone "VDI.clone" Impl.VDI.clone
 
+        let resize context ~dbg ~sr ~vdi ~new_size =
+            info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg sr vdi new_size;
+            with_vdi sr vdi
+                (fun () ->
+                    Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
+                )
+ 
         let destroy context ~dbg ~sr ~vdi =
             info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg sr vdi;
             with_vdi sr vdi
@@ -664,6 +671,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let list context ~dbg =
 			List.map fst (Host.list !Host.host)
+
+		let stat context ~dbg ~sr =
+			info "SR.stat dbg:%s sr:%s" dbg sr;
+			with_sr sr
+				(fun () ->
+					match Host.find sr !Host.host with
+						| None -> raise (Sr_not_attached sr)
+						| Some _ ->
+							Impl.SR.stat context ~dbg ~sr
+				)
 
 		let scan context ~dbg ~sr =
 			info "SR.scan dbg:%s sr:%s" dbg sr;

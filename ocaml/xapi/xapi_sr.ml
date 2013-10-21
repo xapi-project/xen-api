@@ -25,7 +25,7 @@ open Client
 
 (* internal api *)
 
-module D=Debug.Debugger(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (**************************************************************************************)
@@ -285,9 +285,17 @@ let destroy  ~__context ~sr =
 	Db.SR.destroy ~__context ~self:sr
 
 let update ~__context ~sr =
-	Sm.assert_pbd_is_plugged ~__context ~sr;
-	Sm.call_sm_functions ~__context ~sR:sr
-		(fun device_config driver -> Sm.sr_update device_config driver sr)
+	let open Storage_access in
+	let task = Context.get_task_id __context in
+	let open Storage_interface in
+	let module C = Client(struct let rpc = rpc end) in
+	transform_storage_exn
+		(fun () ->
+			let sr' = Db.SR.get_uuid ~__context ~self:sr in
+			let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
+			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
+			Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
+		)
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
@@ -411,6 +419,8 @@ let scan ~__context ~sr =
 			let vs = C.SR.scan ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) in
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
+			let virtual_allocation = List.fold_left Int64.add 0L (List.map (fun v -> v.virtual_size) vs) in
+			Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
 			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
 		)
 

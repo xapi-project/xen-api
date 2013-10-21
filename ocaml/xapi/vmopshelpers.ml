@@ -18,7 +18,7 @@
 open Pervasiveext
 open Xenstore
 
-module D = Debug.Debugger(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let with_xc f = Xenctrl.with_intf f
