@@ -344,8 +344,9 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 				try Filename.chop_extension vdi.vdi
 				with Invalid_argument _ -> vdi.vdi in
 			let ref = Ref.make () in
+			let UUID_LEN = 36 in
 			let uuid = 
-				if Uuid.is_uuid x
+				if String.length x == UUID_LEN && Uuid.is_uuid x
 				then Uuid.of_string x
 				else Uuid.make_uuid () in
 
