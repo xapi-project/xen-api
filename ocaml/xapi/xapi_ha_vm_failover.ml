@@ -465,7 +465,9 @@ let restart_auto_run_vms ~__context live_set n =
 						if not (List.exists (fun x -> x=h) shutting_down) then begin
 							let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
 							let host_name = Db.Host.get_name_label ~__context ~self:h in
-							Xapi_alert.add ~msg:Api_messages.ha_host_failed ~cls:`Host ~obj_uuid
+							Xapi_alert.add ~name:Api_messages.ha_host_failed
+								~priority:Api_messages.ha_host_failed_priority
+								~cls:`Host ~obj_uuid
 								~body:(Printf.sprintf "Server '%s' has failed" host_name);
 						end;
 						(* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
