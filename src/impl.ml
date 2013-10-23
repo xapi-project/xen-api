@@ -210,7 +210,7 @@ let stream_raw common c s prezeroed ?(progress = no_progress_bar) () =
         c.Channels.really_write data >>= fun () ->
         return Int64.(of_int (Cstruct.len data))
       | Element.Empty n -> (* must be prezeroed *)
-        c.Channels.skip (Int64.(mul n 512L));
+        c.Channels.skip (Int64.(mul n 512L)) >>= fun () ->
         assert prezeroed;
         return 0L
       | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Element.to_string x))) ) >>= fun work ->
@@ -268,8 +268,7 @@ let endpoint_of_string = function
 let socket sockaddr =
   let family = match sockaddr with
   | Lwt_unix.ADDR_INET(_, _) -> Unix.PF_INET
-  | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX
-  | _ -> failwith "unsupported sockaddr type" in
+  | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
 let colon = Re_str.regexp_string ":"
@@ -443,6 +442,43 @@ let stream common (source: string) (relative_to: string option) (source_format: 
   with Failure x ->
     `Error(true, x)
 
+let serve_nbd_to_raw size c dest =
+  let flags = [] in
+  let open Nbd in
+  let buf = Cstruct.create Negotiate.sizeof in
+  Negotiate.marshal buf { Negotiate.size; flags };
+  c.Channels.really_write buf >>= fun () ->
+  let twomib = 2 * 1024 * 1024 in
+  let block = Memory.alloc twomib in
+  let req = Cstruct.create Request.sizeof in
+  let rep = Cstruct.create Reply.sizeof in
+  let rec serve_requests () =
+    c.Channels.really_read req >>= fun () ->
+    match Request.unmarshal req with
+    | Result.Error e -> fail e
+    | Result.Ok request ->
+      Printf.fprintf stderr "%s\n%!" (Request.to_string request);
+      begin match request.Request.ty with
+      | Command.Write ->
+        let rec loop offset remaining =
+          let n = min twomib remaining in
+          let subblock = Cstruct.sub block 0 n in
+          c.Channels.really_read subblock >>= fun () ->
+          Fd.really_write dest offset subblock >>= fun () ->
+          let remaining = remaining - n in
+          let offset = Int64.(add offset (of_int n)) in
+          if remaining > 0 then loop offset remaining else return () in
+        loop request.Request.from (Int32.to_int request.Request.len) >>= fun () ->
+        Reply.marshal rep { Reply.error = 0l; handle = request.Request.handle };
+        c.Channels.really_write rep
+      | Command.Read 
+      | _ ->
+        Reply.marshal rep { Reply.error = 1l; handle = request.Request.handle };
+        c.Channels.really_write rep
+      end >>= fun () ->
+      serve_requests () in
+  serve_requests ()
+
 let serve_chunked_to_raw c dest =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
@@ -468,7 +504,7 @@ let serve_chunked_to_raw c dest =
     end in
   loop ()
 
-let serve common_options source source_fd source_protocol destination destination_format =
+let serve common_options source source_fd source_protocol destination destination_format size =
   try
     File.use_unbuffered := common_options.Common.unbuffered;
 
@@ -477,7 +513,7 @@ let serve common_options source source_fd source_protocol destination destinatio
     let supported_formats = [ "raw" ] in
     if not (List.mem destination_format supported_formats)
     then failwith (Printf.sprintf "%s is not a supported format" destination_format);
-    let supported_protocols = [ Chunked ] in
+    let supported_protocols = [ Chunked; Nbd ] in
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
 
@@ -501,7 +537,12 @@ let serve common_options source source_fd source_protocol destination destinatio
       ( match destination_endpoint with
         | File path -> Fd.openfile path
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun destination_fd ->
-      serve_chunked_to_raw source_sock destination_fd >>= fun () ->
+      let fn = match source_protocol, size with
+        | Nbd, Some size -> serve_nbd_to_raw size
+        | Nbd, None -> serve_nbd_to_raw 0L
+        | Chunked, _ -> serve_chunked_to_raw
+        | _, _ -> assert false in
+      fn source_sock destination_fd >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
     `Ok ()
