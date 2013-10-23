@@ -85,6 +85,7 @@ XAPI_MODULES = $(COMMON) \
 	sm_exec \
 	sm \
 	storage_impl \
+	storage_local_client \
 	storage_locks \
 	console \
 	importexport \
