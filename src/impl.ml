@@ -448,8 +448,19 @@ let serve_nbd_to_raw size c dest =
   let buf = Cstruct.create Negotiate.sizeof in
   Negotiate.marshal buf { Negotiate.size; flags };
   c.Channels.really_write buf >>= fun () ->
+
   let twomib = 2 * 1024 * 1024 in
   let block = Memory.alloc twomib in
+  let inblocks fn request =
+    let rec loop offset remaining =
+      let n = min twomib remaining in
+      let subblock = Cstruct.sub block 0 n in
+      fn offset subblock >>= fun () ->
+      let remaining = remaining - n in
+      let offset = Int64.(add offset (of_int n)) in
+      if remaining > 0 then loop offset remaining else return () in
+    loop request.Request.from (Int32.to_int request.Request.len) in
+
   let req = Cstruct.create Request.sizeof in
   let rep = Cstruct.create Reply.sizeof in
   let rec serve_requests () =
@@ -460,18 +471,19 @@ let serve_nbd_to_raw size c dest =
       Printf.fprintf stderr "%s\n%!" (Request.to_string request);
       begin match request.Request.ty with
       | Command.Write ->
-        let rec loop offset remaining =
-          let n = min twomib remaining in
-          let subblock = Cstruct.sub block 0 n in
+        inblocks (fun offset subblock ->
           c.Channels.really_read subblock >>= fun () ->
-          Fd.really_write dest offset subblock >>= fun () ->
-          let remaining = remaining - n in
-          let offset = Int64.(add offset (of_int n)) in
-          if remaining > 0 then loop offset remaining else return () in
-        loop request.Request.from (Int32.to_int request.Request.len) >>= fun () ->
+          Fd.really_write dest offset subblock
+        ) request >>= fun () ->
         Reply.marshal rep { Reply.error = 0l; handle = request.Request.handle };
         c.Channels.really_write rep
-      | Command.Read 
+      | Command.Read ->
+        Reply.marshal rep { Reply.error = 0l; handle = request.Request.handle };
+        c.Channels.really_write rep >>= fun () ->
+        inblocks (fun offset subblock ->
+          Fd.really_read_into dest offset subblock >>= fun subblock ->
+          c.Channels.really_write subblock
+        ) request
       | _ ->
         Reply.marshal rep { Reply.error = 1l; handle = request.Request.handle };
         c.Channels.really_write rep
