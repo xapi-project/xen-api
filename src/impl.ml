@@ -529,6 +529,7 @@ let serve common_options source source_fd source_protocol destination destinatio
         | Sockaddr s ->
           let sock = socket s in
           Lwt_unix.bind sock s;
+          Lwt_unix.setsockopt sock Unix.SO_REUSEADDR true;
           Lwt_unix.listen sock 1;
           Lwt_unix.accept sock >>= fun (fd, _) ->
           Channels.of_raw_fd fd >>= fun c ->
