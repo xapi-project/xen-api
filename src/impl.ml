@@ -548,11 +548,15 @@ let serve common_options source source_fd source_protocol destination destinatio
           return c
         | _ -> failwith (Printf.sprintf "Not implemented: serving from source %s" source) ) >>= fun source_sock ->
       ( match destination_endpoint with
-        | File path -> Fd.openfile path
-        | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun destination_fd ->
+        | File path ->
+          let stats = Unix.LargeFile.stat path in
+          let size = stats.Unix.LargeFile.st_size in
+          Fd.openfile path >>= fun fd ->
+          return (fd, size)
+        | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
         | Nbd, Some size -> serve_nbd_to_raw size
-        | Nbd, None -> serve_nbd_to_raw 0L
+        | Nbd, None -> serve_nbd_to_raw default_size
         | Chunked, _ -> serve_chunked_to_raw
         | _, _ -> assert false in
       fn source_sock destination_fd >>= fun () ->
