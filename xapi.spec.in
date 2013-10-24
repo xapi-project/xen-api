@@ -246,7 +246,7 @@ rm -rf $RPM_BUILD_ROOT
 @BASE_PATH@/libexec/shell.pyo
 @BASE_PATH@/libexec/shell.pyc
 @BASE_PATH@/libexec/shutdown
-@BASE_PATH@/libexec/sparse_dd
+%exclude @BASE_PATH@/libexec/sparse_dd
 @BASE_PATH@/libexec/update-mh-info
 @BASE_PATH@/libexec/upload-wrapper
 @BASE_PATH@/libexec/vncterm-wrapper
