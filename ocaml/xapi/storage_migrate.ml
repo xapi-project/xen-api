@@ -572,30 +572,39 @@ let post_detach_hook ~sr ~vdi ~dp =
 				Opt.iter (fun id -> Updates.Scheduler.cancel id) r.watchdog;
 				debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
+let tapdisk_control_socket pid minor =
+	Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid minor
+
+let hand_fd_to_tapdisk s pid minor dp =
+	debug "attempting to transfer NBD fd to existing tapdisk (pid %d; minor %d)" pid minor;
+	let path = tapdisk_control_socket pid minor in
+	let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+	finally
+		(fun () ->
+			Unix.connect control_fd (Unix.ADDR_UNIX path);
+			let msg = dp in
+			let len = String.length msg in
+			let written = Unixext.send_fd control_fd msg 0 len [] s in
+			if written <> len then begin
+				error "Failed to transfer fd to %s" path;
+				failwith "failed to transfer fd to tapdisk"
+			end;
+		)
+		(fun () -> Unix.close control_fd)
+
 let nbd_handler req s sr vdi dp =
 	debug "sr=%s vdi=%s dp=%s" sr vdi dp;
 	let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
         req.Http.Request.close <- true;
 	match tapdisk_of_attach_info attach_info with
 		| Some tapdev ->
+			Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]);
 			let minor = Tapctl.get_minor tapdev in
 			let pid = Tapctl.get_tapdisk_pid tapdev in
-			let path = Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid minor in
-			Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]);
-			let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-			finally
-				(fun () ->
-					Unix.connect control_fd (Unix.ADDR_UNIX path);
-					let msg = dp in
-					let len = String.length msg in
-					let written = Unixext.send_fd control_fd msg 0 len [] s in
-					if written <> len then begin
-						error "Failed to transfer fd to %s" path;
-						Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
-						req.Http.Request.close <- true
-					end;
-				)
-				(fun () -> Unix.close control_fd)
+			let path = tapdisk_control_socket pid minor in
+			if Sys.file_exists path
+			then hand_fd_to_tapdisk s pid minor dp
+			else Vhd_tool_wrapper.receive "nbd" s attach_info.params
 		| None -> 
 			()
 
