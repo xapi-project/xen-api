@@ -28,7 +28,7 @@ open Client
 let vhd_tool = "/usr/sbin/vhd-tool"
 
 let receive protocol (s: Unix.file_descr) (path: string) =
-  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let s' = Uuid.string_of_uuid (Uuid.make_uuid ()) in
   let args = [ "serve";
                "--direct";
                "--source-protocol"; protocol;
