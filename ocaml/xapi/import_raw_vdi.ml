@@ -25,7 +25,7 @@ open Unixext
 open Pervasiveext
 open Client
 
-let vhd_tool = "/usr/sbin/vhd-tool"
+let vhd_tool = "/opt/xensource/libexec/vhd-tool"
 
 let receive protocol (s: Unix.file_descr) (path: string) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
