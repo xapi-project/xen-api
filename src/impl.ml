@@ -442,7 +442,7 @@ let stream common (source: string) (relative_to: string option) (source_format: 
   with Failure x ->
     `Error(true, x)
 
-let serve_nbd_to_raw size c dest =
+let serve_nbd_to_raw common size c dest =
   let flags = [] in
   let open Nbd in
   let buf = Cstruct.create Negotiate.sizeof in
@@ -468,7 +468,8 @@ let serve_nbd_to_raw size c dest =
     match Request.unmarshal req with
     | Result.Error e -> fail e
     | Result.Ok request ->
-      Printf.fprintf stderr "%s\n%!" (Request.to_string request);
+      if common.Common.debug
+      then Printf.fprintf stderr "%s\n%!" (Request.to_string request);
       begin match request.Request.ty with
       | Command.Write ->
         inblocks (fun offset subblock ->
@@ -491,7 +492,7 @@ let serve_nbd_to_raw size c dest =
       serve_requests () in
   serve_requests ()
 
-let serve_chunked_to_raw c dest =
+let serve_chunked_to_raw common c dest =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -516,9 +517,9 @@ let serve_chunked_to_raw c dest =
     end in
   loop ()
 
-let serve common_options source source_fd source_protocol destination destination_format size =
+let serve common source source_fd source_protocol destination destination_format size =
   try
-    File.use_unbuffered := common_options.Common.unbuffered;
+    File.use_unbuffered := common.Common.unbuffered;
 
     let source_protocol = protocol_of_string (require "source-protocol" source_protocol) in
 
@@ -555,9 +556,9 @@ let serve common_options source source_fd source_protocol destination destinatio
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
-        | Nbd, Some size -> serve_nbd_to_raw size
-        | Nbd, None -> serve_nbd_to_raw default_size
-        | Chunked, _ -> serve_chunked_to_raw
+        | Nbd, Some size -> serve_nbd_to_raw     common size
+        | Nbd, None      -> serve_nbd_to_raw     common default_size
+        | Chunked, _     -> serve_chunked_to_raw common
         | _, _ -> assert false in
       fn source_sock destination_fd >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
