@@ -285,8 +285,34 @@ end
 
 (* END OF DUMMY STUFF *)
 
+let colon = Re_str.regexp_string ":"
+
+let canonicalise x =
+	if not(Filename.is_relative x)
+	then x
+	else begin
+		(* Search the PATH and XCP_PATH for the executable *)
+		let paths = Re_str.split colon (Sys.getenv "PATH") in
+		let xen_paths = try Re_str.split colon (Sys.getenv "XCP_PATH") with _ -> [] in
+		let first_hit = List.fold_left (fun found path -> match found with
+			| Some hit -> found
+			| None ->
+				let possibility = Filename.concat path x in
+				if Sys.file_exists possibility
+				then Some possibility
+				else None
+		) None (paths @ xen_paths) in
+		match first_hit with
+		| None -> x
+		| Some hit -> hit
+	end
+
+let tap_ctl = canonicalise "tap-ctl"
+
 let invoke_tap_ctl ctx cmd args =
-	let stdout, stderr = execute_command_get_output ~env:[|"PATH=" ^ (Sys.getenv "PATH") |] "/usr/sbin/tap-ctl" (cmd::args) in
+	let find x = try [ x ^ "=" ^ (Sys.getenv x) ] with _ -> [] in
+	let env = Array.of_list (find "PATH" @ (find "TAPDISK") @ (find "TAPDISK2")) in
+	let stdout, stderr = execute_command_get_output ~env tap_ctl (cmd::args) in
 	stdout
 
 let allocate ctx =
