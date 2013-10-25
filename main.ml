@@ -449,6 +449,22 @@ let vdi_deactivate common_opts sr vdi =
     Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi
   ) common_opts sr vdi
 
+let vdi_similar_content common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    let vdis = Client.VDI.similar_content ~dbg ~sr ~vdi in
+    List.iter (fun vdi ->
+      Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+    ) vdis
+  ) common_opts sr vdi
+
+let vdi_compose common_opts sr vdi1 vdi2 =
+  on_vdi (fun sr vdi1 ->
+    match vdi2 with
+    | None -> failwith "must supply VDI2"
+    | Some vdi2 ->
+      Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+  ) common_opts sr vdi1
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -465,6 +481,10 @@ let sr_arg =
 let vdi_arg =
   let doc = "unique identifier for this VDI within this storage repository" in
   Arg.(value & pos 1 (some string) None & info [] ~docv:"VDI" ~doc)
+
+let vdi2_arg =
+  let doc = "unique identifier for the VDI whose contents should be applied" in
+  Arg.(value & pos 2 (some string) None & info [] ~docv:"VDI2" ~doc)
 
 let sr_attach_cmd =
   let doc = "storage repository configuration in the form of key=value pairs" in
@@ -559,6 +579,15 @@ let vdi_resize_cmd =
   Term.(ret(pure vdi_resize $ common_options_t $ sr_arg $ vdi_arg $ new_size_arg)),
   Term.info "vdi-resize" ~sdocs:_common_options ~doc ~man
 
+let vdi_compose_cmd =
+  let doc = "apply the contents of one disk to another" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Applies the contents of one virtual disk to another.";
+  ] @ help in
+  Term.(ret(pure vdi_compose $ common_options_t $ sr_arg $vdi_arg $ vdi2_arg)),
+  Term.info "vdi-compose" ~sdocs:_common_options ~doc ~man
+
 let vdi_destroy_cmd =
   let doc = "destroy an existing virtual disk in a storage repository." in
   let man = [
@@ -604,6 +633,15 @@ let vdi_deactivate_cmd =
   Term.(ret(pure vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-deactivate" ~sdocs:_common_options ~doc ~man
 
+let vdi_similar_content_cmd =
+  let doc = "list virtual disks with similar content to the one given." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Return a list of virtual disks, ordered in terms of increasing 'distance' from the specified disk. A smaller distance means similar content, so the size of a differencing disk needed to transform the disk into the target would also be small.";
+  ] @ help in
+  Term.(ret(pure vdi_similar_content $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-similar-content" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with an XCP storage management service" in 
   let man = help in
@@ -612,7 +650,8 @@ let default_cmd =
        
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
-            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd]
+            vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd;
+            vdi_similar_content_cmd; vdi_compose_cmd ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
