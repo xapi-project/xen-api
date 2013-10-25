@@ -1,3 +1,7 @@
+trunk (unreleased)
+* sparse_dd: set the vhd parent search path to include the directory
+  of the vhd, not the current directory of the sparse_dd process
+
 0.6.0 (2013-08-02)
 * sparse_dd: use O_DIRECT by default
 * sparse_dd: allow encryption to be enabled and disabled via config file

@@ -6,7 +6,7 @@ open D
 
 let config_file = "/etc/sparse_dd.conf"
 
-let vhd_search_path = "/dev/mapper:."
+let vhd_search_path = "/dev/mapper"
 
 type encryption_mode =
   | Always
@@ -225,6 +225,11 @@ let _ =
 		| None -> None
 		| Some x -> vhd_of_device x in
 	debug "src_vhd = %s; dest_vhd = %s; base_vhd = %s" (Opt.default "None" src_vhd) (Opt.default "None" dest_vhd) (Opt.default "None" base_vhd);
+
+	(* Add the directory of the vhd to the search path *)
+	let vhd_search_path = match src_vhd with
+	| None -> vhd_search_path
+	| Some x -> vhd_search_path ^ ":" ^ (Filename.dirname x) in
 
 	let common = Common.make false false true vhd_search_path in
 
