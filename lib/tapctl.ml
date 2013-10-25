@@ -301,7 +301,7 @@ let canonicalise x =
 				if Sys.file_exists possibility
 				then Some possibility
 				else None
-		) None (paths @ xen_paths) in
+		) None (xen_paths @ paths) in
 		match first_hit with
 		| None -> x
 		| Some hit -> hit
