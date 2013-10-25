@@ -1,5 +1,6 @@
 0.9.4 (25-Oct-2013):
 * add 'vdi-compose' and 'vdi-similar-content' subcommands
+* add mirror manipulation subcommands
 
 0.9.3 (8-Jul-2013):
 * add 'vdi-resize' subcommand
