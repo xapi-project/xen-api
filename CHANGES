@@ -1,4 +1,4 @@
-trunk (unreleased)
+0.6.1 (2013-10-25)
 * sparse_dd: set the vhd parent search path to include the directory
   of the vhd, not the current directory of the sparse_dd process
 
