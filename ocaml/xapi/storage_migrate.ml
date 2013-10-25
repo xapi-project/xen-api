@@ -223,12 +223,14 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 	let on_fail : (unit -> unit) list ref = ref [] in
 
-	let base_vdi = 
+	let base_vdi =
+(*
 		try
 			let x = (List.find (fun x -> x.content_id = dest_content_id) vdis).vdi in
 			debug "local VDI %s has content_id = %s; we will perform an incremental copy" x dest_content_id;
 			Some x
 		with _ ->
+*)
 			debug "no local VDI has content_id = %s; we will perform a full copy" dest_content_id;
 			None
 	in
