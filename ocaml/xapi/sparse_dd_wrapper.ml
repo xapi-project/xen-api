@@ -47,7 +47,9 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 				] @ (if prezeroed then [ "-prezeroed" ] else []
 				) @ (Opt.default [] (Opt.map (fun x -> [ "-base"; x ]) base)) in
 				debug "%s %s" sparse_dd_path (String.concat " " args);
-				let pid = Forkhelpers.safe_close_and_exec None (Some pipe_write) (Some log_fd) []
+				let getenv x = try [ x ^ "=" ^ (Sys.getenv x) ] with _ -> [] in
+				let env = Array.of_list ((getenv "PATH") @ (getenv "XCP_PATH") @ (getenv "TAPDISK2")) in
+				let pid = Forkhelpers.safe_close_and_exec ~env None (Some pipe_write) (Some log_fd) []
 					sparse_dd_path args in
 				close pipe_write;
 				progress_cb (Started pid);
