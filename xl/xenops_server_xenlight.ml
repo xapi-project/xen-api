@@ -863,6 +863,82 @@ module VBD = struct
 					)
 				)
 
+	let ionice qos pid =
+		try
+			run _ionice (Ionice.set_args qos pid) |> ignore_string
+		with e ->
+			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
+
+	let set_qos task vm vbd =
+		with_xc_and_xs
+			(fun xc xs ->
+				Opt.iter (function
+					| Ionice qos ->
+						try
+							let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+							let path = Device_common.kthread_pid_path_of_device ~xs device in
+							let kthread_pid = xs.Xs.read path |> int_of_string in
+							ionice qos kthread_pid
+						with
+							| Xs_protocol.Enoent _ ->
+								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
+								()
+							| e ->
+								error "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
+				) vbd.Vbd.qos
+			)
+
+	let get_qos xc xs vm vbd device =
+		try
+			let path = Device_common.kthread_pid_path_of_device ~xs device in
+			let kthread_pid = xs.Xs.read path |> int_of_string in
+			let i = run _ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+			Opt.map (fun i -> Ionice i) i
+		with
+			| Ionice.Parse_failed x ->
+				error "Failed to parse ionice result: %s" x;
+				None
+			| _ ->
+				None
+
+	let string_of_qos = function
+		| None -> "None"
+		| Some x -> x |> Vbd.rpc_of_qos |> Jsonrpc.to_string
+
+	let media_is_ejected ~xs ~device_number domid =
+		let devid = Device_number.to_xenstore_key device_number in
+		let back_dom_path = xs.Xs.getdomainpath 0 in
+		let backend = Printf.sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
+		let path = backend ^ "/params" in
+		try xs.Xs.read path = "" with _ -> true
+
+	let get_state vm vbd =
+		with_xc_and_xs
+			(fun xc xs ->
+				try
+					let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+					let qos_target = get_qos xc xs vm vbd device in
+
+					let device_number = device_number_of_device device in
+					let domid = device.Device_common.frontend.Device_common.domid in
+					let backend_present =
+						if media_is_ejected ~xs ~device_number domid
+						then None
+						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
+					{
+						Vbd.active = true;
+						plugged = true;
+						backend_present;
+						qos_target = qos_target
+					}
+				with
+					| (Does_not_exist(_, _))
+					| Device_not_connected ->
+						{ unplugged_vbd with
+							Vbd.active = get_active vm vbd
+						}
+			)
+
 	let pre_plug task vm hvm vbd =
 		debug "VBD.pre_plug";
 		let vdi = with_xs (fun xs -> attach_and_activate task xs vm vbd vbd.backend) in
@@ -931,8 +1007,11 @@ module VBD = struct
 		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
 		else on_frontend
 			(fun _ xs frontend_domid hvm ->
-				if vbd.backend = None && not hvm
-				then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
+				let state = get_state vm vbd in
+				if state.plugged then
+					info "VBD %s.%s is already plugged" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
+				else if vbd.backend = None && not hvm then
+					info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
 				else begin
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
 						(fun () ->
@@ -1102,82 +1181,6 @@ module VBD = struct
 					| _ -> ()
 				)
 			) Oldest vm
-
-	let ionice qos pid =
-		try
-			run _ionice (Ionice.set_args qos pid) |> ignore_string
-		with e ->
-			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
-
-	let set_qos task vm vbd =
-		with_xc_and_xs
-			(fun xc xs ->
-				Opt.iter (function
-					| Ionice qos ->
-						try
-							let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
-							let path = Device_common.kthread_pid_path_of_device ~xs device in
-							let kthread_pid = xs.Xs.read path |> int_of_string in
-							ionice qos kthread_pid
-						with
-							| Xs_protocol.Enoent _ ->
-								(* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
-								()
-							| e ->
-								error "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
-				) vbd.Vbd.qos
-			)
-
-	let get_qos xc xs vm vbd device =
-		try
-			let path = Device_common.kthread_pid_path_of_device ~xs device in
-			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run _ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
-			Opt.map (fun i -> Ionice i) i
-		with
-			| Ionice.Parse_failed x ->
-				error "Failed to parse ionice result: %s" x;
-				None
-			| _ ->
-				None
-
-	let string_of_qos = function
-		| None -> "None"
-		| Some x -> x |> Vbd.rpc_of_qos |> Jsonrpc.to_string
-
-	let media_is_ejected ~xs ~device_number domid =
-		let devid = Device_number.to_xenstore_key device_number in
-		let back_dom_path = xs.Xs.getdomainpath 0 in
-		let backend = Printf.sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
-		let path = backend ^ "/params" in
-		try xs.Xs.read path = "" with _ -> true
-
-	let get_state vm vbd =
-		with_xc_and_xs
-			(fun xc xs ->
-				try
-					let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
-					let qos_target = get_qos xc xs vm vbd device in
-
-					let device_number = device_number_of_device device in
-					let domid = device.Device_common.frontend.Device_common.domid in
-					let backend_present =
-						if media_is_ejected ~xs ~device_number domid
-						then None
-						else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
-					{
-						Vbd.active = true;
-						plugged = true;
-						backend_present;
-						qos_target = qos_target
-					}
-				with
-					| (Does_not_exist(_, _))
-					| Device_not_connected ->
-						{ unplugged_vbd with
-							Vbd.active = get_active vm vbd
-						}
-			)
 
 	let get_device_action_request vm vbd =
 		with_xc_and_xs
@@ -2366,10 +2369,11 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm _ vifs data =
+	let restore task progress_callback vm vbds vifs data =
 		with_xs (fun xs ->
 			with_data ~xs task data false (fun fd ->
-				build ~restore_fd:fd task vm [] vifs
+				let vbds = List.filter (fun vbd -> vbd.Vbd.mode = Vbd.ReadOnly) vbds in
+				build ~restore_fd:fd task vm vbds vifs
 			)
 		)
 
