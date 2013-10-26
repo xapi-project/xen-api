@@ -2369,10 +2369,11 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm _ vifs data =
+	let restore task progress_callback vm vbds vifs data =
 		with_xs (fun xs ->
 			with_data ~xs task data false (fun fd ->
-				build ~restore_fd:fd task vm [] vifs
+				let vbds = List.filter (fun vbd -> vbd.Vbd.mode = Vbd.ReadOnly) vbds in
+				build ~restore_fd:fd task vm vbds vifs
 			)
 		)
 
