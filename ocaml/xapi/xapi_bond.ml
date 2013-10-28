@@ -246,6 +246,11 @@ let requirements_of_mode = function
 			default_value = None;
 			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
 		};
+		{
+			name = "lacp-fallback-ab";
+			default_value = Some "true";
+			is_valid_value = (fun str -> List.mem str ["true"; "false"]);
+		};
 	]
 	| _ -> []
 

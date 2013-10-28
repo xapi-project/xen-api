@@ -144,6 +144,7 @@ let create_bond ~__context bond mtu persistent =
 				else ["rebalance-interval", "1800000"]
 			and lacp_timeout = get_prop_assoc_if_mode `lacp "lacp-time"
 			and lacp_aggregation_key = get_prop_assoc_if_mode `lacp "lacp-aggregation-key"
+			and lacp_fallback_ab = get_prop_assoc_if_mode `lacp "lacp-fallback-ab"
 			in
 			let props = [
 				"mode", Record_util.bond_mode_to_string mode;
@@ -154,7 +155,8 @@ let create_bond ~__context bond mtu persistent =
 				"hashing-algorithm", hashing_algorithm;
 			] @ rebalance_interval
 			  @ lacp_timeout
-			  @ lacp_aggregation_key in
+			  @ lacp_aggregation_key
+			  @ lacp_fallback_ab in
 			let overrides = List.filter_map (fun (k, v) ->
 				if String.startswith "bond-" k then
 					Some ((String.sub_to_end k 5), v)
