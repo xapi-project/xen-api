@@ -271,12 +271,18 @@ let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
 (* This operation destroys the data of the dest VM.                                    *)
 let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	let snap_vbds = Db.VM.get_VBDs ~__context ~self:snapshot in
+	let snap_vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) snap_vbds in
+	let snap_vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_vbds_without_cd in
+	let vdi_snap_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_vdis in
 	let snap_vifs = Db.VM.get_VIFs ~__context ~self:snapshot in
 	let snap_vgpus = Db.VM.get_VGPUs ~__context ~self:snapshot in
 	let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
 
 	let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
-	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI __context vbd) vm_VBDs in
+	(* Filter VBDs to ensure that we don't read empty CDROMs *)
+	let vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) vm_VBDs in
+	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_without_cd in
+	let vm_VDIs = List.filter (fun vdi -> List.mem vdi vdi_snap_of) vm_VDIs in
 	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
 	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
 	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
