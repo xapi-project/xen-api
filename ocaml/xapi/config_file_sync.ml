@@ -15,7 +15,13 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-open Config_file_io
+let rewrite_config_files s =
+  Unixext.write_string_to_file "/etc/passwd" s
+
+let transmit_config_files s =
+  let config_files = Unixext.string_of_file "/etc/passwd" in
+  let (_: int) = Unix.write s config_files 0 (String.length config_files) in
+  ()
 
 (** URL used by slaves to fetch dom0 config files (currently /etc/passwd) *)
 let config_file_sync_handler (req: Http.Request.t) s _ =

@@ -151,7 +151,6 @@ XAPI_MODULES = $(COMMON) \
 	pool_db_backup \
 	xapi_sync \
 	config_file_sync \
-	config_file_io \
 	slave_backup \
 	sm_fs_ops \
 	sparse_dd_wrapper \
