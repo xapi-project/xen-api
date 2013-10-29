@@ -145,15 +145,15 @@ let exec_command req cmd s session args =
 	let u = try List.assoc "username" params with _ -> "" in
 	let p = try List.assoc "password" params with _ -> "" in
 	(* Create a list of commands and their associated arguments which might be sensitive. *)
-	let commands_and_params_to_hide = [
-		"user-password-change", ["old"; "new"];
-		"secret-create", ["value"];
-		"secret-param-set", ["value"];
-		"vm-migrate", ["remote-password"];
-		"sr-create", ["device-config-chappassword"; "device-config-incoming_chappassword"];
-		"pool-enable-external-auth", ["config:pass"];
-		"pool-disable-external-auth", ["config:pass"];
-		"host-call-plugin", ["args:url"];
+	let commands_and_params_to_hide =
+		let st = String.startswith in
+		let eq = (=) in
+		[
+		eq "user-password-change", ["old"; "new"];
+		st "secret", ["value"];
+		eq "pool-enable-external-auth", ["config:pass"];
+		eq "pool-disable-external-auth", ["config:pass"];
+		eq "host-call-plugin", ["args:url"];
 	] in
 	let rpc = Helpers.get_rpc () req s in
 	Cli_frontend.populate_cmdtable rpc Ref.null;
@@ -165,8 +165,17 @@ let exec_command req cmd s session args =
 			List.exists
 				(fun k -> String.endswith k cmd_name) uninteresting_cmd_postfixes in
 		let do_log = if uninteresting then debug else info in
-		let params_to_hide = (try List.assoc cmd_name commands_and_params_to_hide with _ -> []) @ ["password"] in
-		do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if List.mem k params_to_hide then "(omitted)" else v in k ^ "=" ^ v') params));
+		let params_to_hide = List.fold_left
+			(fun accu (cmd_test, params) -> if cmd_test cmd_name then accu @ params else accu)
+			[]
+			commands_and_params_to_hide
+		in
+		let must_censor param_name =
+			(* name contains (case-insensitive) "password" or is in list *)
+			Re.execp (Re.compile(Re.no_case(Re.str "password"))) param_name
+			|| List.mem param_name params_to_hide
+		in
+		do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if must_censor k then "(omitted)" else v in k ^ "=" ^ v') params));
 		do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
