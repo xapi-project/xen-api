@@ -751,7 +751,7 @@ module Ovs = struct
 	let make_bond_properties name properties =
 		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";
 		                   "miimon"; "use_carrier"; "rebalance-interval";
-		                   "lacp-time"; "lacp-aggregation-key"] in
+		                   "lacp-time"; "lacp-aggregation-key"; "lacp-fallback-ab"] in
 		let mode_args =
 			let mode = if List.mem_assoc "mode" properties
 				then List.assoc "mode" properties else "balance-slb" in
@@ -795,7 +795,8 @@ module Ovs = struct
 			 "use_carrier", "other-config:bond-detect-mode";
 			 "rebalance-interval", "other-config:bond-rebalance-interval";])
 		and extra_args = List.flatten (List.map get_prop
-			["lacp-time", "other-config:lacp-time";])
+			["lacp-time", "other-config:lacp-time";
+			 "lacp-fallback-ab", "other-config:lacp-fallback-ab";])
 		and per_iface_args = List.flatten (List.map get_prop
 			["lacp-aggregation-key", "other-config:lacp-aggregation-key";
 			 "lacp-actor-key", "other-config:lacp-actor-key";])
