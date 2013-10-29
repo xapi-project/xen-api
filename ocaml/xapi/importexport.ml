@@ -257,8 +257,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 						(fun (r, ifd) ->
 							debug "Content-length: %s" (Opt.default "None" (Opt.map Int64.to_string r.Http.Response.content_length));
 							let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-							debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
-							with_transport (SSL (SSL.make (), remote_address, !Xapi_globs.https_port))
+							debug "Connecting to %s:%d" remote_address Xapi_globs.http_port;
+							with_transport (TCP (remote_address, Xapi_globs.http_port))
 								(with_http put
 									(fun (_, ofd) ->
 										let (n: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
