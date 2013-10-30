@@ -1227,6 +1227,14 @@ let maximise_memory ~__context ~self ~total ~approximate =
 let atomic_set_resident_on ~__context ~vm ~host = assert false
 let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time = assert false
 
+let mark_vm_metrics_as_dirty ~__context ~vm =
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+	let open Rrd_shared in
+	Threadext.Mutex.execute mutex (fun () ->
+		dirty_memory := StringSet.add vm_uuid !dirty_memory;
+		Condition.broadcast condition
+	)
+
 let create_new_blob ~__context ~vm ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
   Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
