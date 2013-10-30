@@ -361,6 +361,64 @@ let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
+module TarInput = struct
+  type t = {
+    ctx: Sha1.ctx;
+  }
+  let initial () = { ctx = Sha1.init () }
+end
+
+let serve_tar_to_raw ?expected_prefix total_size c dest =
+  let module M = Tar.Archive(Lwt) in
+  let twomib = 2 * 1024 * 1024 in
+  let buffer = Memory.alloc twomib in
+  let header = Memory.alloc 512 in
+
+  let rec loop () =
+    c.Channels.really_read header >>= fun () ->
+    match Tar.Header.unmarshal header with
+    | None -> fail (Failure "failed to unmarshal header")
+    | Some hdr ->
+      ( match expected_prefix with
+        | None -> return ()
+        | Some p ->
+          if not(startswith p hdr.Tar.Header.file_name)
+          then fail (Failure (Printf.sprintf "expected filename prefix %s, got %s" p hdr.Tar.Header.file_name))
+          else return () ) >>= fun () ->
+      (* either 'counter' or 'counter.checksum' *)
+
+  loop 0
+
+  fold (fun 
+
+  ) (TarInput.initial ()) 
+    (fun x -> Lwt_stream.next (blkif#read_512 x 1L))
+
+  let header = Cstruct.create Chunked.sizeof in
+  let twomib = 2 * 1024 * 1024 in
+  let buffer = Memory.alloc twomib in
+  let rec loop () =
+    c.Channels.really_read header >>= fun () ->
+    if Chunked.is_last_chunk header then begin
+      Printf.fprintf stderr "Received last chunk.\n%!";
+      return ()
+    end else begin
+      let rec block offset remaining =
+        let this = Int32.(to_int (min (of_int twomib) remaining)) in
+        let buf = if this < twomib then Cstruct.sub buffer 0 this else buffer in
+        c.Channels.really_read buf >>= fun () ->
+        Fd.really_write dest offset buf >>= fun () ->
+        let offset = Int64.(add offset (of_int this)) in
+        let remaining = Int32.(sub remaining (of_int this)) in
+        if remaining > 0l
+        then block offset remaining
+        else return () in
+      block (Chunked.get_offset header) (Chunked.get_len header) >>= fun () ->
+      loop ()
+    end in
+  loop ()
+
+
 open StreamCommon
 
 type endpoint =
@@ -616,7 +674,7 @@ let serve_nbd_to_raw common size c dest =
       serve_requests () in
   serve_requests ()
 
-let serve_chunked_to_raw common c dest =
+lt serve_chunked_to_raw c dest =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -665,7 +723,7 @@ let serve common source source_fd source_protocol destination destination_format
     let supported_formats = [ "raw" ] in
     if not (List.mem destination_format supported_formats)
     then failwith (Printf.sprintf "%s is not a supported format" destination_format);
-    let supported_protocols = [ NoProtocol; Chunked; Nbd ] in
+    let supported_protocols = [ NoProtocol; Chunked; Nbd; Tar ] in
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
 
@@ -699,6 +757,7 @@ let serve common source source_fd source_protocol destination destination_format
         | Nbd, Some size        -> serve_nbd_to_raw     common size
         | Nbd, None             -> serve_nbd_to_raw     common default_size
         | Chunked, _            -> serve_chunked_to_raw common
+        | Tar, _                -> serve_tar_to_raw
         | _, _ -> assert false in
       fn source_sock destination_fd >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
