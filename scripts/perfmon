@@ -1005,6 +1005,15 @@ def main():
             if host_mon:
                 host_mon.process_rrd_updates(rrd_updates, session)
 
+        except socket.error, e:
+            if e.args[0] == 111:
+                # "Connection refused" - this happens when we try to restart session and *that* fails
+                time.sleep(2)
+                pass
+
+            log_err("caught socket.error: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
+            restart_session = True
+
         except IOError, e:
             if e.args[0] == 'http error' and e.args[1] in (401, 500):
                 # Error getting rrd_updates: 401=Unauthorised, 500=Internal - start new session
@@ -1017,14 +1026,6 @@ def main():
                 raise
 
             log_err("caught IOError: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
-            restart_session = True
-
-        except socket.error, e:
-            if e.args[0] == 111:
-                # "Connection refused" - this happens when we try to restart session and *that* fails
-                pass
-
-            log_err("caught socket.error: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
             restart_session = True
 
         runs += 1
