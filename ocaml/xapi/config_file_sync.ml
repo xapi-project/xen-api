@@ -15,13 +15,23 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let rewrite_config_files s =
-  Unixext.write_string_to_file "/etc/passwd" s
+open OPasswd.Common
+
+let superuser = "root"
+
+type config = { password : string } with rpc
+
+let read_config_file () = { password = get_password superuser }
+
+let parse_config_string config = Jsonrpc.of_string config |> config_of_rpc
+
+let write_config config = put_password superuser config.password
+
+let rewrite_config_files config = parse_config_string config |> write_config
 
 let transmit_config_files s =
-  let config_files = Unixext.string_of_file "/etc/passwd" in
-  let (_: int) = Unix.write s config_files 0 (String.length config_files) in
-  ()
+	let msg = read_config_file () |> rpc_of_config |> Jsonrpc.to_string in
+	Unix.write s msg 0 (String.length msg) |> ignore
 
 (** URL used by slaves to fetch dom0 config files (currently /etc/passwd) *)
 let config_file_sync_handler (req: Http.Request.t) s _ =
