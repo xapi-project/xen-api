@@ -47,7 +47,7 @@ let async f =
 
 let async_callback ~result ~user =
 	debug "ASYNC callback";
-	ignore (Ocaml_event.send user result)
+	Ocaml_event.sync (Ocaml_event.send user result)
 
 (* event registration and main loop *)
 
