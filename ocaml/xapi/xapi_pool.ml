@@ -940,7 +940,7 @@ let sync_database ~__context =
     (fun () ->
        (* If HA is enabled I'll first try to flush to the LUN *)
        let pool = Helpers.get_pool ~__context in
-       let flushed_to_vdi = Db.Pool.get_ha_enabled ~__context ~self:pool && (Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log) in
+       let flushed_to_vdi = Db.Pool.get_ha_enabled ~__context ~self:pool && (Db_lock.with_lock (fun () -> Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log)) in
        if flushed_to_vdi
        then debug "flushed database to metadata VDI: assuming this is sufficient."
        else begin
