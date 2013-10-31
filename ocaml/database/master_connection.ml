@@ -128,11 +128,14 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
     begin
       try
 	let req_string = req in
+	let length = String.length req_string in
+	if length > Xapi_globs.http_limit_max_rpc_size
+	then raise Http_svr.Client_requested_size_over_limit;
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
 	let open Xmlrpc_client in
 	let request = xmlrpc 
 		~version:"1.1" ~frame:true ~keep_alive:true
-		~length:(Int64.of_int (String.length req_string))
+		~length:(Int64.of_int length)
 		~cookie:["pool_secret", !Xapi_globs.pool_secret] ~body:req path in
 	match !my_connection with
 	  None -> raise Goto_handler
@@ -159,6 +162,10 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 				result := res (* yippeee! return and exit from while loop *)
 			) fd
       with
+      | Http_svr.Client_requested_size_over_limit ->
+	error "Content length larger than known limit (%d)." Xapi_globs.http_limit_max_rpc_size;
+	debug "Re-raising exception to caller.";
+	raise Http_svr.Client_requested_size_over_limit
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Http_client.Http_error (http_code,err_msg) ->
 	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg !Xapi_globs.permanent_master_failure_retry_interval;
