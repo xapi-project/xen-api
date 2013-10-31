@@ -7357,7 +7357,7 @@ let event =
   let next = call
     ~name:"next" ~params:[]
     ~in_product_since:rel_rio
-    ~doc:"Blocking call which returns a (possibly empty) batch of events"
+    ~doc:"Blocking call which returns a (possibly empty) batch of events. This method is only recommended for legacy use. New development should use event.from which supercedes this method. "
     ~custom_marshaller:true
     ~flags:[`Session]
     ~result:(Set (Record _event), "the batch of events")
@@ -7371,7 +7371,7 @@ let event =
 			 Float, "timeout", "Return after this many seconds if no events match";
 	]
     ~in_product_since:rel_boston
-    ~doc:"Blocking call which returns a (possibly empty) batch of events"
+    ~doc:"Blocking call which returns a new token and a (possibly empty) batch of events. The returned token can be used in subsequent calls to this function."
     ~custom_marshaller:true
     ~flags:[`Session]
     ~result:(Set (Record _event), "the batch of events")
