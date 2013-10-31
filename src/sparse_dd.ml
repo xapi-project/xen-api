@@ -112,7 +112,7 @@ let find_backend_device path =
 		let open Xenstore in
 		(* If we're looking at a xen frontend device, see if the backend
 		   is in the same domain. If so check if it looks like a .vhd *)
-		let rdev = (Unix.stat path).Unix.st_rdev in
+		let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
 		let major = rdev / 256 and minor = rdev mod 256 in
 		let link = Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor) in
 		match List.rev (Re_str.split (Re_str.regexp_string "/") link) with
