@@ -23,7 +23,7 @@ module D = Debug.Make(struct let name="xapi_globs" end)
 let use_xenopsd = ref false
 
 (* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
-let relax_xsm_sr_check = ref false
+let relax_xsm_sr_check = ref true
 
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
