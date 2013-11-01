@@ -1,3 +1,9 @@
+0.6.3 (2013-11-01)
+* open vhds read/only where possible
+
+0.6.2 (2013-10-31)
+* support for opening disks > 4GiB on 32-bit hosts
+
 0.6.1 (2013-10-25)
 * sparse_dd: set the vhd parent search path to include the directory
   of the vhd, not the current directory of the sparse_dd process
