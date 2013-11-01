@@ -93,7 +93,7 @@ let determine_other_config ~__context pif_rc net_rc =
 	let additional = ["network-uuids", net_rc.API.network_uuid] in
 	(pool_oc |> (List.update_assoc net_oc) |> (List.update_assoc pif_oc)) @ additional
 
-let create_bond ~__context bond mtu =
+let create_bond ~__context bond mtu persistent =
 	(* Get all information we need from the DB before doing anything that may drop our
 	 * management connection *)
 	let master = Db.Bond.get_master ~__context ~self:bond in
@@ -111,13 +111,12 @@ let create_bond ~__context bond mtu =
 	let props = Db.Bond.get_properties ~__context ~self:bond in
 	let mode = Db.Bond.get_mode ~__context ~self:bond in
 	let other_config = determine_other_config ~__context master_rc master_net_rc in
-	let persistent_b = is_dom0_interface master_rc in
 
 	(* clean up bond slaves *)
 	let cleanup = List.map (fun (_, bridge) -> bridge, true) slave_devices_and_bridges in
 	let interface_config =
 		List.map (fun (device, bridge) ->
-			device, {default_interface with mtu}
+			device, {default_interface with mtu; persistent_i=persistent}
 		) slave_devices_and_bridges
 	in
 
@@ -126,17 +125,24 @@ let create_bond ~__context bond mtu =
 
 	(* set bond properties *)
 	let props =
+		let rec get_prop p =
+			if List.mem_assoc p props
+			then List.assoc p props
+			else ""
+		and get_prop_assoc_if_mode m p = if mode = m
+			then if List.mem_assoc p props
+				then [ p, List.assoc p props ]
+				else []
+			else []
+		in
+
 		if List.length slaves > 1 then
-			let hashing_algorithm =
-				if List.mem_assoc "hashing_algorithm" props then
-					List.assoc "hashing_algorithm" props
-				else
-					""
-			in
-			let rebalance_interval =
-				if mode = `lacp
+			let hashing_algorithm = get_prop "hashing_algorithm"
+			and rebalance_interval = if mode = `lacp
 				then []
 				else ["rebalance-interval", "1800000"]
+			and lacp_timeout = get_prop_assoc_if_mode `lacp "lacp-time"
+			and lacp_aggregation_key = get_prop_assoc_if_mode `lacp "lacp-aggregation-key"
 			in
 			let props = [
 				"mode", Record_util.bond_mode_to_string mode;
@@ -145,7 +151,9 @@ let create_bond ~__context bond mtu =
 				"updelay", "31000";
 				"use_carrier", "1";
 				"hashing-algorithm", hashing_algorithm;
-			] @ rebalance_interval in
+			] @ rebalance_interval
+			  @ lacp_timeout
+			  @ lacp_aggregation_key in
 			let overrides = List.filter_map (fun (k, v) ->
 				if String.startswith "bond-" k then
 					Some ((String.sub_to_end k 5), v)
@@ -163,7 +171,7 @@ let create_bond ~__context bond mtu =
 		bond_properties=props; bond_mac=Some mac}] in
 	cleanup,
 	[master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
-		persistent_b}],
+		persistent_b=persistent}],
 	interface_config
 
 let destroy_bond ~__context ~force bond =
@@ -171,7 +179,7 @@ let destroy_bond ~__context ~force bond =
 	let network = Db.PIF.get_network ~__context ~self:master in
 	[Db.Network.get_bridge ~__context ~self:network, force]
 
-let create_vlan ~__context vlan =
+let create_vlan ~__context vlan persistent =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
 	let master_rc = Db.PIF.get_record ~__context ~self:master in
 	let master_network_rc = Db.Network.get_record ~__context ~self:master_rc.API.pIF_network in
@@ -185,11 +193,10 @@ let create_vlan ~__context vlan =
 	let other_config = determine_other_config ~__context master_rc master_network_rc in
 	let other_config = List.replace_assoc "network-uuids"
 		(master_network_rc.API.network_uuid ^ ";" ^ slave_network_rc.API.network_uuid) other_config in
-	let persistent_b = is_dom0_interface master_rc in
 
 	[master_network_rc.API.network_bridge,
 		{default_bridge with vlan=(Some (slave_network_rc.API.network_bridge, tag)); other_config;
-		bridge_mac=(Some mac); persistent_b}]
+		bridge_mac=(Some mac); persistent_b=persistent}]
 
 let destroy_vlan ~__context vlan =
 	let master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
@@ -231,12 +238,12 @@ let get_pif_type pif_rc =
 let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
-	let persistent_b = is_dom0_interface pif_rc in
+	let persistent = is_dom0_interface pif_rc in
 	match get_pif_type pif_rc with
 	| `tunnel_pif _ ->
 		[],
 		[net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
-			other_config; persistent_b}],
+			other_config; persistent_b=persistent}],
 		[]
 	| `vlan_pif vlan ->
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -244,11 +251,12 @@ let rec create_bridges ~__context pif_rc net_rc =
 		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
 		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
 		cleanup,
-		create_vlan ~__context vlan @ bridge_config,
+		create_vlan ~__context vlan persistent @ bridge_config,
 		interface_config
 	| `bond_pif bond ->
-		let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu in
-		let interface_config = (pif_rc.API.pIF_device, {default_interface with mtu}) :: interface_config in
+		let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu persistent in
+		let interface_config = (pif_rc.API.pIF_device, {default_interface with mtu; persistent_i=persistent})
+			:: interface_config in
 		cleanup, bridge_config, interface_config
 	| `phy_pif  ->
 		let cleanup =
@@ -262,8 +270,8 @@ let rec create_bridges ~__context pif_rc net_rc =
 		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
 		cleanup,
 		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
-			other_config; persistent_b}],
-		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload}]
+			other_config; persistent_b=persistent}],
+		[pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
 	match get_pif_type pif_rc with
