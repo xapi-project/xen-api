@@ -32,15 +32,18 @@ let async f =
 	let result = f ~async:channel () in
 	debug "ASYNC call returned";
 	let ret = Ocaml_event.sync (Ocaml_event.receive channel) in
+	debug "ASYNC synced with callback";
 	match ret with
 	| None ->
 		result
 	| Some e ->
+		debug "libxl raised %s" (Xenlight.string_of_error e);
 		raise (Error (e, "async call"))
 
 let async_callback ~result ~user =
 	debug "ASYNC callback";
-	Ocaml_event.sync (Ocaml_event.send user result)
+	Ocaml_event.sync (Ocaml_event.send user result);
+	debug "ASYNC sent event notification"
 
 (* event registration and main loop *)
 
