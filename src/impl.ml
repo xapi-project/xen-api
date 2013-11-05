@@ -566,7 +566,7 @@ let serve common source source_fd source_protocol destination destination_format
       ( match destination_endpoint with
         | File path ->
           let size = File.get_file_size path in
-          Fd.openfile path false >>= fun fd ->
+          Fd.openfile path true >>= fun fd ->
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
