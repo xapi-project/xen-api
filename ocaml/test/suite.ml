@@ -18,6 +18,7 @@ let base_suite =
 	"base_suite" >:::
 		[
 			Test_basic.test;
+			Test_helpers.test;
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
