@@ -220,7 +220,15 @@ try
 			Sparse_dd_wrapper.dd ~__context sparse device_src remote_uri size;
 			let finished () =
 				match Db.Task.get_status ~__context ~self:task_id with
-				| `success | `failure | `cancelled -> true
+				| `success -> true
+				| `failure | `cancelled ->
+					begin match Db.Task.get_error_info ~__context ~self:task_id with
+					| [] -> (* This should never happen *)
+						failwith("Copy of VDI to remote failed with unspecified error!")
+					| code :: params ->
+						debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
+						raise (Api_errors.Server_error(code, params))
+					end
 				| _ -> false in
 			while not (finished ()) do
 				Thread.delay 0.5
