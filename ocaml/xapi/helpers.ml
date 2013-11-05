@@ -905,7 +905,11 @@ module NetworkSet = Set.Make(struct type t = API.ref_network let compare = compa
 
 let empty_cache = (SRSet.empty, NetworkSet.empty)
 
-let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm_t =
+let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
+	(* Any kind of vGPU means that the VM is not agile. *)
+	if vm_t.API.vM_VGPUs <> [] then
+		raise (Api_errors.Server_error
+			(Api_errors.vm_has_vgpu, [Ref.string_of vm]));
 	(* All referenced VDIs should be in shared SRs *)
 	let check_vbd ok_srs vbd =
 		if Db.VBD.get_empty ~__context ~self:vbd
@@ -934,13 +938,13 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm_t =
 
 let vm_assert_agile ~__context ~self =
 	let vm_t = Db.VM.get_record ~__context ~self in
-	let _ = caching_vm_t_assert_agile ~__context empty_cache vm_t in
+	let _ = caching_vm_t_assert_agile ~__context empty_cache self vm_t in
 	()
 
 let partition_vm_ps_by_agile ~__context vm_ps =
 	let distinguish_vm (agile_vm_ps, not_agile_vm_ps, cache) ((vm, vm_t) as vm_p) =
 		try
-			let cache = caching_vm_t_assert_agile ~__context cache vm_t in
+			let cache = caching_vm_t_assert_agile ~__context cache vm vm_t in
 			(vm_p :: agile_vm_ps, not_agile_vm_ps, cache)
 		with _ ->
 		  (agile_vm_ps, vm_p :: not_agile_vm_ps, cache) in
