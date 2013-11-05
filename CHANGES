@@ -1,4 +1,4 @@
-trunk (unreleased)
+0.6.4 (2013-11-05)
 * vhd-tool serve: support receiving data as raw (no chunked or NBD)
 * vhd-tool serve: use BLKGETSIZE64 to get the size of the destination block device
 
