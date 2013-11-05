@@ -55,12 +55,12 @@ let with_block_attached_devices (__context: Context.t) rpc (session_id: API.ref_
   loop [] vdis
 
 (** Return a URL suitable for passing to the sparse_dd process *)
-let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id vdi = 
+let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id task_id vdi =
         (* Find a suitable host for the SR containing the VDI *)
         let sr = Db.VDI.get_SR ~__context ~self:vdi in
         let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
         let address = Db.Host.get_address ~__context ~self:host in
-        Printf.sprintf "https://%s%s?vdi=%s&session_id=%s" address Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id)
+        Printf.sprintf "https://%s%s?vdi=%s&session_id=%s&task_id=%s" address Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id) (Ref.string_of task_id)
 
 (** Catch those smint exceptions and convert into meaningful internal errors *)
 let with_api_errors f x = 
@@ -214,9 +214,25 @@ try
 			Sparse_dd_wrapper.dd ~__context sparse device_src device_dst size
 		)
 		else begin
-			let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id vdi_dst in
+			let task_id = Context.get_task_id __context in
+			let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id task_id vdi_dst in
 			debug "remote_uri = %s" remote_uri;
-			Sparse_dd_wrapper.dd ~__context sparse device_src remote_uri size
+			Sparse_dd_wrapper.dd ~__context sparse device_src remote_uri size;
+			let finished () =
+				match Db.Task.get_status ~__context ~self:task_id with
+				| `success -> true
+				| `failure | `cancelled ->
+					begin match Db.Task.get_error_info ~__context ~self:task_id with
+					| [] -> (* This should never happen *)
+						failwith("Copy of VDI to remote failed with unspecified error!")
+					| code :: params ->
+						debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
+						raise (Api_errors.Server_error(code, params))
+					end
+				| _ -> false in
+			while not (finished ()) do
+				Thread.delay 0.5
+			done
 		end
 	)
 with
