@@ -18,13 +18,22 @@ type authentication =
   | Session_id of string
   | UserPassword of string * string
 
-let to_uri ~use_https ~host ~authentication ~vdi =
-  let scheme = if use_https then "https" else "http" in
-
-  Uri.of_string (match authentication with
-  | Session_id session_id -> Printf.sprintf "%s://%s/import_raw_vdi?session_id=%s&vdi=%s" scheme host session_id vdi
-  | UserPassword (user, pass) -> Printf.sprintf "%s://%s:%s@%s/import_raw_vdi?vdi=%s" scheme user pass host vdi
-  )
+let uri ~pool ~authentication ~vdi =
+  let ssl, scheme = match Uri.scheme pool with
+  | Some "https" -> true, "https"
+  | Some "http" -> false, "http"
+  | x -> failwith (Printf.sprintf "Unknown scheme: %s" (match x with None -> "None" | Some x -> x)) in
+  let port = match Uri.port pool with
+  | Some x -> x
+  | None -> if ssl then 443 else 80 in
+  let query = [ "vdi", [ API.Ref.string_of vdi ] ] in
+  let userinfo = match authentication with
+  | UserPassword (user, pass) -> Some (user ^ ":" ^ pass)
+  | Session_id _ -> None in
+  let query = match authentication with
+  | UserPassword (_, _) -> query
+  | Session_id s -> ("session_id", [ s ]) :: query in
+  Uri.make ~scheme ?userinfo ?host:(Uri.host pool) ~port ~path:"/import_raw_vdi" ~query ()
 
 let socket sockaddr =
   let family = match sockaddr with

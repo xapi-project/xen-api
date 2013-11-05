@@ -38,6 +38,29 @@ let main filename =
 		lwt vdi = VDI.create ~rpc ~session_id ~name_label:"upload_disk" ~name_description:""
 		  ~sR:sr ~virtual_size ~_type:`user ~sharable:false ~read_only:false
 		  ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
+		(try_lwt
+			let authentication = Disk.UserPassword(!username, !password) in
+			let uri = Disk.uri ~pool:(Uri.of_string !uri) ~authentication ~vdi in
+			lwt oc = Disk.start_upload ~chunked:false ~uri in
+			let blocksize = 1024 * 1024 * 2 in
+			let block = Cstruct.create blocksize in
+			Lwt_unix.openfile filename [ Unix.O_RDONLY ] 0o0 >>= fun fd ->
+			lwt ic = Data_channel.of_fd ~seekable:true fd in
+			let rec copy remaining =
+				if remaining = 0L
+				then return ()
+				else
+					let block = Cstruct.sub block 0 Int64.(to_int (min (of_int blocksize) remaining)) in
+					ic.Data_channel.really_read block >>= fun () ->
+					oc.Data_channel.really_write block >>= fun () ->
+					copy Int64.(sub remaining (of_int (Cstruct.len block))) in
+			copy virtual_size >>= fun () ->
+			oc.Data_channel.close () >>= fun () ->
+			ic.Data_channel.close ()
+		with e ->
+			Printf.fprintf stderr "Caught: %s, cleaning up\n%!" (Printexc.to_string e);
+			VDI.destroy rpc session_id vdi >>= fun () ->
+			fail e) >>= fun () ->
 		lwt uuid = VDI.get_uuid rpc session_id vdi in
 		Printf.printf "%s\n" uuid;
 		return ()

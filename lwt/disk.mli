@@ -21,10 +21,10 @@ type authentication =
   | UserPassword of string * string
     (** login with this username and password, then log out afterwards *)
 
-val to_uri: use_https:bool -> host:string -> authentication:authentication -> vdi:string -> Uri.t
-(** [to_url use_https host auth vdi] constructs a URI which references
-    the remote disk [vdi] via host [host] where we will offer
-    authentication [authentication] and encrypt if [use_https] is true. *)
+val uri: pool:Uri.t -> authentication:authentication -> vdi:API.ref_VDI -> Uri.t
+(** [uri pool auth vdi] constructs a URI which references the remote disk [vdi]
+    in the pool referenced by URI [uri] via authentication method
+    [authentication]. *)
 
 val start_upload: chunked:bool -> uri:Uri.t -> Data_channel.t Lwt.t
 (** [start_upload chunked uri] connects to the remote [uri] and offers
