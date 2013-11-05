@@ -36,7 +36,7 @@ type t = {
 (** a bidirectional channel which allows reading into and writing from
     Cstruct.t buffers *)
 
-val of_fd: Lwt_unix.file_descr -> bool -> t Lwt.t
+val of_fd: Lwt_unix.file_descr -> seekable:bool -> t Lwt.t
 (** [of_fd fd seekable] creates a channel from a Lwt_unix.file_descr.
     If [seekable] then seek() will be called on the fd *)
 
