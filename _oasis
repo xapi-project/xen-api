@@ -29,8 +29,8 @@ Library "xen-api-client-lwt"
   Path: lwt
   Findlibparent: xen-api-client
   Findlibname: lwt
-  Modules: Xen_api_lwt_unix
-  BuildDepends:	xen-api-client, rpclib, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri
+  Modules: Xen_api_lwt_unix, Data_channel, Cohttp_unbuffered_io, Disk
+  BuildDepends:	xen-api-client, rpclib, xmlm, lwt, lwt.ssl, lwt.unix, cohttp, uri, cstruct, cstruct.lwt
 
 Library "xen-api-client-async"
   CompiledObject:     best
@@ -66,6 +66,14 @@ Executable list_vms_async
   Path: async_test
   MainIs: list_vms.ml
   BuildDepends: xen-api-client, xen-api-client.async, core, async, async_unix, threads
+
+Executable upload_disk_lwt
+  CompiledObject:     best
+  Build$:             flag(lwt)
+  Install:            false
+  Path:               lwt_test
+  MainIs:             upload_disk.ml
+  BuildDepends:       xen-api-client, xen-api-client.lwt, lwt, lwt.ssl, lwt.unix
 
 Test xen_api_test_test
   Run$:               flag(tests)
