@@ -899,6 +899,9 @@ let is_network_properly_shared ~__context ~self =
 	properly_shared
 
 let vm_assert_agile ~__context ~self =
+	if Db.VM.get_VGPUs ~__context ~self <> [] then
+		raise (Api_errors.Server_error
+			(Api_errors.vm_has_vgpu, [Ref.string_of self]));
   (* All referenced VDIs should be in shared SRs *)
   List.iter (fun vbd ->
 	       if not(Db.VBD.get_empty ~__context ~self:vbd) then begin
