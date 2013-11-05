@@ -517,6 +517,21 @@ let serve_chunked_to_raw common c dest =
     end in
   loop ()
 
+let serve_raw_to_raw common size c dest =
+  let twomib = 2 * 1024 * 1024 in
+  let buffer = Memory.alloc twomib in
+  let rec loop offset remaining =
+    let this = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
+    let block = Cstruct.sub buffer 0 this in
+    c.Channels.really_read block >>= fun () ->
+    Fd.really_write dest offset block >>= fun () ->
+    let offset = Int64.(add offset (of_int this)) in
+    let remaining = Int64.(sub remaining (of_int this)) in
+    if remaining > 0L
+    then loop offset remaining
+    else return () in
+  loop 0L size
+
 let serve common source source_fd source_protocol destination destination_format size =
   try
     File.use_unbuffered := common.Common.unbuffered;
@@ -526,7 +541,7 @@ let serve common source source_fd source_protocol destination destination_format
     let supported_formats = [ "raw" ] in
     if not (List.mem destination_format supported_formats)
     then failwith (Printf.sprintf "%s is not a supported format" destination_format);
-    let supported_protocols = [ Chunked; Nbd ] in
+    let supported_protocols = [ NoProtocol; Chunked; Nbd ] in
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
 
@@ -550,15 +565,16 @@ let serve common source source_fd source_protocol destination destination_format
         | _ -> failwith (Printf.sprintf "Not implemented: serving from source %s" source) ) >>= fun source_sock ->
       ( match destination_endpoint with
         | File path ->
-          let stats = Unix.LargeFile.stat path in
-          let size = stats.Unix.LargeFile.st_size in
-          Fd.openfile path false >>= fun fd ->
+          let size = File.get_file_size path in
+          Fd.openfile path true >>= fun fd ->
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
-        | Nbd, Some size -> serve_nbd_to_raw     common size
-        | Nbd, None      -> serve_nbd_to_raw     common default_size
-        | Chunked, _     -> serve_chunked_to_raw common
+        | NoProtocol, Some size -> serve_raw_to_raw common size
+        | NoProtocol, None      -> serve_raw_to_raw common default_size
+        | Nbd, Some size        -> serve_nbd_to_raw     common size
+        | Nbd, None             -> serve_nbd_to_raw     common default_size
+        | Chunked, _            -> serve_chunked_to_raw common
         | _, _ -> assert false in
       fn source_sock destination_fd >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
