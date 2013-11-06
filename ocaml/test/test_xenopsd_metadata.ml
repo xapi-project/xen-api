@@ -117,6 +117,43 @@ let vgpu_platform_data = [
 	"vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf";
 ]
 
+module VideoMode = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = vm_config
+		type output_t = Vm.video_card
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = function
+			| Vm.Cirrus -> "Cirrus"
+			| Vm.Standard_VGA -> "Standard_VGA"
+			| Vm.Vgpu -> "Vgpu"
+	end
+
+	module State = XapiDb
+
+	let load_input = load_vm_config
+
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
+		| Vm.HVM {Vm.video = video_mode} -> video_mode
+		| _ -> failwith "expected HVM metadata"
+
+	let tests = [
+		(* Default video mode should be Cirrus. *)
+		{oc=[]; platform=[]}, Vm.Cirrus;
+		(* Unrecognised video mode should default to Cirrus. *)
+		{oc=[]; platform=["vga", "foo"]}, Vm.Cirrus;
+		(* Video modes set in the platform map should be respected. *)
+		{oc=[]; platform=["vga", "cirrus"]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"]}, Vm.Standard_VGA;
+		(* We should be able to enable vGPU mode. *)
+		{oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
+		(* vGPU mode should override whatever's set for the "vga" key. *)
+		{oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
+		{oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
+	]
+end))
+
 module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = vm_config
@@ -156,5 +193,6 @@ let test =
 	"test_xenopsd_metadata" >:::
 		[
 			"test_hvm_serial" >:: HVMSerial.test;
+			"test_videomode" >:: VideoMode.test;
 			"test_videoram" >:: VideoRam.test;
 		]
