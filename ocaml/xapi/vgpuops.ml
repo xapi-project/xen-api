@@ -153,6 +153,10 @@ let add_vgpus_to_vm ~__context vm vgpus =
 		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
 		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
 
+let vgpu_manual_setup_of_vm vm_r =
+	List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
+	(List.assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform = "true")
+
 let create_vgpus ~__context (vm, vm_r) hvm =
 	let vgpus = vgpus_of_vm ~__context vm_r in
 	if vgpus <> [] then begin
@@ -165,7 +169,8 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 			vgpus
 	in
 	add_pcis_to_vm ~__context vm passthru_vgpus;
-	add_vgpus_to_vm ~__context vm virtual_vgpus
+	if not (vgpu_manual_setup_of_vm vm_r)
+	then add_vgpus_to_vm ~__context vm virtual_vgpus
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try
