@@ -112,6 +112,11 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
+let vgpu_platform_data = [
+	"vgpu_pci_id", "0000:0a:00.0";
+	"vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf";
+]
+
 module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = vm_config
@@ -136,11 +141,11 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 		(* Specifying a different amount of videoram works. *)
 		{oc=[]; platform=["videoram", "8"]}, 8;
 		(* Default videoram should be 16MiB for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"]}, 16;
+		{oc = []; platform=vgpu_platform_data}, 16;
 		(* Insufficient videoram values should be overridden for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"; "videoram", "8"]}, 16;
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "8"]}, 16;
 		(* videoram values larger than the default should be allowed for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"; "videoram", "32"]}, 32;
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "32"]}, 32;
 		(* Other VGA options shouldn't affect the videoram setting. *)
 		{oc = []; platform=["vga", "cirrus"]}, 4;
 		{oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
