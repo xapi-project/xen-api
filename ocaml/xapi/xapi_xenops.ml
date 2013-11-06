@@ -54,7 +54,7 @@ module Platform = struct
 	let usb = "usb"
 	let usb_tablet = "usb_tablet"
 	let parallel = "parallel"
-	let vga = Xapi_globs.vgpu_vga_key
+	let vga = "vga"
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_vnc_enabled = Xapi_globs.vgpu_vnc_enabled_key
@@ -230,6 +230,22 @@ let is_boot_file_whitelisted filename =
 let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 	let open Vm in
 
+	let video_mode =
+		(* If the vgpu keys are present for this VM, this overrides
+		 * the value of platform:vgpu. *)
+		if true
+			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
+		then Vgpu
+		else
+			match string vm.API.vM_platform "cirrus" Platform.vga with
+			| "std" -> Standard_VGA
+			| "cirrus" -> Cirrus
+			| x ->
+				error "Unknown platform/vga option: %s (expected 'std' or 'cirrus')" x;
+				Cirrus
+	in
+
     let pci_emulations =
         let s = try Some (List.assoc "mtc_pci_emulations" vm.API.vM_other_config) with _ -> None in
         match s with
@@ -249,18 +265,11 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			video_mib = begin
 				(* For vGPU, make sure videoram is at least 16MiB. *)
 				let requested_videoram = int vm.API.vM_platform 4 "videoram" in
-				if string vm.API.vM_platform "cirrus" Platform.vga = Xapi_globs.vgpu_vga_value
+				if video_mode = Vgpu
 				then max requested_videoram 16
 				else requested_videoram
 			end;
-			video = begin match string vm.API.vM_platform "cirrus" Platform.vga with
-				| "std" -> Standard_VGA
-				| "cirrus" -> Cirrus
-				| "vgpu" -> Vgpu
-				| x ->
-					error "Unknown platform/vga option: %s (expected 'std', 'cirrus', or 'vgpu')" x;
-					Cirrus
-			end;
+			video = video_mode;
 			acpi = bool vm.API.vM_platform true "acpi";
 			serial = begin
 				(* The platform value should override the other_config value. If
