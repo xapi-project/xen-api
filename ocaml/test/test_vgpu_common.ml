@@ -19,6 +19,8 @@ let k100 = {
 	model_name = "GRID K100";
 	framebuffer_size = 268435456L;
 	max_heads = 2L;
+	max_resolution_x = 1920L;
+	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
 }
@@ -28,6 +30,8 @@ let k140q = {
 	model_name = "GRID K140Q";
 	framebuffer_size = 1006632960L;
 	max_heads = 2L;
+	max_resolution_x = 2560L;
+	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
 }
@@ -37,6 +41,8 @@ let k200 = {
 	model_name = "GRID K200";
 	framebuffer_size = 268435456L;
 	max_heads = 2L;
+	max_resolution_x = 1920L;
+	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
 }
@@ -46,6 +52,8 @@ let k240q = {
 	model_name = "GRID K240Q";
 	framebuffer_size = 1006632960L;
 	max_heads = 2L;
+	max_resolution_x = 2560L;
+	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
 }
@@ -55,6 +63,8 @@ let k260q = {
 	model_name = "GRID K260Q";
 	framebuffer_size = 2013265920L;
 	max_heads = 4L;
+	max_resolution_x = 2560L;
+	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 2L;
 	internal_config = [];
 }
