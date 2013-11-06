@@ -789,7 +789,7 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
 		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
 		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id) @
-		(make_param_funs (Client.VGPU_type.get_all) (Client.VGPU_type.get_all_records_where) (Client.VGPU_type.get_by_uuid) (vgpu_type_record) "vgpu-type" [] ["uuid";"vendor-name";"model-name";"framebuffer-size"] rpc session_id) @
+		(make_param_funs (Client.VGPU_type.get_all) (Client.VGPU_type.get_all_records_where) (Client.VGPU_type.get_by_uuid) (vgpu_type_record) "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id) @
 		(make_param_funs (Client.DR_task.get_all) (Client.DR_task.get_all_records_where) (Client.DR_task.get_by_uuid) (dr_task_record) "drtask" [] [] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
