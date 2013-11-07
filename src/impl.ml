@@ -529,7 +529,7 @@ let write_stream common s destination source_protocol destination_protocol preze
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
     | File path ->
-      Lwt_unix.openfile path [ Unix.O_RDWR ] 0o0 >>= fun fd ->
+      Lwt_unix.openfile path [ Unix.O_RDWR; Unix.O_CREAT ] 0o0 >>= fun fd ->
       Channels.of_seekable_fd fd >>= fun c ->
       return (c, [ NoProtocol; Human; Tar ])
     | Null ->
@@ -777,8 +777,12 @@ let serve common source source_fd source_protocol destination destination_format
         | _ -> failwith (Printf.sprintf "Not implemented: serving from source %s" source) ) >>= fun source_sock ->
       ( match destination_endpoint with
         | File path ->
-          let size = File.get_file_size path in
+          ( if not(Sys.file_exists path) then begin
+              Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_RDONLY ] 0o0 >>= fun fd ->
+              Lwt_unix.close fd
+            end else return () ) >>= fun () ->
           Fd.openfile path true >>= fun fd ->
+          let size = File.get_file_size path in
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
