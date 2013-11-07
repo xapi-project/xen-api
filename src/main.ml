@@ -123,9 +123,9 @@ let destination_format =
   let doc = "Destination format" in
   Arg.(value & opt string "raw" & info [ "destination-format" ] ~doc)
 
-let size =
-  let doc = "Disk size" in
-  Arg.(value & opt (some int64) None & info [ "size" ] ~doc)
+let destination_size =
+  let doc = "Size of the destination disk" in
+  Arg.(value & opt (some int64) None & info [ "destination-size" ] ~doc)
 
 let serve_cmd =
   let doc = "serve the contents of a disk" in
@@ -136,7 +136,7 @@ let serve_cmd =
     `P " vhd-tool serve --source fd:5 --source-protocol=chunked --destination file:///foo.raw --destination-format raw";
     `P " vhd-tool serve --source fd:5 --source-protocol=nbd --destination file:///foo.raw --destination-format raw";
   ] in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ size)),
+  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =

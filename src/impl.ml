@@ -410,11 +410,12 @@ let serve_tar_to_raw ?expected_prefix total_size c dest =
               let p_len = String.length p in
               let file_name_len = String.length hdr.Tar.Header.file_name in
               return (String.sub p p_len (file_name_len - p_len)) ) >>= fun filename ->
+        let zero = Cstruct.sub header 0 (Tar.Header.compute_zero_padding_length hdr) in
         (* either 'counter' or 'counter.checksum' *)
         if endswith ".checksum" filename then begin
           let checksum = Cstruct.sub buffer 0 (Int64.to_int hdr.Tar.Header.file_size) in
           c.Channels.really_read checksum >>= fun () ->
-          c.Channels.skip (Int64.of_int (Tar.Header.compute_zero_padding_length hdr)) >>= fun () ->
+          c.Channels.really_read zero >>= fun () ->
           let checksum' = Cstruct.to_string checksum in
           let hash = Sha1.(to_hex (finalize t.ctx)) in
           if checksum' <> hash then begin
@@ -444,7 +445,7 @@ let serve_tar_to_raw ?expected_prefix total_size c dest =
             then return offset
             else copy offset remaining in
           copy offset hdr.Tar.Header.file_size >>= fun offset ->
-          c.Channels.skip (Int64.of_int (Tar.Header.compute_zero_padding_length hdr)) >>= fun () ->
+          c.Channels.really_read zero >>= fun () ->
           loop { t with offset; detected_block_size = Some block_size; last_sequence_number = sequence_number }
         end in
   loop (TarInput.initial ())
@@ -529,7 +530,7 @@ let write_stream common s destination source_protocol destination_protocol preze
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
     | File path ->
-      Lwt_unix.openfile path [ Unix.O_RDWR; Unix.O_CREAT ] 0o0 >>= fun fd ->
+      Lwt_unix.openfile path [ Unix.O_RDWR; Unix.O_CREAT ] 0o0644 >>= fun fd ->
       Channels.of_seekable_fd fd >>= fun c ->
       return (c, [ NoProtocol; Human; Tar ])
     | Null ->
@@ -744,7 +745,7 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common source source_fd source_protocol destination destination_format size =
+let serve common_options source source_fd source_protocol destination destination_format destination_size =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
@@ -774,15 +775,20 @@ let serve common source source_fd source_protocol destination destination_format
           Lwt_unix.accept sock >>= fun (fd, _) ->
           Channels.of_raw_fd fd >>= fun c ->
           return c
+        | File path ->
+          let fd = File.openfile path false 0 in
+          Channels.of_raw_fd (Lwt_unix.of_unix_file_descr fd)
         | _ -> failwith (Printf.sprintf "Not implemented: serving from source %s" source) ) >>= fun source_sock ->
       ( match destination_endpoint with
         | File path ->
           ( if not(Sys.file_exists path) then begin
-              Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_RDONLY ] 0o0 >>= fun fd ->
+              Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_RDONLY ] 0o0644 >>= fun fd ->
               Lwt_unix.close fd
             end else return () ) >>= fun () ->
           Fd.openfile path true >>= fun fd ->
-          let size = File.get_file_size path in
+          let size = match destination_size with
+            | None -> File.get_file_size path
+            | Some x -> x in
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
       let fn = match source_protocol, size with
