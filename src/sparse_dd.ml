@@ -296,7 +296,7 @@ let _ =
           progress_cb fraction in
         let t =
         	stream_t >>= fun s ->
-		Impl.write_stream common s destination (Some "none") None !prezeroed progress "" in
+		Impl.write_stream common s destination (Some "none") None !prezeroed progress None in
 	if destination_format = "vhd"
 	then with_paused_tapdisk dest (fun () -> Lwt_main.run t)
 	else Lwt_main.run t;

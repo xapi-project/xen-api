@@ -270,6 +270,7 @@ end
 
 let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
   let open TarStream in
+  let prefix = match prefix with None -> "" | Some x -> x in
   let block_size = 1024 * 1024 in
   let header = Memory.alloc Tar.Header.length in
   let zeroes = Memory.alloc block_size in
@@ -390,7 +391,7 @@ let endswith suffix x =
   let x_len = String.length x in
   x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
 
-let serve_tar_to_raw ?expected_prefix total_size c dest progress =
+let serve_tar_to_raw total_size c dest progress expected_prefix =
   let module M = Tar.Archive(Lwt) in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -752,7 +753,7 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_format destination_size progress =
+let serve common_options source source_fd source_protocol destination destination_format destination_size progress expected_prefix  =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
@@ -808,9 +809,9 @@ let serve common_options source source_fd source_protocol destination destinatio
         | Chunked, _            -> serve_chunked_to_raw common
         | Tar, _                -> serve_tar_to_raw size
         | _, _ -> assert false in
-      fn source_sock destination_fd progress_bar >>= fun () ->
+      fn source_sock destination_fd progress_bar expected_prefix >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
     `Ok ()
   with Failure x ->
-  `Error(true, x)
+  `Error(false, x)

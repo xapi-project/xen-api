@@ -39,7 +39,7 @@ type t = {
   destination_protocol: protocol option;
   prezeroed: bool;
   progress: bool;
-  tar_filename_prefix: string;
+  tar_filename_prefix: string option;
 }
 
 let make source relative_to source_format destination_format destination source_protocol destination_protocol prezeroed progress tar_filename_prefix =

@@ -131,6 +131,10 @@ let progress =
   let doc = "Display a progress bar." in
   Arg.(value & flag & info ["progress"] ~doc)
 
+let tar_filename_prefix =
+  let doc = "Filename prefix for tar/sha disk blocks" in
+  Arg.(value & opt (some string) None & info ["tar-filename-prefix"] ~doc)
+
 let serve_cmd =
   let doc = "serve the contents of a disk" in
   let man = [
@@ -140,7 +144,7 @@ let serve_cmd =
     `P " vhd-tool serve --source fd:5 --source-protocol=chunked --destination file:///foo.raw --destination-format raw";
     `P " vhd-tool serve --source fd:5 --source-protocol=nbd --destination file:///foo.raw --destination-format raw";
   ] in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress)),
+  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress $ tar_filename_prefix)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =
@@ -201,9 +205,6 @@ let stream_cmd =
   let prezeroed =
     let doc = "Assume the destination is completely empty." in
     Arg.(value & flag & info [ "prezeroed" ] ~doc) in
-  let tar_filename_prefix =
-    let doc = "Filename prefix for tar/sha disk blocks" in
-    Arg.(value & opt string "" & info ["tar-filename-prefix"] ~doc) in
   let stream_args_t =
     Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress $ tar_filename_prefix) in
   Term.(ret(pure Impl.stream $ common_options_t $ stream_args_t)),
