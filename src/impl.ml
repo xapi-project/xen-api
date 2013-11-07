@@ -222,6 +222,15 @@ let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
+let sha1_update_cstruct ctx buffer =
+  let ofs = buffer.Cstruct.off in
+  let len = buffer.Cstruct.len in
+  let buf = buffer.Cstruct.buffer in
+  let buffer' : (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Bigarray.Array1.sub buf ofs len in
+  (* XXX: need a better way to do this *)
+  let buffer'': (int,  Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Obj.magic buffer' in
+  Sha1.update_buffer ctx buffer''
+
 module TarStream = struct
   type t = {
     work_done: int64;
@@ -241,15 +250,6 @@ module TarStream = struct
     work_done = 0L; ctx = Sha1.init (); nr_bytes_remaining = 0;
     next_counter = 0; header = None; total_size
   }
-
-  let sha1_update_cstruct ctx buffer =
-    let ofs = buffer.Cstruct.off in
-    let len = buffer.Cstruct.len in
-    let buf = buffer.Cstruct.buffer in
-    let buffer' : (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Bigarray.Array1.sub buf ofs len in
-    (* XXX: need a better way to do this *)
-    let buffer'': (int,  Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t = Obj.magic buffer' in
-    Sha1.update_buffer ctx buffer''
 
   let make_tar_header prefix counter suffix file_size =
     Tar.Header.({
@@ -364,9 +364,27 @@ let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
 module TarInput = struct
   type t = {
     ctx: Sha1.ctx;
+    offset: int64;
+    detected_block_size: int64 option;
+    last_sequence_number: int;
   }
-  let initial () = { ctx = Sha1.init () }
+  let initial () = {
+    ctx = Sha1.init ();
+    offset = 0L;
+    detected_block_size = None;
+    last_sequence_number = -1;
+  }
 end
+
+let startswith prefix x =
+  let prefix_len = String.length prefix in
+  let x_len = String.length x in
+  x_len >= prefix_len && (String.sub x 0 prefix_len = prefix)
+
+let endswith suffix x =
+  let suffix_len = String.length suffix in
+  let x_len = String.length x in
+  x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
 
 let serve_tar_to_raw ?expected_prefix total_size c dest =
   let module M = Tar.Archive(Lwt) in
@@ -374,50 +392,62 @@ let serve_tar_to_raw ?expected_prefix total_size c dest =
   let buffer = Memory.alloc twomib in
   let header = Memory.alloc 512 in
 
-  let rec loop () =
-    c.Channels.really_read header >>= fun () ->
-    match Tar.Header.unmarshal header with
-    | None -> fail (Failure "failed to unmarshal header")
-    | Some hdr ->
-      ( match expected_prefix with
-        | None -> return ()
-        | Some p ->
-          if not(startswith p hdr.Tar.Header.file_name)
-          then fail (Failure (Printf.sprintf "expected filename prefix %s, got %s" p hdr.Tar.Header.file_name))
-          else return () ) >>= fun () ->
-      (* either 'counter' or 'counter.checksum' *)
-
-  loop 0
-
-  fold (fun 
-
-  ) (TarInput.initial ()) 
-    (fun x -> Lwt_stream.next (blkif#read_512 x 1L))
-
-  let header = Cstruct.create Chunked.sizeof in
-  let twomib = 2 * 1024 * 1024 in
-  let buffer = Memory.alloc twomib in
-  let rec loop () =
-    c.Channels.really_read header >>= fun () ->
-    if Chunked.is_last_chunk header then begin
-      Printf.fprintf stderr "Received last chunk.\n%!";
-      return ()
-    end else begin
-      let rec block offset remaining =
-        let this = Int32.(to_int (min (of_int twomib) remaining)) in
-        let buf = if this < twomib then Cstruct.sub buffer 0 this else buffer in
-        c.Channels.really_read buf >>= fun () ->
-        Fd.really_write dest offset buf >>= fun () ->
-        let offset = Int64.(add offset (of_int this)) in
-        let remaining = Int32.(sub remaining (of_int this)) in
-        if remaining > 0l
-        then block offset remaining
-        else return () in
-      block (Chunked.get_offset header) (Chunked.get_len header) >>= fun () ->
-      loop ()
-    end in
-  loop ()
-
+  let open TarInput in
+  let rec loop t =
+    if t.offset = total_size
+    then return ()
+    else
+      c.Channels.really_read header >>= fun () ->
+      match Tar.Header.unmarshal header with
+      | None -> fail (Failure "failed to unmarshal header")
+      | Some hdr ->
+        ( match expected_prefix with
+          | None -> return (Filename.basename hdr.Tar.Header.file_name)
+          | Some p ->
+            if not(startswith p hdr.Tar.Header.file_name)
+            then fail (Failure (Printf.sprintf "expected filename prefix %s, got %s" p hdr.Tar.Header.file_name))
+            else
+              let p_len = String.length p in
+              let file_name_len = String.length hdr.Tar.Header.file_name in
+              return (String.sub p p_len (file_name_len - p_len)) ) >>= fun filename ->
+        (* either 'counter' or 'counter.checksum' *)
+        if endswith ".checksum" filename then begin
+          let checksum = Cstruct.sub buffer 0 (Int64.to_int hdr.Tar.Header.file_size) in
+          c.Channels.really_read checksum >>= fun () ->
+          c.Channels.skip (Int64.of_int (Tar.Header.compute_zero_padding_length hdr)) >>= fun () ->
+          let checksum' = Cstruct.to_string checksum in
+          let hash = Sha1.(to_hex (finalize t.ctx)) in
+          if checksum' <> hash then begin
+            Printf.fprintf stderr "Unexpected checksum in %s: expected %s, we computed %s\n"
+              hdr.Tar.Header.file_name checksum' hash;
+            fail (Failure (Printf.sprintf "Unexpected checksum in block %s" hdr.Tar.Header.file_name))
+          end else loop { t with ctx = Sha1.init () }
+        end else begin
+          let block_size = match t.detected_block_size with
+            | None -> hdr.Tar.Header.file_size
+            | Some x -> x in
+          ( try return (int_of_string filename)
+            with _ -> fail (Failure (Printf.sprintf "Expected sequence number, got %s" filename)) ) >>= fun sequence_number ->
+          let skipped_blocks = sequence_number - t.last_sequence_number - 1 in
+          let to_skip = Int64.(mul (of_int skipped_blocks) block_size) in
+          let offset = Int64.(add t.offset to_skip) in
+          (* XXX: prezeroed? *)
+          let rec copy offset remaining =
+            let this = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
+            let block = Cstruct.sub buffer 0 this in
+            c.Channels.really_read block >>= fun () ->
+            Fd.really_write dest offset block >>= fun () ->
+            sha1_update_cstruct t.ctx block;
+            let remaining = Int64.(sub remaining (of_int this)) in
+            let offset = Int64.(add offset (of_int this)) in
+            if remaining = 0L
+            then return offset
+            else copy offset remaining in
+          copy offset hdr.Tar.Header.file_size >>= fun offset ->
+          c.Channels.skip (Int64.of_int (Tar.Header.compute_zero_padding_length hdr)) >>= fun () ->
+          loop { t with offset; detected_block_size = Some block_size; last_sequence_number = sequence_number }
+        end in
+  loop (TarInput.initial ())
 
 open StreamCommon
 
@@ -674,7 +704,7 @@ let serve_nbd_to_raw common size c dest =
       serve_requests () in
   serve_requests ()
 
-lt serve_chunked_to_raw c dest =
+let serve_chunked_to_raw c dest =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -757,7 +787,7 @@ let serve common source source_fd source_protocol destination destination_format
         | Nbd, Some size        -> serve_nbd_to_raw     common size
         | Nbd, None             -> serve_nbd_to_raw     common default_size
         | Chunked, _            -> serve_chunked_to_raw common
-        | Tar, _                -> serve_tar_to_raw
+        | Tar, _                -> serve_tar_to_raw size
         | _, _ -> assert false in
       fn source_sock destination_fd >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
