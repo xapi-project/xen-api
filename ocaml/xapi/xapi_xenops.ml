@@ -57,7 +57,7 @@ module Platform = struct
 	let vga = "vga"
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
-	let vgpu_vnc_enabled = Xapi_globs.vgpu_vnc_enabled_key
+	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -84,7 +84,7 @@ module Platform = struct
 		vga;
 		vgpu_pci_id;
 		vgpu_config;
-		vgpu_vnc_enabled;
+		vgpu_extra_args;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
