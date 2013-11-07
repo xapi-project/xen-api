@@ -475,7 +475,7 @@ let vgpu_manual_setup_key = "vgpu_manual_setup"
 
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
-let vgpu_vnc_enabled_key = "vgpu_vnc_enabled"
+let vgpu_extra_args_key = "vgpu_extra_args"
 
 let dev_zero = "/dev/zero"
 
