@@ -391,7 +391,7 @@ let endswith suffix x =
   let x_len = String.length x in
   x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
 
-let serve_tar_to_raw total_size c dest progress expected_prefix =
+let serve_tar_to_raw total_size c dest progress expected_prefix ignore_checksums =
   let module M = Tar.Archive(Lwt) in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -424,13 +424,17 @@ let serve_tar_to_raw total_size c dest progress expected_prefix =
           let checksum = Cstruct.sub buffer 0 (Int64.to_int hdr.Tar.Header.file_size) in
           c.Channels.really_read checksum >>= fun () ->
           c.Channels.really_read zero >>= fun () ->
-          let checksum' = Cstruct.to_string checksum in
-          let hash = Sha1.(to_hex (finalize t.ctx)) in
-          if checksum' <> hash then begin
-            Printf.fprintf stderr "Unexpected checksum in %s: expected %s, we computed %s\n"
-              hdr.Tar.Header.file_name checksum' hash;
-            fail (Failure (Printf.sprintf "Unexpected checksum in block %s" hdr.Tar.Header.file_name))
-          end else loop { t with ctx = Sha1.init () }
+          if ignore_checksums
+          then loop t
+          else begin
+            let checksum' = Cstruct.to_string checksum in
+            let hash = Sha1.(to_hex (finalize t.ctx)) in
+            if checksum' <> hash then begin
+              Printf.fprintf stderr "Unexpected checksum in %s: expected %s, we computed %s\n"
+                hdr.Tar.Header.file_name checksum' hash;
+              fail (Failure (Printf.sprintf "Unexpected checksum in block %s" hdr.Tar.Header.file_name))
+            end else loop { t with ctx = Sha1.init () }
+          end
         end else begin
           let block_size = match t.detected_block_size with
             | None -> hdr.Tar.Header.file_size
@@ -446,7 +450,7 @@ let serve_tar_to_raw total_size c dest progress expected_prefix =
             let block = Cstruct.sub buffer 0 this in
             c.Channels.really_read block >>= fun () ->
             Fd.really_write dest offset block >>= fun () ->
-            sha1_update_cstruct t.ctx block;
+            if not ignore_checksums then sha1_update_cstruct t.ctx block;
             let remaining = Int64.(sub remaining (of_int this)) in
             let offset = Int64.(add offset (of_int this)) in
             if remaining = 0L
@@ -753,7 +757,7 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_format destination_size progress expected_prefix  =
+let serve common_options source source_fd source_protocol destination destination_format destination_size progress expected_prefix ignore_checksums =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
@@ -809,7 +813,7 @@ let serve common_options source source_fd source_protocol destination destinatio
         | Chunked, _            -> serve_chunked_to_raw common
         | Tar, _                -> serve_tar_to_raw size
         | _, _ -> assert false in
-      fn source_sock destination_fd progress_bar expected_prefix >>= fun () ->
+      fn source_sock destination_fd progress_bar expected_prefix ignore_checksums >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
     `Ok ()

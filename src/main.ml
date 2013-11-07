@@ -144,7 +144,10 @@ let serve_cmd =
     `P " vhd-tool serve --source fd:5 --source-protocol=chunked --destination file:///foo.raw --destination-format raw";
     `P " vhd-tool serve --source fd:5 --source-protocol=nbd --destination file:///foo.raw --destination-format raw";
   ] in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress $ tar_filename_prefix)),
+  let ignore_checksums =
+    let doc = "Do not verify checksums" in
+    Arg.(value & flag & info ["ignore-checksums"] ~doc) in
+  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress $ tar_filename_prefix $ ignore_checksums)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =
