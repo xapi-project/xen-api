@@ -1198,7 +1198,7 @@ let diagnostic_vdi_status printer rpc session_id params =
 	let all_vbds = Client.VDI.get_VBDs rpc session_id vdi in
 	let all_vbd_records = List.map (vbd_record rpc session_id) all_vbds in
 	let active_records = List.filter (fun x -> (field_lookup (x.fields) "currently-attached").get() = "true") all_vbd_records in
-	let inactive_records = set_difference all_vbd_records active_records in
+	let inactive_records = List.set_difference all_vbd_records active_records in
 	let show_vbds records =
 		List.iter (fun vbd_record ->
 			let fields = List.filter (fun x -> List.mem x.name [ "uuid"; "userdevice"; "device"; "empty"; "mode"; "type"; "storage-lock" ]) vbd_record.fields in

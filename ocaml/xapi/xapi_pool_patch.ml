@@ -21,6 +21,7 @@ open Http
 open Forkhelpers
 open Xml
 open Helpers
+open Listext
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -591,11 +592,9 @@ let update_db ~__context =
     (* We compare the referenced 'pool_patches' and then use this table to get back the localhost 'host_patch': *)
     let pool_patch_to_host_patch = List.combine pool_patches_in_db host_patches_in_db in
 
-    (* Duplicated to simplify the backport to orlando-update-3: *)
-    let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
     (* Now perform a two-way sync between pool_patches_in_fs and pool_patches_in_db *)
-    let new_pool_patches = set_difference pool_patches_in_fs pool_patches_in_db in
-    let old_pool_patches = set_difference pool_patches_in_db pool_patches_in_fs in
+    let new_pool_patches = List.set_difference pool_patches_in_fs pool_patches_in_db in
+    let old_pool_patches = List.set_difference pool_patches_in_db pool_patches_in_fs in
 
     List.iter
       (fun pp ->

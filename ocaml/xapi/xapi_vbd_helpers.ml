@@ -15,6 +15,7 @@
  * @group Storage
  *)
 
+open Listext
 open Threadext
 open Stringext
 
@@ -31,8 +32,6 @@ let all_ops : API.vbd_operations_set = [ `attach; `eject; `unplug; `unplug_force
 
 type table = (API.vbd_operations, ((string * (string list)) option)) Hashtbl.t
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (** Returns a table of operations -> API error options (None if the operation would be ok)
     The flag 'expensive_sharing_checks' indicates whether to perform the VDI sharing checks. 
     We avoid performing these calculations on server start (CA-20808) and therefore end up with
@@ -41,7 +40,7 @@ let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
  *)
 let valid_operations ~expensive_sharing_checks ~__context record _ref' : table = 
   let _ref = Ref.string_of _ref' in
-  let current_ops = Listext.List.setify (List.map snd record.Db_actions.vBD_current_operations) in
+  let current_ops = List.setify (List.map snd record.Db_actions.vBD_current_operations) in
   (* Policy:
      * current_ops must be empty [ will make exceptions later for eg eject/unplug of attached vbd ]
      * referenced VDI must be exclusively locked for any other task (eg clone)
@@ -70,7 +69,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     let concurrent_op = List.hd current_ops in
     set_errors Api_errors.other_operation_in_progress 
       [ "VBD"; _ref; vbd_operation_to_string concurrent_op ] 
-      (set_difference all_ops safe_to_parallelise);
+      (List.set_difference all_ops safe_to_parallelise);
   end;
   (* If not all operations are parallisable then preclude pause *)
   let all_are_parallelisable = List.fold_left (&&) true 
@@ -82,7 +81,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     [ "VBD"; _ref; vbd_operation_to_string (List.hd current_ops) ]
     [ `pause ];
   (* If something other than `pause `unpause *and* `attach (for VM.reboot, see CA-24282) then disallow unpause *)
-  if set_difference current_ops (`attach :: safe_to_parallelise) <> []
+  if List.set_difference current_ops (`attach :: safe_to_parallelise) <> []
   then set_errors  Api_errors.other_operation_in_progress
     [ "VBD"; _ref; vbd_operation_to_string (List.hd current_ops) ]
     [ `unpause ];    

@@ -158,8 +158,6 @@ let get_default_sr_uuid rpc session_id =
   (try Some (Client.SR.get_uuid rpc session_id sr) (* throws an exception if not found *)
    with _ -> None)
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (* Given a string that might be a ref, lookup ref in cache and print uuid/name-label where possible *)
 let ref_convert x =
   match Ref_index.lookup x with

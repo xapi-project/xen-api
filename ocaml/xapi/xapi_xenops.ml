@@ -937,7 +937,7 @@ let update_vm ~__context id =
 							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
 							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
 							(* This will mark VBDs, VIFs as detached and clear resident_on
-							   if the VM has permenantly shutdown. *)
+							   if the VM has permanently shutdown. *)
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:power_state;
 
 							if power_state = `Suspended || power_state = `Halted then begin
@@ -1572,7 +1572,7 @@ let events_from_xapi () =
 										XenAPI.Session.logout ~rpc ~session_id
 									with
 										| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
-											debug "Event thead has already woken up"
+											debug "Event thread has already woken up"
 										| e ->
 											error "Waking up the xapi event thread: %s" (string_of_exn e)
 								);

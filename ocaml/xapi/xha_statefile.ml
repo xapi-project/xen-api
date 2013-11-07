@@ -39,8 +39,6 @@ let minimum_size =
   and maximum_number_of_hosts = 64L in
 	global_section_size ++ maximum_number_of_hosts ** host_section_size
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 let assert_sr_can_host_statefile ~__context ~sr =
 	(* Check that each host has a PBD to this SR *)
 	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
@@ -49,7 +47,7 @@ let assert_sr_can_host_statefile ~__context ~sr =
 	if List.length connected_hosts < (List.length all_hosts) then begin
 		error "Cannot place statefile in SR %s: some hosts lack a PBD: [ %s ]"
 			(Ref.string_of sr)
-			(String.concat "; " (List.map Ref.string_of (set_difference all_hosts connected_hosts)));
+			(String.concat "; " (List.map Ref.string_of (List.set_difference all_hosts connected_hosts)));
 		raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
 	end;
 	(* Check that each PBD is plugged in *)

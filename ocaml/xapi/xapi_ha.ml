@@ -889,14 +889,14 @@ let ha_release_resources __context localhost =
 
 	(* Deactivate and detach all statefile VDIs in the entire pool *)
 	let statefile_vdis = Db.Pool.get_ha_statefiles ~__context ~self:(Helpers.get_pool ~__context)
-	and deactiavte_and_detach_vdi vdi_str =
+	and deactivate_and_detach_vdi vdi_str =
 		let uuid = Db.VDI.get_uuid ~__context ~self:(Ref.of_string vdi_str) in
 		Helpers.log_exn_continue
 			(Printf.sprintf "detaching statefile VDI uuid: %s" uuid)
 			(fun () ->
 				Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
 				Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid) ()
-	in List.iter deactiavte_and_detach_vdi statefile_vdis ;
+	in List.iter deactivate_and_detach_vdi statefile_vdis ;
 
 	(* Deactivate and detach any metadata VDIs *)
 	Helpers.log_exn_continue
@@ -1399,8 +1399,6 @@ let enable __context heartbeat_srs configuration =
 			with _ -> false in
 		if not alive then raise (Api_errors.Server_error(Api_errors.host_offline, [ Ref.string_of host ]))
 	) (Db.Host.get_all ~__context);
-
-	(* let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in *)
 
 	(* Steps from 8.7 Enabling HA in Marathon spec:
 	 * 1. Bring up state file VDI(s)

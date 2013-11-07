@@ -491,7 +491,7 @@ let add_implicit_messages ?(document_order = false) (api: api) =
 			 obj') objs in
   Dm_api.make (objs, rels)
     
-(* Messsage filter which selects only those message visible to the client *)
+(* Message filter which selects only those message visible to the client *)
 let on_client_side (x: message) : bool = match x with
     (* Anything that's msg_db_only is not on client-side *)
   | { msg_db_only = true } -> false

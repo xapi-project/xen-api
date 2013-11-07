@@ -25,8 +25,6 @@ open Threadext
 let all_operations = [ `provision; `evacuate; `reboot; `shutdown;
 		       `vm_start; `vm_resume; `vm_migrate; `power_on ]
 
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
-
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' = 
   let _ref = Ref.string_of _ref' in
