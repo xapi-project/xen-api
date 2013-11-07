@@ -2,9 +2,11 @@ OCAML_LIBS    = ../fhs ../idl/ocaml_backend/common ../idl/ocaml_backend/client
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ..
 OCAMLPACKS    = xml-light2 stdext stunnel xcp
 
+# This program is compiled statically to allow to be packaged, installed
+# and run on different distributions without problems.
 section
 	OCAMLINCLUDES += .
-	OCAMLFLAGS = -dtypes -thread -warn-error F
+	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
 	CLI_FILES = newcli ../xapi/cli_protocol options
 	OCamlProgram(xe, $(CLI_FILES))
 	OCamlDocProgram(xe, $(CLI_FILES))
