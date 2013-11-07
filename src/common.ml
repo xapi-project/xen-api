@@ -71,6 +71,7 @@ module Progress_bar(T: Floatable) = struct
     line: string;
     mutable spin_index: int;
     start_time: float;
+    mutable summarised: bool;
   }
 
   let prefix_s = "[*] "
@@ -86,7 +87,7 @@ module Progress_bar(T: Floatable) = struct
     String.blit suffix_s 0 line (width - suffix - 1) suffix;
     let spin_index = 0 in
     let start_time = Unix.gettimeofday () in
-    { max_value; current_value; width; line; spin_index; start_time }
+    { max_value; current_value; width; line; spin_index; start_time; summarised = false }
 
   let percent t = int_of_float (T.(to_float t.current_value /. (to_float t.max_value) *. 100.))
 
@@ -123,6 +124,14 @@ module Progress_bar(T: Floatable) = struct
   let average_rate t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in
     T.to_float t.current_value /. time_so_far
+
+  let summarise t =
+    if not t.summarised then begin
+      t.summarised <- true;
+      Printf.printf "Total work done: %.0f\n" (T.to_float t.current_value);
+      Printf.printf "Total time: %s\n" (hms (int_of_float (Unix.gettimeofday () -. t.start_time)));
+      Printf.printf "Average rate: %.0f\n" (average_rate t)
+    end
 end
 
 let padto blank n s =

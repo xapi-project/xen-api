@@ -107,7 +107,11 @@ let console_progress_bar total_work =
   fun work_done ->
     let progress_updated = P.update p work_done in
     if progress_updated then P.print_bar p;
-    if work_done = total_work then Printf.printf "\n%!"
+    if work_done = total_work then begin
+      Printf.printf "\n";
+      P.summarise p;
+      Printf.printf "%!"
+    end
 
 let no_progress_bar _ _ = ()
 
@@ -386,14 +390,17 @@ let endswith suffix x =
   let x_len = String.length x in
   x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
 
-let serve_tar_to_raw ?expected_prefix total_size c dest =
+let serve_tar_to_raw ?expected_prefix total_size c dest progress =
   let module M = Tar.Archive(Lwt) in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
   let header = Memory.alloc 512 in
 
+  let p = progress total_size in
+
   let open TarInput in
   let rec loop t =
+    p t.offset;
     if t.offset = total_size
     then return ()
     else
@@ -705,7 +712,7 @@ let serve_nbd_to_raw common size c dest =
       serve_requests () in
   serve_requests ()
 
-let serve_chunked_to_raw c dest =
+let serve_chunked_to_raw c dest _ =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -745,7 +752,7 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_format destination_size =
+let serve common_options source source_fd source_protocol destination destination_format destination_size progress =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
@@ -757,6 +764,8 @@ let serve common_options source source_fd source_protocol destination destinatio
     let supported_protocols = [ NoProtocol; Chunked; Nbd; Tar ] in
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
+
+    let progress_bar = if progress then console_progress_bar else no_progress_bar in
 
     let thread =
       endpoint_of_string destination >>= fun destination_endpoint ->
@@ -799,7 +808,7 @@ let serve common_options source source_fd source_protocol destination destinatio
         | Chunked, _            -> serve_chunked_to_raw common
         | Tar, _                -> serve_tar_to_raw size
         | _, _ -> assert false in
-      fn source_sock destination_fd >>= fun () ->
+      fn source_sock destination_fd progress_bar >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
     `Ok ()
