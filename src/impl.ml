@@ -402,11 +402,13 @@ let endswith suffix x =
   let x_len = String.length x in
   x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
 
-let serve_tar_to_raw total_size c dest progress expected_prefix ignore_checksums =
+let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore_checksums =
   let module M = Tar.Archive(Lwt) in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
   let header = Memory.alloc 512 in
+
+  if not prezeroed then failwith "unimplemented: prezeroed";
 
   let p = progress total_size in
 
@@ -428,7 +430,7 @@ let serve_tar_to_raw total_size c dest progress expected_prefix ignore_checksums
             else
               let p_len = String.length p in
               let file_name_len = String.length hdr.Tar.Header.file_name in
-              return (String.sub p p_len (file_name_len - p_len)) ) >>= fun filename ->
+              return (String.sub hdr.Tar.Header.file_name p_len (file_name_len - p_len)) ) >>= fun filename ->
         let zero = Cstruct.sub header 0 (Tar.Header.compute_zero_padding_length hdr) in
         (* either 'counter' or 'counter.checksum' *)
         if endswith ".checksum" filename then begin
@@ -684,7 +686,7 @@ let stream common args =
   with Failure x ->
     `Error(true, x)
 
-let serve_nbd_to_raw common size c dest _ _ _ =
+let serve_nbd_to_raw common size c dest _ _ _ _ =
   let flags = [] in
   let open Nbd in
   let buf = Cstruct.create Negotiate.sizeof in
@@ -734,7 +736,7 @@ let serve_nbd_to_raw common size c dest _ _ _ =
       serve_requests () in
   serve_requests ()
 
-let serve_chunked_to_raw _ c dest _ _ _ =
+let serve_chunked_to_raw _ c dest _ _ _ _ =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -759,7 +761,7 @@ let serve_chunked_to_raw _ c dest _ _ _ =
     end in
   loop ()
 
-let serve_raw_to_raw common size c dest _ _ _ =
+let serve_raw_to_raw common size c dest _ _ _ _ =
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
   let rec loop offset remaining =
@@ -774,7 +776,7 @@ let serve_raw_to_raw common size c dest _ _ _ =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_fd destination_format destination_size progress machine expected_prefix ignore_checksums =
+let serve common_options source source_fd source_protocol destination destination_fd destination_format destination_size prezeroed progress machine expected_prefix ignore_checksums =
   try
     File.use_unbuffered := common_options.Common.unbuffered;
 
@@ -835,7 +837,7 @@ let serve common_options source source_fd source_protocol destination destinatio
         | Chunked    -> serve_chunked_to_raw common_options
         | Tar        -> serve_tar_to_raw size
         | _ -> assert false in
-      fn source_sock destination_fd progress_bar expected_prefix ignore_checksums >>= fun () ->
+      fn source_sock destination_fd prezeroed progress_bar expected_prefix ignore_checksums >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
     `Ok ()
