@@ -679,7 +679,7 @@ let stream common args =
   with Failure x ->
     `Error(true, x)
 
-let serve_nbd_to_raw common size c dest =
+let serve_nbd_to_raw common size c dest _ _ _ =
   let flags = [] in
   let open Nbd in
   let buf = Cstruct.create Negotiate.sizeof in
@@ -729,7 +729,7 @@ let serve_nbd_to_raw common size c dest =
       serve_requests () in
   serve_requests ()
 
-let serve_chunked_to_raw c dest _ =
+let serve_chunked_to_raw _ c dest _ _ _ =
   let header = Cstruct.create Chunked.sizeof in
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
@@ -754,7 +754,7 @@ let serve_chunked_to_raw c dest _ =
     end in
   loop ()
 
-let serve_raw_to_raw common size c dest =
+let serve_raw_to_raw common size c dest _ _ _ =
   let twomib = 2 * 1024 * 1024 in
   let buffer = Memory.alloc twomib in
   let rec loop offset remaining =
@@ -769,9 +769,9 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_format destination_size progress machine expected_prefix ignore_checksums =
+let serve common_options source source_fd source_protocol destination destination_fd destination_format destination_size progress machine expected_prefix ignore_checksums =
   try
-    File.use_unbuffered := common.Common.unbuffered;
+    File.use_unbuffered := common_options.Common.unbuffered;
 
     let source_protocol = protocol_of_string (require "source-protocol" source_protocol) in
 
@@ -781,6 +781,10 @@ let serve common_options source source_fd source_protocol destination destinatio
     let supported_protocols = [ NoProtocol; Chunked; Nbd; Tar ] in
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
+
+    let destination = match destination_fd with
+    | None -> destination
+    | Some fd -> "file://" ^ (string_of_int fd) in
 
     let progress_bar = match progress, machine with
     | true, true -> machine_progress_bar
@@ -819,15 +823,13 @@ let serve common_options source source_fd source_protocol destination destinatio
             | None -> File.get_file_size path
             | Some x -> x in
           return (fd, size)
-        | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, default_size) ->
-      let fn = match source_protocol, size with
-        | NoProtocol, Some size -> serve_raw_to_raw common size
-        | NoProtocol, None      -> serve_raw_to_raw common default_size
-        | Nbd, Some size        -> serve_nbd_to_raw     common size
-        | Nbd, None             -> serve_nbd_to_raw     common default_size
-        | Chunked, _            -> serve_chunked_to_raw common
-        | Tar, _                -> serve_tar_to_raw size
-        | _, _ -> assert false in
+        | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, size) ->
+      let fn = match source_protocol with
+        | NoProtocol -> serve_raw_to_raw common_options size
+        | Nbd        -> serve_nbd_to_raw     common_options size
+        | Chunked    -> serve_chunked_to_raw common_options
+        | Tar        -> serve_tar_to_raw size
+        | _ -> assert false in
       fn source_sock destination_fd progress_bar expected_prefix ignore_checksums >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
