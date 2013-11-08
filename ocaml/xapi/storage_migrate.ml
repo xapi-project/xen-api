@@ -606,7 +606,7 @@ let nbd_handler req s sr vdi dp =
 			let path = tapdisk_control_socket pid minor in
 			if Sys.file_exists path
 			then hand_fd_to_tapdisk s pid minor dp
-			else Vhd_tool_wrapper.receive "nbd" s attach_info.params
+			else Vhd_tool_wrapper.receive Vhd_tool_wrapper.ignore_progress "nbd" s attach_info.params "" false
 		| None -> 
 			()
 

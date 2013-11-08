@@ -1362,27 +1362,14 @@ let handler (req: Request.t) s _ =
 																	let vdir = API.Legacy.From.vDI_t "" (find_in_export x.id state.export) in
 																	x.id, lookup (Ref.of_string x.id) table, vdir.API.vDI_virtual_size) all_vdis in
 															List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
-															let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis in
+															Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis;
 
 															(* CA-48768: Stream_vdi.recv_all only checks for task cancellation
 															   every ten seconds, so we need to check again now. After this
 															   point, we disable cancellation for this task. *)
 															TaskHelper.exn_if_cancelling ~__context;
 															TaskHelper.set_not_cancellable ~__context;
-
-															(* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
-															(* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
-															if header.version.export_vsn < 2 then
-																begin
-																	let xml = Tar.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
-																	let expected_checksums = checksum_table_of_xmlrpc xml in
-																	if not(compare_checksums checksum_table expected_checksums) then begin
-																		error "Some data checksums were incorrect: VM may be corrupt";
-																		if not(force)
-																		then raise (IFailure Some_checksums_failed)
-																		else error "Ignoring incorrect checksums since 'force' flag was supplied"
-																	end;
-																end;
+															(* Allow the import of very old exports, but we don't check the checksums any more *)
 																(* return vmrefs *)
 																Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
 
