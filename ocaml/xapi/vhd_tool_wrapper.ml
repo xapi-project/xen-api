@@ -60,12 +60,14 @@ let run_vhd_tool progress_cb args s s' path =
 let receive progress_cb protocol (s: Unix.file_descr) (path: string) (prefix: string) (prezeroed: bool) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
   let args = [ "serve";
-               "--direct";
                "--source-protocol"; protocol;
                "--source-fd"; s';
                "--tar-filename-prefix"; prefix;
                "--destination"; "file://" ^ path;
-               "--destination-format"; "raw"
+               "--destination-format"; "raw";
+               "--progress";
+               "--machine";
+               "--direct";
              ] @ (if prezeroed then [ "--prezeroed" ] else []) in
   run_vhd_tool progress_cb args s s' path
 
