@@ -21,6 +21,8 @@ open Impl
 open Vhd
 open Vhd_lwt
 
+let vhd_search_path = "/dev/mapper"
+
 let require name arg = match arg with
   | None -> failwith (Printf.sprintf "Please supply a %s argument" name)
   | Some x -> x
@@ -487,25 +489,25 @@ let endpoint_of_string = function
   | "null:" -> return Null
   | uri ->
     let uri' = Uri.of_string uri in
-    begin match Uri.scheme uri' with
-    | Some "fd" ->
-      return (File_descr (Uri.path uri' |> int_of_string |> file_descr_of_int |> Lwt_unix.of_unix_file_descr))
-    | Some "tcp" ->
+    begin match Uri.scheme uri', Uri.host uri' with
+    | Some "fd", Some fd ->
+      return (File_descr (fd |> int_of_string |> file_descr_of_int |> Lwt_unix.of_unix_file_descr))
+    | Some "tcp", _ ->
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
       let port = match Uri.port uri' with None -> failwith "Please supply a port in the URI" | Some port -> port in
       Lwt_unix.gethostbyname host >>= fun host_entry ->
       return (Sockaddr(Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port)))
-    | Some "unix" ->
+    | Some "unix", _ ->
       return (Sockaddr(Lwt_unix.ADDR_UNIX(Uri.path uri')))
-    | Some "file" ->
+    | Some "file", _ ->
       return (File(Uri.path uri'))
-    | Some "http" ->
+    | Some "http", _ ->
       return (Http uri')
-    | Some "https" ->
+    | Some "https", _ ->
       return (Https uri')
-    | Some x ->
+    | Some x, _ ->
       fail (Failure (Printf.sprintf "Unknown URI scheme: %s" x))
-    | None ->
+    | None, _ ->
       fail (Failure (Printf.sprintf "Failed to parse URI: %s" uri))
     end
 
@@ -523,20 +525,23 @@ let make_stream common source relative_to source_format destination_format =
     (* expect source to be block_device:vhd *)
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
-      Vhd_IO.openfile ~path:common.path vhd false >>= fun t ->
+      let path = common.path @ [ Filename.dirname vhd ] in
+      Vhd_IO.openfile ~path vhd false >>= fun t ->
       Vhd_lwt.Fd.openfile raw false >>= fun raw ->
-      ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path:common.path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Vhd_input.hybrid ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
     end
   | "vhd", "vhd" ->
-    Vhd_IO.openfile ~path:common.path source false >>= fun t ->
-    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path:common.path f false >>= fun t -> return (Some t) ) >>= fun from ->
+    let path = common.path @ [ Filename.dirname source ] in
+    Vhd_IO.openfile ~path source false >>= fun t ->
+    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.vhd ?from t
   | "vhd", "raw" ->
-    Vhd_IO.openfile ~path:common.path source false >>= fun t ->
-    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path:common.path f false >>= fun t -> return (Some t) ) >>= fun from ->
+    let path = common.path @ [ Filename.dirname source ] in
+    Vhd_IO.openfile ~path source false >>= fun t ->
+    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.raw ?from t
   | "raw", "vhd" ->
     Raw_IO.openfile source false >>= fun t ->
@@ -784,7 +789,7 @@ let serve common_options source source_fd source_protocol destination destinatio
 
     let destination = match destination_fd with
     | None -> destination
-    | Some fd -> "file://" ^ (string_of_int fd) in
+    | Some fd -> "fd://" ^ (string_of_int fd) in
 
     let progress_bar = match progress, machine with
     | true, true -> machine_progress_bar

@@ -54,7 +54,7 @@ let make source relative_to source_format destination_format destination destina
   then failwith (Printf.sprintf "%s is not a supported format" destination_format);
   let destination = match destination_fd with
     | None -> destination
-    | Some fd -> "file://" ^ (string_of_int fd) in
+    | Some fd -> "fd://" ^ (string_of_int fd) in
 
   { source; relative_to; source_format; destination_format; destination; source_protocol; destination_protocol; prezeroed; progress; machine; tar_filename_prefix }
 
