@@ -39,10 +39,11 @@ type t = {
   destination_protocol: protocol option;
   prezeroed: bool;
   progress: bool;
+  machine: bool;
   tar_filename_prefix: string option;
 }
 
-let make source relative_to source_format destination_format destination source_protocol destination_protocol prezeroed progress tar_filename_prefix =
+let make source relative_to source_format destination_format destination source_protocol destination_protocol prezeroed progress machine tar_filename_prefix =
   let source_protocol = protocol_of_string (require "source-protocol" source_protocol) in
   let destination_protocol = match destination_protocol with
     | None -> None
@@ -52,5 +53,5 @@ let make source relative_to source_format destination_format destination source_
   if not (List.mem destination_format supported_formats)
   then failwith (Printf.sprintf "%s is not a supported format" destination_format);
 
-  { source; relative_to; source_format; destination_format; destination; source_protocol; destination_protocol; prezeroed; progress; tar_filename_prefix }
+  { source; relative_to; source_format; destination_format; destination; source_protocol; destination_protocol; prezeroed; progress; machine; tar_filename_prefix }
 

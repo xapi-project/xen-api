@@ -113,6 +113,15 @@ let console_progress_bar total_work =
       Printf.printf "%!"
     end
 
+let machine_progress_bar total_work =
+  let last_percent = ref (-1) in
+  fun work_done ->
+    let new_percent = Int64.(to_int (div (mul work_done 100L) total_work)) in
+    if new_percent <= 100 && !last_percent <> new_percent then begin
+      Printf.printf "%03d%!" new_percent;
+      last_percent := new_percent
+    end
+
 let no_progress_bar _ _ = ()
 
 let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
@@ -659,7 +668,10 @@ let stream common args =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
-    let progress_bar = if args.StreamCommon.progress then console_progress_bar else no_progress_bar in
+    let progress_bar = match args with
+    | { StreamCommon.progress = true; machine = true } -> machine_progress_bar
+    | { StreamCommon.progress = true; machine = false } -> console_progress_bar
+    | _ -> no_progress_bar in
 
     let thread = stream_t common args ~progress:progress_bar () in
     Lwt_main.run thread;
@@ -757,7 +769,7 @@ let serve_raw_to_raw common size c dest =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_format destination_size progress expected_prefix ignore_checksums =
+let serve common_options source source_fd source_protocol destination destination_format destination_size progress machine expected_prefix ignore_checksums =
   try
     File.use_unbuffered := common.Common.unbuffered;
 
@@ -770,7 +782,10 @@ let serve common_options source source_fd source_protocol destination destinatio
     if not (List.mem source_protocol supported_protocols)
     then failwith (Printf.sprintf "%s is not a supported source protocol" (string_of_protocol source_protocol));
 
-    let progress_bar = if progress then console_progress_bar else no_progress_bar in
+    let progress_bar = match progress, machine with
+    | true, true -> machine_progress_bar
+    | true, false -> console_progress_bar
+    | _, _ -> no_progress_bar in
 
     let thread =
       endpoint_of_string destination >>= fun destination_endpoint ->

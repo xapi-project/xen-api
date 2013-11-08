@@ -131,6 +131,10 @@ let progress =
   let doc = "Display a progress bar." in
   Arg.(value & flag & info ["progress"] ~doc)
 
+let machine =
+  let doc = "Machine readable output." in
+  Arg.(value & flag & info ["machine"] ~doc)
+
 let tar_filename_prefix =
   let doc = "Filename prefix for tar/sha disk blocks" in
   Arg.(value & opt (some string) None & info ["tar-filename-prefix"] ~doc)
@@ -147,7 +151,7 @@ let serve_cmd =
   let ignore_checksums =
     let doc = "Do not verify checksums" in
     Arg.(value & flag & info ["ignore-checksums"] ~doc) in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress $ tar_filename_prefix $ ignore_checksums)),
+  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_format $ destination_size $ progress $ machine $ tar_filename_prefix $ ignore_checksums)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =
@@ -209,7 +213,7 @@ let stream_cmd =
     let doc = "Assume the destination is completely empty." in
     Arg.(value & flag & info [ "prezeroed" ] ~doc) in
   let stream_args_t =
-    Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress $ tar_filename_prefix) in
+    Term.(pure StreamCommon.make $ source $ relative_to $ source_format $ destination_format $ destination $ source_protocol $ destination_protocol $ prezeroed $ progress $ machine $ tar_filename_prefix) in
   Term.(ret(pure Impl.stream $ common_options_t $ stream_args_t)),
   Term.info "stream" ~sdocs:_common_options ~doc ~man
 
