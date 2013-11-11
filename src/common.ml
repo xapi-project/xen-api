@@ -63,6 +63,22 @@ let hms secs =
     let s = secs mod 60 in
     Printf.sprintf "%02d:%02d:%02d" h m s
 
+let size bytes =
+  let open Int64 in
+  let kib = 1024L in
+  let mib = mul kib 1024L in
+  let gib = mul mib 1024L in
+  let tib = mul gib 1024L in
+  if div bytes tib > 0L
+  then Printf.sprintf "%Ld TiB" (div bytes tib)
+  else if div bytes gib > 0L
+  then Printf.sprintf "%Ld GiB" (div bytes gib)
+  else if div bytes mib > 0L
+  then Printf.sprintf "%Ld MiB" (div bytes mib)
+  else if div bytes kib > 0L
+  then Printf.sprintf "%Ld KiB" (div bytes kib)
+  else Printf.sprintf "%Ld bytes" bytes
+
 module Progress_bar(T: Floatable) = struct
   type t = {
     max_value: T.t;
@@ -71,6 +87,7 @@ module Progress_bar(T: Floatable) = struct
     line: string;
     mutable spin_index: int;
     start_time: float;
+    mutable summarised: bool;
   }
 
   let prefix_s = "[*] "
@@ -86,7 +103,7 @@ module Progress_bar(T: Floatable) = struct
     String.blit suffix_s 0 line (width - suffix - 1) suffix;
     let spin_index = 0 in
     let start_time = Unix.gettimeofday () in
-    { max_value; current_value; width; line; spin_index; start_time }
+    { max_value; current_value; width; line; spin_index; start_time; summarised = false }
 
   let percent t = int_of_float (T.(to_float t.current_value /. (to_float t.max_value) *. 100.))
 
@@ -123,6 +140,14 @@ module Progress_bar(T: Floatable) = struct
   let average_rate t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in
     T.to_float t.current_value /. time_so_far
+
+  let summarise t =
+    if not t.summarised then begin
+      t.summarised <- true;
+      Printf.printf "Total work done: %s\n" (size (Int64.of_float (T.to_float t.current_value)));
+      Printf.printf "Total time: %s\n" (hms (int_of_float (Unix.gettimeofday () -. t.start_time)));
+      Printf.printf "Average rate: %s / sec\n" (size (Int64.of_float (average_rate t)))
+    end
 end
 
 let padto blank n s =
