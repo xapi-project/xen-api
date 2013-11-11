@@ -1765,7 +1765,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vdi-copy",
     {
       reqd=["uuid"; "sr-uuid"];
-      optn=[];
+      optn=["driver-params:"];
       help="Copy a VDI to a specified SR.";
       implementation=No_fd Cli_operations.vdi_copy;
       flags=[];
