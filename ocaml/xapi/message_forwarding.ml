@@ -3266,15 +3266,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					forward_vdi_op ~local_fn ~__context ~self:vdi
 						(fun session_id rpc -> Client.VDI.clone rpc session_id vdi driver_params))
 
-		let copy ~__context ~vdi ~sr =
-			info "VDI.copy: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
+		let copy ~__context ~vdi ~sr ~driver_params =
+			info "VDI.copy: VDI = '%s'; SR = '%s'; driver_params = %s" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr)
+				(String.concat ";" (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params));
 			Xapi_vdi.assert_operation_valid ~__context ~self:vdi ~op:`copy;
-			let local_fn = Local.VDI.copy ~vdi ~sr in
+			let local_fn = Local.VDI.copy ~vdi ~sr ~driver_params in
 			let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
 			(* No need to lock the VDI because the VBD.plug will do that for us *)
 			(* Try forward the request to a host which can have access to both source
 			   and destination SR. *)
-			let op session_id rpc = Client.VDI.copy rpc session_id vdi sr in
+			let op session_id rpc = Client.VDI.copy rpc session_id vdi sr driver_params in
 			try
 				SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] ~prefer_slaves:true op
 			with Not_found ->

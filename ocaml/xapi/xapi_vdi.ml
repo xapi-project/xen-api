@@ -561,7 +561,7 @@ let clone ~__context ~vdi ~driver_params =
        raise e)
 		)
 
-let copy ~__context ~vdi ~sr =
+let copy ~__context ~vdi ~sr ~driver_params =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   let task_id = Ref.string_of (Context.get_task_id __context) in
 

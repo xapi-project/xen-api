@@ -2920,7 +2920,11 @@ let vdi_copy = call
 	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
 	Extended, rel_cowley, "The copy can now be performed between any two SRs." ]
   ~in_oss_since:None
-  ~params:[Ref _vdi, "vdi", "The VDI to copy"; Ref _sr, "sr", "The destination SR" ]
+  ~versioned_params:
+  [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
+   {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR"; param_release=rio_release; param_default=None};
+   {param_type=Map (String, String); param_name="driver_params"; param_doc="Optional parameters that are passed through to the backend driver in order to specify storage-type-specific copy options"; param_release=augusta_release; param_default=Some (VMap [])}
+  ]
   ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
   ~result:(Ref _vdi, "The reference of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
