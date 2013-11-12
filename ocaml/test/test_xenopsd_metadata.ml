@@ -112,6 +112,57 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
+let vgpu_pci_id = "vgpu_pci_id", "0000:0a:00.0"
+let vgpu_config = "vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"
+
+let vgpu_platform_data = [vgpu_pci_id; vgpu_config]
+
+module VideoMode = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = vm_config
+		type output_t = Vm.video_card
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = function
+			| Vm.Cirrus -> "Cirrus"
+			| Vm.Standard_VGA -> "Standard_VGA"
+			| Vm.Vgpu -> "Vgpu"
+	end
+
+	module State = XapiDb
+
+	let load_input = load_vm_config
+
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
+		| Vm.HVM {Vm.video = video_mode} -> video_mode
+		| _ -> failwith "expected HVM metadata"
+
+	let tests = [
+		(* Default video mode should be Cirrus. *)
+		{oc=[]; platform=[]}, Vm.Cirrus;
+		(* Unrecognised video mode should default to Cirrus. *)
+		{oc=[]; platform=["vga", "foo"]}, Vm.Cirrus;
+		(* Video modes set in the platform map should be respected. *)
+		{oc=[]; platform=["vga", "cirrus"]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"]}, Vm.Standard_VGA;
+		(* We should be able to enable vGPU mode. *)
+		{oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
+		(* vGPU mode should override whatever's set for the "vga" key. *)
+		{oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
+		{oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
+		(* If somehow only one of the vGPU keys is set, this shouldn't
+		 * trigger vGPU mode. This should only ever happen if a user is
+		 * experimenting with vgpu_manual_setup. *)
+		{oc=[]; platform=[vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_pci_id]}, Vm.Standard_VGA;
+		{oc=[]; platform=[vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_config]}, Vm.Standard_VGA;
+	]
+end))
+
 module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = vm_config
@@ -136,11 +187,11 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 		(* Specifying a different amount of videoram works. *)
 		{oc=[]; platform=["videoram", "8"]}, 8;
 		(* Default videoram should be 16MiB for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"]}, 16;
+		{oc = []; platform=vgpu_platform_data}, 16;
 		(* Insufficient videoram values should be overridden for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"; "videoram", "8"]}, 16;
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "8"]}, 16;
 		(* videoram values larger than the default should be allowed for vGPU. *)
-		{oc = []; platform=["vga", "vgpu"; "videoram", "32"]}, 32;
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "32"]}, 32;
 		(* Other VGA options shouldn't affect the videoram setting. *)
 		{oc = []; platform=["vga", "cirrus"]}, 4;
 		{oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
@@ -151,5 +202,6 @@ let test =
 	"test_xenopsd_metadata" >:::
 		[
 			"test_hvm_serial" >:: HVMSerial.test;
+			"test_videomode" >:: VideoMode.test;
 			"test_videoram" >:: VideoRam.test;
 		]

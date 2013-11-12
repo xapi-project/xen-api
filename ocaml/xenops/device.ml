@@ -1561,7 +1561,6 @@ let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
 type vgpu_t = {
 	pci_id: string;
 	config: string;
-	vnc_enabled: bool;
 }
 
 type info = {
@@ -1765,8 +1764,7 @@ let vgpu_args_of_info info domid =
 				"--domain=" ^ (string_of_int domid);
 				"--vcpus=" ^ (string_of_int info.vcpus);
 				"--gpu=" ^ vgpu.pci_id;
-				"--config=" ^ vgpu.config
-					^ ",disable_vnc=" ^ (if vgpu.vnc_enabled then "0" else "1");
+				"--config=" ^ vgpu.config;
 			]
 		| None -> []
 

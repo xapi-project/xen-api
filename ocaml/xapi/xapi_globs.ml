@@ -464,11 +464,11 @@ let pass_through_pif_carrier = "pass_through_pif_carrier"
 let vgpu_pci = "vgpu_pci"
 
 (* Name for fields in VM.platform used for vGPU *)
-let vgpu_vga_key = "vga"
-let vgpu_vga_value = "vgpu"
+let vgpu_manual_setup_key = "vgpu_manual_setup"
+
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
-let vgpu_vnc_enabled_key = "vgpu_vnc_enabled"
+let vgpu_extra_args_key = "vgpu_extra_args"
 
 let dev_zero = "/dev/zero"
 

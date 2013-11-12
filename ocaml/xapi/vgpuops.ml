@@ -140,7 +140,7 @@ let add_vgpus_to_vm ~__context vm vgpus =
 	List.iter
 		(fun key ->
 			try Db.VM.remove_from_platform ~__context ~self:vm ~key with _ -> ())
-		[Xapi_globs.vgpu_vga_key; Xapi_globs.vgpu_pci_key; Xapi_globs.vgpu_config_key];
+		[Xapi_globs.vgpu_pci_key; Xapi_globs.vgpu_config_key];
 	(* Only support a maximum of one virtual GPU per VM for now. *)
 	match vgpus with
 	| [] -> ()
@@ -150,9 +150,12 @@ let add_vgpus_to_vm ~__context vm vgpus =
 		let config_path = List.assoc Xapi_globs.vgpu_config_key internal_config in
 		let vgpu_pci = create_virtual_vgpu ~__context vm vgpu in
 		let pci_id = Db.PCI.get_pci_id ~__context ~self:vgpu_pci in
-		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_vga_key ~value:Xapi_globs.vgpu_vga_value;
 		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
 		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
+
+let vgpu_manual_setup_of_vm vm_r =
+	List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
+	(List.assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform = "true")
 
 let create_vgpus ~__context (vm, vm_r) hvm =
 	let vgpus = vgpus_of_vm ~__context vm_r in
@@ -166,7 +169,8 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 			vgpus
 	in
 	add_pcis_to_vm ~__context vm passthru_vgpus;
-	add_vgpus_to_vm ~__context vm virtual_vgpus
+	if not (vgpu_manual_setup_of_vm vm_r)
+	then add_vgpus_to_vm ~__context vm virtual_vgpus
 
 let list_pcis_for_passthrough ~__context ~vm =
 	try

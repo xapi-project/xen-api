@@ -187,9 +187,10 @@ sig
 	type media = Disk | Cdrom
 
 	type vgpu_t = {
-		pci_id: string; (* The PCI device on which the vGPU will run. *)
-		config: string; (* Path to the vGPU config file. *)
-		vnc_enabled: bool; (* Flag to enable framebuffer copying to VNC console. *)
+		(* The PCI device on which the vGPU will run. *)
+		pci_id: string;
+		(* Path to the vGPU config file, plus comma-separated extra arguments. *)
+		config: string;
 	}
 
 
