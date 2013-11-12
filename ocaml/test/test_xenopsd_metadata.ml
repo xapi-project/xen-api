@@ -112,10 +112,10 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
-let vgpu_platform_data = [
-	"vgpu_pci_id", "0000:0a:00.0";
-	"vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf";
-]
+let vgpu_pci_id = "vgpu_pci_id", "0000:0a:00.0"
+let vgpu_config = "vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"
+
+let vgpu_platform_data = [vgpu_pci_id; vgpu_config]
 
 module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
@@ -151,6 +151,15 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 		(* vGPU mode should override whatever's set for the "vga" key. *)
 		{oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
 		{oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
+		(* If somehow only one of the vGPU keys is set, this shouldn't
+		 * trigger vGPU mode. This should only ever happen if a user is
+		 * experimenting with vgpu_manual_setup. *)
+		{oc=[]; platform=[vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_pci_id]}, Vm.Standard_VGA;
+		{oc=[]; platform=[vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_config]}, Vm.Standard_VGA;
 	]
 end))
 
