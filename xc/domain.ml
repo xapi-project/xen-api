@@ -223,7 +223,7 @@ let make ~xc ~xs vm_info uuid =
 				let ent = sprintf "%s/%s" dom_path dir in
 				t.Xst.mkdir ent;
 				t.Xst.setperms ent rwperm
-			) [ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ];
+			) [ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data"; "hvmloader" ];
 		);
 
 		xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata);
