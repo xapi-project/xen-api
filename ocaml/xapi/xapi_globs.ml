@@ -51,8 +51,8 @@ let tools_version_none = (-1, -1, -1, -1)
 let tools_version = ref tools_version_none
 
 (* client min/max version range *)
-let xencenter_min_verstring = "2.0"
-let xencenter_max_verstring = "2.0"
+let xencenter_min_verstring = "2.1"
+let xencenter_max_verstring = "2.1"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
