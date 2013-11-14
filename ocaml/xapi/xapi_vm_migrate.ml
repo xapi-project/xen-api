@@ -147,7 +147,8 @@ let pool_migrate_complete ~__context ~vm ~host =
 				XenAPI.VM.atomic_set_resident_on rpc session_id vm host
 			);
 		Xapi_xenops.add_caches id;
-		Xapi_xenops.refresh_vm ~__context ~self:vm
+		Xapi_xenops.refresh_vm ~__context ~self:vm;
+		Monitor_dbcalls.clear_cache_for_vm ~vm_uuid:id
 	end
 
 type mirror_record = {
