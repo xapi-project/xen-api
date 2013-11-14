@@ -33,4 +33,14 @@ package com.xensource.xenapi;
 public abstract class XenAPIObject
 {
 	public abstract String toWireString();
+	
+	/**
+	 * When XAPI returns a null, it actually gets changed into an
+	 * object that contains the string "OpaqueRef:NULL".  This is a
+	 * convenience method to check if a XenAPIObject is in fact
+	 * null in XAPI's eyes.
+	 **/
+	public boolean isNull() {
+	    return toWireString().contains("OpaqueRef:NULL");
+	}
 }

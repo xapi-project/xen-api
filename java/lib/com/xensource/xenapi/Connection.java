@@ -144,12 +144,18 @@ public class Connection
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
      */
-    public Connection(URL url, int wait)
+    public Connection(URL url)
     {
         deprecatedConstructorUsed = false;
-        _wait = wait;
         this.client = getClientFromURL(url);
     }
+	
+	public Connection(URL url, int wait) 
+	{
+	    this(url);
+	    _wait = wait;
+    }
+	
 
     /**
      * Creates a connection to a particular server using a given username and password. This object can then be passed
