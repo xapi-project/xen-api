@@ -66,6 +66,7 @@ let vm_operation_table =
     `awaiting_memory_live, "awaiting_memory_live";
     `changing_shadow_memory_live, "changing_shadow_memory_live";
     `pool_migrate, "pool_migrate";
+    `migrate_send, "migrate_send";
     `power_state_reset, "power_state_reset";
     `csvm, "csvm";
   ]
@@ -118,6 +119,8 @@ let sr_operation_to_string = function
   | `vdi_resize -> "VDI.resize"
   | `vdi_clone -> "VDI.clone"
   | `vdi_snapshot -> "VDI.snapshot"
+  | `pbd_create -> "PBD.create"
+  | `pbd_destroy -> "PBD.destroy"
 
 let vbd_operation_to_string = function
   | `attach -> "attach"

@@ -27,6 +27,10 @@ let allowed_power_states ~(op:API.vm_operations) =
 	let all_power_states =
 		[`Halted; `Paused; `Suspended; `Running] in
 	match op with
+	(* migrate_send is only here for forwards compatibility; if a master host has
+	 * equal version installed then no VMs in the pool will have the migrate_send
+	 * operation available. *)
+	| `migrate_send                 -> []
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
