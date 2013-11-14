@@ -1200,34 +1200,82 @@ let do_flr device =
 	( try write_string_to_file doflr device with _ -> (); );
 	callscript "flr-post" device
 
-let bind pcidevs =
-	let bind_to_pciback device =
-		let newslot = "/sys/bus/pci/drivers/pciback/new_slot" in
-		let bind = "/sys/bus/pci/drivers/pciback/bind" in
-		write_string_to_file newslot device;
-		write_string_to_file bind device;
-		do_flr device;
-		in
-	List.iter (fun (domain, bus, slot, func) ->
-		let devstr = to_string (domain, bus, slot, func) in
-		let s = "/sys/bus/pci/devices/" ^ devstr in
-		let driver =
-			try Some (Filename.basename (Unix.readlink (s ^ "/driver")))
-			with _ -> None in
-		begin match driver with
-		| None           ->
-			bind_to_pciback devstr
-		| Some "pciback" ->
-			debug "pci: device %s already bounded to pciback" devstr;
-		        do_flr devstr		    
-		| Some d         ->
-			debug "pci: unbounding device %s from driver %s" devstr d;
-			let f = s ^ "/driver/unbind" in
-			write_string_to_file f devstr;
-			bind_to_pciback devstr
-		end;
-	) pcidevs;
-	()
+type supported_driver =
+	| Nvidia
+	| Pciback
+
+type driver =
+	| Supported of supported_driver
+	| Unsupported of string
+
+let string_of_driver = function
+	| Supported Nvidia -> "nvidia"
+	| Supported Pciback -> "pciback"
+	| Unsupported driver -> driver
+
+let driver_of_string = function
+	| "nvidia" -> Supported Nvidia
+	| "pciback" -> Supported Pciback
+	| driver -> Unsupported driver
+
+let sysfs_devices = "/sys/bus/pci/devices"
+let sysfs_drivers = "/sys/bus/pci/drivers"
+let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
+let sysfs_nvidia = Filename.concat sysfs_drivers "nvidia"
+
+let get_driver devstr =
+	try
+		let sysfs_device = Filename.concat sysfs_devices devstr in
+		Some (Filename.concat sysfs_device "driver"
+			|> Unix.readlink
+			|> Filename.basename
+			|> driver_of_string)
+	with _ -> None
+
+let bind_to_pciback devstr =
+	debug "pci: binding device %s to pciback" devstr;
+	let new_slot = Filename.concat sysfs_pciback "new_slot" in
+	let bind = Filename.concat sysfs_pciback "bind" in
+	write_string_to_file new_slot devstr;
+	write_string_to_file bind devstr
+
+let bind_to_nvidia devstr =
+	debug "pci: binding device %s to nvidia" devstr;
+	let bind = Filename.concat sysfs_nvidia "bind" in
+	write_string_to_file bind devstr
+
+let unbind devstr driver =
+	let driverstr = string_of_driver driver in
+	debug "pci: unbinding device %s from %s" devstr driverstr;
+	let sysfs_driver = Filename.concat sysfs_drivers driverstr in
+	let unbind = Filename.concat sysfs_driver "unbind" in
+	write_string_to_file unbind devstr
+
+let bind devices new_driver =
+	List.iter
+		(fun device ->
+			let devstr = to_string device in
+			let old_driver = get_driver devstr in
+			match old_driver, new_driver with
+			| None, Nvidia ->
+				debug "pci: device %s not bound" devstr;
+				bind_to_nvidia devstr
+			| Some (Supported Nvidia), Nvidia ->
+				debug "pci: device %s already bound to nvidia; doing nothing" devstr
+			| Some driver, Nvidia ->
+				unbind devstr driver;
+				bind_to_nvidia devstr
+			| None, Pciback ->
+				debug "pci: device %s not bound" devstr;
+				bind_to_pciback devstr;
+				do_flr devstr
+			| Some (Supported Pciback), Pciback ->
+				debug "pci: device %s already bound to pciback; doing flr" devstr;
+				do_flr devstr
+			| Some driver, Pciback ->
+				unbind devstr driver;
+				bind_to_pciback devstr)
+		devices
 
 let enumerate_devs ~xs (x: device) =
 	let backend_path = backend_path_of_device ~xs x in

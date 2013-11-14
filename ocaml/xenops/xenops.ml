@@ -313,7 +313,7 @@ let bind_pci ~pci =
 	let pcidevs = List.map (fun d -> 
 		Scanf.sscanf d "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
 	) (String.split ',' pci) in
-	Device.PCI.bind pcidevs
+	Device.PCI.bind pcidevs Device.PCI.Pciback
 
 let list_pci ~xc ~xs ~domid = 
 	let pcidevs = Device.PCI.list ~xc ~xs domid in

@@ -1574,7 +1574,7 @@ module PCI = struct
 				let msitranslate = if (Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
 				let pci_power_mgmt = if (Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
 
-				Device.PCI.bind [ device ];
+				Device.PCI.bind [ device ] Device.PCI.Pciback;
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
 				then Device.PCI.plug task ~xc ~xs device frontend_domid
