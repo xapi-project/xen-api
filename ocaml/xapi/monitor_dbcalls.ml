@@ -56,6 +56,10 @@ let host_memory_total_cached : Int64.t ref = ref Int64.zero
 let clear_cache_for_pif ~pif_name =
 	Mutex.execute pifs_cached_m (fun _ -> Hashtbl.remove pifs_cached pif_name)
 
+let clear_cache_for_vm ~vm_uuid =
+	Mutex.execute vm_memory_cached_m
+		(fun _ -> Hashtbl.remove vm_memory_cached vm_uuid)
+
 let clear_cache () =
 	let safe_clear ~cache ~lock =
 		Mutex.execute lock (fun _ -> Hashtbl.clear cache) in
@@ -158,7 +162,9 @@ let pifs_and_memory_update_fn xc =
 		List.iter (fun (uuid, memory) ->
 			let vm = Db.VM.get_by_uuid ~__context ~uuid in
 			let vmm = Db.VM.get_metrics ~__context ~self:vm in
-			Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+			if (Db.VM.get_resident_on ~__context ~self:vm =
+				Helpers.get_localhost ~__context)
+			then Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
 		) vm_memory_changes;
 		Monitor_master.update_pifs ~__context host pif_changes;
 		let localhost = Helpers.get_localhost ~__context in
