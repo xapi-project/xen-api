@@ -69,21 +69,21 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 
 	# extract the xapi-docs
 	mkdir -p $(OUTPUT_SDK_DIR)/tmp
-	(cd $(OUTPUT_SDK_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/i686/xapi-docs*.rpm | cpio -i --make-directories; tar -zcf $(OUTPUT_SDK) .;zip -9rv $(OUTPUT_WEBZIP) .)
+	(cd $(OUTPUT_SDK_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/*/xapi-docs*.rpm | cpio -i --make-directories; tar -zcf $(OUTPUT_SDK) .;zip -9rv $(OUTPUT_WEBZIP) .)
 	rm -rf $(OUTPUT_SDK_DIR)/tmp
 
 	# Unpack the xapi-datamodel-devel RPM for now
 	rm -rf $(OUTPUT_DATAMODEL_DIR)
 	mkdir -p $(OUTPUT_DATAMODEL_DIR)/tmp
 	(cd $(OUTPUT_DATAMODEL_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-datamodel-devel*.rpm | cpio -i --make-directories)
-	mv $(OUTPUT_DATAMODEL_DIR)/tmp/usr/lib/ocaml/xapi-datamodel/* $(OUTPUT_DATAMODEL_DIR)
+	mv $(OUTPUT_DATAMODEL_DIR)/tmp/usr/*/ocaml/xapi-datamodel/* $(OUTPUT_DATAMODEL_DIR)
 	rm -rf $(OUTPUT_DATAMODEL_DIR)/tmp
 
 	# Make sure the right RPMs appear on the install CD
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-core-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-tests-*.rpm $(MY_MAIN_PACKAGES)
-	cp $(RPM_RPMSDIR)/i686/xapi-www-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/*/xapi-www-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xenops-*.rpm $(MY_MAIN_PACKAGES)
 	mkdir -p $(MY_XCP_PACKAGES)
