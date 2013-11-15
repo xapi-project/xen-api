@@ -35,4 +35,4 @@ if [ $remote -eq 1 ]; then
 fi
 
 [ -s /etc/syslog.$$ ] && mv -f /etc/syslog.$$ $conf_file
-service $service reload
+service $service restart
