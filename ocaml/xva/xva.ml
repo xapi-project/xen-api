@@ -229,13 +229,13 @@ let send path fd =
   let is_dir path = let stat = Unix.stat path in stat.Unix.st_kind = Unix.S_DIR in
   let add path (* actual path *) filename (* for tar header *) = 
     debug "Attempting to add %s (%s)\n" path filename;
-    let hdr = Tar.Header.of_file path in
-    let hdr = { hdr with Tar.Header.file_name = filename } in
-    debug "file_size = %Ld\n" (hdr.Tar.Header.file_size); 
-    Tar.write_block hdr 
+    let hdr = Tar_unix.Header.of_file path in
+    let hdr = { hdr with Tar_unix.Header.file_name = filename } in
+    debug "file_size = %Ld\n" (hdr.Tar_unix.Header.file_size); 
+    Tar_unix.write_block hdr 
       (fun ofd ->
 	 let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
-	 Pervasiveext.finally (fun () -> Tar.Archive.copy_n ifd ofd hdr.Tar.Header.file_size)
+	 Pervasiveext.finally (fun () -> Tar_unix.Archive.copy_n ifd ofd hdr.Tar_unix.Header.file_size)
 	   (fun () -> Unix.close ifd)) fd in
 
   let add_disk path = 
@@ -250,5 +250,5 @@ let send path fd =
   let disks = List.filter (fun x -> not(String.startswith "." x) && is_dir x) disks in
   List.iter add_disk disks;
 
-  Tar.write_end fd
+  Tar_unix.write_end fd
   

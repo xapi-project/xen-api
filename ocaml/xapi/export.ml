@@ -358,8 +358,8 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~in
 				(string_of_bool preserve_power_state) end;
 
 	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms in
-	let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
-	Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s
+	let hdr = Tar_unix.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
+	Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s
 
 let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
   info "VM.export: VM = %s; preserve_power_state = '%s'"
@@ -370,8 +370,8 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 
   debug "Outputting ova.xml";
 
-  let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
-  Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s;
+  let hdr = Tar_unix.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
+  Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s;
 
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
      and whose SR.content_type <> "iso" *)
@@ -389,7 +389,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 
   (* We no longer write the end-of-tar checksum table, preferring the inline ones instead *)
 
-  Tar.write_end s;
+  Tar_unix.write_end s;
   debug "export VM = %s completed successfully" (Ref.string_of vm_ref)
 
 open Http
@@ -480,7 +480,7 @@ let metadata_handler (req: Request.t) s _ =
                 (fun () -> export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs s)
  				(fun () ->
  					 List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs;
- 					 Tar.write_end s);
+ 					 Tar_unix.write_end s);
 		)
 
 let handler (req: Request.t) s _ =

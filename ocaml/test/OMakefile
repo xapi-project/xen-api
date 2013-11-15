@@ -1,5 +1,6 @@
 OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid netdev \
-             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil oclock gzip sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory
+             tapctl xenctrl xenctrlext xenstore-compat cpuid pciutil oclock gzip sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory \
+             tar tar.unix
 
 OCAMLINCLUDES = \
 	../database \
