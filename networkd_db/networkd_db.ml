@@ -20,7 +20,7 @@ let name = "networkd_db"
 let _ =
 	let bridge = ref "" in
 	let iface = ref "" in
-        let rc = ref 0 in
+	let rc = ref 0 in
 	Arg.parse (Arg.align [
 			"-bridge", Arg.Set_string bridge, "Bridge name";
 			"-iface", Arg.Set_string iface, "Interface name";
