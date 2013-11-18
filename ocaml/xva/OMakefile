@@ -1,4 +1,4 @@
-OCAMLPACKS = stdext xml-light2 xcp
+OCAMLPACKS = stdext tar tar.unix xml-light2 xcp
 
 .PHONY: clean
 clean:

@@ -3097,8 +3097,8 @@ let vm_import fd printer rpc session_id params =
 									let writer (response, sock) =
 										try
 											(* First add the metadata file *)
-											let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int (String.length buffer)) in
-											Tar.write_block hdr (fun ofd -> Tar.write_string ofd buffer) sock;
+											let hdr = Tar_unix.Header.make Xva.xml_filename (Int64.of_int (String.length buffer)) in
+											Tar_unix.write_block hdr (fun ofd -> Unixext.really_write_string ofd buffer) sock;
 											List.iter
 												(fun vdi ->
 													let counter = ref 0 in
@@ -3126,8 +3126,8 @@ let vm_import fd printer rpc session_id params =
 																		| Blob (Chunk x) -> x
 																		| _ -> failwith "Thin CLI protocol error"
 																	in
-																	let hdr = Tar.Header.make chunk (Int64.of_int32 length) in
-																	Tar.write_block hdr
+																	let hdr = Tar_unix.Header.make chunk (Int64.of_int32 length) in
+																	Tar_unix.write_block hdr
 																		(fun ofd ->
 																			let limit = Int64.of_int32 length in
 																			let total_bytes = Unixext.copy_file ~limit fd ofd in
@@ -3142,7 +3142,7 @@ let vm_import fd printer rpc session_id params =
 															| m ->
 																	debug "Protocol failure: unexpected: %s" (string_of_message m)
 													done) disks;
-											Tar.write_end sock;
+											Tar_unix.write_end sock;
 											true
 										with e ->
 											debug "vm_import caught %s while writing data" (Printexc.to_string e);
