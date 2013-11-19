@@ -1864,7 +1864,11 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 
 	(* start vgpu emulation if appropriate *)
 	let _ = match info.vgpu with
-		| Some vgpu_setting ->
+		| Some vgpu ->
+			(* The below line does nothing if the device is already bound to the
+			 * nvidia driver. We rely on xapi to refrain from attempting to run
+			 * a vGPU on a device which is passed through to a guest. *)
+			PCI.bind [PCI.of_string vgpu.pci_id] PCI.Nvidia;
 			let args = vgpu_args_of_info info domid in
 			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 			let cancel = Cancel_utils.Vgpu domid in
