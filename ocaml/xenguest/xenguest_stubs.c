@@ -809,7 +809,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 #ifdef XENGUEST_4_2
                           ,
                           Bool_val(no_incr_generationid),
-                          &c_vm_generationid_addr,
+                          0, &c_vm_generationid_addr,
                           NULL /* restore_callbacks */
 #elif defined(XC_HAS_4_1_NEW_GENERATION_ID_INTERFACE)
                           ,genid_callback, &genid_cb_data
