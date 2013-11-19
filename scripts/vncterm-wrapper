@@ -22,6 +22,9 @@ vncterm=/usr/lib/xen/bin/vncterm
 if [ ! -e $vncterm ]; then
 	vncterm=/usr/lib/xcp/lib/vncterm
 fi
+if [ ! -e $vncterm ]; then
+	vncterm=/usr/lib64/xen/lib/vncterm
+fi
 
 echo vncterm-wrapper:
 xenstore-write -s /local/domain/$DOMID/vncterm-pid $$
