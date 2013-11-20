@@ -156,7 +156,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
 	ocaml/xapi/quicktestbin \
-	ocaml/xapi/sparse_dd \
 	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/cancel_tests \
 	ocaml/license/v6d
