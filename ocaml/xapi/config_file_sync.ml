@@ -27,7 +27,9 @@ let config_sync_version = 2
 let config_sync_uri =
 	Filename.concat Constants.config_sync_uri (string_of_int config_sync_version)
 
-let read_config_file () = { password = get_password superuser }
+let read_config_file () = match get_password superuser with
+	| None -> failwith "Couldn't get password"
+	| Some p -> { password = p }
 
 let parse_config_string config = Jsonrpc.of_string config |> config_of_rpc
 
