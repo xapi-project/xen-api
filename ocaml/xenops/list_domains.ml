@@ -25,8 +25,8 @@ let xc_handle = Xenctrl.interface_open()
 let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let table = Hashtbl.create 10 in
 
-  let pages_to_string_bytes    x = Int64.to_string (Memory.bytes_of_pages    (Int64.of_nativeint (x))) in
-  let pages_to_string_mib_used x = Int64.to_string (Memory.mib_of_pages_used (Int64.of_nativeint (x))) in
+  let pages_to_string_bytes    x = Int64.to_string (XenopsMemory.bytes_of_pages    (Int64.of_nativeint (x))) in
+  let pages_to_string_mib_used x = Int64.to_string (XenopsMemory.mib_of_pages_used (Int64.of_nativeint (x))) in
   let pages_to_string_pages    x = Int64.to_string (                         (Int64.of_nativeint (x))) in
 
   let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
@@ -54,8 +54,8 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let shadow_mib =
     try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
     with _ -> None in
-  let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
-  let shadow_pages = may Memory.pages_of_mib shadow_mib in
+  let shadow_bytes = may XenopsMemory.bytes_of_mib shadow_mib in
+  let shadow_pages = may XenopsMemory.pages_of_mib shadow_mib in
   Hashtbl.add table "shadow bytes" (Opt.default "N/A" (may Int64.to_string shadow_bytes));
   Hashtbl.add table "shadow pages" (Opt.default "N/A" (may Int64.to_string shadow_pages));
   Hashtbl.add table "shadow MiB"   (Opt.default "N/A" (may Int64.to_string shadow_mib  ));

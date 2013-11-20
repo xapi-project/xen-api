@@ -45,7 +45,7 @@ let make_test_database () =
 		machine_serial_number = None;
 		machine_serial_name = None;
 		total_memory_mib = 1024L;
-		dom0_static_max = Memory.bytes_of_mib 512L;
+		dom0_static_max = XenopsMemory.bytes_of_mib 512L;
 	} in
 	Dbsync_slave.create_localhost ~__context host_info;
 	Create_misc.ensure_domain_zero_records ~__context host_info;

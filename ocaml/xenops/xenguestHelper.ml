@@ -146,7 +146,7 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
 let non_debug_receive ?debug_callback cnx = 
 	let debug_memory () = 
 		Xenctrl.with_intf (fun xc ->
-			let open Memory in
+			let open XenopsMemory in
 			let open Int64 in
 			let open Xenctrl in
 			let p = Xenctrl.physinfo xc in

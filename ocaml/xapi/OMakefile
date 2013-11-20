@@ -80,7 +80,7 @@ XAPI_MODULES = $(COMMON) \
 	../client_records/record_util \
 	../xenops/task_server \
 	../xenops/updates \
-	../xenops/memory \
+	../xenops/xenopsMemory \
 	storage_task \
 	storage_access \
 	storage_mux \

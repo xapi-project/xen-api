@@ -92,18 +92,18 @@ let xs_read xs path =
 let xs_read_bytes_from_kib_key xs path = match xs_read xs path with
 		| None -> "n/a"
 		| Some (string) ->
-			Int64.to_string (Memory.bytes_of_kib (Int64.of_string string))
+			Int64.to_string (XenopsMemory.bytes_of_kib (Int64.of_string string))
 
 (** {2 Host fields} *)
 
 let host_time h =
 	Date.to_string (Date.of_float (Unix.gettimeofday ()))
 let host_total_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.total_pages))
+	(XenopsMemory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.total_pages))
 let host_free_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.free_pages))
+	(XenopsMemory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.free_pages))
 let host_scrub_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.scrub_pages))
+	(XenopsMemory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.scrub_pages))
 
 let host_fields = [
 		"host_time"       , host_time       ;
@@ -122,9 +122,9 @@ let guest_id xc xs g =
 let guest_domain_id xc xs g = string_of_int
 	(g.Xenctrl.domid)
 let guest_total_bytes xc xs g = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
+	(XenopsMemory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
 let guest_maximum_bytes xc xs g = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
+	(XenopsMemory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
 let guest_target_bytes xc xs g =
 	xs_read_bytes_from_kib_key xs (memory_target_path (guest_domain_id xc xs g))
 let guest_offset_bytes xc xs g =
@@ -134,7 +134,7 @@ let guest_balloonable xc xs g = string_of_bool
 let guest_uncooperative xc xs g = string_of_bool
 	(xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
 let guest_shadow_bytes xc xs g = Int64.to_string (
-	try Memory.bytes_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc g.Xenctrl.domid))
+	try XenopsMemory.bytes_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc g.Xenctrl.domid))
 	with _ -> 0L)
 
 let guest_fields = [
