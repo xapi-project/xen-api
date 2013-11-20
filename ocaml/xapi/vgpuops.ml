@@ -106,13 +106,6 @@ let create_virtual_vgpu ~__context vm vgpu =
 		| `depth_first -> false
 		| `breadth_first -> true
 	in
-	let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
-		(fun pgpu ->
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
-					~self:pgpu ~vgpu_type:vgpu.type_ref))
-		pgpus
-	in
 	let rec allocate_vgpu vgpu_type = function
 		| [] -> None
 		| pgpu :: remaining_pgpus ->
@@ -123,6 +116,13 @@ let create_virtual_vgpu ~__context vm vgpu =
 			with _ -> allocate_vgpu vgpu_type remaining_pgpus
 	in
 	Threadext.Mutex.execute m (fun () ->
+		let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
+				(fun pgpu ->
+				Helpers.call_api_functions ~__context (fun rpc session_id ->
+						Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
+						~self:pgpu ~vgpu_type:vgpu.type_ref))
+				pgpus
+		in
 		match allocate_vgpu vgpu.type_ref sorted_pgpus with
 		| None ->
 			raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
