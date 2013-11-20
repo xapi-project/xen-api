@@ -186,6 +186,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xsh
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
+<<<<<<< HEAD
 @OPTDIR@/libexec/list_plugins
 @OPTDIR@/libexec/sm_diagnostics
 @OPTDIR@/libexec/thread_diagnostics
@@ -233,8 +234,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/shell.pyo
 @OPTDIR@/libexec/shell.pyc
 @OPTDIR@/libexec/shutdown
-@OPTDIR@/libexec/sparse_dd
-%config(noreplace) /etc/sparse_dd.conf
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
 @OPTDIR@/libexec/vncterm-wrapper
