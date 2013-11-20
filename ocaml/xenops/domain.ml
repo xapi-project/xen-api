@@ -594,10 +594,8 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
-*)
 	] in
 (*
 	let store_mfn =
@@ -738,10 +736,8 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~
 	                                            ~vcpus ~extras:[] domid fd in
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
-*)
 	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
