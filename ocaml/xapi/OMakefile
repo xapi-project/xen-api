@@ -1,4 +1,4 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr xcp stunnel http-svr xen-utils netdev tapctl rpclib nbd.unix xenstore-compat xenctrl uuid gzip vhdlib sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory tar tar.unix
+OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr xcp stunnel http-svr xen-utils netdev tapctl rpclib xenstore-compat xenctrl uuid gzip sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory tar tar.unix
 
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
@@ -35,7 +35,6 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 #OCAML_CLIBS += stubs
 
 OCamlProgram(http_test, http_test)
-OCamlProgram(sparse_dd, sparse_dd sparse_encoding ../util/stats)
 OCamlProgram(show_bat, show_bat)
 #OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
@@ -287,12 +286,11 @@ install:
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) sparse_dd $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
 	rm -f config_constants.ml
-	rm -f binpack xapi_unit_test sparse_dd monitor_fake_plugin rrddump quicktestbin
+	rm -f binpack xapi_unit_test monitor_fake_plugin rrddump quicktestbin
 
 

@@ -36,7 +36,6 @@ install:
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/lib/xcp/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
-	$(IDATA) sparse_dd.conf $(DESTDIR)/etc/sparse_dd.conf
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
