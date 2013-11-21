@@ -843,11 +843,6 @@ let initialise () =
 	end else info "No storage state is persisted in %s; creating blank database" !host_state_path
 
 module Local_domain_socket = struct
-	(** Code to create a standalone process listening on a Unix domain socket. *)
-	let server = Http_svr.Server.empty ()
-
-	let socket = ref None
-
 	let path = Filename.concat "/var/lib/xcp" "storage"
 
 	let xmlrpc_handler process req bio _ =
@@ -859,18 +854,6 @@ module Local_domain_socket = struct
 		(* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
 		let str = Xmlrpc.string_of_response result in
 		Http_svr.response_str req s str
-
-	let start path process =
-		Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
-		Unixext.mkdir_safe (Filename.dirname path) 0o700;
-		Unixext.unlink_safe path;
-		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "storage_unix" in
-		Http_svr.start server domain_sock;
-		socket := Some(domain_sock)
-
-	let shutdown () =
-		Opt.iter Http_svr.stop !socket;
-		socket := None
 end
 
 open Xmlrpc_client

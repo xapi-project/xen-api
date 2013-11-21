@@ -339,7 +339,17 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 	(* Create the new ones *)
 	let db_vdi_map = StringMap.fold
 		(fun loc vdi m ->
-			let ref = Ref.make () and uuid = Uuid.make_uuid () in
+			(* If vdi looks like a UUID, use it as the UUID for this VDI *)
+			let x = 
+				try Filename.chop_extension vdi.vdi
+				with Invalid_argument _ -> vdi.vdi in
+			let ref = Ref.make () in
+			let uuid_len = 36 in
+			let uuid = 
+				if String.length x == uuid_len && Uuid.is_uuid x
+				then Uuid.of_string x
+				else Uuid.make_uuid () in
+
 			debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
 			Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
 				~name_label:vdi.name_label ~name_description:vdi.name_description

@@ -999,8 +999,10 @@ let events_from_sm () =
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
-	start Xapi_globs.storage_unix_domain_socket Storage_mux.Server.process
-
+	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xcp.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
+	info "Started service on org.xen.xcp.storage";
+	let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
+	()
 
 (** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
     to device [userdevice] on domain [domid] *)

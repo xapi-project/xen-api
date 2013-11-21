@@ -495,8 +495,11 @@ let _ =
 	Storage_impl.host_state_path := "/tmp/storage.db";
 	Vdi_automaton.test ();
 	Unixext.unlink_safe !Storage_impl.host_state_path;
-	Storage_impl.Local_domain_socket.start path Server.process;
-	info "Listening on %s" Storage_impl.Local_domain_socket.path;
+	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xcp.storage" ~rpc_fn:(Server.process None) () in
+	info "Started service on org.xen.xcp.storage";
+	let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
+
+	info "Listening on %s" Xapi_globs.storage_unix_domain_socket;
 	test_sr "sr";
 
 	test_sr_detach_cleanup_errors_1 "sr" "error2";

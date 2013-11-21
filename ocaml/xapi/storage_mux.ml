@@ -295,3 +295,5 @@ module Mux = struct
 end
 
 module Server = Storage_interface.Server(Storage_impl.Wrapper(Mux))
+let _ = Storage_local_client.f := Some (Server.process None)
+
