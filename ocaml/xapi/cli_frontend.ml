@@ -1746,6 +1746,14 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
      implementation=With_fd Cli_operations.vdi_import;
       flags=[];
    };
+   "vdi-export",
+   {
+     reqd = [ "uuid"; "filename" ];
+     optn = [];
+     help = "Export a VDI.";
+     implementation=With_fd Cli_operations.vdi_export;
+     flags = [];
+   };
    "vdi-resize",
     {
       reqd=["uuid"; "disk-size"];
