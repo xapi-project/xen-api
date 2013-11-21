@@ -32,7 +32,7 @@ let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_des
 						Http_svr.headers s headers;
 						try
 							debug "Copying VDI contents...";
-							Vhd_tool_wrapper.send Vhd_tool_wrapper.ignore_progress "none" s path "";
+							Vhd_tool_wrapper.send (Vhd_tool_wrapper.update_task_progress __context) "none" s path "";
 							debug "Copying VDI complete.";
 						with Unix.Unix_error(Unix.EIO, _, _) ->
 							raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
