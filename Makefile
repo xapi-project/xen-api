@@ -1,17 +1,21 @@
 
 include config.mk
 
-.PHONY: build
-build: dist/setup
-	obuild build
+.PHONY: build_vhd_tool
+build_vhd_tool:
+	(cd vhd-tool && make)
 
-dist/setup: vhd-tool.obuild
-	obuild configure
+.PHONY: build_sparse_dd
+build_sparse_dd:
+	(cd sparse_dd && make)
 
-.PHONY: install
-install: build
-	install -D -m 755 dist/build/vhd-tool/vhd-tool ${BINDIR}/vhd-tool
-	install -D -m 755 dist/build/sparse_dd/sparse_dd ${LIBEXECDIR}/sparse_dd
+.PHONY: install_vhd_tool
+install_vhd_tool:
+	install -D -m 755 vhd-tool/dist/build/vhd-tool/vhd-tool ${BINDIR}/vhd-tool
+
+.PHONY: install_sparse_dd
+install_sparse_dd:
+	install -D -m 755 sparse_dd/dist/build/sparse_dd/sparse_dd ${LIBEXECDIR}/sparse_dd
 	install -D -m 644 src/sparse_dd.conf ${ETCDIR}/sparse_dd.conf
 
 config.mk:
@@ -21,7 +25,7 @@ config.mk:
 
 .PHONY: clean
 clean:
-	rm -rf dist
+	rm -rf vhd-tool/dist sparse_dd/dist
 	rm -f configure.cmo configure.cmi
 
 .PHONY: distclean

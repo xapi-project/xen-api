@@ -1,6 +1,7 @@
-trunk (unreleased)
+0.6.5 (2013-11-21)
 * vhd-tool: add machine-parsable progress reporting
 * vhd-tool: stream/serve support for SHA1/tar/chunked XenServer import/export encoding
+* conditionally compile sparse_dd
 
 0.6.4 (2013-11-05)
 * vhd-tool serve: support receiving data as raw (no chunked or NBD)
