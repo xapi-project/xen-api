@@ -195,7 +195,13 @@ let start ~__context ~vm ~start_paused ~force =
 		Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm;
 		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true
 	end;
-	Xapi_xenops.start ~__context ~self:vm start_paused
+	(* If the VM has any vGPUs, gpumon must remain stopped until the
+	 * VM has started. *)
+	match vmr.API.vM_VGPUs with
+	| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
+	| _ ->
+		Xapi_gpumon.with_gpumon_stopped
+			~f:(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
