@@ -235,6 +235,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_dr_task \
 	mtc \
 	xapi_crashdump \
+	xapi_gpumon \
 	xapi_templates_install \
 	xapi_host_backup \
 	xapi_logs_download \
