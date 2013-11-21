@@ -192,7 +192,13 @@ let start ~__context ~vm ~start_paused ~force =
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
-	Xapi_xenops.start ~__context ~self:vm start_paused
+	(* If the VM has any vGPUs, gpumon must remain stopped until the
+	 * VM has started. *)
+	match vmr.API.vM_VGPUs with
+	| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
+	| _ ->
+		Xapi_gpumon.with_gpumon_stopped
+			~f:(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
