@@ -2939,6 +2939,7 @@ let host_shutdown_agent printer rpc session_id params =
 let vdi_import fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let progress_bar = get_bool_param params "progress" in
 	let make_command task_id =
 		let prefix = uri_of_someone rpc session_id Master in
 		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&vdi=%s"
@@ -2946,11 +2947,12 @@ let vdi_import fd printer rpc session_id params =
 			(Ref.string_of task_id) (Ref.string_of vdi) in
 		debug "requesting HttpPut('%s','%s')" filename uri;
 		HttpPut (filename, uri) in
-	ignore(track_http_operation fd rpc session_id make_command "VDI import")
+	ignore(track_http_operation ~progress_bar fd rpc session_id make_command "VDI import")
 
 let vdi_export fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let progress_bar = get_bool_param params "progress" in
 	let make_command task_id =
 		let prefix = uri_of_someone rpc session_id Master in
 		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&vdi=%s"
@@ -2958,7 +2960,7 @@ let vdi_export fd printer rpc session_id params =
 			(Ref.string_of task_id) (Ref.string_of vdi) in
 		debug "requesting HttpGet('%s','%s')" filename uri;
 		HttpGet (filename, uri) in
-	ignore(track_http_operation fd rpc session_id make_command "VDI export")
+	ignore(track_http_operation ~progress_bar fd rpc session_id make_command "VDI export")
 
 let wait_for_task_complete rpc session_id task_id =
 	let finished () =

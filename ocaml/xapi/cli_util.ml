@@ -79,24 +79,35 @@ let result_from_task rpc session_id remote_task =
 (** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
 let wait_for_task_completion = track (fun _ -> ())
 
-let track_http_operation ?use_existing_task fd rpc session_id (make_command: API.ref_task -> command) label =
+module P = Cli_progress_bar.Make(struct type t = float let to_float x = x end)
+
+let wait_for_task_completion_with_progress fd =
+  let p = P.create 80 0. 1. in
+  track (fun t ->
+    let progress_updated = P.update p t.API.task_progress in
+    if progress_updated then marshal fd (Command (PrintStderr (Printf.sprintf "\r%s" (P.string_of_bar p))));
+    if t.API.task_status <> `pending then begin
+      marshal fd (Command (PrintStderr "\n"));
+      marshal fd (Command (PrintStderr (P.summarise p)))
+    end
+  )
+
+let track_http_operation ?use_existing_task ?(progress_bar=false) fd rpc session_id (make_command: API.ref_task -> command) label =
   (* Need to associate the operation with a task so we can check for failure *)
   let task_id = match use_existing_task with None -> Client.Task.create rpc session_id label "" | Some t -> t in
   finally
     (fun () ->
-	     marshal fd (Command (make_command task_id));
-	     let response = ref (Response Wait) in
-	     while !response = Response Wait do response := unmarshal fd done;
-	     if !response = Response OK then begin
-	 (* Wait for the task to complete *)
-	 debug "Waiting for the task to be completed";
-	 wait_for_task_completion rpc session_id task_id;
-(*
-	 (* Events for tasks have been deleted *)
-	 while Client.Task.get_status rpc session_id task_id = `pending do
-	   Thread.delay 5.
-	 done;
-*)
+      marshal fd (Command (make_command task_id));
+      let response = ref (Response Wait) in
+      let receive_heartbeats = Thread.create
+        (fun () -> while !response = Response Wait do response := unmarshal fd done) () in
+      (* Wait for the task to complete *)
+      (if progress_bar
+       then wait_for_task_completion_with_progress fd
+       else wait_for_task_completion)
+         rpc session_id task_id;
+      Thread.join receive_heartbeats;
+      if !response = Response OK then begin
 	 if Client.Task.get_status rpc session_id task_id = `success then begin
 	   let result = Client.Task.get_result rpc session_id task_id in
 	   debug "result was [%s]" result;
