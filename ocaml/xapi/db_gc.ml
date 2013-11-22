@@ -186,7 +186,7 @@ let check_host_liveness ~__context =
 	(* Use whichever value is the most recent to determine host liveness *)
 	let host_time = max old_heartbeat_time new_heartbeat_time in
 
-	let now = Unix.gettimeofday () in
+	let now = Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9 in
 	(* we can now compare 'host_time' with 'now' *) 
 
 	if now -. host_time < !Xapi_globs.host_assumed_dead_interval then begin
@@ -439,7 +439,7 @@ let tickle_heartbeat ~__context host stuff =
 				if use_host_heartbeat_for_liveness
 				then Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
 			end else begin
-				let now = Unix.gettimeofday () in
+				let now = Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9 in
 				Hashtbl.replace host_heartbeat_table host now;
 				(* compute the clock skew for later analysis *)
 				if List.mem_assoc _time stuff then begin

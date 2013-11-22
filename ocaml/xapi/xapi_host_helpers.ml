@@ -141,7 +141,7 @@ let update_host_metrics ~__context ~host ~memory_total ~memory_free =
       (fun () -> List.mem host !Xapi_globs.hosts_which_are_shutting_down) in
   let should_set_live = not ha_enabled && not shutting_down in
 
-  let last_updated = Date.of_float (Unix.gettimeofday ()) in
+  let last_updated = Date.of_float (Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9) in
   let m = Db.Host.get_metrics ~__context ~self:host in
   (* Every host should always have a Host_metrics object *)
   if Db.is_valid_ref __context m then begin
