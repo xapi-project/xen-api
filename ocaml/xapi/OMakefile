@@ -196,6 +196,7 @@ XAPI_MODULES = $(COMMON) \
 	cli_util \
 	cli_key \
 	cli_printer \
+	cli_progress_bar \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
