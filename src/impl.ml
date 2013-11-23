@@ -535,6 +535,18 @@ let make_stream common source relative_to source_format destination_format =
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
     end
+  | "hybrid", "vhd" ->
+    (* expect source to be block_device:vhd *)
+    begin match Re_str.bounded_split colon source 2 with
+    | [ raw; vhd ] ->
+      let path = common.path @ [ Filename.dirname vhd ] in
+      Vhd_IO.openfile ~path vhd false >>= fun t ->
+      Vhd_lwt.Fd.openfile raw false >>= fun raw ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      Hybrid_input.vhd ?from raw t
+    | _ ->
+      fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
+    end
   | "vhd", "vhd" ->
     let path = common.path @ [ Filename.dirname source ] in
     Vhd_IO.openfile ~path source false >>= fun t ->

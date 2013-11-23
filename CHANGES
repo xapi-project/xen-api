@@ -1,3 +1,6 @@
+trunk (unreleased)
+* vhd-tool: can create vhd-formatted output from 'hybrid' input
+
 0.6.5 (2013-11-21)
 * vhd-tool: add machine-parsable progress reporting
 * vhd-tool: stream/serve support for SHA1/tar/chunked XenServer import/export encoding
