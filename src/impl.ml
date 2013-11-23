@@ -531,7 +531,7 @@ let make_stream common source relative_to source_format destination_format =
       Vhd_IO.openfile ~path vhd false >>= fun t ->
       Vhd_lwt.Fd.openfile raw false >>= fun raw ->
       ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
-      Vhd_input.hybrid ?from raw t
+      Hybrid_input.raw ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
     end
