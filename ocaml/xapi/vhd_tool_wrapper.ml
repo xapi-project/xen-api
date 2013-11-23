@@ -125,7 +125,7 @@ let vhd_of_device path =
                         None in
         find_backend_device path |> Opt.default path |> tapdisk_of_path
 
-let send progress_cb (protocol: string) (s: Unix.file_descr) (path: string) (prefix: string) =
+let send progress_cb (protocol: string) (dest_format: string) (s: Unix.file_descr) (path: string) (prefix: string) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
   let source_format, source = match vhd_of_device path with
     | Some vhd -> "hybrid", path ^ ":" ^ vhd
@@ -135,7 +135,7 @@ let send progress_cb (protocol: string) (s: Unix.file_descr) (path: string) (pre
                "--source-format"; source_format;
                "--source"; source;
                "--destination-protocol"; protocol;
-               "--destination-format"; "raw";
+               "--destination-format"; dest_format;
                "--destination-fd"; s';
                "--tar-filename-prefix"; prefix;
                "--progress";
