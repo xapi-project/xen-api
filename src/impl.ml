@@ -23,7 +23,17 @@ module Channel_In = Vhd.From_input(struct
   include Memory
   type fd = Channels.t
   let read c buf = c.Channels.really_read buf
-  let skip_to c offset = failwith "unimplemented"
+  let scratch = alloc (1024 * 1024)
+  let skip_to c offset =
+    let rec drop remaining =
+      if remaining = 0L
+      then return ()
+      else
+        let this = Int64.(to_int (min (of_int (Cstruct.len scratch)) remaining)) in
+        let frag = Cstruct.sub scratch 0 this in
+        read c frag >>= fun () ->
+        drop Int64.(sub remaining (of_int this)) in
+    drop Int64.(sub offset !(c.Channels.offset))
 end)
 open F
 open Vhd
@@ -446,26 +456,23 @@ let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
   let p = ref None in
 
   let open Channel_In in
-  let rec loop blocks_seen = function
+  let rec loop block_size_sectors_shift last_block blocks_seen = function
     | End -> return ()
-    | Cons (hd, tl) ->
-      (match hd with
-      | Fragment.BAT x ->
-        (* total_size = number of bits set in the BAT *)
-        let total_size = BAT.fold (fun _ _ acc -> Int64.succ acc) x 0L in
-        p := Some (progress total_size);
-        return 0L
-      | Fragment.Block (offset, data) ->
-        Printf.printf "Block %Ld (%d)\n" offset (Cstruct.len data);
-        Fd.really_write dest (Int64.shift_left offset sector_shift) data >>= fun () ->
-        let blocks_seen = Int64.succ blocks_seen in
-        (match !p with Some p -> p blocks_seen | None -> ());
-        return blocks_seen
-      | _ -> return blocks_seen) >>= fun blocks_seen ->
-      tl () >>= fun x ->
-      loop blocks_seen x in
+    | Cons (Fragment.Header h, tl) -> tl () >>= loop h.Header.block_size_sectors_shift last_block blocks_seen
+    | Cons (Fragment.BAT x, tl) ->
+      (* total_size = number of bits set in the BAT *)
+      let total_size = BAT.fold (fun _ _ acc -> Int64.succ acc) x 0L in
+      p := Some (progress total_size);
+      tl () >>= loop block_size_sectors_shift last_block blocks_seen
+    | Cons (Fragment.Block (offset, data), tl) ->
+      Fd.really_write dest (Int64.shift_left offset sector_shift) data >>= fun () ->
+      let this_block = Int64.(shift_right offset block_size_sectors_shift) in
+      let blocks_seen = if last_block <> this_block then Int64.succ blocks_seen else blocks_seen in
+      (match !p with Some p -> p blocks_seen | None -> ());
+      tl () >>= loop block_size_sectors_shift this_block blocks_seen
+    | Cons (_, tl) -> tl () >>= loop block_size_sectors_shift last_block blocks_seen in
   openstream c >>= fun stream ->
-  loop 0L stream
+  loop 0 (-1L) 0L stream
 
 let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore_checksums =
   let module M = Tar.Archive(Lwt) in
