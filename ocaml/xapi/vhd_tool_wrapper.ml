@@ -15,7 +15,7 @@
  * @group Import and Export
  *)
 
-module D=Debug.Make(struct let name="vdi_tool_wrapper" end)
+module D=Debug.Make(struct let name="vhd_tool_wrapper" end)
 open D
 
 open Pervasiveext
@@ -59,9 +59,10 @@ let run_vhd_tool progress_cb args s s' path =
     | Failure(out, e) -> error "vhd-tool output: %s" out; raise e
   ) (fun () -> close pipe_read; close pipe_write)
 
-let receive progress_cb protocol (s: Unix.file_descr) (path: string) (prefix: string) (prezeroed: bool) =
+let receive progress_cb format protocol (s: Unix.file_descr) (path: string) (prefix: string) (prezeroed: bool) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
   let args = [ "serve";
+               "--source-format"; format;
                "--source-protocol"; protocol;
                "--source-fd"; s';
                "--tar-filename-prefix"; prefix;
