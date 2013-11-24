@@ -29,19 +29,29 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 	req.Request.close <- true;
 	Xapi_http.with_context "Importing raw VDI" req s
 		(fun __context ->
+			let prezeroed = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi) in
 			let all = req.Request.query @ req.Request.cookie in
 			let chunked = List.mem_assoc "chunked" all in
 			let task_id = Context.get_task_id __context in
-			debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
-			try
-				match req.Request.transfer_encoding with
-				| Some x ->
-					error "Chunked encoding not yet implemented in the import code";
-					Http_svr.headers s (http_403_forbidden ());
-					raise (Failure (Printf.sprintf "import code cannot handle encoding: %s" x))
-				| None ->
-					Server_helpers.exec_with_new_task "VDI.import" 
-						(fun __context -> 
+			match Importexport.Format.of_req req with
+			| `Unknown x ->
+				error "import_raw_vdi task_id = %s; vdi = %s; unknown disk format = %s"
+					(Ref.string_of task_id) (Ref.string_of vdi) x;
+				TaskHelper.failed ~__context (Api_errors.internal_error, ["Unknown format " ^ x]);
+				Http_svr.headers s (Http.http_404_missing ~version:"1.0" ())
+			| `Ok format when format <> Importexport.Format.Raw && chunked ->
+				error "import_raw_vdi task_id = %s; vdi = %s; unable to import a .vhd using chunked encoding"
+					(Ref.string_of task_id) (Ref.string_of vdi)
+			| `Ok format ->
+				debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b; format = %s"
+					(Ref.string_of task_id) (Ref.string_of vdi) chunked (Importexport.Format.to_string format);
+				try
+					match req.Request.transfer_encoding with
+					| Some x ->
+						error "Chunked encoding not yet implemented in the import code";
+						Http_svr.headers s (http_403_forbidden ());
+						raise (Failure (Printf.sprintf "import code cannot handle encoding: %s" x))
+					| None ->
 							Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
 								(fun path ->
 									let headers = Http.http_200_ok ~keep_alive:false () @
@@ -49,16 +59,15 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 										content_type ] in
 									Http_svr.headers s headers;
 									if chunked
-									then Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) "chunked" s path "" false
-									else Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) "none" s path "" false
-								)
-						);
-					TaskHelper.complete ~__context [];
-			with e ->
-				error "Caught exception: %s" (ExnHelper.string_of_exn e);
-				log_backtrace ();
-				TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
-				raise e)
+									then Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) "raw" "chunked" s path "" prezeroed
+									else Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) (Importexport.Format.to_string format) "none" s path "" prezeroed
+								);
+						TaskHelper.complete ~__context [];
+				with e ->
+					error "Caught exception: %s" (ExnHelper.string_of_exn e);
+					log_backtrace ();
+					TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
+					raise e)
 
 let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
