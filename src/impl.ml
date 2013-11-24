@@ -16,8 +16,16 @@ open Common
 open Cmdliner
 open Lwt
 
-module Impl = Vhd.Make(Vhd_lwt)
-open Impl
+module F = Vhd.From_file(Vhd_lwt)
+module In = Vhd.From_input(Vhd_lwt.Input)
+module Channel_In = Vhd.From_input(struct
+  include Lwt
+  include Memory
+  type fd = Channels.t
+  let read c buf = c.Channels.really_read buf
+  let skip_to c offset = failwith "unimplemented"
+end)
+open F
 open Vhd
 open Vhd_lwt
 
@@ -59,6 +67,36 @@ let info common filename =
       ) Vhd.Field.list in
       print_table ["field"; "value"] all;
       return () in
+    Lwt_main.run t;
+    `Ok ()
+  with Failure x ->
+    `Error(true, x)
+
+let contents common filename =
+  try
+    let filename = require "filename" filename in
+    let t =
+      let open In in
+      Vhd_lwt.Fd.openfile filename false >>= fun fd ->
+      let rec loop = function
+      | End -> return ()
+      | Cons (hd, tl) ->
+        begin match hd with
+        | Fragment.Header x ->
+          Printf.printf "Header\n"
+        | Fragment.Footer x ->
+          Printf.printf "Footer\n"
+        | Fragment.BAT x ->
+          Printf.printf "BAT\n"
+        | Fragment.Batmap x ->
+          Printf.printf "batmap\n"
+        | Fragment.Block (offset, buffer) ->
+          Printf.printf "Block %Ld (len %d)\n" offset (Cstruct.len buffer)
+        end;
+        tl () >>= fun x ->
+        loop x in
+      openstream (Vhd_lwt.Input.of_fd fd.Vhd_lwt.Fd.fd) >>= fun stream ->
+      loop stream in
     Lwt_main.run t;
     `Ok ()
   with Failure x ->
@@ -401,6 +439,33 @@ let endswith suffix x =
   let suffix_len = String.length suffix in
   let x_len = String.length x in
   x_len >= suffix_len && (String.sub x (x_len - suffix_len) suffix_len = suffix)
+
+let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
+  if not prezeroed then failwith "unimplemented: prezeroed";
+
+  let p = ref None in
+
+  let open Channel_In in
+  let rec loop blocks_seen = function
+    | End -> return ()
+    | Cons (hd, tl) ->
+      (match hd with
+      | Fragment.BAT x ->
+        (* total_size = number of bits set in the BAT *)
+        let total_size = BAT.fold (fun _ _ acc -> Int64.succ acc) x 0L in
+        p := Some (progress total_size);
+        return 0L
+      | Fragment.Block (offset, data) ->
+        Printf.printf "Block %Ld (%d)\n" offset (Cstruct.len data);
+        Fd.really_write dest (Int64.shift_left offset sector_shift) data >>= fun () ->
+        let blocks_seen = Int64.succ blocks_seen in
+        (match !p with Some p -> p blocks_seen | None -> ());
+        return blocks_seen
+      | _ -> return blocks_seen) >>= fun blocks_seen ->
+      tl () >>= fun x ->
+      loop blocks_seen x in
+  openstream c >>= fun stream ->
+  loop 0L stream
 
 let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore_checksums =
   let module M = Tar.Archive(Lwt) in
@@ -788,12 +853,15 @@ let serve_raw_to_raw common size c dest _ _ _ _ =
     else return () in
   loop 0L size
 
-let serve common_options source source_fd source_protocol destination destination_fd destination_format destination_size prezeroed progress machine expected_prefix ignore_checksums =
+let serve common_options source source_fd source_format source_protocol destination destination_fd destination_format destination_size prezeroed progress machine expected_prefix ignore_checksums =
   try
     File.use_unbuffered := common_options.Common.unbuffered;
 
     let source_protocol = protocol_of_string (require "source-protocol" source_protocol) in
 
+    let supported_formats = [ "raw"; "vhd" ] in
+    if not (List.mem source_format supported_formats)
+    then failwith (Printf.sprintf "%s is not a supported format" source_format);
     let supported_formats = [ "raw" ] in
     if not (List.mem destination_format supported_formats)
     then failwith (Printf.sprintf "%s is not a supported format" destination_format);
@@ -843,12 +911,13 @@ let serve common_options source source_fd source_protocol destination destinatio
             | Some x -> x in
           return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, size) ->
-      let fn = match source_protocol with
-        | NoProtocol -> serve_raw_to_raw common_options size
-        | Nbd        -> serve_nbd_to_raw     common_options size
-        | Chunked    -> serve_chunked_to_raw common_options
-        | Tar        -> serve_tar_to_raw size
-        | _ -> assert false in
+      let fn = match source_format, source_protocol with
+        | "raw", NoProtocol -> serve_raw_to_raw common_options size
+        | "raw", Nbd        -> serve_nbd_to_raw     common_options size
+        | "raw", Chunked    -> serve_chunked_to_raw common_options
+        | "raw", Tar        -> serve_tar_to_raw size
+        | "vhd", NoProtocol -> serve_vhd_to_raw size
+        | _, _ -> failwith (Printf.sprintf "Not implemented: receiving format %s via protocol %s" source_format (StreamCommon.string_of_protocol source_protocol)) in
       fn source_sock destination_fd prezeroed progress_bar expected_prefix ignore_checksums >>= fun () ->
       (try Fd.fsync destination_fd; return () with _ -> fail (Failure "fsync failed")) in
     Lwt_main.run thread;
