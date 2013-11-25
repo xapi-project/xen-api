@@ -367,7 +367,8 @@ let introduce_internal
 
 (* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self =
-	Nm.bring_pif_down ~__context self;
+	if Db.PIF.get_managed ~__context ~self = true then
+		Nm.bring_pif_down ~__context self;
 	(* NB we are allowed to forget an interface which still exists *)
 	let device = Db.PIF.get_device ~__context ~self in
 	if List.mem_assoc device t.device_to_mac_table
