@@ -1366,18 +1366,7 @@ let update_pci ~__context id =
 							Opt.iter
 								(fun gpu ->
 									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-									Db.VGPU.set_currently_attached ~__context ~self:gpu ~value:state.plugged;
-
-									if state.plugged then begin
-										let open Db_filter_types in
-										match Db.PGPU.get_records_where ~__context
-											~expr:(Eq (Field "PCI", Literal (Ref.string_of pci)))
-										with
-										| (pgpu, _) :: _ ->
-											Db.VGPU.set_resident_on ~__context ~self:gpu ~value:pgpu
-										| [] -> ()
-									end else
-										Db.VGPU.set_resident_on ~__context ~self:gpu ~value:Ref.null
+									Db.VGPU.set_currently_attached ~__context ~self:gpu ~value:state.plugged
 								) gpu
 						) info;
 					Xenops_cache.update_pci id (Opt.map snd info);
