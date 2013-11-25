@@ -162,6 +162,10 @@ let assert_not_management_pif ~__context ~self =
 		(Api_errors.pif_is_management_iface,
 			[ Ref.string_of self ]))
 
+let assert_pif_is_managed ~__context ~self =
+	if Db.PIF.get_managed ~__context ~self <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]))
+
 let assert_not_slave_management_pif ~__context ~self =
 	if true
 		&& Pool_role.is_slave ()
@@ -513,6 +517,7 @@ let is_valid_ip addr =
 	try ignore (Unix.inet_addr_of_string addr); true with _ -> false
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 		
 	if gateway <> "" && (not (is_valid_ip gateway)) then
@@ -579,6 +584,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	end
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 
 	if mode=`Static
@@ -644,6 +650,7 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let rec unplug ~__context ~self =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 	assert_not_management_pif ~__context ~self;
 	let host = Db.PIF.get_host ~__context ~self in
@@ -665,6 +672,7 @@ let rec unplug ~__context ~self =
 	Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
+	assert_pif_is_managed ~__context ~self;
 	let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
 	if tunnel <> []
 	then begin
