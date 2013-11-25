@@ -24,7 +24,7 @@ fi
 echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCDIR@/pool.conf`
-SERVICES="xapi v6d squeezed perfmon xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt xcp-rrdd-plugins xcp-rrdd xcp-networkd fe forkexecd mpathalert-daemon"
+SERVICES="xapi v6d squeezed perfmon xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt xcp-rrdd-plugins xcp-rrdd-gpumon xcp-rrdd xcp-networkd fe forkexecd mpathalert-daemon"
 
 TO_RESTART=""
 for svc in $SERVICES ; do
