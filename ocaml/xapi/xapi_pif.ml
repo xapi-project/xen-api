@@ -156,11 +156,8 @@ let assert_no_tunnels ~__context ~self =
 			[ Ref.string_of self ]))
 
 let assert_not_management_pif ~__context ~self =
-	if Db.PIF.get_currently_attached ~__context ~self
-		&& Db.PIF.get_management ~__context ~self
-	then raise (Api_errors.Server_error
-		(Api_errors.pif_is_management_iface,
-			[ Ref.string_of self ]))
+	if Db.PIF.get_management ~__context ~self then
+		raise (Api_errors.Server_error (Api_errors.pif_is_management_iface, [ Ref.string_of self ]))
 
 let assert_pif_is_managed ~__context ~self =
 	if Db.PIF.get_managed ~__context ~self <> true then
@@ -447,6 +444,7 @@ let introduce ~__context ~host ~mAC ~device ~managed =
 		~vLAN:(-1L) ~vLAN_master_of:Ref.null ~managed ()
 
 let forget ~__context ~self =
+	assert_not_management_pif ~__context ~self;
 	assert_not_in_bond ~__context ~self;
 	assert_no_vlans ~__context ~self;
 	assert_no_tunnels ~__context ~self;
