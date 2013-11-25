@@ -56,7 +56,7 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
 	match Db.VGPU.get_records_where ~__context
 		~expr:(And
 			(Eq (Field "resident_on", Literal (Ref.string_of self)),
-			Eq (Field "vgpu_type", Literal (Ref.string_of vgpu_type))))
+			Eq (Field "type", Literal (Ref.string_of vgpu_type))))
 	with
 	| [] -> ()
 	| vgpus_and_records ->
