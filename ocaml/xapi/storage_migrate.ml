@@ -412,10 +412,15 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
 
 		Some (Mirror_id id)
-	with e ->
-		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
-		perform_cleanup_actions !on_fail;
-		raise e
+	with
+		| Sr_not_attached(sr_uuid) ->
+			error " Caught exception %s:%s. Performing cleanup." Api_errors.sr_not_attached sr_uuid;
+			perform_cleanup_actions !on_fail;
+			raise (Api_errors.Server_error(Api_errors.sr_not_attached,[sr_uuid]))
+		| e ->
+			error "Caught %s: performing cleanup actions" (Printexc.to_string e);
+			perform_cleanup_actions !on_fail;
+			raise e
 
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)

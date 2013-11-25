@@ -367,6 +367,20 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
 
+			(* Plug the destination shared SR into destination host and pool master if unplugged.
+			   Plug the local SR into destination host only if unplugged *)
+			let master_host =
+				let pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+				XenAPI.Pool.get_master remote_rpc session_id pool in
+			let pbds = XenAPI.SR.get_PBDs remote_rpc session_id dest_sr_ref in
+			let pbd_host_pair = List.map (fun pbd -> (pbd, XenAPI.PBD.get_host remote_rpc session_id pbd)) pbds in
+			let hosts_to_be_attached = [master_host; Ref.of_string dest_host] in
+			let pbds_to_be_plugged = List.filter (fun (_, host) -> 
+				(List.mem host hosts_to_be_attached) && (XenAPI.Host.get_enabled remote_rpc session_id host)) pbd_host_pair in
+			List.iter (fun (pbd, _) ->
+				if not (XenAPI.PBD.get_currently_attached remote_rpc session_id pbd) then
+					XenAPI.PBD.plug remote_rpc session_id pbd) pbds_to_be_plugged;
+
 
 			let rec dest_vdi_exists_on_sr vdi_uuid sr_ref retry =
 				try
