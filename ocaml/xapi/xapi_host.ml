@@ -693,17 +693,18 @@ let management_reconfigure ~__context ~pif =
 	let net = Db.PIF.get_network ~__context ~self:pif in
 	let bridge = Db.Network.get_bridge ~__context ~self:net in
 	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
-	begin try
-		let mgmt_pif = get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
-		let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
-		if primary_address_type <> mgmt_address_type then
-			raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, []));
+	if Db.PIF.get_managed ~__context ~self:pif = true then begin
 		if primary_address_type = `IPv4 && Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
 			raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []))
 		else if primary_address_type = `IPv6 && Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif = `None then
 			raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, []))
-	with _ ->
-		() (* no current management interface *)
+		else try
+			let mgmt_pif = get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+			let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
+			if primary_address_type <> mgmt_address_type then
+				raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, []));
+		with _ ->
+			() (* no current management interface *)
 	end;
 
 	if Db.PIF.get_management ~__context ~self:pif then
