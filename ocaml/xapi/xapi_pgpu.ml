@@ -141,31 +141,43 @@ let update_group_enabled_VGPU_types ~__context ~self =
 	if Db.is_valid_ref __context group
 	then Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:group
 
+let pgpu_m = Mutex.create ()
+
 let add_enabled_VGPU_types ~__context ~self ~value =
-	Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context
-		~self ~vgpu_type:value;
-	Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value;
-	update_group_enabled_VGPU_types ~__context ~self
+	Mutex.execute pgpu_m (fun () ->
+		Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context
+			~self ~vgpu_type:value;
+		Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value;
+		update_group_enabled_VGPU_types ~__context ~self
+	)
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
-	Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context
-		~self ~vgpu_type:value;
-	Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value;
-	update_group_enabled_VGPU_types ~__context ~self
+	Mutex.execute pgpu_m (fun () ->
+		Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context
+			~self ~vgpu_type:value;
+		Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value;
+		update_group_enabled_VGPU_types ~__context ~self
+	)
 
 let set_enabled_VGPU_types ~__context ~self ~value =
-	List.iter
-		(fun vgpu_type ->
+	Mutex.execute pgpu_m (fun () ->
+		let current_types = Db.PGPU.get_enabled_VGPU_types ~__context ~self in
+		let to_enable = List.set_difference value current_types
+		and to_disable = List.set_difference current_types value in
+		List.iter (fun vgpu_type ->
 			Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~vgpu_type)
-		value;
-	Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value;
-	update_group_enabled_VGPU_types ~__context ~self
+			to_enable;
+		List.iter (fun vgpu_type ->
+			Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type)
+			to_disable;
+		Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value;
+		update_group_enabled_VGPU_types ~__context ~self
+	)
 
-let gpu_group_m = Mutex.create ()
 let set_GPU_group ~__context ~self ~value =
 	debug "Move PGPU %s -> GPU group %s" (Db.PGPU.get_uuid ~__context ~self)
 		(Db.GPU_group.get_uuid ~__context ~self:value);
-	Mutex.execute gpu_group_m (fun () ->
+	Mutex.execute pgpu_m (fun () ->
 		(* Precondition: PGPU has no resident VGPUs *)
 		let resident_vgpus = Db.PGPU.get_resident_VGPUs ~__context ~self in
 		if resident_vgpus <> [] then begin
