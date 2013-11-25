@@ -34,6 +34,9 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
 	vlan, untagged_PIF
 
 let create ~__context ~tagged_PIF ~tag ~network =
+	if Db.PIF.get_managed ~__context ~self:tagged_PIF <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of tagged_PIF]));
+
 	let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 
