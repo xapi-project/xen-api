@@ -693,14 +693,17 @@ let calculate_pifs_required_at_start_of_day ~__context =
 	Db.PIF.get_records_where ~__context
 		~expr:(
 			And (
+				Eq (Field "managed", Literal "true"),
 				And (
-					Eq (Field "host", Literal (Ref.string_of localhost)),
-					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
-				),
-				Or (Or (
-					Not (Eq (Field "bond_master_of", Literal "()")),
-					Eq (Field "physical", Literal "true")),
-					Not (Eq (Field "ip_configuration_mode", Literal "None"))
+					And (
+						Eq (Field "host", Literal (Ref.string_of localhost)),
+						Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
+					),
+					Or (Or (
+						Not (Eq (Field "bond_master_of", Literal "()")),
+						Eq (Field "physical", Literal "true")),
+						Not (Eq (Field "ip_configuration_mode", Literal "None"))
+					)
 				)
 			)
 		)
@@ -714,7 +717,7 @@ let start_of_day_best_effort_bring_up () =
 		 * the most important PIFs (see above). *)
 		Net.clear_state ();
 		Server_helpers.exec_with_new_task
-			"Bringing up physical PIFs"
+			"Bringing up managed physical PIFs"
 			(fun __context ->
 				List.iter
 					(fun (pif, pifr) ->

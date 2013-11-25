@@ -473,6 +473,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF is the management interface." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
+  error Api_errors.pif_unmanaged [ "PIF" ]
+    ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
   error Api_errors.pif_has_no_network_configuration [ ]
     ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
   error Api_errors.pif_has_no_v6_network_configuration [ ]
