@@ -48,6 +48,8 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 	tunnel, access_PIF
 
 let create ~__context ~transport_PIF ~network =
+	if Db.PIF.get_managed ~__context ~self:transport_PIF <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of transport_PIF]));
 	if Db.PIF.get_bond_slave_of ~__context ~self:transport_PIF <> Ref.null then
 		raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]));
 	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
