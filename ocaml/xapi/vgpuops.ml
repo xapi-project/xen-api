@@ -64,6 +64,7 @@ let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 				Ref.string_of vgpu.gpu_group_ref
 			]))
 		| Some (pgpu, pci) ->
+			Db.VGPU.set_resident_on ~__context ~self:vgpu.vgpu_ref ~value:pgpu;
 			List.filter (fun g -> g <> pgpu) available_pgpus,
 			pci :: pcis
 	)
