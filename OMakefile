@@ -153,8 +153,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
 	allxenops \
 	ocaml/xenops/cancel_utils_test \
-	ocaml/xenguest/xenguest \
-	ocaml/xenguest/dumpcore \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/storage_impl_test \
 	ocaml/xapi/cancel_tests \
