@@ -38,7 +38,7 @@ OCamlProgram(http_test, http_test)
 OCamlProgram(show_bat, show_bat)
 #OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test storage_local_client)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
 
 OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
 
