@@ -113,9 +113,9 @@ let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_pa
 			Client.Async.VDI.clone rpc session_id vdi driver_params
 		| Disk_op_copy None -> 
 			let sr = Client.VDI.get_SR rpc session_id vdi in
-			Client.Async.VDI.copy rpc session_id vdi sr
+			Client.Async.VDI.copy rpc session_id vdi Ref.null sr Ref.null
 		| Disk_op_copy (Some other_sr) ->
-			Client.Async.VDI.copy rpc session_id vdi other_sr
+			Client.Async.VDI.copy rpc session_id vdi Ref.null other_sr Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint ->
 			Client.Async.VDI.snapshot rpc session_id vdi driver_params
 	in
