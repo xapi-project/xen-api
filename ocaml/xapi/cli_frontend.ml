@@ -1764,9 +1764,9 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    };
    "vdi-copy",
     {
-      reqd=["uuid"; "sr-uuid"];
-      optn=[];
-      help="Copy a VDI to a specified SR.";
+      reqd=["uuid"];
+      optn=["sr-uuid"; "base-vdi-uuid"; "into-vdi-uuid"];
+      help="Copy either a full VDI or the block differences between two VDIs either into a fresh VDI in a specified SR or into an existing VDI.";
       implementation=No_fd Cli_operations.vdi_copy;
       flags=[];
     };
