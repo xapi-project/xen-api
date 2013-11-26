@@ -129,11 +129,20 @@ let vhd_of_device path =
                         None in
         find_backend_device path |> Opt.default path |> tapdisk_of_path
 
-let send progress_cb (protocol: string) (dest_format: string) (s: Unix.file_descr) (path: string) (prefix: string) =
+let send progress_cb ?relative_to (protocol: string) (dest_format: string) (s: Unix.file_descr) (path: string) (prefix: string) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
   let source_format, source = match vhd_of_device path with
     | Some vhd -> "hybrid", path ^ ":" ^ vhd
     | None -> "raw", path in
+  let relative_to =
+    match relative_to with
+    | Some path -> begin match vhd_of_device path with
+                   | Some vhd -> Some vhd
+                   | None ->
+                     error "base VDI is not a vhd; cannot compute differences";
+                     failwith "base VDI is not a vhd; cannot compute differences"
+                   end
+    | None -> None in
   let args = [ "stream";
                "--source-protocol"; "none";
                "--source-format"; source_format;
@@ -146,6 +155,8 @@ let send progress_cb (protocol: string) (dest_format: string) (s: Unix.file_desc
                "--machine";
                "--direct";
                "--path"; vhd_search_path;
-             ] in
+             ] @ (match relative_to with
+               | None -> []
+               | Some x -> [ "--relative-to"; x ]) in
   run_vhd_tool progress_cb args s s' path
 

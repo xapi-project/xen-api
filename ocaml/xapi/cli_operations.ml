@@ -2960,12 +2960,16 @@ let vdi_export fd printer rpc session_id params =
 		if List.mem_assoc "format" params
 		then "&format=" ^ (List.assoc "format" params)
 		else "" in
+	let base =
+		if List.mem_assoc "base" params
+		then "&base=" ^ (List.assoc "base" params)
+		else "" in
 	let progress_bar = get_bool_param params "progress" in
 	let make_command task_id =
 		let prefix = uri_of_someone rpc session_id Master in
-		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&vdi=%s%s"
+		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&vdi=%s%s%s"
 			prefix Constants.export_raw_vdi_uri (Ref.string_of session_id)
-			(Ref.string_of task_id) (Ref.string_of vdi) format in
+			(Ref.string_of task_id) (Ref.string_of vdi) format base in
 		debug "requesting HttpGet('%s','%s')" filename uri;
 		HttpGet (filename, uri) in
 	ignore(track_http_operation ~progress_bar fd rpc session_id make_command "VDI export")
