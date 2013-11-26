@@ -1200,34 +1200,116 @@ let do_flr device =
 	( try write_string_to_file doflr device with _ -> (); );
 	callscript "flr-post" device
 
-let bind pcidevs =
-	let bind_to_pciback device =
-		let newslot = "/sys/bus/pci/drivers/pciback/new_slot" in
-		let bind = "/sys/bus/pci/drivers/pciback/bind" in
-		write_string_to_file newslot device;
-		write_string_to_file bind device;
-		do_flr device;
-		in
-	List.iter (fun (domain, bus, slot, func) ->
-		let devstr = to_string (domain, bus, slot, func) in
-		let s = "/sys/bus/pci/devices/" ^ devstr in
-		let driver =
-			try Some (Filename.basename (Unix.readlink (s ^ "/driver")))
-			with _ -> None in
-		begin match driver with
-		| None           ->
-			bind_to_pciback devstr
-		| Some "pciback" ->
-			debug "pci: device %s already bounded to pciback" devstr;
-		        do_flr devstr		    
-		| Some d         ->
-			debug "pci: unbounding device %s from driver %s" devstr d;
-			let f = s ^ "/driver/unbind" in
-			write_string_to_file f devstr;
-			bind_to_pciback devstr
-		end;
-	) pcidevs;
-	()
+type supported_driver =
+	| Nvidia
+	| Pciback
+
+type driver =
+	| Supported of supported_driver
+	| Unsupported of string
+
+let string_of_driver = function
+	| Supported Nvidia -> "nvidia"
+	| Supported Pciback -> "pciback"
+	| Unsupported driver -> driver
+
+let driver_of_string = function
+	| "nvidia" -> Supported Nvidia
+	| "pciback" -> Supported Pciback
+	| driver -> Unsupported driver
+
+let sysfs_devices = "/sys/bus/pci/devices"
+let sysfs_drivers = "/sys/bus/pci/drivers"
+let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
+let sysfs_nvidia = Filename.concat sysfs_drivers "nvidia"
+
+let get_driver devstr =
+	try
+		let sysfs_device = Filename.concat sysfs_devices devstr in
+		Some (Filename.concat sysfs_device "driver"
+			|> Unix.readlink
+			|> Filename.basename
+			|> driver_of_string)
+	with _ -> None
+
+let bind_to_pciback devstr =
+	debug "pci: binding device %s to pciback" devstr;
+	let new_slot = Filename.concat sysfs_pciback "new_slot" in
+	let bind = Filename.concat sysfs_pciback "bind" in
+	write_string_to_file new_slot devstr;
+	write_string_to_file bind devstr
+
+let bind_to_nvidia devstr =
+	debug "pci: binding device %s to nvidia" devstr;
+	let bind = Filename.concat sysfs_nvidia "bind" in
+	write_string_to_file bind devstr
+
+let unbind devstr driver =
+	let driverstr = string_of_driver driver in
+	debug "pci: unbinding device %s from %s" devstr driverstr;
+	let sysfs_driver = Filename.concat sysfs_drivers driverstr in
+	let unbind = Filename.concat sysfs_driver "unbind" in
+	write_string_to_file unbind devstr
+
+let procfs_nvidia = "/proc/driver/nvidia/gpus"
+let bus_id_key = "Bus Location"
+
+let unbind_from_nvidia devstr =
+	debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
+	let gpus = Sys.readdir procfs_nvidia in
+	(* Find the GPU with this device ID. *)
+	let rec find_gpu = function
+		| [] ->
+			failwith (Printf.sprintf "Couldn't find GPU with device ID %s" devstr)
+		| gpu :: rest ->
+			let gpu_path = Filename.concat procfs_nvidia gpu in
+			let gpu_info_file = Filename.concat gpu_path "information" in
+			let gpu_info = Unixext.string_of_file gpu_info_file in
+			(* Work around due to PCI ID formatting inconsistency. *)
+			let devstr2 = String.copy devstr in
+			devstr2.[7] <- '.';
+			if String.has_substr gpu_info devstr2
+			then gpu_path
+			else find_gpu rest
+	in
+	let unbind_lock_path =
+		Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
+	in
+	(* Grab the unbind lock. *)
+	write_string_to_file unbind_lock_path "1\n";
+	(* Unbind if we grabbed the lock; fail otherwise. *)
+	if Unixext.string_of_file unbind_lock_path = "1\n"
+	then unbind devstr (Supported Nvidia)
+	else failwith (Printf.sprintf "Couldn't lock GPU with device ID %s" devstr)
+
+let bind devices new_driver =
+	List.iter
+		(fun device ->
+			let devstr = to_string device in
+			let old_driver = get_driver devstr in
+			match old_driver, new_driver with
+			| None, Nvidia ->
+				debug "pci: device %s not bound" devstr;
+				bind_to_nvidia devstr
+			| Some (Supported Nvidia), Nvidia ->
+				debug "pci: device %s already bound to nvidia; doing nothing" devstr
+			| Some driver, Nvidia ->
+				unbind devstr driver;
+				bind_to_nvidia devstr
+			| None, Pciback ->
+				debug "pci: device %s not bound" devstr;
+				bind_to_pciback devstr;
+				do_flr devstr
+			| Some (Supported Pciback), Pciback ->
+				debug "pci: device %s already bound to pciback; doing flr" devstr;
+				do_flr devstr
+			| Some (Supported Nvidia), Pciback ->
+				unbind_from_nvidia devstr;
+				bind_to_pciback devstr
+			| Some driver, Pciback ->
+				unbind devstr driver;
+				bind_to_pciback devstr)
+		devices
 
 let enumerate_devs ~xs (x: device) =
 	let backend_path = backend_path_of_device ~xs x in
@@ -1816,7 +1898,11 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xapi_globs.qemu_dm_re
 
 	(* start vgpu emulation if appropriate *)
 	let _ = match info.vgpu with
-		| Some vgpu_setting ->
+		| Some vgpu ->
+			(* The below line does nothing if the device is already bound to the
+			 * nvidia driver. We rely on xapi to refrain from attempting to run
+			 * a vGPU on a device which is passed through to a guest. *)
+			PCI.bind [PCI.of_string vgpu.pci_id] PCI.Nvidia;
 			let args = vgpu_args_of_info info domid in
 			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 			let cancel = Cancel_utils.Vgpu domid in
