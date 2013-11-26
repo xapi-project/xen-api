@@ -285,7 +285,7 @@ let pool_introduce
 		~ip_configuration_mode ~iP ~netmask ~gateway
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
 		~other_config ~disallow_unplug ~ipv6_configuration_mode
-		~iPv6 ~ipv6_gateway ~primary_address_type =
+		~iPv6 ~ipv6_gateway ~primary_address_type ~managed =
 	let pif_ref = Ref.make () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
@@ -297,7 +297,7 @@ let pool_introduce
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
 			~other_config ~disallow_unplug ~ipv6_configuration_mode
-			~iPv6 ~ipv6_gateway ~primary_address_type in
+			~iPv6 ~ipv6_gateway ~primary_address_type ~managed in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -307,7 +307,7 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics () =
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
 
 	let bridge = bridge_naming_convention device in
 
@@ -333,7 +333,7 @@ let introduce_internal
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 in
+	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
@@ -404,8 +404,7 @@ let update_management_flags ~__context ~host =
 	with Xapi_inventory.Missing_inventory_key _ ->
 		error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
-let introduce ~__context ~host ~mAC ~device =
-
+let introduce ~__context ~host ~mAC ~device ~managed =
 	let mAC = String.lowercase mAC in (* just a convention *)
 	let t = make_tables ~__context ~host in
 	let dbg = Context.string_of_task __context in
@@ -442,7 +441,7 @@ let introduce ~__context ~host ~mAC ~device =
 	let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
 	introduce_internal
 		~t ~__context ~host ~mAC ~device ~mTU
-		~vLAN:(-1L) ~vLAN_master_of:Ref.null ()
+		~vLAN:(-1L) ~vLAN_master_of:Ref.null ~managed ()
 
 let forget ~__context ~self =
 	assert_not_in_bond ~__context ~self;
@@ -473,7 +472,7 @@ let scan ~__context ~host =
 			let (_: API.ref_PIF) =
 				introduce_internal
 					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device () in
+					~vLAN_master_of:Ref.null ~device ~managed:true () in
 			())
 		(devices_not_yet_represented_by_pifs);
 
