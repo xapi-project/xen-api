@@ -1138,8 +1138,19 @@ let vdi_generate_config printer rpc session_id params =
 
 let vdi_copy printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
-	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) in
-	let newvdi = Client.VDI.copy rpc session_id vdi sr Ref.null Ref.null in
+	let base_vdi =
+		if List.mem_assoc "base-vdi-uuid" params
+		then Client.VDI.get_by_uuid rpc session_id (List.assoc "base-vdi-uuid" params)
+		else Ref.null in
+	let sr, into = match List.mem_assoc "sr-uuid" params, List.mem_assoc "into-vdi-uuid" params with
+		| false, false
+		| true, true ->
+			failwith "Please specify one but not both of: a destination sr-uuid (I will create a fresh VDI); or a destination into-vdi-uuid (I will copy the blocks into this VDI)"
+		| true, false ->
+			Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params), Ref.null
+		| false, true ->
+			Ref.null, Client.VDI.get_by_uuid rpc session_id (List.assoc "into-vdi-uuid" params) in
+	let newvdi = Client.VDI.copy rpc session_id vdi sr base_vdi into in
 	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
 	printer (Cli_printer.PList [newuuid])
 
