@@ -50,7 +50,7 @@ let get common filename key =
     let filename = require "filename" filename in
     let key = require "key" key in
     let t =
-      Vhd_IO.openchain ~path:common.path filename false >>= fun t ->
+      Vhd_IO.openfile filename false >>= fun t ->
       let result = Vhd.Field.get t key in
       Vhd_IO.close t >>= fun () ->
       return result in
@@ -69,11 +69,11 @@ let info common filename =
   try
     let filename = require "filename" filename in
     let t =
-      Vhd_IO.openchain ~path:common.path filename false >>= fun t ->
+      Vhd_IO.openfile filename false >>= fun t ->
       let all = List.map (fun f ->
         match Vhd.Field.get t f with
         | Some v -> [ f; v ]
-        | None -> assert false
+        | None -> [ f; "<missing field>" ]
       ) Vhd.Field.list in
       print_table ["field"; "value"] all;
       return () in
