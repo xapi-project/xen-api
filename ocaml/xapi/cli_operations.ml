@@ -3608,7 +3608,7 @@ let pif_introduce printer rpc session_id params =
 	let host = Client.Host.get_by_uuid rpc session_id host_uuid in
 	let mac = List.assoc_default "mac" params "" in
 	let device = List.assoc "device" params in
-	let pif = Client.PIF.introduce rpc session_id host mac device in
+	let pif = Client.PIF.introduce rpc session_id host mac device true in
 	let uuid = Client.PIF.get_uuid rpc session_id pif in
 	printer (Cli_printer.PList [uuid])
 
