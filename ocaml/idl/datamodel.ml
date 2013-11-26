@@ -2942,11 +2942,17 @@ let vdi_copy = call
   ~name:"copy"
   ~lifecycle:[
 	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
-	Extended, rel_cowley, "The copy can now be performed between any two SRs." ]
+	Extended, rel_cowley, "The copy can now be performed between any two SRs.";
+	Extended, rel_clearwater, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
   ~in_oss_since:None
-  ~params:[Ref _vdi, "vdi", "The VDI to copy"; Ref _sr, "sr", "The destination SR" ]
-  ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
-  ~result:(Ref _vdi, "The reference of the newly created VDI.")
+  ~versioned_params:
+  [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
+   {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=clearwater_release; param_default=Some (VString Ref.(string_of null))};
+   {param_type=Ref _vdi; param_name="base_vdi"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=clearwater_release; param_default=Some (VRef Ref.(string_of null))};
+   {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_release; param_default=Some (VString Ref.(string_of null))};
+  ]
+  ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
+  ~result:(Ref _vdi, "The reference of the VDI where the blocks were written.")
   ~allowed_roles:_R_VM_ADMIN
   ()
 
