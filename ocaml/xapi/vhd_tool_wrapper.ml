@@ -22,6 +22,9 @@ open Pervasiveext
 
 let vhd_tool = Filename.concat Fhs.libexecdir "vhd-tool"
 
+(* .vhds on XenServer are sometimes found via /dev/mapper *)
+let vhd_search_path = "/dev/mapper:."
+
 let ignore_progress _ = ()
 
 let update_task_progress __context x = TaskHelper.set_progress ~__context (float_of_int x /. 100.)
@@ -142,6 +145,7 @@ let send progress_cb (protocol: string) (dest_format: string) (s: Unix.file_desc
                "--progress";
                "--machine";
                "--direct";
+               "--path"; vhd_search_path;
              ] in
   run_vhd_tool progress_cb args s s' path
 
