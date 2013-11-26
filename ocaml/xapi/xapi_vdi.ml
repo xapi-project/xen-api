@@ -462,6 +462,7 @@ let snapshot ~__context ~vdi ~driver_params =
 
 let destroy ~__context ~self =
 	let sr = Db.VDI.get_SR ~__context ~self in
+	let sr_type = Db.SR.get_type ~__context ~self:sr in
 	let location = Db.VDI.get_location ~__context ~self in
   Sm.assert_pbd_is_plugged ~__context ~sr;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
@@ -483,7 +484,15 @@ let destroy ~__context ~self =
 			  (fun () ->
 				  C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
 			  );
-		  if Db.is_valid_ref __context self
+		  (* CSLG uses non-standard GC and snapshot chain structure, unlike all
+		     other SR type. In some circumstance, it can not delete a VDI immediately
+		     due to VDI/Lun dependencies. The VDI is marked as unmanaged, and its
+		     own GC will then garbage collect it when all the dependencies are gone.
+		     At that point, XAPI will be explicitly instructed to DB forgot this
+		     VDI in the end. Prematurely removing the VDI's DB entry will break the
+		     links between the VDI and its dependent VDIs, which will then stop its
+		     GC from working correctly. *)
+		  if Db.is_valid_ref __context self && String.lowercase sr_type <> "cslg"
 		  then Db.VDI.destroy ~__context ~self;
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
