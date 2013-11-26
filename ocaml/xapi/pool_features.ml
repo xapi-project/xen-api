@@ -41,12 +41,23 @@ let update_pool_features ~__context =
 	let hosts = List.map
 		(fun (_, host_r) -> host_r.API.host_license_params)
 		(Db.Host.get_all_records ~__context) in
+	let master =
+		let master_ref = Db.Pool.get_master ~__context ~self:pool in
+		Db.Host.get_license_params ~__context ~self:master_ref
+	in
 	let new_features = pool_features_of_list (List.map of_assoc_list hosts) in
-	let additional_flags = new_restrictions (List.hd hosts) in
+	let additional_flags = new_restrictions master in
 	let rec find_additional = function
 		| [] -> []
 		| flag :: rest ->
-			let switches = List.map (function params -> bool_of_string (List.assoc flag params)) hosts in
+			let switches =
+				List.map
+					(function params ->
+						if List.mem_assoc flag params
+						then bool_of_string (List.assoc flag params)
+						else true)
+					hosts
+			in
 			(flag, string_of_bool (List.fold_left (||) false switches)) :: find_additional rest
 	in
 	let additional_restrictions = find_additional additional_flags in
