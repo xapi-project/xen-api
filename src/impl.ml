@@ -50,7 +50,7 @@ let get common filename key =
     let filename = require "filename" filename in
     let key = require "key" key in
     let t =
-      Vhd_IO.openfile ~path:common.path filename false >>= fun t ->
+      Vhd_IO.openfile filename false >>= fun t ->
       let result = Vhd.Field.get t key in
       Vhd_IO.close t >>= fun () ->
       return result in
@@ -69,11 +69,11 @@ let info common filename =
   try
     let filename = require "filename" filename in
     let t =
-      Vhd_IO.openfile ~path:common.path filename false >>= fun t ->
+      Vhd_IO.openfile filename false >>= fun t ->
       let all = List.map (fun f ->
         match Vhd.Field.get t f with
         | Some v -> [ f; v ]
-        | None -> assert false
+        | None -> [ f; "<missing field>" ]
       ) Vhd.Field.list in
       print_table ["field"; "value"] all;
       return () in
@@ -125,7 +125,7 @@ let create common filename size parent =
       Lwt_main.run t
     | Some parent, None ->
       let t =
-        Vhd_IO.openfile ~path:common.path parent false >>= fun parent ->
+        Vhd_IO.openchain ~path:common.path parent false >>= fun parent ->
         Vhd_IO.create_difference ~filename ~parent () >>= fun vhd ->
         Vhd_IO.close parent >>= fun () ->
         Vhd_IO.close vhd >>= fun () ->
@@ -142,7 +142,7 @@ let check common filename =
   try
     let filename = require "filename" filename in
     let t =
-      Vhd_IO.openfile ~path:common.path filename false >>= fun vhd ->
+      Vhd_IO.openchain ~path:common.path filename false >>= fun vhd ->
       Vhd.check_overlapping_blocks vhd;
       return () in
     Lwt_main.run t;
@@ -600,9 +600,9 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      Vhd_IO.openfile ~path vhd false >>= fun t ->
+      Vhd_IO.openchain ~path vhd false >>= fun t ->
       Vhd_lwt.Fd.openfile raw false >>= fun raw ->
-      ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.raw ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
@@ -612,22 +612,22 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      Vhd_IO.openfile ~path vhd false >>= fun t ->
+      Vhd_IO.openchain ~path vhd false >>= fun t ->
       Vhd_lwt.Fd.openfile raw false >>= fun raw ->
-      ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.vhd ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
     end
   | "vhd", "vhd" ->
     let path = common.path @ [ Filename.dirname source ] in
-    Vhd_IO.openfile ~path source false >>= fun t ->
-    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+    Vhd_IO.openchain ~path source false >>= fun t ->
+    ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.vhd ?from t
   | "vhd", "raw" ->
     let path = common.path @ [ Filename.dirname source ] in
-    Vhd_IO.openfile ~path source false >>= fun t ->
-    ( match relative_to with None -> return None | Some f -> Vhd_IO.openfile ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+    Vhd_IO.openchain ~path source false >>= fun t ->
+    ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.raw ?from t
   | "raw", "vhd" ->
     Raw_IO.openfile source false >>= fun t ->
