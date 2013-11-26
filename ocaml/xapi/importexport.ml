@@ -297,6 +297,15 @@ let vdi_of_req ~__context (req: Http.Request.t) =
 	then Ref.of_string vdi
 	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 
+let base_vdi_of_req ~__context (req: Http.Request.t) =
+	let all = req.Http.Request.query @ req.Http.Request.cookie in
+	if List.mem_assoc "base" all then begin
+		let base = List.assoc "base" all in
+		Some (if Db.is_valid_ref __context (Ref.of_string base) 
+		then Ref.of_string base
+		else Db.VDI.get_by_uuid ~__context ~uuid:base)
+	end else None
+
 module Format = struct
 	type t =
 	| Raw
