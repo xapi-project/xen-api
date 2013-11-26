@@ -676,40 +676,39 @@ let local_management_reconfigure ~__context ~interface =
     (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
 
 let management_reconfigure ~__context ~pif =
-  (* Disallow if HA is enabled *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool
-  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+	(* Disallow if HA is enabled *)
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	if Db.Pool.get_ha_enabled ~__context ~self:pool then
+		raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-  (* Plugging a bond slave is not allowed *)
-  if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
-	raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]));
+	(* Plugging a bond slave is not allowed *)
+	if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
+		raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]));
 
-  let net = Db.PIF.get_network ~__context ~self:pif in
-  let bridge = Db.Network.get_bridge ~__context ~self:net in
-  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
-  let mgmt_pif_option = try Some (get_management_interface ~__context ~host:(Helpers.get_localhost ~__context)) with _ -> None in
-  (match mgmt_pif_option with
-  | Some mgmt_pif -> (
-      let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
-      if (primary_address_type <> mgmt_address_type) then
-	raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [ ]));
-  
-      if primary_address_type==`IPv4 && Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
-	raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []))
-      else if primary_address_type==`IPv6 && Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif = `None then
-	raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, []))
-     )
-  | None -> ());
+	let net = Db.PIF.get_network ~__context ~self:pif in
+	let bridge = Db.Network.get_bridge ~__context ~self:net in
+	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
+	if Db.PIF.get_managed ~__context ~self:pif = true then begin
+		if primary_address_type = `IPv4 && Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `None then
+			raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, []))
+		else if primary_address_type = `IPv6 && Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif = `None then
+			raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, []))
+		else try
+			let mgmt_pif = get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+			let mgmt_address_type = Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif in
+			if primary_address_type <> mgmt_address_type then
+				raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, []));
+		with _ ->
+			() (* no current management interface *)
+	end;
 
-  if Db.PIF.get_management ~__context ~self:pif
-  then debug "PIF %s is already marked as a management PIF; taking no action" (Ref.string_of pif)
-  else begin
-	Xapi_network.attach_internal ~management_interface:true ~__context ~self:net ();
-	change_management_interface ~__context bridge primary_address_type;
-
-	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
-  end
+	if Db.PIF.get_management ~__context ~self:pif then
+		debug "PIF %s is already marked as a management PIF; taking no action" (Ref.string_of pif)
+	else begin
+		Xapi_network.attach_internal ~management_interface:true ~__context ~self:net ();
+		change_management_interface ~__context bridge primary_address_type;
+		Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
+	end
 
 let management_disable ~__context =
   (* Disallow if HA is enabled *)

@@ -48,6 +48,12 @@ let tampa_release_schema_minor_vsn = 66
 let clearwater_release_schema_major_vsn = 5
 let clearwater_release_schema_minor_vsn = 67
 
+let vgpu_tech_preview_release_schema_major_vsn = 5
+let vgpu_tech_preview_release_schema_minor_vsn = 68
+
+let vgpu_productisation_release_schema_major_vsn = 5
+let vgpu_productisation_release_schema_minor_vsn = 69
+
 let augusta_release_schema_major_vsn = 5
 let augusta_release_schema_minor_vsn = 80
 
@@ -172,6 +178,18 @@ let get_product_releases in_product_since =
 
 let augusta_release =
 	{ internal = get_product_releases rel_augusta
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let vgpu_productisation_release =
+	{ internal=get_product_releases rel_vgpu_productisation
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let vgpu_tech_preview_release =
+	{ internal=get_product_releases rel_vgpu_tech_preview
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -466,6 +484,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF is the management interface." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
+  error Api_errors.pif_unmanaged [ "PIF" ]
+    ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
   error Api_errors.pif_has_no_network_configuration [ ]
     ~doc:"PIF has no IP configuration (mode currently set to 'none')" ();
   error Api_errors.pif_has_no_v6_network_configuration [ ]
@@ -4568,13 +4588,18 @@ let pif_scan = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_introduce_params =
+	[
+		{param_type=Ref _host; param_name="host"; param_doc="The host on which the interface exists"; param_release=miami_release; param_default=None};
+		{param_type=String; param_name="MAC"; param_doc="The MAC address of the interface"; param_release=miami_release; param_default=None};
+		{param_type=String; param_name="device"; param_doc="The device name to use for the interface"; param_release=miami_release; param_default=None};
+		{param_type=Bool; param_name="managed"; param_doc="Indicates whether the interface is managed by xapi (defaults to \"true\")"; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
+	]
+
 let pif_introduce = call
   ~name:"introduce"
   ~doc:"Create a PIF object matching a particular network interface"
-  ~params:[Ref _host, "host", "The host on which the interface exists";
-	   String, "MAC", "The MAC address of the interface";
-	   String, "device", "The device name to use for the interface";
-	  ]
+  ~versioned_params:pif_introduce_params
   ~in_product_since:rel_miami
   ~result:(Ref _pif, "The reference of the created PIF object")
   ~allowed_roles:_R_POOL_OP
@@ -4589,7 +4614,7 @@ let pif_forget = call
   ~errs:[Api_errors.pif_tunnel_still_exists]
   ()
 
-let pif_introduce_params first_rel =
+let pif_pool_introduce_params first_rel =
   [
     {param_type=String; param_name="device"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Ref _network; param_name="network"; param_doc=""; param_release=first_rel; param_default=None};
@@ -4611,7 +4636,8 @@ let pif_introduce_params first_rel =
     {param_type=pif_ipv6_configuration_mode; param_name="ipv6_configuration_mode"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "None")};
     {param_type=(Set(String)); param_name="IPv6"; param_doc=""; param_release=boston_release; param_default=Some (VSet [])};
     {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
-    {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")}
+    {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")};
+    {param_type=Bool; param_name="managed"; param_doc=""; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
   ]
 
 (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
@@ -4619,7 +4645,7 @@ let pif_pool_introduce = call
   ~name:"pool_introduce"
   ~in_oss_since:None
   ~in_product_since:rel_rio
-  ~versioned_params:(pif_introduce_params miami_release)
+  ~versioned_params:(pif_pool_introduce_params miami_release)
   ~doc:"Create a new PIF record in the database only"
   ~result:(Ref _pif, "The ref of the newly created PIF record.")
   ~hide_from_docs:true
@@ -4630,7 +4656,7 @@ let pif_db_introduce = call
   ~name:"db_introduce"
   ~in_oss_since:None
   ~in_product_since:rel_orlando
-  ~versioned_params:(pif_introduce_params orlando_release)
+  ~versioned_params:(pif_pool_introduce_params orlando_release)
   ~doc:"Create a new PIF record in the database only"
   ~result:(Ref _pif, "The ref of the newly created PIF record.")
   ~hide_from_docs:false
@@ -4689,6 +4715,9 @@ let pif =
 	field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
 	field ~in_oss_since:None ~ty:String ~lifecycle:[] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
+	field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed" "Indicates whether the interface \
+		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
+		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
       ]
 	()
 

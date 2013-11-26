@@ -156,11 +156,12 @@ let assert_no_tunnels ~__context ~self =
 			[ Ref.string_of self ]))
 
 let assert_not_management_pif ~__context ~self =
-	if Db.PIF.get_currently_attached ~__context ~self
-		&& Db.PIF.get_management ~__context ~self
-	then raise (Api_errors.Server_error
-		(Api_errors.pif_is_management_iface,
-			[ Ref.string_of self ]))
+	if Db.PIF.get_management ~__context ~self then
+		raise (Api_errors.Server_error (Api_errors.pif_is_management_iface, [ Ref.string_of self ]))
+
+let assert_pif_is_managed ~__context ~self =
+	if Db.PIF.get_managed ~__context ~self <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]))
 
 let assert_not_slave_management_pif ~__context ~self =
 	if true
@@ -285,7 +286,7 @@ let pool_introduce
 		~ip_configuration_mode ~iP ~netmask ~gateway
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
 		~other_config ~disallow_unplug ~ipv6_configuration_mode
-		~iPv6 ~ipv6_gateway ~primary_address_type =
+		~iPv6 ~ipv6_gateway ~primary_address_type ~managed =
 	let pif_ref = Ref.make () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
@@ -297,7 +298,7 @@ let pool_introduce
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
 			~other_config ~disallow_unplug ~ipv6_configuration_mode
-			~iPv6 ~ipv6_gateway ~primary_address_type in
+			~iPv6 ~ipv6_gateway ~primary_address_type ~managed in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -307,7 +308,7 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics () =
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
 
 	let bridge = bridge_naming_convention device in
 
@@ -333,7 +334,7 @@ let introduce_internal
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 in
+	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
@@ -364,7 +365,8 @@ let introduce_internal
 
 (* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self =
-	Nm.bring_pif_down ~__context self;
+	if Db.PIF.get_managed ~__context ~self = true then
+		Nm.bring_pif_down ~__context self;
 	(* NB we are allowed to forget an interface which still exists *)
 	let device = Db.PIF.get_device ~__context ~self in
 	if List.mem_assoc device t.device_to_mac_table
@@ -404,8 +406,7 @@ let update_management_flags ~__context ~host =
 	with Xapi_inventory.Missing_inventory_key _ ->
 		error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
-let introduce ~__context ~host ~mAC ~device =
-
+let introduce ~__context ~host ~mAC ~device ~managed =
 	let mAC = String.lowercase mAC in (* just a convention *)
 	let t = make_tables ~__context ~host in
 	let dbg = Context.string_of_task __context in
@@ -442,9 +443,10 @@ let introduce ~__context ~host ~mAC ~device =
 	let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
 	introduce_internal
 		~t ~__context ~host ~mAC ~device ~mTU
-		~vLAN:(-1L) ~vLAN_master_of:Ref.null ()
+		~vLAN:(-1L) ~vLAN_master_of:Ref.null ~managed ()
 
 let forget ~__context ~self =
+	assert_not_management_pif ~__context ~self;
 	assert_not_in_bond ~__context ~self;
 	assert_no_vlans ~__context ~self;
 	assert_no_tunnels ~__context ~self;
@@ -473,7 +475,7 @@ let scan ~__context ~host =
 			let (_: API.ref_PIF) =
 				introduce_internal
 					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device () in
+					~vLAN_master_of:Ref.null ~device ~managed:true () in
 			())
 		(devices_not_yet_represented_by_pifs);
 
@@ -514,6 +516,7 @@ let is_valid_ip addr =
 	try ignore (Unix.inet_addr_of_string addr); true with _ -> false
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 		
 	if gateway <> "" && (not (is_valid_ip gateway)) then
@@ -580,6 +583,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	end
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 
 	if mode=`Static
@@ -645,6 +649,7 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let rec unplug ~__context ~self =
+	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 	assert_not_management_pif ~__context ~self;
 	let host = Db.PIF.get_host ~__context ~self in
@@ -666,6 +671,7 @@ let rec unplug ~__context ~self =
 	Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
+	assert_pif_is_managed ~__context ~self;
 	let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
 	if tunnel <> []
 	then begin
@@ -694,14 +700,17 @@ let calculate_pifs_required_at_start_of_day ~__context =
 	Db.PIF.get_records_where ~__context
 		~expr:(
 			And (
+				Eq (Field "managed", Literal "true"),
 				And (
-					Eq (Field "host", Literal (Ref.string_of localhost)),
-					Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
-				),
-				Or (Or (
-					Not (Eq (Field "bond_master_of", Literal "()")),
-					Eq (Field "physical", Literal "true")),
-					Not (Eq (Field "ip_configuration_mode", Literal "None"))
+					And (
+						Eq (Field "host", Literal (Ref.string_of localhost)),
+						Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
+					),
+					Or (Or (
+						Not (Eq (Field "bond_master_of", Literal "()")),
+						Eq (Field "physical", Literal "true")),
+						Not (Eq (Field "ip_configuration_mode", Literal "None"))
+					)
 				)
 			)
 		)
@@ -709,7 +718,7 @@ let calculate_pifs_required_at_start_of_day ~__context =
 let start_of_day_best_effort_bring_up () =
 	begin
 		Server_helpers.exec_with_new_task
-			"Bringing up physical PIFs"
+			"Bringing up managed physical PIFs"
 			(fun __context ->
 				let dbg = Context.string_of_task __context in
 				debug
