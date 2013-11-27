@@ -30,7 +30,7 @@ let config_file_sync_handler (req: Http.Request.t) s _ =
       debug "finished writing dom0 config files"
     )
 
-let fetch_config_files ~master_address ~pool_secret =
+let fetch_config_files_internal ~master_address ~pool_secret =
 
   Server_helpers.exec_with_new_task "fetch_config_files"
     (fun __context ->
@@ -53,26 +53,16 @@ let fetch_config_files ~master_address ~pool_secret =
 (* Invoked on slave as a notification that config files may have changed. Slaves can use
    this to decide whether to sync the new config files if the hash is different from the
    files they currently have. We do the hash thing to minimize flash writes on OEM build.. *)
-let maybe_fetch_config_files ~master_address ~pool_secret ~hash =
-  if compute_hash()<>hash then
-    (* fetch new config files from master and write them *)
-    let config_files = fetch_config_files ~master_address ~pool_secret in
-    rewrite_config_files config_files
+let fetch_config_files ~master_address ~pool_secret =
+  (* fetch new config files from master and write them *)
+  let config_files = fetch_config_files_internal ~master_address ~pool_secret in
+  rewrite_config_files config_files
 
-(* Called by slave on each startup to see if master has updated dom0 config files whilst
-   slave has been off-line. This way round we request config files from master regardless
-   but only write them to disk if the hash is different from the ones we already have.
-   (Again, hash is present to reduce unnecessary writes for OEM flash vsn) *)
+(* Called by slave on each startup to sync master's config files. *)
 let fetch_config_files_on_slave_startup () =
   Server_helpers.exec_with_new_task "checking no other known hosts are masters"
     (fun __context ->
       let master_address = Helpers.get_main_ip_address () in
       let pool_secret = !Xapi_globs.pool_secret in
-      let config_files = fetch_config_files ~master_address ~pool_secret in
-      let hash_of_my_current_files = compute_hash() in
-      let hash_of_masters_files = hash_fn config_files in
-      if hash_of_my_current_files<>hash_of_masters_files then
-				begin
-					info "Master's dom0 config files differ from mine; resyncing now.";
-					rewrite_config_files config_files
-				end)
+      let config_files = fetch_config_files_internal ~master_address ~pool_secret in
+			rewrite_config_files config_files)

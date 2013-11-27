@@ -630,7 +630,7 @@ let request_backup ~__context ~host ~generation ~force =
 let request_config_file_sync ~__context ~host ~hash =
   debug "Received notification of dom0 config file change";
   let master_address = Helpers.get_main_ip_address () in
-  Config_file_sync.maybe_fetch_config_files ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret ~hash
+  Config_file_sync.fetch_config_files ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
 
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
 let syslog_reconfigure ~__context ~host =

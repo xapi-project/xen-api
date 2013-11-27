@@ -592,7 +592,7 @@ let change_password  ~__context ~old_pwd ~new_pwd = wipe_params_after_fn [old_pw
 	    info "Password changed successfully for user %s" uname;
 	    info "Syncing password change across hosts in pool";
 	    (* tell all hosts (except me to sync new passwd file) *)
-	    let hash = Config_file_io.compute_hash() in
+	    let hash = Helpers.compute_hash () in
 	    let hosts = Db.Host.get_all ~__context in
 	    let hosts = List.filter (fun hostref -> hostref <> !Xapi_globs.localhost_ref) hosts in
 	    Helpers.call_api_functions ~__context

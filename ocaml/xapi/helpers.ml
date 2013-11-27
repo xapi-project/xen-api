@@ -1031,3 +1031,8 @@ let force_loopback_vbd ~__context =
 	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 	List.mem_assoc "force_loopback_vbd" other_config
 
+
+(* We no longer care about the hash, but it's part of the API and we
+   can't get rid of it. Put this here so clients don't need to know
+   about this. *)
+let compute_hash () = ""
