@@ -561,13 +561,26 @@ let clone ~__context ~vdi ~driver_params =
        raise e)
 		)
 
-let copy ~__context ~vdi ~sr =
+let copy ~__context ~vdi ~sr ~driver_params =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   let task_id = Ref.string_of (Context.get_task_id __context) in
 
   let src = Db.VDI.get_record ~__context ~self:vdi in
-  let dst =
-    Helpers.call_api_functions ~__context
+  (* In future we will autodetect suitable base disks and
+     copy only the deltas across, for maximum performance.
+     In the meantime we allow the client to tell us exactly
+     where the base disks are. *)
+  let base, dst =
+    if List.mem_assoc _base_src driver_params && (List.mem_assoc _base_dst driver_params)
+    then begin
+      let base_src = lookup_vdi ~__context (List.assoc _base_src driver_params) in
+      let base_dst = lookup_vdi ~__context (List.assoc _base_dst driver_params) in
+      Some base_src, Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+        Client.VDI.clone ~rpc ~session_id ~vdi:base_dst ~driver_params:[]
+      )
+    end else begin
+      None, Helpers.call_api_functions ~__context
       (fun rpc session_id ->
 	let result = Client.VDI.create ~rpc ~session_id
 	   ~name_label:src.API.vDI_name_label
@@ -581,15 +594,15 @@ let copy ~__context ~vdi ~sr =
 	   ~other_config:src.API.vDI_other_config
 	   ~xenstore_data:src.API.vDI_xenstore_data
 	   ~sm_config:[] ~tags:[] in
-    if src.API.vDI_on_boot = `reset then begin
+	if src.API.vDI_on_boot = `reset then begin
 		try Client.VDI.set_on_boot ~rpc ~session_id ~self:result ~value:(`reset) with _ -> ()
 	end;
-	result
-      ) in
+	result)
+    end in
   try
 	Db.VDI.set_allow_caching ~__context ~self:dst ~value:src.API.vDI_allow_caching;
 
-    Sm_fs_ops.copy_vdi ~__context vdi dst;
+    Sm_fs_ops.copy_vdi ~__context ?base vdi dst;
 
     Db.VDI.remove_from_current_operations ~__context ~self:dst ~key:task_id;
     update_allowed_operations ~__context ~self:dst;

@@ -667,7 +667,7 @@ let vdi_test session_id =
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let t = Unix.gettimeofday () in
   debug test (Printf.sprintf "Attempting to copy the VDI%!");
-  let newvdi2 = Client.VDI.copy !rpc session_id newvdi default_SR in
+  let newvdi2 = Client.VDI.copy !rpc session_id newvdi default_SR [] in
   let copytime = Unix.gettimeofday () -. t in
   debug test (Printf.sprintf "Time to copy: %f%!" copytime);
   Client.VBD.destroy !rpc session_id vbd;
@@ -697,7 +697,7 @@ let async_test session_id =
   let vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:dom0 ~vDI:newvdi ~userdevice:device ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let vdis = Client.VDI.get_all !rpc session_id in
-  let task = Client.Async.VDI.copy !rpc session_id newvdi default_SR in
+  let task = Client.Async.VDI.copy !rpc session_id newvdi default_SR [] in
   wait_for_task_complete session_id task;
   debug test (Printf.sprintf "Task completed!%!");
   let status = Client.Task.get_status !rpc session_id task in

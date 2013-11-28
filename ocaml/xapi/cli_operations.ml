@@ -1139,8 +1139,9 @@ let vdi_generate_config printer rpc session_id params =
 
 let vdi_copy printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let driver_params = read_map_params "driver-params" params in
 	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) in
-	let newvdi = Client.VDI.copy rpc session_id vdi sr in
+	let newvdi = Client.VDI.copy rpc session_id vdi sr driver_params in
 	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
 	printer (Cli_printer.PList [newuuid])
 
