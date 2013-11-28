@@ -201,7 +201,10 @@ def ifup(netdev):
         raise Error("ifup: device %s exists but ifcfg-%s does not" % (netdev,netdev))
     d = os.getenv("DHCLIENTARGS","")
     if os.path.exists("/etc/firstboot.d/data/firstboot_in_progress"):
-        os.putenv("DHCLIENTARGS", d + " -T 240 " )
+        f = open('/tmp/default_dhclient.conf', 'w')
+        f.write('timeout 240;\n')
+        f.close()
+        os.putenv("DHCLIENTARGS", d + " -cf /tmp/default_dhclient.conf " )
     run_command(["/sbin/ifup", netdev])
     os.putenv("DHCLIENTARGS", d )
 
