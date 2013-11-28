@@ -24,6 +24,7 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
+let local_url = Http.Url.(File { path = Filename.concat "/var/lib/xcp" "storage" }, { uri = "/"; query_params = [] })
 let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 open Storage_interface
@@ -143,7 +144,7 @@ let vdi_info x =
 		| Some (Vdi_info v) -> v
 		| _ -> failwith "Runtime type error: expecting Vdi_info"
 
-module Local = Storage_local_client
+module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)
 
 let tapdisk_of_attach_info attach_info =
 	let path = attach_info.params in

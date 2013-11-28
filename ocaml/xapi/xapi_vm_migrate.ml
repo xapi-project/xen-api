@@ -51,7 +51,7 @@ let with_migrate f =
 	
 
 module XenAPI = Client
-module SMAPI = Storage_local_client
+module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
 
 module XenopsAPI = Xenops_client.Client
 open Storage_interface

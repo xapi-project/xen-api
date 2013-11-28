@@ -16,38 +16,49 @@ LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
 
 (
 flock -x -n 200
-if [ "$?" != 0 ]; then echo "Exiting: cannot lock $LOCKFILE. Is an instance of $0 running already?"; exit 1; fi
+if [ "$?" != 0 ]; then 
+	echo "Exiting: cannot lock $LOCKFILE. Is an instance of $0 running already?"
+	exit 1
+fi
+
 echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCDIR@/pool.conf`
+SERVICES="xapi v6d squeezed perfmon xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt xcp-rrdd-plugins xcp-rrdd xcp-networkd fe forkexecd mpathalert-daemon"
 
-service xapi stop
-service v6d stop
-service squeezed stop
-service perfmon stop
-service xenopsd-xc stop
-service xcp-rrdd-plugins stop
-service xcp-rrdd stop
-[ -e /tmp/do-not-use-networkd ] || service xcp-networkd stop
-service forkexecd stop
-if [ $POOLCONF == "master" ]; then
-	@ETCDIR@/master.d/03-mpathalert-daemon stop;
-fi
+TO_RESTART=""
+for svc in $SERVICES ; do
+	# xcp-networkd should be ignored if the do-not-use file exists
+	if [ $svc == xcp-networkd -a -e /tmp/do-not-use-networkd ] ; then
+		continue
+	fi
+
+	# mpathalert-daemon isn't in chkconfig, so needs to be handled specially
+	if [ $svc == mpathalert-daemon -a $POOLCONF == "master" ] ; then
+		TO_RESTART="$svc $TO_RESTART"
+		@ETCDIR@/master.d/03-mpathalert-daemon stop
+		continue
+	fi
+
+	# restart other services only if chkconfig said they were enabled
+	chkconfig $svc
+
+	if [ $? -eq 0 ] ; then
+		TO_RESTART="$svc $TO_RESTART"
+		service $svc stop
+	fi
+done
 
 set -e
 
-if [ $POOLCONF == "master" ]; then
-	@ETCDIR@/master.d/03-mpathalert-daemon start;
-fi
-service forkexecd start
-[ -e /tmp/do-not-use-networkd ] || service xcp-networkd start
-service xcp-rrdd start
-service xcp-rrdd-plugins start
-service xenopsd-xc start
-service perfmon start
-service squeezed start
-service v6d start
-service xapi start
+for svc in $TO_RESTART ; do
+	# mpathalert-daemon isn't in chkconfig, so needs to be handled specially
+	if [ $svc == mpathalert-daemon ] ; then 
+		@ETCDIR@/master.d/03-mpathalert-daemon start
+		continue
+	fi
+	service $svc start
+done
 
 rm -f $LOCKFILE
 echo "done."
