@@ -14,7 +14,7 @@ OCAMLFLAGS    += -thread
 
 UseCamlp4(rpclib.syntax, xenops_utils xenops_migrate updates xenops_server_plugin domain device device_common xenops_hooks task_server)
 
-LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman memory device_common stubdom bootloader updates xenops_utils xenops_server_plugin xenops_migrate task_server xenops_task xenops_hooks ionice 
+LIBFILES = ../util/table xenops_helpers cancel_utils xenbus_utils xenguestHelper domain hotplug device io statdev netman xenopsMemory device_common stubdom bootloader updates xenops_utils xenops_server_plugin xenops_migrate task_server xenops_task xenops_hooks ionice
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)

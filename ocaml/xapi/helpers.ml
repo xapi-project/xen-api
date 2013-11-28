@@ -695,7 +695,7 @@ let is_tools_sr ~__context ~sr =
 	try
 		Mutex.execute is_tools_sr_cache_m
 			(fun () -> List.assoc sr !is_tools_sr_cache)
-	with Not_found _ ->
+	with Not_found ->
 		let other_config = Db.SR.get_other_config ~__context ~self:sr in
 		(* Miami GA *)
 		let result =
@@ -1031,3 +1031,8 @@ let force_loopback_vbd ~__context =
 	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 	List.mem_assoc "force_loopback_vbd" other_config
 
+
+(* We no longer care about the hash, but it's part of the API and we
+   can't get rid of it. Put this here so clients don't need to know
+   about this. *)
+let compute_hash () = ""

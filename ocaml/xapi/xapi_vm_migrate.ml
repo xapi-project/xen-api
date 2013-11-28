@@ -23,6 +23,7 @@
 open Pervasiveext
 open Printf
 open Threadext
+open Xenops
 
 module DD=Debug.Make(struct let name="xapi" end)
 open DD
@@ -781,7 +782,7 @@ let handler req fd _ =
 			if List.mem_assoc _memory_required_kib req.Http.Request.query then
 				Int64.of_string (List.assoc _memory_required_kib req.Http.Request.query)
 			else
-				Memory.kib_of_bytes_used (Memory_check.vm_compute_migrate_memory __context vm)
+				XenopsMemory.kib_of_bytes_used (Memory_check.vm_compute_migrate_memory __context vm)
 		in
 		try
 			Http_svr.headers fd (Http.http_200_ok ());
@@ -792,8 +793,8 @@ let handler req fd _ =
 			   increased. If this happens we clip the target at static_max. If the domain has managed to
 			   allocate more than static_max (!) then it may not fit and the migrate will fail. *)
 			let target_kib =
-				Memory.kib_of_bytes_used (
-					let bytes = Memory.bytes_of_kib memory_required_kib in
+				XenopsMemory.kib_of_bytes_used (
+					let bytes = XenopsMemory.bytes_of_kib memory_required_kib in
 					if bytes > snapshot.API.vM_memory_static_max then begin
 						warn "memory_required_bytes = %Ld > memory_static_max = %Ld; clipping"
 							bytes snapshot.API.vM_memory_static_max;
@@ -806,9 +807,9 @@ let handler req fd _ =
 			(* Since the initial memory target is read from vM_memory_target in _resume_domain we must
 			   configure this to prevent the domain ballooning up and allocating more than target_kib
 			   of guest memory on unpause. *)
-			let snapshot = { snapshot with API.vM_memory_target = Memory.bytes_of_kib target_kib } in
+			let snapshot = { snapshot with API.vM_memory_target = XenopsMemory.bytes_of_kib target_kib } in
 			let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
-			let free_memory_required_kib = Int64.add (Memory.kib_of_bytes_used overhead_bytes) memory_required_kib in
+			let free_memory_required_kib = Int64.add (XenopsMemory.kib_of_bytes_used overhead_bytes) memory_required_kib in
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
@@ -818,7 +819,7 @@ let handler req fd _ =
 					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
 					info "xenops: VM.receive_memory %s" id;
 					let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-					let memory_limit = free_memory_required_kib |> Memory.bytes_of_kib |> Int64.to_string in
+					let memory_limit = free_memory_required_kib |> XenopsMemory.bytes_of_kib |> Int64.to_string in
 					let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
 						~user_agent:"xapi" Http.Put uri in
 					let path = Filename.concat "/var/lib/xcp" "xenopsd.forwarded" in

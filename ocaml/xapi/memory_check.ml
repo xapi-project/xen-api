@@ -14,6 +14,8 @@
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
+open Xenops
+
 let ( +++ ) = Int64.add
 let ( --- ) = Int64.sub
 let ( *** ) = Int64.mul
@@ -26,23 +28,23 @@ let vm_compute_required_memory vm_record guest_memory_kib =
 	let multiplier =
 		if Helpers.is_hvm vm_record
 		then vm_record.API.vM_HVM_shadow_multiplier
-		else Memory.Linux.shadow_multiplier_default in
-	let target_mib = Memory.mib_of_kib_used guest_memory_kib in
-	let max_mib = Memory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
+		else XenopsMemory.Linux.shadow_multiplier_default in
+	let target_mib = XenopsMemory.mib_of_kib_used guest_memory_kib in
+	let max_mib = XenopsMemory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
 	let footprint_mib = (
 		if Helpers.is_hvm vm_record
-		then Memory.HVM.footprint_mib
-		else Memory.Linux.footprint_mib)
+		then XenopsMemory.HVM.footprint_mib
+		else XenopsMemory.Linux.footprint_mib)
 			target_mib max_mib vcpu_count multiplier in
 	let shadow_mib = (
 		if Helpers.is_hvm vm_record
-		then Memory.HVM.shadow_mib
-		else Memory.Linux.shadow_mib)
+		then XenopsMemory.HVM.shadow_mib
+		else XenopsMemory.Linux.shadow_mib)
 			max_mib vcpu_count multiplier in
 	let normal_mib =
 		footprint_mib --- shadow_mib in
-	let normal_bytes = Memory.bytes_of_mib normal_mib in
-	let shadow_bytes = Memory.bytes_of_mib shadow_mib in
+	let normal_bytes = XenopsMemory.bytes_of_mib normal_mib in
+	let shadow_bytes = XenopsMemory.bytes_of_mib shadow_mib in
 	(normal_bytes, shadow_bytes)
 
 (** Different users will wish to use a different VM accounting policy, depending
@@ -82,7 +84,7 @@ let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
 			~memory_dynamic_max: vm_record.API.vM_memory_dynamic_max
 			~memory_static_max:  vm_record.API.vM_memory_static_max in
 		vm_compute_required_memory vm_record
-			(Memory.kib_of_bytes_used memory_required)
+			(XenopsMemory.kib_of_bytes_used memory_required)
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
 memory, for a running VM. If the VM is currently subject to a memory balloon
@@ -249,12 +251,12 @@ let host_compute_memory_overhead ~__context ~host =
 
 let vm_compute_memory_overhead snapshot =
 	let static_max_bytes = snapshot.API.vM_memory_static_max in
-	let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
+	let static_max_mib = XenopsMemory.mib_of_bytes_used static_max_bytes in
 	let multiplier = snapshot.API.vM_HVM_shadow_multiplier in
 	let vcpu_count = Int64.to_int (snapshot.API.vM_VCPUs_max) in
 	let memory_overhead_mib = (
 		if Helpers.is_hvm snapshot
-		then Memory.HVM.overhead_mib
-		else Memory.Linux.overhead_mib)
+		then XenopsMemory.HVM.overhead_mib
+		else XenopsMemory.Linux.overhead_mib)
 			static_max_mib vcpu_count multiplier in
-	Memory.bytes_of_mib memory_overhead_mib
+	XenopsMemory.bytes_of_mib memory_overhead_mib
