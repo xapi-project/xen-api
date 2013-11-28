@@ -28,12 +28,15 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
 		~physical:false ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 		~vLAN_master_of:vlan ~management:false ~other_config:[] ~disallow_unplug:false
-		~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
+		~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true;
 
 	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
 	vlan, untagged_PIF
 
 let create ~__context ~tagged_PIF ~tag ~network =
+	if Db.PIF.get_managed ~__context ~self:tagged_PIF <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of tagged_PIF]));
+
 	let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 

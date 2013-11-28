@@ -72,12 +72,19 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 	   NB if we're doing this as part of a management-interface-reconfigure then
 	   we might be just about to loose our current management interface... *)
 	List.iter (fun pif ->
-		if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
+		let uuid = Db.PIF.get_uuid ~__context ~self:pif in
+		if Db.PIF.get_managed ~__context ~self:pif then
+			if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
 			Xapi_network_attach_helpers.assert_no_slave ~__context pif;
-			let uuid = Db.PIF.get_uuid ~__context ~self:pif in
 			debug "Trying to attach PIF: %s" uuid;
 			Nm.bring_pif_up ~__context ~management_interface pif
-		end
+		end else
+			if management_interface then
+				info "PIF %s is the management interface, but it is not managed by xapi. \
+					The bridge and IP must be configured through other means." uuid
+			else
+				info "PIF %s is needed by a VM, but not managed by xapi. \
+					The bridge must be configured through other means." uuid
 	) local_pifs
 
 let detach bridge_name =

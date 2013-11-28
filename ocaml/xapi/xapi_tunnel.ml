@@ -42,12 +42,14 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 		~physical:false ~currently_attached:false 
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null 
 		~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
+	        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true;
 	Db.Tunnel.create ~__context ~ref:tunnel ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
 		~access_PIF ~transport_PIF ~status:["active", "false"] ~other_config:[];
 	tunnel, access_PIF
 
 let create ~__context ~transport_PIF ~network =
+	if Db.PIF.get_managed ~__context ~self:transport_PIF <> true then
+		raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of transport_PIF]));
 	if Db.PIF.get_bond_slave_of ~__context ~self:transport_PIF <> Ref.null then
 		raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]));
 	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
