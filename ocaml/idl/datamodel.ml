@@ -891,6 +891,10 @@ let _ =
     ~doc:"The operation could not proceed because necessary VDIs were already locked at the storage level." ();
   error Api_errors.vdi_readonly [ "vdi" ]
     ~doc:"The operation required write access but this VDI is read-only" ();
+  error Api_errors.vdi_too_small [ "vdi"; "minimum size" ]
+    ~doc:"The VDI is too small. Please resize it to at least the minimum size." ();
+  error Api_errors.vdi_not_sparse [ "vdi" ]
+    ~doc:"The VDI is not stored using a sparse format. It is not possible to query and manipulate only the changed blocks (or 'block differences' or 'disk deltas') between two VDIs. Please select a VDI which uses a sparse-aware technology such as VHD." ();
   error Api_errors.vdi_is_a_physical_device [ "vdi" ]
     ~doc:"The operation cannot be performed on physical device" ();
   error Api_errors.vdi_is_not_iso [ "vdi"; "type" ]
@@ -2966,6 +2970,7 @@ let vdi_copy = call
    {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_release; param_default=Some (VString Ref.(string_of null))};
   ]
   ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
+  ~errs:[Api_errors.vdi_readonly; Api_errors.vdi_too_small; Api_errors.vdi_not_sparse]
   ~result:(Ref _vdi, "The reference of the VDI where the blocks were written.")
   ~allowed_roles:_R_VM_ADMIN
   ()
