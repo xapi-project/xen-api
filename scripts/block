@@ -15,6 +15,7 @@ syslog ()
 case "$1" in
 add)
         params=$(xenstore-read "${XENBUS_PATH}/params")
+        params=$(readlink $params || echo $params)
         frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
         syslog "${XENBUS_PATH}: add params=\"${params}\""
         # We don't have PV drivers for CDROM devices, so we prevent blkback
