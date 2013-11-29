@@ -57,7 +57,7 @@ let deregister_thread id =
 
 let are_threads_registered () =
 	let state = !registered_threads in
-	IntSet.is_empty state
+	not (IntSet.is_empty state)
 
 (* None
  * - means no threads which require gpumon to be stopped are running.
