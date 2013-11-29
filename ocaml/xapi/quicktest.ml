@@ -785,6 +785,7 @@ let _ =
 		"squeezing";
 		"lifecycle";
 		"vhd";
+		"copy";
 	] in
 	let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
@@ -827,6 +828,7 @@ let _ =
 				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
 				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
 				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
+				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s);
 			with
 				| Api_errors.Server_error (a,b) ->
 					output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));

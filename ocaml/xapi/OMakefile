@@ -56,7 +56,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle sparse_encoding)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
