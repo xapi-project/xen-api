@@ -1,5 +1,3 @@
-open Gnt
-
 module type TRANSPORT = sig
 	type id_t
 	type state_t
@@ -58,6 +56,8 @@ module File = struct
 end
 
 module Page = struct
+	open Gnt
+
 	type id_t = (int * int) (* remote domid * page count *)
 	type state_t = Gntshr.share
 
