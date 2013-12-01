@@ -13,34 +13,6 @@ module type TRANSPORT = sig
 	val expose: state_t -> Cstruct.t
 end
 
-module MakeReader (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
-	let cached_state = ref None
-
-	let cleanup () =
-		match !cached_state with
-		| Some state -> T.cleanup state
-		| None -> ()
-
-	let setup_signals () =
-		Sys.set_signal Sys.sigint
-			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
-
-	let start interval id interpret_payload =
-		setup_signals ();
-		let state = T.init id in
-		cached_state := Some state;
-		try
-			while true do
-				let cs = T.expose state in
-				let payload = P.read_payload cs in
-				interpret_payload payload;
-				Thread.delay interval
-			done
-		with e ->
-			T.cleanup state;
-			raise e
-end
-
 module File = struct
 	(** Filesystem path. *)
 	type id_t = string
@@ -89,4 +61,32 @@ module Page = struct
 	let expose mapping =
 		let buf = Gnttab.Local_mapping.to_buf mapping in
 		Cstruct.of_bigarray buf
+end
+
+module Make (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
+	let cached_state = ref None
+
+	let cleanup () =
+		match !cached_state with
+		| Some state -> T.cleanup state
+		| None -> ()
+
+	let setup_signals () =
+		Sys.set_signal Sys.sigint
+			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
+
+	let start interval id interpret_payload =
+		setup_signals ();
+		let state = T.init id in
+		cached_state := Some state;
+		try
+			while true do
+				let cs = T.expose state in
+				let payload = P.read_payload cs in
+				interpret_payload payload;
+				Thread.delay interval
+			done
+		with e ->
+			T.cleanup state;
+			raise e
 end

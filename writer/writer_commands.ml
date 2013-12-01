@@ -48,13 +48,13 @@ let generate_payload () = {
 let write_file path protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Writer = Writer_types.MakeWriter(Protocol)(Writer_types.File) in
+	let module Writer = Rrd_writer.Make(Protocol)(Rrd_writer.File) in
 	Writer.start 5.0 path
 		(fun () -> generate_payload ())
 
 let write_page domid protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Writer = Writer_types.MakeWriter(Protocol)(Writer_types.Page) in
+	let module Writer = Rrd_writer.Make(Protocol)(Rrd_writer.Page) in
 	Writer.start 5.0 (domid, 1)
 		(fun () -> generate_payload ())

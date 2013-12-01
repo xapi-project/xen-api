@@ -16,33 +16,6 @@ module type TRANSPORT = sig
 	val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
-module MakeWriter (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
-	let cached_state = ref None
-
-	let cleanup () =
-		match !cached_state with
-		| Some state -> T.cleanup state
-		| None -> ()
-
-	let setup_signals () =
-		Sys.set_signal Sys.sigint
-			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
-
-	let start interval id generate_payload =
-		setup_signals ();
-		let state = T.init id in
-		cached_state := Some state;
-		try
-			while true do
-				let allocator = T.get_allocator state in
-				P.write_payload allocator (generate_payload ());
-				Thread.delay interval
-			done
-		with e ->
-			T.cleanup state;
-			raise e
-end
-
 module File = struct
 	(** Filesystem path. *)
 	type id_t = string
@@ -100,4 +73,31 @@ module Page = struct
 			Cstruct.of_bigarray share.Gntshr.mapping
 		in
 		alloc_cstruct
+end
+
+module Make (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
+	let cached_state = ref None
+
+	let cleanup () =
+		match !cached_state with
+		| Some state -> T.cleanup state
+		| None -> ()
+
+	let setup_signals () =
+		Sys.set_signal Sys.sigint
+			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
+
+	let start interval id generate_payload =
+		setup_signals ();
+		let state = T.init id in
+		cached_state := Some state;
+		try
+			while true do
+				let allocator = T.get_allocator state in
+				P.write_payload allocator (generate_payload ());
+				Thread.delay interval
+			done
+		with e ->
+			T.cleanup state;
+			raise e
 end
