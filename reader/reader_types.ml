@@ -1,20 +1,19 @@
-module type READER = sig
-	type t
+module type TRANSPORT = sig
 	type id_t
 	type state_t
 
 	val init: id_t -> state_t
 	val cleanup: state_t -> unit
 
-	val read_payload: state_t -> t
+	val expose: state_t -> Cstruct.t
 end
 
-module MakeReader (R: READER) = struct
+module MakeReader (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
 	let cached_state = ref None
 
 	let cleanup () =
 		match !cached_state with
-		| Some state -> R.cleanup state
+		| Some state -> T.cleanup state
 		| None -> ()
 
 	let setup_signals () =
@@ -23,21 +22,21 @@ module MakeReader (R: READER) = struct
 
 	let start interval id interpret_payload =
 		setup_signals ();
-		let state = R.init id in
+		let state = T.init id in
 		cached_state := Some state;
 		try
 			while true do
-				let payload = R.read_payload state in
+				let cs = T.expose state in
+				let payload = P.read_payload cs in
 				interpret_payload payload;
 				Thread.delay interval
 			done
 		with e ->
-			R.cleanup state;
+			T.cleanup state;
 			raise e
 end
 
-module FileReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
-	type t = Rrd_protocol.payload
+module File = struct
 	type id_t = string
 	type state_t = Unix.file_descr
 
@@ -45,18 +44,16 @@ module FileReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 
 	let cleanup fd = Unix.close fd
 
-	let read_payload fd =
+	let expose fd =
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 			failwith "lseek";
 		let mapping = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
-		let cs = Cstruct.of_bigarray mapping in
-		P.read_payload cs
-end)
+		Cstruct.of_bigarray mapping
+end
 
-module PageReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
+module Page = struct
 	open Gnt
 
-	type t = Rrd_protocol.payload
 	type id_t = int * (int list)
 	type state_t = Gnttab.Local_mapping.t
 
@@ -82,8 +79,7 @@ module PageReader (P: Rrd_protocol.PROTOCOL) = MakeReader(struct
 		Gnt_helpers.with_gnttab
 			(fun gnttab -> Gnttab.unmap_exn gnttab mapping)
 
-	let read_payload mapping =
+	let expose mapping =
 		let buf = Gnttab.Local_mapping.to_buf mapping in
-		let cs = Cstruct.of_bigarray buf in
-		P.read_payload cs
-end)
+		Cstruct.of_bigarray buf
+end
