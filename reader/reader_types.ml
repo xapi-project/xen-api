@@ -1,10 +1,15 @@
 module type TRANSPORT = sig
+	(** An identifier needed to open the resource. *)
 	type id_t
+	(** A handle to an open resource. *)
 	type state_t
 
+	(** Open a resource for writing, given its identifier. *)
 	val init: id_t -> state_t
+	(** Cleanup an open resource when it is no longer needed. *)
 	val cleanup: state_t -> unit
 
+	(** Given the state of the open resource, expose its contents as a Cstruct. *)
 	val expose: state_t -> Cstruct.t
 end
 
@@ -37,6 +42,7 @@ module MakeReader (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
 end
 
 module File = struct
+	(** Filesystem path. *)
 	type id_t = string
 	type state_t = Unix.file_descr
 
@@ -54,6 +60,7 @@ end
 module Page = struct
 	open Gnt
 
+	(** Remote domid * list of grant references. *)
 	type id_t = int * (int list)
 	type state_t = Gnttab.Local_mapping.t
 
