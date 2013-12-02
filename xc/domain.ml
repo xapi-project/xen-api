@@ -76,7 +76,7 @@ exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
 let save_signature = "XenSavedDomain\n"
-let qemu_save_signature = "QemuDeviceModelRecord\n"
+let qemu_save_signature = "DeviceModelRecord0002"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
 
@@ -951,7 +951,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 		let size = (Unix.stat file).Unix.st_size in
 
 		finally (fun () ->
-			Io.write_int fd size;
+			Io.write_int ~endianness:`little fd size;
 			let limit = Int64.of_int size in
 			debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
 			if Unixext.copy_file ~limit fd2 fd <> limit

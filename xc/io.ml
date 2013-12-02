@@ -40,20 +40,23 @@ let connect host port =
 	Unix.connect fd sockaddr;
 	fd
 
-(** Write an integer to an fd as 4 bytes, most significant first *)
-let write_int fd x = 
+let byte_order_of_int ~endianness =
+	match endianness with `big -> 0, 1, 2, 3 | `little -> 3, 2, 1, 0
+
+let write_int ~endianness fd x =
 	let buffer = "\000\000\000\000" in
-	buffer.[0] <- char_of_int ((x lsr 24) land 0xff);
-	buffer.[1] <- char_of_int ((x lsr 16) land 0xff);
-	buffer.[2] <- char_of_int ((x lsr 8) land 0xff);
-	buffer.[3] <- char_of_int ((x lsr 0) land 0xff);
+	let a, b, c, d = byte_order_of_int ~endianness in
+	buffer.[a] <- char_of_int ((x lsr 24) land 0xff);
+	buffer.[b] <- char_of_int ((x lsr 16) land 0xff);
+	buffer.[c] <- char_of_int ((x lsr 8) land 0xff);
+	buffer.[d] <- char_of_int ((x lsr 0) land 0xff);
 	write fd buffer
 
-(** Read a 4-byte most significant first integer from an fd *)
-let read_int fd = 
+let read_int ~endianness fd =
 	let buffer = read fd 4 in
-	let a = int_of_char buffer.[0]
-	and b = int_of_char buffer.[1] 
-	and c = int_of_char buffer.[2] 
-	and d = int_of_char buffer.[3] in
+	let a, b, c, d = byte_order_of_int ~endianness in
+	let a = int_of_char buffer.[a]
+	and b = int_of_char buffer.[b]
+	and c = int_of_char buffer.[c]
+	and d = int_of_char buffer.[d] in
 	(a lsl 24) lor (b lsl 16) lor (c lsl 8) lor d
