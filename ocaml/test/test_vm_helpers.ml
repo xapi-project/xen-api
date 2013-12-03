@@ -33,8 +33,7 @@ let on_pool_of_k1s (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_hos
 	(* Make two more hosts *)
 	match (make_host ~__context (), make_host ~__context ()) with
 	| (h', h'') ->
-		let gPU_group = Ref.make () in
-		make_gpu_group ~__context ~ref:gPU_group ();
+		let gPU_group = make_gpu_group ~__context () in
 		let rec make_k1s_on (host, num) =
 			if num > 0 then
 				let _ = make_pgpu ~__context ~host ~gPU_group default_k1 in
