@@ -127,30 +127,25 @@ let make_vgpu ~__context pgpu_ref vgpu_type =
 			Some vm_ref
 		end else None
 	in
-	let vgpu_ref = Ref.make () in
 	Test_common.make_vgpu ~__context
 		~vM:(Opt.default Ref.null vm_ref_opt)
-		~ref:vgpu_ref ~_type:vgpu_type_ref
-		~resident_on:pgpu_ref ();
-	vgpu_ref
+		~_type:vgpu_type_ref
+		~resident_on:pgpu_ref ()
 
 let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
-	let pCI = Ref.make () in
-	Test_common.make_pci ~__context ~ref:pCI ~host ~functions:1L ();
+	let pCI = Test_common.make_pci ~__context ~host ~functions:1L () in
 	let supported_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
 	let enabled_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
-	let pgpu_ref = Ref.make () in
-	Test_common.make_pgpu ~__context
-		~ref:pgpu_ref
+	let pgpu_ref = Test_common.make_pgpu ~__context
 		~pCI
 		~host
 		~gPU_group
 		~supported_VGPU_types
-		~enabled_VGPU_types ();
+		~enabled_VGPU_types () in
 	List.iter
 		(fun vgpu_type ->
 			let (_: API.ref_VGPU) = (make_vgpu ~__context pgpu_ref vgpu_type) in ())

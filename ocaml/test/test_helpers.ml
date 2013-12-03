@@ -21,7 +21,7 @@ let test_vm_agility_with_vgpu () =
 	(* VM has no VIFs, VBDs or VGPUs, so should be agile. *)
 	Helpers.vm_assert_agile ~__context ~self:vm;
 	(* Create a VGPU - VM should no longer be agile. *)
-	make_vgpu ~__context ~vM:vm ();
+	let (_: API.ref_VGPU) = make_vgpu ~__context ~vM:vm () in
 	assert_raises_api_error
 		~args:[Ref.string_of vm]
 		Api_errors.vm_has_vgpu
