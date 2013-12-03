@@ -1020,13 +1020,13 @@ module VGPUType : HandlerTools = struct
 	let precheck __context config rpc session_id state x =
 		let vgpu_type_record = API.Legacy.From.vGPU_type_t "" x.snapshot in
 
-		(* Look up VGPU types using the model name and framebuffer size. *)
+		(* Look up VGPU types using the vendor name and model name. *)
 		let compatible_types =
 			Client.VGPU_type.get_all_records_where rpc session_id
 				(Printf.sprintf
-					"field \"model_name\"=\"%s\" and field \"framebuffer_size\"=\"%Ld\""
-					vgpu_type_record.API.vGPU_type_model_name
-					vgpu_type_record.API.vGPU_type_framebuffer_size)
+					"field \"vendor_name\"=\"%s\" and field \"model_name\"=\"%s\""
+					vgpu_type_record.API.vGPU_type_vendor_name
+					vgpu_type_record.API.vGPU_type_model_name)
 		in
 
 		match choose_one compatible_types with
