@@ -235,6 +235,7 @@ let pif_record rpc session_id pif =
 	make_field ~name:"MAC"          ~get:(fun () -> (x ()).API.pIF_MAC) 
 	  ~case_insensitive:true ();
 	make_field ~name:"physical"     ~get:(fun () -> string_of_bool ((x ()).API.pIF_physical)) ();
+	make_field ~name:"managed"      ~get:(fun () -> string_of_bool ((x ()).API.pIF_managed)) ();
 	make_field ~name:"currently-attached"     ~get:(fun () -> string_of_bool ((x ()).API.pIF_currently_attached)) ();
 	make_field ~name:"MTU"          ~get:(fun () -> (Int64.to_string (x ()).API.pIF_MTU)) ();
 	make_field ~name:"VLAN"         ~get:(fun () -> (Int64.to_string (x ()).API.pIF_VLAN)) ();

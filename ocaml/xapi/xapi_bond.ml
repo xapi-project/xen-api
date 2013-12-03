@@ -318,6 +318,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 4. Referenced PIFs must be on the same host *)
 		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
 		(* 6. Members must not be the management interface if HA is enabled *)
+		(* 7. Members must be PIFs that are managed by xapi *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -330,6 +331,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			let pool = List.hd (Db.Pool.get_all ~__context) in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
 			then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
+			if Db.PIF.get_managed ~__context ~self <> true
+			then raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]));
 		) members;
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
@@ -381,7 +384,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
-			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4;
+			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
 			~primary_slave ~mode ~properties ~links_up:0L;
 

@@ -72,7 +72,9 @@ val db_introduce :
   ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string list ->
   ipv6_gateway:string ->
-  primary_address_type:[< `IPv4 | `IPv6 ] -> [ `PIF ] Ref.t
+  primary_address_type:[< `IPv4 | `IPv6 ] ->
+  managed:bool ->
+  [ `PIF ] Ref.t
   
 (** Perform a database delete of the PIF record on the pool master. *)
 val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
@@ -81,7 +83,10 @@ val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 val introduce :
   __context:Context.t ->
   host:[ `host ] Ref.t ->
-  mAC:string -> device:Helpers.StringSet.elt -> API.ref_PIF
+  mAC:string ->
+  device:Helpers.StringSet.elt ->
+  managed:bool ->
+  API.ref_PIF
 
 (** Destroy the PIF record from the database, but only if the interface is no longer used. *)
 val forget : __context:Context.t -> self:API.ref_PIF -> unit
@@ -185,7 +190,9 @@ val pool_introduce :
   ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string list ->
   ipv6_gateway:string ->
-  primary_address_type:[< `IPv4 | `IPv6 ] -> [ `PIF ] Ref.t
+  primary_address_type:[< `IPv4 | `IPv6 ] ->
+  managed:bool ->
+  [ `PIF ] Ref.t
 
 (** Create a new PIF record with the given details. Also create a network for the
  *  new PIF, or reuses an existing one if the name matches the convention prescribed
@@ -204,6 +211,7 @@ val introduce_internal :
   vLAN:int64 ->
   vLAN_master_of:[ `VLAN ] Ref.t ->
   ?metrics:[ `PIF_metrics ] Ref.t ->
+  managed:bool ->
   unit ->
   [ `PIF ] Ref.t
   

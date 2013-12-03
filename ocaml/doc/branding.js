@@ -54,8 +54,11 @@ function get_release_name(s)
 	case 'tampa':
 		return 'XCP 1.6';
 		break;
+	case 'clearwater':
+		return 'XenServer 6.2';
+		break;
 	default:
-		return 'Unreleased';
+		return (s + ' (unreleased)');
 		break;
 	}
 }

@@ -45,7 +45,7 @@ let make_test_database () =
 		machine_serial_number = None;
 		machine_serial_name = None;
 		total_memory_mib = 1024L;
-		dom0_static_max = Memory.bytes_of_mib 512L;
+		dom0_static_max = XenopsMemory.bytes_of_mib 512L;
 	} in
 	Dbsync_slave.create_localhost ~__context host_info;
 	Create_misc.ensure_domain_zero_records ~__context host_info;
@@ -86,11 +86,11 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
 		?(vLAN=(-1L)) ?(physical=true) ?(ip_configuration_mode=`None) ?(iP="") ?(netmask="")
 		?(gateway="") ?(dNS="") ?(bond_slave_of=Ref.null) ?(vLAN_master_of=Ref.null) 
 		?(management=false) ?(other_config=[]) ?(disallow_unplug=false) 
-                ?(ipv6_configuration_mode=`None) ?(iPv6=[""]) ?(ipv6_gateway="") ?(primary_address_type=`IPv4) () =
+                ?(ipv6_configuration_mode=`None) ?(iPv6=[""]) ?(ipv6_gateway="") ?(primary_address_type=`IPv4) ?(managed=true) () =
 	Xapi_pif.pool_introduce ~__context
 		~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode
 		~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug
-                ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type
+                ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed
 
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
 		?(other_config=[]) ?(bridge="xenbr0") () = 

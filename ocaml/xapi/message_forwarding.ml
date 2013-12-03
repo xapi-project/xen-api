@@ -2907,10 +2907,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.PIF.scan ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan rpc session_id host)
 
-		let introduce ~__context ~host ~mAC ~device =
-			info "PIF.introduce: host = '%s'; MAC address = '%s'; device = '%s'" (host_uuid ~__context host) mAC device;
-			let local_fn = Local.PIF.introduce ~host ~mAC ~device in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.introduce rpc session_id host mAC device)
+		let introduce ~__context ~host ~mAC ~device ~managed =
+			info "PIF.introduce: host = '%s'; MAC address = '%s'; device = '%s'; managed = '%b'"
+				(host_uuid ~__context host) mAC device managed;
+			let local_fn = Local.PIF.introduce ~host ~mAC ~device ~managed in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.introduce rpc session_id host mAC device managed)
 
 		let forget ~__context ~self=
 			info "PIF.forget: PIF = '%s'" (pif_uuid ~__context self);

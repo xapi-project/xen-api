@@ -113,7 +113,7 @@ let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
-	let open Memory in
+	let open XenopsMemory in
 	let rec wait accumulated_wait_time_seconds =
 		let host_info = Xenctrl.physinfo xc in
 		let open Xenctrl in
@@ -464,7 +464,7 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory" (Uuid.to_string uuid) domid required_host_free_mib;
 	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	let (_: bool) = wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
+	let (_: bool) = wait_xen_free_mem ~xc (XenopsMemory.kib_of_mib required_host_free_mib) in
 
 	let shadow_mib = Int64.to_int shadow_mib in
 
@@ -496,7 +496,7 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	begin
 		try
 			debug "VM = %s; domid = %d; domain_set_memmap_limit %Ld MiB" (Uuid.to_string uuid) domid xen_max_mib;
-			Xenctrl.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
+			Xenctrl.domain_set_memmap_limit xc domid (XenopsMemory.kib_of_mib xen_max_mib);
 		with e ->
 			warn "VM = %s; domid = %d; domain_set_memmap_limit: %s" (Uuid.to_string uuid) domid (Printexc.to_string e)
 	end;
@@ -520,8 +520,8 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 	let uuid = get_uuid ~xc domid in
 	let dom_path = xs.Xs.getdomainpath domid in
 	(* Unit conversion. *)
-	let static_max_kib = Memory.kib_of_mib static_max_mib in
-	let target_kib = Memory.kib_of_mib target_mib in
+	let static_max_kib = XenopsMemory.kib_of_mib static_max_mib in
+	let target_kib = XenopsMemory.kib_of_mib target_mib in
 	(* expand local stuff with common values *)
 	let ents =
 		[ ("memory/static-max", Int64.to_string static_max_kib);
@@ -546,8 +546,8 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 	maybe assert_file_is_readable ramdisk;
 
 	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	let static_max_mib = XenopsMemory.mib_of_kib_used static_max_kib in
+	let target_mib     = XenopsMemory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
 	assert (target_mib <= static_max_mib);
@@ -555,17 +555,17 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let video_mib = 0 in
 	let build_max_mib =
-		Memory.Linux.build_max_mib static_max_mib video_mib in
+		XenopsMemory.Linux.build_max_mib static_max_mib video_mib in
 	let build_start_mib =
-		Memory.Linux.build_start_mib target_mib video_mib in
+		XenopsMemory.Linux.build_start_mib target_mib video_mib in
 	let xen_max_mib =
-		Memory.Linux.xen_max_mib static_max_mib in
+		XenopsMemory.Linux.xen_max_mib static_max_mib in
 	let shadow_multiplier =
-		Memory.Linux.shadow_multiplier_default in
+		XenopsMemory.Linux.shadow_multiplier_default in
 	let shadow_mib =
-		Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
@@ -618,23 +618,23 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	assert_file_is_readable kernel;
 
 	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	let static_max_mib = XenopsMemory.mib_of_kib_used static_max_kib in
+	let target_mib     = XenopsMemory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
 	assert (target_mib <= static_max_mib);
 
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let build_max_mib =
-		Memory.HVM.build_max_mib static_max_mib video_mib in
+		XenopsMemory.HVM.build_max_mib static_max_mib video_mib in
 	let build_start_mib =
-		Memory.HVM.build_start_mib target_mib video_mib in
+		XenopsMemory.HVM.build_start_mib target_mib video_mib in
 	let xen_max_mib =
-		Memory.HVM.xen_max_mib static_max_mib in
+		XenopsMemory.HVM.xen_max_mib static_max_mib in
 	let shadow_mib =
-		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
@@ -778,21 +778,21 @@ let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus xenguest_path domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	let static_max_mib = XenopsMemory.mib_of_kib_used static_max_kib in
+	let target_mib     = XenopsMemory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
 	assert (target_mib <= static_max_mib);
 
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let xen_max_mib =
-		Memory.Linux.xen_max_mib static_max_mib in
+		XenopsMemory.Linux.xen_max_mib static_max_mib in
 	let shadow_multiplier =
-		Memory.Linux.shadow_multiplier_default in
+		XenopsMemory.Linux.shadow_multiplier_default in
 	let shadow_mib =
-		Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
@@ -814,19 +814,19 @@ let pv_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_inc
 let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset xenguest_path domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	let static_max_mib = XenopsMemory.mib_of_kib_used static_max_kib in
+	let target_mib     = XenopsMemory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
 	assert (target_mib <= static_max_mib);
 
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let xen_max_mib =
-		Memory.HVM.xen_max_mib static_max_mib in
+		XenopsMemory.HVM.xen_max_mib static_max_mib in
 	let shadow_mib =
-		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
+		XenopsMemory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
@@ -1158,11 +1158,11 @@ let cpuid_check ~xc cfg =
 (** by writing the target to XenStore. The value is automatically rounded down to *)
 (** the nearest page boundary.                                                    *)
 let set_memory_target ~xs domid mem_kib =
-	let mem_kib = Memory.round_kib_down_to_nearest_page_boundary mem_kib in
+	let mem_kib = XenopsMemory.round_kib_down_to_nearest_page_boundary mem_kib in
 	let dompath = xs.Xs.getdomainpath domid in
 	xs.Xs.write (dompath ^ "/memory/target") (Int64.to_string mem_kib);
 	(* Debugging information: *)
-	let mem_mib = Memory.mib_of_kib_used mem_kib in
+	let mem_mib = XenopsMemory.mib_of_kib_used mem_kib in
 	debug "domain %d set memory target to %Ld MiB" domid mem_mib
 
 

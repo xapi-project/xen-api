@@ -1,4 +1,7 @@
-OCAMLPACKS    = oclock xml-light2 cdrom pciutil sexpr xcp stunnel http-svr xen-utils netdev tapctl rpclib xenstore-compat xenctrl uuid gzip sha1 xcp.network xcp.rrd xcp.storage xcp.xen xcp.memory tar tar.unix
+OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
+             http-svr xen-utils netdev tapctl rpclib xenstore-compat	\
+             xenctrl uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
+             xcp.xen xcp.memory tar tar.unix oPasswd
 
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
@@ -7,7 +10,8 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../rrdd/interface ..
 
-UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
+UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate \
+          xapi_services system_domains cancel_tests config_file_sync)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -76,7 +80,7 @@ XAPI_MODULES = $(COMMON) \
 	../client_records/record_util \
 	../xenops/task_server \
 	../xenops/updates \
-	../xenops/memory \
+	../xenops/xenopsMemory \
 	storage_task \
 	storage_access \
 	storage_mux \
@@ -151,7 +155,6 @@ XAPI_MODULES = $(COMMON) \
 	pool_db_backup \
 	xapi_sync \
 	config_file_sync \
-	config_file_io \
 	slave_backup \
 	sm_fs_ops \
 	sparse_dd_wrapper \
