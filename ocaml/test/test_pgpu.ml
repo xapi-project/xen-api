@@ -114,29 +114,30 @@ let test_remaining_capacity_decreases () =
 
 let test_set_GPU_group_succeeds_empty_pgpu () =
 	on_host_with_k2 (fun __context p ->
-		let group_ref = Ref.make () in
-		make_gpu_group ~__context ~ref:group_ref ();
+		let group_ref = make_gpu_group ~__context () in
 		Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group_ref)
 
 let test_set_GPU_group_succeeds_orphan_vgpu () =
 	(* This is OK since vGPUs can be created on empty GPU groups *)
 	on_host_with_k2 (fun __context p ->
-		match (Ref.make (), Ref.make ()) with
-		| (group, group') ->
-			List.iter (fun ref -> make_gpu_group ~__context ~ref ()) [group; group'];
-			Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group;
-			Test_common.make_vgpu ~__context ~gPU_group:group ();
-			Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group')
+		let group, group' =
+			(make_gpu_group ~__context (), make_gpu_group ~__context ())
+		in
+		Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group;
+		let (_: API.ref_VGPU) =
+			Test_common.make_vgpu ~__context ~gPU_group:group ()
+		in
+		Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group')
 
 let test_set_GPU_group_fails_resident_vgpu () =
 	on_host_with_k2 (fun __context p ->
-		match (Ref.make (), Ref.make ()) with
-		| (group, group') ->
-			List.iter (fun ref -> make_gpu_group ~__context ~ref ()) [group; group'];
-			Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group;
-			ignore (make_vgpu ~__context p k200);
-			assert_raises_api_error Api_errors.pgpu_in_use_by_vm (fun () ->
-				Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group'))
+		let group, group' =
+			(make_gpu_group ~__context (), make_gpu_group ~__context ())
+		in
+		Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group;
+		ignore (make_vgpu ~__context p k200);
+		assert_raises_api_error Api_errors.pgpu_in_use_by_vm (fun () ->
+			Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group'))
 
 let test =
 	"test_pgpu" >:::
