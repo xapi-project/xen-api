@@ -136,6 +136,7 @@ let gc_PGPUs ~__context =
 				then begin
 					let group = Db.PGPU.get_GPU_group ~__context ~self:pgpu in
 					Db.PGPU.destroy ~__context ~self:pgpu;
+					debug "GCed PGPU %s" (Ref.string_of pgpu);
 					group :: acc
 				end else
 					acc)
