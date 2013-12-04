@@ -943,27 +943,28 @@ end
 module VGPUType : HandlerTools = struct
 	type precheck_t =
 		| Found_VGPU_type of API.ref_VGPU_type
-		| Found_no_VGPU_type of exn
+		| Create of API.vGPU_type_t
 
 	let precheck __context config rpc session_id state x =
 		let vgpu_type_record = API.From.vGPU_type_t "" x.snapshot in
 
-		(* Look up VGPU types using the model name and framebuffer size. *)
+		(* Look up VGPU types using the vendor name and model name. *)
 		let compatible_types =
 			Client.VGPU_type.get_all_records_where rpc session_id
 				(Printf.sprintf
-					"field \"model_name\"=\"%s\" and field \"framebuffer_size\"=\"%Ld\""
-					vgpu_type_record.API.vGPU_type_model_name
-					vgpu_type_record.API.vGPU_type_framebuffer_size)
+					"field \"vendor_name\"=\"%s\" and field \"model_name\"=\"%s\""
+					vgpu_type_record.API.vGPU_type_vendor_name
+					vgpu_type_record.API.vGPU_type_model_name)
 		in
 
 		match choose_one compatible_types with
 		| Some (vgpu_type, _) -> Found_VGPU_type vgpu_type
 		| None ->
-			let msg = Printf.sprintf "Unable to find equivalent VGPU_type '%s'"
-				vgpu_type_record.API.vGPU_type_model_name in
-			error "%s" msg;
-			Found_no_VGPU_type (Failure msg)
+			warn
+				"Unable to find VGPU_type (%s,%s) - creating a new record"
+				vgpu_type_record.API.vGPU_type_vendor_name
+				vgpu_type_record.API.vGPU_type_model_name;
+			Create vgpu_type_record
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
 		match precheck_result with
@@ -971,9 +972,35 @@ module VGPUType : HandlerTools = struct
 			state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table;
 			state.table <- (x.cls, Ref.string_of vgpu_type, Ref.string_of vgpu_type) :: state.table
 		end
-		| Found_no_VGPU_type e -> raise e
+		| Create _ ->
+			let dummy_vgpu_type = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vgpu_type) :: state.table
 
-	let handle = handle_dry_run
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU_type vgpu_type ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vgpu_type_record -> begin
+			let vgpu_type =
+				log_reraise
+					"failed to create VGPU_type"
+					(fun value ->
+						(* size and internal_config are left as defaults for now. They'll
+						 * be updated if and when xapi comes across the real config file. *)
+						Xapi_vgpu_type.create ~__context
+							~vendor_name:value.API.vGPU_type_vendor_name
+							~model_name:value.API.vGPU_type_model_name
+							~framebuffer_size:value.API.vGPU_type_framebuffer_size
+							~max_heads:value.API.vGPU_type_max_heads
+							~max_resolution_x:value.API.vGPU_type_max_resolution_x
+							~max_resolution_y:value.API.vGPU_type_max_resolution_y
+							~size:0L
+							~internal_config:[])
+					vgpu_type_record
+			in
+			state.cleanup <- (fun __context rpc session_id -> Db.VGPU_type.destroy __context vgpu_type) :: state.cleanup;
+			state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table
+		end
 end
 
 (** Create a new VGPU record, add the reference to the table.
