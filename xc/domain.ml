@@ -76,7 +76,7 @@ exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
 let save_signature = "XenSavedDomain\n"
-let qemu_save_signature = "QemuDeviceModelRecord\n"
+let qemu_save_signature = "DeviceModelRecord0002"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
 
@@ -761,26 +761,6 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
 			raise Domain_restore_failed
 		in
-
-	if hvm then (
-		(* restore qemu-dm tmp file *)
-		let read_signature = Io.read fd (String.length qemu_save_signature) in
-		if read_signature <> qemu_save_signature then begin
-			error "VM = %s; domid = %d; read invalid qemu save file signature: \"%s\"" (Uuid.to_string uuid) domid read_signature;
-			raise Restore_signature_mismatch;
-		end;
-		let limit = Int64.of_int (Io.read_int fd) in
-
-		let file = sprintf qemu_restore_path domid in
-		let fd2 = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640 in
-		finally (fun () ->
-			debug "VM = %s; domid = %d; reading %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
-			if Unixext.copy_file ~limit fd fd2 <> limit then begin
-				error "VM = %s; domid = %d; qemu save file was truncated" (Uuid.to_string uuid) domid;
-				raise Domain_restore_truncated_hvmstate
-			end
-		) (fun () -> Unix.close fd2);
-	);
 	store_mfn, console_mfn
 
 let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
@@ -971,7 +951,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 		let size = (Unix.stat file).Unix.st_size in
 
 		finally (fun () ->
-			Io.write_int fd size;
+			Io.write_int ~endianness:`little fd size;
 			let limit = Int64.of_int size in
 			debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
 			if Unixext.copy_file ~limit fd2 fd <> limit

@@ -40,6 +40,9 @@ let _mount = "/bin/mount"
 let _umount = "/bin/umount"
 let _ionice = "/usr/bin/ionice"
 
+let suspend_save_signature = "XenSavedDomain\n"
+exception Restore_signature_mismatch
+
 (* libxl logging and context *)
 
 let vmessage min_level level errno ctx msg =
@@ -2318,6 +2321,8 @@ module VM = struct
 				let domid = di.domid in
 				with_data ~xs task data true
 					(fun fd ->
+						debug "Writing save signature";
+						Io.write fd suspend_save_signature;
 						debug "Calling Xenlight.Domain.suspend domid=%d" domid;
 						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.suspend ctx domid fd ()));
 						debug "Call Xenlight.Domain.suspend domid=%d completed" domid;
@@ -2373,6 +2378,12 @@ module VM = struct
 		with_xs (fun xs ->
 			with_data ~xs task data false (fun fd ->
 				let vbds = List.filter (fun vbd -> vbd.Vbd.mode = Vbd.ReadOnly) vbds in
+				debug "Reading save signature";
+				let read_signature = Io.read fd (String.length suspend_save_signature) in
+				if read_signature <> suspend_save_signature then begin
+					error "VM = %s; read invalid save file signature: \"%s\"" vm.Vm.id read_signature;
+					raise Restore_signature_mismatch
+				end;
 				build ~restore_fd:fd task vm vbds vifs
 			)
 		)
