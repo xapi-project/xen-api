@@ -24,6 +24,7 @@ open D
 
 type context = unit
 
+let network_conf = ref "/etc/xcp/network.conf"
 let config : config_t ref = ref empty_config
 
 let legacy_management_interface_start () =
@@ -396,15 +397,17 @@ module Bridge = struct
 		config := {!config with bridge_config = update_config !config.bridge_config name data}
 
 	let determine_backend () =
-		let backend = String.strip String.isspace
-			(Unixext.string_of_file ("/etc/xcp/network.conf")) in
-		match backend with
-		| "openvswitch" | "vswitch" -> kind := Openvswitch
-		| "bridge" -> kind := Bridge
-		| backend ->
-			let error = Printf.sprintf "ERROR: network backend unknown (%s)" backend in
-			debug "%s" error;
-			failwith error
+		try
+			let backend = String.strip String.isspace (Unixext.string_of_file !network_conf) in
+			match backend with
+			| "openvswitch" | "vswitch" -> kind := Openvswitch
+			| "bridge" -> kind := Bridge
+			| backend ->
+				warn "Network backend unknown (%s). Falling back to Open vSwitch." backend;
+				kind := Openvswitch
+		with _ ->
+			warn "Network-conf file not found. Falling back to Open vSwitch.";
+			kind := Openvswitch
 
 	let get_bond_links_up _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
