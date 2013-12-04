@@ -445,6 +445,12 @@ module Linux_bonding = struct
 				error "Failed to remove slave %s from bond %s" slave master
 		else
 			error "Bond %s does not exist; cannot remove slave" master
+
+	let get_bond_master_of slave =
+		try
+			let path = Unix.readlink (Sysfs.getpath slave "master") in
+			Some (List.hd (List.rev (String.split '/' path)))
+		with _ -> None
 end
 
 module Dhclient = struct
@@ -533,28 +539,46 @@ module Sysctl = struct
 end
 
 module Proc = struct
-	let get_bond_links_up name = 
+	let get_bond_slave_info name key =
 		try
 			let raw = Unixext.string_of_file (bonding_dir ^ name) in
 			let lines = String.split '\n' raw in
 			let check_lines lines =
-			let rec loop acc = function
-				| [] -> acc
-				| line1 :: line2 :: tail ->
-					if (String.startswith "Slave Interface:" line1)
-						&& (String.startswith "MII Status:" line2)
-						&& (String.endswith "up" line2)
-					then
-						loop (acc + 1) tail
-					else
-						loop acc (line2 :: tail)
-			  | _ :: [] -> acc in
-			loop 0 lines in
+				let rec loop current acc = function
+					| [] -> acc
+					| line :: tail ->
+						try
+							Scanf.sscanf line "%s@: %s@\n" (fun k v ->
+								if k = "Slave Interface" then begin
+									let interface = Some (String.strip String.isspace v) in
+									loop interface acc tail
+								end else if k = key then
+									match current with
+									| Some interface -> loop current ((interface, String.strip String.isspace v) :: acc) tail
+									| None -> loop current acc tail
+								else
+									loop current acc tail
+							)
+						with _ ->
+							loop current acc tail
+				in
+				loop None [] lines
+			in
 			check_lines lines
 		with e ->
 			error "Error: could not read %s." (bonding_dir ^ name);
-			0
+			[]
 
+	let get_bond_slave_mac name slave =
+		let macs = get_bond_slave_info name "Permanent HW addr" in
+		if List.mem_assoc slave macs then
+			List.assoc slave macs
+		else
+			raise Not_found
+
+	let get_bond_links_up name =
+		let statusses = get_bond_slave_info name "MII Status" in
+		List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
 end
 
 module Ovs = struct
