@@ -129,18 +129,20 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~restrictions ~other_config;
 	pool_ref
 
-let make_sr ~__context ~ref ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
+let make_sr ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
 		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="")
 		?(content_type="") ?(shared=true) ?(other_config=[]) ?(tags=[]) ?(default_vdi_visibility=true)
 		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) () =
 	Db.SR.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~virtual_allocation ~physical_utilisation ~physical_size ~_type
 		~content_type ~shared ~other_config ~tags ~default_vdi_visibility ~sm_config ~blobs
-		~local_cache_enabled ~introduced_by
+		~local_cache_enabled ~introduced_by;
+	ref
 
-let make_pbd ~__context ~ref ?(uuid=make_uuid ()) ?(host=Ref.make ()) ?(sR=Ref.make ())
+let make_pbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(host=Ref.make ()) ?(sR=Ref.make ())
 		?(device_config=[]) ?(currently_attached=true) ?(other_config=[]) () =
-	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config
+	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config;
+	ref
 
 let make_vbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(allowed_operations=[])
 		?(current_operations=[]) ?(vM=Ref.make ()) ?(vDI=Ref.make ()) ?(device="")
@@ -153,7 +155,8 @@ let make_vbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(allowed_operat
 	Db.VBD.create ~__context ~ref ~uuid ~allowed_operations ~current_operations ~vM ~vDI ~device
 		~userdevice ~bootable ~mode ~_type ~unpluggable ~storage_lock ~empty ~reserved ~other_config
 		~currently_attached ~status_code ~status_detail ~runtime_properties ~qos_algorithm_type
-		~qos_algorithm_params ~qos_supported_algorithms ~metrics
+		~qos_algorithm_params ~qos_supported_algorithms ~metrics;
+	ref
 
 let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 		?(name_description="") ?(allowed_operations=[]) ?(current_operations=[]) ?(sR=Ref.make ())
@@ -165,7 +168,8 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 	Db.VDI.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
 		~storage_lock ~location ~managed ~missing ~parent ~xenstore_data ~sm_config ~is_a_snapshot ~snapshot_of
-		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest
+		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest;
+	ref
 
 let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
 		?(class_name="") ?(vendor_id="") ?(vendor_name="") ?(device_id="")
@@ -173,7 +177,8 @@ let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
 		?(dependencies=[]) ?(other_config=[]) () =
 	Db.PCI.create ~__context ~ref ~uuid ~class_id ~class_name ~vendor_id
 		~vendor_name ~device_id ~device_name ~host ~pci_id ~functions ~dependencies
-		~other_config
+		~other_config;
+	ref
 
 let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)
 		?(gPU_group=Ref.null) ?(host=Ref.null) ?(other_config=[])
@@ -185,22 +190,28 @@ let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)
 	Db.PGPU.set_supported_VGPU_types ~__context ~self:ref
 		~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context ~self:ref
-		~value:enabled_VGPU_types
+		~value:enabled_VGPU_types;
+	ref
 
 let make_gpu_group ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 		?(name_label="") ?(name_description="") ?(gPU_types=[]) ?(other_config=[])
 		?(allocation_algorithm=`depth_first) () =
 	Db.GPU_group.create ~__context ~ref ~uuid ~name_label ~name_description
-		~gPU_types ~other_config ~allocation_algorithm
+		~gPU_types ~other_config ~allocation_algorithm;
+	ref
 
 let make_vgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(vM=Ref.null)
 		?(gPU_group=Ref.null) ?(device="0") ?(currently_attached=false)
 		?(other_config=[]) ?(_type=Ref.null) ?(resident_on=Ref.null) () =
 	Db.VGPU.create ~__context ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
-		~other_config ~_type ~resident_on
+		~other_config ~_type ~resident_on;
+	ref
 
 let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 		?(vendor_name="") ?(model_name="") ?(framebuffer_size=0L) ?(max_heads=0L)
-		?(size=0L) ?(internal_config=[]) () =
+		?(max_resolution_x=0L) ?(max_resolution_y=0L) ?(size=0L)
+		?(internal_config=[]) () =
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
-		~framebuffer_size ~max_heads ~size ~internal_config
+		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
+		~internal_config;
+	ref

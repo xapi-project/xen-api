@@ -18,10 +18,9 @@ open Test_common
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
 let setup_test ~__context vbd_fun =
-	let pbd_ref, sr_ref, vdi_ref = Ref.make (), Ref.make (), Ref.make () in
-	let () = make_sr ~__context ~ref:sr_ref () in
-	let () = make_pbd ~__context ~ref:pbd_ref ~sR:sr_ref () in
-	let () = make_vdi ~__context ~ref:vdi_ref ~sR:sr_ref () in
+	let sr_ref = make_sr ~__context () in
+	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
+	let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
 	let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
 	vbd_fun vdi_ref;
 	vdi_ref, vdi_record
