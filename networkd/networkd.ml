@@ -22,6 +22,12 @@ open D
 module Server = Network_interface.Server(Network_server)
 
 let resources = [
+  { Xcp_service.name = "network-conf";
+    description = "used to select the network backend";
+    essential = true;
+    path = Network_server.network_conf;
+    perms = [ Unix.R_OK ];
+  };
   { Xcp_service.name = "brctl";
     description = "used to set up bridges";
     essential = true;
