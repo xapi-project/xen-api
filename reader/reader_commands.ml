@@ -32,10 +32,10 @@ let interpret_payload payload =
 
 let read_file path protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.Make(Protocol)(Rrd_reader.File) in
+	let module Reader = Rrd_reader.Make(Rrd_reader.File)(Protocol) in
 	Reader.start 5.0 path interpret_payload
 
 let read_page domid grantref protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.Make(Protocol)(Rrd_reader.Page) in
+	let module Reader = Rrd_reader.Make(Rrd_reader.Page)(Protocol) in
 	Reader.start 5.0 (domid, [grantref]) interpret_payload

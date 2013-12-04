@@ -75,7 +75,7 @@ module Page = struct
 		alloc_cstruct
 end
 
-module Make (P: Rrd_protocol.PROTOCOL) (T: TRANSPORT) = struct
+module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 	let cached_state = ref None
 
 	let cleanup () =
