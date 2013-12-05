@@ -6,16 +6,16 @@ obuild-ver: 1
 library rrd-protocol-lib
   src-dir: lib
   modules: gnt_helpers, rrd_protocol, rrd_reader, rrd_writer
-  build-deps: bigarray, cstruct, xenctrl, xcp-rrd-plugin, cstruct-hash
+  build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, cstruct-hash
 
 executable reader
   src-dir: reader
   main: reader.ml
-  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrd-plugin, rrd-protocol-lib
+  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-protocol-lib
   c-libs: crypto
 
 executable writer
   src-dir: writer
   main: writer.ml
-  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrd-plugin, rrd-protocol-lib
+  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-protocol-lib
   c-libs: crypto
