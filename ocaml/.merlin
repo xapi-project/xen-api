@@ -1,3 +1,7 @@
+PKG oUnit
+PKG stdext
+S ./
+B ./
 S ./client_records
 B ./client_records
 S ./network
