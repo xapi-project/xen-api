@@ -27,6 +27,7 @@ let base_suite =
 			Test_platformdata.test;
 			Test_sm_features.test;
 			Test_xenopsd_metadata.test;
+			Test_ca121350.test;
 		]
 
 let _ = run_test_tt_main base_suite
