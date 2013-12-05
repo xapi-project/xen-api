@@ -1,9 +1,9 @@
-name: xcp-rrd-plugin
+name: xcp-rrdd-plugin
 version: 0.9.0
 synopsis: Plugin library for the XCP RRD daemon
 obuild-ver: 1
 
-library xcp-rrd-plugin
+library xcp-rrdd-plugin
   src-dir: lib
   modules: rrdp_common
   build-deps: forkexec, stdext, xcp-rrd, xcp.rrd

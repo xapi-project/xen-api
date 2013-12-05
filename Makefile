@@ -1,12 +1,12 @@
-dist/build/lib-xcp-rrd-plugin/xcp-rrd-plugin.cmxa:
+dist/build/lib-xcp-rrdd-plugin/xcp-rrdd-plugin.cmxa:
 	obuild configure
 	obuild build
 
 install:
-	ocamlfind install xcp-rrd-plugin lib/META $(wildcard dist/build/lib-xcp-rrd-plugin/*)
+	ocamlfind install xcp-rrdd-plugin lib/META $(wildcard dist/build/lib-xcp-rrdd-plugin/*)
 
 uninstall:
-	ocamlfind remove xcp-rrd-plugin
+	ocamlfind remove xcp-rrdd-plugin
 
 .PHONY: clean
 clean:
