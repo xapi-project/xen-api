@@ -27,6 +27,9 @@ type t =
 let role = ref None
 let role_m = Mutex.create ()
 
+let set_pool_role_for_test () =
+	Mutex.execute role_m (fun _ -> role := Some Master)
+
 let string_of = function
 	| Master -> "master"
 	| Slave x -> "slave:" ^ x
