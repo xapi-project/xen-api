@@ -10,6 +10,8 @@ let rec split ?limit:(limit=(-1)) c s =
 		and b = String.sub s (i + 1) (String.length s - i - 1) in
 		a :: (split ~limit: nlimit c b)
 
+let now () = Int64.of_float (Unix.gettimeofday ())
+
 exception Invalid_header_string
 exception Invalid_length
 exception Invalid_checksum
@@ -127,7 +129,7 @@ module V1 = struct
 		with _ -> raise Invalid_payload
 
 	let of_dss dss =
-		Rrdp.json_of_dss ~hdr:default_header (Rrdp.now()) dss
+		Rrdp.json_of_dss ~hdr:default_header (now ()) dss
 
 	let to_dss text =
 		let length_str = "0x" ^ (String.sub text length_start length_bytes) in
@@ -434,7 +436,7 @@ module V2 = struct
 		(* Write number of datasources. *)
 		Write.datasource_count cs datasource_count;
 		(* Write timestamp. *)
-		Write.timestamp cs (Rrdp.now ());
+		Write.timestamp cs (now ());
 		(* Write datasource values. *)
 		Write.datasource_values cs
 			(List.map (fun (ds, _) -> ds.Ds.ds_value) payload.datasources);

@@ -1,5 +1,4 @@
 open Rrd_protocol
-module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
 
 let get_extra_data_sources_flag =
 	let counter = ref 0 in
@@ -12,7 +11,7 @@ let get_extra_data_sources_flag =
 		result)
 
 let generate_time_data_source () =
-	let current_time = Rrdp.now () in
+	let current_time = Rrd_protocol.now () in
 	Ds.ds_make ~name:"current_time"
 		~description:"The current time"
 		~value:(Rrd.VT_Int64 current_time) ~ty:(Rrd.Gauge)
@@ -41,7 +40,7 @@ let generate_data_sources () =
 	else []
 
 let generate_payload () = {
-	timestamp = Rrdp.now ();
+	timestamp = Rrd_protocol.now ();
 	datasources = generate_data_sources ();
 }
 
