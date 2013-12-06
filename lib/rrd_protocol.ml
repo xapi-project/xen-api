@@ -1,5 +1,3 @@
-external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-
 let rec split ?limit:(limit=(-1)) c s =
 	let i = try String.index s c with Not_found -> -1 in
 	let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
