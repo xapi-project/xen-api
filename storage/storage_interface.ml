@@ -195,6 +195,17 @@ module Query = struct
 	external diagnostics: dbg:string -> string = ""
 end
 
+type probe_possibility = {
+	new_device_config : (string * string) list;
+	info : (string * string) list;
+}
+
+type probe_result = {
+	probed_srs : sr list;
+	probed : probe_possibility list;
+	other_data : (string * string) option;
+}
+
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
 
@@ -241,6 +252,10 @@ module SR = struct
 		first detaching and/or deactivating any active VDIs. This may fail with 
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
 	external destroy : dbg:debug_info -> sr:sr -> unit = ""
+
+	(** [probe device_config]: searches for existing SRs and returns them, or if the device-config
+	    map is under-specified returns possible values for further probing *)
+	external probe : dbg:debug_info -> device_config:(string * string) list -> probe_result = ""
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
 	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""

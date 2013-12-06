@@ -42,6 +42,7 @@ module SR = struct
   let detach ctx ~dbg ~sr = u "SR.detach"
   let reset ctx ~dbg ~sr = u "SR.reset"
   let destroy ctx ~dbg ~sr = u "SR.destroy"
+  let probe ctx ~dbg ~device_config = u "SR.probe"
   let scan ctx ~dbg ~sr = u "SR.scan"
   let update_snapshot_info_src ctx ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs = u "SR.update_snapshot_info_src"
   let update_snapshot_info_dest ctx ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs = u "SR.update_snapshot_info_dest"
