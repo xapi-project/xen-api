@@ -143,6 +143,7 @@ module SMAPIv1 = struct
 	end
 
 	module SR = struct
+		include Storage_skeleton.SR
 		let create context ~dbg ~sr ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
