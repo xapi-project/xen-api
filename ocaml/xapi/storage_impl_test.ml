@@ -181,6 +181,7 @@ module Debug_print_impl = struct
 	end
 		
 	module SR = struct
+		include Storage_skeleton.SR
 		let list context ~dbg = assert false
 		let scan context ~dbg ~sr = assert false
 		let create context ~dbg ~sr ~device_config ~physical_size = assert false
