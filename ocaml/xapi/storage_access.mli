@@ -99,6 +99,8 @@ val create_sr: __context:Context.t -> sr:API.ref_SR -> physical_size:int64 -> un
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
 
+(** [probe __context _type device_config sr_sm_config] executes an SR probe *)
+val probe: __context:Context.t -> _type:string -> device_config:(string * string) list -> sr_sm_config:(string * string) list -> string
 
 val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
 

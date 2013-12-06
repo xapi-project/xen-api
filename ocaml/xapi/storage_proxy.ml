@@ -38,7 +38,7 @@ module Proxy = functor(RPC: RPC) -> struct
 		let stat_vdi _ = Client.DP.stat_vdi
 	end
 	module SR = struct
-		include Storage_skeleton.SR
+		let probe _ = Client.SR.probe
 		let create _ = Client.SR.create
 		let attach _ = Client.SR.attach
 		let detach _ = Client.SR.detach

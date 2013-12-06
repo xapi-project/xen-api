@@ -115,6 +115,10 @@ let storage_driver_domain_of_vbd ~__context ~vbd =
 				dom0
 	else dom0
 
+let storage_driver_domain_of_sr_type ~__context ~_type =
+	let dom0 = Helpers.get_domain_zero ~__context in
+	dom0
+
 let is_in_use ~__context ~self =
 	let other_config = Db.VM.get_other_config ~__context ~self in
 	List.mem_assoc storage_driver_domain_key other_config
