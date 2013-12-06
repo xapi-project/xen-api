@@ -266,10 +266,11 @@ XAPI_MODULES = $(COMMON) \
 	../rrdd/interface/rrdd_fake_common \
 	../rrdd/interface/rrdd_common \
 	../rrdd/interface/monitor_types \
-	../rrdd/interface/rrdd
+	../rrdd/interface/rrdd \
+	xapi \
 
-OCamlProgram(xapi, xapi $(XAPI_MODULES))
-OCamlDocProgram(xapi, xapi $(XAPI_MODULES))
+OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
+OCamlDocProgram(xapi, xapi_main $(XAPI_MODULES))
 
 OCamlLibrary(xapi, xapi $(XAPI_MODULES))
 
