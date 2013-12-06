@@ -21,13 +21,13 @@ let generate_random_int_data_source () =
 	Ds.ds_make ~name:"random_int"
 		~description:"A random integer"
 		~value:(Rrd.VT_Int64 (Random.int64 256L)) ~ty:(Rrd.Absolute)
-		~default:true ~units:"things" (), Rrd.Host
+		~default:true ~units:"things" (), Rrd.SR "my_sr"
 
 let generate_random_float_data_source () =
 	Ds.ds_make ~name:"random_float"
 		~description:"A random float"
 		~value:(Rrd.VT_Float (Random.float 1.0)) ~ty:(Rrd.Absolute)
-		~default:true ~units:"bits of things" (), Rrd.Host
+		~default:true ~units:"bits of things" (), Rrd.VM "my_vm"
 
 let generate_data_sources () =
 	let include_extra_data_sources = get_extra_data_sources_flag () in
