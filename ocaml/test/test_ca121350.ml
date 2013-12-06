@@ -1,5 +1,21 @@
+module D = Debug.Make(struct let name="test_ca121350" end)
+open D
+
 open OUnit
 open Test_common
+
+let handlers = [
+	"get_services", Http_svr.FdIO Xapi_services.get_handler;
+	"post_services", Http_svr.FdIO Xapi_services.post_handler;
+	"put_services", Http_svr.FdIO Xapi_services.put_handler;
+	"post_root", Http_svr.BufIO (Api_server.callback false);
+	"post_json", Http_svr.BufIO (Api_server.callback true);
+	"post_jsonrpc", Http_svr.BufIO Api_server.jsoncallback;
+]
+
+let start_server handlers =
+	Xapi.listen_unix_socket ();
+	List.iter Xapi_http.add_handler handlers
 
 let setup_fixture () =
 	Printexc.record_backtrace true;
@@ -13,6 +29,8 @@ let setup_fixture () =
 	(__context, self)
 
 let test_invalid_edition () =
+	debug "*** starting test_invalid_edition";
+
 	let __context, self = setup_fixture () in
 	let module M = struct
 		include V6client ;;
@@ -30,7 +48,9 @@ let test_invalid_edition () =
 
 let test_xcp_mode () =
 	(* Skip for now; fails because http-svr isn't listening. *)
-	skip_if true "Needs http-svr";
+	skip_if false "Needs http-svr";
+
+	debug "*** starting test_xcp_mode";
 
 	let __context, self = setup_fixture () in
 	let module M = struct
@@ -43,7 +63,23 @@ let test_xcp_mode () =
 	end in
 	License_init.v6client := (module M);
 
+	start_server handlers;
+
 	try
+		let conn = [ Parse_db_conf.make "./xapi-db.xml" ] in
+		Db_cache_impl.sync conn (Db_ref.get_database (Context.database_of __context));
+
+		(* WIP: figure out why session.create is failing *)
+		(* Db.Session.create ~__context ~ref:(Ref.make ()) *)
+		(* 									~uuid:Uuid.(make_uuid () |> to_string) *)
+		(* 									~this_user:Ref.null ~this_host:self ~pool:true *)
+		(* 									~last_active:(Date.of_float (Unix.time ())) ~other_config:[] *)
+		(* 									~subject:Ref.null ~is_local_superuser:true *)
+		(* 									~auth_user_sid:Ref.null *)
+		(* 									~validation_time:(Date.of_float (Unix.time ())) *)
+		(* 									~auth_user_name:"root" ~rbac_permissions:() ~parent:Ref.null *)
+		(* 									~originator:Ref.null; *)
+
 		License_init.initialise ~__context ~host:self;
 		let edition = Db.Host.get_edition ~__context ~self in
 		assert_equal edition "free/libre"

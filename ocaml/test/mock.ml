@@ -19,8 +19,14 @@ module Database = struct
 	let make () =
 		(* generic_database_upgrade will create and populate with
 		   default values all the tables which don't exist. *)
-		let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Datamodel_schema.of_datamodel ())) in
-		Db_ref.in_memory (ref (ref db))
+		let conn = [ Parse_db_conf.make "./xapi-db.xml" ] in
+		let db = Db_upgrade.generic_database_upgrade
+							 (Db_cache_types.Database.make
+									(Datamodel_schema.of_datamodel ())) in
+		let db = Db_ref.in_memory (ref (ref db)) in
+		Db_cache_impl.make db conn (Datamodel_schema.of_datamodel ());
+		Db_cache_impl.sync conn (Db_ref.get_database db);
+		db;;
 
 end (* Database *)
 

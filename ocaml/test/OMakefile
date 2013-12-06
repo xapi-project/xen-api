@@ -21,7 +21,8 @@ OCAML_LIBS = \
 	../idl/ocaml_backend/server \
 	../auth/pam \
 	../util/stats \
-	../xapi/xapi 
+	../util/sanitycheck \
+	../xapi/xapi \
 
 OCAML_OBJS = \
 	../idl/api_lowlevel \
