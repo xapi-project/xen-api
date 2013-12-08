@@ -125,10 +125,9 @@ module V1 = struct
 	 * type. *)
 	let parse_payload ~(json : string) : payload =
 		try
-			let open Rpc in
 			let rpc = Jsonrpc.of_string json in
 			let kvs = Json.dict_of_rpc ~rpc in
-			let timestamp = int64_of_rpc (List.assoc "timestamp" kvs) in
+			let timestamp = Rpc.int64_of_rpc (List.assoc "timestamp" kvs) in
 			let datasource_rpcs = Json.dict_of_rpc (List.assoc "datasources" kvs) in
 			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 		with _ -> raise Invalid_payload
