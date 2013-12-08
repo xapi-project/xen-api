@@ -47,7 +47,7 @@ module Page = struct
 				refs
 		in
 		let mapping_opt =
-			Gnt_helpers.with_gnttab
+			Gnttab.with_gnttab
 				(fun gnttab -> Gnttab.mapv gnttab grants false)
 		in
 		match mapping_opt with
@@ -55,7 +55,7 @@ module Page = struct
 		| None -> failwith "failed to map shared page(s)"
 
 	let cleanup mapping =
-		Gnt_helpers.with_gnttab
+		Gnttab.with_gnttab
 			(fun gnttab -> Gnttab.unmap_exn gnttab mapping)
 
 	let expose mapping =

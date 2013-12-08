@@ -49,7 +49,7 @@ module Page = struct
 
 	let init (domid, count) =
 		let share =
-			Gnt_helpers.with_gntshr
+			Gntshr.with_gntshr
 				(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
 		in
 		Printf.printf
@@ -60,7 +60,7 @@ module Page = struct
 		share
 
 	let cleanup share =
-		Gnt_helpers.with_gntshr
+		Gntshr.with_gntshr
 			(fun gntshr -> Gntshr.munmap_exn gntshr share)
 
 	(** The allocator returns a Cstruct mapping all of the shared memory, unless
