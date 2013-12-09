@@ -143,7 +143,7 @@ let last_data_crc = ref 0l
 let last_metadata_crc = ref 0l
 let cached_datasources : (Ds.ds * Rrd.ds_owner) list ref = ref []
 
-let value_of_string (s : string) : Rrd.ds_value_type =
+let default_value_of_string (s : string) : Rrd.ds_value_type =
 	match s with
 	| "float" -> Rrd.VT_Float 0.0
 	| "int64" -> Rrd.VT_Int64 0L
@@ -162,7 +162,7 @@ let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 			(Rrd_rpc.assoc_opt ~key:"type" ~default:"absolute" kvs)
 	in
 	let value =
-		value_of_string (Rpc.string_of_rpc (List.assoc "value_type" kvs)) in
+		default_value_of_string (Rpc.string_of_rpc (List.assoc "value_type" kvs)) in
 	let min =
 		float_of_string (Rrd_rpc.assoc_opt ~key:"min" ~default:"-infinity" kvs) in
 	let max =
