@@ -45,12 +45,12 @@ let main_loop reader interval =
 
 let read_file path protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.Make(Rrd_reader.File)(Protocol) in
+	let module Reader = Rrd_reader.FileReader(Protocol) in
 	let reader = Reader.create path in
 	main_loop reader 5.0
 
 let read_page domid grantref protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.Make(Rrd_reader.Page)(Protocol) in
+	let module Reader = Rrd_reader.PageReader(Protocol) in
 	let reader = Reader.create (domid, [grantref]) in
 	main_loop reader 5.0

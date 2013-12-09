@@ -59,13 +59,13 @@ let main_loop writer interval =
 let write_file path protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Writer = Rrd_writer.Make(Rrd_writer.File)(Protocol) in
+	let module Writer = Rrd_writer.FileWriter(Protocol) in
 	let writer = Writer.create path in
 	main_loop writer 5.0
 
 let write_page domid protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
-	let module Writer = Rrd_writer.Make(Rrd_writer.Page)(Protocol) in
+	let module Writer = Rrd_writer.PageWriter(Protocol) in
 	let writer = Writer.create (domid, 1) in
 	main_loop writer 5.0

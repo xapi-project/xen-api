@@ -90,3 +90,6 @@ module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 			cleanup;
 		}
 end
+
+module FileReader = Make(File)
+module PageReader = Make(Page)
