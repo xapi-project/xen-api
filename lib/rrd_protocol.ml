@@ -1,5 +1,3 @@
-let now () = Int64.of_float (Unix.gettimeofday ())
-
 exception Invalid_header_string
 exception Invalid_length
 exception Invalid_checksum

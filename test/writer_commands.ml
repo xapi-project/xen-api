@@ -1,5 +1,7 @@
 open Rrd_protocol
 
+let now () = Int64.of_float (Unix.gettimeofday ())
+
 let get_extra_data_sources_flag =
 	let counter = ref 0 in
 	(fun () ->
@@ -11,7 +13,7 @@ let get_extra_data_sources_flag =
 		result)
 
 let generate_time_data_source () =
-	let current_time = Rrd_protocol.now () in
+	let current_time = now () in
 	Ds.ds_make ~name:"current_time"
 		~description:"The current time"
 		~value:(Rrd.VT_Int64 current_time) ~ty:(Rrd.Gauge)
@@ -40,7 +42,7 @@ let generate_data_sources () =
 	else []
 
 let generate_payload () = {
-	timestamp = Rrd_protocol.now ();
+	timestamp = now ();
 	datasources = generate_data_sources ();
 }
 
