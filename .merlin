@@ -3,6 +3,6 @@ S lib
 S reader
 S writer
 
-B dist/build/lib-rrd-protocol-lib
+B dist/build/lib-rrd-transport-lib
 B dist/build/reader
 B dist/build/writer
