@@ -1,0 +1,9 @@
+version = "0.1.0"
+description = "Shared-memory protocol for transmitting RRD data"
+requires = "bigarray cmdliner cstruct cstruct-hash xcp-rrdd-plugin xenctrl"
+archive(byte) = "rrd-transport.cma"
+archive(byte, plugin) = "rrd-transport.cma"
+archive(native) = "rrd-transport.cmxa"
+archive(native, plugin) = "rrd-transport.cmxa"
+exists_if = "rrd-transport.cma"
+
