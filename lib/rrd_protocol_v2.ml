@@ -243,7 +243,7 @@ let write_payload alloc_cstruct payload =
 	(* Write number of datasources. *)
 	Write.datasource_count cs datasource_count;
 	(* Write timestamp. *)
-	Write.timestamp cs (now ());
+	Write.timestamp cs payload.timestamp;
 	(* Write datasource values. *)
 	Write.datasource_values cs
 		(List.map (fun (ds, _) -> ds.Ds.ds_value) payload.datasources);
