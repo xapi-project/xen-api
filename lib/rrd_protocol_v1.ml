@@ -80,8 +80,10 @@ let make_payload_reader () =
 		let header = Cstruct.copy cs 0 header_bytes in
 		if header <> default_header then
 			raise Invalid_header_string;
-		let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
-		let length = int_of_string length_str in
+		let length =
+			let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
+			try int_of_string length_str with _ -> raise Invalid_length
+		in
 		let checksum = Cstruct.copy cs checksum_start checksum_bytes in
 		let payload_string = Cstruct.copy cs payload_start length in
 		if payload_string |> Digest.string |> Digest.to_hex <> checksum then
