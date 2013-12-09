@@ -1,7 +1,5 @@
 open Rrd_protocol
 
-module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
-
 let default_header = "DATASOURCES\n"
 let header_bytes = String.length default_header
 let length_start = header_bytes
@@ -91,7 +89,7 @@ let read_payload cs =
 
 let write_payload alloc_cstruct payload =
 	let json =
-		Rrdp.json_of_dss ~hdr:default_header payload.timestamp payload.datasources
+		Rrd_json.json_of_dss ~hdr:default_header payload.timestamp payload.datasources
 	in
 	let length = String.length json in
 	let cs = alloc_cstruct length in

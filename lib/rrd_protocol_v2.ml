@@ -1,7 +1,5 @@
 open Rrd_protocol
 
-module Rrdp = Rrdp_common.Common(struct let name = "test_rrd_writer" end)
-
 (* Field sizes. *)
 let default_header = "DATASOURCES"
 
@@ -233,7 +231,7 @@ let read_payload cs =
 	}
 
 let write_payload alloc_cstruct payload =
-	let metadata = Rrdp.json_metadata_of_dss payload.datasources in
+	let metadata = Rrd_json.json_metadata_of_dss payload.datasources in
 	let datasource_count = List.length payload.datasources in
 	let metadata_length = String.length metadata in
 	let total_bytes = get_total_bytes datasource_count metadata_length in

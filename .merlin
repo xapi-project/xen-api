@@ -1,4 +1,4 @@
-PKG cmdliner bigarray threads xenctrl xcp-rrd xcp-rrdd-plugin cstruct crc
+PKG cmdliner bigarray threads xenctrl xcp.rrd xcp-rrd cstruct crc
 S lib
 S reader
 S writer
