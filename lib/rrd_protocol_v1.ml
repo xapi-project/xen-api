@@ -76,6 +76,7 @@ let to_dss text =
 	length, checksum, (parse_payload payload)
 
 let make_payload_reader () =
+	let last_checksum = ref "" in
 	(fun cs ->
 		let header = Cstruct.copy cs 0 header_bytes in
 		if header <> default_header then
@@ -88,6 +89,9 @@ let make_payload_reader () =
 		let payload_string = Cstruct.copy cs payload_start length in
 		if payload_string |> Digest.string |> Digest.to_hex <> checksum then
 			raise Invalid_checksum;
+		if checksum = !last_checksum
+		then raise No_update
+		else last_checksum := checksum;
 		parse_payload payload_string)
 
 let write_payload alloc_cstruct payload =
