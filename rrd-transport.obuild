@@ -6,16 +6,14 @@ obuild-ver: 1
 library rrd_transport
   src-dir: lib
   modules: rrd_protocol, rrd_protocol_v1, rrd_protocol_v2, rrd_io, rrd_reader, rrd_writer
-  build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, cstruct-hash
+  build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, crc
 
 executable reader
   src-dir: test
   main: reader.ml
   build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd_transport
-  c-libs: crypto
 
 executable writer
   src-dir: test
   main: writer.ml
   build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd_transport
-  c-libs: crypto

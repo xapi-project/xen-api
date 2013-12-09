@@ -1,8 +1,8 @@
-PKG cmdliner bigarray threads xenctrl xcp-rrd xcp-rrdd-plugin cstruct cstruct-hash
+PKG cmdliner bigarray threads xenctrl xcp-rrd xcp-rrdd-plugin cstruct crc
 S lib
 S reader
 S writer
 
-B dist/build/lib-rrd-transport-lib
+B dist/build/lib-rrd_transport
 B dist/build/reader
 B dist/build/writer

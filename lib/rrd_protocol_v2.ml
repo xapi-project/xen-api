@@ -7,9 +7,9 @@ let default_header = "DATASOURCES"
 
 let header_bytes = String.length default_header
 
-let data_checksum_bytes = 16
+let data_crc_bytes = 4
 
-let metadata_checksum_bytes = 16
+let metadata_crc_bytes = 4
 
 let datasource_count_bytes = 4
 
@@ -21,8 +21,8 @@ let metadata_length_bytes = 4
 
 let get_total_bytes datasource_count metadata_length =
 	header_bytes +
-	data_checksum_bytes +
-	metadata_checksum_bytes +
+	data_crc_bytes +
+	metadata_crc_bytes +
 	datasource_count_bytes +
 	timestamp_bytes +
 	(datasource_value_bytes * datasource_count) +
@@ -31,11 +31,11 @@ let get_total_bytes datasource_count metadata_length =
 (* Field start points. *)
 let header_start = 0
 
-let data_checksum_start = header_start + header_bytes
+let data_crc_start = header_start + header_bytes
 
-let metadata_checksum_start = data_checksum_start + data_checksum_bytes
+let metadata_crc_start = data_crc_start + data_crc_bytes
 
-let datasource_count_start = metadata_checksum_start + metadata_checksum_bytes
+let datasource_count_start = metadata_crc_start + metadata_crc_bytes
 
 let timestamp_start = datasource_count_start + datasource_count_bytes
 
@@ -54,17 +54,11 @@ module Read = struct
 		Cstruct.blit_to_string cs header_start header 0 header_bytes;
 		header
 
-	let data_checksum cs =
-		let data_checksum = String.create data_checksum_bytes in
-		Cstruct.blit_to_string cs data_checksum_start
-			data_checksum 0 data_checksum_bytes;
-		data_checksum
+	let data_crc cs =
+		Cstruct.BE.get_uint32 cs data_crc_start
 
-	let metadata_checksum cs =
-		let metadata_checksum = String.create metadata_checksum_bytes in
-		Cstruct.blit_to_string cs metadata_checksum_start
-			metadata_checksum 0 metadata_checksum_bytes;
-		metadata_checksum
+	let metadata_crc cs =
+		Cstruct.BE.get_uint32 cs metadata_crc_start
 
 	let datasource_count cs =
 		Int32.to_int (Cstruct.BE.get_uint32 cs datasource_count_start)
@@ -109,13 +103,11 @@ module Write = struct
 	let header cs =
 		Cstruct.blit_from_string default_header 0 cs header_start header_bytes
 
-	let data_checksum cs value =
-		Cstruct.blit_from_string value 0
-			cs data_checksum_start data_checksum_bytes
+	let data_crc cs value =
+		Cstruct.BE.set_uint32 cs data_crc_start value
 
-	let metadata_checksum cs value =
-		Cstruct.blit_from_string value 0
-			cs metadata_checksum_start metadata_checksum_bytes
+	let metadata_crc cs value =
+		Cstruct.BE.set_uint32 cs metadata_crc_start value
 
 	let datasource_count cs value =
 		Cstruct.BE.set_uint32 cs datasource_count_start (Int32.of_int value)
@@ -149,8 +141,8 @@ module Write = struct
 			metadata_length
 end
 
-let last_data_checksum = ref ""
-let last_metadata_checksum = ref ""
+let last_data_crc = ref 0l
+let last_metadata_crc = ref 0l
 let cached_datasources : (Ds.ds * Rrd.ds_owner) list ref = ref []
 
 let value_of_string (s : string) : Rrd.ds_value_type =
@@ -196,25 +188,25 @@ let read_payload cs =
 	let header = Read.header cs in
 	if not (header = default_header) then
 		raise Invalid_header_string;
-	(* Check that the data checksum has changed. Since the checksummed data
+	(* Check that the data CRC has changed. Since the CRC'd data
 	 * includes the timestamp, this should change with every update. *)
-	let data_checksum = Read.data_checksum cs in
-	if data_checksum = !last_data_checksum then raise No_update;
-	let metadata_checksum = Read.metadata_checksum cs in
+	let data_crc = Read.data_crc cs in
+	if data_crc = !last_data_crc then raise No_update;
+	let metadata_crc = Read.metadata_crc cs in
 	let datasource_count = Read.datasource_count cs in
 	let timestamp = Read.timestamp cs in
-	(* Check the data checksum is correct. *)
-	let data_checksum_calculated =
-		Cstruct_hash.md5sum cs
+	(* Check the data crc is correct. *)
+	let data_crc_calculated =
+		Crc.crc32_cstruct cs
 			timestamp_start
 			(timestamp_bytes + datasource_count * datasource_value_bytes)
 	in
-	if not (data_checksum = data_checksum_calculated)
+	if not (data_crc = data_crc_calculated)
 	then raise Invalid_checksum
-	else last_data_checksum := data_checksum;
+	else last_data_crc := data_crc;
 	(* Read the datasource values. *)
 	let datasources =
-		if metadata_checksum = !last_metadata_checksum then begin
+		if metadata_crc = !last_metadata_crc then begin
 			(* Metadata hasn't changed, so just read the datasources values. *)
 			Read.datasource_values cs !cached_datasources
 		end else begin
@@ -223,11 +215,11 @@ let read_payload cs =
 			let metadata_length = Read.metadata_length cs datasource_count in
 			let metadata = Read.metadata cs datasource_count metadata_length in
 			(* Check the metadata checksum is correct. *)
-			if not (metadata_checksum = (Digest.string metadata))
+			if not (metadata_crc = (Crc.crc32_string metadata 0 metadata_length))
 			then raise Invalid_checksum;
 			(* If all is OK, cache the metadata checksum and read the values
 			 * based on this new metadata. *)
-			last_metadata_checksum := metadata_checksum;
+			last_metadata_crc := metadata_crc;
 			Read.datasource_values cs (parse_metadata metadata)
 		end
 	in
@@ -246,7 +238,7 @@ let write_payload alloc_cstruct payload =
 	(* Write header. *)
 	Write.header cs;
 	(* Write metadata checksum. *)
-	Write.metadata_checksum cs (Digest.string metadata);
+	Write.metadata_crc cs (Crc.crc32_string metadata 0 metadata_length);
 	(* Write number of datasources. *)
 	Write.datasource_count cs datasource_count;
 	(* Write timestamp. *)
@@ -259,7 +251,7 @@ let write_payload alloc_cstruct payload =
 	(* Write the metadata length. *)
 	Write.metadata_length cs metadata_length datasource_count;
 	(* Write the data checksum. *)
-	let data_checksum =
-		Cstruct_hash.md5sum cs timestamp_start
+	let data_crc =
+		Crc.crc32_cstruct cs timestamp_start
 			(timestamp_bytes + datasource_count * datasource_value_bytes) in
-	Write.data_checksum cs data_checksum
+	Write.data_crc cs data_crc
