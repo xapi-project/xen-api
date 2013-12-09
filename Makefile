@@ -1,6 +1,6 @@
 .PHONY: clean install uninstall
 
-dist/build/rrd-protocol/rrd-protocol:
+dist/build/lib-rrd-transport/rrd-transport.cma:
 	obuild configure --enable-tests
 	obuild build
 
