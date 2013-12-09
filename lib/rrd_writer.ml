@@ -75,29 +75,30 @@ module Page = struct
 		alloc_cstruct
 end
 
+exception Resource_closed
+
+type writer = {
+	write_payload: Rrd_protocol.payload -> unit;
+	cleanup: unit -> unit;
+}
+
 module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
-	let cached_state = ref None
-
-	let cleanup () =
-		match !cached_state with
-		| Some state -> T.cleanup state
-		| None -> ()
-
-	let setup_signals () =
-		Sys.set_signal Sys.sigint
-			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
-
-	let start interval id generate_payload =
-		setup_signals ();
+	let create id =
 		let state = T.init id in
-		cached_state := Some state;
-		try
-			while true do
+		let is_open = ref true in
+		let write_payload payload =
+			if !is_open then begin
 				let allocator = T.get_allocator state in
-				P.write_payload allocator (generate_payload ());
-				Thread.delay interval
-			done
-		with e ->
-			T.cleanup state;
-			raise e
+				P.write_payload allocator payload
+			end else raise Resource_closed
+		in
+		let cleanup () =
+			if !is_open then begin
+				T.cleanup state;
+				is_open := false
+			end else raise Resource_closed
+		in {
+			write_payload;
+			cleanup;
+		}
 end

@@ -44,16 +44,28 @@ let generate_payload () = {
 	datasources = generate_data_sources ();
 }
 
+let main_loop writer interval =
+	Sys.set_signal Sys.sigint
+		(Sys.Signal_handle (fun _ -> writer.Rrd_writer.cleanup (); exit 0));
+	try
+		while true do
+			writer.Rrd_writer.write_payload (generate_payload ());
+			Thread.delay interval
+		done
+	with e ->
+		writer.Rrd_writer.cleanup ();
+		raise e
+
 let write_file path protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Writer = Rrd_writer.Make(Rrd_writer.File)(Protocol) in
-	Writer.start 5.0 path
-		(fun () -> generate_payload ())
+	let writer = Writer.create path in
+	main_loop writer 5.0
 
 let write_page domid protocol =
 	Random.self_init ();
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Writer = Rrd_writer.Make(Rrd_writer.Page)(Protocol) in
-	Writer.start 5.0 (domid, 1)
-		(fun () -> generate_payload ())
+	let writer = Writer.create (domid, 1) in
+	main_loop writer 5.0
