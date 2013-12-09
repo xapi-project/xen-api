@@ -1,0 +1,1 @@
+exception Resource_closed

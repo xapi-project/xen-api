@@ -63,8 +63,6 @@ module Page = struct
 		Cstruct.of_bigarray buf
 end
 
-exception Resource_closed
-
 type reader = {
 	read_payload: unit -> Rrd_protocol.payload;
 	cleanup: unit -> unit;
@@ -78,13 +76,13 @@ module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 			if !is_open then begin
 				let cs = T.expose state in
 				P.read_payload cs
-			end else raise Resource_closed
+			end else raise Rrd_io.Resource_closed
 		in
 		let cleanup () =
 			if !is_open then begin
 				T.cleanup state;
 				is_open := false
-			end else raise Resource_closed
+			end else raise Rrd_io.Resource_closed
 		in {
 			read_payload;
 			cleanup;

@@ -75,8 +75,6 @@ module Page = struct
 		alloc_cstruct
 end
 
-exception Resource_closed
-
 type writer = {
 	write_payload: Rrd_protocol.payload -> unit;
 	cleanup: unit -> unit;
@@ -90,13 +88,13 @@ module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 			if !is_open then begin
 				let allocator = T.get_allocator state in
 				P.write_payload allocator payload
-			end else raise Resource_closed
+			end else raise Rrd_io.Resource_closed
 		in
 		let cleanup () =
 			if !is_open then begin
 				T.cleanup state;
 				is_open := false
-			end else raise Resource_closed
+			end else raise Rrd_io.Resource_closed
 		in {
 			write_payload;
 			cleanup;
