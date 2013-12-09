@@ -139,10 +139,6 @@ module Write = struct
 			metadata_length
 end
 
-let last_data_crc = ref 0l
-let last_metadata_crc = ref 0l
-let cached_datasources : (Ds.ds * Rrd.ds_owner) list ref = ref []
-
 let default_value_of_string (s : string) : Rrd.ds_value_type =
 	match s with
 	| "float" -> Rrd.VT_Float 0.0
@@ -184,51 +180,55 @@ let parse_metadata metadata =
 		List.map uninitialised_ds_of_rpc datasource_rpcs
 	with _ -> raise Invalid_payload
 
-let read_payload cs =
-	(* Check the header string is present and correct. *)
-	let header = Read.header cs in
-	if not (header = default_header) then
-		raise Invalid_header_string;
-	(* Check that the data CRC has changed. Since the CRC'd data
-	 * includes the timestamp, this should change with every update. *)
-	let data_crc = Read.data_crc cs in
-	if data_crc = !last_data_crc then raise No_update;
-	let metadata_crc = Read.metadata_crc cs in
-	let datasource_count = Read.datasource_count cs in
-	let timestamp = Read.timestamp cs in
-	(* Check the data crc is correct. *)
-	let data_crc_calculated =
-		Crc.crc32_cstruct cs
-			timestamp_start
-			(timestamp_bytes + datasource_count * datasource_value_bytes)
-	in
-	if not (data_crc = data_crc_calculated)
-	then raise Invalid_checksum
-	else last_data_crc := data_crc;
-	(* Read the datasource values. *)
-	let datasources =
-		if metadata_crc = !last_metadata_crc then begin
-			(* Metadata hasn't changed, so just read the datasources values. *)
-			Read.datasource_values cs !cached_datasources
-		end else begin
-			(* Metadata has changed - we need to read it to find the types of the
-			 * datasources, then go back and read the values themselves. *)
-			let metadata_length = Read.metadata_length cs datasource_count in
-			let metadata = Read.metadata cs datasource_count metadata_length in
-			(* Check the metadata checksum is correct. *)
-			if not (metadata_crc = (Crc.crc32_string metadata 0 metadata_length))
-			then raise Invalid_checksum;
-			(* If all is OK, cache the metadata checksum and read the values
-			 * based on this new metadata. *)
-			last_metadata_crc := metadata_crc;
-			Read.datasource_values cs (parse_metadata metadata)
-		end
-	in
-	cached_datasources := datasources;
-	{
-		timestamp = timestamp;
-		datasources = datasources;
-	}
+let make_payload_reader () =
+	let last_data_crc = ref 0l in
+	let last_metadata_crc = ref 0l in
+	let cached_datasources : (Ds.ds * Rrd.ds_owner) list ref = ref [] in
+	(fun cs ->
+		(* Check the header string is present and correct. *)
+		let header = Read.header cs in
+		if not (header = default_header) then
+			raise Invalid_header_string;
+		(* Check that the data CRC has changed. Since the CRC'd data
+		 * includes the timestamp, this should change with every update. *)
+		let data_crc = Read.data_crc cs in
+		if data_crc = !last_data_crc then raise No_update;
+		let metadata_crc = Read.metadata_crc cs in
+		let datasource_count = Read.datasource_count cs in
+		let timestamp = Read.timestamp cs in
+		(* Check the data crc is correct. *)
+		let data_crc_calculated =
+			Crc.crc32_cstruct cs
+				timestamp_start
+				(timestamp_bytes + datasource_count * datasource_value_bytes)
+		in
+		if not (data_crc = data_crc_calculated)
+		then raise Invalid_checksum
+		else last_data_crc := data_crc;
+		(* Read the datasource values. *)
+		let datasources =
+			if metadata_crc = !last_metadata_crc then begin
+				(* Metadata hasn't changed, so just read the datasources values. *)
+				Read.datasource_values cs !cached_datasources
+			end else begin
+				(* Metadata has changed - we need to read it to find the types of the
+				 * datasources, then go back and read the values themselves. *)
+				let metadata_length = Read.metadata_length cs datasource_count in
+				let metadata = Read.metadata cs datasource_count metadata_length in
+				(* Check the metadata checksum is correct. *)
+				if not (metadata_crc = (Crc.crc32_string metadata 0 metadata_length))
+				then raise Invalid_checksum;
+				(* If all is OK, cache the metadata checksum and read the values
+				 * based on this new metadata. *)
+				last_metadata_crc := metadata_crc;
+				Read.datasource_values cs (parse_metadata metadata)
+			end
+		in
+		cached_datasources := datasources;
+		{
+			timestamp = timestamp;
+			datasources = datasources;
+		})
 
 let write_payload alloc_cstruct payload =
 	let metadata = Rrd_json.json_metadata_of_dss payload.datasources in
@@ -256,3 +256,10 @@ let write_payload alloc_cstruct payload =
 		Crc.crc32_cstruct cs timestamp_start
 			(timestamp_bytes + datasource_count * datasource_value_bytes) in
 	Write.data_crc cs data_crc
+
+let make_payload_writer () = write_payload
+
+let protocol = {
+	make_payload_reader;
+	make_payload_writer;
+}

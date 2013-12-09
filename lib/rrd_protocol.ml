@@ -11,7 +11,7 @@ type payload = {
 	datasources : (Ds.ds * Rrd.ds_owner) list;
 }
 
-module type PROTOCOL = sig
-	val read_payload : Cstruct.t -> payload
-	val write_payload : (int -> Cstruct.t) -> payload -> unit
-end
+type protocol = {
+	make_payload_reader: unit -> (Cstruct.t -> payload);
+	make_payload_writer: unit -> ((int -> Cstruct.t) -> payload -> unit);
+}

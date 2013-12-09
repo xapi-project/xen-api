@@ -59,20 +59,18 @@ let main_loop writer interval =
 		raise e
 
 let protocol_of_string = function
-	| "v1" -> (module Rrd_protocol_v1 : PROTOCOL)
-	| "v2" -> (module Rrd_protocol_v2 : PROTOCOL)
+	| "v1" -> Rrd_protocol_v1.protocol
+	| "v2" -> Rrd_protocol_v2.protocol
 	| _ -> failwith "Unknown protocol"
 
 let write_file path protocol =
 	Random.self_init ();
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
-	let module Writer = Rrd_writer.FileWriter(Protocol) in
-	let writer = Writer.create path in
+	let protocol = protocol_of_string protocol in
+	let writer = Rrd_writer.FileWriter.create path protocol in
 	main_loop writer 5.0
 
 let write_page domid protocol =
 	Random.self_init ();
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
-	let module Writer = Rrd_writer.PageWriter(Protocol) in
-	let writer = Writer.create (domid, 1) in
+	let protocol = protocol_of_string protocol in
+	let writer = Rrd_writer.PageWriter.create (domid, 1) protocol in
 	main_loop writer 5.0

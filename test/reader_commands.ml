@@ -44,18 +44,16 @@ let main_loop reader interval =
 		raise e
 
 let protocol_of_string = function
-	| "v1" -> (module Rrd_protocol_v1 : PROTOCOL)
-	| "v2" -> (module Rrd_protocol_v2 : PROTOCOL)
+	| "v1" -> Rrd_protocol_v1.protocol
+	| "v2" -> Rrd_protocol_v2.protocol
 	| _ -> failwith "Unknown protocol"
 
 let read_file path protocol =
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.FileReader(Protocol) in
-	let reader = Reader.create path in
+	let protocol = protocol_of_string protocol in
+	let reader = Rrd_reader.FileReader.create path protocol in
 	main_loop reader 5.0
 
 let read_page domid grantref protocol =
-	let module Protocol = (val protocol_of_string protocol : PROTOCOL) in
-	let module Reader = Rrd_reader.PageReader(Protocol) in
-	let reader = Reader.create (domid, [grantref]) in
+	let protocol = protocol_of_string protocol in
+	let reader = Rrd_reader.PageReader.create (domid, [grantref]) protocol in
 	main_loop reader 5.0

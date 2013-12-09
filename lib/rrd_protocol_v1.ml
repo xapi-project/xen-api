@@ -75,17 +75,18 @@ let to_dss text =
 	let payload = String.sub text payload_start length in
 	length, checksum, (parse_payload payload)
 
-let read_payload cs =
-	let header = Cstruct.copy cs 0 header_bytes in
-	if header <> default_header then
-		raise Invalid_header_string;
-	let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
-	let length = int_of_string length_str in
-	let checksum = Cstruct.copy cs checksum_start checksum_bytes in
-	let payload_string = Cstruct.copy cs payload_start length in
-	if payload_string |> Digest.string |> Digest.to_hex <> checksum then
-		raise Invalid_checksum;
-	parse_payload payload_string
+let make_payload_reader () =
+	(fun cs ->
+		let header = Cstruct.copy cs 0 header_bytes in
+		if header <> default_header then
+			raise Invalid_header_string;
+		let length_str = "0x" ^ (Cstruct.copy cs length_start length_bytes) in
+		let length = int_of_string length_str in
+		let checksum = Cstruct.copy cs checksum_start checksum_bytes in
+		let payload_string = Cstruct.copy cs payload_start length in
+		if payload_string |> Digest.string |> Digest.to_hex <> checksum then
+			raise Invalid_checksum;
+		parse_payload payload_string)
 
 let write_payload alloc_cstruct payload =
 	let json =
@@ -94,3 +95,10 @@ let write_payload alloc_cstruct payload =
 	let length = String.length json in
 	let cs = alloc_cstruct length in
 	Cstruct.blit_from_string json 0 cs 0 length
+
+let make_payload_writer () = write_payload
+
+let protocol = {
+	make_payload_reader;
+	make_payload_writer;
+}

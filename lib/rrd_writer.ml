@@ -80,14 +80,15 @@ type writer = {
 	cleanup: unit -> unit;
 }
 
-module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
-	let create id =
+module Make (T: TRANSPORT) = struct
+	let create id protocol =
 		let state = T.init id in
+		let writer = protocol.Rrd_protocol.make_payload_writer () in
 		let is_open = ref true in
 		let write_payload payload =
 			if !is_open then begin
 				let allocator = T.get_allocator state in
-				P.write_payload allocator payload
+				writer allocator payload
 			end else raise Rrd_io.Resource_closed
 		in
 		let cleanup () =
