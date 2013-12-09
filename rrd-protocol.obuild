@@ -9,13 +9,13 @@ library rrd-protocol-lib
   build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, cstruct-hash
 
 executable reader
-  src-dir: reader
+  src-dir: test
   main: reader.ml
   build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-protocol-lib
   c-libs: crypto
 
 executable writer
-  src-dir: writer
+  src-dir: test
   main: writer.ml
   build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-protocol-lib
   c-libs: crypto
