@@ -3,7 +3,7 @@ version: 0.1.0
 synopsis: Programs for testing shared-memory communication protocols
 obuild-ver: 1
 
-library rrd-transport-lib
+library rrd-transport
   src-dir: lib
   modules: rrd_protocol, rrd_protocol_v1, rrd_protocol_v2, rrd_io, rrd_reader, rrd_writer
   build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, cstruct-hash
@@ -11,11 +11,11 @@ library rrd-transport-lib
 executable reader
   src-dir: test
   main: reader.ml
-  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-transport-lib
+  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-transport
   c-libs: crypto
 
 executable writer
   src-dir: test
   main: writer.ml
-  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-transport-lib
+  build-deps: cmdliner, bigarray, threads, xenctrl, xcp-rrd, xcp-rrdd-plugin, rrd-transport
   c-libs: crypto
