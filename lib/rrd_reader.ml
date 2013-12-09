@@ -63,30 +63,30 @@ module Page = struct
 		Cstruct.of_bigarray buf
 end
 
+exception Resource_closed
+
+type reader = {
+	read_payload: unit -> Rrd_protocol.payload;
+	cleanup: unit -> unit;
+}
+
 module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
-	let cached_state = ref None
-
-	let cleanup () =
-		match !cached_state with
-		| Some state -> T.cleanup state
-		| None -> ()
-
-	let setup_signals () =
-		Sys.set_signal Sys.sigint
-			(Sys.Signal_handle (fun _ -> cleanup (); exit 0))
-
-	let start interval id interpret_payload =
-		setup_signals ();
+	let create id =
 		let state = T.init id in
-		cached_state := Some state;
-		try
-			while true do
+		let is_open = ref true in
+		let read_payload () =
+			if !is_open then begin
 				let cs = T.expose state in
-				let payload = P.read_payload cs in
-				interpret_payload payload;
-				Thread.delay interval
-			done
-		with e ->
-			T.cleanup state;
-			raise e
+				P.read_payload cs
+			end else raise Resource_closed
+		in
+		let cleanup () =
+			if !is_open then begin
+				T.cleanup state;
+				is_open := false
+			end else raise Resource_closed
+		in {
+			read_payload;
+			cleanup;
+		}
 end

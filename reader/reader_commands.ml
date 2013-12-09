@@ -30,12 +30,27 @@ let interpret_payload payload =
 			print_endline "----------")
 		payload.datasources
 
+let main_loop reader interval =
+	Sys.set_signal Sys.sigint
+		(Sys.Signal_handle (fun _ -> reader.Rrd_reader.cleanup (); exit 0));
+	try
+		while true do
+			let payload = reader.Rrd_reader.read_payload () in
+			interpret_payload payload;
+			Thread.delay interval
+		done
+	with e ->
+		reader.Rrd_reader.cleanup ();
+		raise e
+
 let read_file path protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Reader = Rrd_reader.Make(Rrd_reader.File)(Protocol) in
-	Reader.start 5.0 path interpret_payload
+	let reader = Reader.create path in
+	main_loop reader 5.0
 
 let read_page domid grantref protocol =
 	let module Protocol = (val Rrd_protocol.of_string protocol : PROTOCOL) in
 	let module Reader = Rrd_reader.Make(Rrd_reader.Page)(Protocol) in
-	Reader.start 5.0 (domid, [grantref]) interpret_payload
+	let reader = Reader.create (domid, [grantref]) in
+	main_loop reader 5.0
