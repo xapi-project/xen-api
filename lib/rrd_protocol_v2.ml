@@ -156,20 +156,23 @@ let value_of_string (s : string) : Rrd.ds_value_type =
 let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 		: (Ds.ds * Rrd.ds_owner) =
 	let open Rpc in
-	let kvs = Json.dict_of_rpc ~rpc in
-	let description = Json.assoc_opt ~key:"description" ~default:"" kvs in
-	let units = Json.assoc_opt ~key:"units" ~default:"" kvs in
+	let kvs = Rrd_rpc.dict_of_rpc ~rpc in
+	let description = Rrd_rpc.assoc_opt ~key:"description" ~default:"" kvs in
+	let units = Rrd_rpc.assoc_opt ~key:"units" ~default:"" kvs in
 	let ty =
-		Json.ds_ty_of_string (Json.assoc_opt ~key:"type" ~default:"absolute" kvs)
+		Rrd_rpc.ds_ty_of_string
+			(Rrd_rpc.assoc_opt ~key:"type" ~default:"absolute" kvs)
 	in
 	let value =
 		value_of_string (Rpc.string_of_rpc (List.assoc "value_type" kvs)) in
 	let min =
-		float_of_string (Json.assoc_opt ~key:"min" ~default:"-infinity" kvs) in
+		float_of_string (Rrd_rpc.assoc_opt ~key:"min" ~default:"-infinity" kvs) in
 	let max =
-		float_of_string (Json.assoc_opt ~key:"max" ~default:"infinity" kvs) in
+		float_of_string (Rrd_rpc.assoc_opt ~key:"max" ~default:"infinity" kvs) in
 	let owner =
-		Json.owner_of_string (Json.assoc_opt ~key:"owner" ~default:"host" kvs) in
+		Rrd_rpc.owner_of_string
+			(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs)
+	in
 	let ds = Ds.ds_make ~name ~description ~units
 		~ty ~value ~min ~max ~default:true () in
 	ds, owner
@@ -178,8 +181,8 @@ let parse_metadata metadata =
 	try
 		let open Rpc in
 		let rpc = Jsonrpc.of_string metadata in
-		let kvs = Json.dict_of_rpc ~rpc in
-		let datasource_rpcs = Json.dict_of_rpc (List.assoc "datasources" kvs) in
+		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
+		let datasource_rpcs = Rrd_rpc.dict_of_rpc (List.assoc "datasources" kvs) in
 		List.map uninitialised_ds_of_rpc datasource_rpcs
 	with _ -> raise Invalid_payload
 

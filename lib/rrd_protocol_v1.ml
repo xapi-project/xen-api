@@ -31,27 +31,28 @@ let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
 let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Ds.ds * Rrd.ds_owner) =
 	try
 		let open Rpc in
-		let kvs = Json.dict_of_rpc ~rpc in
-		let description = Json.assoc_opt ~key:"description" ~default:"" kvs in
-		let units = Json.assoc_opt ~key:"units" ~default:"" kvs in
+		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
+		let description = Rrd_rpc.assoc_opt ~key:"description" ~default:"" kvs in
+		let units = Rrd_rpc.assoc_opt ~key:"units" ~default:"" kvs in
 		let ty =
-			Json.ds_ty_of_string
-				(Json.assoc_opt ~key:"type" ~default:"absolute" kvs)
+			Rrd_rpc.ds_ty_of_string
+				(Rrd_rpc.assoc_opt ~key:"type" ~default:"absolute" kvs)
 		in
 		let val_ty =
 			val_ty_of_string
-				(Json.assoc_opt ~key:"value_type" ~default:"float" kvs)
+				(Rrd_rpc.assoc_opt ~key:"value_type" ~default:"float" kvs)
 		in
 		let value =
 			let value_rpc = List.assoc "value" kvs in
 			ds_value_of_rpc ~ty:val_ty ~rpc:value_rpc
 		in
 		let min =
-			float_of_string (Json.assoc_opt ~key:"min" ~default:"-infinity" kvs) in
+			float_of_string (Rrd_rpc.assoc_opt ~key:"min" ~default:"-infinity" kvs) in
 		let max =
-			float_of_string (Json.assoc_opt ~key:"max" ~default:"infinity" kvs) in
+			float_of_string (Rrd_rpc.assoc_opt ~key:"max" ~default:"infinity" kvs) in
 		let owner =
-			Json.owner_of_string (Json.assoc_opt ~key:"owner" ~default:"host" kvs)
+			Rrd_rpc.owner_of_string
+				(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs)
 		in
 		let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
 			~default:true () in
@@ -63,9 +64,9 @@ let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Ds.ds * Rrd.ds_owner) =
 let parse_payload ~(json : string) : payload =
 	try
 		let rpc = Jsonrpc.of_string json in
-		let kvs = Json.dict_of_rpc ~rpc in
+		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
 		let timestamp = Rpc.int64_of_rpc (List.assoc "timestamp" kvs) in
-		let datasource_rpcs = Json.dict_of_rpc (List.assoc "datasources" kvs) in
+		let datasource_rpcs = Rrd_rpc.dict_of_rpc (List.assoc "datasources" kvs) in
 		{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 	with _ -> raise Invalid_payload
 
