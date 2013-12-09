@@ -7,7 +7,7 @@ module type TRANSPORT = sig
 	(** Open a resource for writing, given its identifier. *)
 	val init: id_t -> state_t
 	(** Cleanup an open resource when it is no longer needed. *)
-	val cleanup: state_t -> unit
+	val cleanup: id_t -> state_t -> unit
 
 	(** Given the state of the open resource, expose its contents as a Cstruct. *)
 	val expose: state_t -> Cstruct.t
@@ -20,7 +20,7 @@ module File = struct
 
 	let init path = Unix.openfile path [Unix.O_RDONLY] 0o400
 
-	let cleanup fd = Unix.close fd
+	let cleanup _ fd = Unix.close fd
 
 	let expose fd =
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
@@ -54,7 +54,7 @@ module Page = struct
 		| Some mapping -> mapping
 		| None -> failwith "failed to map shared page(s)"
 
-	let cleanup mapping =
+	let cleanup _ mapping =
 		Gnttab.with_gnttab
 			(fun gnttab -> Gnttab.unmap_exn gnttab mapping)
 
@@ -80,7 +80,7 @@ module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 		in
 		let cleanup () =
 			if !is_open then begin
-				T.cleanup state;
+				T.cleanup id state;
 				is_open := false
 			end else raise Rrd_io.Resource_closed
 		in {

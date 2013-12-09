@@ -7,7 +7,7 @@ module type TRANSPORT = sig
 	(** Open a resource for writing, given its identifier. *)
 	val init: id_t -> state_t
 	(** Cleanup an open resource when it is no longer needed. *)
-	val cleanup: state_t -> unit
+	val cleanup: id_t -> state_t -> unit
 
 	(** Get a function which, when given an integer representing a number of
 	 *  bytes to be written, will return a Cstruct of that size (or potentially
@@ -21,16 +21,16 @@ module File = struct
 	type id_t = string
 	(** Path to shared file (needed to unlink) * fd for writing to the
 	 *  shared file. *)
-	type state_t = string * Unix.file_descr
+	type state_t = Unix.file_descr
 
-	let init path = path, Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
+	let init path = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
 
-	let cleanup (path, fd) =
+	let cleanup path fd =
 		Unix.close fd;
 		Unix.unlink path
 
 	(** This assumes there's no limit to the size of file which can be used. *)
-	let get_allocator (_, fd) =
+	let get_allocator fd =
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 			failwith "lseek";
 		let alloc_cstruct size =
@@ -59,7 +59,7 @@ module Page = struct
 			domid;
 		share
 
-	let cleanup share =
+	let cleanup _ share =
 		Gntshr.with_gntshr
 			(fun gntshr -> Gntshr.munmap_exn gntshr share)
 
@@ -92,7 +92,7 @@ module Make (T: TRANSPORT) (P: Rrd_protocol.PROTOCOL) = struct
 		in
 		let cleanup () =
 			if !is_open then begin
-				T.cleanup state;
+				T.cleanup id state;
 				is_open := false
 			end else raise Rrd_io.Resource_closed
 		in {
