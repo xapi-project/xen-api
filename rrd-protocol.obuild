@@ -5,7 +5,7 @@ obuild-ver: 1
 
 library rrd-protocol-lib
   src-dir: lib
-  modules: rrd_protocol, rrd_reader, rrd_writer
+  modules: rrd_protocol, rrd_protocol_v1, rrd_protocol_v2, rrd_reader, rrd_writer
   build-deps: bigarray, cstruct, xenctrl, xcp-rrdd-plugin, cstruct-hash
 
 executable reader
