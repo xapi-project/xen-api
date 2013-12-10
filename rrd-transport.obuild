@@ -1,6 +1,6 @@
 name: rrd-transport
 version: 0.1.0
-synopsis: Programs for testing shared-memory communication protocols
+synopsis: Shared-memory protocols for transmitting RRD data
 obuild-ver: 1
 
 library rrd_transport

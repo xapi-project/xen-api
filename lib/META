@@ -1,5 +1,5 @@
 version = "0.1.0"
-description = "Shared-memory protocol for transmitting RRD data"
+description = "Shared-memory protocols for transmitting RRD data"
 requires = "bigarray cmdliner cstruct crc xcp.rrd xcp-rrd xenctrl"
 archive(byte) = "rrd_transport.cma"
 archive(byte, plugin) = "rrd_transport.cma"
