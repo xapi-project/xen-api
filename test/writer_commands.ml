@@ -66,11 +66,16 @@ let protocol_of_string = function
 let write_file path protocol =
 	Random.self_init ();
 	let protocol = protocol_of_string protocol in
-	let writer = Rrd_writer.FileWriter.create path protocol in
+	let _, writer = Rrd_writer.FileWriter.create path protocol in
+	Printf.printf "Writing to file %s\n%!" path;
 	main_loop writer 5.0
 
 let write_page domid protocol =
 	Random.self_init ();
 	let protocol = protocol_of_string protocol in
-	let writer = Rrd_writer.PageWriter.create (domid, 1) protocol in
+	let (_, refs), writer = Rrd_writer.PageWriter.create (domid, 1) protocol in
+	Printf.printf
+		"Writing to pages [%s] shared with domain %d\n%!"
+		(List.map string_of_int refs |> String.concat "; ")
+		domid;
 	main_loop writer 5.0

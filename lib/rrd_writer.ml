@@ -1,13 +1,16 @@
 module type TRANSPORT = sig
 	(** An identifier needed to open the resource. *)
 	type id_t
-	(** A handle to an open resource. *)
+	(** Implementation-specific information about the open resource which needs
+	 *  to be returned to allow coordination between reader/writer pairs. *)
+	type info_t
+	(** Internal state relating to the open resource. *)
 	type state_t
 
 	(** Open a resource for writing, given its identifier. *)
-	val init: id_t -> state_t
+	val init: id_t -> (info_t * state_t)
 	(** Cleanup an open resource when it is no longer needed. *)
-	val cleanup: id_t -> state_t -> unit
+	val cleanup: id_t -> info_t -> state_t -> unit
 
 	(** Get a function which, when given an integer representing a number of
 	 *  bytes to be written, will return a Cstruct of that size (or potentially
@@ -19,13 +22,14 @@ end
 module File = struct
 	(** Filesystem path. *)
 	type id_t = string
-	(** Path to shared file (needed to unlink) * fd for writing to the
-	 *  shared file. *)
+	(** Filesystem path is returned to the caller for future reference. *)
+	type info_t = string
+	(** fd for writing to the shared file. *)
 	type state_t = Unix.file_descr
 
-	let init path = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
+	let init path = path, Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
 
-	let cleanup path fd =
+	let cleanup path _ fd =
 		Unix.close fd;
 		Unix.unlink path
 
@@ -45,6 +49,8 @@ module Page = struct
 
 	(** remote domid * page count *)
 	type id_t = (int * int)
+	(* remote domid * list of shared pages *)
+	type info_t = (int * int list)
 	type state_t = Gntshr.share
 
 	let init (domid, count) =
@@ -52,14 +58,9 @@ module Page = struct
 			Gntshr.with_gntshr
 				(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
 		in
-		Printf.printf
-			"sharing pages with references [%s] with domid %d\n%!"
-			(String.concat ";"
-				(List.map string_of_int share.Gntshr.refs))
-			domid;
-		share
+		(domid, share.Gntshr.refs), share
 
-	let cleanup _ share =
+	let cleanup _ _ share =
 		Gntshr.with_gntshr
 			(fun gntshr -> Gntshr.munmap_exn gntshr share)
 
@@ -82,7 +83,7 @@ type writer = {
 
 module Make (T: TRANSPORT) = struct
 	let create id protocol =
-		let state = T.init id in
+		let (info, state) = T.init id in
 		let writer = protocol.Rrd_protocol.make_payload_writer () in
 		let is_open = ref true in
 		let write_payload payload =
@@ -93,13 +94,11 @@ module Make (T: TRANSPORT) = struct
 		in
 		let cleanup () =
 			if !is_open then begin
-				T.cleanup id state;
+				T.cleanup id info state;
 				is_open := false
 			end else raise Rrd_io.Resource_closed
-		in {
-			write_payload;
-			cleanup;
-		}
+		in
+		info, {write_payload; cleanup;}
 end
 
 module FileWriter = Make(File)
