@@ -1,4 +1,4 @@
-PKG forkexec stdext xcp-rrd xcp.rrd
+PKG forkexec stdext xcp-rrd xcp.rrd rrd-transport
 S lib
 
 B dist/build/lib-xcp-rrd-plugin
