@@ -1,17 +1,10 @@
 module Ocaml_event = Event
 open Xenlight
 open Xenops_utils
+open Async
 
 module D = Debug.Make(struct let name = "libxl_events" end)
 open D
-
-module E = Async(
-	struct
-		type osevent_user = int
-		type event_user = string
-		type async_user = error option Ocaml_event.channel
-	end)
-open E
 
 let xl_m = Mutex.create ()
 
@@ -19,7 +12,7 @@ let xl_m = Mutex.create ()
 
 let event_occurs_callback user event =
 	let open Event in
-	let ty = match event.ty with
+	let ty = match event.xl_type with
 		| Domain_shutdown _ -> "domain shutdown"
 		| Domain_death -> "domain death"
 		| Disk_eject _ -> "disk eject"
@@ -36,7 +29,7 @@ let event_disaster_callback user event_type msg errnoval =
 let async f =
 	debug "ASYNC call";
 	let channel = Ocaml_event.new_channel () in
-	let result = Mutex.execute xl_m (fun () -> E.async f channel) in
+	let result = f ~async:channel () in
 	debug "ASYNC call returned";
 	let ret = Ocaml_event.sync (Ocaml_event.receive channel) in
 	match ret with
