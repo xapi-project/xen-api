@@ -225,3 +225,4 @@ ocaml/xapi/storage_impl_test
 ocaml/xenops/domain_sethandle
 
 ocaml/test/suite
+xapi-db.xml*
