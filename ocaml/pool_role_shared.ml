@@ -18,6 +18,9 @@
 open Stringext
 open Threadext
 
+module D=Debug.Make(struct let name="pool_role" end)
+open D
+
 (** The role of this node *)
 type t =
 	| Master
@@ -25,10 +28,15 @@ type t =
 	| Broken
 
 let role = ref None
+let role_unit_tests = ref false
 let role_m = Mutex.create ()
 
 let set_pool_role_for_test () =
-	Mutex.execute role_m (fun _ -> role := Some Master)
+	Mutex.execute role_m (fun _ -> role := Some Master;
+	                               role_unit_tests := true)
+
+let is_unit_test () =
+	Mutex.execute role_m (fun _ -> !role_unit_tests)
 
 let string_of = function
 	| Master -> "master"
@@ -44,7 +52,13 @@ let read_pool_role () =
 			| [ "slave"; m_ip ] -> Slave m_ip
 			| [ "broken" ]      -> Broken
 			| _ -> failwith "cannot parse pool_role from pool config file"
-	with _ -> Broken
+	with _ ->
+		(* If exec name is suite.opt, we're running as unit tests *)
+		if "xapi" <> Filename.basename Sys.executable_name
+		then (debug "Executable name is not 'xapi', so we must be running \
+		             in unit-test mode; setting pool-role to 'Master'";
+		      Master)
+		else Broken
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->

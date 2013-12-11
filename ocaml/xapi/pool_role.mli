@@ -31,6 +31,8 @@ val is_master: unit -> bool
 val is_slave: unit -> bool
 (** Returns true if this node is broken *)
 val is_broken: unit -> bool
+(** Returns true if this is a unit test *)
+val is_unit_test: unit -> bool
 
 exception This_host_is_a_master
 exception This_host_is_broken
