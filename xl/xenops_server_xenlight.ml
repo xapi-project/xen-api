@@ -481,11 +481,12 @@ module Mem = struct
 						(* This happens when someone manually runs 'service squeezed stop' *)
 						Mutex.execute cached_session_id_m (fun () -> cached_session_id := None);
 						error "Ballooning daemon has disappeared. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-						with_ctx (fun ctx -> Xenlight.Domain.setmaxmem ctx domid (amount |> Int64.to_int |> Int32.of_int))
+						(* TODO: replace domain_setmaxmem with libxl_domain_setmaxmem (not yet written!) *)
+						Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount);
 				end
  			| None ->
 				info "No ballooning daemon. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-				with_ctx (fun ctx -> Xenlight.Domain.setmaxmem ctx domid (amount |> Int64.to_int |> Int32.of_int))
+				Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount)
 
 	let transfer_reservation_to_domain dbg domid r =
 		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
