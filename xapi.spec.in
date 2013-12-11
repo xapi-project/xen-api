@@ -204,7 +204,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/backup-sr-metadata.pyc
 @OPTDIR@/libexec/block_device_io
 @OPTDIR@/libexec/cdrommon
-@OPTDIR@/libexec/dumpcore
 @OPTDIR@/libexec/fence
 @OPTDIR@/libexec/fence.bin
 @OPTDIR@/libexec/generate_ssl_cert
@@ -238,7 +237,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/vncterm-wrapper
 @OPTDIR@/libexec/xapi-health-check
 @OPTDIR@/libexec/xapi-rolling-upgrade
-@OPTDIR@/libexec/xenguest
 @OPTDIR@/libexec/xha-lc
 @OPTDIR@/libexec/pci-info
 @OPTDIR@/libexec/xe-syslog-reconfigure
