@@ -1,3 +1,4 @@
+open Crc
 open Rrd_protocol
 
 (* Field sizes. *)
@@ -198,9 +199,9 @@ let make_payload_reader () =
 		let timestamp = Read.timestamp cs in
 		(* Check the data crc is correct. *)
 		let data_crc_calculated =
-			Crc.crc32_cstruct cs
-				timestamp_start
-				(timestamp_bytes + datasource_count * datasource_value_bytes)
+			Crc32.cstruct
+				(Cstruct.sub cs timestamp_start
+					(timestamp_bytes + datasource_count * datasource_value_bytes))
 		in
 		if not (data_crc = data_crc_calculated)
 		then raise Invalid_checksum
@@ -216,7 +217,7 @@ let make_payload_reader () =
 				let metadata_length = Read.metadata_length cs datasource_count in
 				let metadata = Read.metadata cs datasource_count metadata_length in
 				(* Check the metadata checksum is correct. *)
-				if not (metadata_crc = (Crc.crc32_string metadata 0 metadata_length))
+				if not (metadata_crc = Crc32.string metadata 0 metadata_length)
 				then raise Invalid_checksum;
 				(* If all is OK, cache the metadata checksum and read the values
 				 * based on this new metadata. *)
@@ -239,7 +240,7 @@ let write_payload alloc_cstruct payload =
 	(* Write header. *)
 	Write.header cs;
 	(* Write metadata checksum. *)
-	Write.metadata_crc cs (Crc.crc32_string metadata 0 metadata_length);
+	Write.metadata_crc cs (Crc32.string metadata 0 metadata_length);
 	(* Write number of datasources. *)
 	Write.datasource_count cs datasource_count;
 	(* Write timestamp. *)
@@ -252,9 +253,10 @@ let write_payload alloc_cstruct payload =
 	(* Write the metadata length. *)
 	Write.metadata_length cs metadata_length datasource_count;
 	(* Write the data checksum. *)
-	let data_crc =
-		Crc.crc32_cstruct cs timestamp_start
-			(timestamp_bytes + datasource_count * datasource_value_bytes) in
+	let data_crc = Crc32.cstruct
+		(Cstruct.sub cs timestamp_start
+			(timestamp_bytes + datasource_count * datasource_value_bytes))
+	in
 	Write.data_crc cs data_crc
 
 let make_payload_writer () = write_payload
