@@ -1,14 +1,34 @@
-.PHONY: clean install uninstall
+all: build
 
-dist/build/lib-rrd_transport/rrd-transport.cma:
-	obuild configure --enable-tests
-	obuild build
+TESTS_FLAG=--enable-tests
 
-install:
-	ocamlfind install rrd-transport lib/META $(wildcard dist/build/lib-rrd_transport/*)
+NAME=rrd-protocol
+J=4
+
+LIBDIR=_build/lib
+
+setup.ml: _oasis
+	oasis setup
+
+setup.data: setup.ml
+	ocaml setup.ml -configure $(TESTS_FLAG)
+
+build: setup.data setup.ml
+	ocaml setup.ml -build -j $(J)
+
+doc: setup.data setup.ml
+	ocaml setup.ml -doc -j $(J)
+
+install: setup.data setup.ml
+	ocaml setup.ml -install
 
 uninstall:
-	ocamlfind remove rrd-transport
+	ocamlfind remove $(NAME)
+
+reinstall: setup.ml
+	ocamlfind remove $(NAME) || true
+	ocaml setup.ml -reinstall
 
 clean:
-	rm -rf dist
+	ocamlbuild -clean
+	rm -f setup.data setup.log

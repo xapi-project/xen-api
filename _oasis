@@ -1,0 +1,35 @@
+OASISFormat: 0.3
+Name:        gnt
+Version:     0.5.0
+Synopsis:    Shared-memory protocols for transmitting RRD data
+Authors:     John Else
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library rrd_transport
+  CompiledObject:       best
+  Path:                 lib
+  Findlibname:          rrd-transport
+  Modules:              Rrd_json, Rrd_protocol, Rrd_rpc, Rrd_protocol_v1, Rrd_protocol_v2, Rrd_io, Rrd_reader, Rrd_writer
+  ByteOpt:              -bin-annot
+  NativeOpt:            -bin-annot
+  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, xenctrl, crc, threads
+
+Executable reader
+  CompiledObject:       best
+  Path:                 test
+  MainIs:               reader.ml
+  Install:              false
+  ByteOpt:              -bin-annot
+  NativeOpt:            -bin-annot
+  BuildDepends:         cmdliner, threads, rrd-transport
+
+Executable writer
+  CompiledObject:       best
+  Path:                 test
+  MainIs:               writer.ml
+  Install:              false
+  ByteOpt:              -bin-annot
+  NativeOpt:            -bin-annot
+  BuildDepends:         cmdliner, threads, rrd-transport

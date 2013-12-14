@@ -1,0 +1,66 @@
+# OASIS_START
+# DO NOT EDIT (digest: fb75a157f92c3affb29b8e4db4392035)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library rrd_transport
+"lib/rrd_transport.cmxs": use_rrd_transport
+<lib/rrd_transport.{cma,cmxa}>: oasis_library_rrd_transport_byte
+<lib/*.ml{,i}>: oasis_library_rrd_transport_byte
+<lib/rrd_transport.{cma,cmxa}>: oasis_library_rrd_transport_native
+<lib/*.ml{,i}>: oasis_library_rrd_transport_native
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_bigarray
+<lib/*.ml{,i}>: pkg_cstruct
+<lib/*.ml{,i}>: pkg_xcp.rrd
+<lib/*.ml{,i}>: pkg_xcp-rrd
+<lib/*.ml{,i}>: pkg_xenctrl
+<lib/*.ml{,i}>: pkg_crc
+# Executable reader
+<test/reader.{native,byte}>: oasis_executable_reader_byte
+<test/*.ml{,i}>: oasis_executable_reader_byte
+<test/reader.{native,byte}>: oasis_executable_reader_native
+<test/*.ml{,i}>: oasis_executable_reader_native
+<test/reader.{native,byte}>: use_rrd_transport
+<test/reader.{native,byte}>: pkg_cmdliner
+<test/reader.{native,byte}>: pkg_threads
+<test/reader.{native,byte}>: pkg_bigarray
+<test/reader.{native,byte}>: pkg_cstruct
+<test/reader.{native,byte}>: pkg_xcp.rrd
+<test/reader.{native,byte}>: pkg_xcp-rrd
+<test/reader.{native,byte}>: pkg_xenctrl
+<test/reader.{native,byte}>: pkg_crc
+# Executable writer
+<test/writer.{native,byte}>: oasis_executable_writer_byte
+<test/*.ml{,i}>: oasis_executable_writer_byte
+<test/writer.{native,byte}>: oasis_executable_writer_native
+<test/*.ml{,i}>: oasis_executable_writer_native
+<test/writer.{native,byte}>: use_rrd_transport
+<test/writer.{native,byte}>: pkg_cmdliner
+<test/writer.{native,byte}>: pkg_threads
+<test/writer.{native,byte}>: pkg_bigarray
+<test/writer.{native,byte}>: pkg_cstruct
+<test/writer.{native,byte}>: pkg_xcp.rrd
+<test/writer.{native,byte}>: pkg_xcp-rrd
+<test/writer.{native,byte}>: pkg_xenctrl
+<test/writer.{native,byte}>: pkg_crc
+<test/*.ml{,i}>: use_rrd_transport
+<test/*.ml{,i}>: pkg_cmdliner
+<test/*.ml{,i}>: pkg_threads
+<test/*.ml{,i}>: pkg_bigarray
+<test/*.ml{,i}>: pkg_cstruct
+<test/*.ml{,i}>: pkg_xcp.rrd
+<test/*.ml{,i}>: pkg_xcp-rrd
+<test/*.ml{,i}>: pkg_xenctrl
+<test/*.ml{,i}>: pkg_crc
+# OASIS_STOP
