@@ -14,7 +14,7 @@ Library rrd_transport
   Modules:              Rrd_json, Rrd_protocol, Rrd_rpc, Rrd_protocol_v1, Rrd_protocol_v2, Rrd_io, Rrd_reader, Rrd_writer
   ByteOpt:              -bin-annot
   NativeOpt:            -bin-annot
-  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, xenctrl, crc, threads
+  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, gnt, crc, threads
 
 Executable reader
   CompiledObject:       best
