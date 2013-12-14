@@ -96,6 +96,34 @@ let unregister signum =
 	RRDD.Plugin.deregister N.name;
 	exit 0
 
+module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
+type xs_state = {
+	my_domid: int32;
+	root_path: string;
+	client: Xs.client;
+}
+let cached_xs_state = ref None
+let get_xs_state () =
+	match !cached_xs_state with
+	| Some state -> state
+	| None ->
+		(* This creates a background thread, so must be done after daemonising. *)
+		let client = Xs.make () in
+		let my_domid =
+			Xs.immediate
+				client
+				(fun handle -> Xs.read handle "domid")
+			|> Int32.of_string
+		in
+		let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
+		let state = {
+			my_domid;
+			root_path;
+			client
+		}
+		in cached_xs_state := Some state;
+		state
+
 (* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in

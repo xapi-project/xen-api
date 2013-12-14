@@ -14,4 +14,4 @@ Library rrdd_plugin
   ByteOpt: -bin-annot
   NativeOpt: -bin-annot
   Modules: Rrdd_plugin
-  BuildDepends: threads, forkexec, stdext, xcp-rrd, xcp.rrd, rrd-transport
+  BuildDepends: threads, forkexec, stdext, xcp-rrd, xcp.rrd, rrd-transport, xenstore.unix, xenstore_transport.unix

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7c0990a252910332fdb497d688546440)
+# DO NOT EDIT (digest: e48841c6c6c1f806dbd181ab6d7d7847)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -25,4 +25,6 @@
 <lib/*.ml{,i}>: pkg_xcp-rrd
 <lib/*.ml{,i}>: pkg_xcp.rrd
 <lib/*.ml{,i}>: pkg_rrd-transport
+<lib/*.ml{,i}>: pkg_xenstore.unix
+<lib/*.ml{,i}>: pkg_xenstore_transport.unix
 # OASIS_STOP

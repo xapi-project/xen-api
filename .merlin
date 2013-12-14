@@ -1,4 +1,4 @@
-PKG forkexec stdext xcp-rrd xcp.rrd rrd-transport
+PKG forkexec stdext xcp-rrd xcp.rrd rrd-transport xenstore.unix xenstore_transport.unix
 S lib
 
 B _build/lib
