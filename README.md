@@ -1,10 +1,14 @@
-Programs to test shared-memory protocols for transmitting RRD data.
+Shared-memory protocols for transmitting RRD data
+=================================================
+
+Allows writing and reading of RRD datasources to and from files and shared Xen
+pages.
 
 Build dependencies:
 
-* [cmdliner](https://github.com/dbuenzli/cmdliner)
+* [cmdliner](https://github.com/dbuenzli/cmdliner) (for test executables only)
 * [cstruct](https://github.com/avsm/ocaml-cstruct)
-* [xenctrl](https://github.com/xen-org/ocaml-xen-lowlevel-libs)
+* [xcp](https://github.com/xapi-project/xcp-idl)
 * [xcp-rrd](https://github.com/xen-org/xcp-rrd)
-* [xcp-rrd-plugin](https://github.com/johnelse/xcp-rrd-plugin)
-* [cstruct-hash](https://github.com/johnelse/cstruct-hash)
+* [gnt](https://github.com/xapi-project/ocaml-gnt)
+* [crc](https://github.com/xapi-project/ocaml-crc)
