@@ -5,5 +5,5 @@ obuild-ver: 1
 
 library xcp-rrdd-plugin
   src-dir: lib
-  modules: rrdp_common
+  modules: rrdd_plugin
   build-deps: forkexec, stdext, xcp-rrd, xcp.rrd, rrd-transport
