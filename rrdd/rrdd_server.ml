@@ -288,220 +288,61 @@ let unset_cache_sr _ () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 module Plugin = struct
-	exception Invalid_header_string
-	exception Invalid_length
-	exception Invalid_checksum
-	exception Invalid_payload
-	exception No_update
-	exception Read_error
-
 	(* Static values. *)
 	let base_path = "/dev/shm/metrics/"
 	let header = "DATASOURCES\n"
-	let header_bytes = String.length header
-	let length_bytes = 8 (* hex length of payload *) + 1 (* newline char *)
-	let checksum_bytes = 32 (* hex length of checksum *) + 1 (* newline char *)
 
 	(* The function that tells the plugin what to write at the top of its output
 	 * file. *)
 	let get_header _ () : string = header
 
 	(* The function that a plugin can use to determine which file to write to. *)
-	let get_path _ ~(uid : string) : string =
+	let get_path_internal ~(uid: string) : string =
 		Filename.concat base_path uid
-
-	(* A function that reads using Unixext.really_read a string of specified
-	 * length from the specified file. *)
-	let read_string ~(fd : Unix.file_descr) ~(length : int) : string =
-		try
-			(* CA-92154: use Unixext.really_read since Unix.read will
-			 * not read a string longer than 16384 bytes *)
-			Unixext.really_read_string fd length
-		with _ ->
-			log_backtrace ();
-			raise Read_error
-
-	(* The payload type that corresponds to the plugin output file format. *)
-	type payload = {
-		timestamp : int64;
-		datasources : (Rrd.ds_owner * Ds.ds) list;
-	}
-
-	(* A helper function for extracting the dictionary out of the RPC type. *)
-	let dict_of_rpc ~(rpc : Rpc.t) : (string * Rpc.t) list =
-		match rpc with Rpc.Dict d -> d | _ -> raise Invalid_payload
-
-	(* A helper function for extracting the enum/list out of the RPC type. *)
-	let list_of_rpc ~(rpc : Rpc.t) : Rpc.t list =
-		match rpc with Rpc.Enum l -> l | _ -> raise Invalid_payload
-
-	(* [assoc_opt ~key ~default l] gets string value associated with [key] in
-	 * [l], returning [default] if no mapping is found. *)
-	let assoc_opt ~(key : string) ~(default : string)
-			(l : (string * Rpc.t) list) : string =
-		try Rpc.string_of_rpc (List.assoc key l) with
-		| Not_found -> default
-		| e -> error "Failed to obtain datasource key: %s" key; raise e
-
-	(* Converts string to the corresponding datasource type. *)
-	let ds_ty_of_string (s : string) : Rrd.ds_type =
-		match String.lowercase s with
-		| "absolute" -> Rrd.Gauge
-		| "rate" -> Rrd.Absolute
-		| "absolute_to_rate" -> Rrd.Derive
-		| _ -> raise Invalid_payload
-
-	(* Possible types for values in datasources. *)
-	type value_type = Float | Int64
-
-	(* Converts string to datasource value type. *)
-	let val_ty_of_string (s : string) : value_type =
-		match String.lowercase s with
-		| "float" -> Float
-		| "int64" -> Int64
-		| _ -> raise Invalid_payload
-
-	(* Converts an RPC value to a typed datasource value. *)
-	let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
-		match ty with
-		| Float -> Rrd.VT_Float (Rpc.float_of_rpc rpc)
-		| Int64 -> Rrd.VT_Int64 (Rpc.int64_of_rpc rpc)
-
-	(* Converts a string to value of datasource owner type. *)
-	let owner_of_string (s : string) : Rrd.ds_owner =
-		match String.split ' ' (String.lowercase s) with
-		| ["host"] -> Rrd.Host
-		| ["vm"; uuid] -> Rrd.VM uuid
-		| ["sr"; uuid] -> Rrd.SR uuid
-		| _ -> raise Invalid_payload
-
-	(* A function that converts a JSON type into a datasource type, assigning
-	 * default values appropriately. *)
-	let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
-		try
-			let open Rpc in
-			let kvs = dict_of_rpc ~rpc in
-			let description = assoc_opt ~key:"description" ~default:"" kvs in
-			let units = assoc_opt ~key:"units" ~default:"" kvs in
-			let ty =
-				ds_ty_of_string (assoc_opt ~key:"type" ~default:"absolute" kvs) in
-			let val_ty =
-				val_ty_of_string (assoc_opt ~key:"value_type" ~default:"float" kvs) in
-			let value =
-				let value_rpc = List.assoc "value" kvs in
-				ds_value_of_rpc ~ty:val_ty ~rpc:value_rpc
-			in
-			let min =
-				float_of_string (assoc_opt ~key:"min" ~default:"-infinity" kvs) in
-			let max =
-				float_of_string (assoc_opt ~key:"max" ~default:"infinity" kvs) in
-			let owner =
-				owner_of_string (assoc_opt ~key:"owner" ~default:"host" kvs) in
-			let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
-				~default:(!plugin_default) () in
-			owner, ds
-		with e ->
-			error "Failed to process datasource: %s" name;
-			log_backtrace (); raise e
-
-	(* A function that parses the payload written by a plugin into the payload
-	 * type. *)
-	let parse_payload ~(json : string) : payload =
-		try
-			let open Rpc in
-			let rpc = Jsonrpc.of_string json in
-			let kvs = dict_of_rpc ~rpc in
-			let timestamp = int64_of_rpc (List.assoc "timestamp" kvs) in
-			let datasource_rpcs = dict_of_rpc (List.assoc "datasources" kvs) in
-			{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
-		with _ -> log_backtrace (); raise Invalid_payload
-
-	let with_gnttab f =
-		let open Gnt in
-		let gnttab = Gnttab.interface_open () in
-		let result = try
-			f gnttab
-		with e ->
-			Gnttab.interface_close gnttab;
-			raise e
-		in
-		Gnttab.interface_close gnttab;
-		result
+	let get_path _ ~(uid : string) : string =
+		get_path_internal ~uid
 
 	module type PLUGIN = sig
 		(* A type to uniquely identify a plugin. *)
 		type uid
 		(* Other information needed to describe this type of plugin. *)
 		type info
-		(* An open handle to the data shared by this type of plugin. *)
-		type handle
 
 		(* Create a string representation of a plugin's uid. *)
 		val string_of_uid: uid:uid -> string
-		(* Given a plugin uid, open a handle which can be used to read
-		 * a plugin's data. *)
-		val open_handle: uid:uid -> info:info -> handle
-		(* Clean up once we no longer need to read data from the plugin. *)
-		val close_handle: handle:handle -> unit
-		(* Read a checksum and a payload string from an open handle to a plugin's data. *)
-		val read_data: uid:uid -> handle:handle -> (string * string)
+		(* Given a plugin uid and protocol, create a reader object. *)
+		val make_reader: uid:uid -> info:info -> protocol:Rrd_protocol.protocol ->
+			Rrd_reader.reader
 	end
 
 	module Make = functor(P: PLUGIN) -> struct
-		(* A map storing the last read checksum of the data written by each plugin. *)
-		let last_read_checksum : (P.uid, string) Hashtbl.t =
-			Hashtbl.create 20
-
-		(* Throw No_update exception if previous checksum is the same as the current
-		 * one for this plugin. Otherwise, replace previous with current.*)
-		let verify_checksum_freshness ~(uid: P.uid) ~(checksum: string) : unit =
-			begin
-				try
-					if checksum = Hashtbl.find last_read_checksum uid then raise No_update
-				with Not_found -> ()
-			end;
-			Hashtbl.replace last_read_checksum uid checksum
+		(* A type to represent a registered plugin. *)
+		type plugin = {
+			info: P.info;
+			reader: Rrd_reader.reader;
+		}
 
 		(* A map storing currently registered plugins, and any data required to
 		 * process the plugins. *)
-		let registered: (P.uid, P.info) Hashtbl.t = Hashtbl.create 20
+		let registered: (P.uid, plugin) Hashtbl.t = Hashtbl.create 20
 
 		(* The mutex that protects the list of registered plugins against race
 		 * conditions and data corruption. *)
 		let registered_m = Mutex.create ()
 
 		(* Helper function to find plugin info from a uid. *)
-		let find ~(uid: P.uid) : P.info =
+		let find ~(uid: P.uid) : plugin =
 			Mutex.execute registered_m
 				(fun () -> Hashtbl.find registered uid)
 
-		(* A cache of open handles to plugin data. *)
-		let open_handles : (P.uid, P.handle) Hashtbl.t = Hashtbl.create 10
-
-		(* A mutex to protect the above cache. *)
-		let open_handles_m = Mutex.create ()
-
-		(* A function that opens handles using the above cache. *)
-		let get_handle ~(uid: P.uid) : P.handle =
-			Mutex.execute open_handles_m (fun () ->
-				let info = find uid in
-				try Hashtbl.find open_handles uid
-				with Not_found ->
-					let handle = P.open_handle uid info in
-					Hashtbl.add open_handles uid handle;
-					handle)
-
-		let get_payload ~(uid: P.uid) : payload =
+		let get_payload ~(uid: P.uid) : Rrd_protocol.payload =
 			try
-				let handle = get_handle ~uid in
-				let checksum, payload_string = P.read_data ~uid ~handle in
-				if payload_string |> Digest.string |> Digest.to_hex <> checksum then
-					raise Invalid_checksum;
-				verify_checksum_freshness ~uid ~checksum;
-				parse_payload ~json:payload_string
+				let {reader} = find uid in
+				reader.Rrd_reader.read_payload ()
 			with e ->
 				error "Failed to process plugin: %s" (P.string_of_uid uid);
 				log_backtrace ();
+				let open Rrd_protocol in
 				match e with
 				| Invalid_header_string | Invalid_length | Invalid_checksum
 				| No_update as e -> raise e
@@ -518,12 +359,19 @@ module Plugin = struct
 			)
 			else -1.
 
+		let choose_protocol = function
+			| Rrd_interface.V1 -> Rrd_protocol_v1.protocol
+			| Rrd_interface.V2 -> Rrd_protocol_v2.protocol
+
 		(* The function registers a plugin, and returns the number of seconds until
 		 * the next reading phase for the specified sampling frequency. *)
-		let register _ ~(uid: P.uid) ~(info: P.info) : float =
+		let register _ ~(uid: P.uid) ~(info: P.info)
+				~(protocol: Rrd_interface.plugin_protocol)
+				: float =
 			Mutex.execute registered_m (fun _ ->
 				if not (Hashtbl.mem registered uid) then
-					Hashtbl.add registered uid info
+					let reader = P.make_reader uid info (choose_protocol protocol) in
+					Hashtbl.add registered uid {info; reader}
 			);
 			next_reading ~uid ()
 
@@ -531,13 +379,11 @@ module Plugin = struct
 		 * process its output at most once more. *)
 		let deregister _ ~(uid: P.uid) : unit =
 			Mutex.execute registered_m
-				(fun _ -> Hashtbl.remove registered uid);
-			Mutex.execute open_handles_m
 				(fun _ ->
-					if Hashtbl.mem open_handles uid then begin
-						let handle = Hashtbl.find open_handles uid in
-						Hashtbl.remove open_handles uid;
-						P.close_handle handle
+					if Hashtbl.mem registered uid then begin
+						let plugin = Hashtbl.find registered uid in
+						plugin.reader.Rrd_reader.cleanup ();
+						Hashtbl.remove registered uid
 					end)
 
 		(* Read, parse, and combine metrics from all registered plugins. *)
@@ -547,7 +393,7 @@ module Plugin = struct
 			let process_plugin acc uid =
 				try
 					let payload = get_payload uid in
-					List.rev_append payload.datasources acc
+					List.rev_append payload.Rrd_protocol.datasources acc
 				with _ -> acc
 			in
 			List.fold_left process_plugin [] uids
@@ -556,73 +402,35 @@ module Plugin = struct
 	module Local = Make(struct
 		type uid = string
 		type info = Rrd.sampling_frequency
-		type handle = Unix.file_descr
 
 		let string_of_uid ~(uid: string) = uid
 
-		let open_handle ~(uid: string) ~(info: Rrd.sampling_frequency) : Unix.file_descr =
-			let path = get_path () ~uid in
-			Unix.openfile path [Unix.O_RDONLY] 0
-
-		let close_handle ~(handle: Unix.file_descr) = Unix.close handle
-
-		let read_data ~(uid: string) ~(handle: Unix.file_descr) : (string * string) =
-			if Unix.lseek handle 0 Unix.SEEK_SET <> 0 then
-				raise Read_error;
-			if read_string ~fd:handle ~length:header_bytes <> header then
-				raise Invalid_header_string;
-			let length =
-				let length_str = String.rtrim (read_string ~fd:handle ~length:length_bytes) in
-				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
-			in
-			let checksum = String.rtrim (read_string ~fd:handle ~length:checksum_bytes) in
-			let payload_string = read_string ~fd:handle ~length in
-			checksum, payload_string
+		let make_reader ~(uid: string) ~(info: Rrd.sampling_frequency)
+				~(protocol:Rrd_protocol.protocol) =
+			Rrd_reader.FileReader.create (get_path_internal uid) protocol
 	end)
 
 	module Interdomain = Make(struct
-		open Gnt
-
 		(* name, frontend domid *)
 		type uid = (string * int)
 		(* sampling frequency, list of grant refs *)
 		type info = (Rrd.sampling_frequency * int list)
-		type handle = Gnttab.Local_mapping.t
 
 		let string_of_uid ~(uid: (string * int)) : string =
 			Printf.sprintf "%s:domid%d" (fst uid) (snd uid)
 
-		let open_handle ~(uid: (string * int)) ~(info: (Rrd.sampling_frequency * int list)) : Gnttab.Local_mapping.t =
-			with_gnttab
-				(fun gnttab ->
-					let grants = List.map
-						(fun grant_ref -> {Gnttab.domid = snd uid; ref = Int32.of_int grant_ref |> grant_table_index_of_int32})
-						(snd info) in
-					match Gnttab.mapv gnttab grants false with
-					| Some mapping -> mapping
-					| None -> raise Read_error)
-
-		let close_handle ~(handle: Gnttab.Local_mapping.t) =
-			with_gnttab (fun gnttab -> Gnttab.unmap_exn gnttab handle)
-
-		let read_data ~(uid: (string * int)) ~(handle: Gnttab.Local_mapping.t) =
-			let buf = Gnttab.Local_mapping.to_buf handle in
-			let cs = Cstruct.of_bigarray buf in
-			if Cstruct.copy cs 0 header_bytes <> header then
-				raise Invalid_header_string;
-			let length =
-				let length_str = String.rtrim (Cstruct.copy cs header_bytes length_bytes) in
-				try int_of_string ("0x" ^ length_str) with _ -> raise Invalid_length
-			in
-			let checksum = String.rtrim (Cstruct.copy cs (header_bytes + length_bytes) checksum_bytes) in
-			let payload_string = Cstruct.copy cs (header_bytes + length_bytes + checksum_bytes) length in
-			checksum, payload_string
+		let make_reader ~(uid:uid) ~(info:info) ~(protocol:Rrd_protocol.protocol) =
+			let frontend_domid = snd uid in
+			let shared_page_refs = snd info in
+			Rrd_reader.PageReader.create
+				{Rrd_reader.frontend_domid = frontend_domid; shared_page_refs}
+				protocol
 	end)
 
 	(* Kept for backwards compatibility. *)
 	let next_reading = Local.next_reading
 	let register _ ~(uid: string) ~(frequency: Rrd.sampling_frequency) =
-		Local.register () ~uid ~info:frequency
+		Local.register () ~uid ~info:frequency ~protocol:Rrd_interface.V1
 	let deregister = Local.deregister
 
 	(* Read, parse, and combine metrics from all registered plugins. *)
