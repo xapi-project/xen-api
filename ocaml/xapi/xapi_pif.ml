@@ -280,6 +280,10 @@ let make_pif_metrics ~__context =
 		~other_config:[] in
 	metrics
 
+let property_names_and_values = [
+	"gro", ["on"; "off"]
+]
+
 let default_properties = [
 	"gro", "on"
 ]
@@ -653,6 +657,14 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let set_property ~__context ~self ~name ~value =
+	let fail () = raise (Api_errors.Server_error
+		(Api_errors.invalid_value, ["properties"; Printf.sprintf "%s = %s" name value]))
+	in
+	if not (List.mem_assoc name property_names_and_values) then
+		fail ()
+	else if not (List.mem value (List.assoc name property_names_and_values)) then
+		fail ();
+
 	(* Remove the existing property with this name, then add the new value. *)
 	let properties = List.filter
 		(fun (property_name, _) -> property_name <> name)
