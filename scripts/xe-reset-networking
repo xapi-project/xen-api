@@ -219,5 +219,5 @@ Type 'no' to cancel.
 	os.system("/etc/sysconfig/network-scripts/interface-rename.py --reset-to-install")
 
 	# Reboot
-	os.system("/sbin/reboot -f")
+	os.system("mount -o remount,rw / && reboot -f")
 
