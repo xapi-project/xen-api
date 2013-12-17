@@ -370,9 +370,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		let disallow_unplug =
 			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
 		in
-		let pif_properties =
-			[]
-		in
+		let pif_properties = Db.PIF.get_properties ~__context ~self:primary_slave in
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
