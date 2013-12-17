@@ -280,6 +280,10 @@ let make_pif_metrics ~__context =
 		~other_config:[] in
 	metrics
 
+let default_properties = [
+	"gro", "on"
+]
+
 let pool_introduce
 		~__context ~device ~network ~host
 		~mAC ~mTU ~vLAN ~physical
@@ -310,7 +314,6 @@ let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
 		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
 	let bridge = bridge_naming_convention device in
-	let properties = [] in
 
 	(* If we are not told which network to use,
 	 * apply the default convention *)
@@ -335,7 +338,7 @@ let introduce_internal
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
 		~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
-		~properties in
+		~properties:default_properties in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
