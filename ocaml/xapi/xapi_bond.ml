@@ -370,6 +370,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		let disallow_unplug =
 			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
 		in
+		let pif_properties =
+			[]
+		in
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
@@ -380,7 +383,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
-			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true;
+			~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
+			~properties:pif_properties;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
 			~primary_slave ~mode ~properties ~links_up:0L;
 

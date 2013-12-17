@@ -285,7 +285,7 @@ let pool_introduce
 		~ip_configuration_mode ~iP ~netmask ~gateway
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
 		~other_config ~disallow_unplug ~ipv6_configuration_mode
-		~iPv6 ~ipv6_gateway ~primary_address_type ~managed =
+		~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
 	let pif_ref = Ref.make () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
@@ -297,7 +297,7 @@ let pool_introduce
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
 			~other_config ~disallow_unplug ~ipv6_configuration_mode
-			~iPv6 ~ipv6_gateway ~primary_address_type ~managed in
+			~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -308,8 +308,8 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
 		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
-
 	let bridge = bridge_naming_convention device in
+	let properties = [] in
 
 	(* If we are not told which network to use,
 	 * apply the default convention *)
@@ -333,7 +333,8 @@ let introduce_internal
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed in
+		~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
+		~properties in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down

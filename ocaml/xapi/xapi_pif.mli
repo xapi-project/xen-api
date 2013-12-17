@@ -74,6 +74,7 @@ val db_introduce :
   ipv6_gateway:string ->
   primary_address_type:[< `IPv4 | `IPv6 ] ->
   managed:bool ->
+  properties:(string * string) list ->
   [ `PIF ] Ref.t
   
 (** Perform a database delete of the PIF record on the pool master. *)
@@ -192,6 +193,7 @@ val pool_introduce :
   ipv6_gateway:string ->
   primary_address_type:[< `IPv4 | `IPv6 ] ->
   managed:bool ->
+  properties:(string * string) list ->
   [ `PIF ] Ref.t
 
 (** Create a new PIF record with the given details. Also create a network for the
