@@ -22,7 +22,7 @@ exception Read_error
 
 type payload = {
 	timestamp: int64;
-	datasources : (Ds.ds * Rrd.ds_owner) list;
+	datasources : (Rrd.ds_owner * Ds.ds) list;
 }
 
 type protocol = {

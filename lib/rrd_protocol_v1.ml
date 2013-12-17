@@ -40,7 +40,7 @@ let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
 
 (* A function that converts a JSON type into a datasource type, assigning
  * default values appropriately. *)
-let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Ds.ds * Rrd.ds_owner) =
+let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
 	try
 		let open Rpc in
 		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
@@ -68,7 +68,7 @@ let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Ds.ds * Rrd.ds_owner) =
 		in
 		let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
 			~default:true () in
-		ds, owner
+		owner, ds
 	with e -> raise e
 
 (* A function that parses the payload written by a plugin into the payload

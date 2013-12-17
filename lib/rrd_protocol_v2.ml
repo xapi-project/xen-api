@@ -82,7 +82,7 @@ module Read = struct
 	let datasource_values cs cached_datasources =
 		let rec aux start acc = function
 			| [] -> acc
-			| (cached_datasource, owner) :: rest -> begin
+			| (owner, cached_datasource) :: rest -> begin
 				(* Replace the cached datasource's value with the value read
 				 * from the cstruct. *)
 				let value = match cached_datasource.Ds.ds_value with
@@ -93,7 +93,7 @@ module Read = struct
 				| Rrd.VT_Unknown -> failwith "unknown datasource type"
 				in
 				aux (start + datasource_value_bytes)
-					(({cached_datasource with Ds.ds_value = value}, owner) :: acc)
+					((owner, {cached_datasource with Ds.ds_value = value}) :: acc)
 					rest
 			end
 		in
@@ -163,7 +163,7 @@ let default_value_of_string (s : string) : Rrd.ds_value_type =
 (* WARNING! This creates datasources from datasource metadata, hence the
  * values will be meaningless. The types however, will be correct. *)
 let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
-		: (Ds.ds * Rrd.ds_owner) =
+		: (Rrd.ds_owner * Ds.ds) =
 	let open Rpc in
 	let kvs = Rrd_rpc.dict_of_rpc ~rpc in
 	let description = Rrd_rpc.assoc_opt ~key:"description" ~default:"" kvs in
@@ -184,7 +184,7 @@ let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 	in
 	let ds = Ds.ds_make ~name ~description ~units
 		~ty ~value ~min ~max ~default:true () in
-	ds, owner
+	owner, ds
 
 let parse_metadata metadata =
 	try
@@ -198,7 +198,7 @@ let parse_metadata metadata =
 let make_payload_reader () =
 	let last_data_crc = ref 0l in
 	let last_metadata_crc = ref 0l in
-	let cached_datasources : (Ds.ds * Rrd.ds_owner) list ref = ref [] in
+	let cached_datasources : (Rrd.ds_owner * Ds.ds) list ref = ref [] in
 	(fun cs ->
 		(* Check the header string is present and correct. *)
 		let header = Read.header cs in
@@ -261,7 +261,7 @@ let write_payload alloc_cstruct payload =
 	Write.timestamp cs payload.timestamp;
 	(* Write datasource values. *)
 	Write.datasource_values cs
-		(List.map (fun (ds, _) -> ds.Ds.ds_value) payload.datasources);
+		(List.map (fun (_, ds) -> ds.Ds.ds_value) payload.datasources);
 	(* Write the metadata. *)
 	Write.metadata cs metadata datasource_count;
 	(* Write the metadata length. *)

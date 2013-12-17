@@ -14,7 +14,7 @@
 
 open Rrd_protocol
 
-let string_of_data_source ds owner =
+let string_of_data_source owner ds =
 	let owner_string = match owner with
 	| Rrd.Host -> "Host"
 	| Rrd.SR sr -> "SR " ^ sr
@@ -39,8 +39,8 @@ let interpret_payload payload =
 	Printf.printf "timestamp = %Ld\n%!" payload.timestamp;
 	print_endline "---------- Data sources ----------";
 	List.iter
-		(fun (ds, owner) ->
-			print_endline (string_of_data_source ds owner);
+		(fun (owner, ds) ->
+			print_endline (string_of_data_source owner ds);
 			print_endline "----------")
 		payload.datasources
 
