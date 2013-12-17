@@ -646,6 +646,15 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 	Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type;
 	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
+let set_property ~__context ~self ~name ~value =
+	(* Remove the existing property with this name, then add the new value. *)
+	let properties = List.filter
+		(fun (property_name, _) -> property_name <> name)
+		(Db.PIF.get_properties ~__context ~self)
+	in
+	let properties = (name, value) :: properties in
+	Db.PIF.set_properties ~__context ~self ~value:properties
+
 let rec unplug ~__context ~self =
 	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;

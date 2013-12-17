@@ -4681,6 +4681,18 @@ let pif_db_forget = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_set_property = call
+	~name:"set_property"
+	~doc:"Set the value of a property of the PIF"
+	~params:[
+		Ref _pif, "self", "The PIF";
+		String, "name", "The property name";
+		String, "value", "The property value";
+	]
+	~lifecycle:[Published, rel_augusta, ""]
+	~allowed_roles:_R_POOL_OP
+	()
+
 let pif = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
       ~gen_events:true
@@ -4688,7 +4700,7 @@ let pif =
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
-		pif_db_introduce; pif_db_forget
+		pif_db_introduce; pif_db_forget; pif_set_property
 		] ~contents:
       [ uid _pif;
 	(* qualifier changed RW -> StaticRO in Miami *)
