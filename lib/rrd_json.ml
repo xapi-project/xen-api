@@ -44,9 +44,9 @@ let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
 		(* end; *)
 	end
 
-let json_of_dss ?hdr timestamp (dss : (Ds.ds * Rrd.ds_owner) list) =
+let json_of_dss ?hdr timestamp (dss : (Rrd.ds_owner * Ds.ds) list) =
 	let buf = Buffer.create 100 in
-	List.iter (fun (ds, owner) -> json_of_ds ~owner ds buf) dss;
+	List.iter (fun (owner, ds) -> json_of_ds ~owner ds buf) dss;
 	let dss = Buffer.contents buf in
 	let payload = 
 		Printf.sprintf "{\n  \"timestamp\": %Ld,\n  \"datasources\": {\n%s\n  }\n}" timestamp
@@ -90,13 +90,13 @@ let json_metadata_of_ds ?(owner=Rrd.Host) ds buf =
 
 (** Return a string containing the JSON metadata of a list of (ds * ds_owner)
   * tuples [dss]. The string will not contain the values of the datasources. *)
-let json_metadata_of_dss (dss : (Ds.ds * Rrd.ds_owner) list) =
+let json_metadata_of_dss (dss : (Rrd.ds_owner * Ds.ds) list) =
 	let buf = Buffer.create 100 in
 	Buffer.add_string buf "{\"datasources\":{";
 	let rec add_dss = function
 		| [] -> ()
-		| (ds, owner) :: [] -> json_metadata_of_ds ~owner ds buf
-		| (ds, owner) :: rest ->
+		| (owner, ds) :: [] -> json_metadata_of_ds ~owner ds buf
+		| (owner, ds) :: rest ->
 			json_metadata_of_ds ~owner ds buf;
 			Buffer.add_char buf ',';
 			add_dss rest

@@ -28,22 +28,25 @@ let get_extra_data_sources_flag =
 
 let generate_time_data_source () =
 	let current_time = now () in
+	Rrd.Host,
 	Ds.ds_make ~name:"current_time"
 		~description:"The current time"
 		~value:(Rrd.VT_Int64 current_time) ~ty:(Rrd.Gauge)
-		~default:true ~units:"seconds" (), Rrd.Host
+		~default:true ~units:"seconds" ()
 
 let generate_random_int_data_source () =
+	Rrd.SR "my_sr",
 	Ds.ds_make ~name:"random_int"
 		~description:"A random integer"
 		~value:(Rrd.VT_Int64 (Random.int64 256L)) ~ty:(Rrd.Absolute)
-		~default:true ~units:"things" (), Rrd.SR "my_sr"
+		~default:true ~units:"things" ()
 
 let generate_random_float_data_source () =
+	Rrd.VM "my_vm",
 	Ds.ds_make ~name:"random_float"
 		~description:"A random float"
 		~value:(Rrd.VT_Float (Random.float 1.0)) ~ty:(Rrd.Absolute)
-		~default:true ~units:"bits of things" (), Rrd.VM "my_vm"
+		~default:true ~units:"bits of things" ()
 
 let generate_data_sources () =
 	let include_extra_data_sources = get_extra_data_sources_flag () in
