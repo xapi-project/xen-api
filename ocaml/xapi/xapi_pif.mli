@@ -127,7 +127,15 @@ val set_primary_address_type :
   __context:Context.t ->
   self:API.ref_PIF ->
   primary_address_type:[`IPv4 | `IPv6 ] -> unit
-  
+
+(** Set a property on a PIF *)
+val set_property :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  name:string ->
+  value:string ->
+  unit
+
 (** Attempt to bring down the PIF: disconnect the underlying network interface from
  *  its bridge and disable the interface. *)
 val unplug : __context:Context.t -> self:API.ref_PIF -> unit
