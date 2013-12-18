@@ -128,6 +128,12 @@ val set_primary_address_type :
   self:API.ref_PIF ->
   primary_address_type:[`IPv4 | `IPv6 ] -> unit
 
+(** Set the default properties of a PIF *)
+val set_default_properties :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  unit
+
 (** Set a property on a PIF *)
 val set_property :
   __context:Context.t ->
