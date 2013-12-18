@@ -507,6 +507,8 @@ let _ =
     ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+  error Api_errors.cannot_change_pif_properties ["PIF"]
+    ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
   error Api_errors.slave_requires_management_iface []
     ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]

@@ -287,6 +287,11 @@ let default_properties = [
 	"gro", "on"
 ]
 
+let pif_has_properties ~__context ~self =
+	(* Only bond masters and unbonded physical PIFs *)
+	(Db.PIF.get_bond_master_of ~__context ~self <> []) ||
+		(Db.PIF.get_physical ~__context ~self && Db.PIF.get_bond_slave_of ~__context ~self = Ref.null)
+
 let pool_introduce
 		~__context ~device ~network ~host
 		~mAC ~mTU ~vLAN ~physical
@@ -661,6 +666,10 @@ let set_property ~__context ~self ~name ~value =
 		fail ()
 	else if not (List.mem value (List.assoc name property_names_and_values)) then
 		fail ();
+
+	(* Only bond masters and unbonded physical PIFs can be configured *)
+	if not (pif_has_properties ~__context ~self) || Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
+		raise (Api_errors.Server_error (Api_errors.cannot_change_pif_properties, [Ref.string_of self]));
 
 	(* Remove the existing property with this name, then add the new value. *)
 	let properties = List.filter
