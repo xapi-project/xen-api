@@ -1,0 +1,17 @@
+OASISFormat:  0.3
+Name:         crc
+Version:      0.5.0
+Synopsis:     Plugin library for the XCP RRD daemon
+Authors:      Rok Strnisa, John Else
+License:      LGPL-2.1 with OCaml linking exception
+Copyrights:   (C) 2013 Citrix Systems
+BuildTools:   ocamlbuild
+Plugins:      META (0.3)
+
+Library xcp_rrdd_plugin
+  Path: lib
+  Findlibname: xcp-rrdd-plugin
+  ByteOpt: -bin-annot
+  NativeOpt: -bin-annot
+  Modules: Rrdd_plugin
+  BuildDepends: threads, forkexec, stdext, xcp-rrd, xcp.rrd, rrd-transport

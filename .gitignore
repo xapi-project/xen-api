@@ -1,3 +1,5 @@
 *.swp
 
-dist/
+_build/
+setup.data
+setup.log

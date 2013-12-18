@@ -1,13 +1,31 @@
-dist/build/lib-xcp-rrdd-plugin/xcp-rrdd-plugin.cmxa:
-	obuild configure
-	obuild build
+all: build
 
-install:
-	ocamlfind install xcp-rrdd-plugin lib/META $(wildcard dist/build/lib-xcp-rrdd-plugin/*)
+TESTS_FLAG=--enable-tests
+
+NAME=xcp-rrdd-plugin
+J=4
+
+LIBDIR=_build/lib
+
+setup.ml: _oasis
+	oasis setup
+
+setup.data: setup.ml
+	ocaml setup.ml -configure $(TESTS_FLAG)
+
+build: setup.data setup.ml
+	ocaml setup.ml -build -j $(J)
+
+install: setup.data setup.ml
+	ocaml setup.ml -install
 
 uninstall:
-	ocamlfind remove xcp-rrdd-plugin
+	ocamlfind remove $(NAME)
 
-.PHONY: clean
+reinstall: setup.ml
+	ocamlfind remove $(NAME) || true
+	ocaml setup.ml -reinstall
+
 clean:
-	rm -rf dist
+	ocamlbuild -clean
+	rm -f setup.data setup.log

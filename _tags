@@ -1,0 +1,28 @@
+# OASIS_START
+# DO NOT EDIT (digest: a25bd39468416a16c42259563749b459)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xcp_rrdd_plugin
+"lib/xcp_rrdd_plugin.cmxs": use_xcp_rrdd_plugin
+<lib/xcp_rrdd_plugin.{cma,cmxa}>: oasis_library_xcp_rrdd_plugin_byte
+<lib/*.ml{,i}>: oasis_library_xcp_rrdd_plugin_byte
+<lib/xcp_rrdd_plugin.{cma,cmxa}>: oasis_library_xcp_rrdd_plugin_native
+<lib/*.ml{,i}>: oasis_library_xcp_rrdd_plugin_native
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_forkexec
+<lib/*.ml{,i}>: pkg_stdext
+<lib/*.ml{,i}>: pkg_xcp-rrd
+<lib/*.ml{,i}>: pkg_xcp.rrd
+<lib/*.ml{,i}>: pkg_rrd-transport
+# OASIS_STOP
