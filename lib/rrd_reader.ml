@@ -43,22 +43,27 @@ module File = struct
 		Cstruct.of_bigarray mapping
 end
 
+type interdomain_id = {
+	frontend_domid: int;
+	shared_page_refs: int list;
+}
+
 module Page = struct
 	open Gnt
 
 	(** Remote domid * list of grant references. *)
-	type id_t = int * (int list)
+	type id_t = interdomain_id
 	type state_t = Gnttab.Local_mapping.t
 
-	let init (domid, refs) =
+	let init {frontend_domid; shared_page_refs} =
 		let grants =
 			List.map
 				(fun ref ->
 					{
-						Gnttab.domid = domid;
+						Gnttab.domid = frontend_domid;
 						Gnttab.ref = ref
 					})
-				refs
+				shared_page_refs
 		in
 		let mapping_opt =
 			Gnttab.with_gnttab

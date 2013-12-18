@@ -69,5 +69,9 @@ let read_file path protocol =
 
 let read_page domid grantref protocol =
 	let protocol = protocol_of_string protocol in
-	let reader = Rrd_reader.PageReader.create (domid, [grantref]) protocol in
+	let reader =
+		Rrd_reader.PageReader.create
+			{Rrd_reader.frontend_domid = domid; shared_page_refs = [grantref]}
+			protocol
+	in
 	main_loop reader 5.0

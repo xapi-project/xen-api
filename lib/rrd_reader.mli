@@ -35,8 +35,13 @@ module File : sig
 	val expose: state_t -> Cstruct.t
 end
 
+type interdomain_id = {
+	frontend_domid: int;
+	shared_page_refs: int list;
+}
+
 module Page : sig
-	type id_t = int * (int list)
+	type id_t = interdomain_id
 	type state_t = Gnt.Gnttab.Local_mapping.t
 
 	val init: id_t -> state_t
