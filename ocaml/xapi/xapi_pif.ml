@@ -682,7 +682,15 @@ let set_property ~__context ~self ~name ~value =
 		(Db.PIF.get_properties ~__context ~self)
 	in
 	let properties = (name, value) :: properties in
-	Db.PIF.set_properties ~__context ~self ~value:properties
+	Db.PIF.set_properties ~__context ~self ~value:properties;
+
+	(* For a bond, also set the properties on the slaves *)
+	let bond = Db.PIF.get_bond_master_of ~__context ~self in
+	List.iter (fun bond ->
+		List.iter (fun self ->
+			Db.PIF.set_properties ~__context ~self ~value:properties
+		) (Db.Bond.get_slaves ~__context ~self:bond)
+	) bond
 
 let rec unplug ~__context ~self =
 	assert_pif_is_managed ~__context ~self;
