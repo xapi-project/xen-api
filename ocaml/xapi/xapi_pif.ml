@@ -690,7 +690,15 @@ let set_property ~__context ~self ~name ~value =
 		List.iter (fun self ->
 			Db.PIF.set_properties ~__context ~self ~value:properties
 		) (Db.Bond.get_slaves ~__context ~self:bond)
-	) bond
+	) bond;
+
+	(* Make it happen, also for VLANs that may be on top of the PIF *)
+	let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
+	let vlan_pifs = List.map (fun self -> Db.VLAN.get_untagged_PIF ~__context ~self) vlans in
+	List.iter (fun pif ->
+		if Db.PIF.get_currently_attached ~__context ~self then
+			Nm.bring_pif_up ~__context pif
+	) (self :: vlan_pifs)
 
 let rec unplug ~__context ~self =
 	assert_pif_is_managed ~__context ~self;
