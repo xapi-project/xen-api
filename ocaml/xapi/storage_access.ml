@@ -755,6 +755,10 @@ module Driver_kind = struct
 		| SMAPIv2_unix path -> Some (Unix.ADDR_UNIX path)
 		| SMAPIv2_tcp ip -> Some (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 80))
 
+	let to_xml_string probe_results =
+	  let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) probe_results.probed_srs in
+	  (String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
+
 	let probe task kind ty path device_config sr_sm_config =
 		let open Xmlrpc_client in
 		match kind with
@@ -765,15 +769,13 @@ module Driver_kind = struct
 				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path)
 			end) in
 			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-			ignore(result);
-			""
+			to_xml_string result
 		| SMAPIv2_tcp ip ->
 			let module C = Client(struct
 				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path)
 			end) in
 			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-			ignore(result);
-			""
+			to_xml_string result
 
 	let classify ~__context driver ty =
 		let dom0 = Helpers.get_domain_zero ~__context in
