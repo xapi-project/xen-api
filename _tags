@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e48841c6c6c1f806dbd181ab6d7d7847)
+# DO NOT EDIT (digest: a3d101cf945e7e1397f09f74645166a3)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -19,12 +19,35 @@
 <lib/*.ml{,i}>: oasis_library_rrdd_plugin_byte
 <lib/rrdd_plugin.{cma,cmxa}>: oasis_library_rrdd_plugin_native
 <lib/*.ml{,i}>: oasis_library_rrdd_plugin_native
+<lib/*.ml{,i}>: pkg_xenstore.unix
+<lib/*.ml{,i}>: pkg_xenstore_transport.unix
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_forkexec
 <lib/*.ml{,i}>: pkg_stdext
 <lib/*.ml{,i}>: pkg_xcp-rrd
 <lib/*.ml{,i}>: pkg_xcp.rrd
 <lib/*.ml{,i}>: pkg_rrd-transport
-<lib/*.ml{,i}>: pkg_xenstore.unix
-<lib/*.ml{,i}>: pkg_xenstore_transport.unix
+# Executable rrdp_dummy
+<test/rrdp_dummy.{native,byte}>: oasis_executable_rrdp_dummy_byte
+<test/*.ml{,i}>: oasis_executable_rrdp_dummy_byte
+<test/rrdp_dummy.{native,byte}>: oasis_executable_rrdp_dummy_native
+<test/*.ml{,i}>: oasis_executable_rrdp_dummy_native
+<test/rrdp_dummy.{native,byte}>: use_rrdd_plugin
+<test/rrdp_dummy.{native,byte}>: pkg_xenstore.unix
+<test/rrdp_dummy.{native,byte}>: pkg_xenstore_transport.unix
+<test/rrdp_dummy.{native,byte}>: pkg_threads
+<test/rrdp_dummy.{native,byte}>: pkg_forkexec
+<test/rrdp_dummy.{native,byte}>: pkg_stdext
+<test/rrdp_dummy.{native,byte}>: pkg_xcp-rrd
+<test/rrdp_dummy.{native,byte}>: pkg_xcp.rrd
+<test/rrdp_dummy.{native,byte}>: pkg_rrd-transport
+<test/*.ml{,i}>: use_rrdd_plugin
+<test/*.ml{,i}>: pkg_xenstore.unix
+<test/*.ml{,i}>: pkg_xenstore_transport.unix
+<test/*.ml{,i}>: pkg_threads
+<test/*.ml{,i}>: pkg_forkexec
+<test/*.ml{,i}>: pkg_stdext
+<test/*.ml{,i}>: pkg_xcp-rrd
+<test/*.ml{,i}>: pkg_xcp.rrd
+<test/*.ml{,i}>: pkg_rrd-transport
 # OASIS_STOP

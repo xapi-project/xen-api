@@ -15,3 +15,13 @@ Library rrdd_plugin
   NativeOpt: -bin-annot
   Modules: Rrdd_plugin
   BuildDepends: threads, forkexec, stdext, xcp-rrd, xcp.rrd, rrd-transport, xenstore.unix, xenstore_transport.unix
+
+Executable rrdp_dummy
+  CompiledObject: best
+  Build$: flag(tests)
+  Path: test
+  MainIs: rrdp_dummy.ml
+  Install: false
+  ByteOpt: -bin-annot
+  NativeOpt: -bin-annot
+  BuildDepends: xenstore.unix, xenstore_transport.unix, rrdd-plugin
