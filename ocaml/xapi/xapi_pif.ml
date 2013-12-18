@@ -289,9 +289,14 @@ let default_properties = [
 ]
 
 let pif_has_properties ~__context ~self =
-	(* Only bond masters and unbonded physical PIFs *)
-	(Db.PIF.get_bond_master_of ~__context ~self <> []) ||
-		(Db.PIF.get_physical ~__context ~self && Db.PIF.get_bond_slave_of ~__context ~self = Ref.null)
+	(* Only bond masters and physical PIFs *)
+	Db.PIF.get_bond_master_of ~__context ~self <> [] || Db.PIF.get_physical ~__context ~self
+
+let set_default_properties ~__context ~self =
+	if pif_has_properties ~__context ~self then
+		Db.PIF.set_properties ~__context ~self ~value:default_properties
+	else
+		Db.PIF.set_properties ~__context ~self ~value:[]
 
 let pool_introduce
 		~__context ~device ~network ~host
