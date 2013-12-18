@@ -315,6 +315,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
 		(* 6. Members must not be the management interface if HA is enabled *)
 		(* 7. Members must be PIFs that are managed by xapi *)
+		(* 8. Members must have the same PIF properties *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -337,6 +338,18 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		if List.length members < 2
 		then raise (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, []));
 		*)
+		let pif_properties =
+			if members = [] then
+				[]
+			else
+				let ps = List.map (fun self -> Db.PIF.get_properties ~__context ~self) members in
+				let p = List.hd ps in
+				let equal = List.fold_left (fun result p' -> result && (p = p')) true (List.tl ps) in
+				if not equal then
+					raise (Api_errors.Server_error (Api_errors.incompatible_pif_properties, []))
+				else
+					p
+		in
 
 		(* Collect information *)
 		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
@@ -370,7 +383,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		let disallow_unplug =
 			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
 		in
-		let pif_properties = Db.PIF.get_properties ~__context ~self:primary_slave in
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
