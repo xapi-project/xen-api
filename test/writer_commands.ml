@@ -90,7 +90,11 @@ let write_file path protocol =
 let write_page domid protocol =
 	Random.self_init ();
 	let protocol = protocol_of_string protocol in
-	let (_, refs), writer = Rrd_writer.PageWriter.create (domid, 1) protocol in
+	let refs, writer =
+		Rrd_writer.PageWriter.create
+			{Rrd_writer.backend_domid = domid; shared_page_count = 1}
+			protocol
+	in
 	Printf.printf
 		"Writing to pages [%s] shared with domain %d\n%!"
 		(List.map string_of_int refs |> String.concat "; ")

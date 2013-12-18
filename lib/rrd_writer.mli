@@ -38,9 +38,14 @@ module File : sig
 	val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
+type interdomain_id = {
+	backend_domid: int;
+	shared_page_count: int;
+}
+
 module Page : sig
-	type id_t = int * int
-	type info_t = int * int list
+	type id_t = interdomain_id
+	type info_t = int list
 	type state_t = Gnt.Gntshr.share
 
 	val init: id_t -> info_t * state_t

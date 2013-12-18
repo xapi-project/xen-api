@@ -58,21 +58,26 @@ module File = struct
 		alloc_cstruct
 end
 
+type interdomain_id = {
+	backend_domid: int;
+	shared_page_count: int;
+}
+
 module Page = struct
 	open Gnt
 
-	(** remote domid * page count *)
-	type id_t = (int * int)
-	(* remote domid * list of shared pages *)
-	type info_t = (int * int list)
+	type id_t = interdomain_id
+	(** list of shared pages *)
+	type info_t = int list
 	type state_t = Gntshr.share
 
-	let init (domid, count) =
+	let init {backend_domid; shared_page_count} =
 		let share =
 			Gntshr.with_gntshr
-				(fun gntshr -> Gntshr.share_pages_exn gntshr domid count false)
+				(fun gntshr ->
+					Gntshr.share_pages_exn gntshr backend_domid shared_page_count false)
 		in
-		(domid, share.Gntshr.refs), share
+		share.Gntshr.refs, share
 
 	let cleanup _ _ share =
 		Gntshr.with_gntshr
