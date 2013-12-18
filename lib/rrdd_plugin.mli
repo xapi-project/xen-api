@@ -13,7 +13,10 @@
  *)
 
 module Common : functor (N : (sig val name : string end)) -> sig
-	val wait_until_next_reading : ?neg_shift:float -> unit -> unit
+	val wait_until_next_reading :
+		?neg_shift:float ->
+		protocol:Rrd_interface.plugin_protocol ->
+		unit
 
 	val now : unit -> int64
 
@@ -25,5 +28,9 @@ module Common : functor (N : (sig val name : string end)) -> sig
 
 	val list_directory_entries_unsafe : string -> string list
 
-	val main_loop : neg_shift:float -> dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) -> unit
+	val main_loop :
+		neg_shift:float ->
+		protocol:Rrd_interface.plugin_protocol ->
+		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
+		unit
 end
