@@ -755,6 +755,28 @@ module Driver_kind = struct
 		| SMAPIv2_unix path -> Some (Unix.ADDR_UNIX path)
 		| SMAPIv2_tcp ip -> Some (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 80))
 
+	let to_xml_string probe_results =
+	  let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) probe_results.probed_srs in
+	  (String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
+
+	let probe task kind ty path device_config sr_sm_config =
+		let open Xmlrpc_client in
+		match kind with
+		| SMAPIv1 ->
+			Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) ty sr_sm_config
+		| SMAPIv2_unix fs ->
+			let module C = Client(struct
+				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path)
+			end) in
+			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
+			to_xml_string result
+		| SMAPIv2_tcp ip ->
+			let module C = Client(struct
+				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path)
+			end) in
+			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
+			to_xml_string result
+
 	let classify ~__context driver ty =
 		let dom0 = Helpers.get_domain_zero ~__context in
 		if driver = dom0 then begin
@@ -842,6 +864,13 @@ let unbind ~__context ~pbd =
 	System_domains.unregister_service service
 
 let rpc call = Storage_mux.Server.process None call
+
+let probe ~__context ~_type ~device_config ~sr_sm_config =
+  let driver = System_domains.storage_driver_domain_of_sr_type ~__context ~_type in
+  let kind = Driver_kind.classify ~__context driver _type in
+  let path = Constants.path [ Constants._services; Constants._SM; _type ] in
+  let subtask_of = Context.get_task_id __context in
+  Driver_kind.probe subtask_of kind _type path device_config sr_sm_config
 
 module Client = Client(struct let rpc = rpc end)
 

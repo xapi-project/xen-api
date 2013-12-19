@@ -171,12 +171,8 @@ let unplug_and_destroy_pbds ~__context ~self =
 
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-
 	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-	then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
-	let subtask_of = Some (Context.get_task_id __context) in
-	Sm.sr_probe (subtask_of, Sm.sm_master true :: device_config) _type sm_config
+	Storage_access.probe ~__context ~_type ~device_config ~sr_sm_config:sm_config
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
