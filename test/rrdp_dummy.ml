@@ -30,4 +30,8 @@ let generate_dummy_dss () =
 
 let _ =
 	Common.initialise ();
-	Common.main_loop ~neg_shift:0.5 ~protocol:Rrd_interface.V2 ~dss_f:generate_dummy_dss
+	Common.main_loop
+		~neg_shift:0.5
+		~target:Rrdd_plugin.Local
+		~protocol:Rrd_interface.V2
+		~dss_f:generate_dummy_dss
