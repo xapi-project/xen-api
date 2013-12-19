@@ -2266,6 +2266,14 @@ module Actions = struct
 			in ()
 		in
 
+		let deregister_rrd_plugin ~domid ~name =
+			debug
+				"Deregistering RRD plugin: frontend_domid = %d, name = %s"
+				domid name;
+			let uid = {Rrd_interface.name = name; frontend_domid = domid} in
+			RRDD.Plugin.Interdomain.deregister ~uid
+		in
+
 		match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp_string "/") path) with
 			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
 				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
@@ -2295,6 +2303,22 @@ module Actions = struct
 						"Failed to register RRD plugin: caught %s"
 						(Printexc.to_string e)
 			end
+			| "local" :: "domain" :: domid :: "rrd" :: name :: "shutdown" :: [] ->
+				let value =
+					try Some (xs.Xs.read path)
+					with Xs_protocol.Enoent _ -> None
+				in
+				if value = Some "true" then begin
+					debug
+						"RRD plugin has announced shutdown: domid = %s, name = %s"
+						domid name;
+					safe_rm xs (Printf.sprintf "local/domain/%s/rrd/%s" domid name);
+					try deregister_rrd_plugin ~domid:(int_of_string domid) ~name
+					with e ->
+						debug
+							"Failed to deregister RRD plugin: caught %s"
+							(Printexc.to_string e)
+				end
 			| "local" :: "domain" :: domid :: _ ->
 				fire_event_on_vm domid
 			| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
