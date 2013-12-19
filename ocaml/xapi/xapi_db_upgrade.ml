@@ -47,6 +47,8 @@ let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release
 let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
+let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
+let augusta = Datamodel.augusta_release_schema_major_vsn, Datamodel.augusta_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -402,6 +404,15 @@ let remove_wlb = {
 			(Db.Pool.get_all ~__context)
 }
 
+let add_default_pif_properties = {
+	description = "Adding default PIF properties";
+	version = (fun x -> x < augusta);
+	fn = fun ~__context ->
+		List.iter
+			(fun self -> Xapi_pif.set_default_properties ~__context ~self)
+			(Db.PIF.get_all ~__context)
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -418,6 +429,7 @@ let rules = [
 	upgrade_host_editions;
 	remove_vmpp;
 	remove_wlb;
+	add_default_pif_properties;
 ]
 
 (* Maybe upgrade most recent db *)

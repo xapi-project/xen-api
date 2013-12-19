@@ -280,13 +280,31 @@ let make_pif_metrics ~__context =
 		~other_config:[] in
 	metrics
 
+let property_names_and_values = [
+	"gro", ["on"; "off"]
+]
+
+let default_properties = [
+	"gro", "on"
+]
+
+let pif_has_properties ~__context ~self =
+	(* Only bond masters and physical PIFs *)
+	Db.PIF.get_bond_master_of ~__context ~self <> [] || Db.PIF.get_physical ~__context ~self
+
+let set_default_properties ~__context ~self =
+	if pif_has_properties ~__context ~self then
+		Db.PIF.set_properties ~__context ~self ~value:default_properties
+	else
+		Db.PIF.set_properties ~__context ~self ~value:[]
+
 let pool_introduce
 		~__context ~device ~network ~host
 		~mAC ~mTU ~vLAN ~physical
 		~ip_configuration_mode ~iP ~netmask ~gateway
 		~dNS ~bond_slave_of ~vLAN_master_of ~management
 		~other_config ~disallow_unplug ~ipv6_configuration_mode
-		~iPv6 ~ipv6_gateway ~primary_address_type ~managed =
+		~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
 	let pif_ref = Ref.make () in
 	let metrics = make_pif_metrics ~__context in
 	let () =
@@ -298,7 +316,7 @@ let pool_introduce
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
 			~other_config ~disallow_unplug ~ipv6_configuration_mode
-			~iPv6 ~ipv6_gateway ~primary_address_type ~managed in
+			~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -309,7 +327,6 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
 		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
-
 	let bridge = bridge_naming_convention device in
 
 	(* If we are not told which network to use,
@@ -334,7 +351,8 @@ let introduce_internal
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed in
+		~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
+		~properties:default_properties in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
@@ -647,6 +665,43 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 
 	Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type;
 	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
+
+let set_property ~__context ~self ~name ~value =
+	let fail () = raise (Api_errors.Server_error
+		(Api_errors.invalid_value, ["properties"; Printf.sprintf "%s = %s" name value]))
+	in
+	if not (List.mem_assoc name property_names_and_values) then
+		fail ()
+	else if not (List.mem value (List.assoc name property_names_and_values)) then
+		fail ();
+
+	(* Only bond masters and unbonded physical PIFs can be configured *)
+	if not (pif_has_properties ~__context ~self) || Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
+		raise (Api_errors.Server_error (Api_errors.cannot_change_pif_properties, [Ref.string_of self]));
+
+	(* Remove the existing property with this name, then add the new value. *)
+	let properties = List.filter
+		(fun (property_name, _) -> property_name <> name)
+		(Db.PIF.get_properties ~__context ~self)
+	in
+	let properties = (name, value) :: properties in
+	Db.PIF.set_properties ~__context ~self ~value:properties;
+
+	(* For a bond, also set the properties on the slaves *)
+	let bond = Db.PIF.get_bond_master_of ~__context ~self in
+	List.iter (fun bond ->
+		List.iter (fun self ->
+			Db.PIF.set_properties ~__context ~self ~value:properties
+		) (Db.Bond.get_slaves ~__context ~self:bond)
+	) bond;
+
+	(* Make it happen, also for VLANs that may be on top of the PIF *)
+	let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
+	let vlan_pifs = List.map (fun self -> Db.VLAN.get_untagged_PIF ~__context ~self) vlans in
+	List.iter (fun pif ->
+		if Db.PIF.get_currently_attached ~__context ~self then
+			Nm.bring_pif_up ~__context pif
+	) (self :: vlan_pifs)
 
 let rec unplug ~__context ~self =
 	assert_pif_is_managed ~__context ~self;

@@ -42,7 +42,7 @@ let determine_mtu pif_rc net_rc =
 	else
 		mtu
 
-let determine_ethtool_settings oc =
+let determine_ethtool_settings properties oc =
 	let proc key =
 		if List.mem_assoc ("ethtool-" ^ key) oc then
 			let value = List.assoc ("ethtool-" ^ key) oc in
@@ -54,6 +54,8 @@ let determine_ethtool_settings oc =
 				debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false." key value;
 				[]
 			end
+		else if List.mem_assoc key properties then
+			[key, List.assoc key properties]
 		else
 			[]
 	in
@@ -106,7 +108,7 @@ let create_bond ~__context bond mtu persistent =
 			Db.Network.get_bridge ~__context ~self:network
 		in
 		let other_config = Db.PIF.get_other_config ~__context ~self:pif in
-		let (ethtool_settings, ethtool_offload) = determine_ethtool_settings other_config in
+		let (ethtool_settings, ethtool_offload) = determine_ethtool_settings master_rc.API.pIF_properties other_config in
 		let config = {default_interface with mtu; ethtool_settings; ethtool_offload;
 			persistent_i=persistent} in
 		device, bridge, config
@@ -238,13 +240,13 @@ let get_pif_type pif_rc =
 			| Some tunnel -> `tunnel_pif tunnel
 			| None -> `phy_pif
 
-let linux_pif_config pif_type pif_rc mtu persistent =
+let linux_pif_config pif_type pif_rc properties mtu persistent =
 	(* If we are using linux bridge rather than OVS, then we need to
 	 * configure the "pif" that represents the vlan or bond.
 	 * In OVS there is no such device, so the config entry will be ignored
 	 * by Interface.make_config in xcp-networkd/networkd/network_server.ml *)
 	let (ethtool_settings, ethtool_offload) =
-		determine_ethtool_settings pif_rc.API.pIF_other_config in
+		determine_ethtool_settings properties pif_rc.API.pIF_other_config in
 	pif_rc.API.pIF_device ^ (match pif_type with
 		| `bond_pif -> ""
 		| `vlan_pif -> ("." ^ Int64.to_string pif_rc.API.pIF_VLAN)
@@ -268,7 +270,7 @@ let rec create_bridges ~__context pif_rc net_rc =
 		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
 		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
 		let interface_config = (* Add configuration for the vlan device itself *)
-			linux_pif_config `vlan_pif original_pif_rc mtu persistent
+			linux_pif_config `vlan_pif original_pif_rc pif_rc.API.pIF_properties mtu persistent
 			:: interface_config
 		in
 		cleanup,
@@ -277,7 +279,7 @@ let rec create_bridges ~__context pif_rc net_rc =
 	| `bond_pif bond ->
 		let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu persistent in
 		let interface_config = (*  Add configuration for the bond pif itself *)
-			linux_pif_config `bond_pif pif_rc mtu persistent
+			linux_pif_config `bond_pif pif_rc pif_rc.API.pIF_properties mtu persistent
 			:: interface_config
 		in
 		cleanup, bridge_config, interface_config
@@ -289,7 +291,7 @@ let rec create_bridges ~__context pif_rc net_rc =
 				[]
 		in
 		let (ethtool_settings, ethtool_offload) =
-			determine_ethtool_settings pif_rc.API.pIF_other_config in
+			determine_ethtool_settings pif_rc.API.pIF_properties pif_rc.API.pIF_other_config in
 		let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
 		cleanup,
 		[net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
@@ -479,7 +481,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			in
 
 			let mtu = determine_mtu rc net_rc in
-			let (ethtool_settings, ethtool_offload) = determine_ethtool_settings net_rc.API.network_other_config in
+			let (ethtool_settings, ethtool_offload) =
+				determine_ethtool_settings rc.API.pIF_properties net_rc.API.network_other_config in
 			let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
 				ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
 			Net.Interface.make_config dbg ~config:interface_config ()
