@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: caef1a50a1c69170c4932e02a8ff48b3) *)
+(* DO NOT EDIT (digest: b97d941c19743f8e542a07bd484e608e) *)
 module OASISGettext = struct
 (* # 21 "src/oasis/OASISGettext.ml" *)
 
@@ -487,8 +487,8 @@ let package_default =
           ("xc", ["lib"]);
           ("simulator", ["lib"]);
           ("libvirt", ["lib"])
-       ];
-     }
+       ]
+  }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
