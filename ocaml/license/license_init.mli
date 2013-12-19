@@ -15,6 +15,9 @@
  * @group Licensing
  *)
 
+module type V6clientS = module type of V6client
+val v6client : (module V6clientS) ref
+
 (** Initialises licensing on xapi start up *)
 val initialise : __context:Context.t -> host:API.ref_host -> unit
 

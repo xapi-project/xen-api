@@ -40,7 +40,7 @@ let unmarshall schema dbconn =
 
 (* Given table name, read all rows from db and store in cache *)
 let populate schema dbconn =
-  Printf.printf "attempting to restore database from %s\n" dbconn.Parse_db_conf.path;
+  debug "attempting to restore database from %s" dbconn.Parse_db_conf.path;
   let db = unmarshall schema dbconn in
   let major, minor = Manifest.schema (Database.manifest db) in
   debug "database unmarshalled, schema version = %d.%d" major minor;

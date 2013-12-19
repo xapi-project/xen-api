@@ -29,8 +29,8 @@ let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
-let make_test_database () = 
-	let __context = Mock.make_context_with_new_db "Mock context" in
+let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
+	let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
 
 	let host_info = {
 		Create_misc.name_label = "test host";
@@ -47,9 +47,16 @@ let make_test_database () =
 		total_memory_mib = 1024L;
 		dom0_static_max = XenopsMemory.bytes_of_mib 512L;
 	} in
+
 	Dbsync_slave.create_localhost ~__context host_info;
+	(* We'd like to be able to call refresh_localhost_info, but
+	   create_misc is giving me too many headaches right now. Do the
+	   simple thing first and just set localhost_ref instead. *)
+	(* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
+	Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 	Create_misc.ensure_domain_zero_records ~__context host_info;
 	Dbsync_master.create_pool_record ~__context;
+
 	__context
 
 let make_vm ~__context ?(name_label="name_label") ?(name_description="description")

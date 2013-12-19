@@ -683,15 +683,14 @@ let common_http_handlers = [
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 
-let server_init() =
-  let listen_unix_socket () =
-    (* Always listen on the Unix domain socket first *)
-    Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
-    Unixext.unlink_safe Xapi_globs.unix_domain_socket;
-    let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
-    ignore(Http_svr.start Xapi_http.server domain_sock);
-    in
+let listen_unix_socket () =
+	(* Always listen on the Unix domain socket first *)
+	Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
+	Unixext.unlink_safe Xapi_globs.unix_domain_socket;
+	let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
+	ignore(Http_svr.start Xapi_http.server domain_sock)
 
+let server_init() =
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
 
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
@@ -1159,25 +1158,3 @@ tolerance, the next tweak will be %f seconds away at the earliest."
 						!soft_limit !confidence !tolerance !calm_down;
 					decision in
 	Thread.set_policy (Thread.WaitCondition wait_or_not)
-
-
-let _ =
-	Debug.set_facility Syslog.Local5;
-
-	init_args(); (* need to read args to find out whether to daemonize or not *)
-
-  if !daemonize then
-    Unixext.daemonize ();
-  Unixext.pidfile_write "/var/run/xapi.pid";
-
-  (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go 
-     (in the unlikely event that there are any ;) *)
-  Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700;
-  Unix.chdir (Filename.concat "/var/lib/xcp" "debug");
-
-	set_thread_queue_params ();
-
-  (* WARNING! Never move this function call into the list of startup tasks. *)
-  record_boot_time_host_free_memory ();
-
-  watchdog server_init

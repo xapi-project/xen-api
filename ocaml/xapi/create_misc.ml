@@ -45,11 +45,16 @@ type host_info = {
 
 let read_localhost_info () =
 	let xen_verstring =
-		let xc = Xenctrl.interface_open () in
-		let v = Xenctrl.version xc in
-		Xenctrl.interface_close xc;
-		let open Xenctrl in
-		Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+		try
+			let xc = Xenctrl.interface_open () in
+			let v = Xenctrl.version xc in
+			Xenctrl.interface_close xc;
+			let open Xenctrl in
+			Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+		with e ->
+			if Pool_role.is_unit_test ()
+			then "0.0.0"
+			else raise e
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =

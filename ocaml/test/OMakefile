@@ -4,12 +4,14 @@ OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid	\
              xcp.xen xcp.memory tar tar.unix oPasswd
 
 OCAMLINCLUDES = \
+	../ \
 	../database \
 	../xapi \
 	../xenops \
 	../idl \
 	../idl/ocaml_backend \
-	../autogen 
+	../autogen \
+	../license \
 
 OCAML_LIBS = \
 	../fhs \
@@ -19,7 +21,8 @@ OCAML_LIBS = \
 	../idl/ocaml_backend/server \
 	../auth/pam \
 	../util/stats \
-	../xapi/xapi 
+	../util/sanitycheck \
+	../xapi/xapi \
 
 OCAML_OBJS = \
 	../idl/api_lowlevel \
@@ -36,5 +39,8 @@ OCAML_OBJS = \
 	test_platformdata \
 	test_sm_features \
 	test_xenopsd_metadata \
+	test_ca121350 \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
+
+.DEFAULT: suite
