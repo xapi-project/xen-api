@@ -126,6 +126,14 @@ let gc_host_cpus ~__context =
       (fun hcpu ->
 	 if not (valid_ref __context (Db.Host_cpu.get_host ~__context ~self:hcpu)) then
 	   Db.Host_cpu.destroy ~__context ~self:hcpu) host_cpus
+let gc_host_metrics ~__context =
+	let all_host_metrics = Db.Host_metrics.get_all ~__context in
+	let metrics = List.map (fun host-> Db.Host.get_metrics ~__context ~self:host) in
+	let host_metrics = metrics (Db.Host.get_all ~__context) in
+		List.iter
+			(fun hmetric-> 
+				if not (List.mem hmetric host_metrics) then
+					Db.Host_metrics.destroy ~__context ~self:hmetric) all_host_metrics
 
 (* If the SR record is missing, delete the VDI record *)
 let gc_VDIs ~__context = 
@@ -478,6 +486,7 @@ let single_pass () =
 						"PGPUs", gc_PGPUs;
 						"Host patches", gc_Host_patches;
 						"Host CPUs", gc_host_cpus;
+						"Host metrics", gc_host_metrics;
 						"Tasks", timeout_tasks;
 						"Sessions", timeout_sessions;
 						"Messages", gc_messages;
