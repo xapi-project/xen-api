@@ -410,20 +410,25 @@ module Plugin = struct
 			Rrd_reader.FileReader.create (get_path_internal uid) protocol
 	end)
 
+
 	module Interdomain = Make(struct
 		(* name, frontend domid *)
-		type uid = (string * int)
+		type uid = Rrd_interface.interdomain_uid
 		(* sampling frequency, list of grant refs *)
-		type info = (Rrd.sampling_frequency * int list)
+		type info = Rrd_interface.interdomain_info
 
-		let string_of_uid ~(uid: (string * int)) : string =
-			Printf.sprintf "%s:domid%d" (fst uid) (snd uid)
+		let string_of_uid ~(uid: uid) : string =
+			Printf.sprintf
+				"%s:domid%d"
+				uid.Rrd_interface.name
+				uid.Rrd_interface.frontend_domid
 
 		let make_reader ~(uid:uid) ~(info:info) ~(protocol:Rrd_protocol.protocol) =
-			let frontend_domid = snd uid in
-			let shared_page_refs = snd info in
 			Rrd_reader.PageReader.create
-				{Rrd_reader.frontend_domid = frontend_domid; shared_page_refs}
+				{
+					Rrd_reader.frontend_domid = uid.Rrd_interface.frontend_domid;
+					Rrd_reader.shared_page_refs = info.Rrd_interface.shared_page_refs;
+				}
 				protocol
 	end)
 
