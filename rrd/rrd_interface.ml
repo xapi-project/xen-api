@@ -34,6 +34,16 @@ let uri () = "file:" ^ !default_path
 
 type plugin_protocol = | V1 | V2
 
+type interdomain_uid = {
+	name: string;
+	frontend_domid: int;
+}
+
+type interdomain_info = {
+	frequency: Rrd.sampling_frequency;
+	shared_page_refs: int list;
+}
+
 (* The interface is defined by extern function declarations. *)
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
@@ -75,11 +85,11 @@ module Plugin = struct
 	end
 
 	module Interdomain = struct
-		external register : uid:(string * int) ->
-			info:(Rrd.sampling_frequency * int list) ->
+		external register : uid:interdomain_uid ->
+			info:interdomain_info ->
 			protocol:plugin_protocol -> float = ""
-		external deregister : uid:(string * int) -> unit = ""
-		external next_reading : uid:(string * int) -> float = ""
+		external deregister : uid:interdomain_uid -> unit = ""
+		external next_reading : uid:interdomain_uid -> float = ""
 	end
 
 	external register : uid:string -> frequency:Rrd.sampling_frequency ->
