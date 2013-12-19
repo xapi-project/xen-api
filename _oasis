@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        gnt
-Version:     0.5.0
+Version:     0.6.0
 Synopsis:    Shared-memory protocols for transmitting RRD data
 Authors:     John Else
 License:     LGPL-2.1 with OCaml linking exception
