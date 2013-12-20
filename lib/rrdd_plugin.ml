@@ -91,9 +91,13 @@ let list_directory_entries_unsafe dir =
 	let dirlist = list_directory_unsafe dir in
 	List.filter (fun x -> x <> "." && x <> "..") dirlist
 
-let unregister signum =
+let cleanup_fn : (unit -> unit) option ref = ref None
+
+let cleanup signum =
 	info "Received signal %d: deregistering plugin %s..." signum N.name;
-	RRDD.Plugin.deregister N.name;
+	Opt.iter
+		(fun f -> f ())
+		!cleanup_fn;
 	exit 0
 
 module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
@@ -127,7 +131,7 @@ let get_xs_state () =
 (* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
-	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle unregister))
+	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle cleanup))
 		signals_to_catch;
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
@@ -169,18 +173,20 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 			let _, writer =
 				Rrd_writer.FileWriter.create path (choose_protocol protocol)
 			in
-			finally (fun () ->
-				info "Obtained path=%s\n" path;
-				while true do
-					wait_until_next_reading ~neg_shift ~protocol;
-					let payload = Rrd_protocol.({
-						timestamp = now ();
-						datasources = dss_f ();
-					}) in
-					writer.Rrd_writer.write_payload payload;
-					Thread.delay 0.003
-				done)
-				(fun () -> writer.Rrd_writer.cleanup ())
+			cleanup_fn := Some (fun () ->
+				RRDD.Plugin.Local.deregister ~uid:N.name;
+				writer.Rrd_writer.cleanup ());
+			info "Obtained path=%s\n" path;
+			while true do
+				wait_until_next_reading ~neg_shift ~protocol;
+				let payload = Rrd_protocol.({
+					timestamp = now ();
+					datasources = dss_f ();
+				}) in
+				writer.Rrd_writer.write_payload payload;
+				debug "Done outputting to %s" path;
+				Thread.delay 0.003
+			done
 		with
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
 				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n"
@@ -188,7 +194,7 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 				exit 1
 			| Sys.Break ->
 				warn "Caught Sys.Break; exiting...";
-				exit 1
+				cleanup Sys.sigint
 			| e ->
 				error "Unexpected error %s, sleeping for 10 seconds..." (Printexc.to_string e);
 				log_backtrace ();
