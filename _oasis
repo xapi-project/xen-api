@@ -31,7 +31,7 @@ Library xenopsd
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenopsd
-  Modules:            Cancellable_subprocess, Bootloader, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface
+  Modules:            Cancellable_subprocess, Bootloader, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface, Xenctrl_uuid
   BuildDepends:       threads, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, xcp.storage, rpclib.syntax, sexplib, xcp, uutf
 
 Executable xenguest

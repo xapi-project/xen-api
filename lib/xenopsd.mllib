@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ac4bb902711bef8e45ad54ee949ab0dd)
+# DO NOT EDIT (digest: e6a6da133594b59757dcdb07ae2e2d10)
 Cancellable_subprocess
 Bootloader
 Ionice
@@ -18,4 +18,5 @@ Scheduler
 Path
 Storage
 Interface
+Xenctrl_uuid
 # OASIS_STOP

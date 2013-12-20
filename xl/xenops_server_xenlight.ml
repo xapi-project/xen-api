@@ -97,7 +97,7 @@ let with_ctx f =
 
 let get_uuid domid =
 	let open Xenlight.Dominfo in
-	with_ctx (fun ctx -> (get ctx domid).uuid)
+	with_ctx (fun ctx -> (get ctx domid).uuid) |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string
 
 (* *)
 
@@ -310,7 +310,7 @@ let di_of_uuid ~xs domain_selection uuid =
 	let open Xenlight.Dominfo in
 	let uuid' = Uuidm.to_string uuid in
 	let all = with_ctx (fun ctx -> list ctx) in
-	let possible = List.filter (fun x -> uuid_of_string x.uuid = uuid) all in
+	let possible = List.filter (fun x -> Xenctrl_uuid.uuid_of_handle x.uuid = uuid) all in
 
 	let oldest_first = List.sort
 		(fun a b ->
@@ -481,11 +481,12 @@ module Mem = struct
 						(* This happens when someone manually runs 'service squeezed stop' *)
 						Mutex.execute cached_session_id_m (fun () -> cached_session_id := None);
 						error "Ballooning daemon has disappeared. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-						with_ctx (fun ctx -> Xenlight.Domain.setmaxmem ctx domid (amount |> Int64.to_int |> Int32.of_int))
+						(* TODO: replace domain_setmaxmem with libxl_domain_setmaxmem (not yet written!) *)
+						Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount);
 				end
  			| None ->
 				info "No ballooning daemon. Manually setting domain maxmem for domid = %d to %Ld KiB" domid amount;
-				with_ctx (fun ctx -> Xenlight.Domain.setmaxmem ctx domid (amount |> Int64.to_int |> Int32.of_int))
+				Xenctrl.with_intf (fun xc -> Xenctrl.domain_setmaxmem xc domid amount)
 
 	let transfer_reservation_to_domain dbg domid r =
 		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
@@ -539,8 +540,18 @@ module HOST = struct
 
 	let get_console_data () =
 		with_ctx (fun ctx ->
-			debug "Calling Xenlight.Host.xen_console_read";
-			let raw = String.concat "" (Xenlight.Host.xen_console_read ctx) in
+			debug "Calling Xenlight.Host.xen_console_read_start";
+			let reader = Xenlight.Host.xen_console_read_start ctx 0 in
+			let rec read_lines () =
+				try
+					debug "Calling Xenlight.Host.xen_console_read_line";
+					let line = Xenlight.Host.xen_console_read_line ctx reader in
+					line :: read_lines ()
+				with Xenlight.Host.End_of_file ->
+					[]
+			in
+			let raw = String.concat "" (List.rev (read_lines ())) in
+			Xenlight.Host.xen_console_read_finish ctx reader;
 			(* There may be invalid XML characters in the buffer, so remove them *)
 			let is_printable chr =
 				let x = int_of_char chr in
@@ -632,8 +643,7 @@ module PCI = struct
 				debug "Calling Xenlight.Device_pci.assignable_remove";
 				assignable_add ctx pci' true;
 				debug "Calling Xenlight.Device_pci.add";
-				Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> add ctx pci' frontend_domid ()));
-				(* Xenlight_events.async (add ctx pci' frontend_domid); *)
+				Xenlight_events.async (add ctx pci' frontend_domid); 
 				debug "Call Xenlight.Device_pci.add completed";
 			)
 		) Newest vm
@@ -654,8 +664,7 @@ module PCI = struct
 					func; dev; bus; domain; msitranslate; power_mgmt
 				} in
 				debug "Calling Xenlight.Device_pci.destroy";
-				Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> destroy ctx pci' frontend_domid ()));
-				(* Xenlight_events.async (destroy ctx pci' frontend_domid); *)
+				Xenlight_events.async (destroy ctx pci' frontend_domid); 
 				debug "Call Xenlight.Device_pci.destroy completed";
 				debug "Calling Xenlight.Device_pci.assignable_remove";
 				assignable_remove ctx pci' true;
@@ -807,8 +816,7 @@ module VBD = struct
 						is_cdrom = 0;
 					} in
 					debug "Calling Xenlight.Device_disk.add";
-					Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> add ctx disk frontend_domid ()));
-					(* Xenlight_events.async (add ctx disk frontend_domid); *)
+					Xenlight_events.async (add ctx disk frontend_domid); 
 					debug "Call Xenlight.Device_disk.add completed"
 				);
 				(* write extra XS keys *)
@@ -860,8 +868,7 @@ module VBD = struct
 					let disk = Xenlight.Device_disk.of_vdev ctx domid vdev in
 					Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown") (fun () ->
 						debug "Calling Xenlight.Device_disk.remove";
-						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Device_disk.remove ctx disk domid ()));
-						(* Xenlight_events.async (Xenlight.Device_disk.remove ctx disk domid); *)
+						Xenlight_events.async (Xenlight.Device_disk.remove ctx disk domid); 
 						debug "Call Xenlight.Device_disk.remove completed"
 					)
 				)
@@ -1024,8 +1031,7 @@ module VBD = struct
 							with_ctx (fun ctx ->
 								let open Xenlight.Device_disk in
 								debug "Calling Xenlight.Device_disk.add";
-								Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> add ctx disk frontend_domid ()));
-								(* Xenlight_events.async (add ctx disk frontend_domid); *)
+								Xenlight_events.async (add ctx disk frontend_domid); 
 								debug "Call Xenlight.Device_disk.add completed"
 							);
 							(* write extra XS keys *)
@@ -1082,13 +1088,11 @@ module VBD = struct
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd)) (fun () ->
 								if force then begin
 									debug "Calling Xenlight.Device_disk.destroy";
-									Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Device_disk.destroy ctx disk domid ()));
-									(* Xenlight_events.async (Xenlight.Device_disk.destroy ctx disk domid); *)
+									Xenlight_events.async (Xenlight.Device_disk.destroy ctx disk domid); 
 									debug "Call Xenlight.Device_disk.destroy completed"
 								end else begin
 									debug "Calling Xenlight.Device_disk.remove";
-									Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Device_disk.remove ctx disk domid ()));
-									(* Xenlight_events.async (Xenlight.Device_disk.remove ctx disk domid); *)
+									Xenlight_events.async (Xenlight.Device_disk.remove ctx disk domid); 
 									debug "Call Xenlight.Device_disk.remove completed"
 								end
 							)
@@ -1782,8 +1786,7 @@ module VM = struct
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
 		debug "Calling Xenlight.domain_destroy domid=%d" domid;
-	(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.destroy ctx domid)); *)
-		Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.destroy ctx domid ()));
+		with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.destroy ctx domid)); 
 		debug "Call Xenlight.domain_destroy domid=%d completed" domid;
 
 		let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg in
@@ -1958,10 +1961,10 @@ module VM = struct
 					let open Xenlight.Domain_build_info in
 					match vm.Vm.ty with
 					| HVM hvm_info ->
-						let b_info_default = with_ctx (fun ctx -> default ctx ~ty:Xenlight.DOMAIN_TYPE_HVM ()) in
+						let b_info_default = with_ctx (fun ctx -> default ctx ~xl_type:Xenlight.DOMAIN_TYPE_HVM ()) in
 						let b_info_hvm_default =
 							match b_info_default with
-							| { ty = Hvm b_info_hvm_default } ->
+							| { xl_type = Hvm b_info_hvm_default } ->
 								b_info_hvm_default
 							| _ -> failwith "Expected HVM build_info here!"
 						in
@@ -1977,7 +1980,7 @@ module VM = struct
 							{ vnc_info_default with enable = Some true; listen = listen }
 						in
 						{ b_info_default with
-							ty = Hvm { b_info_hvm_default with
+							xl_type = Hvm { b_info_hvm_default with
 								pae = Some true;
 								apic = Some true;
 								acpi = Some hvm_info.Xenops_interface.Vm.acpi;
@@ -1993,14 +1996,14 @@ module VM = struct
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->
-						let b_info_default = with_ctx (fun ctx -> default ctx ~ty:Xenlight.DOMAIN_TYPE_PV ()) in
+						let b_info_default = with_ctx (fun ctx -> default ctx ~xl_type:Xenlight.DOMAIN_TYPE_PV ()) in
 						let b_info_pv_default =
 							match b_info_default with
-							| { ty = Pv b_info_pv_default } -> b_info_pv_default
+							| { xl_type = Pv b_info_pv_default } -> b_info_pv_default
 							| _ -> failwith "Expected PV build_info here!"
 						in
 						{ b_info_default with
-							ty = Pv { b_info_pv_default with
+							xl_type = Pv { b_info_pv_default with
 								kernel = Some direct.Xenops_interface.Vm.kernel;
 								cmdline = Some direct.Xenops_interface.Vm.cmdline;
 								ramdisk = direct.Xenops_interface.Vm.ramdisk;
@@ -2009,10 +2012,10 @@ module VM = struct
 					| PV { Xenops_interface.Vm.boot = Indirect { devices = [] } } ->
 						raise (No_bootable_device)
 					| PV { Xenops_interface.Vm.boot = Indirect ( { devices = d :: _ } as i ) } ->
-						let b_info_default = with_ctx (fun ctx -> default ctx ~ty:Xenlight.DOMAIN_TYPE_PV ()) in
+						let b_info_default = with_ctx (fun ctx -> default ctx ~xl_type:Xenlight.DOMAIN_TYPE_PV ()) in
 						let b_info_pv_default =
 							match b_info_default with
-							| { ty = Pv b_info_pv_default } -> b_info_pv_default
+							| { xl_type = Pv b_info_pv_default } -> b_info_pv_default
 							| _ -> failwith "Expected PV build_info here!"
 						in
 						if restore_fd = None then
@@ -2027,7 +2030,7 @@ module VM = struct
 										~disk:dev ~vm:vm.Vm.id () in
 									kernel_to_cleanup := Some b;
 									{ b_info_default with
-										ty = Pv { b_info_pv_default with
+										xl_type = Pv { b_info_pv_default with
 											kernel = Some b.Bootloader.kernel_path;
 											cmdline = Some b.Bootloader.kernel_args;
 											ramdisk = b.Bootloader.initrd_path
@@ -2036,7 +2039,7 @@ module VM = struct
 								)
 						else
 							{ b_info_default with
-								ty = Pv { b_info_pv_default with
+								xl_type = Pv { b_info_pv_default with
 									bootloader = Some i.Xenops_interface.Vm.bootloader;
 									bootloader_args = (*i.bootloader_args :: i.legacy_args :: i.extra_args ::*) [];
 								}
@@ -2073,11 +2076,11 @@ module VM = struct
 
 				(* create and build structures *)
 				let c_info = Xenlight.Domain_create_info.({ with_ctx (fun ctx -> default ctx ()) with
-					ty = (if hvm then Xenlight.DOMAIN_TYPE_HVM else Xenlight.DOMAIN_TYPE_PV);
+					xl_type = (if hvm then Xenlight.DOMAIN_TYPE_HVM else Xenlight.DOMAIN_TYPE_PV);
 					hap = Some hvm;
 					ssidref = vm.Vm.ssidref;
 					name = Some vm.Vm.name;
-					uuid = vm.Vm.id;
+					uuid = vm |> uuid_of_vm |> Xenctrl_uuid.handle_of_uuid;
 					xsdata = vm.Vm.xsdata;
 					platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
 					run_hotplug_scripts = Some !Xenopsd.run_hotplug_scripts;
@@ -2117,12 +2120,15 @@ module VM = struct
 					match restore_fd with
 					| None ->
 						debug "Calling Xenlight.domain_create_new";
-					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
-						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()))
+						(*with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
+						with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ())
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
-						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.create_restore ctx domain_config fd ()))
-					(*	with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config fd)) *)
+						with_ctx (fun ctx ->
+							let params = Xenlight.Domain_restore_params.default ctx () in
+						(*	Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config (fd, params))*)
+							Xenlight.Domain.create_restore ctx domain_config (fd, params) ()
+						)
 				in
 				debug "Xenlight has created domain %d" domid;
 
@@ -2324,7 +2330,7 @@ module VM = struct
 						debug "Writing save signature";
 						Io.write fd suspend_save_signature;
 						debug "Calling Xenlight.Domain.suspend domid=%d" domid;
-						Mutex.execute Xenlight_events.xl_m (fun () -> with_ctx (fun ctx -> Xenlight.Domain.suspend ctx domid fd ()));
+						with_ctx (fun ctx -> Xenlight.Domain.suspend ctx domid fd ());
 						debug "Call Xenlight.Domain.suspend domid=%d completed" domid;
 						ignore (wait_shutdown task vm Suspend 1200.);
 
@@ -2342,7 +2348,7 @@ module VM = struct
 							let disks = list ctx domid in
 							List.iter (fun disk ->
 								debug "Calling Xenlight.Device_disk.destroy";
-								Mutex.execute Xenlight_events.xl_m (fun () -> destroy ctx disk domid ());
+								destroy ctx disk domid ();
 								debug "Call Xenlight.Device_disk.destroy completed";
 							) disks;
 							debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
@@ -2672,7 +2678,7 @@ let look_for_different_domains xc xs =
 			debug "Domain %d may have changed state" domid;
 			(* The uuid is either in the new domains map or the old map. *)
 			let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-			let id = di.Xenlight.Dominfo.uuid in
+			let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
 			if domid > 0 && not (DB.exists id)
 			then begin
 				debug "However domain %d is not managed by us: ignoring" domid;
@@ -2761,7 +2767,7 @@ let process_one_watch xc xs (path, token) =
 		then debug "Ignoring watch on shutdown domain %d" d
 		else
 			let di = IntMap.find d !domains in
-			let id = di.Xenlight.Dominfo.uuid in
+			let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
 			Updates.add (Dynamic.Vm id) updates in
 
 	let fire_event_on_device domid kind devid =
@@ -2770,7 +2776,7 @@ let process_one_watch xc xs (path, token) =
 		then debug "Ignoring watch on shutdown domain %d" d
 		else
 			let di = IntMap.find d !domains in
-			let id = di.Xenlight.Dominfo.uuid in
+			let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
 			let update = match kind with
 				| "vbd" ->
 					let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
@@ -2874,6 +2880,7 @@ let init () =
 	);
 
 	(* Setup a libxl context *)
+	Xenlight.register_exceptions ();
 	let logger' = create_logger ~level:Xentoollog.Debug () in
 	ctx := Some (Xenlight.ctx_alloc logger');
 	logger := Some logger';
