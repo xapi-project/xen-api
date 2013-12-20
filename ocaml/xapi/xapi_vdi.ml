@@ -249,7 +249,8 @@ let require_uuid vdi_info =
   | Some uuid -> uuid
   | None -> failwith "SM backend failed to return <uuid> field" 
 
-let newvdi ~__context ~sr newvdi =
+(* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
+let update_vdi_db ~__context ~sr newvdi =
 	let open Storage_interface in
 	let open Db_filter_types in
 	let expr = And(Eq(Field "location", Literal newvdi.vdi), Eq(Field "SR", Literal (Ref.string_of sr))) in
@@ -310,7 +311,7 @@ let create ~__context ~name_label ~name_description
 		(fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
 	if virtual_size < sm_vdi.virtual_size
 	then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) sm_vdi.vdi virtual_size sm_vdi.virtual_size;
-	let db_vdi = newvdi ~__context ~sr:sR sm_vdi in
+	let db_vdi = update_vdi_db ~__context ~sr:sR sm_vdi in
 	Db.VDI.set_other_config ~__context ~self:db_vdi ~value:other_config;
 	Db.VDI.set_sharable ~__context ~self:db_vdi ~value:sharable;
 	Db.VDI.set_tags ~__context ~self:db_vdi ~value:tags;
@@ -388,12 +389,15 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
   ref
 
 let update ~__context ~vdi = 
-  debug "update ref=%s location=%s" (Ref.string_of vdi) (Db.VDI.get_location ~__context ~self:vdi);
+  let vdi_loc = Db.VDI.get_location ~__context ~self:vdi in
+  debug "update ref=%s location=%s" (Ref.string_of vdi) vdi_loc;
+  let task = Context.get_task_id __context in	
   let sR = Db.VDI.get_SR ~__context ~self:vdi in
+  let sr' = Db.SR.get_uuid ~__context ~self:sR in
+  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  Sm.call_sm_functions ~__context ~sR
-    (fun device_config sr_type ->
-       Sm.vdi_update device_config sr_type sR vdi)
+  let vdi_info = C.VDI.stat ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi_loc in
+  ignore(update_vdi_db ~__context ~sr:sR vdi_info)
 
 let forget ~__context ~vdi = Db.VDI.destroy ~__context ~self:vdi
 
@@ -423,7 +427,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
 	  let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
-	  newvdi ~__context ~sr:sR new_vdi
+	  update_vdi_db ~__context ~sr:sR new_vdi
   in
 
   (* While we don't have blkback support for pause/unpause we only do this

@@ -542,7 +542,8 @@ module SMAPIv1 = struct
 				Server_helpers.exec_with_new_task "VDI.stat" ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
 						for_vdi ~dbg ~sr ~vdi "VDI.stat"
-							(fun device_config _type _ self ->
+							(fun device_config _type sr self ->
+							  Sm.vdi_update device_config _type sr self;
 								vdi_info_of_vdi_rec __context (Db.VDI.get_record ~__context ~self)
 							)
 					)
