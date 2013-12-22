@@ -1,8 +1,6 @@
 PKG cmdliner bigarray threads xcp.rrd xcp-rrd cstruct gnt crc
 S lib
-S reader
-S writer
+S utils
 
 B _build/lib
-B _build/reader
-B _build/writer
+B _build/utils
