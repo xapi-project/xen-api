@@ -1,6 +1,8 @@
 Shared-memory protocols for transmitting RRD data
 =================================================
 
+[![Build status](https://travis-ci.org/xapi-project/rrd-transport.png?branch=master)](https://travis-ci.org/project/rrd-transport)
+
 Allows writing and reading of RRD datasources to and from files and shared Xen
 pages.
 
