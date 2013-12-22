@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 7e422f79a5facfacaff29c5fcc3dbfed) *)
+(* DO NOT EDIT (digest: db3f7159397048ef4ee0e3bb859c341a) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -602,7 +602,7 @@ let package_default =
           (["oasis_executable_writer_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])])
        ];
-     includes = [("test", ["lib"])]
+     includes = [("utils", ["lib"])]
   }
   ;;
 

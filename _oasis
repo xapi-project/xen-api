@@ -18,7 +18,7 @@ Library rrd_transport
 
 Executable reader
   CompiledObject:       best
-  Path:                 test
+  Path:                 utils
   MainIs:               reader.ml
   Install:              false
   ByteOpt:              -bin-annot
@@ -27,7 +27,7 @@ Executable reader
 
 Executable writer
   CompiledObject:       best
-  Path:                 test
+  Path:                 utils
   MainIs:               writer.ml
   Install:              false
   ByteOpt:              -bin-annot
