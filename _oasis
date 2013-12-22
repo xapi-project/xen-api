@@ -18,7 +18,7 @@ Library rrd_transport
 
 Executable reader
   CompiledObject:       best
-  Path:                 test
+  Path:                 utils
   MainIs:               reader.ml
   Install:              false
   ByteOpt:              -bin-annot
@@ -27,9 +27,21 @@ Executable reader
 
 Executable writer
   CompiledObject:       best
-  Path:                 test
+  Path:                 utils
   MainIs:               writer.ml
   Install:              false
   ByteOpt:              -bin-annot
   NativeOpt:            -bin-annot
   BuildDepends:         cmdliner, threads, rrd-transport
+
+Executable test_suite
+  Build$:               flag(tests)
+  Path:                 test
+  MainIs:               test_suite.ml
+  Install:              false
+  ByteOpt:              -bin-annot
+  BuildDepends:         oUnit, rrd-transport
+
+Test test_suite
+  Command:              $test_suite
+  WorkingDirectory:     test
