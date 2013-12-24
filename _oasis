@@ -1,5 +1,5 @@
 OASISFormat: 0.3
-Name:        gnt
+Name:        rrd-transport
 Version:     0.6.0
 Synopsis:    Shared-memory protocols for transmitting RRD data
 Authors:     John Else
