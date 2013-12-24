@@ -24,32 +24,10 @@ module type TRANSPORT = sig
 	val expose: state_t -> Cstruct.t
 end
 
-module File : sig
-	type id_t = string
-	type state_t = Unix.file_descr
-
-	val init: id_t -> state_t
-
-	val cleanup: id_t -> state_t -> unit
-
-	val expose: state_t -> Cstruct.t
-end
-
 type interdomain_id = {
 	frontend_domid: int;
 	shared_page_refs: int list;
 }
-
-module Page : sig
-	type id_t = interdomain_id
-	type state_t = Gnt.Gnttab.Local_mapping.t
-
-	val init: id_t -> state_t
-
-	val cleanup: id_t -> state_t -> unit
-
-	val expose: state_t -> Cstruct.t
-end
 
 type reader = {
 	read_payload: unit -> Rrd_protocol.payload;
@@ -61,9 +39,9 @@ module Make (T: TRANSPORT) : sig
 end
 
 module FileReader : sig
-	val create: File.id_t -> Rrd_protocol.protocol -> reader
+	val create: string -> Rrd_protocol.protocol -> reader
 end
 
 module PageReader : sig
-	val create: Page.id_t -> Rrd_protocol.protocol -> reader
+	val create: interdomain_id -> Rrd_protocol.protocol -> reader
 end
