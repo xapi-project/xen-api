@@ -2,7 +2,7 @@ all: build
 
 TESTS_FLAG=--enable-tests
 
-NAME=rrd-protocol
+NAME=rrd-transport
 J=4
 
 LIBDIR=_build/lib
