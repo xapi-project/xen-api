@@ -47,6 +47,8 @@ module Lwt_unix_IO = struct
 
 	let write_line (_, oc) = Lwt_io.write_line oc
 
+	let flush (_, oc) = Lwt_io.flush oc
+
 	let close ((close1, _), (close2, _)) =
 		close1 () >> close2 ()
 

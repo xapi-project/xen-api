@@ -65,6 +65,8 @@ module Fake_IO = struct
 
 
 	let write oc string = Queue.push string oc; return ()
+
+	let flush oc = return ()
 	
 	type connection = {
 		address: Uri.t;

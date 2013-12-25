@@ -64,6 +64,9 @@ module IO = struct
 		Async.Std.Writer.write oc "\r\n";
 		return ()
 
+	let flush (_, oc) =
+		Async.Std.Writer.flushed oc
+
 	let close ((close1, _), (close2, _)) =
 		close1 () >>= fun () -> close2 ()
 
