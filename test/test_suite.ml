@@ -80,11 +80,13 @@ let assert_ds_equal (owner1, ds1) (owner2, ds2) =
 	assert_equal ~printer:string_of_float ds1.ds_max ds2.ds_max;
 	assert_equal ~printer:print_string ds1.ds_units ds2.ds_units
 
+let make_shared_file () =
+	Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp"
+
 let test_file_io protocol =
 	bracket
 		(fun () ->
-			let shared_file =
-				Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp" in
+			let shared_file = make_shared_file () in
 			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
 			let reader = Rrd_reader.FileReader.create shared_file protocol in
 			writer, reader)
@@ -109,11 +111,24 @@ let test_file_io protocol =
 			writer.Rrd_writer.cleanup ())
 		()
 
+let test_writer_cleanup protocol =
+	let shared_file = make_shared_file () in
+	let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+	writer.Rrd_writer.write_payload test_payload;
+	writer.Rrd_writer.cleanup ();
+	assert_equal
+		~msg:"Shared file was not cleaned up"
+		(Sys.file_exists shared_file) false
+
 let base_suite =
 	"test_suite" >:::
 		[
 			"test_file_io_v1" >:: (fun () -> test_file_io Rrd_protocol_v1.protocol);
 			"test_file_io_v2" >:: (fun () -> test_file_io Rrd_protocol_v2.protocol);
+			"test_writer_cleanup_v1" >::
+				(fun () -> test_writer_cleanup Rrd_protocol_v1.protocol);
+			"test_writer_cleanup_v2" >::
+				(fun () -> test_writer_cleanup Rrd_protocol_v2.protocol);
 		]
 
 let _ = run_test_tt_main base_suite
