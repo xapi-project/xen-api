@@ -97,9 +97,13 @@ let test_file_io protocol =
 			let received_payload = reader.Rrd_reader.read_payload () in
 			Rrd_protocol.(
 				assert_equal
+					~msg:"Incorrect timestamp read"
+					~printer:Int64.to_string
 					test_payload.timestamp
 					received_payload.timestamp;
 				assert_equal
+					~msg:"Incorrect number of datasources read"
+					~printer:string_of_int
 					(List.length test_payload.datasources)
 					(List.length received_payload.datasources);
 				List.iter2
