@@ -122,7 +122,15 @@ let test_writer_cleanup protocol =
 	writer.Rrd_writer.cleanup ();
 	assert_equal
 		~msg:"Shared file was not cleaned up"
-		(Sys.file_exists shared_file) false
+		(Sys.file_exists shared_file) false;
+	assert_raises
+		~msg:"write_payload should fail after cleanup"
+		Rrd_io.Resource_closed
+		(fun () -> writer.Rrd_writer.write_payload test_payload);
+	assert_raises
+		~msg:"write_payload should fail after cleanup"
+		Rrd_io.Resource_closed
+		(fun () -> writer.Rrd_writer.cleanup ())
 
 let base_suite =
 	"test_suite" >:::
