@@ -80,11 +80,13 @@ let assert_ds_equal (owner1, ds1) (owner2, ds2) =
 	assert_equal ~printer:string_of_float ds1.ds_max ds2.ds_max;
 	assert_equal ~printer:print_string ds1.ds_units ds2.ds_units
 
+let make_shared_file () =
+	Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp"
+
 let test_file_io protocol =
 	bracket
 		(fun () ->
-			let shared_file =
-				Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp" in
+			let shared_file = make_shared_file () in
 			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
 			let reader = Rrd_reader.FileReader.create shared_file protocol in
 			writer, reader)
@@ -95,9 +97,13 @@ let test_file_io protocol =
 			let received_payload = reader.Rrd_reader.read_payload () in
 			Rrd_protocol.(
 				assert_equal
+					~msg:"Incorrect timestamp read"
+					~printer:Int64.to_string
 					test_payload.timestamp
 					received_payload.timestamp;
 				assert_equal
+					~msg:"Incorrect number of datasources read"
+					~printer:string_of_int
 					(List.length test_payload.datasources)
 					(List.length received_payload.datasources);
 				List.iter2
@@ -109,11 +115,88 @@ let test_file_io protocol =
 			writer.Rrd_writer.cleanup ())
 		()
 
+let test_writer_cleanup protocol =
+	let shared_file = make_shared_file () in
+	let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+	writer.Rrd_writer.write_payload test_payload;
+	writer.Rrd_writer.cleanup ();
+	assert_equal
+		~msg:"Shared file was not cleaned up"
+		(Sys.file_exists shared_file) false;
+	assert_raises
+		~msg:"write_payload should fail after cleanup"
+		Rrd_io.Resource_closed
+		(fun () -> writer.Rrd_writer.write_payload test_payload);
+	assert_raises
+		~msg:"write_payload should fail after cleanup"
+		Rrd_io.Resource_closed
+		(fun () -> writer.Rrd_writer.cleanup ())
+
+let test_reader_cleanup protocol =
+	bracket
+		(fun () ->
+			let shared_file = make_shared_file () in
+			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			writer.Rrd_writer.write_payload test_payload;
+			shared_file, writer)
+		(fun (shared_file, writer) ->
+			let reader = Rrd_reader.FileReader.create shared_file protocol in
+			let (_: Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			reader.Rrd_reader.cleanup ();
+			assert_raises
+				~msg:"read_payload should fail after cleanup"
+				Rrd_io.Resource_closed
+				(fun () -> reader.Rrd_reader.read_payload ());
+			assert_raises
+				~msg:"cleanup should fail after cleanup"
+				Rrd_io.Resource_closed
+				(fun () -> reader.Rrd_reader.read_payload ()))
+		(fun (writer, reader) -> ())
+		()
+
+let test_reader_state protocol =
+	bracket
+		(fun () ->
+			let shared_file = make_shared_file () in
+			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			let reader = Rrd_reader.FileReader.create shared_file protocol in
+			writer, reader)
+		(fun (writer, reader) ->
+			writer.Rrd_writer.write_payload test_payload;
+			let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			assert_raises
+				~msg:"read_payload should raise No_update if there has been no update"
+				Rrd_protocol.No_update
+				(fun () -> reader.Rrd_reader.read_payload ());
+			(* After the timestamp has been updated, we should be able to read the
+			 * payload again. *)
+			let open Rrd_protocol in
+			writer.Rrd_writer.write_payload
+				{test_payload with timestamp = Int64.add test_payload.timestamp 5L};
+			let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			())
+		(fun (writer, reader) ->
+			reader.Rrd_reader.cleanup ();
+			writer.Rrd_writer.cleanup ())
+		()
+
 let base_suite =
 	"test_suite" >:::
 		[
 			"test_file_io_v1" >:: (fun () -> test_file_io Rrd_protocol_v1.protocol);
 			"test_file_io_v2" >:: (fun () -> test_file_io Rrd_protocol_v2.protocol);
+			"test_writer_cleanup_v1" >::
+				(fun () -> test_writer_cleanup Rrd_protocol_v1.protocol);
+			"test_writer_cleanup_v2" >::
+				(fun () -> test_writer_cleanup Rrd_protocol_v2.protocol);
+			"test_reader_cleanup_v1" >::
+				(fun () -> test_reader_cleanup Rrd_protocol_v1.protocol);
+			"test_reader_cleanup_v2" >::
+				(fun () -> test_reader_cleanup Rrd_protocol_v2.protocol);
+			"test_reader_state_v1" >::
+				(fun () -> test_reader_state Rrd_protocol_v1.protocol);
+			"test_reader_state_v2" >::
+				(fun () -> test_reader_state Rrd_protocol_v2.protocol);
 		]
 
 let _ = run_test_tt_main base_suite
