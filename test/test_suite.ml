@@ -132,6 +132,28 @@ let test_writer_cleanup protocol =
 		Rrd_io.Resource_closed
 		(fun () -> writer.Rrd_writer.cleanup ())
 
+let test_reader_cleanup protocol =
+	bracket
+		(fun () ->
+			let shared_file = make_shared_file () in
+			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			writer.Rrd_writer.write_payload test_payload;
+			shared_file, writer)
+		(fun (shared_file, writer) ->
+			let reader = Rrd_reader.FileReader.create shared_file protocol in
+			let (_: Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			reader.Rrd_reader.cleanup ();
+			assert_raises
+				~msg:"read_payload should fail after cleanup"
+				Rrd_io.Resource_closed
+				(fun () -> reader.Rrd_reader.read_payload ());
+			assert_raises
+				~msg:"cleanup should fail after cleanup"
+				Rrd_io.Resource_closed
+				(fun () -> reader.Rrd_reader.read_payload ()))
+		(fun (writer, reader) -> ())
+		()
+
 let base_suite =
 	"test_suite" >:::
 		[
@@ -141,6 +163,10 @@ let base_suite =
 				(fun () -> test_writer_cleanup Rrd_protocol_v1.protocol);
 			"test_writer_cleanup_v2" >::
 				(fun () -> test_writer_cleanup Rrd_protocol_v2.protocol);
+			"test_reader_cleanup_v1" >::
+				(fun () -> test_reader_cleanup Rrd_protocol_v1.protocol);
+			"test_reader_cleanup_v2" >::
+				(fun () -> test_reader_cleanup Rrd_protocol_v2.protocol);
 		]
 
 let _ = run_test_tt_main base_suite
