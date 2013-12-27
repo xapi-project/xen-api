@@ -154,6 +154,32 @@ let test_reader_cleanup protocol =
 		(fun (writer, reader) -> ())
 		()
 
+let test_reader_state protocol =
+	bracket
+		(fun () ->
+			let shared_file = make_shared_file () in
+			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			let reader = Rrd_reader.FileReader.create shared_file protocol in
+			writer, reader)
+		(fun (writer, reader) ->
+			writer.Rrd_writer.write_payload test_payload;
+			let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			assert_raises
+				~msg:"read_payload should raise No_update if there has been no update"
+				Rrd_protocol.No_update
+				(fun () -> reader.Rrd_reader.read_payload ());
+			(* After the timestamp has been updated, we should be able to read the
+			 * payload again. *)
+			let open Rrd_protocol in
+			writer.Rrd_writer.write_payload
+				{test_payload with timestamp = Int64.add test_payload.timestamp 5L};
+			let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+			())
+		(fun (writer, reader) ->
+			reader.Rrd_reader.cleanup ();
+			writer.Rrd_writer.cleanup ())
+		()
+
 let base_suite =
 	"test_suite" >:::
 		[
@@ -167,6 +193,10 @@ let base_suite =
 				(fun () -> test_reader_cleanup Rrd_protocol_v1.protocol);
 			"test_reader_cleanup_v2" >::
 				(fun () -> test_reader_cleanup Rrd_protocol_v2.protocol);
+			"test_reader_state_v1" >::
+				(fun () -> test_reader_state Rrd_protocol_v1.protocol);
+			"test_reader_state_v2" >::
+				(fun () -> test_reader_state Rrd_protocol_v2.protocol);
 		]
 
 let _ = run_test_tt_main base_suite
