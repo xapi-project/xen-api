@@ -667,7 +667,7 @@ let vdi_test session_id =
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let t = Unix.gettimeofday () in
   debug test (Printf.sprintf "Attempting to copy the VDI%!");
-  let newvdi2 = Client.VDI.copy !rpc session_id newvdi default_SR in
+  let newvdi2 = Client.VDI.copy !rpc session_id newvdi Ref.null default_SR Ref.null in
   let copytime = Unix.gettimeofday () -. t in
   debug test (Printf.sprintf "Time to copy: %f%!" copytime);
   Client.VBD.destroy !rpc session_id vbd;
@@ -697,7 +697,7 @@ let async_test session_id =
   let vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:dom0 ~vDI:newvdi ~userdevice:device ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let vdis = Client.VDI.get_all !rpc session_id in
-  let task = Client.Async.VDI.copy !rpc session_id newvdi default_SR in
+  let task = Client.Async.VDI.copy !rpc session_id newvdi Ref.null default_SR Ref.null in
   wait_for_task_complete session_id task;
   debug test (Printf.sprintf "Task completed!%!");
   let status = Client.Task.get_status !rpc session_id task in
@@ -785,6 +785,7 @@ let _ =
 		"squeezing";
 		"lifecycle";
 		"vhd";
+		"copy";
 	] in
 	let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
@@ -827,6 +828,7 @@ let _ =
 				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
 				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
 				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
+				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s);
 			with
 				| Api_errors.Server_error (a,b) ->
 					output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));

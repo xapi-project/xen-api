@@ -895,6 +895,10 @@ let _ =
     ~doc:"The operation could not proceed because necessary VDIs were already locked at the storage level." ();
   error Api_errors.vdi_readonly [ "vdi" ]
     ~doc:"The operation required write access but this VDI is read-only" ();
+  error Api_errors.vdi_too_small [ "vdi"; "minimum size" ]
+    ~doc:"The VDI is too small. Please resize it to at least the minimum size." ();
+  error Api_errors.vdi_not_sparse [ "vdi" ]
+    ~doc:"The VDI is not stored using a sparse format. It is not possible to query and manipulate only the changed blocks (or 'block differences' or 'disk deltas') between two VDIs. Please select a VDI which uses a sparse-aware technology such as VHD." ();
   error Api_errors.vdi_is_a_physical_device [ "vdi" ]
     ~doc:"The operation cannot be performed on physical device" ();
   error Api_errors.vdi_is_not_iso [ "vdi"; "type" ]
@@ -2960,11 +2964,18 @@ let vdi_copy = call
   ~name:"copy"
   ~lifecycle:[
 	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
-	Extended, rel_cowley, "The copy can now be performed between any two SRs." ]
+	Extended, rel_cowley, "The copy can now be performed between any two SRs.";
+	Extended, rel_augusta, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
   ~in_oss_since:None
-  ~params:[Ref _vdi, "vdi", "The VDI to copy"; Ref _sr, "sr", "The destination SR" ]
-  ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
-  ~result:(Ref _vdi, "The reference of the newly created VDI.")
+  ~versioned_params:
+  [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
+   {param_type=Ref _vdi; param_name="base"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=augusta_release; param_default=Some (VRef Ref.(string_of null))};
+   {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=augusta_release; param_default=Some (VString Ref.(string_of null))};
+   {param_type=Ref _vdi; param_name="into"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=augusta_release; param_default=Some (VString Ref.(string_of null))};
+  ]
+  ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
+  ~errs:[Api_errors.vdi_readonly; Api_errors.vdi_too_small; Api_errors.vdi_not_sparse]
+  ~result:(Ref _vdi, "The reference of the VDI where the blocks were written.")
   ~allowed_roles:_R_VM_ADMIN
   ()
 
