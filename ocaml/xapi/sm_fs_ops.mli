@@ -21,7 +21,11 @@ val with_open_block_attached_device  :    Context.t -> (Rpc.call -> Rpc.response
 val with_new_fs_vdi : Context.t -> name_label:string -> name_description:string -> sR:API.ref_SR -> required_space:int64 -> _type:API.vdi_type ->
   sm_config:API.string_to_string_map -> (API.ref_VDI -> string -> 'a) -> 'a
 val with_fs_vdi :   Context.t -> API.ref_VDI -> (string -> 'a) -> 'a
-val copy_vdi : __context:Context.t -> API.ref_VDI -> API.ref_VDI -> unit
+
+(** [copy_vdi ~__context ?base src dst] copies the disk [src] into [dst].
+    If [base = Some base] then we assume that [dst] initially contains
+    the same contents as [dst], and we only copy the differences. *)
+val copy_vdi : __context:Context.t -> ?base:API.ref_VDI -> API.ref_VDI -> API.ref_VDI -> unit
 
 
 val must_write_zeroes_into_new_vdi : __context:Context.t -> API.ref_VDI -> bool
