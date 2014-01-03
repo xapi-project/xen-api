@@ -151,7 +151,7 @@ let test_reader_cleanup protocol =
 				~msg:"cleanup should fail after cleanup"
 				Rrd_io.Resource_closed
 				(fun () -> reader.Rrd_reader.read_payload ()))
-		(fun (writer, reader) -> ())
+		(fun (_, writer) -> writer.Rrd_writer.cleanup ())
 		()
 
 let test_reader_state protocol =
