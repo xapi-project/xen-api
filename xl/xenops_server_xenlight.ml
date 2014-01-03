@@ -2072,7 +2072,7 @@ module VM = struct
 					xl_type = (if hvm then Xenlight.DOMAIN_TYPE_HVM else Xenlight.DOMAIN_TYPE_PV);
 					hap = Some hvm;
 					ssidref = vm.Vm.ssidref;
-					name = Some vm.Vm.name;
+					name = if restore_fd = None then Some vm.Vm.name else Some (vm.Vm.name ^ "--incoming");
 					uuid = vm |> uuid_of_vm |> Xenctrl_uuid.handle_of_uuid;
 					xsdata = vm.Vm.xsdata;
 					platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
@@ -2153,6 +2153,11 @@ module VM = struct
 					in
 					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
 				) vbds_extra;
+
+				if restore_fd <> None then begin
+					let dom_path = xs.Xs.getdomainpath domid in
+					xs.Xs.write (dom_path ^ "/name") vm.Vm.name;
+				end;
 
 				Mem.transfer_reservation_to_domain task.Xenops_task.dbg domid reservation_id;
 
