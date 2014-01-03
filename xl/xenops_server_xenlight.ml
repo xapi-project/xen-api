@@ -323,21 +323,21 @@ let di_of_uuid domain_selection uuid =
 		raise (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list));
 
 	match (if domain_selection = Oldest then oldest_first else List.rev oldest_first) with
-		| [] -> None
+		| [] -> None, false
 		| x :: [] ->
-			Some x
+			Some x, false
 		| x :: rest ->
 			debug "VM = %s; domids = [ %s ]; we will operate on %d" uuid' domid_list x.domid;
-			Some x
+			Some x, true
 
 let domid_of_uuid domain_selection uuid =
 	(* We don't fully control the domain lifecycle because libxenguest will actually
 	   destroy a domain on suspend. Therefore we only rely on state in xenstore *)
 	match di_of_uuid domain_selection uuid with
-	| None ->
+	| None, _ ->
 		error "Failed to find VM %s: has this domain already been cleaned up?" (Uuidm.to_string uuid);
 		None
-	| Some x ->
+	| Some x, _ ->
 		Some x.Xenlight.Dominfo.domid
 
 module Storage = struct
@@ -576,8 +576,8 @@ let on_frontend f domain_selection frontend =
 	with_xc_and_xs
 		(fun xc xs ->
 			let frontend_di = match frontend |> uuid_of_string |> di_of_uuid domain_selection with
-				| None -> raise (Does_not_exist ("domain", frontend))
-				| Some x -> x in
+				| None, _ -> raise (Does_not_exist ("domain", frontend))
+				| Some x, _ -> x in
 			let open Xenlight.Dominfo in
 			let hvm = frontend_di.domain_type = Xenlight.DOMAIN_TYPE_HVM in
 			f xc xs frontend_di.domid hvm
@@ -1711,8 +1711,8 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match di_of_uuid domain_selection uuid with
-					| None -> raise (Does_not_exist("domain", vm.Vm.id))
-					| Some di -> f xc xs task vm di
+					| None, _ -> raise (Does_not_exist("domain", vm.Vm.id))
+					| Some di, multiple -> f xc xs task vm di multiple
 			)
 
 	let on_domain_if_exists f domain_selection (task: Xenops_task.t) vm =
@@ -1726,8 +1726,8 @@ module VM = struct
 		with_xs
 			(fun xs ->
 				match di_of_uuid Newest (uuid_of_vm vm) with
-					| None -> () (* Domain doesn't exist so no setup required *)
-					| Some di ->
+					| None, _ -> () (* Domain doesn't exist so no setup required *)
+					| Some di, _ ->
 						debug "VM %s exists with domid=%d; checking whether xenstore is intact" vm.Vm.id di.domid;
 						(* Minimal set of keys and values expected by tools like xentop (CA-24231) *)
 						let minimal_local_kvs = [
@@ -1762,7 +1762,7 @@ module VM = struct
 
 	let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
-	let destroy = on_domain_if_exists (fun xc xs task vm di ->
+	let destroy = on_domain_if_exists (fun xc xs task vm di multiple ->
 		let open Xenlight.Dominfo in
 		let domid = di.domid in
 		let devices = Device_common.list_frontends ~xs domid in
@@ -1795,24 +1795,24 @@ module VM = struct
 		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
 	) Oldest
 
-	let pause = on_domain (fun _ xs _ _ di ->
+	let pause = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		if di.current_memkb = 0L then raise (Domain_not_built);
 		with_ctx (fun ctx -> Xenlight.Domain.pause ctx di.domid)
 	) Newest
 
-	let unpause = on_domain (fun _ xs _ _ di ->
+	let unpause = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		if di.current_memkb = 0L then raise (Domain_not_built);
 		with_ctx (fun ctx -> Xenlight.Domain.unpause ctx di.domid)
 	) Newest
 
-	let set_xsdata task vm xsdata = on_domain (fun _ xs _ _ di ->
+	let set_xsdata task vm xsdata = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		Domain.set_xsdata ~xs di.domid xsdata
 	) Newest task vm
 
-	let set_vcpus task vm target = on_domain (fun _ xs _ _ di ->
+	let set_vcpus task vm target = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		if di.domain_type = Xenlight.DOMAIN_TYPE_HVM then
 			raise (Unimplemented("vcpu hotplug for HVM domains"));
@@ -1856,7 +1856,7 @@ module VM = struct
 	) Newest task vm
 
 	(* TODO: libxl *)
-	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
+	let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		if di.domain_type = Xenlight.DOMAIN_TYPE_PV then
 			raise (Unimplemented "shadow_multiplier for PV domains");
@@ -1876,7 +1876,7 @@ module VM = struct
 	) Newest task vm
 
 	(* TODO: libxl *)
-	let set_memory_dynamic_range task vm min max = on_domain (fun xc xs _ _ di ->
+	let set_memory_dynamic_range task vm min max = on_domain (fun xc xs _ _ di _ ->
 		let open Xenlight.Dominfo in
 		let domid = di.domid in
 		Domain.set_memory_dynamic_range ~xc ~xs
@@ -2204,7 +2204,7 @@ module VM = struct
 
 	let request_shutdown task vm reason ack_delay =
 		on_domain
-			(fun _ xs task vm di ->
+			(fun _ xs task vm di _ ->
 				let open Xenlight.Dominfo in
 				let domid = di.domid in
 				try
@@ -2226,7 +2226,7 @@ module VM = struct
 
 	let wait_shutdown task vm reason timeout =
 		on_domain
-			(fun _ _ _ _ di ->
+			(fun _ _ _ _ di _ ->
 				let open Xenlight.Dominfo in
 				let domid = di.domid in
 				debug "Registering for domid %d shutdown" domid;
@@ -2314,7 +2314,7 @@ module VM = struct
 	let save task progress_callback vm flags data =
 		let open Xenlight.Dominfo in
 		on_domain
-			(fun xc xs (task:Xenops_task.t) vm di ->
+			(fun xc xs (task:Xenops_task.t) vm di _ ->
 				let domid = di.domid in
 				with_data ~xs task data true
 					(fun fd ->
@@ -2401,7 +2401,7 @@ module VM = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				match di_of_uuid Newest uuid with
-					| None ->
+					| None, _ ->
 						(* XXX: we need to store (eg) guest agent info *)
 						begin match vme with
 							| Some vmextra when vmextra.VmExtra.non_persistent.VmExtra.suspend_memory_bytes = 0L ->
@@ -2411,7 +2411,7 @@ module VM = struct
 							| None ->
 								halted_vm
 						end
-					| Some di ->
+					| Some di, _ ->
 						let hvm = di.domain_type = Xenlight.DOMAIN_TYPE_HVM in
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port; path = "" })
 							(Device.get_vnc_port ~xs di.domid) in
@@ -2486,8 +2486,8 @@ module VM = struct
 		with_xs
 			(fun xs ->
 				match di_of_uuid Newest uuid with
-					| None -> raise (Does_not_exist("domain", vm.Vm.id))
-					| Some di ->
+					| None, _ -> raise (Does_not_exist("domain", vm.Vm.id))
+					| Some di, _ ->
 						Domain.set_action_request ~xs di.domid (match request with
 							| None -> None
 							| Some Needs_poweroff -> Some "poweroff"
@@ -2504,8 +2504,8 @@ module VM = struct
 		with_xs
 			(fun xs ->
 				match di_of_uuid Newest uuid with
-					| None -> Some Needs_poweroff
-					| Some d ->
+					| None, _ -> Some Needs_poweroff
+					| Some d, _ ->
 						if d.shutdown
 						then Some (match d.shutdown_reason with
 							| Xenlight.SHUTDOWN_REASON_POWEROFF -> Needs_poweroff
@@ -2905,8 +2905,8 @@ module DEBUG = struct
 			with_xs
 				(fun xs ->
 					match di_of_uuid Newest uuid with
-						| None -> raise (Does_not_exist("domain", k))
-						| Some di ->
+						| None, _ -> raise (Does_not_exist("domain", k))
+						| Some di, _ ->
 							with_ctx (fun ctx -> Xenlight.Domain.reboot ctx di.domid)
 				)
 		| "halt", [ k ] ->
@@ -2914,8 +2914,8 @@ module DEBUG = struct
 			with_xs
 				(fun xs ->
 					match di_of_uuid Newest uuid with
-						| None -> raise (Does_not_exist("domain", k))
-						| Some di ->
+						| None, _ -> raise (Does_not_exist("domain", k))
+						| Some di, _ ->
 							with_ctx (fun ctx -> Xenlight.Domain.shutdown ctx di.domid)
 				)
 		| _ ->
