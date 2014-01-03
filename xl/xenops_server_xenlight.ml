@@ -1784,7 +1784,8 @@ module VM = struct
 
 		let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg in
 		let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x in
-		log_exn_rm ~xs (Hotplug.get_private_path' vm.id);
+		if not multiple then
+			log_exn_rm ~xs (Hotplug.get_private_path' vm.id);
 		log_exn_rm ~xs (Hotplug.get_private_path domid);
 
 		(* Detach any remaining disks *)
