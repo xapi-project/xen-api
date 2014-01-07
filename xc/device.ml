@@ -1537,7 +1537,8 @@ type info = {
 	disp: disp_opt;
 	pci_emulations: string list;
 	pci_passthrough: bool;
-	
+	vgpu: (string * string) option;
+
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
 	hvm : bool;
@@ -1722,8 +1723,21 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: args
 
-(* Returns the allocated vnc port number *)
-let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l domid =
+let start_vgpu domid n_vcpus vgpu_pci_id config =
+	(* Execute vgpu daemon, forwarding stdout to the syslog, with the key "vgpu-<domid>" *)
+	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "vgpu-%d" domid) in
+	let _vgpu = "/usr/lib/xen/bin/vgpu" in
+	let _vgpu_args =
+		[ "--domain=" ^ (string_of_int domid);
+		  "--vcpus=" ^ (string_of_int n_vcpus);
+		  "--gpu=" ^ vgpu_pci_id;
+		  "--config=" ^ config
+		] in
+	let vgpu_pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout _vgpu _vgpu_args in
+	debug "vgpu: should be running in the background (stdout redirected to syslog)";
+	Forkhelpers.dontwaitpid vgpu_pid
+
+let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
 	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
@@ -1770,18 +1784,20 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	end;
 		
 	(* At this point we expect qemu to outlive us; we will never call waitpid *)	
-	Forkhelpers.dontwaitpid pid
+	Forkhelpers.dontwaitpid pid;
+	match info.vgpu with
+	| Some (pci_id, conf) -> start_vgpu domid info.vcpus pci_id conf | None -> ()
 
 let start (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 let restore (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info true domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 
 let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 	let l = vnconly_cmdline ~info domid in
-	__start task ~xs ~dmpath ?timeout l domid
+	__start task ~xs ~dmpath ?timeout l info domid
 
 (* suspend/resume is a done by sending signals to qemu *)
 let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =

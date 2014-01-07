@@ -901,10 +901,20 @@ module VM = struct
 					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
-				let video = match video with
-					| Cirrus -> Device.Dm.Cirrus
-					| Standard_VGA -> Device.Dm.Std_vga
-					| vGPU -> Device.Dm.Vgpu in
+				let video, vgpu = match video with
+					| Cirrus -> Device.Dm.Cirrus, None
+					| Standard_VGA -> Device.Dm.Std_vga, None
+					| vGPU ->
+						List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
+						Invalid_argument _ -> false then
+							debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
+						let vgpu =
+							try
+								Some (List.assoc "vgpu_pci_id" vm.Vm.platformdata,
+								      List.assoc "vgpu_config" vm.Vm.platformdata)
+							with Not_found -> failwith "Missing vGPU config in platform data" in
+						Device.Dm.Vgpu, vgpu
+				in
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
 					boot = boot_order;
@@ -919,6 +929,7 @@ module VM = struct
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
+					vgpu = vgpu;
 					xenclient_enabled=false;
 					hvm=hvm;
 					sound=None;
@@ -1033,30 +1044,6 @@ module VM = struct
 
 			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
-			(* EA-1267: Preliminary support for VGPUS *)
-			(* Display vgpus related params in the log *)
-			List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
-			Invalid_argument _ -> false then
-				debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
-			let start_vgpu domid n_vcpus vgpu_pciid config =
-				(* Execute vgpu daemon, forwarding stdout to the syslog, with the key "vgpu-<domid>" *)
-				let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "vgpu-%d" domid) in
-				let _vgpu = "/usr/lib/xen/bin/vgpu" in
-				let _vgpu_args =
-					[ "--domain=" ^ (string_of_int domid);
-					  "--vcpus=" ^ (string_of_int n_vcpus);
-					  "--gpu=" ^ vgpu_pciid;
-					  "--config=" ^ config
-					] in
-				let vgpu_pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout _vgpu _vgpu_args in
-				debug "vgpu: should be running in the background (stdout redirected to syslog)";
-				Forkhelpers.dontwaitpid vgpu_pid in
-			(* Launch vgpu if the keys are in *)
-			let () = if List.mem_assoc "vgpu_pci_id" vm.Vm.platformdata
-					&& List.mem_assoc "vgpu_config" vm.Vm.platformdata then
-					start_vgpu domid vm.Vm.vcpus
-						(List.assoc "vgpu_pci_id" vm.Vm.platformdata)
-						(List.assoc "vgpu_config" vm.Vm.platformdata) in
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
 			let persistent = { d.VmExtra.persistent with

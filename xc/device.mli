@@ -192,6 +192,7 @@ sig
 		disp: disp_opt;
 		pci_emulations: string list;
 		pci_passthrough: bool;
+		vgpu: (string * string) option;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;
