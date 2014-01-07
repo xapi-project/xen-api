@@ -905,13 +905,14 @@ module VM = struct
 					| Cirrus -> Device.Dm.Cirrus, None
 					| Standard_VGA -> Device.Dm.Std_vga, None
 					| Vgpu ->
-						List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
-						Invalid_argument _ -> false then
-							debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
 						let vgpu =
 							try
-								Some (List.assoc "vgpu_pci_id" vm.Vm.platformdata,
-								      List.assoc "vgpu_config" vm.Vm.platformdata)
+								let vgpu_pci = List.assoc Xenops_interface.vgpu_pci_key vm.Vm.platformdata
+								and vgpu_config = List.assoc Xenops_interface.vgpu_config_key vm.Vm.platformdata in
+								debug "VGPU config: %s -> %s; %s -> %s"
+									Xenops_interface.vgpu_pci_key vgpu_pci
+									Xenops_interface.vgpu_config_key vgpu_config;
+								Some (vgpu_pci, vgpu_config)
 							with Not_found -> failwith "Missing vGPU config in platform data" in
 						Device.Dm.Vgpu, vgpu
 				in
