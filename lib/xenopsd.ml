@@ -28,6 +28,7 @@ let worker_pool_size = ref 4
 let run_hotplug_scripts = ref true
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
+let vgpu_ready_timeout = ref 30.
 let use_qdisk = ref false
 let use_upstream_qemu = ref false
 
