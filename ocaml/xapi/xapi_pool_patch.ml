@@ -207,7 +207,11 @@ let read_in_and_check_patch length s path =
     
     let run_path = extract_patch path in
     Unixext.unlink_safe run_path
-  with exn ->
+  with
+    | Unix.Unix_error (errno, _, _) when errno = Unix.ENOSPC ->
+       warn "Not enough space on filesystem to upload patch.";
+       raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
+    | exn ->
     debug "Caught exception while checking signature: %s" (ExnHelper.string_of_exn exn);
     Unixext.unlink_safe path;
     raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
@@ -235,6 +239,20 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
+let assert_space_available required =
+	let open Unixext in
+	let stat = statvfs patch_dir in
+	let free_bytes =
+		(* block size times free blocks *)
+		Int64.mul stat.f_frsize stat.f_bavail in
+	if required > free_bytes
+	then
+    begin
+      warn "Not enough space on filesystem to upload patch. Required %Ld, \
+            but only %Ld available" required free_bytes;
+      raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
+		end
+
 let pool_patch_upload_handler (req: Request.t) s _ =
   debug "Patch Upload Handler - Entered...";
 
@@ -256,7 +274,16 @@ let pool_patch_upload_handler (req: Request.t) s _ =
         debug "Patch Upload Handler - Sending headers...";
 
         Http_svr.headers s (Http.http_200_ok ());
-        
+
+        (match req.Request.content_length with
+         | None -> ()
+         | Some size ->
+            (* Later in the process we'll require more than 2 * size,
+               but this will get us past the gpg signature
+               checking until we can catch Unix.ENOSPC. *)
+            let required = Int64.mul 2L size in
+            assert_space_available required);
+
         read_in_and_check_patch req.Request.content_length s new_path;
 	
         try
