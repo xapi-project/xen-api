@@ -29,6 +29,11 @@ let set_sockets_dir x =
 let default_uri () = "file:" ^ !default_path
 let json_url () = Printf.sprintf "file:%s.json" !default_path
 
+(* Global keys used when sending vGPU config information to xenopsd. *)
+let vgpu_pci_key = "vgpu_pci_id"
+let vgpu_config_key = "vgpu_config"
+let vgpu_extra_args_key = "vgpu_extra_args"
+
 type power_state =
 	| Running
 	| Halted
