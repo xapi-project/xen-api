@@ -1038,25 +1038,25 @@ module VM = struct
 			List.iter (fun (k,v) -> if try String.sub k 0 4 = "vgpu" with
 			Invalid_argument _ -> false then
 				debug "VGPU config: %s -> %s" k v) vm.Vm.platformdata;
-            let start_vgpu domid n_vcpus vgpu_pciid config =
-	            (* Execute vgpu daemon, forwarding stdout to the syslog, with the key "vgpu-<domid>" *)
-	            let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "vgpu-%d" domid) in
-			    let _vgpu = "/usr/lib/xen/bin/vgpu" in
-			    let _vgpu_args =
-				    [ "--domain=" ^ (string_of_int domid);
-				      "--vcpus=" ^ (string_of_int n_vcpus);
-				      "--gpu=" ^ vgpu_pciid;
-				      "--config=" ^ config
-				    ] in
-			    let vgpu_pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout _vgpu _vgpu_args in
-                debug "vgpu: should be running in the background (stdout redirected to syslog)";
-			    Forkhelpers.dontwaitpid vgpu_pid in
+			let start_vgpu domid n_vcpus vgpu_pciid config =
+				(* Execute vgpu daemon, forwarding stdout to the syslog, with the key "vgpu-<domid>" *)
+				let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "vgpu-%d" domid) in
+				let _vgpu = "/usr/lib/xen/bin/vgpu" in
+				let _vgpu_args =
+					[ "--domain=" ^ (string_of_int domid);
+					  "--vcpus=" ^ (string_of_int n_vcpus);
+					  "--gpu=" ^ vgpu_pciid;
+					  "--config=" ^ config
+					] in
+				let vgpu_pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout _vgpu _vgpu_args in
+				debug "vgpu: should be running in the background (stdout redirected to syslog)";
+				Forkhelpers.dontwaitpid vgpu_pid in
 			(* Launch vgpu if the keys are in *)
-            let () = if List.mem_assoc "vgpu_pci_id" vm.Vm.platformdata
-                    && List.mem_assoc "vgpu_config" vm.Vm.platformdata then
-                    start_vgpu domid vm.Vm.vcpus
-                        (List.assoc "vgpu_pci_id" vm.Vm.platformdata)
-                        (List.assoc "vgpu_config" vm.Vm.platformdata) in
+			let () = if List.mem_assoc "vgpu_pci_id" vm.Vm.platformdata
+					&& List.mem_assoc "vgpu_config" vm.Vm.platformdata then
+					start_vgpu domid vm.Vm.vcpus
+						(List.assoc "vgpu_pci_id" vm.Vm.platformdata)
+						(List.assoc "vgpu_config" vm.Vm.platformdata) in
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
 			let persistent = { d.VmExtra.persistent with
