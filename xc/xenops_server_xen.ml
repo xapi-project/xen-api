@@ -907,20 +907,23 @@ module VM = struct
 					| Vgpu ->
 						let vgpu =
 							try
-								let vgpu_pci = List.assoc Xenops_interface.vgpu_pci_key vm.Vm.platformdata
-								and vgpu_config = List.assoc Xenops_interface.vgpu_config_key vm.Vm.platformdata
-								and vgpu_vnc_enabled =
-									try bool_of_string (List.assoc Xenops_interface.vgpu_vnc_enabled_key vm.Vm.platformdata)
-									with _ -> true
+								let open Xenops_interface in
+								let vgpu_pci = List.assoc vgpu_pci_key vm.Vm.platformdata
+								and vgpu_config =
+									let config_file =
+										List.assoc vgpu_config_key vm.Vm.platformdata in
+									if List.mem_assoc vgpu_extra_args_key vm.Vm.platformdata
+									then
+										Printf.sprintf "%s,%s" config_file
+											(List.assoc vgpu_extra_args_key vm.Vm.platformdata)
+									else config_file
 								in
-								debug "VGPU config: %s -> %s; %s -> %s; %s -> %b"
-									Xenops_interface.vgpu_pci_key vgpu_pci
-									Xenops_interface.vgpu_config_key vgpu_config
-									Xenops_interface.vgpu_vnc_enabled_key vgpu_vnc_enabled;
+								debug "VGPU config: %s -> %s; %s -> %s"
+									vgpu_pci_key vgpu_pci
+									vgpu_config_key vgpu_config;
 								Some {
 									Device.Dm.pci_id = vgpu_pci;
 									config = vgpu_config;
-									vnc_enabled = vgpu_vnc_enabled
 								}
 							with Not_found -> failwith "Missing vGPU config in platform data" in
 						Device.Dm.Vgpu, vgpu
