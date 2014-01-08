@@ -1545,7 +1545,7 @@ module PCI = struct
 					raise PCIBack_not_loaded;
 				end;
 
-				Device.PCI.bind [ device ];
+				Device.PCI.bind [ device ] Device.PCI.Pciback;
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
 				then Device.PCI.plug task ~xc ~xs device frontend_domid
