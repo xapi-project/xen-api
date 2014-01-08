@@ -1233,7 +1233,9 @@ let unbind_from_nvidia devstr =
 			(* Work around due to PCI ID formatting inconsistency. *)
 			let devstr2 = String.copy devstr in
 			devstr2.[7] <- '.';
-			if Stringext.String.has_substr gpu_info devstr2
+			if false
+				|| (Stringext.String.has_substr gpu_info devstr2)
+				|| (Stringext.String.has_substr gpu_info devstr)
 			then gpu_path
 			else find_gpu rest
 	in
