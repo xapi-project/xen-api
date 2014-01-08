@@ -1216,6 +1216,34 @@ let unbind devstr driver =
 	let unbind = Filename.concat sysfs_driver "unbind" in
 	write_string_to_file unbind devstr
 
+let procfs_nvidia = "/proc/driver/nvidia/gpus"
+let bus_id_key = "Bus Location"
+
+let unbind_from_nvidia devstr =
+	debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
+	let gpus = Sys.readdir procfs_nvidia in
+	(* Find the GPU with this device ID. *)
+	let rec find_gpu = function
+		| [] ->
+			failwith (Printf.sprintf "Couldn't find GPU with device ID %s" devstr)
+		| gpu :: rest ->
+			let gpu_path = Filename.concat procfs_nvidia gpu in
+			let gpu_info_file = Filename.concat gpu_path "information" in
+			let gpu_info = Unixext.string_of_file gpu_info_file in
+			if Stringext.String.has_substr gpu_info devstr
+			then gpu_path
+			else find_gpu rest
+	in
+	let unbind_lock_path =
+		Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
+	in
+	(* Grab the unbind lock. *)
+	write_string_to_file unbind_lock_path "1\n";
+	(* Unbind if we grabbed the lock; fail otherwise. *)
+	if Unixext.string_of_file unbind_lock_path = "1\n"
+	then unbind devstr (Supported Nvidia)
+	else failwith (Printf.sprintf "Couldn't lock GPU with device ID %s" devstr)
+
 let bind devices new_driver =
 	List.iter
 		(fun device ->
@@ -1237,6 +1265,9 @@ let bind devices new_driver =
 			| Some (Supported Pciback), Pciback ->
 				debug "pci: device %s already bound to pciback; doing flr" devstr;
 				do_flr devstr
+			| Some (Supported Nvidia), Pciback ->
+				unbind_from_nvidia devstr;
+				bind_to_pciback devstr
 			| Some driver, Pciback ->
 				unbind devstr driver;
 				bind_to_pciback devstr)
