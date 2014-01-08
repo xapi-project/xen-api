@@ -1230,7 +1230,10 @@ let unbind_from_nvidia devstr =
 			let gpu_path = Filename.concat procfs_nvidia gpu in
 			let gpu_info_file = Filename.concat gpu_path "information" in
 			let gpu_info = Unixext.string_of_file gpu_info_file in
-			if Stringext.String.has_substr gpu_info devstr
+			(* Work around due to PCI ID formatting inconsistency. *)
+			let devstr2 = String.copy devstr in
+			devstr2.[7] <- '.';
+			if Stringext.String.has_substr gpu_info devstr2
 			then gpu_path
 			else find_gpu rest
 	in
