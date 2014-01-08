@@ -132,9 +132,9 @@ sig
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> ?flrscript:string option -> dev list -> Xenctrl.domid -> int -> unit
+		-> ?flrscript:string option -> dev list -> Xenctrl.domid -> int -> unit
 	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
-	       -> (int * int * int * int) list -> Xenctrl.domid -> int -> unit
+		-> dev list -> Xenctrl.domid -> int -> unit
 	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
 	val bind : dev list -> unit
 	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
