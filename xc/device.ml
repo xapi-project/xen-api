@@ -1219,6 +1219,8 @@ let unbind devstr driver =
 let procfs_nvidia = "/proc/driver/nvidia/gpus"
 let bus_id_key = "Bus Location"
 
+let nvidia_smi = "/usr/bin/nvidia-smi"
+
 let unbind_from_nvidia devstr =
 	debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
 	let gpus = Sys.readdir procfs_nvidia in
@@ -1238,6 +1240,14 @@ let unbind_from_nvidia devstr =
 				|| (Stringext.String.has_substr gpu_info devstr)
 			then gpu_path
 			else find_gpu rest
+	in
+	(* Disable persistence mode on the device before unbinding it. In future it
+	 * might be worth augmenting gpumon so that it can do this, and to enable
+	 * xapi and/or xenopsd to tell it to do so. *)
+	let (_: string * string) =
+		Forkhelpers.execute_command_get_output
+			nvidia_smi
+			["--id="^devstr; "--persistence-mode=0"]
 	in
 	let unbind_lock_path =
 		Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
