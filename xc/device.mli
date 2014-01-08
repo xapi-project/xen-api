@@ -178,6 +178,13 @@ sig
 
 	type media = Disk | Cdrom
 
+	type vgpu_t = {
+		pci_id: string; (* The PCI device on which the vGPU will run. *)
+		config: string; (* Path to the vGPU config file. *)
+		vnc_enabled: bool; (* Flag to enable framebuffer copying to VNC console. *)
+	}
+
+
 	type info = {
 		memory: int64;
 		boot: string;
@@ -192,7 +199,7 @@ sig
 		disp: disp_opt;
 		pci_emulations: string list;
 		pci_passthrough: bool;
-		vgpu: (string * string) option;
+		vgpu: vgpu_t option;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;
