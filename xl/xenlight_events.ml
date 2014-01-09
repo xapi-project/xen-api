@@ -145,7 +145,7 @@ let event_loop_init ctx =
 		ignore (Unix.write interrupt_out "t" 0 1);
 		token
 	in
-	let timeout_modify _ token =
+	let timeout_fire_now _ token =
 		debug "EVENTREG: triggering timeout, token = %s" token;
 		let rec pop (x, ac) = function
 			| [] -> x, ac
@@ -165,7 +165,7 @@ let event_loop_init ctx =
 	in
 	debug "EVENTREG: Registering event hooks";
 	Unix.set_nonblock interrupt_out;
-	let _ = osevent_register_hooks ctx ~user:0 ~fd_register ~fd_modify ~fd_deregister ~timeout_register ~timeout_modify in
+	let _ = osevent_register_hooks ctx ~user:0 ~fd_register ~fd_modify ~fd_deregister ~timeout_register ~timeout_fire_now in
 	let _ = event_register_callbacks ctx ~user:"xenopsd-event" ~event_occurs_callback ~event_disaster_callback in
 	let _ = async_register_callback ~async_callback in
 	Thread.create (fun () -> event_loop_start ctx) ()
