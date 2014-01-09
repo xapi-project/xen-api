@@ -128,7 +128,7 @@ let test_writer_cleanup protocol =
 		Rrd_io.Resource_closed
 		(fun () -> writer.Rrd_writer.write_payload test_payload);
 	assert_raises
-		~msg:"write_payload should fail after cleanup"
+		~msg:"cleanup should fail after cleanup"
 		Rrd_io.Resource_closed
 		(fun () -> writer.Rrd_writer.cleanup ())
 
