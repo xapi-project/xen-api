@@ -32,8 +32,8 @@ let test_payload = Rrd_protocol.({
 			~default:true
 			~units:"things" ();
 		Rrd.VM "test_vm",
-		Ds.ds_make ~name:"test_int3"
-			~description:"A test integer"
+		Ds.ds_make ~name:"test_float1"
+			~description:"A test float"
 			~value:(Rrd.VT_Float 987.654)
 			~ty:Rrd.Gauge
 			~default:true
