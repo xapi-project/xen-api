@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0a08bd71fe46a3f38f3e8e786b58e8be) *)
+(* DO NOT EDIT (digest: b31a34a380f0d076b250adeb565172e0) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -551,33 +551,22 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [("xcp_rrdd_plugin", ["lib"], [])];
+     MyOCamlbuildBase.lib_ocaml = [("rrdd_plugin", ["lib"], [])];
      lib_c = [];
      flags =
        [
-          (["oasis_library_xcp_rrdd_plugin_byte"; "ocaml"; "link"; "byte"],
+          (["oasis_library_rrdd_plugin_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_xcp_rrdd_plugin_native"; "ocaml"; "link"; "native"
+          (["oasis_library_rrdd_plugin_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_library_rrdd_plugin_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_library_rrdd_plugin_native"; "ocaml"; "ocamldep"; "native"
            ],
             [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_xcp_rrdd_plugin_byte"; "ocaml"; "ocamldep"; "byte"
-           ],
+          (["oasis_library_rrdd_plugin_byte"; "ocaml"; "compile"; "byte"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          ([
-              "oasis_library_xcp_rrdd_plugin_native";
-              "ocaml";
-              "ocamldep";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_xcp_rrdd_plugin_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          ([
-              "oasis_library_xcp_rrdd_plugin_native";
-              "ocaml";
-              "compile";
-              "native"
-           ],
+          (["oasis_library_rrdd_plugin_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])])
        ];
      includes = []
@@ -586,6 +575,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 590 "myocamlbuild.ml"
+# 579 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
