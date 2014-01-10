@@ -62,3 +62,17 @@ let (++) f g x = Fun.comp f g x
 
 (* and application *)
 let ($) f a = f a
+
+(** Temporary measure to help with debugging CA-120159: extra details in int_of_string excn. *)
+let int_of_string s =
+	try
+		int_of_string s
+	with
+		| Failure "int_of_string" ->
+			(let b = Printexc.get_backtrace () in
+			raise (Failure ("int_of_string (" ^ s ^	")\n" ^ b)))
+		| Failure msg when (String.length msg > 13)
+			&& (String.sub msg 0 13 = "int_of_string")
+			->
+			(let b = Printexc.get_backtrace () in
+			raise (Failure (msg ^ "\n" ^ b)))
