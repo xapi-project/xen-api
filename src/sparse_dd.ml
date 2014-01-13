@@ -8,6 +8,9 @@ let config_file = "/etc/sparse_dd.conf"
 
 let vhd_search_path = "/dev/mapper"
 
+let ionice_cmd = "/usr/bin/ionice"
+let renice_cmd = "/usr/bin/renice"
+
 type encryption_mode =
   | Always
   | Never
@@ -22,6 +25,11 @@ let encryption_mode_of_string = function
   | "user" -> User
   | x -> failwith (Printf.sprintf "Unknown encryption mode %s. Use always, never or user." x)
 let encryption_mode = ref User
+
+(* Niceness: strings that may or may not be valid ints. *)
+let nice = ref None
+let ionice_class = ref None
+let ionice_class_data = ref None
 
 let base = ref None 
 let src = ref None
@@ -38,9 +46,17 @@ let string_opt = function
 
 let machine_readable_progress = ref false
 
-let options = [
+let options =
+    let str_option name var_ref description =
+        name, Arg.String (fun x -> var_ref := Some x), (fun () -> string_opt !var_ref), description
+    in
+    [
     "unbuffered", Arg.Bool (fun b -> File.use_unbuffered := b), (fun () -> string_of_bool !File.use_unbuffered), "use unbuffered I/O via O_DIRECT";
     "encryption-mode", Arg.String (fun x -> encryption_mode := encryption_mode_of_string x), (fun () -> string_of_encryption_mode !encryption_mode), "how to use encryption";
+    (* Want to ignore bad values for "nice" etc. so not using Arg.Int *)
+    str_option "nice" nice "If supplied, the scheduling priority will be set using this value as argument to the 'nice' command.";
+    str_option "ionice_class" ionice_class "If supplied, the io scheduling class will be set using this value as -c argument to the 'ionice' command.";
+    str_option "ionice_class_data" ionice_class_data "If supplied, the io scheduling class data will be set using this value as -n argument to the 'ionice' command.";
     "experimental-reads-bypass-tapdisk", Arg.Set experimental_reads_bypass_tapdisk, (fun () -> string_of_bool !experimental_reads_bypass_tapdisk), "bypass tapdisk and read directly from the underlying vhd file";
     "experimental-writes-bypass-tapdisk", Arg.Set experimental_writes_bypass_tapdisk, (fun () -> string_of_bool !experimental_writes_bypass_tapdisk), "bypass tapdisk and write directly to the underlying vhd file";
     "base", Arg.String (fun x -> base := Some x), (fun () -> string_opt !base), "base disk to search for differences from";
@@ -217,6 +233,74 @@ let _ =
 	end;
 	let size = !size in
 	let base = !base in
+
+	(* Helper function to bring an int into valid range *)
+	let clip v min max descr =
+		if v < min then (
+			warn "Value %d is too low for %s. Using %d instead." v descr min;
+			min
+		) else if v > max then (
+			warn "Value %d is too high for %s. Using %d instead." v descr max;
+			max
+		) else v
+	in
+
+	(
+		let parse_as_int str_opt int_opt_ref opt_name =
+			match str_opt with
+				| None -> ()
+				| Some str ->
+					try
+						int_opt_ref := Some (int_of_string str)
+					with _ ->
+						error "Ignoring invalid value for %s: %s" opt_name str
+		in
+
+		(* renice this process if specified *)
+		let n_ref = ref None in
+		parse_as_int !nice n_ref "nice";
+		(match !n_ref with
+			| None -> ()
+			| Some n -> (
+				(* Run command like: renice -n priority -p pid *)
+				let n = clip n (-20) 19 "nice" in
+				let pid = string_of_int (Unix.getpid ()) in
+				let (stdout, stderr) = Forkhelpers.execute_command_get_output renice_cmd ["-n"; string_of_int n; "-p"; pid]
+				in ()
+			)
+		);
+
+		(* Possibly run command like: ionice -c class -n classdata -p pid *)
+		let c_ref = ref None in
+		let cd_ref = ref None in
+		parse_as_int !ionice_class c_ref "ionice_class";
+		parse_as_int !ionice_class_data cd_ref "ionice_class_data";
+
+		match !c_ref with
+			| None -> ()
+			| Some c ->
+				let pid = string_of_int (Unix.getpid ()) in
+				let ionice args =
+					let (stdout, stderr) = Forkhelpers.execute_command_get_output ionice_cmd args
+					in ()
+				in
+				let class_only c =
+					ionice ["-c"; string_of_int c; "-p"; pid]
+				in
+				let class_and_data c n =
+					ionice ["-c"; string_of_int c; "-n"; string_of_int n; "-p"; pid]
+				in
+				match c with
+					| 0 | 3 ->
+						class_only c
+					| 1 | 2 -> (
+						match !cd_ref with
+							| None -> class_only c
+							| Some n ->
+								let n = clip n 0 7 "ionice classdata" in
+								class_and_data c n)
+					| _ -> error "Cannot use ionice due to invalid class value: %d" c
+	);
 
 	debug "src = %s; dest = %s; base = %s; size = %Ld" src dest (Opt.default "None" base) size;
 	let src_vhd = vhd_of_device src in
