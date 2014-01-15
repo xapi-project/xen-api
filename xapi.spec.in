@@ -268,7 +268,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/shell.pyc
 @OPTDIR@/libexec/shutdown
 %exclude @OPTDIR@/libexec/sparse_dd
-%config(noreplace) /etc/sparse_dd.conf
+%exclude /etc/sparse_dd.conf
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
 @OPTDIR@/libexec/vncterm-wrapper
