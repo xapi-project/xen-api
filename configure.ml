@@ -13,7 +13,7 @@ let sbindir =
 
 let libexecdir =
   let doc = "Set the directory for installing helper executables" in
-  Arg.(value & opt string "/usr/lib/xenopsd/bin" & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc)
+  Arg.(value & opt string "/usr/lib/xenopsd" & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc)
 
 let scriptsdir =
   let doc = "Set the directory for installing helper scripts" in
@@ -63,6 +63,15 @@ let find_ml_val verbose name libs =
   Printf.printf "Looking for %s: %s\n" name (if found then "ok" else "missing");
   found
 
+let expand start finish input output =
+  let command = Printf.sprintf "cat %s | sed -r 's=%s=%s=g' > %s" input start finish output in
+  if Sys.command command <> 0
+  then begin
+    Printf.fprintf stderr "Failed to expand %s -> %s in %s producing %s\n" start finish input output;
+    Printf.fprintf stderr "Command-line was:\n%s\n%!" command;
+    exit 1;
+  end
+
 let configure bindir sbindir libexecdir scriptsdir etcdir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
@@ -85,7 +94,11 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
       Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
       Printf.sprintf "ENABLE_XENGUESTBIN=--%s-xenguestbin" (if xenguest then "enable" else "disable");
     ] in
-  output_file config_mk lines
+  output_file config_mk lines;
+  (* Expand @LIBEXEC@ in udev rules *)
+  expand "@LIBEXEC@" libexecdir "scripts/vif.in" "scripts/vif";
+  expand "@LIBEXEC@" libexecdir "scripts/xen-backend.rules.in" "scripts/xen-backend.rules";
+  expand "@LIBEXEC@" libexecdir "scripts/xen-backend-xl.rules.in" "scripts/xen-backend-xl.rules"
 
 let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir )
 

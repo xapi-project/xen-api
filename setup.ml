@@ -5935,7 +5935,13 @@ let setup_t =
                       bs_c_sources = ["fsync_stubs.c"; "poll_stubs.c"];
                       bs_data_files = [];
                       bs_ccopt = [(OASISExpr.EBool true, [])];
-                      bs_cclib = [(OASISExpr.EBool true, [])];
+                      bs_cclib =
+                        [
+                           (OASISExpr.EBool true,
+                             [
+                                "-Wl,-rpath=/usr/lib/xen-4.2/lib,-L/usr/lib/xen-4.2/lib"
+                             ])
+                        ];
                       bs_dlllib = [(OASISExpr.EBool true, [])];
                       bs_dllpath = [(OASISExpr.EBool true, [])];
                       bs_byteopt = [(OASISExpr.EBool true, [])];
