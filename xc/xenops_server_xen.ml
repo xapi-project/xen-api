@@ -23,6 +23,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = service_name end)
 open D
 
+module RRDD = Rrd_client.Client
+
 let simplified = false
 
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
@@ -927,7 +929,7 @@ module VM = struct
 				} in
 			let bridge_of_network = function
 				| Network.Local b -> b
-				| Network.Remote (_, _) -> failwith "Need to create a VIF frontend" in
+				| Network.Remote (_, b) -> b in
 			let nics = List.map (fun vif ->
 				vif.Vif.mac,
 				bridge_of_network vif.Vif.backend,
@@ -1942,7 +1944,7 @@ module VIF = struct
 							Device.Vif.add ~xs ~devid:vif.position
 								~netty:(match vif.backend with
 									| Network.Local x -> Netman.Vswitch x
-									| Network.Remote (_, _) -> raise (Unimplemented "network driver domains"))
+									| Network.Remote (_, x) -> Netman.Vswitch x)
 								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
 								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
@@ -2144,6 +2146,7 @@ module Actions = struct
 			sprintf "/local/domain/%d/console/vnc-port" domid;
 			sprintf "/local/domain/%d/console/tc-port" domid;
 			sprintf "/local/domain/%d/device" domid;
+			sprintf "/local/domain/%d/rrd" domid;
 			sprintf "/local/domain/%d/vm-data" domid;
 			sprintf "/vm/%s/rtc/timeoffset" uuid;
 		]
@@ -2245,12 +2248,77 @@ module Actions = struct
 						None in
 				Opt.iter (fun x -> Updates.add x updates) update in
 
+		let register_rrd_plugin ~domid ~name ~grant_refs ~protocol =
+			debug
+				"Registering RRD plugin: frontend_domid = %d, name = %s, refs = [%s]"
+				domid name
+				(List.map string_of_int grant_refs |> String.concat ";");
+			let (_: float) = RRDD.Plugin.Interdomain.register
+				~uid:{
+					Rrd_interface.name = name;
+					frontend_domid = domid
+				}
+				~info:{
+					Rrd_interface.frequency = Rrd.Five_Seconds;
+					shared_page_refs = grant_refs
+				}
+				~protocol
+			in ()
+		in
+
+		let deregister_rrd_plugin ~domid ~name =
+			debug
+				"Deregistering RRD plugin: frontend_domid = %d, name = %s"
+				domid name;
+			let uid = {Rrd_interface.name = name; frontend_domid = domid} in
+			RRDD.Plugin.Interdomain.deregister ~uid
+		in
+
 		match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp_string "/") path) with
 			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
 				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 				fire_event_on_device frontend kind devid
 			| "local" :: "domain" :: frontend :: "device" :: _ ->
 				look_for_different_devices (int_of_string frontend)
+			| "local" :: "domain" :: domid :: "rrd" :: name :: "ready" :: [] -> begin
+				debug "Watch picked up an RRD plugin: domid = %s, name = %s" domid name;
+				try
+					let grant_refs_path =
+						Printf.sprintf "/local/domain/%s/rrd/%s/grantrefs" domid name
+					in
+					let protocol_path =
+						Printf.sprintf "/local/domain/%s/rrd/%s/protocol" domid name
+					in
+					let grant_refs = xs.Xs.read grant_refs_path
+						|> Re_str.split (Re_str.regexp_string ",")
+						|> List.map int_of_string
+					in
+					let protocol = Rpc.String (xs.Xs.read protocol_path)
+						|> Rrd_interface.plugin_protocol_of_rpc
+					in
+					register_rrd_plugin
+						~domid:(int_of_string domid) ~name ~grant_refs ~protocol
+				with e ->
+					debug
+						"Failed to register RRD plugin: caught %s"
+						(Printexc.to_string e)
+			end
+			| "local" :: "domain" :: domid :: "rrd" :: name :: "shutdown" :: [] ->
+				let value =
+					try Some (xs.Xs.read path)
+					with Xs_protocol.Enoent _ -> None
+				in
+				if value = Some "true" then begin
+					debug
+						"RRD plugin has announced shutdown: domid = %s, name = %s"
+						domid name;
+					safe_rm xs (Printf.sprintf "local/domain/%s/rrd/%s" domid name);
+					try deregister_rrd_plugin ~domid:(int_of_string domid) ~name
+					with e ->
+						debug
+							"Failed to deregister RRD plugin: caught %s"
+							(Printexc.to_string e)
+				end
 			| "local" :: "domain" :: domid :: _ ->
 				fire_event_on_vm domid
 			| "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
