@@ -63,7 +63,7 @@ public abstract class TestBase
         logln(String.format("logging in to '%s' as '%s' with password '%s'...", target.Hostname, target.Username,
                 target.Password));
         logln("Success");
-        Session.loginWithPassword(connection, target.Username, target.Password, APIVersion.latest().toString());
+        Session.loginWithPassword(connection, target.Username, target.Password, APIVersion.latest().toString(), "testRunner");
         logln(String.format("Session API version is %s", connection.getAPIVersion().toString()));
 
         connectionName = target.Hostname;
