@@ -247,13 +247,14 @@ let get_method_params_for_xml message =
 
 
 let gen_method_return_cast message =  match message.msg_result with
-  | None -> 
-      sprintf ""  	
-  | Some (ty, _) ->
-      sprintf " Types.%s(result)" (get_marshall_function ty);;
+  | None         -> sprintf ""  	
+  | Some (ty, _) -> sprintf " Types.%s(result)" (get_marshall_function ty);;
 
-let gen_method_return file message =
-  fprintf file "            return%s;\n" (gen_method_return_cast message);;
+let gen_method_return file cls message =
+	if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then
+	  fprintf file "            return Types.toEventBatch(result);\n"
+	else
+    fprintf file "            return%s;\n" (gen_method_return_cast message)
 
 let rec range = function
   | 0 -> []
@@ -261,9 +262,11 @@ let rec range = function
 
 
 (* Here is the main method generating function.*)
-let gen_method file message async_version =
+let gen_method file cls message async_version =
   let deprecated_string = get_method_deprecated_string message in
-  let return_type = get_java_type_or_void message.msg_result in
+  let return_type = 
+	  if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
+		else get_java_type_or_void message.msg_result in
   let method_static = get_method_static_string message in
   let method_name = camel_case message.msg_name in
   let method_params =  get_method_params_for_signature message in
@@ -295,7 +298,7 @@ let gen_method file message async_version =
     fprintf file "     */\n";
 
     if async_version then
-      fprintf file "   %s public %s%s %s(%s) throws\n" deprecated_string method_static "Task" (method_name^"Async") method_params
+      fprintf file "   %s public %sTask %s(%s) throws\n" deprecated_string method_static (method_name^"Async") method_params
 
     else 
       fprintf file "   %s public %s%s %s(%s) throws\n" deprecated_string method_static return_type method_name  method_params;     
@@ -341,19 +344,19 @@ let gen_method file message async_version =
     fprintf file "        return Types.toTask(result);\n" )
   else (
     match message.msg_result with
-    | None ->
-      fprintf file "        return;\n"
-    | Some _ ->
-      fprintf file "        Object result = response.get(\"Value\");\n";
-      gen_method_return file message
+    | None   -> fprintf file "        return;\n"
+    | Some _ -> fprintf file "        Object result = response.get(\"Value\");\n";
+                gen_method_return file cls message
   );
 
 	fprintf file "    }\n\n"
 
 (* Here is the main method generating function.*)
-let gen_versioned_method file message versioned_message async_version =
+let gen_versioned_method file cls message versioned_message async_version =
   let deprecated_string = get_method_deprecated_string message in
-  let return_type = get_java_type_or_void message.msg_result in
+  let return_type = 
+    if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
+    else get_java_type_or_void message.msg_result in
   let method_static = get_method_static_string message in
   let versioned_name = camel_case versioned_message.msg_name in
   let method_params =  get_method_params_for_signature versioned_message in
@@ -409,7 +412,7 @@ let gen_versioned_method file message versioned_message async_version =
 	if async_version then
 	  fprintf file "        return Types.toTask(result);\n"
 	else
-	  gen_method_return file message;
+	  gen_method_return file cls message;
 
 	fprintf file "    }\n\n"
 ;;
@@ -418,8 +421,8 @@ let gen_versioned_method file message versioned_message async_version =
 (*Some methods have an almost identical asynchronous counterpart, which returns*)
 (* a Task reference rather than its usual return value*)
 let gen_method_and_asynchronous_counterpart file cls message =
-  if message.msg_async then gen_method file message true;
-	gen_method file message false;;
+  if message.msg_async then gen_method file cls message true;
+	gen_method file cls message false;;
 
 (* Generate the record *)
 
@@ -1038,6 +1041,19 @@ public class Types
   TypeSet.iter (gen_marshall_func file) !types;
   fprintf file "\n";
   TypeSet.iter (gen_task_result_func file) !types;
+	fprintf file "
+        public static EventBatch toEventBatch(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        Map map = (Map) object;
+        EventBatch batch = new EventBatch();
+        batch.token = toString(map.get(\"token\"));
+        batch.validRefCounts = map.get(\"valid_ref_counts\");
+        batch.events = toSetOfEventRecord(map.get(\"events\"));
+        return batch;
+    }";
   fprintf file "}\n"
 
 (* Now run it *)

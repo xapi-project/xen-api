@@ -58,7 +58,15 @@ public class Connection
     
     private APIVersion apiVersion;
 
-    protected int _wait = 600;
+    /**
+     * Reply timeout for xml-rpc calls. The default value is 10 minutes.
+     */
+    protected int _replyWait = 600;
+
+    /**
+     * Connection timeout for xml-rpc calls. The default value is 5 seconds.
+     */
+    protected int _connWait = 5;
 
     /**
      * Updated when Session.login_with_password() is called.
@@ -135,7 +143,7 @@ public class Connection
     }
 
     /**
-     * Creates a connection to a particular server using a given username and password. This object can then be passed
+     * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
      * 
      * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
@@ -149,16 +157,29 @@ public class Connection
         deprecatedConstructorUsed = false;
         this.client = getClientFromURL(url);
     }
-	
-	public Connection(URL url, int wait) 
-	{
-	    this(url);
-	    _wait = wait;
-    }
-	
 
     /**
-     * Creates a connection to a particular server using a given username and password. This object can then be passed
+     * Creates a connection to a particular server using a given url. This object can then be passed
+     * in to any other API calls.
+     * 
+     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
+     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
+     * 
+     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
+     * logging out the Session.
+     * 
+     * The parameters replyWait and connWait set timeouts for xml-rpc calls.
+     */
+    public Connection(URL url, int replyWait, int connWait)
+    {
+        this(url);
+        _replyWait = replyWait;
+        _connWait = connWait;
+    }
+
+
+    /**
+     * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
      * 
      * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
@@ -172,6 +193,24 @@ public class Connection
 
         this.client = getClientFromURL(url);
         this.sessionReference = sessionReference;
+    }
+
+    /**
+     * Creates a connection to a particular server using a given url. This object can then be passed
+     * in to any other API calls.
+     * 
+     * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
+     * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
+     * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
+     * in and out correctly.
+     * 
+     * The parameters replyWait and connWait set timeouts for xml-rpc calls.
+     */
+    public Connection(URL url, String sessionReference, int replyWait, int connWait)
+    {
+        this(url, sessionReference);
+        _replyWait = replyWait;
+        _connWait = connWait;
     }
 
     protected void finalize() throws Throwable
@@ -259,14 +298,14 @@ public class Connection
 
     public XmlRpcClientConfigImpl getConfig()
     {
-	return config;
+        return config;
     }
     private XmlRpcClient getClientFromURL(URL url)
     {
         config.setTimeZone(TimeZone.getTimeZone("UTC"));
         config.setServerURL(url);
-        config.setReplyTimeout(_wait * 1000);
-        config.setConnectionTimeout(5000);
+        config.setReplyTimeout(_replyWait * 1000);
+        config.setConnectionTimeout(_connWait * 1000);
         XmlRpcClient client = new XmlRpcClient();
         client.setConfig(config);
         return client;
@@ -330,7 +369,7 @@ public class Connection
                                 new Connection(new URL(client_url.getProtocol(),
                                                        (String)error[1],
                                                        client_url.getPort(),
-                                                       client_url.getFile()), _wait);
+                                                       client_url.getFile()), _replyWait, _connWait);
                             tmp_conn.sessionReference = sessionReference;
                             try
                             {
