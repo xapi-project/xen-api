@@ -63,8 +63,8 @@ let get_hotplug_path (x: device) =
 	sprintf "%s/hotplug/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
 let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
-	| Vif -> get_hotplug_path x ^ "/hotplug"
-	| Vbd ->
+	(* Use the same hotplug path as the upstream scripts, for max compatability *)
+	| Vbd | Vif ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))

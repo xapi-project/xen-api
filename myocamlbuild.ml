@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: b97d941c19743f8e542a07bd484e608e) *)
+(* DO NOT EDIT (digest: 95c2aa5f8d2f21e65cf790321e6277e1) *)
 module OASISGettext = struct
 (* # 21 "src/oasis/OASISGettext.ml" *)
 
@@ -480,19 +480,41 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("xenopsd", ["lib"])];
      lib_c =
        [("xenopsd_xc_main", "xc", []); ("xenopsd_xenlight_main", "xl", [])];
-     flags = [];
+     flags =
+       [
+          (["oasis_executable_xenopsd_xenlight_main_cclib"; "link"],
+            [
+               (OASISExpr.EBool true,
+                 S
+                   [
+                      A "-cclib";
+                      A
+                        "-Wl,-rpath=/usr/lib/xen-4.2/lib,-L/usr/lib/xen-4.2/lib"
+                   ])
+            ]);
+          (["oasis_executable_xenopsd_xenlight_main_cclib"; "ocamlmklib"; "c"
+           ],
+            [
+               (OASISExpr.EBool true,
+                 S
+                   [
+                      A
+                        "-Wl,-rpath=/usr/lib/xen-4.2/lib,-L/usr/lib/xen-4.2/lib"
+                   ])
+            ])
+       ];
      includes =
        [
           ("xl", ["lib"]);
           ("xc", ["lib"]);
           ("simulator", ["lib"]);
           ("libvirt", ["lib"])
-       ]
-  }
+       ];
+     }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 497 "myocamlbuild.ml"
+# 519 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

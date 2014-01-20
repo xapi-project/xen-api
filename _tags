@@ -210,6 +210,11 @@
 <libvirt/*.ml{,i}>: pkg_uutf
 <libvirt/xenops_libvirt_main.{native,byte}>: custom
 # Executable xenopsd_xenlight_main
+<xl/xenops_xl_main.{native,byte}>: oasis_executable_xenopsd_xenlight_main_cclib
+"xl/libxenopsd_xenlight_main_stubs.lib": oasis_executable_xenopsd_xenlight_main_cclib
+"xl/dllxenopsd_xenlight_main_stubs.dll": oasis_executable_xenopsd_xenlight_main_cclib
+"xl/libxenopsd_xenlight_main_stubs.a": oasis_executable_xenopsd_xenlight_main_cclib
+"xl/dllxenopsd_xenlight_main_stubs.so": oasis_executable_xenopsd_xenlight_main_cclib
 <xl/xenops_xl_main.{native,byte}>: use_libxenopsd_xenlight_main_stubs
 <xl/xenops_xl_main.{native,byte}>: use_xenopsd
 <xl/xenops_xl_main.{native,byte}>: pkg_xenlight

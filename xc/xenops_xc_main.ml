@@ -22,7 +22,21 @@ let check_domain0_uuid () =
 			let uuid = Uuidm.(to_string (create `V4)) in
 			Inventory.update Inventory._control_domain_uuid uuid;
 			uuid in
-	Xenctrl.domain_sethandle xc 0 uuid
+	Xenctrl.domain_sethandle xc 0 uuid;
+	(* make the /vm/ tree for dom0 *)
+	let kvs = [
+		Printf.sprintf "/vm/%s/uuid" uuid, uuid;
+		Printf.sprintf "/vm/%s/name" uuid, "Domain-0";
+		Printf.sprintf "/vm/%s/domains/0" uuid, "/local/domain/0";
+		Printf.sprintf "/vm/%s/domains/0/create-time" uuid, "0"
+	] in
+	let open Xenstore in
+	with_xs (fun xs ->
+		List.iter (fun (k, v) -> xs.Xs.write k v) kvs
+	);
+	(* before daemonizing we need to forget the xenstore client
+	   because the background thread will be gone after the fork() *)
+	forget_client ()	
 
 (* Start the program with the xen backend *)
 let _ =
