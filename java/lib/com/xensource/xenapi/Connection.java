@@ -58,6 +58,8 @@ public class Connection
     
     private APIVersion apiVersion;
 
+    protected int _wait = 600;
+
     /**
      * Updated when Session.login_with_password() is called.
      */
@@ -145,9 +147,15 @@ public class Connection
     public Connection(URL url)
     {
         deprecatedConstructorUsed = false;
-
         this.client = getClientFromURL(url);
     }
+	
+	public Connection(URL url, int wait) 
+	{
+	    this(url);
+	    _wait = wait;
+    }
+	
 
     /**
      * Creates a connection to a particular server using a given username and password. This object can then be passed
@@ -257,6 +265,8 @@ public class Connection
     {
         config.setTimeZone(TimeZone.getTimeZone("UTC"));
         config.setServerURL(url);
+        config.setReplyTimeout(_wait * 1000);
+        config.setConnectionTimeout(5000);
         XmlRpcClient client = new XmlRpcClient();
         client.setConfig(config);
         return client;
@@ -320,7 +330,7 @@ public class Connection
                                 new Connection(new URL(client_url.getProtocol(),
                                                        (String)error[1],
                                                        client_url.getPort(),
-                                                       client_url.getFile()));
+                                                       client_url.getFile()), _wait);
                             tmp_conn.sessionReference = sessionReference;
                             try
                             {
