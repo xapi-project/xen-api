@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.xensource.xenapi.Event;
+import com.xensource.xenapi.EventBatch;
 
 /**
  * Listens for events on a connection and prints each event out as it is received.
@@ -39,8 +40,52 @@ import com.xensource.xenapi.Event;
 public class EventMonitor extends TestBase
 {
     private static final int MAX_EVENTS = 100;
+    private static final double TIMEOUT_SEC = 30;
     private static final int TIMEOUT = 30 * 1000;
 
+    public static void RunNewTest(ILog logger, TargetServer server) throws Exception
+    {
+        TestBase.logger = logger;
+        try
+        {
+            connect(server);
+
+            Set<String> everything = new HashSet<String>();
+            everything.add("*");
+            Event.register(connection, everything);
+
+            int eventsReceived = 0;
+            long started = System.currentTimeMillis();
+            String token = "";
+
+            while (eventsReceived < MAX_EVENTS && System.currentTimeMillis() - started < TIMEOUT)
+            {
+                EventBatch eventBatch = Event.from(connection, everything, token, TIMEOUT_SEC);
+                announce(eventBatch.events.size() + " event(s) received");
+
+                // print the events out in a nice format
+                String format = "%10s %5s %3s %10s %50s";
+                logf(format + " date       time%n", "class", "id", "uuid", "operation", "reference");
+                for (Event.Record e : eventBatch.events)
+                {
+                    logf(format, e.clazz, e.id, e.objUuid, e.operation, e.ref);
+                    logf(" %te/%<tm/%<tY %<tH.%<tM.%<tS %n", e.timestamp);
+                    logln("associated snapshot: " + e.snapshot);
+                }
+                eventsReceived += eventBatch.events.size();
+            }
+        }
+        catch (Exception e)
+        {
+            logln("exception!");
+        }
+        finally
+        {
+            disconnect();
+        }
+    }
+    
+    @Deprecated
     public static void RunTest(ILog logger, TargetServer server) throws Exception
     {
         TestBase.logger = logger;

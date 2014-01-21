@@ -30,17 +30,28 @@
 
 package com.xensource.xenapi;
 
-public abstract class XenAPIObject
+import java.util.Set;
+
+/**
+ * Class used to map the output of Event.from().
+ *
+ * @author Citrix Systems, Inc.
+ */
+public class EventBatch
 {
-	public abstract String toWireString();
-	
-	/**
-	 * When XAPI returns a null, it actually gets changed into an
-	 * object that contains the string "OpaqueRef:NULL".  This is a
-	 * convenience method to check if a XenAPIObject is in fact
-	 * null in XAPI's eyes.
-	 **/
-	public boolean isNull() {
-	    return toWireString().contains("OpaqueRef:NULL");
-	}
+    /**
+     * The events returned by Event.from().
+     */
+    public Set<Event.Record> events;
+
+    /**
+     * The number of valid objects of all types in the database.
+     */
+    public Object validRefCounts;
+
+    /**
+     * A token that can be used in subsequent calls of Event.from().
+     * It represents the point from which to generate database events.
+     */
+    public String token;
 }
