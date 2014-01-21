@@ -42,7 +42,7 @@ CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
 
 OCAMLINCLUDES += .. $(DATAMODEL_DIR)
 OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR) -thread
-OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix
+OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str
 OCAML_LIBS += $(DATAMODEL_DIR)/datamodel
 
 .PHONY: clean dist

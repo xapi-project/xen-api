@@ -28,19 +28,19 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-.DEFAULT: gen_csharp_binding
-
 SR_XML = $(PROJECT_OUTPUTDIR)/sm/XE_SR_ERRORCODES.xml
 
-OCamlProgram(gen_csharp_binding$(EXE), gen_csharp_binding ../friendly_error_names ../licence)
+OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence)
 
 .PHONY: gen_gui_csharp_bindings
-gen_gui_csharp_bindings: gen_csharp_binding$(EXE) $(SR_XML)
+gen_gui_csharp_bindings: gen_csharp_binding $(SR_XML)
 	rm -Rf $(CSHARP_GEN)
 	mkdir -p $(CSHARP_GEN)
-	./gen_csharp_binding$(EXE) -s $(SR_XML) -d $(CSHARP_GEN)
+	./gen_csharp_binding -s $(SR_XML) -d $(CSHARP_GEN)
 
 .PHONY: clean
 clean:
   rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_csharp_binding$(EXE)
+  rm -f gen_csharp_binding
+
+.DEFAULT: gen_csharp_binding

@@ -38,11 +38,11 @@ else
 OCamlProgram(gen_powershell_binding, gen_powershell_binding common_functions ../licence)
 
 .PHONY: gen_powershell_bindings
-gen_powershell_bindings: gen_powershell_binding$(EXE)
+gen_powershell_bindings: gen_powershell_binding
 	rm -Rf $(POWERSHELL_GEN)
 	mkdir -p $(POWERSHELL_GEN)
 	if $(equal $(COMPILE_POWERSHELL), yes)
-		./gen_powershell_binding$(EXE) $(POWERSHELL_GEN)
+		./gen_powershell_binding $(POWERSHELL_GEN)
 
 .PHONY: powershell_samples
 powershell_samples:
@@ -51,6 +51,6 @@ powershell_samples:
 .PHONY: clean
 clean:
   rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc
-  rm -f gen_powershell_binding$(EXE)
+  rm -f gen_powershell_binding
 
 .DEFAULT: gen_powershell_bindings

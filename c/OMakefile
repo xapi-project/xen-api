@@ -38,8 +38,6 @@ SDK_C_FOLDER=$(SDK_FOLDER)/libxenserver
 C_BIN_FOLDER=$(SDK_C_FOLDER)/bin/
 C_SRC_FOLDER=$(SDK_C_FOLDER)/src/
 
-OCAMLFLAGS += -dtypes -thread
-OCAMLPACKS += getopt str xmlm xml-light2 uuid
 CFLAGS += $(shell xml2-config --cflags) $(shell curl-config --cflags) -W -Wall -Wmissing-prototypes -Werror -std=c99 -g -O2
 
 COMPAT_PATCH = compat.patch
@@ -52,12 +50,11 @@ else
   export
 
 section
-  OCamlProgram(gen_c_binding$(EXE), gen_c_binding helper ../licence)
+  OCamlProgram(gen_c_binding, gen_c_binding helper ../licence)
 
-COMMON = xen_common.c xen_common.h xen_string_set.c xen_string_set.h xen_internal.h 
 
 .PHONY: c_source
-c_source: $(COMMON) gen_c_binding$(EXE)
+c_source: gen_c_binding
   rm -Rf $(C_SRC_TMP_FOLDER)
   mkdir -p $(C_SRC_TMP_FOLDER)/include
   mkdir -p $(C_SRC_TMP_FOLDER)/src
@@ -65,7 +62,7 @@ c_source: $(COMMON) gen_c_binding$(EXE)
   if $(equal $(COMPILE_C), yes)
     rm -Rf $(C_GEN_FOLDER)
     mkdir -p $(C_GEN_FOLDER)
-    ./gen_c_binding$(EXE) -d $(C_GEN_FOLDER)
+    ./gen_c_binding -d $(C_GEN_FOLDER)
     (cd $(C_GEN_FOLDER) && patch -p0 <$(COMPAT_PATCH))
     cp -r $(C_GEN_FOLDER)/xen $(C_SRC_TMP_FOLDER)/include
     cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
@@ -97,4 +94,4 @@ c_folders: c_binaries c_source
 .PHONY: clean
 clean:
   rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_c_binding$(EXE)
+  rm -f gen_c_binding

@@ -44,9 +44,7 @@ else
   COMPILE_JAVA = yes
   export
 
-OCAMLPACKS += str
-OCamlProgram(main$(EXE), main ../licence)
-
+OCamlProgram(main, main ../licence)
 
 LicenceJava(dir) =
 	$(INSTALL) ../LICENSE $(dir)/LICENSE.txt
@@ -62,13 +60,8 @@ Brand(src, dst) =
 	$(INSTALL) $(JAVATMP_DIR)/t-$(basename $(dst)) $(dst)
 
 
-$(JAVATMP_DIR)/README.txt:
-	mkdir -p $(JAVATMP_DIR)
-	Brand(README.dist, $@)
-
-
 .PHONY: java_bindings_all
-java_bindings_all: $(glob samples/*.java) main$(EXE) $(JAVATMP_DIR)/README.txt
+java_bindings_all: main
   if $(equal $(COMPILE_JAVA), yes)
 	Empty($(JAVAGEN_DIR) $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
 	Brand(lib/Makefile.dist, $(JAVAGEN_DIR)/Makefile)
@@ -76,9 +69,10 @@ java_bindings_all: $(glob samples/*.java) main$(EXE) $(JAVATMP_DIR)/README.txt
 	$(INSTALL) lib/com/xensource/xenapi/*.java $(JAVAGEN_DIR)/com/xensource/xenapi
 	Brand(lib/com/xensource/xenapi/Connection.java, $(JAVAGEN_DIR)/com/xensource/xenapi/Connection.java)
 	$(INSTALL) $(XMLRPC_DIST)/{xmlrpc-common-3.1,xmlrpc-client-3.1,ws-commons-util-1.0.2}.jar $(JAVAGEN_DIR)
-	./main$(EXE) $(JAVAGEN_DIR)
-	make -C $(JAVAGEN_DIR) all docs cleanclass    
+	./main $(JAVAGEN_DIR)
+	make -C $(JAVAGEN_DIR) all docs cleanclass
 	mv $(JAVAGEN_DIR)/*.jar $(JAVABIN_DIR)
+	Brand(README.dist, $(JAVATMP_DIR)/README.txt)
 	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVABIN_DIR)
 	LicenceJava($(JAVABIN_DIR))
 	mv $(JAVAGEN_DIR)/doc/* $(JAVADOC_DIR)
@@ -87,7 +81,8 @@ java_bindings_all: $(glob samples/*.java) main$(EXE) $(JAVATMP_DIR)/README.txt
 	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVASRC_DIR)
 	LicenceJava($(JAVASRC_DIR))
 	Empty($(JAVASAM_DIR))
-	$(INSTALL) $^ $(JAVASAM_DIR)
+	$(INSTALL) samples/*.java $(JAVASAM_DIR)
+	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVASAM_DIR)
 	LicenceJava($(JAVASAM_DIR))
   else
 	Empty($(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
@@ -102,6 +97,6 @@ java_folders: java_bindings_all
 .PHONY: clean
 clean:
   rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f main$(EXE)
+  rm -f main
 
 .DEFAULT: java_bindings_all
