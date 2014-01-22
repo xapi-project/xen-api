@@ -36,9 +36,6 @@ namespace XenAPI
 {
     public class UserDetails
     {
-        // Very large group memberships cause us to hang on connection time as the get subject info call can take some time.
-        private static readonly int MAX_GROUP_LOOKUP = 40;
-
         /// <summary>
         /// Mapping of SIDS to UserDetails.
         /// </summary>
@@ -65,7 +62,6 @@ namespace XenAPI
         private string userSid = null;
         private string userDisplayName = null;
         private string userName = null;
-        private string[] groupMembershipNames = null;
         private string[] groupMembershipSids = null;
 
         /// <summary>
@@ -84,11 +80,6 @@ namespace XenAPI
         /// Null if the lookup failed.
         /// </summary>
         public string UserName { get { return userName; } }
-
-        /// <summary>
-        /// The Active Directory group names the subject belongs to.
-        /// </summary>
-        public string[] GroupMembershipNames { get { return groupMembershipNames; } }
 
         /// <summary>
         /// The Active Directory group sids the subject belongs to.
@@ -113,34 +104,6 @@ namespace XenAPI
             try
             {
                 groupMembershipSids = Auth.get_group_membership(session, userSid);
-
-                if (groupMembershipSids.Length > MAX_GROUP_LOOKUP)
-                    return;
-
-                string[] output = new string[groupMembershipSids.Length];
-
-
-                for (int i = 0; i < groupMembershipSids.Length; i++)
-                {
-                    string sid = groupMembershipSids[i];
-                    Dictionary<String, String> info = Auth.get_subject_information_from_identifier(session, sid);
-                    string name = "";
-
-                    if (info.TryGetValue("subject-displayname", out name))
-                    {
-                        output[i] = name;
-                        continue;
-                    }
-                    if (info.TryGetValue("subject-name", out name))
-                    {
-                        output[i] = name;
-                        continue;
-                    }
-
-                    output[i] = sid;
-
-                }
-                groupMembershipNames = output;
             }
             catch (Failure)
             {
@@ -173,6 +136,49 @@ namespace XenAPI
             {
                 return null;
             }
+        }
+
+		/// <summary>
+        /// Gets Active Directory group names the subject belongs to.
+        /// Makes server calls. This could take some time for very large group memberships.
+        /// </summary>
+        public string[] GetGroupMembershipNames(Session session)
+        {
+            try
+            {
+                if (groupMembershipSids == null)
+                    GetGroupMembership(session);
+
+                if (groupMembershipSids != null)
+                {
+                    var output = new string[groupMembershipSids.Length];
+                
+                    for (int i = 0; i < groupMembershipSids.Length; i++)
+                    {
+                        string sid = groupMembershipSids[i];
+                        Dictionary<String, String> info = Auth.get_subject_information_from_identifier(session, sid);
+                        string name = "";
+
+                        if (info.TryGetValue("subject-displayname", out name))
+                        {
+                            output[i] = name;
+                            continue;
+                        }
+                        if (info.TryGetValue("subject-name", out name))
+                        {
+                            output[i] = name;
+                            continue;
+                        }
+
+                        output[i] = sid;
+                    }
+                    return output;
+                }
+            }
+            catch (Failure)
+            {
+            }
+            return null;
         }
     }
 }
