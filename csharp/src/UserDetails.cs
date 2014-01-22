@@ -39,7 +39,7 @@ namespace XenAPI
         /// <summary>
         /// Mapping of SIDS to UserDetails.
         /// </summary>
-        private static Dictionary<string, UserDetails> sid_To_UserDetails = new Dictionary<string,UserDetails>();
+        private static Dictionary<string, UserDetails> sid_To_UserDetails = new Dictionary<string, UserDetails>();
         public static void UpdateDetails(string SID, Session session)
         {
             lock (UserDetails.sid_To_UserDetails)
@@ -62,7 +62,9 @@ namespace XenAPI
         private string userSid = null;
         private string userDisplayName = null;
         private string userName = null;
+        private string[] groupMembershipNames = null;
         private string[] groupMembershipSids = null;
+        private readonly Session _session;
 
         /// <summary>
         /// The Active Directory SID of this subject. 
@@ -82,6 +84,14 @@ namespace XenAPI
         public string UserName { get { return userName; } }
 
         /// <summary>
+        /// The Active Directory group names the subject belongs to.
+        /// </summary>
+        public string[] GroupMembershipNames
+        {
+            get { return groupMembershipNames ?? (groupMembershipNames = GetGroupMembershipNames(_session)); }
+        }
+
+        /// <summary>
         /// The Active Directory group sids the subject belongs to.
         /// </summary>
         public string[] GroupMembershipSids { get { return groupMembershipSids; } }
@@ -90,69 +100,36 @@ namespace XenAPI
         /// Makes server calls, call off the event thread.
         /// </summary>
         /// <param name="session"></param>
-        /// <param name="SID"></param>
         private UserDetails(Session session)
         {
+            _session = session;
             userSid = session.UserSid;
-            userDisplayName = GetDisplayName(session);
-            userName = GetName(session);
-            GetGroupMembership(session);
-        }
 
-        private void GetGroupMembership(Session session)
-        {
             try
             {
+                Subject subj = new Subject();
+                subj.other_config = Auth.get_subject_information_from_identifier(session, userSid);
+                userDisplayName = subj.DisplayName;
+                userName = subj.SubjectName;
                 groupMembershipSids = Auth.get_group_membership(session, userSid);
             }
-            catch (Failure)
+            catch(Failure)
             {
             }
         }
 
-        private string GetDisplayName(Session session)
-        {
-            try
-            {
-                Subject subj = new Subject();
-                subj.other_config = Auth.get_subject_information_from_identifier(session, userSid);
-                return subj.DisplayName;
-            }
-            catch (Failure)
-            {
-                return null;
-            }
-        }
-
-        private string GetName(Session session)
-        {
-            try
-            {
-                Subject subj = new Subject();
-                subj.other_config = Auth.get_subject_information_from_identifier(session, userSid);
-                return subj.SubjectName;
-            }
-            catch (Failure)
-            {
-                return null;
-            }
-        }
-
-		/// <summary>
+        /// <summary>
         /// Gets Active Directory group names the subject belongs to.
         /// Makes server calls. This could take some time for very large group memberships.
         /// </summary>
-        public string[] GetGroupMembershipNames(Session session)
+        private string[] GetGroupMembershipNames(Session session)
         {
             try
             {
-                if (groupMembershipSids == null)
-                    GetGroupMembership(session);
-
                 if (groupMembershipSids != null)
                 {
                     var output = new string[groupMembershipSids.Length];
-                
+
                     for (int i = 0; i < groupMembershipSids.Length; i++)
                     {
                         string sid = groupMembershipSids[i];
