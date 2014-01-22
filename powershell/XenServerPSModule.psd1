@@ -58,9 +58,7 @@ ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
-             'AutomatedTestCore.ps1',
              'CookComputing.XmlRpcV2.dll',
-             'HttpTest.ps1',
              'Initialize-Environment.ps1',
              'LICENSE.CookComputing.XmlRpcV2',
              'LICENSE.txt',
@@ -68,8 +66,8 @@ FileList = @('about_XenServer.help.txt',
              'XenServer.dll',
              'XenServer.format.ps1xml',
              'XenServer.types.ps1xml',
-             'XenServerPowerShell.psd1',
-             'XenServerPowerShell.dll')
+             'XenServerPowerShell.dll',
+             'XenServerPSModule.psd1')
 
 #Public interface
 FunctionsToExport = ''

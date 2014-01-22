@@ -107,7 +107,7 @@ $(BINDINGS_TMP)/XenCenterBindings.zip: gen_gui_csharp_bindings
 	Flip($(CSHARP_GUI_TMP))
 	ZipUp($(CSHARP_GUI_TMP), $@)
 
-powershell_src: csharp_src gen_powershell_bindings powershell_samples 
+powershell_src: csharp_src gen_powershell_bindings
 	mkdir -p $(POWERSHELL_TMP)
 	$(INSTALL) powershell/src/*.cs $(POWERSHELL_TMP)
 	sed -i -e 's/1\.0\.0\.0/$(PRODUCT_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs

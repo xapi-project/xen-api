@@ -44,10 +44,6 @@ gen_powershell_bindings: gen_powershell_binding
 	if $(equal $(COMPILE_POWERSHELL), yes)
 		./gen_powershell_binding $(POWERSHELL_GEN)
 
-.PHONY: powershell_samples
-powershell_samples:
-	mkdir -p $(SDK_PS_FOLDER)/samples && $(INSTALL) samples/*.ps1 $(SDK_PS_FOLDER)/samples
-
 .PHONY: clean
 clean:
   rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc
