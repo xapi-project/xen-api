@@ -53,6 +53,13 @@ Executable xenopsd_xc_main
   BuildDepends:       xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, xcp.rrd, xcp-rrd, sexplib, xcp-inventory
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
+Executable watch_test
+  CompiledObject:     best
+  Path:               xc
+  MainIs:             watch_test.ml
+  Install:            false
+  BuildDepends:       xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads
+
 Executable xenopsd_simulator
   CompiledObject:     best
   Path:               simulator

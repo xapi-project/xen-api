@@ -16,35 +16,34 @@ open Watch
 open Xenstore
 
 module Tests = struct
-  let title name = 
-    Printf.printf "Waiting for %s: " name;
+  let title ?timeout name =
+    Printf.(printf "Waiting%sfor %s: "
+      (match timeout with Some t -> sprintf " (timeout %.1f sec) " t | _ -> " ")
+      name);
     flush stdout
 
-  let all ~xs = 
-    title "key /test/one to appear";
-    Printf.printf "read %s\n" (wait_for ~xs (value_to_appear "/test/one"));
-    title "key /test/one to disappear";
-    wait_for ~xs (key_to_disappear "/test/one");
+  let all ?timeout xs =
+    title ?timeout "key /test/one to appear";
+    Printf.printf "read %s\n" (wait_for ~xs ?timeout (value_to_appear "/test/one"));
+    title ?timeout "key /test/one to disappear";
+    wait_for ~xs ?timeout (key_to_disappear "/test/one");
     Printf.printf "OK\n";
 
-    title "both /test/one and /test/two to appear";
+    title ?timeout "both /test/one and /test/two to appear";
     begin 
-      match wait_for ~xs (all_of [ value_to_appear "/test/one"; value_to_appear "/test/two" ]) with
+      match wait_for ~xs ?timeout (all_of [ value_to_appear "/test/one"; value_to_appear "/test/two" ]) with
       | [ a; b ] ->
 	  Printf.printf "values %s and %s\n" a b
       | _ -> failwith "arity mismatch"
     end;
-    title "either of /test/one or /test/two to disappear";
+    title ?timeout "either of /test/one or /test/two to disappear";
     begin
-      match fst (wait_for ~xs (any_of [ `One, key_to_disappear "/test/one"; `Two, key_to_disappear "/test/two" ])) with
+      match fst (wait_for ~xs ?timeout (any_of [ `One, key_to_disappear "/test/one"; `Two, key_to_disappear "/test/two" ])) with
       | `One -> Printf.printf "/test/one\n"
       | `Two -> Printf.printf "/test/two\n"
     end
   let go () = 
-    let xs = Xs.daemon_open () in
-    finally
-      (fun () -> all ~xs)
-      (fun () -> Xs.close xs)
+    with_xs (fun xs -> all ~timeout:5. xs)
 end
 
 let _ = Tests.go ()

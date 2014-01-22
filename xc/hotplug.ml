@@ -64,7 +64,7 @@ let get_hotplug_path (x: device) =
 
 let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 	(* Use the same hotplug path as the upstream scripts, for max compatability *)
-	| Vbd | Vif ->
+	| Vbd _ | Vif ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
@@ -109,7 +109,7 @@ let device_is_online ~xs (x: device) =
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
-  | ( Vbd | Tap ) -> 
+  | ( Vbd _ | Tap ) ->
       if backend_request () 
       then not(backend_shutdown ())
       else hotplugged ~xs x
@@ -212,7 +212,7 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
-	| Vbd -> !Xc_path.vbd_script
+	| Vbd _ -> !Xc_path.vbd_script
 	| Vif | Tap -> !Xc_path.vif_script
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
 	let env = Array.concat [ Unix.environment (); [|
