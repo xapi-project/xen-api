@@ -121,6 +121,17 @@ public class RunTests
 
         logln("RunTests.java: test run started at " + new Date().toString());
 
+        testName = "EventMonitor";
+        try
+        {
+            testStart();
+            EventMonitor.RunNewTest(textLogger, server);
+            testSuccess();
+        } catch (Exception e)
+        {
+            testFailure(e);
+        }
+        
         testName = "AddNetwork";
         try
         {
