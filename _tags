@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 30066c52123ecd0e84273cf5d728a25a)
+# DO NOT EDIT (digest: 7d6dd6b2ad2da6440b680907b0a210ba)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -51,9 +51,9 @@
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp.memory
 <xc/xenops_xc_main.{native,byte}>: pkg_sexplib
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp-inventory
+<xc/xenops_xc_main.{native,byte}>: pkg_threads
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp.rrd
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp-rrd
-<xc/xenops_xc_main.{native,byte}>: pkg_threads
 <xc/xenops_xc_main.{native,byte}>: pkg_threads.posix
 <xc/xenops_xc_main.{native,byte}>: pkg_uuidm
 <xc/xenops_xc_main.{native,byte}>: pkg_xmlm
@@ -63,31 +63,11 @@
 <xc/xenops_xc_main.{native,byte}>: pkg_fd-send-recv
 <xc/xenops_xc_main.{native,byte}>: pkg_xcp.xen
 <xc/xenops_xc_main.{native,byte}>: pkg_uutf
-<xc/*.ml{,i}>: use_xenopsd
 <xc/*.ml{,i}>: pkg_xenctrl
-<xc/*.ml{,i}>: pkg_xenstore
-<xc/*.ml{,i}>: pkg_xenstore.unix
-<xc/*.ml{,i}>: pkg_xenstore_transport
-<xc/*.ml{,i}>: pkg_xenstore_transport.unix
-<xc/*.ml{,i}>: pkg_rpclib
-<xc/*.ml{,i}>: pkg_forkexec
-<xc/*.ml{,i}>: pkg_xcp
-<xc/*.ml{,i}>: pkg_xcp.storage
 <xc/*.ml{,i}>: pkg_xcp.memory
-<xc/*.ml{,i}>: pkg_sexplib
 <xc/*.ml{,i}>: pkg_xcp-inventory
 <xc/*.ml{,i}>: pkg_xcp.rrd
 <xc/*.ml{,i}>: pkg_xcp-rrd
-<xc/*.ml{,i}>: pkg_threads
-<xc/*.ml{,i}>: pkg_threads.posix
-<xc/*.ml{,i}>: pkg_uuidm
-<xc/*.ml{,i}>: pkg_xmlm
-<xc/*.ml{,i}>: pkg_cohttp
-<xc/*.ml{,i}>: pkg_uri
-<xc/*.ml{,i}>: pkg_rpclib.syntax
-<xc/*.ml{,i}>: pkg_fd-send-recv
-<xc/*.ml{,i}>: pkg_xcp.xen
-<xc/*.ml{,i}>: pkg_uutf
 "xc/fsync_stubs.c": use_xenopsd
 "xc/fsync_stubs.c": pkg_xenctrl
 "xc/fsync_stubs.c": pkg_xenstore
@@ -101,9 +81,9 @@
 "xc/fsync_stubs.c": pkg_xcp.memory
 "xc/fsync_stubs.c": pkg_sexplib
 "xc/fsync_stubs.c": pkg_xcp-inventory
+"xc/fsync_stubs.c": pkg_threads
 "xc/fsync_stubs.c": pkg_xcp.rrd
 "xc/fsync_stubs.c": pkg_xcp-rrd
-"xc/fsync_stubs.c": pkg_threads
 "xc/fsync_stubs.c": pkg_threads.posix
 "xc/fsync_stubs.c": pkg_uuidm
 "xc/fsync_stubs.c": pkg_xmlm
@@ -126,9 +106,9 @@
 "xc/xenctrlext_stubs.c": pkg_xcp.memory
 "xc/xenctrlext_stubs.c": pkg_sexplib
 "xc/xenctrlext_stubs.c": pkg_xcp-inventory
+"xc/xenctrlext_stubs.c": pkg_threads
 "xc/xenctrlext_stubs.c": pkg_xcp.rrd
 "xc/xenctrlext_stubs.c": pkg_xcp-rrd
-"xc/xenctrlext_stubs.c": pkg_threads
 "xc/xenctrlext_stubs.c": pkg_threads.posix
 "xc/xenctrlext_stubs.c": pkg_uuidm
 "xc/xenctrlext_stubs.c": pkg_xmlm
@@ -139,6 +119,47 @@
 "xc/xenctrlext_stubs.c": pkg_xcp.xen
 "xc/xenctrlext_stubs.c": pkg_uutf
 <xc/xenops_xc_main.{native,byte}>: custom
+# Executable watch_test
+<xc/watch_test.{native,byte}>: use_xenopsd
+<xc/watch_test.{native,byte}>: pkg_xenstore
+<xc/watch_test.{native,byte}>: pkg_xenstore.unix
+<xc/watch_test.{native,byte}>: pkg_xenstore_transport
+<xc/watch_test.{native,byte}>: pkg_xenstore_transport.unix
+<xc/watch_test.{native,byte}>: pkg_rpclib
+<xc/watch_test.{native,byte}>: pkg_forkexec
+<xc/watch_test.{native,byte}>: pkg_xcp
+<xc/watch_test.{native,byte}>: pkg_xcp.storage
+<xc/watch_test.{native,byte}>: pkg_sexplib
+<xc/watch_test.{native,byte}>: pkg_threads
+<xc/watch_test.{native,byte}>: pkg_threads.posix
+<xc/watch_test.{native,byte}>: pkg_uuidm
+<xc/watch_test.{native,byte}>: pkg_xmlm
+<xc/watch_test.{native,byte}>: pkg_cohttp
+<xc/watch_test.{native,byte}>: pkg_uri
+<xc/watch_test.{native,byte}>: pkg_rpclib.syntax
+<xc/watch_test.{native,byte}>: pkg_fd-send-recv
+<xc/watch_test.{native,byte}>: pkg_xcp.xen
+<xc/watch_test.{native,byte}>: pkg_uutf
+<xc/*.ml{,i}>: use_xenopsd
+<xc/*.ml{,i}>: pkg_xenstore
+<xc/*.ml{,i}>: pkg_xenstore.unix
+<xc/*.ml{,i}>: pkg_xenstore_transport
+<xc/*.ml{,i}>: pkg_xenstore_transport.unix
+<xc/*.ml{,i}>: pkg_rpclib
+<xc/*.ml{,i}>: pkg_forkexec
+<xc/*.ml{,i}>: pkg_xcp
+<xc/*.ml{,i}>: pkg_xcp.storage
+<xc/*.ml{,i}>: pkg_sexplib
+<xc/*.ml{,i}>: pkg_threads
+<xc/*.ml{,i}>: pkg_threads.posix
+<xc/*.ml{,i}>: pkg_uuidm
+<xc/*.ml{,i}>: pkg_xmlm
+<xc/*.ml{,i}>: pkg_cohttp
+<xc/*.ml{,i}>: pkg_uri
+<xc/*.ml{,i}>: pkg_rpclib.syntax
+<xc/*.ml{,i}>: pkg_fd-send-recv
+<xc/*.ml{,i}>: pkg_xcp.xen
+<xc/*.ml{,i}>: pkg_uutf
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte}>: use_xenopsd
 <simulator/xenops_simulator_main.{native,byte}>: pkg_rpclib

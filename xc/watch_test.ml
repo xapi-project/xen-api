@@ -41,10 +41,7 @@ module Tests = struct
       | `Two -> Printf.printf "/test/two\n"
     end
   let go () = 
-    let xs = Xs.daemon_open () in
-    finally
-      (fun () -> all ~xs)
-      (fun () -> Xs.close xs)
+    with_xs (fun xs -> all ~xs)
 end
 
 let _ = Tests.go ()
