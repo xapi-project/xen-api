@@ -1,0 +1,80 @@
+# OASIS_START
+# DO NOT EDIT (digest: bee6ed95cc9a0dcddb65d89b193ddf96)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Executable vhd-tool
+<src/main.{native,byte}>: pkg_lwt
+<src/main.{native,byte}>: pkg_lwt.unix
+<src/main.{native,byte}>: pkg_vhd-format
+<src/main.{native,byte}>: pkg_vhd-format.lwt
+<src/main.{native,byte}>: pkg_cmdliner
+<src/main.{native,byte}>: pkg_nbd
+<src/main.{native,byte}>: pkg_nbd.lwt
+<src/main.{native,byte}>: pkg_uri
+<src/main.{native,byte}>: pkg_cohttp
+<src/main.{native,byte}>: pkg_cohttp.lwt
+<src/main.{native,byte}>: pkg_sha
+<src/main.{native,byte}>: pkg_sha.sha1
+<src/main.{native,byte}>: pkg_tar
+<src/main.{native,byte}>: pkg_io-page.unix
+<src/main.{native,byte}>: custom
+# Executable sparse_dd
+<src/sparse_dd.{native,byte}>: pkg_lwt
+<src/sparse_dd.{native,byte}>: pkg_lwt.unix
+<src/sparse_dd.{native,byte}>: pkg_vhd-format
+<src/sparse_dd.{native,byte}>: pkg_vhd-format.lwt
+<src/sparse_dd.{native,byte}>: pkg_cmdliner
+<src/sparse_dd.{native,byte}>: pkg_nbd
+<src/sparse_dd.{native,byte}>: pkg_nbd.lwt
+<src/sparse_dd.{native,byte}>: pkg_uri
+<src/sparse_dd.{native,byte}>: pkg_cohttp
+<src/sparse_dd.{native,byte}>: pkg_cohttp.lwt
+<src/sparse_dd.{native,byte}>: pkg_xenstore
+<src/sparse_dd.{native,byte}>: pkg_xenstore.client
+<src/sparse_dd.{native,byte}>: pkg_xenstore.unix
+<src/sparse_dd.{native,byte}>: pkg_xenstore_transport
+<src/sparse_dd.{native,byte}>: pkg_xenstore_transport.unix
+<src/sparse_dd.{native,byte}>: pkg_threads
+<src/sparse_dd.{native,byte}>: pkg_tapctl
+<src/sparse_dd.{native,byte}>: pkg_xcp
+<src/sparse_dd.{native,byte}>: pkg_sha
+<src/sparse_dd.{native,byte}>: pkg_sha.sha1
+<src/sparse_dd.{native,byte}>: pkg_tar
+<src/sparse_dd.{native,byte}>: pkg_io-page.unix
+<src/*.ml{,i}>: pkg_lwt
+<src/*.ml{,i}>: pkg_lwt.unix
+<src/*.ml{,i}>: pkg_vhd-format
+<src/*.ml{,i}>: pkg_vhd-format.lwt
+<src/*.ml{,i}>: pkg_cmdliner
+<src/*.ml{,i}>: pkg_nbd
+<src/*.ml{,i}>: pkg_nbd.lwt
+<src/*.ml{,i}>: pkg_uri
+<src/*.ml{,i}>: pkg_cohttp
+<src/*.ml{,i}>: pkg_cohttp.lwt
+<src/*.ml{,i}>: pkg_xenstore
+<src/*.ml{,i}>: pkg_xenstore.client
+<src/*.ml{,i}>: pkg_xenstore.unix
+<src/*.ml{,i}>: pkg_xenstore_transport
+<src/*.ml{,i}>: pkg_xenstore_transport.unix
+<src/*.ml{,i}>: pkg_threads
+<src/*.ml{,i}>: pkg_tapctl
+<src/*.ml{,i}>: pkg_xcp
+<src/*.ml{,i}>: pkg_sha
+<src/*.ml{,i}>: pkg_sha.sha1
+<src/*.ml{,i}>: pkg_tar
+<src/*.ml{,i}>: pkg_io-page.unix
+<src/sparse_dd.{native,byte}>: custom
+# OASIS_STOP
+<src/chunked.ml>: syntax_camlp4o, pkg_cstruct.syntax
+<src/input.ml>: syntax_camlp4o, pkg_lwt.syntax
