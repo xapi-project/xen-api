@@ -1,5 +1,6 @@
 trunk (unreleased)
 * vhd-tool: can create vhd-formatted output from 'hybrid' input
+* update to ocaml-vhd 0.7.0
 
 0.6.5 (2013-11-21)
 * vhd-tool: add machine-parsable progress reporting

@@ -15,7 +15,6 @@
  *
  *)
 
-open Vhd_lwt
 open Lwt
 
 type t = {
@@ -31,11 +30,11 @@ exception Impossible_to_seek
 let of_raw_fd fd =
   let offset = ref 0L in
   let really_read buf =
-    complete "read" (Some !offset) Lwt_bytes.read fd buf >>= fun () ->
+    IO.complete "read" (Some !offset) Lwt_bytes.read fd buf >>= fun () ->
     offset := Int64.(add !offset (of_int (Cstruct.len buf)));
     return () in
   let really_write buf =
-    complete "write" (Some !offset) Lwt_bytes.write fd buf >>= fun () ->
+    IO.complete "write" (Some !offset) Lwt_bytes.write fd buf >>= fun () ->
     offset := Int64.(add !offset (of_int (Cstruct.len buf)));
     return () in
   let skip _ = fail Impossible_to_seek in
@@ -58,11 +57,11 @@ let of_ssl_fd fd =
   Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
   let offset = ref 0L in
   let really_read buf =
-    complete "read" (Some !offset) Lwt_ssl.read_bytes sock buf >>= fun () ->
+    IO.complete "read" (Some !offset) Lwt_ssl.read_bytes sock buf >>= fun () ->
     offset := Int64.(add !offset (of_int (Cstruct.len buf)));
     return () in
   let really_write buf =
-    complete "write" (Some !offset) Lwt_ssl.write_bytes sock buf >>= fun () ->
+    IO.complete "write" (Some !offset) Lwt_ssl.write_bytes sock buf >>= fun () ->
     offset := Int64.(add !offset (of_int (Cstruct.len buf)));
     return () in
   let skip _ = fail Impossible_to_seek in
