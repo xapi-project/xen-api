@@ -30,9 +30,17 @@ let my_cmp a b = match a,b with
 	| None, None -> a = b
 	| _	-> false
 
+let string_of_api_exn_opt = function
+	| None -> "None"
+	| Some (code, args) ->
+		Printf.sprintf "Some (%s, [%s])" code (String.concat "; " args)
+
 let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) vbd_list op exc =
 	let vdi_ref, vdi_record = setup_test ~__context vbd_list in
-	assert_equal ~cmp (Xapi_vdi.check_operation_error ~__context ha_enabled vdi_record vdi_ref op) exc
+	assert_equal
+		~cmp
+		~printer:string_of_api_exn_opt
+		exc (Xapi_vdi.check_operation_error ~__context ha_enabled vdi_record vdi_ref op)
 
 (* This is to test Xapi_vdi.check_operation_error against CA-98944
    code. This DO NOT fully test the aforementionned function *)
