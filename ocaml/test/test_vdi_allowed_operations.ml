@@ -106,9 +106,22 @@ let test_ca101669 () =
 			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
 		`copy (Some (Api_errors.vdi_in_use, []))
 
+let test_ca125187 () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	(* A VDI being copied can be copied again concurrently. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy])
+		`copy None
+
 let test =
 	"test_vdi_allowed_operations" >:::
 		[
 			"test_ca98944" >:: test_ca98944;
 			"test_ca101669" >:: test_ca101669;
+			"test_ca125187" >:: test_ca125187;
 		]
