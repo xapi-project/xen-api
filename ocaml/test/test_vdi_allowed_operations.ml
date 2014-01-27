@@ -116,7 +116,32 @@ let test_ca125187 () =
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
 				~value:["mytask", `copy])
-		`copy None
+		`copy None;
+
+	(* A VBD can be plugged to a VDI which is being copied. This is required as
+	 * the VBD is plugged after the VDI is marked with the copy operation. *)
+	let _, _ = setup_test ~__context
+		(fun vdi_ref ->
+			let vm_ref = make_vm ~__context () in
+			Db.VM.set_is_control_domain ~__context ~self:vm_ref ~value:true;
+			Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
+			let vbd_ref = Ref.make () in
+			let (_: API.ref_VBD) = make_vbd ~__context
+				~ref:vbd_ref
+				~vDI:vdi_ref
+				~vM:vm_ref
+				~currently_attached:false
+				~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy];
+			Db.VDI.set_managed ~__context
+				~self:vdi_ref
+				~value:true;
+			Xapi_vbd_helpers.assert_operation_valid ~__context
+				~self:vbd_ref
+				~op:`plug)
+	in ()
 
 let test_ca126097 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
