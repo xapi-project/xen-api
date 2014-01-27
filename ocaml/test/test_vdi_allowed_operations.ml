@@ -71,7 +71,7 @@ let test_ca98944 () =
 		`forget None
 
 (* VDI.copy should be allowed if all attached VBDs are read-only. *)
-let test_ca101699 () =
+let test_ca101669 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
 
 	(* Attempting to copy a RW-attached VDI should fail with VDI_IN_USE. *)
@@ -95,5 +95,5 @@ let test =
 	"test_vdi_allowed_operations" >:::
 		[
 			"test_ca98944" >:: test_ca98944;
-			"test_ca101699" >:: test_ca101699;
+			"test_ca101669" >:: test_ca101669;
 		]
