@@ -180,23 +180,19 @@ let test_reader_state protocol =
 			writer.Rrd_writer.cleanup ())
 		()
 
+let with_each_protocol prefix_string test_fn =
+	[
+		(prefix_string ^ "_v1") >:: (fun () -> test_fn Rrd_protocol_v1.protocol);
+		(prefix_string ^ "_v2") >:: (fun () -> test_fn Rrd_protocol_v2.protocol);
+	]
+
 let base_suite =
 	"test_suite" >:::
-		[
-			"test_file_io_v1" >:: (fun () -> test_file_io Rrd_protocol_v1.protocol);
-			"test_file_io_v2" >:: (fun () -> test_file_io Rrd_protocol_v2.protocol);
-			"test_writer_cleanup_v1" >::
-				(fun () -> test_writer_cleanup Rrd_protocol_v1.protocol);
-			"test_writer_cleanup_v2" >::
-				(fun () -> test_writer_cleanup Rrd_protocol_v2.protocol);
-			"test_reader_cleanup_v1" >::
-				(fun () -> test_reader_cleanup Rrd_protocol_v1.protocol);
-			"test_reader_cleanup_v2" >::
-				(fun () -> test_reader_cleanup Rrd_protocol_v2.protocol);
-			"test_reader_state_v1" >::
-				(fun () -> test_reader_state Rrd_protocol_v1.protocol);
-			"test_reader_state_v2" >::
-				(fun () -> test_reader_state Rrd_protocol_v2.protocol);
-		]
+		(
+			(with_each_protocol "test_file_io" test_file_io) @
+			(with_each_protocol "test_writer_cleanup" test_writer_cleanup) @
+			(with_each_protocol "test_reader_cleanup" test_reader_cleanup) @
+			(with_each_protocol "test_reader_state" test_reader_state)
+		)
 
 let _ = run_test_tt_main base_suite
