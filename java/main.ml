@@ -35,6 +35,7 @@ open Str
 
 open Datamodel_types
 open Dm_api
+open CommonFunctions
 module DT = Datamodel_types
 module DU = Datamodel_utils
 
@@ -189,30 +190,24 @@ let get_java_type_or_void = function
 
 (* Here are a lot of functions which ask questions of the messages associated with*)
 (* objects, the answers to which are helpful when generating the corresponding java*)
-(* functions. For instance get_method_static takes an object's message, and*)
+(* functions. For instance is_method_static takes an object's message, and*)
 (* determines whether it should be static or not in java, by looking at whether*)
 (* it has a self parameter or not.*)
 
 (*Is the method static?*)
-let get_method_static message = 
+let is_method_static message = 
   match message.msg_params with
   | []                     -> true
   | {param_name="self"}::_ -> false
   | {param_type=ty}::_     -> not (ty = Ref message.msg_obj_name)
 
 
-let get_method_static_string message =
-  if get_method_static message 
-  then "static "
-  else ""
-
 (*Similar functions for deprecation of methods*)
 let get_method_deprecated message =
   message.msg_release.internal_deprecated_since <> None;;
 
 let get_method_deprecated_string message =
-  if get_method_deprecated message
-  then "@Deprecated"
+  if get_method_deprecated message  then "@Deprecated"
   else "";;
 
 let get_method_param {param_type=ty; param_name=name} = 
@@ -220,31 +215,22 @@ let get_method_param {param_type=ty; param_name=name} =
   let name = camel_case name in
   sprintf "%s %s" ty name
 
-let get_method_param_for_call {param_type=ty; param_name=name} = 
-  let name = camel_case name in
-  sprintf "%s" name;;
+let get_method_params_list message =
+  if is_method_static message then message.msg_params
+	else List.tl message.msg_params
 
-let get_method_params_list message = 
-  if get_method_static message 
-  then message.msg_params
-  else List.tl message.msg_params
-
-let get_method_params_for_signature message =
-  let params = get_method_params_list message in
+let get_method_params_for_signature params =
    (String.concat ", " ("Connection c" :: (List.map get_method_param params)))
 
-let get_method_params_for_call message =
-  let params = get_method_params_list message in
-   (String.concat ", " ("c" :: (List.map get_method_param_for_call params)));;
-
-let get_method_params_for_xml message =
+let get_method_params_for_xml message params=
   let f = function
     | {param_type=Record _; param_name=name} -> (camel_case name) ^ "_map"
-    | {param_name=name} -> camel_case name in
-  if get_method_static message 
-  then List.map f message.msg_params
-  else "this.ref" :: (List.map f (List.tl message.msg_params))
-
+    | {param_name=name}                      -> camel_case name in
+  match params with
+    | [] -> if is_method_static message then []
+            else ["this.ref"]
+    | _  -> if is_method_static message then List.map f params
+            else "this.ref"::(List.map f params)
 
 let gen_method_return_cast message =  match message.msg_result with
   | None         -> sprintf ""  	
@@ -262,46 +248,46 @@ let rec range = function
 
 
 (* Here is the main method generating function.*)
-let gen_method file cls message async_version =
+let gen_method file cls message params async_version =
   let deprecated_string = get_method_deprecated_string message in
-  let return_type = 
-	  if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
-		else get_java_type_or_void message.msg_result in
-  let method_static = get_method_static_string message in
+  let return_type = if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
+		                else get_java_type_or_void message.msg_result in
+  let method_static =  if is_method_static message then "static " else "" in
   let method_name = camel_case message.msg_name in
-  let method_params =  get_method_params_for_signature message in
-  let session_req = message.msg_session in
+  let paramString = get_method_params_for_signature params in
   let default_errors = ["BadServerResponse";
                         "XenAPIException";
                         "XmlRpcException"] in
   let err_string = String.concat ",\n       " (default_errors @ (List.map 
 								   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
+	let publishInfo = get_published_info_message message in
 
     fprintf file "    /**\n";
     fprintf file "     * %s\n" message.msg_doc;
-    if (get_method_deprecated message) then
-      fprintf file "     * @deprecated\n";
+		if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo;
+    if (get_method_deprecated message) then fprintf file "     * @deprecated\n";
     fprintf file "     *\n";
 
-    List.iter 
-      (fun {param_name=name; param_doc=desc} -> fprintf file "     * @param %s %s\n" (camel_case name) desc)
-      (get_method_params_list message);
+    List.iter (fun x -> let paramPublishInfo = get_published_info_param message x in
+		                    fprintf file "     * @param %s %s%s\n"
+												  (camel_case x.param_name)
+                          x.param_doc
+													(if paramPublishInfo = "" then "" else " "^paramPublishInfo))
+							params;
 
     if async_version then
       fprintf file "     * @return Task\n"
     else
       (match message.msg_result with
-	 | None -> ()
-	 | Some (_, desc) ->
-             fprintf file "     * @return %s\n" desc);
+			| None           -> ()
+	    | Some (_, desc) -> fprintf file "     * @return %s\n" desc);
     
     fprintf file "     */\n";
 
-    if async_version then
-      fprintf file "   %s public %sTask %s(%s) throws\n" deprecated_string method_static (method_name^"Async") method_params
-
+    if async_version then 
+      fprintf file "   %s public %sTask %sAsync(%s) throws\n" deprecated_string method_static method_name paramString
     else 
-      fprintf file "   %s public %s%s %s(%s) throws\n" deprecated_string method_static return_type method_name  method_params;     
+      fprintf file "   %s public %s%s %s(%s) throws\n"   deprecated_string method_static return_type method_name  paramString;     
 
     fprintf file "       %s {\n" err_string;
 
@@ -310,30 +296,26 @@ let gen_method file cls message async_version =
     else
       fprintf file "        String method_call = \"%s.%s\";\n" message.msg_obj_name message.msg_name;
 
-    if not session_req 
-    then ()
-    else fprintf file "        String session = c.getSessionReference();\n";
+    if message.msg_session then
+			fprintf file "        String session = c.getSessionReference();\n"
+		else ();
 
     let record_params = List.filter (function {param_type=Record _} -> true | _ -> false) message.msg_params in
 
       List.iter 
-	(fun {param_name=s} -> 
-	   let name = camel_case s in
-             fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name) 
-	record_params;
+	     (fun {param_name=s} -> 
+	        let name = camel_case s in
+            fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name) 
+	     record_params;
 
       fprintf file "        Object[] method_params = {";
 
-      let method_params_list = if session_req 
-      then "session"::(get_method_params_for_xml message) 
-      else (get_method_params_for_xml message) in
+    let methodParamsList = if message.msg_session then
+			                       "session"::(get_method_params_for_xml message params) 
+                           else
+														 (get_method_params_for_xml message params) in
 
-      (*  let method_params_list = (get_method_params_for_xml message) in*)
-
-      let method_params_list = 
-	List.map (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s) method_params_list in
-
-	output_string file (String.concat ", " method_params_list);
+	output_string file (String.concat ", " (List.map (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s) methodParamsList));
 
 
 	fprintf file "};\n";
@@ -351,78 +333,19 @@ let gen_method file cls message async_version =
 
 	fprintf file "    }\n\n"
 
-(* Here is the main method generating function.*)
-let gen_versioned_method file cls message versioned_message async_version =
-  let deprecated_string = get_method_deprecated_string message in
-  let return_type = 
-    if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
-    else get_java_type_or_void message.msg_result in
-  let method_static = get_method_static_string message in
-  let versioned_name = camel_case versioned_message.msg_name in
-  let method_params =  get_method_params_for_signature versioned_message in
-  let session_req = message.msg_session in
-  let default_errors = ["BadServerResponse";
-                        "XmlRpcException";
-                        "XenAPIException"] in
-  let err_string = String.concat ",\n       " (default_errors @ (List.map 
-								   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
-
-    if async_version then
-      fprintf file "   %s private %s%s %s(%s) throws\n" deprecated_string method_static "Task" (versioned_name^"Async") method_params
-
-    else 
-      fprintf file "   %s private %s%s %s(%s) throws\n" deprecated_string method_static return_type versioned_name  method_params;     
-
-    fprintf file "       %s {\n" err_string;
-
-    if async_version then
-      fprintf file "        String method_call = \"Async.%s.%s\";\n" message.msg_obj_name message.msg_name
-    else
-      fprintf file "        String method_call = \"%s.%s\";\n" message.msg_obj_name message.msg_name;
-
-    if not session_req 
-    then ()
-    else fprintf file "        String session = c.getSessionReference();\n";
-
-    let record_params = List.filter (function {param_type=Record _} -> true | _ -> false) message.msg_params in
-
-      List.iter 
-	(fun {param_name=s} -> 
-	   let name = camel_case s in
-             fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name) 
-	record_params;
-
-      fprintf file "        Object[] method_params = {";
-
-      let method_params_list = if session_req 
-      then "session"::(get_method_params_for_xml versioned_message) 
-      else (get_method_params_for_xml versioned_message) in
-
-      (*  let method_params_list = (get_method_params_for_xml message) in*)
-
-      let method_params_list = 
-	List.map (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s) method_params_list in
-
-	output_string file (String.concat ", " method_params_list);
-
-	fprintf file "};\n";
-	fprintf file "        Map response = c.dispatch(method_call, method_params);\n";
-	fprintf file "        Object result = response.get(\"Value\");\n" ;
-	
-	if async_version then
-	  fprintf file "        return Types.toTask(result);\n"
-	else
-	  gen_method_return file cls message;
-
-	fprintf file "    }\n\n"
-;;
-
-
 (*Some methods have an almost identical asynchronous counterpart, which returns*)
 (* a Task reference rather than its usual return value*)
 let gen_method_and_asynchronous_counterpart file cls message =
-  if message.msg_async then gen_method file cls message true;
-	gen_method file cls message false;;
+	let methodParams = get_method_params_list message in
+	let generator = fun x -> (if message.msg_async then gen_method file cls message x true;
+                            gen_method file cls message x false) in
+	match methodParams with
+	| [] -> generator []
+	| _  -> let paramGroups =  gen_param_groups methodParams in
+	        let filteredGroups = List.filter (fun x -> match x with | [] -> false | _ -> true) paramGroups in
+	        let uniqueGroups = list_distinct filteredGroups in
+	          List.iter generator uniqueGroups
+    ;;
 
 (* Generate the record *)
 
@@ -432,21 +355,22 @@ let gen_method_and_asynchronous_counterpart file cls message =
 (* functions are in fact implemented as three sets of three mutual recursions,*)
 (* which take the trees apart. *)
 
-let gen_record_field file prefix field = 
+let gen_record_field file cls prefix field = 
   let ty = get_java_type field.ty in
-  let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
-  let name = camel_case name in
+  let name = camel_case (String.concat "_" (List.rev (field.field_name :: prefix))) in
+	let publishInfo = get_published_info_field cls field in
     fprintf file "        /**\n";
     fprintf file "         * %s\n" field.field_description;
+    if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
     fprintf file "         */\n";
     fprintf file "        public %s %s;\n" ty name
 
-let rec gen_record_namespace file prefix (name, contents) = 
-  List.iter (gen_record_contents file (name::prefix)) contents;
+let rec gen_record_namespace file cls prefix (name, contents) = 
+  List.iter (gen_record_contents file cls (name::prefix)) contents;
 
-and gen_record_contents file prefix = function
-  | Field f          -> gen_record_field file prefix f
-  | Namespace (n,cs) -> gen_record_namespace file prefix (n,cs);;
+and gen_record_contents file cls prefix = function
+  | Field f          -> gen_record_field file cls prefix f
+  | Namespace (n,cs) -> gen_record_namespace file cls prefix (n,cs);;
 
 (***)
 
@@ -526,7 +450,7 @@ let gen_record file cls =
     fprintf file "            return map;\n";
     fprintf file "        }\n\n"; 
 
-    List.iter (gen_record_contents file []) contents;
+    List.iter (gen_record_contents file cls []) contents;
     if (cls.name="event") then 
       begin
 	fprintf file "        /**\n";
@@ -557,6 +481,7 @@ let gen_class cls =
   let class_name = class_case cls.name in
   let methods = cls.messages in
   let file = open_out (class_name ^ ".java") in
+	let publishInfo = get_published_info_class cls in
   print_license file;
   fprintf file "package com.xensource.xenapi;
 
@@ -577,6 +502,7 @@ import org.apache.xmlrpc.XmlRpcException;
 ";
   fprintf file "/**\n";
   fprintf file " * %s\n" cls.description;
+	if not (publishInfo = "") then fprintf file " * %s\n" publishInfo;
   fprintf file " *\n";
   fprintf file " * @author Citrix Systems, Inc.\n";
   fprintf file " */\n";

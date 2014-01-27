@@ -44,7 +44,7 @@ else
   COMPILE_JAVA = yes
   export
 
-OCamlProgram(main, main ../licence)
+OCamlProgram(main, main ../licence ../CommonFunctions)
 
 LicenceJava(dir) =
 	$(INSTALL) ../LICENSE $(dir)/LICENSE.txt
