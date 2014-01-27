@@ -89,7 +89,14 @@ let test_ca101669 () =
 	(* Attempting to copy an unattached VDI should pass. *)
 	run_assert_equal_with_vdi ~__context
 		(fun vdi_ref -> ())
-		`copy None
+		`copy None;
+
+	(* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW () in
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
+		`copy (Some (Api_errors.vdi_in_use, []))
 
 let test =
 	"test_vdi_allowed_operations" >:::
