@@ -32,14 +32,15 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 	let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
 
 	(* Policy:
-	   1. any current_operation implies exclusivity; fail everything else
+	   1. any current_operation besides copy implies exclusivity; fail everything
+	      else
 	   2. if doing a VM start then assume the sharing check is done elsewhere
 	      (so VMs may share disks but our operations cannot)
 	   3. for other operations, fail if any VBD has currently-attached=true or any VBD 
 	      has a current_operation itself
 	   4. HA prevents you from deleting statefiles or metadata volumes
 	   *)
-	if List.length current_ops > 0
+	if List.exists (fun (_, op) -> op <> `copy) current_ops
 	then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
 	else
 		(* check to see whether it's a local cd drive *)
