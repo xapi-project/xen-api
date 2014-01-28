@@ -44,7 +44,7 @@ open D
 open Printf
 
 let supported_vbd_backends = [ "vbd"; "vbd3" ] (* TODO: get from xenopsd config *)
-let default_vbd_backend = Vbd "vbd"
+let default_vbd_kind = Vbd "vbd"
 let vbd_kind_of_string backend_kind =
 	if List.mem backend_kind supported_vbd_backends then Vbd backend_kind
 	else Vbd "unsupported"
@@ -133,7 +133,7 @@ let string_of_device (x: device) =
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
-			   | Tap -> default_vbd_backend
+			   | Tap | Vbd _ -> default_vbd_kind (* frontend doesn't use vbd3 *)
 			   | _ -> backend.kind);
 		   devid = backend.devid } in
   { backend = backend; frontend = frontend }
