@@ -38,6 +38,8 @@ open Datamodel
 open Datamodel_types
 open Dm_api
 
+open CommonFunctions
+
 module DT = Datamodel_types
 module DU = Datamodel_utils
 
@@ -139,7 +141,7 @@ let rec main() =
   gen_proxy();
   gen_callversionscsv();
   List.iter (fun x -> if generated x then gen_class x) classes;
-  gen_gui_bits classes;
+  gen_object_downloader classes;
   TypeSet.iter gen_enum !enums;
   gen_maps();
   gen_i18n_errors();
@@ -309,20 +311,19 @@ namespace XenAPI
 (* ------------------- category: classes *)
 
 
-and gen_class {name=classname; messages=messages; contents=contents;
-              gen_constructor_destructor=gen_constructor_destructor } =
-  let out_chan = open_out (Filename.concat destdir
-                             ((exposed_class_name classname) ^ ".cs"))
+and gen_class cls =
+  let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
-    finally (fun () -> gen_class_gui out_chan classname messages contents
-               gen_constructor_destructor)
+    finally (fun () -> gen_class_gui out_chan cls)
             (fun () -> close_out out_chan)
 
 (* XenAPI autogen class generator for GUI bindings *)
-and gen_class_gui out_chan classname messages contents gen_constructor_destructor =
+and gen_class_gui out_chan cls =
   let print format = fprintf out_chan format in
-  let exposed_class_name = exposed_class_name classname in
-  let messages = List.filter (fun msg -> (String.compare msg.msg_name "get_all_records_where" != 0)) messages in
+  let exposed_class_name = exposed_class_name cls.name in
+  let messages = List.filter (fun msg -> (String.compare msg.msg_name "get_all_records_where" != 0)) cls.messages in
+  let contents = cls.contents in
+  let publishedInfo = get_published_info_class cls in
 
   print
 "%s
@@ -336,14 +337,18 @@ using CookComputing.XmlRpc;
 
 namespace XenAPI
 {
+    /// <summary>
+    /// %s%s
+    /// </summary>
     public partial class %s : XenObject<%s>
     {"
 
   (banner())
+  cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
   exposed_class_name exposed_class_name;
 
   (* Generate bits for Message type *)
-  if classname = "message" then
+  if cls.name = "message" then
     begin
     print "
         public enum MessageType { %s };
@@ -379,8 +384,8 @@ namespace XenAPI
   exposed_class_name;
 
   let print_internal_ctor = function
-    [] -> ()
-  | _ as contents -> print
+    | []            -> ()
+    | _ as cnt -> print
 "
         public %s(%s)
         {
@@ -388,8 +393,8 @@ namespace XenAPI
         }
 "
   exposed_class_name
-  (String.concat ",\n            " (List.rev (get_constructor_params contents)))
-  (String.concat "\n            " (List.rev (get_constructor_body contents)))
+  (String.concat ",\n            " (List.rev (get_constructor_params cnt)))
+  (String.concat "\n            " (List.rev (get_constructor_body cnt)))
   in print_internal_ctor contents;
 
   print
@@ -497,7 +502,7 @@ namespace XenAPI
 "
   exposed_class_name;
 
-  if gen_constructor_destructor then
+  if cls.gen_constructor_destructor then
     print
 "                Proxy_%s p = this.ToProxy();
                 return session.proxy.%s_create(session.uuid, p).parse();
@@ -520,21 +525,18 @@ namespace XenAPI
     print
 "
             }
-        }
+        }";
 
-";
-
-  List.iter (gen_exposed_method out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_exposed_method out_chan cls.name) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
 
   (* Don't create duplicate get_all_records call *)
-  if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
-    gen_exposed_method out_chan classname (get_all_records_method classname);
+  if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) then
+    gen_exposed_method out_chan cls.name (get_all_records_method cls.name);
 
-  List.iter (gen_exposed_field out_chan classname) contents;
+  List.iter (gen_exposed_field out_chan cls) contents;
 
-print
-"
-    }
+  print
+"    }
 }
 ";
 
@@ -632,39 +634,49 @@ and gen_to_proxy_line out_chan content =
 
 and gen_exposed_method out_chan classname msg =
   let print format = fprintf out_chan format in
-
   let proxy_msg_name = proxy_msg_name classname msg in
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let params = exposed_params msg.msg_params in
+  let paramsDoc = get_params_doc msg msg.msg_params in
   let call_params = exposed_call_params msg.msg_params in
-  let do_call =
-    sprintf "session.proxy.%s(%s).parse()" proxy_msg_name call_params in
-  let do_async_call =
-    sprintf "session.proxy.async_%s(%s).parse()" proxy_msg_name call_params in
+  let do_call = sprintf "session.proxy.%s(%s).parse()" proxy_msg_name call_params in
+  let do_async_call = sprintf "session.proxy.async_%s(%s).parse()" proxy_msg_name call_params in
   let conv = convert_from_proxy_opt do_call msg.msg_result in
   let async_conv = sprintf "return XenRef<Task>.Create(%s)" do_async_call in
+  let publishInfo = get_published_info_message msg in
 
-  print
-"        public static %s %s(%s)
+  print "
+        /// <summary>
+        /// %s%s
+        /// </summary>%s
+        public static %s %s(%s)
         {
             %s;
         }
-
-" exposed_ret_type msg.msg_name params conv;
+" msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo) paramsDoc
+  exposed_ret_type msg.msg_name params conv;
 
   if msg.msg_async then 
-   print
-"        public static XenRef<Task> async_%s(%s)
+   print "
+        public static XenRef<Task> async_%s(%s)
         {
             %s;
         }
-
 " msg.msg_name params async_conv
 
 and returns_xenobject msg =
   match msg.msg_result with
     |  Some (Record r, _) -> true
     |  _ -> false
+
+and get_params_doc msg params =
+  let sessionDoc = "\n        /// <param name=\"session\">The session</param>" in
+  String.concat "\n" (sessionDoc::(List.map (fun x -> get_param_doc msg x) params))
+
+and get_param_doc msg x =
+  let publishInfo = get_published_info_param msg x in
+    sprintf "        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
+      (if publishInfo = "" then "" else " "^publishInfo)
 
 and exposed_params params =
   String.concat ", " ("Session session" :: (List.map exposed_param params))
@@ -730,34 +742,45 @@ and ctor_call classname =
   String.concat ", " ("session.uuid" :: args)
 
 
-and gen_exposed_field out_chan classname content =
+and gen_exposed_field out_chan cls content =
   match content with
     | Field fr ->
         let print format = fprintf out_chan format in
         let full_name_fr = full_name fr in
         let comp = sprintf "!Helper.AreEqual(value, _%s)" full_name_fr in
+        let publishInfo = get_published_info_field fr in
+        
+          print "
+        /// <summary>
+        /// %s%s
+        /// </summary>
+        public virtual %s %s
+        {
+            get { return _%s; }" fr.field_description
+  (if publishInfo = "" then "" else "\n        /// "^publishInfo) 
+  (exposed_type fr.ty) full_name_fr full_name_fr;
 
               print
-"        private %s _%s;
-" (exposed_type fr.ty) full_name_fr;
+"
+            set
+            {
+                if (%s)
+                {
+                    _%s = value;
+                    Changed = true;
+                    NotifyPropertyChanged(\"%s\");
+                }
+            }
+        }" comp full_name_fr full_name_fr;
 
-	            print
-"        public virtual %s %s {
-             get { return _%s; }
-" (exposed_type fr.ty) full_name_fr 
-  full_name_fr;
+              print "
+        private %s _%s;\n" (exposed_type fr.ty) full_name_fr
 
-              print
-"             set { if (%s) { _%s = value; Changed = true; NotifyPropertyChanged(\"%s\"); } }
-" comp full_name_fr full_name_fr;
-
-              print "         }\n\n"
-
-	  | Namespace (_, c) -> List.iter (gen_exposed_field out_chan classname) c
+	  | Namespace (_, c) -> List.iter (gen_exposed_field out_chan cls) c
 
 (* ------------------- category: gui bits *)
 	
-and gen_gui_bits classes =
+and gen_object_downloader classes =
   let out_chan = open_out (Filename.concat destdir "XenObjectDownloader.cs")
   in
     finally (fun () -> gen_xenobjectdownloader out_chan classes)
@@ -1438,13 +1461,8 @@ and gen_enum_line content =
 
 and has_unknown_entry contents =
   let rec f = function
-    | x :: xs ->
-        if String.lowercase (fst x) = "unknown" then
-          true
-        else
-          f xs
-    | [] ->
-        false
+    | x :: xs -> if String.lowercase (fst x) = "unknown" then true else f xs
+    | []      -> false
   in
     f contents
 
@@ -1867,7 +1885,6 @@ and i18n_footer out_chan =
   let print format = fprintf out_chan format in
     print
 "</root>\n"
-
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;
   Friendly_error_names.parse_resx "../FriendlyErrorNames.resx";

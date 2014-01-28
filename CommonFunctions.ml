@@ -44,6 +44,15 @@ let rec list_last = function
   | hd::tl -> list_last tl
   | []     -> failwith "Cannot return the last element of an empty list."
 
+and list_index_of x list = 
+  let rec index_rec i = function
+    | []     -> raise Not_found
+    | hd::tl -> if hd = x then i else index_rec (i+1) tl
+  in
+  try
+    index_rec 0 list
+    with Not_found -> -1
+
 and list_is_empty list =
 	match list with
 	| [] -> true
@@ -80,24 +89,24 @@ and get_first_release releases =
     | []     -> ""
     | hd::tl -> hd
 
+and get_first_release_string release =
+  if release = "" then ""
+  else sprintf "First published in %s." (get_release_name release)
+
 and get_published_info_message message =
-	let release = get_first_release message.msg_release.internal in
-	if release = "" then ""
-	else sprintf "First published in %s." (get_release_name release)
-	
+	get_first_release_string (get_first_release message.msg_release.internal)
+
 and get_published_info_param message param =
 	let msgRelease = get_first_release message.msg_release.internal in 
 	let paramRelease = get_first_release param.param_release.internal in
-	if msgRelease = paramRelease then ""
-	else sprintf "First published in %s." (get_release_name paramRelease)
+  let msgReleaseIndex = list_index_of msgRelease DT.release_order in
+  let paramReleaseIndex = list_index_of paramRelease DT.release_order in 
+    if (not (msgReleaseIndex = -1)) && (not (paramReleaseIndex = -1)) && (msgReleaseIndex < paramReleaseIndex) then
+      sprintf "First published in %s." (get_release_name paramRelease)
+	  else ""
 
 and get_published_info_class cls =
-    let release = get_first_release cls.obj_release.internal in
-    if release = "" then ""
-    else sprintf "First published in %s." (get_release_name release)
+  get_first_release_string (get_first_release cls.obj_release.internal)
 
-and get_published_info_field cls field =
-  let classRelease = get_first_release cls.obj_release.internal in 
-  let fieldRelease = get_first_release field.release.internal in
-  if classRelease = fieldRelease then ""
-  else sprintf "First published in %s." (get_release_name fieldRelease)
+and get_published_info_field field =
+ get_first_release_string (get_first_release field.release.internal)

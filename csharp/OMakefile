@@ -30,7 +30,7 @@
 
 SR_XML = $(PROJECT_OUTPUTDIR)/sm/XE_SR_ERRORCODES.xml
 
-OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence)
+OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence ../CommonFunctions)
 
 .PHONY: gen_gui_csharp_bindings
 gen_gui_csharp_bindings: gen_csharp_binding $(SR_XML)

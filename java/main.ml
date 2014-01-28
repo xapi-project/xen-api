@@ -355,22 +355,22 @@ let gen_method_and_asynchronous_counterpart file cls message =
 (* functions are in fact implemented as three sets of three mutual recursions,*)
 (* which take the trees apart. *)
 
-let gen_record_field file cls prefix field = 
+let gen_record_field file prefix field = 
   let ty = get_java_type field.ty in
   let name = camel_case (String.concat "_" (List.rev (field.field_name :: prefix))) in
-	let publishInfo = get_published_info_field cls field in
+	let publishInfo = get_published_info_field field in
     fprintf file "        /**\n";
     fprintf file "         * %s\n" field.field_description;
     if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
     fprintf file "         */\n";
     fprintf file "        public %s %s;\n" ty name
 
-let rec gen_record_namespace file cls prefix (name, contents) = 
-  List.iter (gen_record_contents file cls (name::prefix)) contents;
+let rec gen_record_namespace file prefix (name, contents) = 
+  List.iter (gen_record_contents file (name::prefix)) contents;
 
-and gen_record_contents file cls prefix = function
-  | Field f          -> gen_record_field file cls prefix f
-  | Namespace (n,cs) -> gen_record_namespace file cls prefix (n,cs);;
+and gen_record_contents file prefix = function
+  | Field f          -> gen_record_field file prefix f
+  | Namespace (n,cs) -> gen_record_namespace file prefix (n,cs);;
 
 (***)
 
@@ -450,7 +450,7 @@ let gen_record file cls =
     fprintf file "            return map;\n";
     fprintf file "        }\n\n"; 
 
-    List.iter (gen_record_contents file cls []) contents;
+    List.iter (gen_record_contents file []) contents;
     if (cls.name="event") then 
       begin
 	fprintf file "        /**\n";
