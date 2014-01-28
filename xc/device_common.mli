@@ -14,7 +14,7 @@
 
 type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
 val vbd_kind_of_string : string -> kind
-val default_vbd_backend : kind
+val default_vbd_kind : kind
 
 type devid = int
 
