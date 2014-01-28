@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# xcp-rrdd     Start/Stop the XCP RRD daemon
+# xcp-rrdd-plugins     Start/Stop the XCP RRD daemon plugins
 #
 # chkconfig: 2345 18 82
 # description: XCP RRD daemon plugins
