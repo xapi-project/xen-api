@@ -84,6 +84,8 @@ stop() {
 	WORST_RETVAL=0
 	for NAME in ${PLUGINS}; do
 		echo -n $"Stopping XCP RRDD plugin ${NAME}: "
+		local PID_FILE=${PID_PREFIX}${NAME}".pid"
+		local SUBSYS_FILE=${SUBSYS_PREFIX}${NAME}
 		
 		if [ ! -e ${SUBSYS_FILE} ]; then
 			echo -n $"cannot stop ${NAME}: daemon is not running."
