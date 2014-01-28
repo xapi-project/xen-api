@@ -2,7 +2,7 @@
 #
 # xcp-rrdd-plugins     Start/Stop the XCP RRD daemon plugins
 #
-# chkconfig: 2345 18 82
+# chkconfig: 2345 23 82
 # description: XCP RRD daemon plugins
 
 # Source function library.
