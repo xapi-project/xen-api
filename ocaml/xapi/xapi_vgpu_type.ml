@@ -201,12 +201,9 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 	in
 	build_vgpu_types pci_db [] relevant_vgpu_confs
 
-let find_or_create_supported_types ~__context ?pci_db pci =
+let find_or_create_supported_types ~__context ~pci_db pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
 	debug "dev_ids = [ %s ]" (Printf.sprintf "%04Lx" dev_id);
-	let pci_db = match pci_db with
-		| Some x -> x
-		| None -> Pci_db.of_file Pci_db.pci_ids_path in
 	let relevant_types = relevant_vgpu_types pci_db [dev_id] in
 	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
