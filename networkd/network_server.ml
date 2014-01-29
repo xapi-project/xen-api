@@ -637,18 +637,18 @@ module Bridge = struct
 				end else begin
 					if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
 						Linux_bonding.add_bond_master name;
-						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
-						List.iter (Linux_bonding.add_bond_slave name) interfaces;
-						begin match bond_mac with
-							| Some mac -> Ip.set_mac name mac
-							| None -> warn "No MAC address specified for the bond"
-						end;
 						let bond_properties =
 							if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
 								List.replace_assoc "mode" "802.3ad" bond_properties
 							else bond_properties
 						in
-						Linux_bonding.set_bond_properties name bond_properties
+						Linux_bonding.set_bond_properties name bond_properties;
+						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
+						List.iter (Linux_bonding.add_bond_slave name) interfaces;
+						begin match bond_mac with
+							| Some mac -> Ip.set_mac name mac
+							| None -> warn "No MAC address specified for the bond"
+						end
 					end;
 					Interface.bring_up () dbg ~name;
 					ignore (Brctl.create_port bridge name)
