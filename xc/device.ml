@@ -481,7 +481,7 @@ type t = {
 
 let device_kind_of_backend_keys backend_keys =
 	try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
-	with Not_found -> Device_common.default_vbd_kind
+	with Not_found -> Device_common.default_vbd_backend_kind
 
 let add_async ~xs ~hvm x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
