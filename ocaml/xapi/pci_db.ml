@@ -80,6 +80,54 @@ let get_subdevice_names_by_id t v_id d_id id =
 			(if sd_id = id then sd_name :: res else res))
 		d.subdevice_names []
 
+(* For all key-value pairs in table2 which do not have a corresponding key in
+ * table1, add the key-value pair to table1.
+ * If the key already exists in table1 then the resolve_conflict function will
+ * be used to determine what (if anything) happens to table1. *)
+let merge_hashtbls table1 table2 resolve_conflict =
+	Hashtbl.iter
+		(fun key2 value2 ->
+			if not (Hashtbl.mem table1 key2)
+			then Hashtbl.add table1 key2 value2
+			else begin
+				let value1 = Hashtbl.find table1 key2 in
+				resolve_conflict key2 value1 value2
+			end)
+		table2
+
+(* Only merge values from the tables in t2 into t1 if the class/vendor/device
+ * both match. Otherwise leave the value in t1 unchanged. *)
+let merge t1 t2 =
+	(* Handle PCI classes. *)
+	let merge_subclass_tables subclasses1 subclasses2 =
+		merge_hashtbls subclasses1 subclasses2 (fun _ _ _ -> ())
+	in
+	let merge_class_tables classes1 classes2 =
+		merge_hashtbls classes1 classes2
+			(fun class_id class1 class2 ->
+				if class1.c_name = class2.c_name
+				then merge_subclass_tables class1.subclass_names class2.subclass_names)
+	in
+	(* Handle PCI vendor and device IDs. *)
+	let merge_subdevice_tables subdevices1 subdevices2 =
+		merge_hashtbls subdevices1 subdevices2 (fun _ _ _ -> ())
+	in
+	let merge_device_tables devices1 devices2 =
+		merge_hashtbls devices1 devices2
+			(fun device_id device1 device2 ->
+				if device1.d_name = device2.d_name
+				then merge_subdevice_tables device1.subdevice_names device2.subdevice_names)
+	in
+	let merge_vendor_tables vendors1 vendors2 =
+		merge_hashtbls vendors1 vendors2
+			(fun vendor_id vendor1 vendor2 ->
+				if vendor1.v_name = vendor2.v_name
+				then merge_device_tables vendor1.devices vendor2.devices)
+	in
+	(* Start merging from the top level. *)
+	merge_class_tables t1.classes t2.classes;
+	merge_vendor_tables t1.vendors t2.vendors
+
 let strings_of_subclasses pci_class =
 	Hashtbl.fold
 		(fun sc_id sc_name lines ->
