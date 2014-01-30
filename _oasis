@@ -1,8 +1,8 @@
 OASISFormat: 0.3
-Name:        vhd-format
-Version:     0.5.0
+Name:        vhd-tool
+Version:     0.7.0
 Synopsis:    .vhd file manipulation
-Authors:     Jonathan Ludlam
+Authors:     Jonathan Ludlam and David Scott
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild

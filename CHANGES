@@ -1,7 +1,8 @@
-trunk (unreleased)
+0.7.0 (2014-01-30)
 * vhd-tool: can create vhd-formatted output from 'hybrid' input
 * update to ocaml-vhd 0.7.0
 * switch build back to OASIS/ocamlbuild from obuild
+* vhd-tool: info will not fail even if the parent is missing
 
 0.6.5 (2013-11-21)
 * vhd-tool: add machine-parsable progress reporting
