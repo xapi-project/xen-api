@@ -487,6 +487,7 @@ let bind ?(listen_backlog=128) sockaddr name =
   try
     Unix.set_close_on_exec sock;
     Unix.setsockopt sock Unix.SO_REUSEADDR true;
+    Unix.setsockopt sock Unix.SO_KEEPALIVE true;
     (match sockaddr with Unix.ADDR_INET _ -> Unixext.set_tcp_nodelay sock true | _ -> ());
     Unix.bind sock sockaddr;
     Unix.listen sock listen_backlog;
