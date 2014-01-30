@@ -92,6 +92,7 @@ let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
 module D=Debug.Debugger(struct let name="storage_impl" end)
 let debug (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "debug" fmt else D.debug fmt
 let error (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "error" fmt else D.error fmt
+let warn (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "warn" fmt else D.warn fmt
 let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_stdout "info" fmt else D.info fmt
 
 let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
@@ -307,7 +308,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					in
 					Sr.replace vdi new_vdi_t sr_t;
 					new_vdi_t
-				with e ->
+				with
+				| Storage_interface.Internal_error("Storage_access.No_VDI") as e->
+					begin
+						error "Caught exception  Storage_access.No_VDI while doing %s" (Vdi_automaton.string_of_op op);
+						match op with 
+						|Vdi_automaton.Deactivate | Vdi_automaton.Detach ->
+							warn "This is the best we could do now. We are pretending that it works. All the best"; vdi_t
+						|_ -> raise e
+					end
+				| e ->
 					error "Storage_impl: dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 						(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
 					raise e
