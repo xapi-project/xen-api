@@ -800,8 +800,8 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
   let rec serve_requests () =
     c.Channels.really_read req >>= fun () ->
     match Request.unmarshal req with
-    | Result.Error e -> fail e
-    | Result.Ok request ->
+    | `Error e -> fail e
+    | `Ok request ->
       if common.Common.debug
       then Printf.fprintf stderr "%s\n%!" (Request.to_string request);
       begin match request.Request.ty with
