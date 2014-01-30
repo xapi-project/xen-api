@@ -14,7 +14,7 @@ Library rrd_transport
   Modules:              Rrd_json, Rrd_protocol, Rrd_rpc, Rrd_protocol_v1, Rrd_protocol_v2, Rrd_io, Rrd_reader, Rrd_writer
   ByteOpt:              -bin-annot
   NativeOpt:            -bin-annot
-  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, gnt, crc, threads
+  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, xen-gnt, crc, threads
 
 Executable reader
   CompiledObject:       best
@@ -23,7 +23,7 @@ Executable reader
   Install:              false
   ByteOpt:              -bin-annot
   NativeOpt:            -bin-annot
-  BuildDepends:         cmdliner, threads, rrd-transport
+  BuildDepends:         cmdliner, threads, rrd-transport, xen-gnt.unix
 
 Executable writer
   CompiledObject:       best
@@ -32,7 +32,7 @@ Executable writer
   Install:              false
   ByteOpt:              -bin-annot
   NativeOpt:            -bin-annot
-  BuildDepends:         cmdliner, threads, rrd-transport
+  BuildDepends:         cmdliner, threads, rrd-transport, xen-gnt.unix
 
 Executable test_suite
   Build$:               flag(tests)
@@ -40,7 +40,7 @@ Executable test_suite
   MainIs:               test_suite.ml
   Install:              false
   ByteOpt:              -bin-annot
-  BuildDepends:         oUnit, rrd-transport
+  BuildDepends:         oUnit, rrd-transport, xen-gnt.unix
 
 Test test_suite
   Command:              $test_suite
