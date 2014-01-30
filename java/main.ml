@@ -194,13 +194,6 @@ let get_java_type_or_void = function
 (* determines whether it should be static or not in java, by looking at whether*)
 (* it has a self parameter or not.*)
 
-(*Is the method static?*)
-let is_method_static message = 
-  match message.msg_params with
-  | []                     -> true
-  | {param_name="self"}::_ -> false
-  | {param_type=ty}::_     -> not (ty = Ref message.msg_obj_name)
-
 
 (*Similar functions for deprecation of methods*)
 let get_method_deprecated message =
@@ -214,10 +207,6 @@ let get_method_param {param_type=ty; param_name=name} =
   let ty = get_java_type ty in
   let name = camel_case name in
   sprintf "%s %s" ty name
-
-let get_method_params_list message =
-  if is_method_static message then message.msg_params
-	else List.tl message.msg_params
 
 let get_method_params_for_signature params =
    (String.concat ", " ("Connection c" :: (List.map get_method_param params)))

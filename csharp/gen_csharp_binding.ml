@@ -526,12 +526,12 @@ namespace XenAPI
 "
             }
         }";
-
-  List.iter (gen_exposed_method out_chan cls.name) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+ 
+  List.iter (gen_exposed_method_overloads out_chan cls.name) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
 
   (* Don't create duplicate get_all_records call *)
   if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) then
-    gen_exposed_method out_chan cls.name (get_all_records_method cls.name);
+    gen_exposed_method out_chan cls.name (get_all_records_method cls.name) [];
 
   List.iter (gen_exposed_field out_chan cls) contents;
 
@@ -630,21 +630,27 @@ and gen_to_proxy_line out_chan content =
 
     | Namespace (_, c) -> List.iter (gen_to_proxy_line out_chan) c
 
+and gen_overload out_chan classname message generator =
+  let methodParams = get_method_params_list message in
+    match methodParams with
+    | [] -> generator []
+    | _  -> let paramGroups =  gen_param_groups methodParams in
+            let filteredGroups = List.filter (fun x -> match x with | [] -> false | _ -> true) paramGroups in
+            let uniqueGroups = list_distinct filteredGroups in
+              List.iter generator uniqueGroups
 
+and gen_exposed_method_overloads out_chan classname message =
+  let generator = fun x -> gen_exposed_method out_chan classname message x in
+  gen_overload out_chan classname message generator
 
-and gen_exposed_method out_chan classname msg =
+and gen_exposed_method out_chan classname msg curParams =
   let print format = fprintf out_chan format in
-  let proxy_msg_name = proxy_msg_name classname msg in
+  let proxyMsgName = proxy_msg_name classname msg in
   let exposed_ret_type = exposed_type_opt msg.msg_result in
-  let params = exposed_params msg.msg_params in
-  let paramsDoc = get_params_doc msg msg.msg_params in
-  let call_params = exposed_call_params msg.msg_params in
-  let do_call = sprintf "session.proxy.%s(%s).parse()" proxy_msg_name call_params in
-  let do_async_call = sprintf "session.proxy.async_%s(%s).parse()" proxy_msg_name call_params in
-  let conv = convert_from_proxy_opt do_call msg.msg_result in
-  let async_conv = sprintf "return XenRef<Task>.Create(%s)" do_async_call in
+  let paramSignature = exposed_params msg classname curParams in
+  let paramsDoc = get_params_doc msg classname curParams in
+  let callParams = exposed_call_params msg classname curParams in
   let publishInfo = get_published_info_message msg in
-
   print "
         /// <summary>
         /// %s%s
@@ -652,43 +658,57 @@ and gen_exposed_method out_chan classname msg =
         public static %s %s(%s)
         {
             %s;
-        }
-" msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo) paramsDoc
-  exposed_ret_type msg.msg_name params conv;
-
+        }\n"
+    msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+    paramsDoc
+    exposed_ret_type msg.msg_name paramSignature
+    (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result);
   if msg.msg_async then 
-   print "
+    print "
+        /// <summary>
+        /// %s%s
+        /// </summary>%s
         public static XenRef<Task> async_%s(%s)
         {
-            %s;
-        }
-" msg.msg_name params async_conv
+            return XenRef<Task>.Create(session.proxy.async_%s(%s).parse());
+        }\n"
+      msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+      paramsDoc
+      msg.msg_name paramSignature
+      proxyMsgName callParams
 
 and returns_xenobject msg =
   match msg.msg_result with
     |  Some (Record r, _) -> true
     |  _ -> false
 
-and get_params_doc msg params =
+and get_params_doc msg classname params =
   let sessionDoc = "\n        /// <param name=\"session\">The session</param>" in
-  String.concat "\n" (sessionDoc::(List.map (fun x -> get_param_doc msg x) params))
+  let refDoc =  if is_method_static msg then ""
+                else sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
+                     (String.lowercase classname) (String.capitalize classname) in
+  String.concat "" (sessionDoc::(refDoc::(List.map (fun x -> get_param_doc msg x) params)))
 
 and get_param_doc msg x =
   let publishInfo = get_published_info_param msg x in
-    sprintf "        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
+    sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
       (if publishInfo = "" then "" else " "^publishInfo)
 
-and exposed_params params =
-  String.concat ", " ("Session session" :: (List.map exposed_param params))
-
+and exposed_params message classname params =
+  let exposedParams = List.map exposed_param params in
+  let refParam = sprintf "string _%s" (String.lowercase classname) in
+  let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
+  String.concat ", " ("Session session"::exposedParams)
 
 and exposed_param p =
       sprintf "%s _%s" (internal_type p.param_type) (String.lowercase p.param_name)
 
-
-and exposed_call_params params =
-  String.concat ", " ("session.uuid" :: (List.map exposed_call_param params))
-
+and exposed_call_params message classname params =
+  let exposedParams = List.map exposed_call_param params in
+  let name = String.lowercase classname in
+  let refParam = sprintf "(_%s != null) ? _%s : \"\"" name name in
+  let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
+  String.concat ", " ("session.uuid"::exposedParams)
 
 and exposed_call_param p =
   convert_to_proxy (sprintf "_%s" (String.lowercase p.param_name)) p.param_type
@@ -1240,10 +1260,6 @@ namespace XenAPI
 {
     public partial interface Proxy : IXmlRpcProxy
     {
-        [XmlRpcMethod(\"session.login_with_password\")]
-        Response<string> session_login_with_password(string username,
-                                                     string password);
-
         [XmlRpcMethod(\"event.get_record\")]
         Response<Proxy_Event>
         event_get_record(string session, string _event);
@@ -1293,9 +1309,9 @@ namespace XenAPI
 
 and gen_proxy_for_class out_chan {name=classname; messages=messages} =
   (* Generate each of the proxy methods (but not the internal-only ones that are marked hide_from_docs) *)
-  List.iter (gen_proxy_method out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_proxy_method_overloads out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
   if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
-    gen_proxy_method out_chan classname (get_all_records_method classname)
+    gen_proxy_method out_chan classname (get_all_records_method classname) []
 
 (*Generate a csv file detailing the call name and when it was added - used for testing*)
 and gen_callversionscsv() =
@@ -1322,45 +1338,39 @@ and gen_callversionscsv_method out_chan classname message =
   in
   List.iter (fun (t, rel, doc) -> printRel rel) published
 
-and gen_proxy_method out_chan classname message =
+and gen_proxy_method_overloads out_chan classname message =
+  let generator = fun x -> gen_proxy_method out_chan classname message x in
+  gen_overload out_chan classname message generator
+
+and gen_proxy_method out_chan classname message params =
   let print format = fprintf out_chan format in
   let proxy_ret_type = proxy_type_opt message.msg_result in
   let proxy_msg_name = proxy_msg_name classname message in
-  let proxy_params = proxy_params message.msg_session message.msg_params in
+  let proxyParams = proxy_params message classname params in
 
-  print 
-"
+  print "
         [XmlRpcMethod(\"%s.%s\")]
         Response<%s>
         %s(%s);
-
 " classname message.msg_name
   proxy_ret_type 
-  proxy_msg_name proxy_params;
+  proxy_msg_name proxyParams;
 
   if message.msg_async then
-    print 
-"
+    print "
         [XmlRpcMethod(\"Async.%s.%s\")]
         Response<string>
         async_%s(%s);
-
 " classname message.msg_name
-  proxy_msg_name proxy_params;
+  proxy_msg_name proxyParams;
 
 
-and proxy_params session params =
+and proxy_params message classname params =
+  let refParam = sprintf "string _%s" (String.lowercase classname) in
   let args = List.map proxy_param params in
-  let args = List.filter not_empty args in
-  let args = if session then "string session" :: args else args in
+  let args = if is_method_static message then args else refParam::args in
+  let args = if message.msg_session then "string session" :: args else args in
   String.concat ", " args
-
-
-and not_empty s =
-  match s with 
-      "" -> false 
-    | _  -> true
-
 
 and proxy_param p =
   sprintf "%s _%s" (proxy_type p.param_type) (String.lowercase p.param_name)

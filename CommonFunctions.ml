@@ -63,6 +63,16 @@ let rec gen_param_groups_for_releases releaseOrder params =
   | []     -> []
   | hd::tl -> (List.filter (fun x -> List.mem hd x.param_release.internal) params)::(gen_param_groups_for_releases tl params)
 
+and is_method_static message =
+  match message.msg_params with
+  | []                     -> true
+  | {param_name="self"}::_ -> false
+  | {param_type=ty}::_     -> not (ty = Ref message.msg_obj_name)
+
+and get_method_params_list message =
+  if is_method_static message then message.msg_params
+  else List.tl message.msg_params
+
 and gen_param_groups params =
   gen_param_groups_for_releases DT.release_order params
 
