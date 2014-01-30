@@ -14,6 +14,8 @@
 
 open Rrd_protocol
 
+let (|>) a b = b a
+
 let default_header = "DATASOURCES\n"
 let header_bytes = String.length default_header
 let length_start = header_bytes
