@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Fun
 module D = Debug.Debugger(struct let name="license" end)
 open D
 
