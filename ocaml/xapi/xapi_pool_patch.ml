@@ -501,37 +501,43 @@ let get_patch_to_local ~__context ~self =
       let path = Db.Pool_patch.get_filename ~__context ~self in
       let pool_secret = !Xapi_globs.pool_secret in
       let uuid = Db.Pool_patch.get_uuid ~__context ~self in
-      Server_helpers.exec_with_new_task ~task_in_database:true ~subtask_of:(Context.get_task_id __context) 
-        ~session_id:(Context.get_session_id __context) (Printf.sprintf "Get patch %s from master" uuid)
-        (fun __context ->
-             let task = Context.get_task_id __context in
-             let uri = Printf.sprintf "%s?pool_secret=%s&uuid=%s&task_id=%s" 
-               Constants.pool_patch_download_uri pool_secret uuid (Ref.string_of task) in
-             let request = Xapi_http.http_request ~version:"1.1"
-				 Http.Get uri in 
-             let length = Some (Db.Pool_patch.get_size ~__context ~self) in
-             let master_address = Pool_role.get_master_address () in
-			 let open Xmlrpc_client in
-			 let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task) (), master_address, !Xapi_globs.https_port) in
-			 try
-				 with_transport transport
-					 (with_http request
-						 (fun (response, fd) ->
-							 let _ = Unixext.mkdir_safe patch_dir 0o755 in
-							 read_in_and_check_patch length fd path
-						 )
-					 )
-               with _ ->
-                 begin
-                   let error = Db.Task.get_error_info ~__context ~self:task in
-                     if List.length error > 0
-                     then 
-                       begin
-                         debug "Error %s fetching patch from master." (List.hd error);
-                         raise (Api_errors.Server_error (List.hd error, List.tl error))
-                       end
-                     else raise (Api_errors.Server_error (Api_errors.cannot_fetch_patch, [uuid]))
-                 end)
+      Server_helpers.exec_with_new_task
+	~task_in_database:true ~subtask_of:(Context.get_task_id __context)
+	~session_id:(Context.get_session_id __context)
+	(Printf.sprintf "Get patch %s from master" uuid)
+
+	(fun __context ->
+	 let task = Context.get_task_id __context in
+	 let uri = Printf.sprintf "%s?pool_secret=%s&uuid=%s&task_id=%s"
+		     Constants.pool_patch_download_uri
+		     pool_secret uuid (Ref.string_of task) in
+	 let request = Xapi_http.http_request ~version:"1.1" Http.Get uri in
+	 let length = Some (Db.Pool_patch.get_size ~__context ~self) in
+	 let master_address = Pool_role.get_master_address () in
+	 let open Xmlrpc_client in
+	 let transport = SSL(SSL.make ~use_stunnel_cache:true
+				      ~task_id:(Ref.string_of task) (),
+			     master_address, !Xapi_globs.https_port) in
+
+	 try
+	   with_transport transport
+			  (with_http request
+				     (fun (response, fd) ->
+				      let _ = Unixext.mkdir_safe patch_dir 0o755 in
+				      read_in_and_check_patch length fd path))
+
+	 with _ ->
+	   begin
+	     let error = Db.Task.get_error_info ~__context ~self:task in
+	     if List.length error > 0
+	     then
+	       begin
+		 debug "Error %s fetching patch from master." (List.hd error);
+		 raise (Api_errors.Server_error (List.hd error, List.tl error))
+	       end
+	     else raise (Api_errors.Server_error
+			   (Api_errors.cannot_fetch_patch, [uuid]))
+	   end)
     end
 
 open Db_filter
