@@ -14,8 +14,6 @@
 
 open Stringext
 
-let pci_ids_path = "/usr/share/hwdata/pci.ids"
-
 type class_id = int64
 type subclass_id = int64
 type vendor_id = int64
@@ -248,3 +246,14 @@ let of_file path =
 	in
 	let pci_db = make 24 2048 in
 	parse_lines lines pci_db
+
+let base_pci_ids_path = "/usr/share/hwdata/pci.ids"
+let nvidia_pci_ids_path = "/usr/share/nvidia/pci.ids"
+
+let open_default () =
+	let db = of_file base_pci_ids_path in
+	if Sys.file_exists nvidia_pci_ids_path then begin
+		let nvidia_db = of_file nvidia_pci_ids_path in
+		merge db nvidia_db
+	end;
+	db
