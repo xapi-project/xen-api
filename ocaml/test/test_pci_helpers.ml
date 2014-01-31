@@ -21,7 +21,7 @@ let skip = true
 let print_host_pcis () =
 	skip_if skip "Generates lots of text...";
 	try
-		let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+		let db = Pci_db.of_file Pci_db.pci_ids_path in
 		print_string "===== Host PCIs =====\n\n";
 		let pcis = get_host_pcis db in
 		List.iter
