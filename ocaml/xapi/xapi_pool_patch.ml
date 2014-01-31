@@ -245,13 +245,16 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
-let assert_space_available required =
+(* Experiments showed that we need about twice the amount of free
+   space on the filesystem as the size of the patch, which is where
+   the multiplier comes from. *)
+let assert_space_available ?(multiplier=2L) required =
 	let open Unixext in
 	let stat = statvfs patch_dir in
 	let free_bytes =
 		(* block size times free blocks *)
 		Int64.mul stat.f_frsize stat.f_bavail in
-	if required > free_bytes
+	if (Int64.mul multiplier required) > free_bytes
 	then
     begin
       warn "Not enough space on filesystem to upload patch. Required %Ld, \
@@ -283,12 +286,7 @@ let pool_patch_upload_handler (req: Request.t) s _ =
 
         (match req.Request.content_length with
          | None -> ()
-         | Some size ->
-            (* Later in the process we'll require more than 2 * size,
-               but this will get us past the gpg signature
-               checking until we can catch Unix.ENOSPC. *)
-            let required = Int64.mul 2L size in
-            assert_space_available required);
+         | Some size -> assert_space_available size);
 
         read_in_and_check_patch req.Request.content_length s new_path;
 	
