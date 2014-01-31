@@ -60,7 +60,7 @@ let update_pcis ~__context ~host =
 	in
 
 	let open Xapi_pci_helpers in
-	let pci_db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+	let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
 	let rec update_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
