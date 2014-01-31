@@ -19,7 +19,7 @@ let skip = true
 
 let test_lookup () =
 	skip_if skip "Skipping";
-	let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+	let db = Pci_db.of_file Pci_db.pci_ids_path in
 	try
 		let subdevices = Pci_db.get_subdevice_names_by_id db 0x10deL 0x11b0L 0x101bL in
 		assert (List.length subdevices > 0);
@@ -30,7 +30,7 @@ let test_lookup () =
 let print_pci_db () =
 	skip_if skip "Generates lots of text...";
 	try
-		let db = Pci_db.of_file "/usr/share/hwdata/pci.ids" in
+		let db = Pci_db.of_file Pci_db.pci_ids_path in
 		Pci_db.print db
 	with e ->
 		print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
