@@ -56,7 +56,7 @@ let update_gpus ~__context ~host =
 		Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self) = class_id &&
 		Db.PCI.get_host ~__context ~self = host) (Db.PCI.get_all ~__context)
 	in
-	let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
+	let pci_db = Pci_db.open_default () in
 	let rec find_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
