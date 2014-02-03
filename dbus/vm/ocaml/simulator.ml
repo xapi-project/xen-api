@@ -39,8 +39,8 @@ let vm_start config =
   log "vm_start %s" config;
   (* Create a proxy for the remote object *)
   lwt bus = OBus_bus.session () in
-  let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
-  let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["network"] in
+  let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.volume") ["volume"] in
+  let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.network") ["network"] in
   lwt () = repeat
     (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
@@ -101,32 +101,54 @@ let controller_interface =
  })
 
 lwt () =
+  let implement_vm = ref false in
+  let implement_volume = ref false in
+  let implement_network = ref false in
+  let implement_control = ref false in
+  let implement_all = ref false in
   Arg.parse [
-    "-debug", Arg.Set debug_logging, "Print debug logging"
+    "-debug", Arg.Set debug_logging, "Print debug logging";
+    "-vm",    Arg.Set implement_vm,  "Implement VM";
+    "-volume",Arg.Set implement_volume, "Implement Volume";
+    "-network", Arg.Set implement_network, "Implement Network";
+    "-control", Arg.Set implement_control, "Implement Control";
+    "-all",     Arg.Set implement_all,     "Implement everything";
   ] (fun x -> Printf.fprintf Pervasives.stderr "Ignoring argument: %s\n" x)
   "A simple system mockup";
 
   lwt bus = OBus_bus.session () in
 
-  lwt _ = OBus_bus.request_name bus "org.xenserver.vm" in
-  let obj = OBus_object.make ~interfaces:[vm_interface] ["vm"] in
-  OBus_object.attach obj ();
-  OBus_object.export bus obj;
+  lwt () = if !implement_vm || !implement_all then begin
+    lwt _ = OBus_bus.request_name bus "org.xenserver.vm" in
+    let obj = OBus_object.make ~interfaces:[vm_interface] ["vm"] in
+    OBus_object.attach obj ();
+    OBus_object.export bus obj;
+    return ()
+  end else return () in
 
-  lwt _ = OBus_bus.request_name bus "org.xenserver.volume" in
-  let obj = OBus_object.make ~interfaces:[volume_interface] ["volume"] in
-  OBus_object.attach obj ();
-  OBus_object.export bus obj;
+  lwt () = if !implement_volume || !implement_all then begin
+    lwt _ = OBus_bus.request_name bus "org.xenserver.volume" in
+    let obj = OBus_object.make ~interfaces:[volume_interface] ["volume"] in
+    OBus_object.attach obj ();
+    OBus_object.export bus obj;
+    return ()
+  end else return () in
 
-  lwt _ = OBus_bus.request_name bus "org.xenserver.network" in
-  let obj = OBus_object.make ~interfaces:[network_interface] ["network"] in
-  OBus_object.attach obj ();
-  OBus_object.export bus obj;
+  lwt () = if !implement_network || !implement_all then begin
+    lwt _ = OBus_bus.request_name bus "org.xenserver.network" in
+    let obj = OBus_object.make ~interfaces:[network_interface] ["network"] in
+    OBus_object.attach obj ();
+    OBus_object.export bus obj;
+    return ()
+  end else return () in
 
-  lwt _ = OBus_bus.request_name bus "org.xenserver.controller" in
-  let obj = OBus_object.make ~interfaces:[controller_interface] ["controller"] in
-  OBus_object.attach obj ();
-  OBus_object.export bus obj;
+  lwt () = if !implement_control || !implement_all then begin
+    lwt _ = OBus_bus.request_name bus "org.xenserver.controller" in
+    let obj = OBus_object.make ~interfaces:[controller_interface] ["controller"] in
+    OBus_object.attach obj ();
+    OBus_object.export bus obj;
+    return ()
+  end else return () in
 
   (* Wait forever *)
   fst (wait ())
