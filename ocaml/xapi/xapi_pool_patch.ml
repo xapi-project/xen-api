@@ -490,6 +490,8 @@ let pool_patch_download_handler (req: Request.t) s _ =
 let get_patch_to_local ~__context ~self =
   if not (Pool_role.is_master ()) then
     begin
+      let length = Db.Pool_patch.get_size ~__context ~self in
+      assert_space_available length;
       let path = Db.Pool_patch.get_filename ~__context ~self in
       let pool_secret = !Xapi_globs.pool_secret in
       let uuid = Db.Pool_patch.get_uuid ~__context ~self in
@@ -504,7 +506,6 @@ let get_patch_to_local ~__context ~self =
 		     Constants.pool_patch_download_uri
 		     pool_secret uuid (Ref.string_of task) in
 	 let request = Xapi_http.http_request ~version:"1.1" Http.Get uri in
-	 let length = Some (Db.Pool_patch.get_size ~__context ~self) in
 	 let master_address = Pool_role.get_master_address () in
 	 let open Xmlrpc_client in
 	 let transport = SSL(SSL.make ~use_stunnel_cache:true
@@ -516,7 +517,7 @@ let get_patch_to_local ~__context ~self =
 			  (with_http request
 				     (fun (response, fd) ->
 				      let _ = Unixext.mkdir_safe patch_dir 0o755 in
-				      read_in_and_check_patch length fd path))
+				      read_in_and_check_patch (Some length) fd path))
 
 	 with _ ->
 	   begin
