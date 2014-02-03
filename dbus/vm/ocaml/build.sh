@@ -1,8 +1,8 @@
 set -e
 set -x
 
-obus-gen-interface ../vm.xml 
-obus-gen-server ../vm.xml
+#obus-gen-interface ../vm.xml 
+#obus-gen-server ../vm.xml
 
 obus-gen-interface -o vm ../vm.xml 
 
