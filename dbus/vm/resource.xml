@@ -5,7 +5,7 @@
       <arg name="local_uri" type="s" direction="out"/>
       <arg name="id" type="s" direction="out"/>
     </method>
-    <method name="attach">
+    <method name="detach">
       <arg name="id" type="s" direction="in"/>
     </method>
   </interface>
