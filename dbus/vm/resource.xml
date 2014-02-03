@@ -1,0 +1,12 @@
+<node>
+  <interface name="org.xenserver.api.resource">
+    <method name="attach">
+      <arg name="global_uri" type="s" direction="in"/>
+      <arg name="local_uri" type="s" direction="out"/>
+      <arg name="id" type="s" direction="out"/>
+    </method>
+    <method name="attach">
+      <arg name="id" type="s" direction="in"/>
+    </method>
+  </interface>
+</node>

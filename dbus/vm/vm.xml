@@ -1,0 +1,10 @@
+<node>
+  <interface name="org.xenserver.api.vm">
+    <method name="start">
+      <arg name="config" type="s" direction="in"/>
+    </method>
+    <method name="stop">
+      <arg name="vm_uuid" type="s" direction="in"/>
+    </method>
+  </interface>
+</node>
