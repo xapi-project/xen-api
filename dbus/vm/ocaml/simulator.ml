@@ -5,8 +5,11 @@ let vm_start config =
   lwt () = printlf "vm_start %s" config in
   (* Create a proxy for the remote object *)
   lwt bus = OBus_bus.session () in
-  let proxy = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
-  lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach proxy "iscsi://target/lun" in
+  let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
+  let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["network"] in
+  lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
+  lwt () = printlf "  got local_uri %s id %s" local_uri id in
+  lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach network "sdn://magic/" in
   lwt () = printlf "  got local_uri %s id %s" local_uri id in
   return ()
 
@@ -33,22 +36,33 @@ let volume_interface =
    m_detach = (fun obj id         -> volume_detach id);
  })
 
+let network_attach global_uri =
+  lwt () = printlf "network_attach %s" global_uri in
+  return ("vlan://eth0/100", "some id")
+
+let network_detach id = printlf "network_detach %s" id 
+
+let network_interface =
+ Resource.Org_xenserver_api_resource.(make {
+   m_attach = (fun obj global_uri -> network_attach global_uri);
+   m_detach = (fun obj id         -> network_detach id);
+ })
 
 lwt () =
   lwt bus = OBus_bus.session () in
 
-  (* Request a name *)
   lwt _ = OBus_bus.request_name bus "org.xenserver.vm" in
-
-  (* Create the object *)
   let obj = OBus_object.make ~interfaces:[vm_interface] ["vm"] in
   OBus_object.attach obj ();
-
-  (* Export the object on the connection *)
   OBus_object.export bus obj;
 
   lwt _ = OBus_bus.request_name bus "org.xenserver.volume" in
   let obj = OBus_object.make ~interfaces:[volume_interface] ["volume"] in
+  OBus_object.attach obj ();
+  OBus_object.export bus obj;
+
+  lwt _ = OBus_bus.request_name bus "org.xenserver.network" in
+  let obj = OBus_object.make ~interfaces:[network_interface] ["network"] in
   OBus_object.attach obj ();
   OBus_object.export bus obj;
 
