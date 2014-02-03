@@ -3,7 +3,9 @@ open Lwt_io
 
 let volumes_per_vm = 6
 let networks_per_vm = 6
-let total_vms = 1000
+let total_vms = 5
+
+let debug_logging = ref false
 
 let rec repeat f = function
   | 0 -> return ()
@@ -11,20 +13,30 @@ let rec repeat f = function
     lwt () = f n in
     repeat f (n-1)
 
+let log fmt =
+  Printf.kprintf
+    (fun s ->
+      if !debug_logging
+      then Printf.fprintf Pervasives.stderr "%s\n%!" s
+    ) fmt
+
 let controller_start_multiple which =
-  lwt () = printlf "controller_start_multiple %s" which in
+  log "controller_start_multiple %s" which;
   lwt bus = OBus_bus.session () in
   let vm = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["vm"] in
-  repeat
+  let start = Unix.gettimeofday () in
+  lwt () = repeat
     (fun i ->
       OBus_method.call Vm.Org_xenserver_api_vm.m_start vm (string_of_int i)
-    ) total_vms
+    ) total_vms in
+  let time = Unix.gettimeofday () -. start in
+  return (string_of_float time)
 
 let controller_stop_multiple which =
-  return ()
+  return "unknown"
 
 let vm_start config =
-  lwt () = printlf "vm_start %s" config in
+  log "vm_start %s" config;
   (* Create a proxy for the remote object *)
   lwt bus = OBus_bus.session () in
   let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
@@ -32,15 +44,19 @@ let vm_start config =
   lwt () = repeat
     (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
-      printlf "  got local_uri %s id %s" local_uri id) volumes_per_vm in
+      log "  got local_uri %s id %s" local_uri id;
+      return ()
+    ) volumes_per_vm in
   lwt () = repeat
     (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach network "sdn://magic/" in
-      printlf "  got local_uri %s id %s" local_uri id) networks_per_vm in
+      log "  got local_uri %s id %s" local_uri id;
+      return ()
+    ) networks_per_vm in
   return ()
 
 let vm_stop id =
-  lwt () = printlf "vm_stop %s" id in
+  log "vm_stop %s" id;
   return ()
 
 
@@ -51,10 +67,12 @@ let vm_interface =
  })
 
 let volume_attach global_uri =
-  lwt () = printlf "volume_attach %s" global_uri in
+  log "volume_attach %s" global_uri;
   return ("file://block/device", "some id")
 
-let volume_detach id = printlf "volume_detach %s" id 
+let volume_detach id =
+  log "volume_detach %s" id;
+  return ()
 
 let volume_interface =
  Resource.Org_xenserver_api_resource.(make {
@@ -63,10 +81,12 @@ let volume_interface =
  })
 
 let network_attach global_uri =
-  lwt () = printlf "network_attach %s" global_uri in
+  log "network_attach %s" global_uri;
   return ("vlan://eth0/100", "some id")
 
-let network_detach id = printlf "network_detach %s" id 
+let network_detach id =
+  log "network_detach %s" id;
+  return ()
 
 let network_interface =
  Resource.Org_xenserver_api_resource.(make {
@@ -81,6 +101,11 @@ let controller_interface =
  })
 
 lwt () =
+  Arg.parse [
+    "-debug", Arg.Set debug_logging, "Print debug logging"
+  ] (fun x -> Printf.fprintf Pervasives.stderr "Ignoring argument: %s\n" x)
+  "A simple system mockup";
+
   lwt bus = OBus_bus.session () in
 
   lwt _ = OBus_bus.request_name bus "org.xenserver.vm" in

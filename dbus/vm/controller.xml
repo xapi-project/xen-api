@@ -2,9 +2,11 @@
   <interface name="org.xenserver.api.controller">
     <method name="start_multiple">
       <arg name="which" type="s" direction="in"/>
+      <arg name="time" type="s" direction="out"/>
     </method>
     <method name="stop_multiple">
       <arg name="which" type="s" direction="in"/>
+      <arg name="time" type="s" direction="out"/>
     </method>
   </interface>
 </node>
