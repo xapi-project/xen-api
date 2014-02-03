@@ -1,6 +1,19 @@
-trunk (unreleased)
+0.7.2 (2014-02-03)
+* sparse_dd: extra config file options to use ionice
+
+0.7.1 (2014-01-30)
+* update to nbd.1.0.1
+
+0.7.0 (2014-01-30)
+* vhd-tool: can create vhd-formatted output from 'hybrid' input
+* update to ocaml-vhd 0.7.0
+* switch build back to OASIS/ocamlbuild from obuild
+* vhd-tool: info will not fail even if the parent is missing
+
+0.6.5 (2013-11-21)
 * vhd-tool: add machine-parsable progress reporting
 * vhd-tool: stream/serve support for SHA1/tar/chunked XenServer import/export encoding
+* conditionally compile sparse_dd
 
 0.6.4 (2013-11-05)
 * vhd-tool serve: support receiving data as raw (no chunked or NBD)

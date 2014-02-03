@@ -1,28 +1,33 @@
 
 include config.mk
 
-.PHONY: build
-build: dist/setup
-	obuild build
+build: setup.data
+	rm -f configure.cmo configure.cmi
+	ocaml setup.ml -build
 
-dist/setup: vhd-tool.obuild
-	obuild configure
-
-.PHONY: install
-install: build
-	install -D -m 755 dist/build/vhd-tool/vhd-tool ${BINDIR}/vhd-tool
-	install -D -m 755 dist/build/sparse_dd/sparse_dd ${LIBEXECDIR}/sparse_dd
-	install -D -m 644 src/sparse_dd.conf ${ETCDIR}/sparse_dd.conf
-
-config.mk:
-	@echo Please run configure, try reading the help:
-	./configure --help
-	exit 1
+setup.data: setup.ml
+	rm -f configure.cmo configure.cmi
+	ocaml setup.ml -configure ${ENABLE_XENSERVER}
 
 .PHONY: clean
-clean:
-	rm -rf dist
+clean: setup.data
 	rm -f configure.cmo configure.cmi
+	ocaml setup.ml -clean
+
+install: build
+	install -D -m 755 main.native ${BINDIR}/vhd-tool || echo "Failed to install vhd-tool"
+	install -D -m 755 sparse_dd.native ${LIBEXECDIR}/sparse_dd || echo "Failed to install sparse_dd"
+	install -D -m 644 src/sparse_dd.conf ${ETCDIR}/sparse_dd.conf || echo "Failed to install sparse_dd.conf"
+
+.PHONY: uninstall
+uninstall:
+	rm -f ${BINDIR}/vhd-tool
+	rm -f ${LIBEXECDIR}/sparse_dd
+	rm -f ${ETCDIR}/sparse_dd.conf
+
+config.mk:
+	@echo Running './configure' with the defaults
+	./configure
 
 .PHONY: distclean
 distclean: clean
