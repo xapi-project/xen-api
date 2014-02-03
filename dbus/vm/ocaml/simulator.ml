@@ -8,8 +8,20 @@ let total_vms = 1000
 let rec repeat f = function
   | 0 -> return ()
   | n ->
-    lwt () = f () in
+    lwt () = f n in
     repeat f (n-1)
+
+let controller_start_multiple which =
+  lwt () = printlf "controller_start_multiple %s" which in
+  lwt bus = OBus_bus.session () in
+  let vm = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["vm"] in
+  repeat
+    (fun i ->
+      OBus_method.call Vm.Org_xenserver_api_vm.m_start vm (string_of_int i)
+    ) total_vms
+
+let controller_stop_multiple which =
+  return ()
 
 let vm_start config =
   lwt () = printlf "vm_start %s" config in
@@ -18,11 +30,11 @@ let vm_start config =
   let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
   let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["network"] in
   lwt () = repeat
-    (fun () ->
+    (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
       printlf "  got local_uri %s id %s" local_uri id) volumes_per_vm in
   lwt () = repeat
-    (fun () ->
+    (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach network "sdn://magic/" in
       printlf "  got local_uri %s id %s" local_uri id) networks_per_vm in
   return ()
@@ -62,6 +74,12 @@ let network_interface =
    m_detach = (fun obj id         -> network_detach id);
  })
 
+let controller_interface =
+ Controller.Org_xenserver_api_controller.(make {
+   m_start_multiple = (fun obj which -> controller_start_multiple which);
+   m_stop_multiple  = (fun obj which -> controller_stop_multiple which);
+ })
+
 lwt () =
   lwt bus = OBus_bus.session () in
 
@@ -77,6 +95,11 @@ lwt () =
 
   lwt _ = OBus_bus.request_name bus "org.xenserver.network" in
   let obj = OBus_object.make ~interfaces:[network_interface] ["network"] in
+  OBus_object.attach obj ();
+  OBus_object.export bus obj;
+
+  lwt _ = OBus_bus.request_name bus "org.xenserver.controller" in
+  let obj = OBus_object.make ~interfaces:[controller_interface] ["controller"] in
   OBus_object.attach obj ();
   OBus_object.export bus obj;
 

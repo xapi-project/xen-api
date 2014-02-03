@@ -1,0 +1,10 @@
+<node>
+  <interface name="org.xenserver.api.controller">
+    <method name="start_multiple">
+      <arg name="which" type="s" direction="in"/>
+    </method>
+    <method name="stop_multiple">
+      <arg name="which" type="s" direction="in"/>
+    </method>
+  </interface>
+</node>
