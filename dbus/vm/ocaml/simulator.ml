@@ -1,16 +1,30 @@
 open Lwt
 open Lwt_io
 
+let volumes_per_vm = 6
+let networks_per_vm = 6
+let total_vms = 1000
+
+let rec repeat f = function
+  | 0 -> return ()
+  | n ->
+    lwt () = f () in
+    repeat f (n-1)
+
 let vm_start config =
   lwt () = printlf "vm_start %s" config in
   (* Create a proxy for the remote object *)
   lwt bus = OBus_bus.session () in
   let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["volume"] in
   let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["network"] in
-  lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
-  lwt () = printlf "  got local_uri %s id %s" local_uri id in
-  lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach network "sdn://magic/" in
-  lwt () = printlf "  got local_uri %s id %s" local_uri id in
+  lwt () = repeat
+    (fun () ->
+      lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
+      printlf "  got local_uri %s id %s" local_uri id) volumes_per_vm in
+  lwt () = repeat
+    (fun () ->
+      lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach network "sdn://magic/" in
+      printlf "  got local_uri %s id %s" local_uri id) networks_per_vm in
   return ()
 
 let vm_stop id =
