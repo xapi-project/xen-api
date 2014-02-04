@@ -23,7 +23,7 @@ let log fmt =
 let controller_start_multiple which =
   log "controller_start_multiple %s" which;
   lwt bus = OBus_bus.session () in
-  let vm = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["vm"] in
+  let vm = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["org"; "xenserver"; "vm"] in
   let start = Unix.gettimeofday () in
   lwt () = repeat
     (fun i ->
@@ -39,8 +39,8 @@ let vm_start config =
   log "vm_start %s" config;
   (* Create a proxy for the remote object *)
   lwt bus = OBus_bus.session () in
-  let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.volume") ["volume"] in
-  let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.network") ["network"] in
+  let volume = OBus_proxy.make (OBus_peer.make bus "org.xenserver.volume.example") ["org"; "xenserver"; "volume"; "example"] in
+  let network = OBus_proxy.make (OBus_peer.make bus "org.xenserver.network") ["org"; "xenserver"; "network"] in
   lwt () = repeat
     (fun _ ->
       lwt (local_uri, id) = OBus_method.call Resource.Org_xenserver_api_resource.m_attach volume "iscsi://target/lun" in
@@ -120,7 +120,7 @@ lwt () =
 
   lwt () = if !implement_vm || !implement_all then begin
     lwt _ = OBus_bus.request_name bus "org.xenserver.vm" in
-    let obj = OBus_object.make ~interfaces:[vm_interface] ["vm"] in
+    let obj = OBus_object.make ~interfaces:[vm_interface] ["org"; "xenserver"; "vm"] in
     OBus_object.attach obj ();
     OBus_object.export bus obj;
     return ()
@@ -128,7 +128,7 @@ lwt () =
 
   lwt () = if !implement_volume || !implement_all then begin
     lwt _ = OBus_bus.request_name bus "org.xenserver.volume" in
-    let obj = OBus_object.make ~interfaces:[volume_interface] ["volume"] in
+    let obj = OBus_object.make ~interfaces:[volume_interface] ["org"; "xenserver"; "volume"] in
     OBus_object.attach obj ();
     OBus_object.export bus obj;
     return ()
@@ -136,7 +136,7 @@ lwt () =
 
   lwt () = if !implement_network || !implement_all then begin
     lwt _ = OBus_bus.request_name bus "org.xenserver.network" in
-    let obj = OBus_object.make ~interfaces:[network_interface] ["network"] in
+    let obj = OBus_object.make ~interfaces:[network_interface] ["org"; "xenserver"; "network"] in
     OBus_object.attach obj ();
     OBus_object.export bus obj;
     return ()
@@ -144,7 +144,7 @@ lwt () =
 
   lwt () = if !implement_control || !implement_all then begin
     lwt _ = OBus_bus.request_name bus "org.xenserver.controller" in
-    let obj = OBus_object.make ~interfaces:[controller_interface] ["controller"] in
+    let obj = OBus_object.make ~interfaces:[controller_interface] ["org"; "xenserver"; "controller"] in
     OBus_object.attach obj ();
     OBus_object.export bus obj;
     return ()
