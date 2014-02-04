@@ -251,10 +251,10 @@ let assert_space_available ?(multiplier=2L) required =
 		Int64.mul stat.f_frsize stat.f_bavail in
 	if (Int64.mul multiplier required) > free_bytes
 	then
-    begin
-      warn "Not enough space on filesystem to upload patch. Required %Ld, \
-            but only %Ld available" required free_bytes;
-      raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
+		begin
+			warn "Not enough space on filesystem to upload patch. Required %Ld, \
+			but only %Ld available" required free_bytes;
+			raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
 		end
 
 let pool_patch_upload_handler (req: Request.t) s _ =
