@@ -407,7 +407,7 @@ let populate_pgpu_vgpu_types = {
 	description = "Populating lists of VGPU types on existing PGPUs";
 	version = (fun x -> x <= clearwater);
 	fn = fun ~__context ->
-		let pci_db = Pci_db.of_file Pci_db.pci_ids_path in
+		let pci_db = Pci_db.open_default () in
 		let pgpus = Db.PGPU.get_all ~__context in
 		List.iter
 			(fun pgpu ->
