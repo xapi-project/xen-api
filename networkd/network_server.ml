@@ -481,11 +481,23 @@ module Bridge = struct
 				match vlan with
 				| None -> ()
 				| Some (parent, vlan) ->
-					let interface = List.hd (List.filter (fun n ->
+					(* Robustness enhancement: ensure there are no other VLANs in the bridge *)
+					let current_interfaces = List.filter (fun n ->
+						String.startswith "eth" n || String.startswith "bond" n
+					) (Sysfs.bridge_to_interfaces name) in
+					debug "Removing these non-VIF interfaces found on the bridge: %s"
+						(String.concat ", " current_interfaces);
+					List.iter (fun interface ->
+						Brctl.destroy_port name interface;
+						Interface.bring_down () dbg ~name:interface
+					) current_interfaces;
+
+					(* Now create the new VLAN device and add it to the bridge *)
+					let parent_interface = List.hd (List.filter (fun n ->
 						String.startswith "eth" n || String.startswith "bond" n
 					) (Sysfs.bridge_to_interfaces parent)) in
-					Ip.create_vlan interface vlan;
-					let vlan_name = Ip.vlan_name interface vlan in
+					Ip.create_vlan parent_interface vlan;
+					let vlan_name = Ip.vlan_name parent_interface vlan in
 					Interface.bring_up () dbg ~name:vlan_name;
 					Brctl.create_port name vlan_name
 			end;
