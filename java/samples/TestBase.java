@@ -32,15 +32,7 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Set;
 
-import com.xensource.xenapi.APIVersion;
-import com.xensource.xenapi.Connection;
-import com.xensource.xenapi.Network;
-import com.xensource.xenapi.Pool;
-import com.xensource.xenapi.SR;
-import com.xensource.xenapi.Session;
-import com.xensource.xenapi.Task;
-import com.xensource.xenapi.Types;
-import com.xensource.xenapi.VM;
+import com.xensource.xenapi.*;
 
 public abstract class TestBase
 {
@@ -158,5 +150,26 @@ public abstract class TestBase
         }
 
         throw new Exception("No networks found!");
+    }
+
+    /**
+     * Checks whether the master has hvm capabilities.
+     */
+    protected static void checkMasterHvmCapable() throws Exception
+    {
+        logln("checking master has hvm capabilities...");
+        Pool pool = (Pool) Pool.getAll(connection).toArray()[0];
+        Host master = pool.getMaster(connection);
+        Set<String> capabilities = master.getCapabilities(connection);
+
+        Boolean hvmCapable = false;
+        for (String s: capabilities)
+            if (s.contains("hvm")) {
+                hvmCapable = true;
+                break;
+            }
+
+        if (!hvmCapable)
+            throw new Exception("Master has no hvm capabilities!");
     }
 }
