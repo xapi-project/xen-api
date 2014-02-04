@@ -249,7 +249,7 @@ let gen_method file cls message params async_version =
                         "XmlRpcException"] in
   let err_string = String.concat ",\n       " (default_errors @ (List.map 
 								   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
-	let publishInfo = get_published_info_message message in
+	let publishInfo = get_published_info_message message cls in
 
     fprintf file "    /**\n";
     fprintf file "     * %s\n" message.msg_doc;
@@ -330,10 +330,8 @@ let gen_method_and_asynchronous_counterpart file cls message =
                             gen_method file cls message x false) in
 	match methodParams with
 	| [] -> generator []
-	| _  -> let paramGroups =  gen_param_groups methodParams in
-	        let filteredGroups = List.filter (fun x -> match x with | [] -> false | _ -> true) paramGroups in
-	        let uniqueGroups = list_distinct filteredGroups in
-	          List.iter generator uniqueGroups
+	| _  -> let paramGroups =  gen_param_groups message methodParams in
+	          List.iter generator paramGroups
     ;;
 
 (* Generate the record *)
@@ -344,22 +342,22 @@ let gen_method_and_asynchronous_counterpart file cls message =
 (* functions are in fact implemented as three sets of three mutual recursions,*)
 (* which take the trees apart. *)
 
-let gen_record_field file prefix field = 
+let gen_record_field file prefix field cls = 
   let ty = get_java_type field.ty in
   let name = camel_case (String.concat "_" (List.rev (field.field_name :: prefix))) in
-	let publishInfo = get_published_info_field field in
+	let publishInfo = get_published_info_field field cls in
     fprintf file "        /**\n";
     fprintf file "         * %s\n" field.field_description;
     if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
     fprintf file "         */\n";
     fprintf file "        public %s %s;\n" ty name
 
-let rec gen_record_namespace file prefix (name, contents) = 
-  List.iter (gen_record_contents file (name::prefix)) contents;
+let rec gen_record_namespace file prefix (name, contents) cls = 
+  List.iter (gen_record_contents file (name::prefix) cls) contents;
 
-and gen_record_contents file prefix = function
-  | Field f          -> gen_record_field file prefix f
-  | Namespace (n,cs) -> gen_record_namespace file prefix (n,cs);;
+and gen_record_contents file prefix cls = function
+  | Field f          -> gen_record_field file prefix f cls
+  | Namespace (n,cs) -> gen_record_namespace file prefix (n,cs) cls;;
 
 (***)
 
@@ -439,7 +437,7 @@ let gen_record file cls =
     fprintf file "            return map;\n";
     fprintf file "        }\n\n"; 
 
-    List.iter (gen_record_contents file []) contents;
+    List.iter (gen_record_contents file [] cls) contents;
     if (cls.name="event") then 
       begin
 	fprintf file "        /**\n";

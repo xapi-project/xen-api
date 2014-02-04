@@ -527,11 +527,11 @@ namespace XenAPI
             }
         }";
  
-  List.iter (gen_exposed_method_overloads out_chan cls.name) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_exposed_method_overloads out_chan cls) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
 
   (* Don't create duplicate get_all_records call *)
   if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) then
-    gen_exposed_method out_chan cls.name (get_all_records_method cls.name) [];
+    gen_exposed_method out_chan cls (get_all_records_method cls.name) [];
 
   List.iter (gen_exposed_field out_chan cls) contents;
 
@@ -634,23 +634,22 @@ and gen_overload out_chan classname message generator =
   let methodParams = get_method_params_list message in
     match methodParams with
     | [] -> generator []
-    | _  -> let paramGroups =  gen_param_groups methodParams in
-            let filteredGroups = List.filter (fun x -> match x with | [] -> false | _ -> true) paramGroups in
-            let uniqueGroups = list_distinct filteredGroups in
-              List.iter generator uniqueGroups
+    | _  -> let paramGroups =  gen_param_groups message methodParams in
+              List.iter generator paramGroups
 
-and gen_exposed_method_overloads out_chan classname message =
-  let generator = fun x -> gen_exposed_method out_chan classname message x in
-  gen_overload out_chan classname message generator
+and gen_exposed_method_overloads out_chan cls message =
+  let generator = fun x -> gen_exposed_method out_chan cls message x in
+  gen_overload out_chan cls.name message generator
 
-and gen_exposed_method out_chan classname msg curParams =
+and gen_exposed_method out_chan cls msg curParams =
+  let classname = cls.name in
   let print format = fprintf out_chan format in
   let proxyMsgName = proxy_msg_name classname msg in
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
   let paramsDoc = get_params_doc msg classname curParams in
   let callParams = exposed_call_params msg classname curParams in
-  let publishInfo = get_published_info_message msg in
+  let publishInfo = get_published_info_message msg cls in
   print "
         /// <summary>
         /// %s%s
@@ -768,7 +767,7 @@ and gen_exposed_field out_chan cls content =
         let print format = fprintf out_chan format in
         let full_name_fr = full_name fr in
         let comp = sprintf "!Helper.AreEqual(value, _%s)" full_name_fr in
-        let publishInfo = get_published_info_field fr in
+        let publishInfo = get_published_info_field fr cls in
         
           print "
         /// <summary>

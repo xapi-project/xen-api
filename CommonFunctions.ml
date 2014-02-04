@@ -37,7 +37,7 @@ let rec list_distinct list =
 	| []                  -> []
   | [x]                 -> [x]
   | hd1::(hd2::_ as tl) -> if hd1 = hd2 then list_distinct tl
-                             else hd1::(list_distinct tl)
+                             else hd1::(list_distinct tl)           
 
 let rec list_last = function
   | x::[]  -> x
@@ -60,8 +60,8 @@ and list_is_empty list =
 
 let rec gen_param_groups_for_releases releaseOrder params =
   match releaseOrder with
-  | []     -> []
-  | hd::tl -> (List.filter (fun x -> List.mem hd x.param_release.internal) params)::(gen_param_groups_for_releases tl params)
+  | []     -> [("", [])]
+  | hd::tl -> (hd, (List.filter (fun x -> List.mem hd x.param_release.internal) params))::(gen_param_groups_for_releases tl params)
 
 and is_method_static message =
   match message.msg_params with
@@ -73,8 +73,19 @@ and get_method_params_list message =
   if is_method_static message then message.msg_params
   else List.tl message.msg_params
 
-and gen_param_groups params =
-  gen_param_groups_for_releases DT.release_order params
+and gen_param_groups message params =
+  let msgRelease = get_first_release message.msg_release.internal in
+  let msgReleaseIndex = list_index_of msgRelease DT.release_order in
+  let paramGroups = gen_param_groups_for_releases DT.release_order params in
+  let rec getValid x = match x with
+                       | [] -> []
+                       | hd::tl -> let index = list_index_of (fst hd) DT.release_order in
+                                   let valid = if (not (index = -1)) && (not (msgReleaseIndex = -1)) && (index < msgReleaseIndex) then []
+                                               else snd hd in
+                                   valid::(getValid tl)
+                     in
+  let filteredGroups = List.filter (fun x -> match x with | [] -> false | _ -> true) (getValid paramGroups) in
+  list_distinct filteredGroups
 
 and get_release_name release =
 	if      release = rel_rio                 then "XenServer 4.0"
@@ -103,8 +114,15 @@ and get_first_release_string release =
   if release = "" then ""
   else sprintf "First published in %s." (get_release_name release)
 
-and get_published_info_message message =
-	get_first_release_string (get_first_release message.msg_release.internal)
+and get_published_info_message message cls =
+  let clsRelease = get_first_release cls.obj_release.internal in 
+  let msgRelease =  get_first_release message.msg_release.internal in
+  let clsReleaseIndex = list_index_of clsRelease DT.release_order in
+  let msgReleaseIndex = list_index_of msgRelease DT.release_order in 
+    if (not (clsReleaseIndex = -1)) && (not (msgReleaseIndex = -1)) && (clsReleaseIndex < msgReleaseIndex) then
+      get_first_release_string msgRelease
+    else
+      get_first_release_string clsRelease
 
 and get_published_info_param message param =
 	let msgRelease = get_first_release message.msg_release.internal in 
@@ -112,11 +130,19 @@ and get_published_info_param message param =
   let msgReleaseIndex = list_index_of msgRelease DT.release_order in
   let paramReleaseIndex = list_index_of paramRelease DT.release_order in 
     if (not (msgReleaseIndex = -1)) && (not (paramReleaseIndex = -1)) && (msgReleaseIndex < paramReleaseIndex) then
-      sprintf "First published in %s." (get_release_name paramRelease)
+      get_first_release_string paramRelease
 	  else ""
 
 and get_published_info_class cls =
   get_first_release_string (get_first_release cls.obj_release.internal)
 
-and get_published_info_field field =
- get_first_release_string (get_first_release field.release.internal)
+and get_published_info_field field cls =
+  let clsRelease = get_first_release cls.obj_release.internal in 
+  let fieldRelease =  get_first_release field.release.internal in
+  let clsReleaseIndex = list_index_of clsRelease DT.release_order in
+  let fieldReleaseIndex = list_index_of fieldRelease DT.release_order in 
+    if (not (clsReleaseIndex = -1)) && (not (fieldReleaseIndex = -1)) && (clsReleaseIndex < fieldReleaseIndex) then
+      get_first_release_string fieldRelease
+    else
+      ""
+
