@@ -322,7 +322,12 @@ _xe()
                     else
                         all="--all"
                     fi
-                    uuids=`${xe} ${fst}-list ${all} params=uuid --minimal 2>/dev/null`
+                    if [[ "${fst}" == "into-vdi" || "$fst" == "base-vdi" ]]; then
+                        class=vdi
+                    else
+                        class=${fst}
+                    fi
+                    uuids=`${xe} ${class}-list ${all} params=uuid --minimal 2>/dev/null`
                     IFS=$'\n,'
                     set_completions "$uuids" "$value"
                     return 0

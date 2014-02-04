@@ -350,11 +350,13 @@ module MD = struct
 				warn "Unknown VBD QoS type: %s (try 'ionice')" x;
 				None in
 
-		let backend_kind_of_vbd vbd =
+		let backend_kind_keys_of_vbd vbd =
 			let oc = vbd.API.vBD_other_config in
 			let k = Xapi_globs.vbd_backend_key in
-			let v = try List.assoc k oc with _ -> Xapi_globs.vbd_backend_default in
-			(k, v)
+			try
+				let v = List.assoc k oc in
+				[(k, v)]
+			with Not_found -> []
 		in
 
 		{
@@ -364,7 +366,7 @@ module MD = struct
 			backend = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI;
 			ty = if vbd.API.vBD_type = `Disk then Disk else CDROM;
 			unpluggable = vbd.API.vBD_unpluggable;
-			extra_backend_keys = [ backend_kind_of_vbd vbd ];
+			extra_backend_keys = backend_kind_keys_of_vbd vbd;
 			extra_private_keys = [];
 			qos = qos ty;
 		}
