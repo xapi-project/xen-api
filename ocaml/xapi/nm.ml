@@ -235,6 +235,19 @@ let get_pif_type pif_rc =
 			| Some tunnel -> `tunnel_pif tunnel
 			| None -> `phy_pif
 
+let linux_pif_config pif_type pif_rc mtu persistent =
+	(* If we are using linux bridge rather than OVS, then we need to
+	 * configure the "pif" that represents the vlan or bond.
+	 * In OVS there is no such device, so the config entry will be ignored
+	 * by Interface.make_config in xcp-networkd/networkd/network_server.ml *)
+	let (ethtool_settings, ethtool_offload) =
+		determine_ethtool_settings pif_rc.API.pIF_other_config in
+	pif_rc.API.pIF_device ^ (match pif_type with
+		| `bond_pif -> ""
+		| `vlan_pif -> ("." ^ Int64.to_string pif_rc.API.pIF_VLAN)
+	),
+	{default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent;}
+
 let rec create_bridges ~__context pif_rc net_rc =
 	let mtu = determine_mtu pif_rc net_rc in
 	let other_config = determine_other_config ~__context pif_rc net_rc in
@@ -246,17 +259,24 @@ let rec create_bridges ~__context pif_rc net_rc =
 			other_config; persistent_b=persistent}],
 		[]
 	| `vlan_pif vlan ->
+		let original_pif_rc = pif_rc in
 		let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
 		let pif_rc = Db.PIF.get_record ~__context ~self:slave in
 		let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
 		let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
+		let interface_config = (* Add configuration for the vlan device itself *)
+			linux_pif_config `vlan_pif original_pif_rc mtu persistent
+			:: interface_config
+		in
 		cleanup,
 		create_vlan ~__context vlan persistent @ bridge_config,
 		interface_config
 	| `bond_pif bond ->
 		let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu persistent in
-		let interface_config = (pif_rc.API.pIF_device, {default_interface with mtu; persistent_i=persistent})
-			:: interface_config in
+		let interface_config = (*  Add configuration for the bond pif itself *)
+			linux_pif_config `bond_pif pif_rc mtu persistent
+			:: interface_config
+		in
 		cleanup, bridge_config, interface_config
 	| `phy_pif  ->
 		let cleanup =
