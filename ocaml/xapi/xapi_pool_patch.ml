@@ -244,6 +244,7 @@ exception CannotUploadPatchToSlave
    the multiplier comes from. *)
 let assert_space_available ?(multiplier=2L) required =
 	let open Unixext in
+	ignore (Unixext.mkdir_safe patch_dir 0o755);
 	let stat = statvfs patch_dir in
 	let free_bytes =
 		(* block size times free blocks *)
