@@ -207,7 +207,11 @@ let read_in_and_check_patch length s path =
     
     let run_path = extract_patch path in
     Unixext.unlink_safe run_path
-  with exn ->
+  with
+    | Unix.Unix_error (errno, _, _) when errno = Unix.ENOSPC ->
+       warn "Not enough space on filesystem to upload patch.";
+       raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
+    | exn ->
     debug "Caught exception while checking signature: %s" (ExnHelper.string_of_exn exn);
     Unixext.unlink_safe path;
     raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
@@ -235,6 +239,24 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
+(* Experiments showed that we need about twice the amount of free
+   space on the filesystem as the size of the patch, which is where
+   the multiplier comes from. *)
+let assert_space_available ?(multiplier=2L) required =
+	let open Unixext in
+	ignore (mkdir_safe patch_dir 0o755);
+	let stat = statvfs patch_dir in
+	let free_bytes =
+		(* block size times free blocks *)
+		Int64.mul stat.f_frsize stat.f_bavail in
+	if (Int64.mul multiplier required) > free_bytes
+	then
+    begin
+      warn "Not enough space on filesystem to upload patch. Required %Ld, \
+            but only %Ld available" required free_bytes;
+      raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
+		end
+
 let pool_patch_upload_handler (req: Request.t) s _ =
   debug "Patch Upload Handler - Entered...";
 
@@ -256,7 +278,11 @@ let pool_patch_upload_handler (req: Request.t) s _ =
         debug "Patch Upload Handler - Sending headers...";
 
         Http_svr.headers s (Http.http_200_ok ());
-        
+
+        (match req.Request.content_length with
+         | None -> ()
+         | Some size -> assert_space_available size);
+
         read_in_and_check_patch req.Request.content_length s new_path;
 	
         try
@@ -465,6 +491,8 @@ let pool_patch_download_handler (req: Request.t) s _ =
 let get_patch_to_local ~__context ~self =
   if not (Pool_role.is_master ()) then
     begin
+      let length = Db.Pool_patch.get_size ~__context ~self in
+      assert_space_available length;
       let path = Db.Pool_patch.get_filename ~__context ~self in
       let pool_secret = !Xapi_globs.pool_secret in
       let uuid = Db.Pool_patch.get_uuid ~__context ~self in
@@ -476,7 +504,6 @@ let get_patch_to_local ~__context ~self =
                Constants.pool_patch_download_uri pool_secret uuid (Ref.string_of task) in
              let request = Xapi_http.http_request ~version:"1.1"
 				 Http.Get uri in 
-             let length = Some (Db.Pool_patch.get_size ~__context ~self) in
              let master_address = Pool_role.get_master_address () in
 			 let open Xmlrpc_client in
 			 let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task) (), master_address, !Xapi_globs.https_port) in
@@ -485,7 +512,7 @@ let get_patch_to_local ~__context ~self =
 					 (with_http request
 						 (fun (response, fd) ->
 							 let _ = Unixext.mkdir_safe patch_dir 0o755 in
-							 read_in_and_check_patch length fd path
+							 read_in_and_check_patch (Some length) fd path
 						 )
 					 )
                with _ ->
