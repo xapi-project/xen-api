@@ -1,7 +1,7 @@
 <node>
   <interface name="org.xenserver.api.controller">
     <method name="start_multiple">
-      <arg name="which" type="s" direction="in"/>
+      <arg name="how_many" type="i" direction="in"/>
       <arg name="time" type="s" direction="out"/>
     </method>
     <method name="stop_multiple">

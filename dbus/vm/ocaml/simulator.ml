@@ -3,7 +3,6 @@ open Lwt_io
 
 let volumes_per_vm = 6
 let networks_per_vm = 6
-let total_vms = 5
 
 let debug_logging = ref false
 
@@ -20,15 +19,15 @@ let log fmt =
       then Printf.fprintf Pervasives.stderr "%s\n%!" s
     ) fmt
 
-let controller_start_multiple which =
-  log "controller_start_multiple %s" which;
+let controller_start_multiple how_many =
+  log "controller_start_multiple %ld" how_many;
   lwt bus = OBus_bus.session () in
   let vm = OBus_proxy.make (OBus_peer.make bus "org.xenserver.vm") ["org"; "xenserver"; "vm"] in
   let start = Unix.gettimeofday () in
   lwt () = repeat
     (fun i ->
       OBus_method.call Vm.Org_xenserver_api_vm.m_start vm (string_of_int i)
-    ) total_vms in
+    ) (Int32.to_int how_many) in
   let time = Unix.gettimeofday () -. start in
   return (string_of_float time)
 
