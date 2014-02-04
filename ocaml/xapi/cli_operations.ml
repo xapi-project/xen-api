@@ -1400,13 +1400,8 @@ let sr_create printer rpc session_id params =
 	let _type=List.assoc "type" params in
 	let content_type = List.assoc_default "content-type" params "" in
 	let shared = get_bool_param params "shared" in
-
 	let device_config = parse_device_config params in
-
-	let len = String.length "sm-config:" in
-	let filter_params = List.filter (fun (p,_) -> (String.startswith "sm-config" p) && (String.length p > len)) params in
-	let sm_config = List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params in
-
+	let sm_config = read_map_params "sm-config" params in
 	let sr=Client.SR.create ~rpc ~session_id ~host ~device_config ~name_label
 		~name_description:""
 		~physical_size ~_type ~content_type ~shared:shared ~sm_config in
@@ -1419,7 +1414,8 @@ let sr_introduce printer rpc session_id params =
 	let content_type = List.assoc_default "content-type" params "" in
 	let uuid = List.assoc "uuid" params in
 	let shared = get_bool_param params "shared" in
-	let _ = Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:"" ~_type ~content_type ~shared ~sm_config:[] in
+	let sm_config = read_map_params "sm-config" params in
+	let _ = Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:"" ~_type ~content_type ~shared ~sm_config in
 	printer (Cli_printer.PList [uuid])
 
 let sr_probe printer rpc session_id params =
