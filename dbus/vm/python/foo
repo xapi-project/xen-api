@@ -1,0 +1,10 @@
+#!/bin/sh
+
+case "$1" in
+  attach)
+    echo "attached $2"
+    ;;
+  detach)
+    echo "detached $2"
+    ;;
+esac

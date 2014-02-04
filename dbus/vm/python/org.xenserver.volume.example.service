@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.xenserver.volume.example
+Exec=/local/scratch/djs/djs55/dbus-test/dbus/vm/python/dbus-resource-script.py -n org.xenserver.volume.example -s /local/scratch/djs/djs55/dbus-test/dbus/vm/python/foo
