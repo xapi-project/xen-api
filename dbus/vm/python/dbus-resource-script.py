@@ -41,14 +41,14 @@ class Resource(dbus.service.Object):
         bus_name = dbus.service.BusName(name, bus=self.bus)
         dbus.service.Object.__init__(self, bus_name, "/" + name.replace(".", "/"))
 
-    @dbus.service.method(dbus_interface=name, in_signature="s", out_signature="ss")
+    @dbus.service.method(dbus_interface="org.xenserver.api.resource", in_signature="s", out_signature="ss")
     def attach(self, global_uri):
         print "attach global_uri = %s" % global_uri
         p = subprocess.Popen([script, "attach", global_uri], stdout=subprocess.PIPE)
         stdout, stderr = p.communicate()
         return (stdout, "1")
 
-    @dbus.service.method(dbus_interface=name, in_signature="s", out_signature="")
+    @dbus.service.method(dbus_interface="org.xenserver.api.resource", in_signature="s", out_signature="")
     def detach(self, id):
         print "detach id = %s" % id
         p = subprocess.Popen([script, "detach", id], stdout=subprocess.PIPE)
