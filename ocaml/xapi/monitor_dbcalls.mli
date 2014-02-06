@@ -30,6 +30,10 @@
  * which forces fresh properties for the PIF into xapi's database. *)
 val clear_cache_for_pif : pif_name:string -> unit
 
+(** [clear_cache_for_vm] removes any current cache for VM with [vm_uuid],
+ * which forces fresh properties for the VM into xapi's database. *)
+val clear_cache_for_vm : vm_uuid:string -> unit
+
 (** Clear the whole cache. This forces fresh properties to be written into
  * xapi's database. *)
 val clear_cache : unit -> unit
