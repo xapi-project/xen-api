@@ -64,17 +64,8 @@ let maybe_create_pbd rpc session_id sr device_config me =
 			else pbds
 	in
 	if List.length pbds = 0 (* If there's no PBD, create it *)
-		then
-			let dev_cfg = Server_helpers.exec_with_new_task
-				~session_id
-				"duplicate secrets"
-				(fun ctxt -> Xapi_secret.duplicate_passwds ctxt device_config)
-			in
-			Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr 
-				~device_config:dev_cfg ~other_config:[]
-		else
-			List.hd pbds (* Otherwise, return the current one *)
-
+	then Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr ~device_config ~other_config:[]
+	else List.hd pbds (* Otherwise, return the current one *)
 
 let create_storage (me: API.ref_host) rpc session_id __context : unit =
   let create_pbds_for_shared_srs () =
