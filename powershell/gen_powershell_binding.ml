@@ -36,6 +36,7 @@ open Datamodel
 open Datamodel_types
 open Dm_api
 open Common_functions
+open CommonFunctions
 
 module DT = Datamodel_types
 module DU = Datamodel_utils
@@ -288,6 +289,7 @@ and gen_binding obj =
   match obj with
     {name=classname; description = description; messages=messages;
      contents=contents; gen_constructor_destructor=gen_const_dest} ->
+   let messages = List.filter (fun x -> not ((get_first_release x.msg_release.internal) = "")) messages in
    let partNew = List.partition (fun x -> is_constructor x) messages in
    let constructors = fst partNew in
    let partDest = List.partition (fun x -> is_destructor x) (snd partNew) in

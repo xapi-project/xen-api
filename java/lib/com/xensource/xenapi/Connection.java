@@ -325,7 +325,7 @@ public class Connection
     /**
      * The (auto-generated parts of) the bindings dispatch XMLRPC calls on this Connection's client through this method.
      */
-    Map dispatch(String method_call, Object[] method_params) throws XmlRpcException, XenAPIException
+    protected Map dispatch(String method_call, Object[] method_params) throws XmlRpcException, XenAPIException
     {
         Map response = (Map) client.execute(method_call, method_params);
 

@@ -28,12 +28,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#
-# Please do not customize this script; your changes will be lost on upgrade.
-#
-# Instead, create and customize the file XenServerProfile.ps1.
-# Put it in $env:windir\system32\WindowsPowerShell\v1.0 for system-wide# configuration, or $env:UserProfile\Documents\WindowsPowerShell# for per-user configuration.
-#
 
 if (Get-Variable XenServer_Environment_Initialized -ValueOnly -ErrorAction SilentlyContinue)
 {

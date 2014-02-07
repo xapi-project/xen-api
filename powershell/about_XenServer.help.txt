@@ -10,6 +10,10 @@ For a list of all possible commands type:
 
 Get-Command -Module XenServerPSModule
 
+You may want to create the file XenServerProfile.ps1 to set up your
+environment when the XenServer PowerShell Module is loaded. Put it in
+$env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration,
+or $env:UserProfile\Documents\WindowsPowerShell for per-user configuration.
 
 Many XenServer cmdlets allow you to identify target objects in several
 different ways. For example a VM could be identified by its uuid, name,
