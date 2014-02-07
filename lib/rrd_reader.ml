@@ -48,8 +48,38 @@ type interdomain_id = {
 	shared_page_refs: int list;
 }
 
+module Mutex = struct
+	include Mutex
+
+	let execute lock f =
+		Mutex.lock lock;
+		let result = begin
+			try f ()
+			with e ->
+				Mutex.unlock lock;
+				raise e
+		end in
+		Mutex.unlock lock;
+		result
+end
+
 module Page = struct
 	open Gnt
+
+	let interface_ref : Gnttab.interface option ref = ref None
+	let interface_m = Mutex.create ()
+
+	let with_interface f =
+		Mutex.execute interface_m
+			(fun () ->
+				let interface = match !interface_ref with
+				| Some interface -> interface
+				| None ->
+					let interface = Gnttab.interface_open () in
+					interface_ref := Some interface;
+					interface
+				in
+				f interface)
 
 	(** Remote domid * list of grant references. *)
 	type id_t = interdomain_id
@@ -66,7 +96,7 @@ module Page = struct
 				shared_page_refs
 		in
 		let mapping_opt =
-			Gnttab.with_gnttab
+			with_interface
 				(fun gnttab -> Gnttab.mapv gnttab grants false)
 		in
 		match mapping_opt with
@@ -74,7 +104,7 @@ module Page = struct
 		| None -> failwith "failed to map shared page(s)"
 
 	let cleanup _ mapping =
-		Gnttab.with_gnttab
+		with_interface
 			(fun gnttab -> Gnttab.unmap_exn gnttab mapping)
 
 	let expose mapping =
