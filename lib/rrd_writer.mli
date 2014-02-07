@@ -26,34 +26,10 @@ module type TRANSPORT = sig
 	val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
-module File : sig
-	type id_t = string
-	type info_t = string
-	type state_t = Unix.file_descr
-
-	val init: id_t -> info_t * state_t
-
-	val cleanup: id_t -> info_t -> state_t -> unit
-
-	val get_allocator: state_t -> (int -> Cstruct.t)
-end
-
 type interdomain_id = {
 	backend_domid: int;
 	shared_page_count: int;
 }
-
-module Page : sig
-	type id_t = interdomain_id
-	type info_t = int list
-	type state_t = Gnt.Gntshr.share
-
-	val init: id_t -> info_t * state_t
-
-	val cleanup: id_t -> info_t -> state_t -> unit
-
-	val get_allocator: state_t -> (int -> Cstruct.t)
-end
 
 type writer = {
 	write_payload: Rrd_protocol.payload -> unit;
@@ -65,9 +41,9 @@ module Make (T: TRANSPORT) : sig
 end
 
 module FileWriter : sig
-	val create: File.id_t -> Rrd_protocol.protocol -> File.info_t * writer
+	val create: string -> Rrd_protocol.protocol -> string * writer
 end
 
 module PageWriter : sig
-	val create: Page.id_t -> Rrd_protocol.protocol -> Page.info_t * writer
+	val create: interdomain_id -> Rrd_protocol.protocol -> int list * writer
 end
