@@ -172,7 +172,7 @@ let exec_command req cmd s session args =
 		in
 		let must_censor param_name =
 			(* name contains (case-insensitive) "password" or is in list *)
-			Re.execp (Re.compile(Re.no_case(Re.str "password"))) param_name
+			String.has_substr (String.lowercase param_name) "password"
 			|| List.mem param_name params_to_hide
 		in
 		do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if must_censor k then "(omitted)" else v in k ^ "=" ^ v') params));
