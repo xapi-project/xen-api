@@ -30,9 +30,11 @@ let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other
 		; Ref.string_of host
 		; Ref.string_of (List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds)
 		]));
+	(* Make sure each PBD has a unique secret in the database *)
+	let dev_cfg = Xapi_secret.duplicate_passwds ~__context device_config in
 	let ref = Ref.make() in
 	let uuid = Uuid.to_string (Uuid.make_uuid()) in
-	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config:[];
+	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config:dev_cfg ~currently_attached ~other_config:[];
 	ref
 
 let create ~__context ~host ~sR ~device_config ~other_config = create_common ~__context ~host ~sR ~device_config ~currently_attached:false ~other_config

@@ -210,11 +210,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	let pbds =
 		if shared then
 			let create_on_host host =
-				let dev_cfg = if Helpers.is_pool_master ~__context ~host
-					then device_config
-					else Xapi_secret.duplicate_passwds ~__context device_config
-				in
-				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config:dev_cfg ~host ~other_config:[]
+				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
 			in
 			List.map create_on_host (Db.Host.get_all ~__context)
 		else
