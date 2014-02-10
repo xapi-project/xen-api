@@ -2,11 +2,11 @@
   <interface name="org.xenserver.api.resource">
     <method name="attach">
       <arg name="global_uri" type="s" direction="in"/>
-      <arg name="local_uri" type="s" direction="out"/>
-      <arg name="id" type="s" direction="out"/>
+      <arg name="task" type="o" direction="out"/>
     </method>
     <method name="detach">
       <arg name="id" type="s" direction="in"/>
+      <arg name="task" type="o" direction="out"/>
     </method>
   </interface>
 </node>
