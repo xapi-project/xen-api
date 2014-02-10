@@ -616,10 +616,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	Db.PIF.set_IP ~__context ~self ~value:iP;
 	Db.PIF.set_netmask ~__context ~self ~value:netmask;
 	Db.PIF.set_gateway ~__context ~self ~value:gateway;
-	if dNS <> ""
-	then begin
-	    Db.PIF.set_DNS ~__context ~self ~value:dNS;
-	end;
+	Db.PIF.set_DNS ~__context ~self ~value:dNS;
 	if Db.PIF.get_currently_attached ~__context ~self
 	then begin
 		debug
