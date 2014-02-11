@@ -309,14 +309,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					Sr.replace vdi new_vdi_t sr_t;
 					new_vdi_t
 				with
-				| Storage_interface.Internal_error("Storage_access.No_VDI") as e->
-					begin
-						error "Caught exception  Storage_access.No_VDI while doing %s" (Vdi_automaton.string_of_op op);
-						match op with 
-						|Vdi_automaton.Deactivate | Vdi_automaton.Detach ->
-							warn "This is the best we could do now. We are pretending that it works. All the best"; vdi_t
-						|_ -> raise e
-					end
+				| Storage_interface.Internal_error("Storage_access.No_VDI") as e when
+					(op = Vdi_automaton.Deactivate || op = Vdi_automaton.Detach) ->
+					error "Storage_impl: caught %s while doing %s. Continuing as if successful, being optimistic." (Printexc.to_string e) (Vdi_automaton.string_of_op op);
+					vdi_t
 				| e ->
 					error "Storage_impl: dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 						(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
