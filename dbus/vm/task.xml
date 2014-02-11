@@ -1,0 +1,29 @@
+<node>
+  <interface name="org.xenserver.api.task">
+    <method name="cancel">
+    </method>
+    <method name="getResult">
+      <arg name="result" type="s" direction="out"/>
+    </method>
+    <method name="destroy">
+    </method>
+    <property name="completed" type="b" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            True if the task has completed and the result is available.
+          </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+    <property name="cancelling" type="b" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            True if an attempt to cancel the task is in progress.
+          </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+  </interface>
+</node>
