@@ -246,7 +246,8 @@ class Task(dbus.service.Object, threading.Thread):
     def GetAll(self, interface_name):
         if interface_name == TASK_INTERFACE:
             return { 'completed': self.completed,
-                     'cancelling': self.canceller <> None }
+                     'cancelling': self.canceller <> None,
+                     'owner': self.owner_uri }
         else:
             raise dbus.exceptions.DBusException(
                 'com.example.UnknownInterface',

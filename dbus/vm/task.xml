@@ -28,6 +28,15 @@
         </doc:description>
       </doc:doc>
     </property>
+    <property name="owner" type="s" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+             A URI which names a taskOwner instance. The taskOwner will be asked periodically whether it still believes it owns the task. This catches the case where a task owner crashes and forgets; a well-behaved taskOwner will always call destroy when it has no further use for the task results.
+	  </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
     <signal name="Completed">
       <doc:doc>
         <doc:description>
