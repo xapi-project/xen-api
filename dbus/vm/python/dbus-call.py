@@ -77,6 +77,7 @@ class TaskOwner(dbus.service.Object):
         self.path = "/org/xenserver/task/owner"
         scheme = self.bus.get_unique_name()[1:] #remove : prefix
         self.uri = scheme + "://" + self.path
+        self.owned_uris = []
         info("TaskOwner registered at %s" % self.uri)
         dbus.service.Object.__init__(self, self.bus, self.path)
 
@@ -84,9 +85,18 @@ class TaskOwner(dbus.service.Object):
     def ping(self, uris):
         results = []
         for uri in uris:
-            debug("%s: I own dat" % uri)
-            results.append(True)
+            if self.owned_uris == []:
+                debug("%s: I might own that" % uri)
+                results.append(True)
+            elif uri in self.owned_uris:
+                debug("%s: I definitely own that" % uri)
+            else:
+                debug("%s: I do not own that" % uri)
+                results.append(False)
         return results
+
+    def add(self, uri):
+        self.owned_uris.append(uri)
 
     @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface_name, property_name):
@@ -95,7 +105,7 @@ class TaskOwner(dbus.service.Object):
     @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface_name):
         if interface_name == TASKOWNER_INTERFACE:
-            return { }
+            return { "tasks": self.owned_uris }
         else:
             raise dbus.exceptions.DBusException(
                 'com.example.UnknownInterface',
@@ -116,7 +126,9 @@ elif command == "detach":
 else:
     print "Unknown command %s, expected either 'attach' or 'detach'" % command
     sys.exit(2)
+taskOwner.add(task)
 info("%s: created" % task)
+
 uri = urlparse.urlparse(task)
 task_proxy = bus.get_object(uri.scheme, uri.path)
 
@@ -124,6 +136,7 @@ def handler():
     info("%s: got Completed signal" % task)
     result = task_proxy.getResult(dbus_interface=TASK_INTERFACE)
     info("%s: result = %s" % (task, result))
+    print result
     task_proxy.destroy(dbus_interface=TASK_INTERFACE)
     loop.quit()
 

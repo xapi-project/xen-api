@@ -7,5 +7,14 @@
       <arg name="tasks" type="as" direction="in"/>
       <arg name="alive" type="ab" direction="out"/>
     </method>
-  </interface>
+    <property name="tasks" type="as" access="read">
+      <doc:doc>
+        <doc:description>
+	  <doc:para>
+            A list of task URIs which this owner is responsible for.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </property>
+</interface>
 </node>
