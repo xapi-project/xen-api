@@ -54,12 +54,14 @@ let with_block_attached_devices (__context: Context.t) rpc (session_id: API.ref_
 	loop [] vdis
 
 (** Return a URL suitable for passing to the sparse_dd process *)
-let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id vdi =
+let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id task_id vdi =
 	(* Find a suitable host for the SR containing the VDI *)
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
 	let address = Db.Host.get_address ~__context ~self:host in
-	Printf.sprintf "https://%s%s?vdi=%s&session_id=%s" address Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id)
+	Printf.sprintf "https://%s%s?vdi=%s&session_id=%s&task_id=%s"
+		address Constants.import_raw_vdi_uri (Ref.string_of vdi)
+		(Ref.string_of session_id) (Ref.string_of task_id)
 
 (** Catch those smint exceptions and convert into meaningful internal errors *)
 let with_api_errors f x =
@@ -188,12 +190,20 @@ let must_write_zeroes_into_new_vdi ~__context vdi =
 	|| (using_csl sr_r)
 
 
-let copy_vdi ~__context vdi_src vdi_dst =
+let copy_vdi ~__context ?base vdi_src vdi_dst =
 	TaskHelper.set_cancellable ~__context;
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 
 		(* Use the sparse copy unless we must write zeroes into the new VDI *)
 		let sparse = not (must_write_zeroes_into_new_vdi ~__context vdi_dst) in
+		if not sparse && (base <> None) then begin
+			(* This doesn't make sense because we will be forced to write zeroes
+			   into the destination VDI, and then the user will not be able to tell
+			   the difference between zeroes that exist in the user's virtual disk,
+			   and zeroes that we had to write to clear the disk. *)
+			error "VDI.copy: destination VDI does not support sparse copy BUT a delta-only copy requested. The output will be useless so I refuse to make it.";
+			raise (Api_errors.Server_error(Api_errors.vdi_not_sparse, [ Ref.string_of vdi_dst ]))
+		end;
 
 		(* Copy locally unless this host can't see the destination SR *)
 		let can_local_copy = Importexport.check_sr_availability ~__context (Db.VDI.get_SR ~__context ~self:vdi_dst) in
@@ -202,30 +212,56 @@ let copy_vdi ~__context vdi_src vdi_dst =
 
 		let local_copy = can_local_copy && not (Xapi_fist.force_remote_vdi_copy ()) in
 
-		debug "Sm_fs_ops.copy_vdi: %s-copying %Ld%s preserving sparseness" (if local_copy then "locally" else "remotely") size (if sparse then "" else " NOT");
-
+		debug "Sm_fs_ops.copy_vdi: %s-copying %Ld%s preserving sparseness %s"
+			(if local_copy then "locally" else "remotely")
+			size
+			(if sparse then "" else " NOT")
+			(match base with None -> "" | Some x -> Printf.sprintf "copying only differences from %s" (Ref.string_of x));
 		let progress_cb progress =
 			TaskHelper.exn_if_cancelling ~__context;
 			TaskHelper.operate_on_db_task ~__context
 				(fun self -> Db.Task.set_progress ~__context ~self ~value:progress) in
-		try
-			with_block_attached_device __context rpc session_id vdi_src `RO
-				(fun device_src ->
-					if local_copy
-					then with_block_attached_device __context rpc session_id vdi_dst `RW
-						(fun device_dst ->
-							Sparse_dd_wrapper.dd ~progress_cb sparse device_src device_dst size
-						)
-					else
-						let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id vdi_dst in
-						debug "remote_uri = %s" remote_uri;
-						Sparse_dd_wrapper.dd ~progress_cb sparse device_src remote_uri size
-				)
-		with
-		| Unix.Unix_error(Unix.EIO, _, _) ->
-			  raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
-		| e ->
-			  debug "Caught exception %s" (ExnHelper.string_of_exn e);
-			  log_backtrace ();
-			  raise e
+		let copy base =
+			try
+				with_block_attached_device __context rpc session_id vdi_src `RO
+					(fun device_src ->
+						if local_copy
+						then with_block_attached_device __context rpc session_id vdi_dst `RW
+							(fun device_dst ->
+								Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src device_dst size
+							)
+						else
+							let task_id = Context.get_task_id __context in
+							let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id task_id vdi_dst in
+							debug "remote_uri = %s" remote_uri;
+							Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
+							let finished () =
+								match Db.Task.get_status ~__context ~self:task_id with
+								| `success -> true
+								| `failure | `cancelled ->
+									begin match Db.Task.get_error_info ~__context ~self:task_id with
+									| [] -> (* This should never happen *)
+										failwith("Copy of VDI to remote failed with unspecified error!")
+									| code :: params ->
+										debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
+										raise (Api_errors.Server_error (code, params))
+									end
+								| _ -> false
+							in
+							while not (finished ()) do
+								Thread.delay 0.5
+							done
+					)
+			with
+			| Unix.Unix_error(Unix.EIO, _, _) ->
+				raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
+			| e ->
+				debug "Caught exception %s" (ExnHelper.string_of_exn e);
+				log_backtrace ();
+				raise e in
+		match base with
+		| None -> copy None
+		| Some base_vdi ->
+			with_block_attached_device __context rpc session_id base_vdi `RO
+				(fun device_base -> copy (Some device_base))
 	)

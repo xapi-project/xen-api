@@ -47,6 +47,7 @@ let rel_tampa = "tampa"
 let rel_clearwater = "clearwater"
 let rel_vgpu_tech_preview = "vgpu-tech-preview"
 let rel_vgpu_productisation = "vgpu-productisation"
+let rel_clearwater_felton = "clearwater-felton"
 
 let release_order =
 	[ rel_rio
@@ -62,6 +63,7 @@ let release_order =
 	; rel_clearwater
 	; rel_vgpu_tech_preview
 	; rel_vgpu_productisation
+	; rel_clearwater_felton
 	]
 
 exception Unknown_release of string
