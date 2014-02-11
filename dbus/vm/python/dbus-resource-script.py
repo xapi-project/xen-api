@@ -72,13 +72,13 @@ TASK_INTERFACE="org.xenserver.api.task"
 class Canceller(threading.Thread):
     """A thread which attempts to cleanly shutdown a process, resorting
        to SIGKILL if it fails to respond after a timeout"""
-    def __init__(self, process, dbus_object):
+    def __init__(self, process, task):
         threading.Thread.__init__(self)
         self.process = process
-        self.dbus_object = dbus_object
+        self.task = task
         self.start()
     def run(self):
-        info("%s: cancelling: sending SIGTERM to %d" % (self.dbus_object.path, self.process.pid))
+        info("%s: cancelling: sending SIGTERM to %d" % (self.task.path, self.process.pid))
         try:
             self.process.terminate()
         except:
@@ -89,7 +89,7 @@ class Canceller(threading.Thread):
             sys.stdout.flush()
             time.sleep(1)
         if self.process.poll() <> None:
-            info("%s: cancelling: sending SIGKILL to %d" % (self.dbus_object.path, self.process.pid))
+            info("%s: cancelling: sending SIGKILL to %d" % (self.task.path, self.process.pid))
             try:
                 self.process.kill()
             except:
@@ -98,8 +98,8 @@ class Canceller(threading.Thread):
             self.process.wait()
         except:
             pass
-        info("%s: cancelling: deleting object" % self.dbus_object.path)
-        self.dbus_object.remove_from_connection()
+        info("%s: cancelling: deleting object" % self.task.path)
+        self.task.remove_from_connection()
 
 
 class Task(dbus.service.Object, threading.Thread):
