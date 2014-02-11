@@ -130,7 +130,11 @@ class TaskMonitor(threading.Thread):
             for owner_uri in self.owners.keys():
                 try:
                     uri = urlparse.urlparse(owner_uri)
-                    proxy = bus.get_object(uri.scheme, uri.path)
+                    scheme = uri.scheme
+                    if scheme[0] in ['0','1','2','3','4','5','6','7','8','9']:
+                        # only unique names can begin with a digit, put the colon back on
+                        scheme = ":" + scheme
+                    proxy = bus.get_object(scheme, uri.path)
                     tasks = self.owners[owner_uri]
                     alive = proxy.ping(map(lambda x:x.uri, tasks), dbus_interface=TASKOWNER_INTERFACE)
                     for i in range(0, len(alive)):
