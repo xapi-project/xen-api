@@ -1,4 +1,7 @@
-<node>
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <interface name="org.xenserver.api.task">
     <method name="cancel">
     </method>
@@ -11,7 +14,7 @@
       <doc:doc>
         <doc:description>
           <doc:para>
-            True if the task has completed and the result is available.
+            True if the task has completed and the result or error is available.
           </doc:para>
         </doc:description>
       </doc:doc>
@@ -25,5 +28,12 @@
         </doc:description>
       </doc:doc>
     </property>
+    <signal name="Completed">
+      <doc:doc>
+        <doc:description>
+	  <doc:para>Emitted when the task has completed and success/failure information is available.</doc:para>
+	</doc:description>
+      </doc:doc>
+    </signal>
   </interface>
 </node>

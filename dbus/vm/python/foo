@@ -3,6 +3,7 @@
 case "$1" in
   attach)
     echo "attached $2"
+    sleep 30s
     ;;
   detach)
     echo "detached $2"

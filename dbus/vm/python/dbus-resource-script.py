@@ -98,9 +98,7 @@ class Canceller(threading.Thread):
             self.process.wait()
         except:
             pass
-        info("%s: cancelling: deleting object" % self.task.path)
-        self.task.remove_from_connection()
-
+        info("%s: cancelling: process has terminated" % self.task.path)
 
 class Task(dbus.service.Object, threading.Thread):
     def __init__(self, cmd):
@@ -116,6 +114,8 @@ class Task(dbus.service.Object, threading.Thread):
         self.completed = False
         self.canceller = None
         self.result = None
+        self.returncode = None
+        self.auto_destroy = False
 
         try:
             self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -130,11 +130,27 @@ class Task(dbus.service.Object, threading.Thread):
         info("%s: running %s" % (self.path, " ".join(cmd)))
         self.start()
 
+    @dbus.service.signal(dbus_interface=TASK_INTERFACE)
+    def Completed(self):
+        # receivers need to use the API to fetch the results, we don't
+        # expect dbus to cache the output (which could be quite large)
+        pass
+
     def run(self):
-        stdout, stderr = self.process.communicate()
+        try:
+            stdout, stderr = self.process.communicate()
+            self.result = stdout
+            self.returncode = self.process.returncode
+            if self.returncode == 0:
+                info("%s: completed with %d: %s" % (self.path, self.returncode, self.result))
+            else:
+                error("%s: failed with %d: %s" % (self.path, self.returncode, self.result))
+        except Exception, e:
+            info("%s: failed with %s" % (self.path, str(e)))
         self.completed = True
-        self.result = stdout
-        info("%s: completed with returncode %d" % (self.path, self.process.returncode))
+        self.Completed()
+        if self.auto_destroy:
+            self.remove_from_connection()
 
     @dbus.service.method(dbus_interface=TASK_INTERFACE)
     def cancel(self):
@@ -142,31 +158,31 @@ class Task(dbus.service.Object, threading.Thread):
             self.canceller = Canceller(self.process, self)
         else:
             info("%s: cancel: already cancelling, ignoring request" % self.path)
-        # the canceller will terminate the subprocess and
-        # remove this object from the bus
 
     @dbus.service.method(dbus_interface=TASK_INTERFACE)
     def destroy(self):
-        if self.canceller <> None:
-            info("%s: destroy: task is being cancelled already" % self.path)
-            # canceller will clean up
-            return
+        self.auto_destroy = True
         if self.completed:
             info("%s: destroy: task complete, removing object" % self.path)
             self.remove_from_connection()
             return
-        info("%s: destroy: task is running, requesting cancel" % self.path)
+        info("%s: destroy: task is running, requesting cancel with auto-destroy" % self.path)
         self.cancel()
 
     @dbus.service.method(dbus_interface=TASK_INTERFACE)
     def getResult(self):
-        if self.result:
-            return self.result
-        else:
+        if not self.completed:
             error("%s: TaskNotFinished" % self.path)
             raise dbus.exceptions.DBusException(
                 'org.xenserver.api.TaskNotFinished',
                 'The task is still running.')
+        if self.returncode == 0:
+            return self.result
+        else:
+            error("%s: TaskAborted" % self.path)
+            raise dbus.exceptions.DBusException(
+                'org.xenserver.api.TaskAborted',
+                'The task failed and has been rolled-back.')
 
     @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface_name, property_name):
