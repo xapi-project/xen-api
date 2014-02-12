@@ -1,2 +1,2 @@
-rm -f simulator *.cmo *.cmi vm.ml* vm_interfaces.ml* vm_server.ml*
+rm -f simulator *.cmo *.cmi controller* resource* vm.ml* task* vm_interfaces.ml* vm_server.ml*
 
