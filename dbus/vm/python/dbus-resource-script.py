@@ -69,8 +69,8 @@ if not(script):
 
 next_task_id = 0
 
-TASK_INTERFACE="org.xenserver.api.task"
-TASKOWNER_INTERFACE="org.xenserver.api.taskOwner"
+TASK_INTERFACE="org.xenserver.Task"
+TASKOWNER_INTERFACE="org.xenserver.TaskOwner"
 
 class Canceller(threading.Thread):
     """A thread which attempts to cleanly shutdown a process, resorting
@@ -233,14 +233,14 @@ class Task(dbus.service.Object, threading.Thread):
         if not self.completed:
             error("%s: TaskNotFinished" % self.path)
             raise dbus.exceptions.DBusException(
-                'org.xenserver.api.TaskNotFinished',
+                'org.xenserver.TaskNotFinished',
                 'The task is still running.')
         if self.returncode == 0:
             return self.result
         else:
             error("%s: TaskAborted" % self.path)
             raise dbus.exceptions.DBusException(
-                'org.xenserver.api.TaskAborted',
+                'org.xenserver.TaskAborted',
                 'The task failed and has been rolled-back.')
 
     @dbus.service.method(dbus_interface=dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
@@ -259,7 +259,7 @@ class Task(dbus.service.Object, threading.Thread):
                 'The Task object does not implement the %s interface'
                     % interface_name)
 
-RESOURCE_INTERFACE="org.xenserver.api.resource"
+RESOURCE_INTERFACE="org.xenserver.Resource"
 
 class Resource(dbus.service.Object):
     def __init__(self):

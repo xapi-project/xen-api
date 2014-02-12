@@ -1,0 +1,48 @@
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+  <interface name="org.xenserver.TaskOwner">
+    <doc:doc>
+      <doc:description>
+	<doc:para>
+          A client who wishes to invoke asynchronous operations must
+	  implement the TaskOwner interface. Services which expose
+	  Task objects will automatically destroy them if the TaskOwner
+	  does not claim ownership of them.
+	</doc:para>
+      </doc:description>
+    </doc:doc>
+    <method name="ping">
+      <arg name="tasks" type="as" direction="in">
+        <doc:doc><doc:summary>An array of Task URIs</doc:summary></doc:doc>
+      </arg>
+      <arg name="alive" type="ab" direction="out">
+        <doc:doc><doc:summary>An array of booleans, one per Task URI. True means the Task is still wanted, False means the Task is safe to delete.</doc:summary></doc:doc>
+      </arg>
+      <doc:doc>
+        <doc:description>
+	  <doc:para>
+	    A heartbeat for Task objects. A service hosting Task objects
+	    will periodically query the TaskOwner to determine whether the
+	    Tasks have leaked (e.g. through a service crash and restart).
+	    If a Task has leaked, it will be logged as a bug, and the
+	    leaked Tasks automatically destroyed. A well-functioning client
+	    will always call Task.destroy explicitly when it has no further
+	    use for the Task.result information.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </method>
+    <property name="tasks" type="as" access="read">
+      <doc:doc>
+        <doc:description>
+	  <doc:para>
+	    A list of task URIs which this owner believes it is is
+	    currently responsible for.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </property>
+</interface>
+</node>

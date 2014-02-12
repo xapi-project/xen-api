@@ -67,9 +67,9 @@ if len(args) <> 2:
 command = args[0]
 argument = args[1]
 
-TASK_INTERFACE="org.xenserver.api.task"
-TASKOWNER_INTERFACE="org.xenserver.api.taskOwner"
-RESOURCE_INTERFACE="org.xenserver.api.resource"
+TASK_INTERFACE="org.xenserver.Task"
+TASKOWNER_INTERFACE="org.xenserver.TaskOwner"
+RESOURCE_INTERFACE="org.xenserver.Resource"
 
 class TaskOwner(dbus.service.Object):
     def __init__(self):

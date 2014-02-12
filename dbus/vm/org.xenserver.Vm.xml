@@ -1,5 +1,5 @@
 <node>
-  <interface name="org.xenserver.api.vm">
+  <interface name="org.xenserver.Vm">
     <method name="start">
       <arg name="config" type="s" direction="in"/>
     </method>

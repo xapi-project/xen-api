@@ -4,9 +4,9 @@ set -x
 #obus-gen-interface ../vm.xml 
 #obus-gen-server ../vm.xml
 
-obus-gen-interface -o vm ../vm.xml 
-obus-gen-interface -o resource ../resource.xml
-obus-gen-interface -o controller ../controller.xml
+obus-gen-interface -o vm ../org.xenserver.Vm.xml 
+obus-gen-interface -o resource ../org.xenserver.Resource.xml
+obus-gen-interface -o controller ../org.xenserver.Controller.xml
 
 PACKS=obus,lwt.syntax
 

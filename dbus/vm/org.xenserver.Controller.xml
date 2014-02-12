@@ -1,5 +1,8 @@
-<node>
-  <interface name="org.xenserver.api.controller">
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+  <interface name="org.xenserver.Controller">
     <method name="start_multiple">
       <arg name="how_many" type="i" direction="in"/>
       <arg name="time" type="s" direction="out"/>

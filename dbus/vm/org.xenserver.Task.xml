@@ -1,0 +1,119 @@
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+  <interface name="org.xenserver.Task">
+    <doc:doc>
+      <doc:description>
+        <doc:para>
+          Tasks represent a resource-consuming activity which
+	  is running in the background. If the cancel method is
+	  called then the activity will be stopped and the system
+	  left in a consistent state. It is the client's responsibility
+	  to call the destroy method when it ceases to care about
+	  the result of the task. The destroy method can be called
+	  at any time; the task will remain until the activity has
+	  finished and then the task will be deleted.
+  </doc:para>
+  <doc:para>
+    <doc:example language="shell" title="simple example">
+      <doc:code>
+$ dbus-send --print-reply --session --dest=org.xenserver.foo \
+            /org/xenserver/task/2 \
+	    org.freedesktop.DBus.Properties.GetAll \
+	    string:"org.xenserver.Task"
+method return sender=:1.28 -> dest=:1.40 reply_serial=2
+  array [
+    dict entry(
+      string "cancelling"
+      variant             boolean false
+    )
+    dict entry(
+      string "owner"
+      variant             string ""
+    )
+    dict entry(
+      string "completed"
+      variant             boolean true
+      )
+  ]
+            </doc:code>
+	  </doc:example>
+        </doc:para>
+      </doc:description>
+    </doc:doc>
+    <method name="cancel">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            Request an activity be cancelled asynchronously. The activity
+	    should stop as soon as possible and the system should be left in
+	    a consistent state: either with side-effects committed or all
+	    side-effects rolled-back. A task which does not stop quickly
+	    is considered buggy.
+	  </doc:para>
+        </doc:description>
+      </doc:doc>
+    </method>
+    <method name="getResult">
+      <arg name="result" type="s" direction="out">
+        <doc:doc><doc:summary>The output of a completed, successful task</doc:summary></doc:doc>
+      </arg>
+      <doc:doc>
+	<doc:description>
+	  <doc:para>
+            Request the output of a completed, successful task. If the
+	    task is still running this will throw XXX. If the task failed
+	    then this will throw YYY.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </method>
+    <method name="destroy">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            Destroy should be called when the client ceases to be interested
+	    in the success or failure of the Task. The task object will
+	    remain until the associated activity has completed to permit
+	    progress to be queried and to permit the task to be cancelled.
+	  </doc:para>
+	</doc:description>
+      </doc:doc>
+    </method>
+    <property name="completed" type="b" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            True if the task has completed and the result or error is available.
+          </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+    <property name="cancelling" type="b" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            True if an attempt to cancel the task is in progress.
+          </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+    <property name="owner" type="s" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+             A URI which names a taskOwner instance. The taskOwner will be asked periodically whether it still believes it owns the task. This catches the case where a task owner crashes and forgets; a well-behaved taskOwner will always call destroy when it has no further use for the task results.
+	  </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+    <signal name="Completed">
+      <doc:doc>
+        <doc:description>
+	  <doc:para>Emitted when the task has completed and success/failure information is available.</doc:para>
+	</doc:description>
+      </doc:doc>
+    </signal>
+  </interface>
+</node>

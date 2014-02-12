@@ -1,0 +1,72 @@
+<!DOCTYPE node PUBLIC
+"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
+  <interface name="org.xenserver.Resource">
+    <doc:doc>
+      <doc:description>
+	<doc:para>
+          A storage or network resource which must be attached to the
+	  local host. The resources and their local manifestations
+	  are identified by URIs. The local URIs must be in a form
+	  suitable for the low-level tools e.g. file:///dev/block or
+	  nbd://foo/bar.
+        </doc:para>
+        <doc:para>
+          Both attach and detach methods return Task objects representing
+	  the local activity. Callers must implement the TaskOwner
+	  interface and pass their URI as method arguments.
+	</doc:para>
+      </doc:description>
+    </doc:doc>
+    <method name="attach">
+      <arg name="global_uri" type="s" direction="in">
+        <doc:doc><doc:summary>The global URI identifying the resource.</doc:summary></doc:doc>
+      </arg>
+      <arg name="owner_uri" type="s" direction="in">
+        <doc:doc><doc:summary>The URI naming the local TaskOwner which is requesting this operation.</doc:summary></doc:doc>
+      </arg>
+      <arg name="operation_id" type="s" direction="in">
+        <doc:doc><doc:summary>An opaque operation identifier which will be logged. This should allow the logs to be partitioned per logical operation.</doc:summary></doc:doc>
+      </arg>
+      <arg name="task" type="o" direction="out">
+        <doc:doc><doc:summary>A Task representing the local activity of attaching the resource (e.g. logging into a server, zoning in a LUN etc)</doc:summary></doc:doc>
+      </arg>
+    <doc:doc>
+      <doc:description>
+	<doc:para>
+          Attach makes a global resource ready for local use.
+	  The result of the Task object is the local URI which can
+	  be given to the low-level tools (blkback via udev, qemu
+	  qdisk etc) and an id which can be used to request a detach.
+	</doc:para>
+      </doc:description>
+    </doc:doc>
+    </method>
+    <method name="detach">
+      <arg name="id" type="s" direction="in">
+        <doc:doc><doc:summary>The id of a previously attached resource.</doc:summary></doc:doc>
+      </arg>
+      <arg name="owner_uri" type="s" direction="in">
+        <doc:doc><doc:summary>The URI naming the local TaskOwner which is requ  esting this operation.</doc:summary></doc:doc>
+      </arg>
+      <arg name="operation_id" type="s" direction="in">
+        <doc:doc><doc:summary>An opaque operation identifier which will be log  ged. This should allow the logs to be partitioned per logical operation.</doc:summary></doc:doc>
+      </arg>
+      <arg name="task" type="o" direction="out">
+        <doc:doc><doc:summary>A Task representing the local activity of detaching the resource (e.g. unmounting the filesystem etc)</doc:summary></doc:doc>
+      </arg>
+    <doc:doc>
+      <doc:description>
+	<doc:para>
+          Detach takes a previously-attached resource and removes it from
+	  this host so that it may be safely used by another. It should
+	  always be possible to stop using a resource, so detach should
+	  never fail. Any failure will be logged and considered a bug
+	  in the implementation.
+	</doc:para>
+      </doc:description>
+    </doc:doc>
+    </method>
+  </interface>
+</node>
