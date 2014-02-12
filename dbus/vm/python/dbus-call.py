@@ -67,18 +67,18 @@ if len(args) <> 2:
 command = args[0]
 argument = args[1]
 
-TASK_INTERFACE="org.xenserver.Task"
-TASKOWNER_INTERFACE="org.xenserver.TaskOwner"
-RESOURCE_INTERFACE="org.xenserver.Resource"
+TASK_INTERFACE="org.xenserver.Task1"
+TASKOWNER_INTERFACE="org.xenserver.TaskOwner1"
+RESOURCE_INTERFACE="org.xenserver.Resource1"
 
 class TaskOwner(dbus.service.Object):
     def __init__(self):
         self.bus = dbus.SessionBus()
-        self.path = "/org/xenserver/task/owner"
+        self.path = "/org/xenserver/task/owner1"
         scheme = self.bus.get_unique_name()[1:] #remove : prefix
         self.uri = scheme + "://" + self.path
         self.owned_uris = []
-        info("TaskOwner registered at %s" % self.uri)
+        info("TaskOwner1 registered at %s" % self.uri)
         dbus.service.Object.__init__(self, self.bus, self.path)
 
     @dbus.service.method(dbus_interface=TASKOWNER_INTERFACE, in_signature="as", out_signature="ab")

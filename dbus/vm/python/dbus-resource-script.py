@@ -69,8 +69,8 @@ if not(script):
 
 next_task_id = 0
 
-TASK_INTERFACE="org.xenserver.Task"
-TASKOWNER_INTERFACE="org.xenserver.TaskOwner"
+TASK_INTERFACE="org.xenserver.Task1"
+TASKOWNER_INTERFACE="org.xenserver.TaskOwner1"
 
 class Canceller(threading.Thread):
     """A thread which attempts to cleanly shutdown a process, resorting
@@ -164,7 +164,7 @@ class Task(dbus.service.Object, threading.Thread):
         global next_task_id
         self.task_id = next_task_id
         next_task_id = next_task_id + 1
-        self.path = "/org/xenserver/task/" + str(self.task_id)
+        self.path = "/org/xenserver/task1/" + str(self.task_id)
         self.uri = name + "://" + self.path
         self.completed = False
         self.canceller = None
@@ -259,7 +259,7 @@ class Task(dbus.service.Object, threading.Thread):
                 'The Task object does not implement the %s interface'
                     % interface_name)
 
-RESOURCE_INTERFACE="org.xenserver.Resource"
+RESOURCE_INTERFACE="org.xenserver.Resource1"
 
 class Resource(dbus.service.Object):
     def __init__(self):
