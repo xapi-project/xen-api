@@ -1,16 +1,24 @@
 open Lwt
 open Lwt_io
 
-let volumes_per_vm = 1
-let networks_per_vm = 1
+let volumes_per_vm = 6
+let networks_per_vm = 6
 
 let debug_logging = ref false
 
-let rec repeat f = function
+let rec serialise f = function
   | 0 -> return ()
   | n ->
     lwt () = f n in
-    repeat f (n-1)
+    serialise f (n-1)
+
+let parallelise f n =
+  let rec loop acc = function
+  | 0 -> Lwt.join acc
+  | n ->
+    let t = f n in
+    loop (t :: acc) (n-1) in
+  loop [] n
 
 let log fmt =
   Printf.kprintf
@@ -63,7 +71,7 @@ let controller_start_multiple how_many =
   lwt bus = OBus_bus.session () in
   let vm = OBus_proxy.make (OBus_peer.make bus vm_bus_name) vm_path in
   let start = Unix.gettimeofday () in
-  lwt () = repeat
+  lwt () = parallelise
     (fun i ->
       OBus_method.call Vm.Org_xenserver_Vm1.m_start vm (string_of_int i)
     ) (Int32.to_int how_many) in
@@ -96,14 +104,14 @@ let vm_start config =
   let volume = OBus_proxy.make (OBus_peer.make bus volume_bus_name) volume_path in
   let network = OBus_proxy.make (OBus_peer.make bus network_bus_name) network_path in
   lwt owner = owner_uri () in
-  lwt () = repeat
+  lwt () = parallelise 
     (fun _ ->
       lwt task = OBus_method.call Resource.Org_xenserver_Resource1.m_attach volume ("iscsi://target/lun", owner, "token") in
       lwt result = wait_for_task bus task in
       log "result = %s" (String.escaped result);
       return ()
     ) volumes_per_vm in
-  lwt () = repeat
+  lwt () = parallelise
     (fun _ ->
       lwt task = OBus_method.call Resource.Org_xenserver_Resource1.m_attach network ("sdn://magic/", owner, "token") in
       lwt result = wait_for_task bus task in
