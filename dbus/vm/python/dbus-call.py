@@ -118,11 +118,12 @@ taskOwner = TaskOwner()
 uri = urlparse.urlparse(uri)
 bus = dbus.SessionBus()
 proxy = bus.get_object(uri.scheme, uri.path)
+operation_id = "%s.%d" % (my_name, os.getpid())
 
 if command == "attach":
-    task = proxy.attach(argument, taskOwner.uri, dbus_interface=RESOURCE_INTERFACE)
+    task = proxy.attach(argument, taskOwner.uri, operation_id, dbus_interface=RESOURCE_INTERFACE)
 elif command == "detach":
-    task = proxy.detach(argument, taskOwner.uri, dbus_interface=RESOURCE_INTERFACE)
+    task = proxy.detach(argument, taskOwner.uri, operation_id, dbus_interface=RESOURCE_INTERFACE)
 else:
     print "Unknown command %s, expected either 'attach' or 'detach'" % command
     sys.exit(2)
