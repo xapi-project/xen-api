@@ -29,8 +29,8 @@
       <arg name="operation_id" type="s" direction="in">
         <doc:doc><doc:summary>An opaque operation identifier which will be logged. This should allow the logs to be partitioned per logical operation.</doc:summary></doc:doc>
       </arg>
-      <arg name="task" type="o" direction="out">
-        <doc:doc><doc:summary>A Task representing the local activity of attaching the resource (e.g. logging into a server, zoning in a LUN etc)</doc:summary></doc:doc>
+      <arg name="task" type="s" direction="out">
+        <doc:doc><doc:summary>A Task URI representing the local activity of attaching the resource (e.g. logging into a server, zoning in a LUN etc)</doc:summary></doc:doc>
       </arg>
     <doc:doc>
       <doc:description>
@@ -53,8 +53,8 @@
       <arg name="operation_id" type="s" direction="in">
         <doc:doc><doc:summary>An opaque operation identifier which will be log  ged. This should allow the logs to be partitioned per logical operation.</doc:summary></doc:doc>
       </arg>
-      <arg name="task" type="o" direction="out">
-        <doc:doc><doc:summary>A Task representing the local activity of detaching the resource (e.g. unmounting the filesystem etc)</doc:summary></doc:doc>
+      <arg name="task" type="s" direction="out">
+        <doc:doc><doc:summary>A Task URI representing the local activity of detaching the resource (e.g. unmounting the filesystem etc)</doc:summary></doc:doc>
       </arg>
     <doc:doc>
       <doc:description>
