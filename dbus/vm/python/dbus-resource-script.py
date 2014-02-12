@@ -155,7 +155,7 @@ class TaskMonitor(threading.Thread):
 taskMonitor = TaskMonitor()
 
 class Task(dbus.service.Object, threading.Thread):
-    def __init__(self, cmd, owner_uri):
+    def __init__(self, cmd, owner_uri, operation_id):
         threading.Thread.__init__(self)
 
         self.bus = dbus.SessionBus()
@@ -172,6 +172,7 @@ class Task(dbus.service.Object, threading.Thread):
         self.returncode = None
         self.auto_destroy = False
         self.owner_uri = owner_uri
+        self.operation_id = operation_id
 
         taskMonitor.add(self, owner_uri)
 
@@ -185,7 +186,7 @@ class Task(dbus.service.Object, threading.Thread):
 
         dbus.service.Object.__init__(self, bus_name, self.path)
 
-        info("%s: running %s" % (self.path, " ".join(cmd)))
+        info("%s: created by %s, running %s" % (self.path, self.operation_id, " ".join(cmd)))
         self.start()
 
     @dbus.service.signal(dbus_interface=TASK_INTERFACE)
@@ -266,12 +267,12 @@ class Resource(dbus.service.Object):
         bus_name = dbus.service.BusName(name, bus=self.bus)
         dbus.service.Object.__init__(self, bus_name, "/" + name.replace(".", "/"))
 
-    @dbus.service.method(dbus_interface=RESOURCE_INTERFACE, in_signature="ss", out_signature="s")
-    def attach(self, global_uri, owner_uri):
-        return Task([script, "attach", global_uri], owner_uri).uri
-    @dbus.service.method(dbus_interface=RESOURCE_INTERFACE, in_signature="ss", out_signature="s")
-    def detach(self, id, owner_uri):
-        return Task([script, "detach", id], owner_uri).uri
+    @dbus.service.method(dbus_interface=RESOURCE_INTERFACE, in_signature="sss", out_signature="s")
+    def attach(self, global_uri, owner_uri, operation_id):
+        return Task([script, "attach", global_uri], owner_uri, operation_id).uri
+    @dbus.service.method(dbus_interface=RESOURCE_INTERFACE, in_signature="sss", out_signature="s")
+    def detach(self, id, owner_uri, operation_id):
+        return Task([script, "detach", id], owner_uri, operation_id).uri
 
 gobject.threads_init()
 DBusGMainLoop(set_as_default=True)
