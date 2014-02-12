@@ -220,13 +220,13 @@ class Task(dbus.service.Object, threading.Thread):
 
     @dbus.service.method(dbus_interface=TASK_INTERFACE)
     def destroy(self):
-        self.auto_destroy = True
         taskMonitor.remove(self, self.owner_uri)
 
         if self.completed:
             info("%s: destroy: task complete, removing object" % self.path)
             self.remove_from_connection()
             return
+        self.auto_destroy = True
 
     @dbus.service.method(dbus_interface=TASK_INTERFACE)
     def getResult(self):
