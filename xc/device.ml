@@ -481,7 +481,7 @@ type t = {
 
 let device_kind_of_backend_keys backend_keys =
 	try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
-	with Not_found -> Device_common.default_vbd_kind
+	with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 let add_async ~xs ~hvm x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
@@ -590,16 +590,14 @@ let add (task: Xenops_task.t) ~xs ~hvm x domid =
 		done; Opt.unbox !result in
 	add_wait task ~xs device
 
-let qemu_media_change ~xs ~device_number domid _type params =
-	let devid = Device_number.to_xenstore_key device_number in
-	let back_dom_path = xs.Xs.getdomainpath 0 in
-	let backend  = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
-	let path = backend ^ "/params" in
+let qemu_media_change ~xs device _type params =
+	let backend_path  = (backend_path_of_device ~xs device) in
+	let params_path = backend_path ^ "/params" in
 
 	(* unfortunately qemu filter the request if on the same string it has,
 	   so we trick it by having a different string, but the same path, adding a
 	   spurious '/' character at the beggining of the string.  *)
-	let oldval = try xs.Xs.read path with _ -> "" in
+	let oldval = try xs.Xs.read params_path with _ -> "" in
 	let pathtowrite =
 		if oldval = params then (
 			"/" ^ params
@@ -610,21 +608,18 @@ let qemu_media_change ~xs ~device_number domid _type params =
 		"type",           _type;
 		"params",         pathtowrite;
 	] in
-	Xs.transaction xs (fun t -> t.Xst.writev backend back_delta);
+	Xs.transaction xs (fun t -> t.Xst.writev backend_path back_delta);
 	debug "Media changed: params = %s" pathtowrite
 
-let media_eject ~xs ~device_number domid =
-	qemu_media_change ~xs ~device_number domid "" ""
+let media_eject ~xs device =
+	qemu_media_change ~xs device "" ""
 
-let media_insert ~xs ~device_number ~params ~phystype domid =
+let media_insert ~xs ~phystype ~params device =
 	let _type = backendty_of_physty phystype in
-	qemu_media_change ~xs ~device_number domid _type params
+	qemu_media_change ~xs device _type params
 
-let media_is_ejected ~xs ~device_number domid =
-	let devid = Device_number.to_xenstore_key device_number in
-	let back_dom_path = xs.Xs.getdomainpath 0 in
-	let backend = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
-	let path = backend ^ "/params" in
+let media_is_ejected ~xs device =
+	let path = (backend_path_of_device ~xs device) ^ "/params" in
 	try xs.Xs.read path = "" with _ -> true
 
 end
