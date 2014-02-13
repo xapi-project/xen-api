@@ -33,7 +33,7 @@ let use_upstream_qemu = ref false
 
 let watch_queue_length = ref 1000
 
-let default_vbd_backend_kind = ref "vbd3"
+let default_vbd_backend_kind = ref "vbd"
 
 let options = [
     "queue", Arg.Set_string Xenops_interface.queue_name, (fun () -> !Xenops_interface.queue_name), "Listen on a specific queue";
