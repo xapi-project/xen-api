@@ -71,6 +71,10 @@ let update_pcis ~__context ~host =
 						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor_id &&
 						rc.Db_actions.pCI_device_id = id_of_int pci.device_id)
 						existing in
+					if rc.Db_actions.pCI_vendor_name <> pci.vendor_name
+					then Db.PCI.set_vendor_name ~__context ~self:rf ~value:pci.vendor_name;
+					if rc.Db_actions.pCI_device_name <> pci.device_name
+					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device_name;
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
