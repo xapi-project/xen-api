@@ -91,7 +91,7 @@ let tapdisk_error_node ~xs (x: device) =
 
 (* CA-39745: node written to by blkback to report an error (eg opening an empty CDROM drive) *)
 let blkback_error_node ~xs (x: device) = 
-  sprintf "%s/error/backend/vbd/%d/%d/error" (xs.Xs.getdomainpath x.backend.domid) x.backend.domid x.frontend.devid
+  sprintf "%s/error/backend/%s/%d/%d/error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.backend.domid x.frontend.devid
 
 (* Poll a device to see whether it is instantaneously "online" where "online" means
    "currently-attached" in the database. The event thread AND the startup code call
