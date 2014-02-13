@@ -33,8 +33,8 @@ let wrap_lookup f id =
 let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
-	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx %Lx %Lx"
-		(fun id class_subclass vendor_id device_id subvendor_id subdevice_id ->
+	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx"
+		(fun id class_subclass vendor_id device_id ->
 			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
 			let class_id = int_of_hex_str (String.sub class_subclass 0 2) in
 			let open Pci_db in
