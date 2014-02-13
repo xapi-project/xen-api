@@ -31,6 +31,7 @@ let wrap_lookup f id =
 	with Not_found -> Printf.sprintf "Unknown (%04Lx)" id
 
 let parse_lspci_line pci_db line =
+	let line = String.filter_chars line ((<>) '"') in
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
 	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx"
@@ -58,8 +59,6 @@ let find_related_ids pci other_pcis =
 let get_host_pcis pci_db =
 	let lspci_out, _ = Forkhelpers.execute_command_get_output "/sbin/lspci" ["-mnD"] in
 	let lspci_lines = String.split '\n' lspci_out in
-	let lspci_lines =
-		List.map (fun s -> String.filter_chars s ((<>) '"')) lspci_lines in
 
 	let rec parse_lspci_lines pci_db ac = function
 		| [] -> ac
