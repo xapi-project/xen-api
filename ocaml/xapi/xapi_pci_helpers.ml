@@ -26,16 +26,23 @@ type pci = {
 	related: string list;
 }
 
+let wrap_lookup f id =
+	try f id
+	with Not_found -> Printf.sprintf "Unknown (%04Lx)" id
+
 let parse_lspci_line pci_db line =
+	let line = String.filter_chars line ((<>) '"') in
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
-	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx %Lx %Lx"
-		(fun id class_subclass vendor_id device_id subvendor_id subdevice_id ->
+	Scanf.sscanf (String.concat " " fields) "%s %s %Lx %Lx"
+		(fun id class_subclass vendor_id device_id ->
 			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
 			let class_id = int_of_hex_str (String.sub class_subclass 0 2) in
 			let open Pci_db in
-			let vendor_name = (Pci_db.get_vendor pci_db vendor_id).v_name in
-			let device_name = (Pci_db.get_device pci_db vendor_id device_id).d_name in
+			let vendor_name = wrap_lookup (fun vendor_id ->
+				(Pci_db.get_vendor pci_db vendor_id).v_name) vendor_id in
+			let device_name = wrap_lookup (fun device_id ->
+				(Pci_db.get_device pci_db vendor_id device_id).d_name) device_id in
 			let class_name = (Pci_db.get_class pci_db class_id).c_name in
 			(* we'll fill in the related field when we've finished parsing *)
 			let related = [] in
@@ -52,8 +59,6 @@ let find_related_ids pci other_pcis =
 let get_host_pcis pci_db =
 	let lspci_out, _ = Forkhelpers.execute_command_get_output "/sbin/lspci" ["-mnD"] in
 	let lspci_lines = String.split '\n' lspci_out in
-	let lspci_lines =
-		List.map (fun s -> String.filter_chars s ((<>) '"')) lspci_lines in
 
 	let rec parse_lspci_lines pci_db ac = function
 		| [] -> ac
