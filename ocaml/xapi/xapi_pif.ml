@@ -285,7 +285,7 @@ let property_names_and_values = [
 ]
 
 let default_properties = [
-	"gro", "off"
+	"gro", "on"
 ]
 
 let pif_has_properties ~__context ~self =
