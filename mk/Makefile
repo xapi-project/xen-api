@@ -133,15 +133,22 @@ endif
 .PHONY: powershell-module
 powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
 	mkdir -p $(SDK_PS_FOLDER)/XenServerPSModule
-	cp $(MY_OBJ_DIR)/{*.dll,*.ps1,*.ps1xml}  $(SDK_PS_FOLDER)/XenServerPSModule
+	cp $(MY_OBJ_DIR)/{*.dll,*.ps1xml} $(SDK_PS_FOLDER)/XenServerPSModule
+	cp $(MY_OBJ_DIR)/Initialize-Environment.ps1 $(SDK_PS_FOLDER)/XenServerPSModule
 	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' \
 		-e 's/@PRODUCT_GUID@/$(PRODUCT_GUID)/g' \
 		$(REPO)/powershell/XenServerPSModule.psd1 > $(SDK_PS_FOLDER)/XenServerPSModule/XenServerPSModule.psd1
 	cp $(SDK_PS_FOLDER)/src/*.txt $(SDK_PS_FOLDER)/XenServerPSModule
 	$(INSTALL) $(XMLRPCLICENSE) $(SDK_PS_FOLDER)/XenServerPSModule/LICENSE.CookComputing.XmlRpcV2
 
+.PHONY: powershell_samples
+powershell_samples: $(MY_OBJ_DIR)/XenServerPowerShell.dll
+	mkdir -p $(SDK_PS_FOLDER)/samples
+	cp $(MY_OBJ_DIR)/*.ps1 $(SDK_PS_FOLDER)/samples
+	rm -f $(SDK_PS_FOLDER)/samples/Initialize-Environment.ps1
+
 .PHONY: bins
-bins: omake-phase powershell-module csharp-bin
+bins: omake-phase powershell-module powershell_samples csharp-bin
 	mkdir -p $(MY_OUTPUT_DIR)
 	cp $(BINDINGS_TMP)/XenCenterBindings.zip $(MY_OUTPUT_DIR)/XenCenterBindings-$(BUILD_NUMBER).zip
 	cp $(MY_OBJ_DIR)/FriendlyErrorNames.Designer.cs $(SDK_NET_FOLDER)/src

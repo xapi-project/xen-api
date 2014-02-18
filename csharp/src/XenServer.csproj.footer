@@ -1,4 +1,3 @@
-    <Compile Include="Overloads.cs" />
     <Compile Include="Event.cs" />
     <Compile Include="EventHelpers.cs" />
     <Compile Include="Failure.cs" />

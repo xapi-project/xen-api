@@ -58,6 +58,9 @@ public class CreateVM extends TestBase
 
     private static void createVM(String newVmName) throws Exception
     {
+        /*First check we can start an HVM on the master*/
+        checkMasterHvmCapable();
+
         VM template = getFirstWindowsTemplate();
         logln("Template found: " + template.getNameLabel(connection));
 

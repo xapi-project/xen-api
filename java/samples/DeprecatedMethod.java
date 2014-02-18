@@ -55,8 +55,14 @@ public class DeprecatedMethod extends TestBase
                     first = entry;
                     break;
                 }
-                logln(first.getValue().toString());
-                first.getKey().apply(connection);
+
+                logln(first.getValue().toString());                
+                try {
+                    first.getKey().apply(connection);
+                    throw new Exception("Managed to use deprecated method HostPatch.apply()!");
+                } catch (Types.MessageDeprecated e) {
+                    logln("Caught expected MessageDeprecated exception. Do not fail.");
+                }
             } else
             {
                 logln("There aren't any HostPatches to be applied...");
