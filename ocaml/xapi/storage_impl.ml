@@ -307,7 +307,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					in
 					Sr.replace vdi new_vdi_t sr_t;
 					new_vdi_t
-				with e ->
+				with
+				| Storage_interface.Internal_error("Storage_access.No_VDI") as e
+					when ( op == Vdi_automaton.Deactivate || op == Vdi_automaton.Detach ) ->
+					error "Storage_impl: caught exception %s while doing %s . Continuing as if succesful, being optimistic"
+						(Printexc.to_string e) (Vdi_automaton.string_of_op op);
+					vdi_t
+				| e ->
 					error "Storage_impl: dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 						(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
 					raise e
