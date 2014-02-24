@@ -144,7 +144,17 @@ let exec_command req cmd s session args =
 		else false in
 	let u = try List.assoc "username" params with _ -> "" in
 	let p = try List.assoc "password" params with _ -> "" in
-	let params = List.replace_assoc "password" "null" params in
+	(* Create a list of commands and their associated arguments which might be sensitive. *)
+	let commands_and_params_to_hide =
+		let st = String.startswith in
+		let eq = (=) in
+		[
+		eq "user-password-change", ["old"; "new"];
+		st "secret", ["value"];
+		eq "pool-enable-external-auth", ["config:pass"];
+		eq "pool-disable-external-auth", ["config:pass"];
+		eq "host-call-plugin", ["args:url"];
+	] in
 	let rpc = Helpers.get_rpc () req s in
 	Cli_frontend.populate_cmdtable rpc Ref.null;
 	(* Log the actual CLI command to help diagnose failures like CA-25516 *)
@@ -155,11 +165,17 @@ let exec_command req cmd s session args =
 			List.exists
 				(fun k -> String.endswith k cmd_name) uninteresting_cmd_postfixes in
 		let do_log = if uninteresting then debug else info in
-		if String.startswith "secret-" cmd_name
-		then
-			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
-		else
-			do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+		let params_to_hide = List.fold_left
+			(fun accu (cmd_test, params) -> if cmd_test cmd_name then accu @ params else accu)
+			[]
+			commands_and_params_to_hide
+		in
+		let must_censor param_name =
+			(* name contains (case-insensitive) "password" or is in list *)
+			String.has_substr (String.lowercase param_name) "password"
+			|| List.mem param_name params_to_hide
+		in
+		do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if must_censor k then "(omitted)" else v in k ^ "=" ^ v') params));
 		do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
