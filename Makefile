@@ -191,3 +191,4 @@ srpm: xapi.spec noarch.spec
 .PHONY: build
 build: all
 
+#test
