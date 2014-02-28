@@ -241,10 +241,9 @@ let shutdown ~xs domid req =
 let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
   let di = Xc.domain_getinfo xc domid in
 
-  if di.Xc.hvm_guest then begin
-	if Xc.hvm_check_pvdriver xc domid
-	then debug "HVM guest with PV drivers: not expecting any acknowledgement"
-	else Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
+  if di.Xc.hvm_guest && not (Xc.hvm_check_pvdriver xc domid)then begin
+		debug "HVM guest without PV drivers. Not expecting any acknowledgement";
+		Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
   end else begin
 	debug "Waiting for PV domain %d to acknowledge shutdown request" domid;
 	let path = control_shutdown ~xs domid in
