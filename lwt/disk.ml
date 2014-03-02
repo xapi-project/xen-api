@@ -77,8 +77,8 @@ let start_upload ~chunked ~uri =
   Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
 
   begin match r with
-  | None -> fail (Failure "Unable to parse HTTP response from server")
-  | Some x ->
+  | `Eof | `Invalid _ -> fail (Failure "Unable to parse HTTP response from server")
+  | `Ok x ->
     let code = Code.code_of_status (Cohttp.Response.status x) in
     if Code.is_success code
     then return c
