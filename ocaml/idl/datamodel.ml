@@ -2548,7 +2548,7 @@ let host_management_disable = call ~flags:[`Session]
   ()
 
 let host_get_management_interface = call
-  ~lifecycle:[]
+  ~lifecycle:[Prototyped, rel_tampa, ""]
   ~name:"get_management_interface"
   ~doc:"Returns the management interface for the specified host"
   ~params:[Ref _host, "host", "Which host's management interface is required"]
@@ -4567,7 +4567,7 @@ let pif_reconfigure_ipv6 = call
 	   String, "gateway", "the new gateway";
 	   String, "DNS", "the new DNS settings";
 	  ]
-  ~lifecycle:[]
+  ~lifecycle:[Prototyped, rel_tampa, ""]
   ~allowed_roles:_R_POOL_OP
   ()
 
@@ -4581,7 +4581,7 @@ let pif_set_primary_address_type = call
   ~params:[Ref _pif, "self", "the PIF object to reconfigure";
 	   pif_primary_address_type, "primary_address_type", "Whether to prefer IPv4 or IPv6 connections";
 	  ]
-  ~lifecycle:[]
+  ~lifecycle:[Prototyped, rel_tampa, ""]
   ~allowed_roles:_R_POOL_OP
   ()
 
@@ -4716,10 +4716,10 @@ let pif =
 	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
 	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
-	field ~in_oss_since:None ~ty:pif_ipv6_configuration_mode ~lifecycle:[] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
-	field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
-	field ~in_oss_since:None ~ty:String ~lifecycle:[] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
-	field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
+	field ~in_oss_since:None ~ty:pif_ipv6_configuration_mode ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
+	field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
+	field ~in_oss_since:None ~ty:String ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
+	field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
 	field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed" "Indicates whether the interface \
 		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
 		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));

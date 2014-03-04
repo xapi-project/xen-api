@@ -115,6 +115,7 @@ type release = {
 } with rpc
 
 type lifecycle_change =
+	| Prototyped
 	| Published
 	| Extended
 	| Changed
