@@ -56,7 +56,7 @@ Empty(dirs) =
 
 Brand(src, dst) =
 	mkdir -p $(JAVATMP_DIR)
-	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' $(src) >$(JAVATMP_DIR)/t-$(basename $(dst))
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(src) >$(JAVATMP_DIR)/t-$(basename $(dst))
 	$(INSTALL) $(JAVATMP_DIR)/t-$(basename $(dst)) $(dst)
 
 
