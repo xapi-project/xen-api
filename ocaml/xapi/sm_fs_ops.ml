@@ -231,6 +231,15 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 								Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src device_dst size
 							)
 						else
+							(* Create a new subtask for the inter-host sparse_dd. Without
+							 * this there was a race in VM.copy, as both VDI.copy and VM.copy
+							 * would be waiting on the same VDI.copy task.
+							 *
+							 * Now, VDI.copy waits for the sparse_dd task, and VM.copy in turn
+							 * waits for the VDI.copy task.
+							 *
+							 * Note that progress updates are still applied directly to the
+							 * VDI.copy task. *)
 							Server_helpers.exec_with_subtask ~__context ~task_in_database:true "sparse_dd"
 								(fun ~__context ->
 									let task_id = Context.get_task_id __context in
