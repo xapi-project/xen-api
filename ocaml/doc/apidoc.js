@@ -110,6 +110,9 @@ function current_lifecycle_stage(s)
 	else {
 		last_transition = s[s.length-1][0];
 		switch (last_transition) {
+		case 'Prototyped':
+			return 'Prototype';
+			break;
 		case 'Deprecated':
 			return 'Deprecated';
 			break;
