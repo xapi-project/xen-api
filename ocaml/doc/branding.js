@@ -52,10 +52,22 @@ function get_release_name(s)
 		return 'XCP 1.5';
 		break;
 	case 'tampa':
-		return 'XCP 1.6;
+		return 'XCP 1.6';
+		break;
+	case 'clearwater':
+		return 'XenServer 6.2';
+		break;
+	case 'vgpu-tech-preview':
+		return 'XenServer 6.2 vGPU preview';
+		break;
+	case 'vgpu-productisation':
+		return 'XenServer 6.2 SP1'
+		break;
+	case 'clearwater-felton':
+		return 'XenServer 6.2 SP1 Hotfix 4'
 		break;
 	default:
-		return 'Unreleased';
+		return (s + ' (unreleased)');
 		break;
 	}
 }
