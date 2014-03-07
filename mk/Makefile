@@ -28,6 +28,12 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+#==============================================================
+#Micro version override - please keep at the top of the script
+#==============================================================
+#Uncomment and set to override the micro version obtained from branding
+#SDK_MICRO_VERSION_OVERRIDE = 
+
 USE_BRANDING := yes
 USE_BUILD_NUMBER := yes
 IMPORT_BRANDING := yes
@@ -36,6 +42,14 @@ include $(B_BASE)/common.mk
 include $(B_BASE)/winbuild.mk
 
 INSTALL=install -m 644 -o root -g root
+
+SDK_MICRO_VERSION = $(PRODUCT_MICRO_VERSION)
+
+ifneq ($(SDK_MICRO_VERSION_OVERRIDE),)
+	SDK_MICRO_VERSION = $(SDK_MICRO_VERSION_OVERRIDE)
+endif
+
+SDK_VERSION = $(PRODUCT_MAJOR_VERSION).$(PRODUCT_MINOR_VERSION).$(SDK_MICRO_VERSION)
 
 REPONAME=xen-api-sdk
 REPO=$(call git_loc,$(REPONAME))
@@ -64,7 +78,7 @@ API_PYTHON=$(API_SRC)/xen-api-src/scripts/examples/python
 PYTHON_FILES=XenAPI.py provision.py
 PYTHON_SAMPLES=install.py powercycle.py permute.py vm_start_async.py watch-all-events.py fixpbds.py shell.py license.py
 
-SDK_ZIP=XenServer-SDK-$(PRODUCT_VERSION).zip
+SDK_ZIP=XenServer-SDK-$(SDK_VERSION).zip
 SDK_ZIP_LN=XenServer-SDK.zip
 SDK_FOLDER=$(MY_OUTPUT_DIR)/XenServer-SDK
 SDK_NET_FOLDER=$(SDK_FOLDER)/XenServer.NET
@@ -72,7 +86,7 @@ SDK_PS_FOLDER=$(SDK_FOLDER)/XenServerPowerShell
 SDK_PY_FOLDER=$(SDK_FOLDER)/XenServerPython
 SDK_PY_FOLDER_SAMPLES=$(SDK_PY_FOLDER)/samples
 
-export PRODUCT_VERSION
+export SDK_VERSION
 export PROJECT_OUTPUTDIR
 export MY_OUTPUT_DIR
 export BINDINGS_TMP
@@ -135,7 +149,7 @@ powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
 	mkdir -p $(SDK_PS_FOLDER)/XenServerPSModule
 	cp $(MY_OBJ_DIR)/{*.dll,*.ps1xml} $(SDK_PS_FOLDER)/XenServerPSModule
 	cp $(MY_OBJ_DIR)/Initialize-Environment.ps1 $(SDK_PS_FOLDER)/XenServerPSModule
-	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' \
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' \
 		-e 's/@PRODUCT_GUID@/$(PRODUCT_GUID)/g' \
 		$(REPO)/powershell/XenServerPSModule.psd1 > $(SDK_PS_FOLDER)/XenServerPSModule/XenServerPSModule.psd1
 	cp $(SDK_PS_FOLDER)/src/*.txt $(SDK_PS_FOLDER)/XenServerPSModule

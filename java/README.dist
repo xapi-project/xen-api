@@ -1,7 +1,7 @@
 XenServerJava
 =============
 
-Version @PRODUCT_VERSION@
+Version @SDK_VERSION@
 
 XenServerJava is a complete SDK for Citrix XenServer, exposing the XenServer
 API as Java classes.
@@ -41,11 +41,11 @@ We recommend that you use these versions, though others may work.
 Downloads
 ---------
 
-XenServerJava is available in the XenServer-@PRODUCT_VERSION@-SDK.zip in three separate
+XenServerJava is available in the XenServer-SDK-@SDK_VERSION@.zip in three separate
 folders, one for the compiled binaries, one for the source code,
 and one containing sample code.
 
-The XenServer-@PRODUCT_VERSION@-SDK.zip is available from
+The XenServer-SDK-@SDK_VERSION@.zip is available from
 http://www.citrix.com/downloads/xenserver/.
 
 Apache XML-RPC is available from http://ws.apache.org/xmlrpc/.
