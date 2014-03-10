@@ -1,5 +1,5 @@
-0.9.5 (trunk)
-* Adapt to cohttp.0.9.14 (adds `flush` support)
+0.9.5 (02-Mar-2014)
+* Adapt to cohttp.0.10.0 (adds `flush` support)
 * Regenerate build with OASIS 0.4.1
 
 0.9.4 (17-Jun-2013)

@@ -100,10 +100,13 @@ let counter = ref 0
 		>>= fun () ->
 		Response.read ic
 		>>= function
-			| None ->
+			| `Eof ->
 				Printf.fprintf stderr "failed to read response\n%!";
 				return (Error No_response)
-			| Some response ->
+			| `Invalid error ->
+				Printf.fprintf stderr "malformed response: %s\n%!" error;
+				return (Error No_response)
+			| `Ok response ->
 				Response.read_body_chunk response ic
 				>>= fun result ->
 			  let body = match result with 
