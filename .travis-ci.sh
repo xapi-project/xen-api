@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="xmlm rpc cohttp lwt ssl cstruct uri ounit async_core"
+OPAM_PACKAGES="xmlm rpc cohttp lwt ssl cstruct uri ounit async_core async async_unix"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
