@@ -384,19 +384,19 @@ rm -rf $RPM_BUILD_ROOT
 
 %files client-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-client/*
+%{_libdir}/ocaml/xapi-client/*
 
 %files datamodel-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-datamodel/*
+%{_libdir}/ocaml/xapi-datamodel/*
 
 %files rrd-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/rrd-client/*
+%{_libdir}/ocaml/rrd-client/*
 
 %files xenstore-watch-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xenstore-watch/*
+%{_libdir}/ocaml/xenstore-watch/*
 
 %changelog
 
