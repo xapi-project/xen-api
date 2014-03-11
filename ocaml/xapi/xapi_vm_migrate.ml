@@ -493,6 +493,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   Helpers.call_api_functions ~__context
     (fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
 
+  Xapi_vm.mark_vm_metrics_as_dirty ~__context ~vm;
+
   (* MTC: Normal XenMotion migration does not change the VM's power state *)
   Mtc.update_vm_state_if_necessary ~__context ~vm;
 
