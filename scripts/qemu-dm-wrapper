@@ -45,11 +45,15 @@ def main(argv):
 	import os
 
 	qemu_env = os.environ
-	qemu_dm = '/usr/lib/xen/bin/qemu-dm' 
-	if not os.path.exists(qemu_dm):
-		qemu_dm = '/usr/lib/xen-4.1/bin/qemu-dm'
-	if not os.path.exists(qemu_dm):
-		qemu_dm = '/usr/lib/xen-4.2/bin/qemu-dm'
+	qemu_dm_list =[]
+	loc1 = '/usr/lib/xen/bin/qemu-dm'
+	loc2 = '/usr/lib64/xen/bin/qemu-dm'
+	loc3 = '/usr/lib/xen-4.1/bin/qemu-dm'
+	loc4 = '/usr/lib/xen-4.2/bin/qemu-dm'
+	qemu_dm_list = [loc1,loc2,loc3,loc4]
+	for loc in qemu_dm_list:
+		if os.path.exists(loc):
+			qemu_dm = loc
 	domid = int(argv[1])
 	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
 
