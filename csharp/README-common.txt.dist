@@ -1,7 +1,7 @@
 XenServer.NET
 =============
 
-Version @PRODUCT_VERSION@
+Version @SDK_VERSION@
 
 XenServer.NET is a complete SDK for Citrix XenServer,
 exposing the XenServer API as .NET classes. It is written in C#.
@@ -37,11 +37,11 @@ LICENSE.CookComputing.XmlRpcV2 for details.
 Downloads
 ---------
 
-XenServer.NET is available in the XenServer-@PRODUCT_VERSION@-SDK.zip in three separate
+XenServer.NET is available in the XenServer-SDK-@SDK_VERSION@.zip in three separate
 folders, one for the compiled binaries, one for the source code, and one
 containing sample code.
 
-The XenServer-@PRODUCT_VERSION@-SDK.zip is available from
+The XenServer-SDK-@SDK_VERSION@.zip is available from
 http://www.citrix.com/downloads/xenserver/.
 
 XML-RPC.NET is available from http://www.xml-rpc.net.

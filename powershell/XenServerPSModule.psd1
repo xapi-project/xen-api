@@ -31,7 +31,7 @@
 @{
 
 #Module Info
-ModuleVersion = '@PRODUCT_VERSION@'
+ModuleVersion = '@SDK_VERSION@'
 Description = 'XenServer PowerShell Module'
 GUID = '@PRODUCT_GUID@'
 

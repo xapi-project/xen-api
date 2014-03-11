@@ -32,7 +32,7 @@
 
 BINDINGJAVAFILES := $(wildcard com/xensource/xenapi/*.java)
 BINDINGCLASSFILES := $(BINDINGJAVAFILES:.java=.class)
-BINDINGJAR := xenserver-@PRODUCT_VERSION@.jar
+BINDINGJAR := xenserver-@SDK_VERSION@.jar
 
 CLASSPATH := :xmlrpc-client-3.1.jar:xmlrpc-common-3.1.jar:ws-commons-util-1.0.2.jar
 EXAMPLECLASSPATH := :$(BINDINGJAR)$(CLASSPATH)

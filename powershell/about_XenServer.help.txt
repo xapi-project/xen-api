@@ -1,5 +1,5 @@
 
-XenServer PowerShell Module v@PRODUCT_VERSION@
+XenServer PowerShell Module v@SDK_VERSION@
 ----------------------------------
 
 For specific help with any command use:
