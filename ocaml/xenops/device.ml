@@ -816,7 +816,7 @@ end
 module PV_Vnc = struct
 
 let vncterm_wrapper = Filename.concat Fhs.libexecdir "vncterm-wrapper"
-let vncterm_path = "/usr/lib/xen/bin/vncterm"
+let vncterm_path = "/usr/lib64/xen/bin/vncterm"
 
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
