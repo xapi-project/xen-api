@@ -106,6 +106,9 @@ val _machine_serial_number : string
 (** Machine serial name *)
 val _machine_serial_name : string
 
+(** Stunnel timeout *)
+val _stunnel_idle_timeout : string
+
 (* Keys defined in Orlando, redefined in MNR *)
 (** List of bridges that are automatically brought up when the host starts up *)
 val _current_interfaces : string
