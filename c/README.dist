@@ -1,7 +1,7 @@
 libxenserver
 ============
 
-Version @PRODUCT_VERSION@
+Version @SDK_VERSION@
 
 libxenserver is a complete SDK for Citrix XenServer, exposing the XenServer
 API to C programmers.
@@ -47,13 +47,13 @@ On Debian, these are packaged as libxml2-dev and libcurl3-dev.
 Downloads
 ---------
 
-libxenserver is available in the XenServer-@PRODUCT_VERSION@-SDK.zip in two separate
+libxenserver is available in the XenServer-SDK-@SDK_VERSION@.zip in two separate
 folders, one for the compiled binaries, and one for the source code.
 The binaries are compiled for the XenServer SDK virtual machine, and we
 recommend compiling from source if you wish to use the library in a
 different environment.
 
-The XenServer-@PRODUCT_VERSION@-SDK.zip is available from
+The XenServer-SDK-@SDK_VERSION@.zip is available from
 http://www.citrix.com/downloads/xenserver/.
 
 

@@ -1,7 +1,7 @@
 Citrix XenServer PowerShell Module
 ==================================
 
-Version @PRODUCT_VERSION@
+Version @SDK_VERSION@
 
 The XenServer PowerShell Module (XS-PS) is a complete SDK for Citrix XenServer,
 exposing the XenServer API as Windows PowerShell 2.0 cmdlets.
@@ -36,11 +36,11 @@ LICENSE.CookComputing.XmlRpcV2 for details.
 Downloads
 ---------
 
-The XenServer PowerShell Module is available in the XenServer-@PRODUCT_VERSION@-SDK.zip.
+The XenServer PowerShell Module is available in the XenServer-SDK-@SDK_VERSION@.zip.
 The source code and sample code can be found in two separate folders in the same
 zip file.
 
-The XenServer-@PRODUCT_VERSION@-SDK.zip is available from
+The XenServer-SDK-@SDK_VERSION@.zip is available from
 http://www.citrix.com/downloads/xenserver/.
 
 XML-RPC.NET is available from http://www.xml-rpc.net.

@@ -865,8 +865,8 @@ extern %s *
 and write_map_impl name l r out_chan =
   let print format = fprintf out_chan format in
   let tn = typename name in
-  let l_free_impl = free_impl "map->contents[i].key" l in
-  let r_free_impl = free_impl "map->contents[i].val" r in
+  let l_free_impl = free_impl "map->contents[i].key" false l in
+  let r_free_impl = free_impl "map->contents[i].val" true r in
   let needed = ref StringSet.empty in
     find_needed'' needed l;
     find_needed'' needed r;
@@ -1242,42 +1242,30 @@ and find_needed'' needed = function
       ()
 
 and record_free_impl prefix = function
-    Field fr ->
-      free_impl (prefix ^ (fieldname fr.field_name)) fr.ty
-
-  | Namespace (p, c) ->
-      joined "\n    "
-       (record_free_impl (prefix ^ (fieldname p) ^ "_")) c
+  | Field fr         -> free_impl (prefix ^ (fieldname fr.field_name)) true fr.ty
+  | Namespace (p, c) -> joined "\n    " (record_free_impl (prefix ^ (fieldname p) ^ "_")) c
 
 
-and free_impl val_name = function
-  | String -> sprintf "free(%s);" val_name
+and free_impl val_name record = function
+  | String           -> sprintf "free(%s);" val_name
   | Int
   | Float
   | Bool
   | DateTime
-  | Enum (_, _) ->
-      ""
-  | Ref n ->
-      sprintf "%s_free(%s);" (record_opt_typename n) val_name
-  | Set(Ref n) ->
-      sprintf "%s_opt_set_free(%s);" (record_typename n) val_name
-  | Set(Enum (e, _)) ->
-      sprintf "%s_set_free(%s);" (typename e) val_name
-  | Set(String) ->
-      sprintf "xen_string_set_free(%s);" val_name
-  | Map(l, r) ->
-      let n = mapname l r in
-        sprintf "%s_free(%s);" (typename n) val_name
-  | Record x -> sprintf "%s_free(%s);" (record_typename x) val_name
-  | _ -> "DONT_KNOW"
+  | Enum (_, _)      -> ""
+  | Ref n            -> sprintf "%s_free(%s);" (if record then record_opt_typename n else typename n) val_name
+  | Set(Ref n)       -> sprintf "%s_opt_set_free(%s);" (record_typename n) val_name
+  | Set(Enum (e, _)) -> sprintf "%s_set_free(%s);" (typename e) val_name
+  | Set(String)      -> sprintf "xen_string_set_free(%s);" val_name
+  | Map(l, r)        -> let n = mapname l r in
+                        sprintf "%s_free(%s);" (typename n) val_name
+  | Record x         -> sprintf "%s_free(%s);" (record_typename x) val_name
+  | _                -> "DONT_KNOW"
 
 
 and add_enum_internal needed = function
-    Enum(x, _) ->
-      StringSet.add (x ^ "_internal") needed
-  | _ ->
-      needed
+  | Enum(x, _) -> StringSet.add (x ^ "_internal") needed
+  | _          -> needed
 
 
 and add_enum_map_internal needed l r =

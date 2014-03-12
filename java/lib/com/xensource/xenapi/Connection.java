@@ -54,7 +54,7 @@ public class Connection
     /**
      * The version of the bindings that this class belongs to.
      */
-    public static final String BINDINGS_VERSION = "@PRODUCT_VERSION@";
+    public static final String BINDINGS_VERSION = "@SDK_VERSION@";
     
     private APIVersion apiVersion;
 

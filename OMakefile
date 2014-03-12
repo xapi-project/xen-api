@@ -62,14 +62,14 @@ ZipUp(dir, dest) =
 	cd $(dir)/.. && zip -q -r9 $(d) $(basename $(dir)) && mv $(d) $(dest)
 
 CSharpReadme(dir, specific) =
-	sed -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' csharp/README-common.txt.dist >$(dir)/README.txt
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' csharp/README-common.txt.dist >$(dir)/README.txt
 	cat csharp/README-$(specific).txt.dist >>$(dir)/README.txt
 	$(INSTALL) $(XMLRPCLICENSE) $(dir)/LICENSE.CookComputing.XmlRpcV2
 	$(INSTALL) LICENSE $(dir)/LICENSE.txt
 
 InstallAndBrand(sourcefile, targetfile) =
 	$(INSTALL) $(sourcefile) $(targetfile)
-	sed -i -e 's/@PRODUCT_VERSION@/$(PRODUCT_VERSION)/g' $(targetfile)
+	sed -i -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(targetfile)
 
 csharp_src: gen_gui_csharp_bindings
 	mkdir -p $(CSHARP_SRC_TMP)/Properties
@@ -79,7 +79,7 @@ csharp_src: gen_gui_csharp_bindings
 	$(INSTALL) $(CSHARP_GEN)/FriendlyErrorNames.resx $(CSHARP_SRC_TMP)
 	$(INSTALL) $(SUPPORT_CS) $(CSHARP_SRC_TMP)
 	mv $(CSHARP_SRC_TMP)/AssemblyInfo.cs $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
-	sed -i -e 's/1\.0\.0\.0/$(PRODUCT_VERSION).0/g' $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
+	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
 	mv $(CSHARP_GEN)/XenObjectDownloader.tmp $(CSHARP_GEN)/XenObjectDownloader.cs
 	CSharpReadme($(CSHARP_SRC_TMP), src)
 	Flip($(CSHARP_SRC_TMP))
@@ -110,8 +110,8 @@ $(BINDINGS_TMP)/XenCenterBindings.zip: gen_gui_csharp_bindings
 powershell_src: csharp_src gen_powershell_bindings
 	mkdir -p $(POWERSHELL_TMP)
 	$(INSTALL) powershell/src/*.cs $(POWERSHELL_TMP)
-	sed -i -e 's/1\.0\.0\.0/$(PRODUCT_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
-	sed -i -e 's/1000/$(PRODUCT_VERSION).0/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
+	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
+	sed -i -e 's/1000/$(SDK_VERSION).0/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
 	$(INSTALL) $(POWERSHELL_GEN)/* $(POWERSHELL_TMP)
 	InstallAndBrand(powershell/README.txt.dist, $(POWERSHELL_TMP)/README.txt)
 	InstallAndBrand(powershell/about_XenServer.help.txt, $(POWERSHELL_TMP)/about_XenServer.help.txt)
