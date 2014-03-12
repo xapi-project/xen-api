@@ -31,6 +31,7 @@
 import java.util.Map;
 
 import com.xensource.xenapi.HostPatch;
+import com.xensource.xenapi.Types;
 
 /**
  * The HostPatch.apply() method is deprecated. We'll try to use it. The test is that the 
