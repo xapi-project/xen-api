@@ -14,14 +14,19 @@ do
   shift
 done
 
+if [ -r /etc/syslog.conf ]; then
+  conf_file=/etc/syslog.conf
+  service=syslog
+fi
+
 if [ -r /etc/rsyslog.conf ]; then
   conf_file=/etc/rsyslog.conf
   service=rsyslog
 fi
 
-if [ -r /etc/syslog.conf ]; then
-  conf_file=/etc/syslog.conf
-  service=syslog
+if [ -r /etc/rsyslog.d/xenserver.conf ]; then
+  conf_file=/etc/rsyslog.d/xenserver.conf
+  service=rsyslog
 fi
 
 if [ -z "$service" ]; then
@@ -29,9 +34,11 @@ if [ -z "$service" ]; then
   exit 1
 fi
 
-sed -e '/^\*\.\*.*@/ d' $conf_file >/etc/syslog.$$
+sed -e '/^\*\.\*.*[@~]/ d' $conf_file >/etc/syslog.$$
 if [ $remote -eq 1 ]; then
   echo "*.* @$host" >>/etc/syslog.$$
+else
+  echo "*.* ~" >>/etc/syslog.$$
 fi
 
 [ -s /etc/syslog.$$ ] && mv -f /etc/syslog.$$ $conf_file
