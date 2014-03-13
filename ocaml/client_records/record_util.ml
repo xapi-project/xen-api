@@ -404,6 +404,16 @@ let bond_mode_of_string m =
 	| "lacp" -> `lacp
 	| s -> raise (Record_failure ("Invalid bond mode. Got " ^ s))
 
+let allocation_algorithm_to_string = function
+	| `depth_first -> "depth-first"
+	| `breadth_first -> "breadth-first"
+
+let allocation_algorithm_of_string a =
+	match String.lowercase a with
+	| "depth-first" -> `depth_first
+	| "breadth-first" -> `breadth_first
+	| s -> raise (Record_failure ("Invalid allocation algorithm. Got " ^ s))
+
 let bool_of_string s =
 	match String.lowercase s with
 		|"true"|"yes"->true

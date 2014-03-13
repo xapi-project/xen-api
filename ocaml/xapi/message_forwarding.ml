@@ -557,6 +557,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of vgpu
 		with _ -> "invalid"
 
+	let vgpu_type_uuid ~__context vgpu_type =
+		try if Pool_role.is_master () then
+			Db.VGPU_type.get_uuid __context vgpu_type
+		else
+			Ref.string_of vgpu_type
+		with _ -> "invalid"
+
 	module Session = Local.Session
 	module Auth = Local.Auth
 	module Subject = Local.Subject
@@ -3705,7 +3712,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	module PCI = struct end
 
-	module PGPU = struct end
+	module PGPU = Local.PGPU
 
 	module GPU_group = struct
 		(* Don't forward. These are just db operations. *)
@@ -3718,16 +3725,32 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
 			with_global_lock (fun () ->
 				Local.GPU_group.destroy ~__context ~self)
+
+		let update_enabled_VGPU_types ~__context ~self =
+			info "GPU_group.update_enabled_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
+			Local.GPU_group.update_enabled_VGPU_types ~__context ~self
+
+		let update_supported_VGPU_types ~__context ~self =
+			info "GPU_group.update_supported_VGPU_types: gpu_group = '%s'" (gpu_group_uuid ~__context self);
+			Local.GPU_group.update_supported_VGPU_types ~__context ~self
+
+		let get_remaining_capacity ~__context ~self ~vgpu_type =
+			info "GPU_group.get_remaining_capacity: gpu_group = '%s' vgpu_type = '%s'"
+				(gpu_group_uuid ~__context self)
+				(vgpu_type_uuid ~__context vgpu_type);
+			Local.GPU_group.get_remaining_capacity ~__context ~self ~vgpu_type
 	end
 
 	module VGPU = struct
-		let create ~__context ~vM ~gPU_group ~device ~other_config =
+		let create ~__context ~vM ~gPU_group ~device ~other_config ~_type =
 			info "VGPU.create: VM = '%s'; GPU_group = '%s'" (vm_uuid ~__context vM) (gpu_group_uuid ~__context gPU_group);
-			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config
+			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config ~_type
 
 		let destroy ~__context ~self =
-			info "VGPU.destroy: VIF = '%s'" (vgpu_uuid ~__context self);
+			info "VGPU.destroy: VGPU = '%s'" (vgpu_uuid ~__context self);
 			Local.VGPU.destroy ~__context ~self
 	end
+
+	module VGPU_type = struct end
 end
 

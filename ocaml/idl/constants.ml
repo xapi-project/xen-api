@@ -129,3 +129,6 @@ let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
 
 (* Path to the pool secret file. *)
 let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
+
+(* Abstract size value for tracking PGPU utilisation. *)
+let pgpu_default_size = Int64.mul 1024L 1024L

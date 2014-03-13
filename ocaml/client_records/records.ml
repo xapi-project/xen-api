@@ -33,6 +33,12 @@ let getparam param params = try Some (List.assoc param params) with _ -> None
 
 let string_of_float f = Printf.sprintf "%.3f" f
 
+(* Splitting an empty string gives a list containing the empty string, which
+ * is usually not what we want. *)
+let get_words separator = function
+	| "" -> []
+	| str -> String.split separator str
+
 type field  = { name: string; 
 		get: (unit -> string);
 		set: (string -> unit) option;
@@ -1454,7 +1460,11 @@ let pgpu_record rpc session_id pgpu =
 			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pGPU_uuid) ();
 			make_field ~name:"vendor-name" ~get:(fun () -> try (xp ()).API.pCI_vendor_name with _ -> nid) ();
 			make_field ~name:"device-name" ~get:(fun () -> try (xp ()).API.pCI_device_name with _ -> nid) ();
-			make_field ~name:"gpu-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"gpu-group-uuid"
+				~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid)
+				~set:(fun gpu_group_uuid ->
+					let gpu_group = Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
+					Client.PGPU.set_GPU_group rpc session_id pgpu gpu_group) ();
 			make_field ~name:"gpu-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
 			make_field ~name:"host-uuid"    ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_host with _ -> nid) ();
 			make_field ~name:"host-name-label"    ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_host with _ -> nid) ();
@@ -1465,6 +1475,40 @@ let pgpu_record rpc session_id pgpu =
 				~add_to_map:(fun k v -> Client.PGPU.add_to_other_config rpc session_id pgpu k v)
 				~remove_from_map:(fun k -> Client.PGPU.remove_from_other_config rpc session_id pgpu k)
 				~get_map:(fun () -> (x ()).API.pGPU_other_config) ();
+			make_field ~name:"supported-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(x ()).API.pGPU_supported_VGPU_types)) ();
+			make_field ~name:"enabled-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(x ()).API.pGPU_enabled_VGPU_types))
+				~get_set:(fun () ->
+					(List.map
+						(fun vgpu_type -> get_uuid_from_ref vgpu_type)
+						(x ()).API.pGPU_enabled_VGPU_types))
+				~add_to_set:(fun vgpu_type_uuid ->
+					Client.PGPU.add_enabled_VGPU_types rpc session_id pgpu
+						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
+				~remove_from_set:(fun vgpu_type_uuid ->
+					Client.PGPU.remove_enabled_VGPU_types rpc session_id pgpu
+						(Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid))
+				~set:(fun vgpu_type_uuids ->
+					Client.PGPU.set_enabled_VGPU_types rpc session_id pgpu
+						(List.map
+							(fun vgpu_type_uuid ->
+								Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid)
+							(get_words ',' vgpu_type_uuids)))
+				();
+			make_field ~name:"resident-VGPUs"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map get_uuid_from_ref
+							(x ()).API.pGPU_resident_VGPUs)) ();
 			]
 	}
 
@@ -1492,6 +1536,27 @@ let gpu_group_record rpc session_id gpu_group =
 				~add_to_map:(fun k v -> Client.GPU_group.add_to_other_config rpc session_id gpu_group k v)
 				~remove_from_map:(fun k -> Client.GPU_group.remove_from_other_config rpc session_id gpu_group k)
 				~get_map:(fun () -> (x ()).API.gPU_group_other_config) ();
+			make_field ~name:"enabled-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(Client.GPU_group.get_enabled_VGPU_types rpc session_id gpu_group)))
+				();
+			make_field ~name:"supported-VGPU-types"
+				~get:(fun () ->
+					String.concat "; "
+						(List.map
+							get_uuid_from_ref
+							(Client.GPU_group.get_supported_VGPU_types rpc session_id gpu_group)))
+				();
+			make_field ~name:"allocation-algorithm"
+				~get:(fun () ->
+					Record_util.allocation_algorithm_to_string
+						(x ()).API.gPU_group_allocation_algorithm)
+				~set:(fun ty ->
+					Client.GPU_group.set_allocation_algorithm rpc session_id
+					gpu_group (Record_util.allocation_algorithm_of_string ty)) ();
 			]
 	}
 
@@ -1516,5 +1581,41 @@ let vgpu_record rpc session_id vgpu =
 				~add_to_map:(fun k v -> Client.VGPU.add_to_other_config rpc session_id vgpu k v)
 				~remove_from_map:(fun k -> Client.VGPU.remove_from_other_config rpc session_id vgpu k)
 				~get_map:(fun () -> (x ()).API.vGPU_other_config) ();
+			make_field ~name:"type-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_type) ();
+			make_field ~name:"type-model-name" ~get:(fun () -> try Client.VGPU_type.get_model_name rpc session_id ((x ()).API.vGPU_type) with _ -> nid) ();
+			make_field ~name:"resident-on" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_resident_on with _ -> nid) ();
 			]
+	}
+
+let vgpu_type_record rpc session_id vgpu_type =
+	let _ref = ref vgpu_type in
+	let empty_record = ToGet (fun () -> Client.VGPU_type.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record);
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vGPU_type_uuid) ();
+			make_field ~name:"vendor-name" ~get:(fun () -> (x ()).API.vGPU_type_vendor_name) ();
+			make_field ~name:"model-name"
+				~get:(fun () -> (x ()).API.vGPU_type_model_name) ();
+			make_field ~name:"framebuffer-size"
+				~get:(fun () -> Int64.to_string (x ()).API.vGPU_type_framebuffer_size) ();
+			make_field ~name:"max-heads"
+				~get:(fun () -> Int64.to_string (x ()).API.vGPU_type_max_heads) ();
+			make_field ~name:"max-resolution"
+				~get:(fun () -> String.concat "x" (List.map Int64.to_string [(x ()).API.vGPU_type_max_resolution_x; (x ()).API.vGPU_type_max_resolution_y])) ();
+			make_field ~name:"supported-on-PGPUs"
+				~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_supported_on_PGPUs)) ();
+			make_field ~name:"enabled-on-PGPUs"
+				~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_enabled_on_PGPUs)) ();
+			make_field ~name:"supported-on-GPU-groups"
+				~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_supported_on_GPU_groups)) ();
+			make_field ~name:"enabled-on-GPU-groups"
+				~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_enabled_on_GPU_groups)) ();
+			make_field ~name:"VGPU-uuids" ~get:(fun () -> String.concat "; " (List.map (fun v -> get_uuid_from_ref v) (x ()).API.vGPU_type_VGPUs)) ();
+		]
 	}

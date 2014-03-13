@@ -92,8 +92,8 @@ _xe()
                     diagnostic-vm-status) cmd=vm-list;;
                     diagnostic-vdi-status) cmd=vdi-list;;
                     host-cpu-info) cmd=host-list;;
-                    *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
-                        $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1 }'`-list;;
+                    *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ || /^vgpu-type-/ { print $1 "-" $2 }
+                        $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ && $0 !~ /^vgpu-type-/ { print $1 }'`-list;;
                 esac
                 IFS=$'\n,'
                 set_completions_for_names "$cmd" 'uuid' "$value"
@@ -226,6 +226,12 @@ _xe()
                 pifs=`${xe} pif-list --minimal 2>/dev/null`
                 IFS=$'\n,'
                 set_completions "$pifs" "$val"
+                return 0
+                ;;
+
+            allocation-algorithm) # GPU_group.allocation_algorithm
+                IFS=$'\n,'
+                set_completions 'depth-first,breadth-first' "$value"
                 return 0
                 ;;
 

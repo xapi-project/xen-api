@@ -54,6 +54,10 @@ module Platform = struct
 	let usb = "usb"
 	let usb_tablet = "usb_tablet"
 	let parallel = "parallel"
+	let vga = "vga"
+	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
+	let vgpu_config = Xapi_globs.vgpu_config_key
+	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -77,6 +81,10 @@ module Platform = struct
 		usb;
 		usb_tablet;
 		parallel;
+		vga;
+		vgpu_pci_id;
+		vgpu_config;
+		vgpu_extra_args;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -222,6 +230,22 @@ let is_boot_file_whitelisted filename =
 let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 	let open Vm in
 
+	let video_mode =
+		(* If the vgpu keys are present for this VM, this overrides
+		 * the value of platform:vgpu. *)
+		if true
+			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
+		then Vgpu
+		else
+			match string vm.API.vM_platform "cirrus" Platform.vga with
+			| "std" -> Standard_VGA
+			| "cirrus" -> Cirrus
+			| x ->
+				error "Unknown platform/vga option: %s (expected 'std' or 'cirrus')" x;
+				Cirrus
+	in
+
     let pci_emulations =
         let s = try Some (List.assoc "mtc_pci_emulations" vm.API.vM_other_config) with _ -> None in
         match s with
@@ -238,14 +262,14 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			hap = true;
 			shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
 			timeoffset = timeoffset;
-			video_mib = int vm.API.vM_platform 4 "videoram";
-			video = begin match string vm.API.vM_platform "cirrus" "vga" with
-				| "std" -> Standard_VGA
-				| "cirrus" -> Cirrus
-				| x ->
-					error "Unknown platform/vga option: %s (expected 'std' or 'cirrus')" x;
-					Cirrus
+			video_mib = begin
+				(* For vGPU, make sure videoram is at least 16MiB. *)
+				let requested_videoram = int vm.API.vM_platform 4 "videoram" in
+				if video_mode = Vgpu
+				then max requested_videoram 16
+				else requested_videoram
 			end;
+			video = video_mode;
 			acpi = bool vm.API.vM_platform true "acpi";
 			serial = begin
 				(* The platform value should override the other_config value. If
@@ -444,7 +468,7 @@ module MD = struct
 		}
 
 	let pcis_of_vm ~__context (vmref, vm) =
-		let vgpu_pcidevs = Vgpuops.list_vgpus ~__context ~vm:vmref in
+		let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
 		let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
@@ -1319,8 +1343,8 @@ let update_pci ~__context id =
 
 					(* Assumption: a VM can have only one vGPU *)
 					let gpu =
-						let gpu_class_id = Xapi_pci.find_class_id (Xapi_pci.Display_controller) in
-						if Db.PCI.get_class_id ~__context ~self:pci = gpu_class_id
+						let gpu_class_id = Xapi_pci.lookup_class_id (Xapi_pci.Display_controller) in
+						if Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self:pci) = gpu_class_id
 						then
 							match Db.VM.get_VGPUs ~__context ~self:vm with
 								| x :: _ -> Some x

@@ -18,6 +18,7 @@ let base_suite =
 	"base_suite" >:::
 		[
 			Test_basic.test;
+			Test_helpers.test;
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
@@ -26,6 +27,13 @@ let base_suite =
 			Test_pool_license.test;
 			Test_platformdata.test;
 			Test_sm_features.test;
+			Test_gpu_group.test;
+			Test_pci_db.test;
+			Test_pci_helpers.test;
+			Test_vgpu_type.test;
+			Test_pgpu.test;
+			Test_pgpu_helpers.test;
+			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
 			Test_ca121350.test;
 		]

@@ -30,6 +30,7 @@ OCAML_OBJS = \
 	test_highlevel \
 	test_common \
 	test_basic \
+	test_helpers \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_ca91480 \
@@ -38,6 +39,14 @@ OCAML_OBJS = \
 	test_pool_license \
 	test_platformdata \
 	test_sm_features \
+	test_gpu_group \
+	test_pci_db \
+	test_pci_helpers \
+	test_vgpu_type \
+	test_vgpu_common \
+	test_pgpu \
+	test_pgpu_helpers \
+	test_vm_helpers \
 	test_xenopsd_metadata \
 	test_ca121350 \
 

@@ -791,6 +791,7 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
 		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
 		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id) @
+		(make_param_funs (Client.VGPU_type.get_all) (Client.VGPU_type.get_all_records_where) (Client.VGPU_type.get_by_uuid) (vgpu_type_record) "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id) @
 		(make_param_funs (Client.DR_task.get_all) (Client.DR_task.get_all_records_where) (Client.DR_task.get_by_uuid) (dr_task_record) "drtask" [] [] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
@@ -4315,13 +4316,47 @@ let vm_appliance_assert_can_be_recovered printer rpc session_id params =
 			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
 			Client.VM_appliance.assert_can_be_recovered ~rpc ~session_id:database_session ~self:appliance  ~session_to:session_id)
 
+let gpu_group_create printer rpc session_id params =
+	let name_label = List.assoc "name-label" params in
+	let name_description =
+		try List.assoc "name-description" params
+		with Not_found -> ""
+	in
+	let gpu_group =
+		Client.GPU_group.create ~rpc ~session_id
+			~name_label ~name_description ~other_config:[]
+	in
+	let uuid = Client.GPU_group.get_uuid ~rpc ~session_id ~self:gpu_group in
+	printer (Cli_printer.PList [uuid])
+
+let gpu_group_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.GPU_group.destroy ~rpc ~session_id ~self:gpu_group
+
+let gpu_group_get_remaining_capacity printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let vgpu_type_uuid = List.assoc "vgpu-type-uuid" params in
+	let gpu_group = Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid in
+	let vgpu_type =
+		Client.VGPU_type.get_by_uuid ~rpc ~session_id ~uuid:vgpu_type_uuid
+	in
+	let result = Client.GPU_group.get_remaining_capacity ~rpc ~session_id
+		~self:gpu_group ~vgpu_type in
+	printer (Cli_printer.PMsg (Int64.to_string result))
+
 let vgpu_create printer rpc session_id params =
 	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
 	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
 	let vm_uuid=List.assoc "vm-uuid" params in
 	let vM=Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let gPU_group=Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
-	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] in
+	let _type =
+		if List.mem_assoc "vgpu-type-uuid" params
+		then Client.VGPU_type.get_by_uuid rpc session_id (List.assoc "vgpu-type-uuid" params)
+		else Ref.null
+	in
+	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] ~_type in
 	let uuid = Client.VGPU.get_uuid rpc session_id vgpu in
 	printer (Cli_printer.PList [uuid])
 

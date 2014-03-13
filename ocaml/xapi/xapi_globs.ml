@@ -39,7 +39,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 
 (* api version *)
 let api_version_major = 2L
-let api_version_minor = 0L
+let api_version_minor = 1L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -51,8 +51,8 @@ let tools_version_none = (-1, -1, -1, -1)
 let tools_version = ref tools_version_none
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.10"
-let xencenter_max_verstring = "2.0"
+let xencenter_min_verstring = "2.0"
+let xencenter_max_verstring = "2.1"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -467,8 +467,15 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 (* Pool.other_config key to enable pass-through of PIF carrier *)
 let pass_through_pif_carrier = "pass_through_pif_carrier"
 
-(* Remember the specific PCI devices needed for vGPU passthrough *)
+(* Remember the specific PCI devices needed for GPU passthrough *)
 let vgpu_pci = "vgpu_pci"
+
+(* Name for fields in VM.platform used for vGPU *)
+let vgpu_manual_setup_key = "vgpu_manual_setup"
+
+let vgpu_pci_key = "vgpu_pci_id"
+let vgpu_config_key = "vgpu_config"
+let vgpu_extra_args_key = "vgpu_extra_args"
 
 let dev_zero = "/dev/zero"
 

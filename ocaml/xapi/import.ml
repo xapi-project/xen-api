@@ -1012,6 +1012,69 @@ module VIF : HandlerTools = struct
 		end
 end
 
+module VGPUType : HandlerTools = struct
+	type precheck_t =
+		| Found_VGPU_type of API.ref_VGPU_type
+		| Create of API.vGPU_type_t
+
+	let precheck __context config rpc session_id state x =
+		let vgpu_type_record = API.Legacy.From.vGPU_type_t "" x.snapshot in
+
+		(* Look up VGPU types using the vendor name and model name. *)
+		let compatible_types =
+			Client.VGPU_type.get_all_records_where rpc session_id
+				(Printf.sprintf
+					"field \"vendor_name\"=\"%s\" and field \"model_name\"=\"%s\""
+					vgpu_type_record.API.vGPU_type_vendor_name
+					vgpu_type_record.API.vGPU_type_model_name)
+		in
+
+		match choose_one compatible_types with
+		| Some (vgpu_type, _) -> Found_VGPU_type vgpu_type
+		| None ->
+			warn
+				"Unable to find VGPU_type (%s,%s) - creating a new record"
+				vgpu_type_record.API.vGPU_type_vendor_name
+				vgpu_type_record.API.vGPU_type_model_name;
+			Create vgpu_type_record
+
+	let handle_dry_run __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU_type vgpu_type -> begin
+			state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table;
+			state.table <- (x.cls, Ref.string_of vgpu_type, Ref.string_of vgpu_type) :: state.table
+		end
+		| Create _ ->
+			let dummy_vgpu_type = Ref.make () in
+			state.table <- (x.cls, x.id, Ref.string_of dummy_vgpu_type) :: state.table
+
+	let handle __context config rpc session_id state x precheck_result =
+		match precheck_result with
+		| Found_VGPU_type vgpu_type ->
+			handle_dry_run __context config rpc session_id state x precheck_result
+		| Create vgpu_type_record -> begin
+			let vgpu_type =
+				log_reraise
+					"failed to create VGPU_type"
+					(fun value ->
+						(* size and internal_config are left as defaults for now. They'll
+						 * be updated if and when xapi comes across the real config file. *)
+						Xapi_vgpu_type.create ~__context
+							~vendor_name:value.API.vGPU_type_vendor_name
+							~model_name:value.API.vGPU_type_model_name
+							~framebuffer_size:value.API.vGPU_type_framebuffer_size
+							~max_heads:value.API.vGPU_type_max_heads
+							~max_resolution_x:value.API.vGPU_type_max_resolution_x
+							~max_resolution_y:value.API.vGPU_type_max_resolution_y
+							~size:0L
+							~internal_config:[])
+					vgpu_type_record
+			in
+			state.cleanup <- (fun __context rpc session_id -> Db.VGPU_type.destroy __context vgpu_type) :: state.cleanup;
+			state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table
+		end
+end
+
 (** Create a new VGPU record, add the reference to the table.
     The VM and GPU_group must have already been handled first. *)
 module VGPU : HandlerTools = struct
@@ -1035,9 +1098,13 @@ module VGPU : HandlerTools = struct
 			let group = log_reraise
 				("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
 				(lookup vgpu_record.API.vGPU_GPU_group) state.table in
+			let _type = log_reraise
+				("Failed to find VGPU's type: " ^ (Ref.string_of vgpu_record.API.vGPU_type))
+				(lookup vgpu_record.API.vGPU_type) state.table in
 			let vgpu_record = { vgpu_record with
 				API.vGPU_VM = vm;
-				API.vGPU_GPU_group = group
+				API.vGPU_GPU_group = group;
+				API.vGPU_type = _type;
 			} in
 			Create vgpu_record
 
@@ -1059,7 +1126,7 @@ module VGPU : HandlerTools = struct
 		| Create vgpu_record -> begin
 			let vgpu = log_reraise "failed to create VGPU" (fun value ->
 				let vgpu = Client.VGPU.create ~rpc ~session_id ~vM:value.API.vGPU_VM ~gPU_group:value.API.vGPU_GPU_group
-					~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config in
+					~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config ~_type:value.API.vGPU_type in
 				if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
 				vgpu) vgpu_record
 			in
@@ -1081,6 +1148,7 @@ module NetworkHandler = MakeHandler(Net)
 module GPUGroupHandler = MakeHandler(GPUGroup)
 module VBDHandler = MakeHandler(VBD)
 module VIFHandler = MakeHandler(VIF)
+module VGPUTypeHandler = MakeHandler(VGPUType)
 module VGPUHandler = MakeHandler(VGPU)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
@@ -1095,6 +1163,7 @@ let handlers =
 		Datamodel._gpu_group, GPUGroupHandler.handle;
 		Datamodel._vbd, VBDHandler.handle;
 		Datamodel._vif, VIFHandler.handle;
+		Datamodel._vgpu_type, VGPUTypeHandler.handle;
 		Datamodel._vgpu, VGPUHandler.handle;
 	]
 
