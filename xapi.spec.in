@@ -274,7 +274,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/vncterm-wrapper
 @OPTDIR@/libexec/xapi-health-check
 @OPTDIR@/libexec/xapi-rolling-upgrade
-@OPTDIR@/libexec/xenguest
+%exclude @OPTDIR@/libexec/xenguest
 @OPTDIR@/libexec/xha-lc
 @OPTDIR@/libexec/xiu
 @OPTDIR@/lib/libxenctrl_xiu.so
