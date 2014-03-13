@@ -901,9 +901,33 @@ module VM = struct
 					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
-				let video = match video with
-					| Cirrus -> Device.Dm.Cirrus
-					| Standard_VGA -> Device.Dm.Std_vga in
+				let video, vgpu = match video with
+					| Cirrus -> Device.Dm.Cirrus, None
+					| Standard_VGA -> Device.Dm.Std_vga, None
+					| Vgpu ->
+						let vgpu =
+							try
+								let open Xenops_interface in
+								let vgpu_pci = List.assoc vgpu_pci_key vm.Vm.platformdata
+								and vgpu_config =
+									let config_file =
+										List.assoc vgpu_config_key vm.Vm.platformdata in
+									if List.mem_assoc vgpu_extra_args_key vm.Vm.platformdata
+									then
+										Printf.sprintf "%s,%s" config_file
+											(List.assoc vgpu_extra_args_key vm.Vm.platformdata)
+									else config_file
+								in
+								debug "VGPU config: %s -> %s; %s -> %s"
+									vgpu_pci_key vgpu_pci
+									vgpu_config_key vgpu_config;
+								Some {
+									Device.Dm.pci_id = vgpu_pci;
+									config = vgpu_config;
+								}
+							with Not_found -> failwith "Missing vGPU config in platform data" in
+						Device.Dm.Vgpu, vgpu
+				in
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
 					boot = boot_order;
@@ -918,6 +942,7 @@ module VM = struct
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
+					vgpu = vgpu;
 					xenclient_enabled=false;
 					hvm=hvm;
 					sound=None;
@@ -1520,7 +1545,7 @@ module PCI = struct
 					raise PCIBack_not_loaded;
 				end;
 
-				Device.PCI.bind [ device ];
+				Device.PCI.bind [ device ] Device.PCI.Pciback;
 				(* If the guest is HVM then we plug via qemu *)
 				if hvm
 				then Device.PCI.plug task ~xc ~xs device frontend_domid

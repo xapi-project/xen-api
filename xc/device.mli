@@ -129,14 +129,18 @@ sig
 	val to_string: dev -> string
 	val of_string: string -> dev
 
+	type supported_driver =
+		| Nvidia
+		| Pciback
+
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> ?flrscript:string option -> dev list -> Xenctrl.domid -> int -> unit
+		-> ?flrscript:string option -> dev list -> Xenctrl.domid -> int -> unit
 	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
-	       -> (int * int * int * int) list -> Xenctrl.domid -> int -> unit
+		-> dev list -> Xenctrl.domid -> int -> unit
 	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
-	val bind : dev list -> unit
+	val bind : dev list -> supported_driver -> unit
 	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
 	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
 	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * dev) list
@@ -165,6 +169,7 @@ sig
 	type disp_intf_opt =
 	    | Std_vga
 	    | Cirrus
+	    | Vgpu
 	val disp_intf_opt_of_rpc: Rpc.t -> disp_intf_opt
 	val rpc_of_disp_intf_opt: disp_intf_opt -> Rpc.t
 
@@ -176,6 +181,14 @@ sig
 		| Intel of disp_intf_opt * int option
 
 	type media = Disk | Cdrom
+
+	type vgpu_t = {
+		(* The PCI device on which the vGPU will run. *)
+		pci_id: string;
+		(* Path to the vGPU config file, plus comma-separated extra arguments. *)
+		config: string;
+	}
+
 
 	type info = {
 		memory: int64;
@@ -191,6 +204,7 @@ sig
 		disp: disp_opt;
 		pci_emulations: string list;
 		pci_passthrough: bool;
+		vgpu: vgpu_t option;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;
