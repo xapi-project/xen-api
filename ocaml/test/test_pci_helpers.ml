@@ -79,7 +79,7 @@ module ParseLspciLine = Generic.Make(struct
 		Xapi_pci_helpers.({
 			id = "0000:44:00.0";
 			vendor_id = 0x10deL;
-			vendor_name = "nVidia Corporation";
+			vendor_name = "NVIDIA Corporation";
 			device_id = 0x014eL;
 			device_name = "NV43GL [Quadro FX 540]";
 			class_id = 0x03L;
@@ -92,7 +92,7 @@ module ParseLspciLine = Generic.Make(struct
 		Xapi_pci_helpers.({
 			id = "0000:44:00.0";
 			vendor_id = 0x10deL;
-			vendor_name = "nVidia Corporation";
+			vendor_name = "NVIDIA Corporation";
 			device_id = 0x014eL;
 			device_name = "NV43GL [Quadro FX 540]";
 			class_id = 0x03L;
@@ -116,7 +116,7 @@ module ParseLspciLine = Generic.Make(struct
 		Xapi_pci_helpers.({
 			id = "0000:44:00.0";
 			vendor_id = 0x10deL;
-			vendor_name = "nVidia Corporation";
+			vendor_name = "NVIDIA Corporation";
 			device_id = 0xabcdL;
 			device_name = "Unknown (abcd)";
 			class_id = 0x03L;
