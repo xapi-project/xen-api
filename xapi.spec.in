@@ -299,11 +299,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %files client-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-client/*
+%{_libdir}/ocaml/xapi-client/*
 
 %files datamodel-devel
 %defattr(-,root,root,-)
-/usr/lib/ocaml/xapi-datamodel/*
+%{_libdir}/ocaml/xapi-datamodel/*
 
 %files www
 %defattr(-,root,root,-)
