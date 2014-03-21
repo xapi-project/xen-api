@@ -22,6 +22,7 @@ open Stringext
 open Pervasiveext
 open Threadext
 open Constants
+open Stringext
 
 type driver_list = Storage_interface.query_result list with rpc
 
@@ -41,14 +42,13 @@ let fix_cookie cookie =
   let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
 
   let cookie_re = Re_str.regexp "[;,][ \t]*" in
-  let equals_re = Re_str.regexp_string "=" in
 
   let comps = Re_str.split_delim cookie_re str_cookie in
           (* We don't handle $Path, $Domain, $Port, $Version (or $anything
              $else) *)
   let cookies = List.filter (fun s -> s.[0] != '$') comps in
   let split_pair nvp =
-    match Re_str.split_delim equals_re nvp with
+    match String.split '=' nvp with
     | [] -> ("","")
     | n :: [] -> (n, "")
     | n :: v :: _ -> (n, v)

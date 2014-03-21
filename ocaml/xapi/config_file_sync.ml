@@ -16,6 +16,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open OPasswd.Common
+open Stringext
 
 let superuser = "root"
 
@@ -56,7 +57,7 @@ let config_file_sync_handler (req: Http.Request.t) s _ =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
-      let uri = Re_str.(split (regexp "/") req.Http.Request.uri) in
+      let uri = String.split '/' (req.Http.Request.uri) in
       req.Http.Request.close <- true;
       debug "sending headers";
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
