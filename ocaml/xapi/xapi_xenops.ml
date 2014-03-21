@@ -32,6 +32,12 @@ let xenapi_of_xenops_power_state = function
 	| Some Paused -> `Paused
 	| None -> `Halted
 
+let string_of_xenapi_power_state = function
+	| `Running -> "Running"
+	| `Halted -> "Halted"
+	| `Suspended -> "Suspended"
+	| `Paused -> "Paused"
+
 module Platform = struct
 	(* Keys we push through to xenstore. *)
 	let acpi = "acpi"
@@ -1557,7 +1563,10 @@ let events_from_xenopsd () =
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
-	assert (Db.VM.get_resident_on ~__context ~self = localhost)
+	if not (Db.VM.get_resident_on ~__context ~self = localhost) then (
+		error "assert_resident_on failing; context: %s" (Context.string_of_task __context);
+		assert false
+	)
 
 module Events_from_xapi = struct
 	let greatest_token = ref ""
@@ -1992,7 +2001,16 @@ let shutdown ~__context ~self timeout =
 			info "xenops: VM.shutdown %s" id;
 			Client.VM.shutdown dbg id timeout |> sync_with_task __context;
 			Events_from_xenopsd.wait dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Halted);
+			let vm_power_state = Db.VM.get_power_state ~__context ~self in
+			if (vm_power_state <> `Halted) then (
+				(* Happened in CA-118388 so log, don't just assert. *)
+				(* If we get to here there's a bug in some of the code we've just called. *)
+				error "xenops: VM.shutdown: power state should be Halted but is %s. id=\"%s\" dbg=\"%s\" timeout=\"%s\" backtrace: %s"
+					(string_of_xenapi_power_state vm_power_state) id dbg
+					(match timeout with None -> "(no-timeout)" | Some f -> string_of_float f)
+					(try assert false with _ -> Printexc.get_backtrace ());
+				assert false
+			);
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 			List.iter
