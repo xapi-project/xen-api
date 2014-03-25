@@ -1519,6 +1519,18 @@ module VM = struct
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
 		let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+		(* Don't take the timeoffset from [state] (last boot record). Put back
+		 * the one from [vm] which came straight from the platform keys. *)
+		let persistent = match vm.ty with
+			| HVM {timeoffset} ->
+				begin match persistent.VmExtra.ty with
+				| Some (HVM hvm_info) ->
+					{persistent with VmExtra.ty = Some (HVM {hvm_info with timeoffset = timeoffset})}
+				| _ ->
+					persistent
+				end
+			| _ -> persistent
+		in
 		let non_persistent = match DB.read k with
 		| None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
 		| Some vmextra -> vmextra.VmExtra.non_persistent
