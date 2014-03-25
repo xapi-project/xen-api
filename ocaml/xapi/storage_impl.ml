@@ -300,7 +300,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 								Impl.VDI.deactivate context ~task ~dp ~sr ~vdi, vdi_t
 							| Vdi_automaton.Detach ->
 								Impl.VDI.detach context ~task ~dp ~sr ~vdi, vdi_t
-					with e ->
+					with 
+					| Db_exn.DBCache_NotFound (err, cls, _ref) when (err="missing row" && cls="VDI" && (op=Vdi_automaton.Deactivate || op=Vdi_automaton.Detach)) ->
+					  error "Caught Db_exn.DBCache_NotFound (missing VDI) while deactivating or detaching";
+					  error "There's nothing I can really do now. I'm going to pretend it worked and hope for the best.";
+					  Success Unit, vdi_t
+					        
+					| e ->
 						error "dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
 							(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
 						Failure (Internal_error (Printexc.to_string e)), vdi_t in
