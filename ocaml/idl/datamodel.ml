@@ -2994,7 +2994,7 @@ let vdi_copy = call
   ~lifecycle:[
 	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
 	Extended, rel_cowley, "The copy can now be performed between any two SRs.";
-	Extended, rel_clearwater, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
+	Extended, rel_clearwater_felton, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
   ~in_oss_since:None
   ~versioned_params:
   [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
