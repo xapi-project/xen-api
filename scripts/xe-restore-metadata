@@ -297,7 +297,12 @@ for meta in *.vmmeta; do
 done
 
 smmeta_file=${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml
-cmd="@LIBEXECDIR@/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
+if [ "$restore_mode" == "all" ]; then
+   cmd="@LIBEXECDIR@/restore-sr-metadata.py -f ${smmeta_file}"
+else
+   cmd="@LIBEXECDIR@/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
+fi
+
 if [ -e ${smmeta_file} ]; then
     if [ ${dry_run} -gt 0 ]; then
         echo ${cmd}
