@@ -30,9 +30,17 @@ let my_cmp a b = match a,b with
 	| None, None -> a = b
 	| _	-> false
 
+let string_of_api_exn_opt = function
+	| None -> "None"
+	| Some (code, args) ->
+		Printf.sprintf "Some (%s, [%s])" code (String.concat "; " args)
+
 let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) vbd_list op exc =
 	let vdi_ref, vdi_record = setup_test ~__context vbd_list in
-	assert_equal ~cmp (Xapi_vdi.check_operation_error ~__context ha_enabled vdi_record vdi_ref op) exc
+	assert_equal
+		~cmp
+		~printer:string_of_api_exn_opt
+		exc (Xapi_vdi.check_operation_error ~__context ha_enabled vdi_record vdi_ref op)
 
 (* This is to test Xapi_vdi.check_operation_error against CA-98944
    code. This DO NOT fully test the aforementionned function *)
@@ -71,7 +79,7 @@ let test_ca98944 () =
 		`forget None
 
 (* VDI.copy should be allowed if all attached VBDs are read-only. *)
-let test_ca101699 () =
+let test_ca101669 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
 
 	(* Attempting to copy a RW-attached VDI should fail with VDI_IN_USE. *)
@@ -89,11 +97,78 @@ let test_ca101699 () =
 	(* Attempting to copy an unattached VDI should pass. *)
 	run_assert_equal_with_vdi ~__context
 		(fun vdi_ref -> ())
-		`copy None
+		`copy None;
+
+	(* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW () in
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
+		`copy (Some (Api_errors.vdi_in_use, []))
+
+let test_ca125187 () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	(* A VDI being copied can be copied again concurrently. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy])
+		`copy None;
+
+	(* A VBD can be plugged to a VDI which is being copied. This is required as
+	 * the VBD is plugged after the VDI is marked with the copy operation. *)
+	let _, _ = setup_test ~__context
+		(fun vdi_ref ->
+			let vm_ref = make_vm ~__context () in
+			Db.VM.set_is_control_domain ~__context ~self:vm_ref ~value:true;
+			Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
+			let vbd_ref = Ref.make () in
+			let (_: API.ref_VBD) = make_vbd ~__context
+				~ref:vbd_ref
+				~vDI:vdi_ref
+				~vM:vm_ref
+				~currently_attached:false
+				~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy];
+			Db.VDI.set_managed ~__context
+				~self:vdi_ref
+				~value:true;
+			Xapi_vbd_helpers.assert_operation_valid ~__context
+				~self:vbd_ref
+				~op:`plug)
+	in ()
+
+let test_ca126097 () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	(* Attempting to clone a VDI being copied should fail with VDI_IN_USE. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy])
+		`clone (Some (Api_errors.vdi_in_use, []));
+
+	(* Attempting to snapshot a VDI being copied should be allowed. *)
+	run_assert_equal_with_vdi ~__context
+		(fun vdi_ref ->
+			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
+			Db.VDI.set_current_operations ~__context
+				~self:vdi_ref
+				~value:["mytask", `copy])
+		`snapshot None
 
 let test =
 	"test_vdi_allowed_operations" >:::
 		[
 			"test_ca98944" >:: test_ca98944;
-			"test_ca101699" >:: test_ca101699;
+			"test_ca101669" >:: test_ca101669;
+			"test_ca125187" >:: test_ca125187;
+			"test_ca126097" >:: test_ca126097;
 		]
