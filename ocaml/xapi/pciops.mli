@@ -21,6 +21,9 @@ val get_free_functions : __context:Context.t -> [ `PCI ] Ref.t -> int
 (** Mark all PCI devices for a given VM as unattached. *)
 val unassign_all_for_vm : __context:Context.t -> [ `VM ] Ref.t -> unit
 
+(** Sort the PCI devices. *)
+val sort_pcidevs : ('b * (int * int * int * int)) list -> ('b * Device.PCI.dev list) list
+
 (** Return the PCI devices that are specified in the VM.other_config:pci field. *)
 val other_pcidevs_of_vm :
   __context:Context.t ->
@@ -34,6 +37,11 @@ val attach_pcis :
   hvm:bool -> Xc.domid -> (int * (int * int * int * int)) list -> unit
 
 (** Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
+val plug_pcidevs :
+	__context:Context.t ->
+	vm:'a ->
+	Xc.domid -> Device.PCI.dev list -> unit
+
 val plug_pcis :
   __context:Context.t ->
   vm:'a ->
