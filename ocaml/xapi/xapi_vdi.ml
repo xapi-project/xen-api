@@ -34,11 +34,15 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 	(* Policy:
 	   1. any current_operation besides copy implies exclusivity; fail everything
 	      else
-	   2. if doing a VM start then assume the sharing check is done elsewhere
+	   2. if a copy is ongoing, don't fail with other_operation_in_progress, as
+	      blocked operations could then get stuck behind a long-running copy.
+	      Instead, rely on the blocked_by_attach check further down to decide
+	      whether an operation should be allowed.
+	   3. if doing a VM start then assume the sharing check is done elsewhere
 	      (so VMs may share disks but our operations cannot)
-	   3. for other operations, fail if any VBD has currently-attached=true or any VBD 
+	   4. for other operations, fail if any VBD has currently-attached=true or any VBD 
 	      has a current_operation itself
-	   4. HA prevents you from deleting statefiles or metadata volumes
+	   5. HA prevents you from deleting statefiles or metadata volumes
 	   *)
 	if List.exists (fun (_, op) -> op <> `copy) current_ops
 	then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
