@@ -721,6 +721,14 @@ let kill_xenguests () =
   with _ -> 
     ()
 
+let set_stunnel_timeout () =
+  try
+    let timeout = int_of_string (Xapi_inventory.lookup Xapi_inventory._stunnel_idle_timeout) in
+    debug "Setting stunnel timeout to %d" timeout;
+    Stunnel.timeoutidle := Some timeout
+  with _ ->
+    debug "Using default stunnel timeout (usually 43200)"
+
 let server_init() =
   let listen_unix_socket () =
     (* Always listen on the Unix domain socket first *)
@@ -842,6 +850,7 @@ let server_init() =
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Killing xenguests", [], kill_xenguests;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
+    "Setting stunnel timeout", [], set_stunnel_timeout;
     "Initialising local database", [], init_local_database;
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
