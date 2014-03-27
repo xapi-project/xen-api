@@ -731,6 +731,7 @@ let pool_config_file = ref (Filename.concat Fhs.etcdir "pool.conf")
 (* Path to the pool secret file. *)
 let pool_secret_path = ref (Filename.concat Fhs.etcdir "ptoken")
 
+let udhcpd = ref (Filename.concat Fhs.libexecdir "udhcpd")
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -840,7 +841,13 @@ let resources = [
     essential = false;
     path = pool_secret_path;
     perms = [ Unix.R_OK; Unix.W_OK ];
-  }
+  };
+  { Xcp_service.name = "udhcpd";
+    description = "DHCP server";
+    essential = true;
+    path = udhcpd;
+    perms = [ Unix.X_OK ];
+  };
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
