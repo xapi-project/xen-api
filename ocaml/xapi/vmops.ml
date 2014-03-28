@@ -949,7 +949,7 @@ let resume ~__context ~xc ~xs ~vm =
 		Domain.unpause ~xc domid) 
 
 (** Starts up a VM, leaving it in the paused state *)
-let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot =
+let start_paused ?(progress_cb = fun _ -> ()) ?(is_reboot = false) ~pcidevs ~__context ~vm ~snapshot =
 	(* Ensure no old consoles survive *)
 	destroy_consoles ~__context ~vM:vm;
 
@@ -1059,7 +1059,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 								create_vifs ~__context ~xs vifs;
 								progress_cb 0.70;
-								let pcis = Vgpuops.create_vgpus ~__context ~vm domid hvm in
+								let pcis = if is_reboot then [] else Vgpuops.create_vgpus ~__context ~vm domid hvm in
 								(* WORKAROUND FOR CA-55754: temporarily disable msitranslate when GPU is passed through. *)
 								(* other-config:msitranslate can be used the override the default *)
 								let msitranslate =
