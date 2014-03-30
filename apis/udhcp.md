@@ -5,7 +5,7 @@ Summary
 -------
 
 This API allows you to configure the DHCP service running on the Host 
-Internal Management Network (HIMN). The API congigures a udhcp daemon 
+Internal Management Network (HIMN). The API configures a udhcp daemon 
 residing in Dom0 and alters the service configuration for any VM using 
 the network.
 
