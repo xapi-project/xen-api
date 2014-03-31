@@ -231,7 +231,7 @@ let start ~__context ~vm ~start_paused:paused ~force =
 
 						debug "start: bringing up domain in the paused state";
 						Vmops.start_paused
-							~progress_cb:(TaskHelper.set_progress ~__context) ~pcidevs:None ~__context ~vm ~snapshot;
+							~progress_cb:(TaskHelper.set_progress ~__context) ~is_reboot:false ~pcidevs:None ~__context ~vm ~snapshot;
 						delete_guest_metrics ~__context ~self:vm;
 
 						let localhost = Helpers.get_localhost ~__context in
@@ -427,7 +427,7 @@ module Reboot = struct
 	 begin
 	   try
              Vmops.start_paused
-               ~progress_cb:(fun x -> TaskHelper.set_progress ~__context (0.50 +. x /. 2.))
+               ~progress_cb:(fun x -> TaskHelper.set_progress ~__context (0.50 +. x /. 2.)) ~is_reboot:true
 				 ~pcidevs:(Some pcidevs)
                ~__context ~vm ~snapshot:new_snapshot;
 	   with e ->
