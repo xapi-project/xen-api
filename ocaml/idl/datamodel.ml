@@ -1250,7 +1250,7 @@ let session_login  = call ~flags:[]
   [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")}]
-  ~errs:[Api_errors.session_authentication_failed]
+  ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
   ()
