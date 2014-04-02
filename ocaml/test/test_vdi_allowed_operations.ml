@@ -19,6 +19,36 @@ open Test_common
 
 let setup_test ~__context vbd_fun =
 	let sr_ref = make_sr ~__context () in
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
+	(* Register the SR with a dummy processor which has a sensible
+	 * set of features. *)
+	Storage_mux.register sr_uuid
+		(fun _ -> Rpc.({success = true; contents = Null}))
+		"0"
+		Storage_interface.({
+			driver = "";
+			name = "";
+			description = "";
+			vendor = "";
+			copyright = "";
+			version = "";
+			required_api_version = "";
+			features = [
+				"SR_PROBE";
+				"SR_UPDATE";
+				"VDI_CREATE";
+				"VDI_DELETE";
+				"VDI_ATTACH";
+				"VDI_DETACH";
+				"VDI_UPDATE";
+				"VDI_CLONE";
+				"VDI_SNAPSHOT";
+				"VDI_RESIZE";
+				"VDI_GENERATE_CONFIG";
+				"VDI_RESET_ON_BOOT/2";
+			];
+			configuration = []
+		});
 	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
 	let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
 	let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
@@ -153,7 +183,7 @@ let test_ca126097 () =
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
 				~value:["mytask", `copy])
-		`clone (Some (Api_errors.vdi_in_use, []));
+		`clone None;
 
 	(* Attempting to snapshot a VDI being copied should be allowed. *)
 	run_assert_equal_with_vdi ~__context
