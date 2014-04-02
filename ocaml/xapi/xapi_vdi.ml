@@ -93,9 +93,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			in
 
 			(* If the VBD is currently_attached then some operations can still be performed ie:
+			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
 			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
 			let operation_can_be_performed_live = match op with
-			| `snapshot | `resize_online | `blocked -> true
+			| `snapshot | `resize_online | `blocked | `clone -> true
 			| _ -> false in
 
 			let operation_can_be_performed_with_ro_attach =
