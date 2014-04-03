@@ -538,11 +538,21 @@ module MD = struct
 							(fun vcpu_affinity ->
 								List.filter (fun x -> List.mem x mask) vcpu_affinity) affinity in
 			let priority =
-				try
-					let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
-					let cap = List.assoc "cap" vm.API.vM_VCPUs_params in
-					Some (int_of_string weight, int_of_string cap)
-				with _ -> None in
+				let weight =
+					let default=256 in
+					try
+						let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
+						int_of_string weight
+					with e -> error "%s" (Printexc.to_string e);
+										debug "Could not parse weight value. Setting it to default value %d." default; default in
+				let cap =
+					let default=0 in
+					try
+						let cap = List.assoc "cap" vm.API.vM_VCPUs_params in
+						int_of_string cap
+					with e -> error "%s" (Printexc.to_string e);
+										debug "Could not parse cap value. Setting it to default value %d." default; default in
+				Some ( weight , cap ) in
 			{ priority = priority; affinity = affinity } in
 
 		let platformdata =
