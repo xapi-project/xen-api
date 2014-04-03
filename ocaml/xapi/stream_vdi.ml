@@ -88,7 +88,6 @@ let made_progress __context progress n =
   end
 
 
-(** Stream a set of VDIs split into chunks in a tar format in a defined order. *)
 let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi list) = 
   TaskHelper.set_cancellable ~__context;
 
@@ -144,7 +143,7 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 
   (* The next header in the sequence *)
   let hdr = ref None in
-  let next () = hdr := (try Some(Tar.Header.get_next_header ifd) with Tar.Header.End_of_stream -> None | e -> raise e) in
+  let next () = hdr := (try Some(Tar_unix.Header.get_next_header ifd) with Tar_unix.Header.End_of_stream -> None | e -> raise e) in
   next();
   
   let recv_one ifd (__context:Context.t) (prefix, vdi_ref, size) =
@@ -156,8 +155,8 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 	   | Some hdr ->
 	       refresh_session ();
 
-	       let file_name = hdr.Tar.Header.file_name in
-	       let length = hdr.Tar.Header.file_size in
+	       let file_name = hdr.Tar_unix.Header.file_name in
+	       let length = hdr.Tar_unix.Header.file_size in
 	       if String.startswith prefix file_name then begin
 		   let suffix = String.sub file_name (String.length prefix) (String.length file_name - (String.length prefix)) in
 		   if suffix <= last_suffix then begin
@@ -165,8 +164,8 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 		       raise (Failure "Invalid XVA file")
 		     end;
 		   debug "Decompressing %Ld bytes from %s\n" length file_name;
-		   Gzip.decompress ofd (fun zcat_in -> Tar.Archive.copy_n ifd zcat_in length);
-		   Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
+		   Gzip.decompress ofd (fun zcat_in -> Tar_unix.Archive.copy_n ifd zcat_in length);
+		   Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
 		   (* XXX: this is totally wrong: *)
 		   made_progress __context progress length;
 		   next ();

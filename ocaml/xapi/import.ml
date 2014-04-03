@@ -1097,14 +1097,14 @@ let handle_all __context config rpc session_id (xs: obj list) =
 (** Read the next file in the archive as xml *)
 let read_xml hdr fd =
 	let xml_string = Bigbuffer.make () in
-	really_read_bigbuffer fd xml_string hdr.Tar.Header.file_size;
+	really_read_bigbuffer fd xml_string hdr.Tar_unix.Header.file_size;
 	Xml.parse_bigbuffer xml_string
 
 let assert_filename_is hdr =
 	let expected = Xva.xml_filename in
-	let actual = hdr.Tar.Header.file_name in
+	let actual = hdr.Tar_unix.Header.file_name in
 	if expected <> actual then begin
-		let hex = Tar.Header.to_hex in
+		let hex = Tar_unix.Header.to_hex in
 		error "import expects the next file in the stream to be [%s]; got [%s]"
 			(hex expected) (hex actual);
 		raise (IFailure (Unexpected_file(expected, actual)))
@@ -1115,19 +1115,19 @@ let assert_filename_is hdr =
     the lot through gzip and try again *)
 let with_open_archive fd ?length f =
 	(* Read the first header's worth into a buffer *)
-	let buffer = String.make Tar.Header.length ' ' in
+	let buffer = Cstruct.create Tar_unix.Header.length in
 	let retry_with_gzip = ref true in
 	try
-		really_read fd buffer 0 Tar.Header.length;
+		Tar_unix.really_read fd buffer;
 
 		(* we assume the first block is not all zeroes *)
-		let hdr = Opt.unbox (Tar.Header.unmarshal buffer) in
+		let hdr = Opt.unbox (Tar_unix.Header.unmarshal buffer) in
 		assert_filename_is hdr;
 
 		(* successfully opened uncompressed stream *)
 		retry_with_gzip := false;
 		let xml = read_xml hdr fd in
-		Tar.Archive.skip fd (Tar.Header.compute_zero_padding_length hdr);
+		Tar_unix.Archive.skip fd (Tar_unix.Header.compute_zero_padding_length hdr);
 		f xml fd
 	with e ->
 		if not(!retry_with_gzip) then raise e;
@@ -1139,19 +1139,19 @@ let with_open_archive fd ?length f =
 				(* Write the initial buffer *)
 				Unix.set_close_on_exec compressed_in;
 				debug "Writing initial buffer";
-				let (_: int) = Unix.write compressed_in buffer 0 Tar.Header.length in
+				Tar_unix.really_write compressed_in buffer;
 				let limit = (Opt.map
-					(fun x -> Int64.sub x (Int64.of_int Tar.Header.length)) length) in
+					(fun x -> Int64.sub x (Int64.of_int Tar_unix.Header.length)) length) in
 				let n = Unixext.copy_file ?limit fd compressed_in in
-				debug "Written a total of %d + %Ld bytes" Tar.Header.length n;
+				debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n;
 			) in
 		finally
 			(fun () ->
-				let hdr = Tar.Header.get_next_header pipe_out in
+				let hdr = Tar_unix.Header.get_next_header pipe_out in
 				assert_filename_is hdr;
 
 				let xml = read_xml hdr pipe_out in
-				Tar.Archive.skip pipe_out (Tar.Header.compute_zero_padding_length hdr);
+				Tar_unix.Archive.skip pipe_out (Tar_unix.Header.compute_zero_padding_length hdr);
 				f xml pipe_out)
 			(fun () ->
 				debug "Closing pipes";
@@ -1207,7 +1207,7 @@ let metadata_handler (req: Request.t) s _ =
 				(fun metadata s ->
 					debug "Got XML";
 					(* Skip trailing two zero blocks *)
-					Tar.Archive.skip s (Tar.Header.length * 2);
+					Tar_unix.Archive.skip s (Tar_unix.Header.length * 2);
 
 					let header = header_of_xmlrpc metadata in
 					assert_compatable ~__context header.version;
@@ -1369,7 +1369,6 @@ let handler (req: Request.t) s _ =
 															   point, we disable cancellation for this task. *)
 															TaskHelper.exn_if_cancelling ~__context;
 															TaskHelper.set_not_cancellable ~__context;
-															(* Allow the import of very old exports, but we don't check the checksums any more *)
 																(* return vmrefs *)
 																Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
 
@@ -1404,7 +1403,7 @@ let handler (req: Request.t) s _ =
 										error "Cannot import guest with currently attached disks which cannot be found";
 										raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
 									| Unexpected_file (expected, actual) ->
-										let hex = Tar.Header.to_hex in
+										let hex = Tar_unix.Header.to_hex in
 										error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
 										expected (hex expected) actual (hex actual);
 										raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
