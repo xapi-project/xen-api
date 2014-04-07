@@ -242,18 +242,19 @@ exception CannotUploadPatchToSlave
 (* Experiments showed that we need about twice the amount of free
    space on the filesystem as the size of the patch, which is where
    the multiplier comes from. *)
-let assert_space_available ?(multiplier=2L) required =
+let assert_space_available ?(multiplier=2L) patch_size =
 	let open Unixext in
 	ignore (Unixext.mkdir_safe patch_dir 0o755);
 	let stat = statvfs patch_dir in
 	let free_bytes =
 		(* block size times free blocks *)
 		Int64.mul stat.f_frsize stat.f_bavail in
-	if (Int64.mul multiplier required) > free_bytes
+	let really_required = Int64.mul multiplier patch_size in
+	if really_required > free_bytes
 	then
 		begin
 			warn "Not enough space on filesystem to upload patch. Required %Ld, \
-			but only %Ld available" required free_bytes;
+			but only %Ld available" really_required free_bytes;
 			raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
 		end
 
