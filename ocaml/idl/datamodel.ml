@@ -1253,7 +1253,7 @@ let session_login  = call ~flags:[]
    {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")};
    {param_type=String; param_name="originator"; param_doc="Key string for distinguishing different API users sharing the same login name."; param_release=clearwater_release; param_default=Some (VString "")}
   ]
-  ~errs:[Api_errors.session_authentication_failed]
+  ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
   ()
