@@ -41,7 +41,7 @@ def main(argv):
         if o == "-u":
             sruuid = a
 
-    if infile == None or sruuid == None:
+    if infile == None:
         usage()
 
     try:
@@ -63,7 +63,7 @@ def main(argv):
             print >> sys.stderr, "Error parsing SR tag"
             continue
         # only set attributes on the selected SR passed in on cmd line
-        if uuid == sruuid:
+        if sruuid is None or sruuid == "all" or sruuid == uuid:
             try:
                 srref = session.xenapi.SR.get_by_uuid(uuid)
                 print "Setting SR (%s):" % uuid
@@ -93,7 +93,6 @@ def main(argv):
                 except:
                     print >> sys.stderr, "Error setting VDI data for: %s (%s)" % (vdi_uuid, name_label)
                     continue
-            sys.exit(0)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
