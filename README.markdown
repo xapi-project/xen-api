@@ -4,39 +4,12 @@ Xapi Project's XenAPI Management Toolstack
 Xen API (or xapi) is a management stack that configures and controls
 Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool. Xapi exposes the Xen API interface for many
-languages and is a component of the Xen Cloud Platform (XCP) project.
+languages and is a component of the XenServer project.
 Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
 3.12.1.
 
 Xapi is the main component produced by the Linux Foundation's
 [Xapi Project](http://xenproject.org/developers/teams/xapi.html).
-
-Xen Cloud Platform
-------------------
-
-Xen Cloud Platform (XCP) is an open source enterprise-ready server
-virtualization and cloud computing platform that is based on the Xapi
-Project and the Xen Project Hypervisor. XCP provides network and
-storage support, and management tools in a single, tested installable
-image. It is essentially a custom build of a CentOS 5.7 environment.
-
-* [XCP Home](http://www.xenproject.org/products/cloudxen.html)
-
-* [XCP Downloads](http://www.xenproject.org/download/xcp/index.html)
-
-* [XCP Community](http://www.xenproject.org/products/xcp/community_and_support.html)
-
-XCP in Debian
--------------
-
-It is also possible to install an older version of Xapi in Debian
-Wheezy by doing 'apt-get install xcp-xapi'. Along with some
-configuration, this will give you a system that is roughly
-functionally equivalent to the Xen Cloud Platform distribution.
-
-We are working on getting the Xapi Project dependencies into other
-Linux distributions. Expect to soon be able to 'yum install xapi' on
-CentOS 6.4...
 
 Build and Install
 -----------------
@@ -44,20 +17,7 @@ Build and Install
 The build install instructions are currently being written. The Xapi
 Project contains a large list of dependencies and sub-projects, which
 are actually quite difficult to build independently. To build xen-api
-from source, we recommend using opam.
-
-```
-opam remote add xapi git://github.com/xapi-project/opam-repo-dev.git
-opam update
-opam install xapi
-```
-
-This will use opam to build and install xapi and xapi's dependencies
-into your home directory. You can also pin the xapi package to a local
-git clone of xen-api and use opam to build this way. A full
-description of how opam works is out of scope for this README, but
-more information can be found on
-[OCaml Pro's](http://www.ocamlpro.com/products/opam.html) website.
+from source, we recommend using [xenserver-core](https://github.com/xenserver/xenserver-core).
 
 Contributions
 -------------
