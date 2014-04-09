@@ -49,14 +49,14 @@ mgmt_ip() {
 
 ss -lnp | grep xapi | grep -q ::
 if [ $? -eq 0 ]; then
-    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f3 -d" " | grep -q "^:::"
+    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f4 -d" " | grep -q "^:::"
     if [ $? -eq 0 ]; then
         ACCEPT=:::443
     else
         ACCEPT=::1:443
     fi
 else
-    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f3 -d" " | grep -q "^*"
+    ss -lnp | grep xapi | sed -re "s/[ ]+/ /g" | cut -f4 -d" " | grep -q "^*"
     if [ $? -eq 0 ]; then
         ACCEPT=443
     else

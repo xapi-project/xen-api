@@ -22,7 +22,6 @@ echo "Executing $FILENAME"
 POOLCONF=`cat @ETCDIR@/pool.conf`
 
 service xapi stop
-service v6d stop
 service squeezed stop
 service perfmon stop
 service xenopsd stop
@@ -48,7 +47,6 @@ service xcp-rrdd-plugins start
 service xenopsd start
 service perfmon start
 service squeezed start
-service v6d start
 service xapi start
 
 rm -f $LOCKFILE
