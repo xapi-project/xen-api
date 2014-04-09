@@ -507,7 +507,8 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore
             else
               let p_len = String.length p in
               let file_name_len = String.length hdr.Tar.Header.file_name in
-              return (String.sub hdr.Tar.Header.file_name p_len (file_name_len - p_len)) ) >>= fun filename ->
+              let filename = String.sub hdr.Tar.Header.file_name p_len (file_name_len - p_len) in
+              return (Filename.basename filename)) >>= fun filename ->
         let zero = Cstruct.sub header 0 (Tar.Header.compute_zero_padding_length hdr) in
         (* either 'counter' or 'counter.checksum' *)
         if endswith ".checksum" filename then begin
