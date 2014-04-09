@@ -20,11 +20,11 @@ Project and the Xen Project Hypervisor. XCP provides network and
 storage support, and management tools in a single, tested installable
 image. It is essentially a custom build of a CentOS 5.7 environment.
 
-* [XCP Home](http://www.xen.org/products/cloudxen.html)
+* [XCP Home](http://www.xenproject.org/products/cloudxen.html)
 
-* [XCP Downloads](http://www.xen.org/download/xcp/index.html)
+* [XCP Downloads](http://www.xenproject.org/download/xcp/index.html)
 
-* [XCP Community](http://www.xen.org/products/xcp/community_and_support.html)
+* [XCP Community](http://www.xenproject.org/products/xcp/community_and_support.html)
 
 XCP in Debian
 -------------
@@ -47,7 +47,7 @@ are actually quite difficult to build independently. To build xen-api
 from source, we recommend using opam.
 
 ```
-opam remote add xapi git://github.com/xen-org/opam-repo-dev.git
+opam remote add xapi git://github.com/xapi-project/opam-repo-dev.git
 opam update
 opam install xapi
 ```
@@ -65,7 +65,7 @@ Contributions
 To contribute patches to xen-api, please fork the repository on
 Github, and then submit a pull request. If for some reason you can't
 use Github to submit a pull request, then you may send your patch for
-review to the xen-api@list.xen.org mailing list, with a link to a
+review to the [xen-api@lists.xenproject.org mailing list](http://www.xenproject.org/help/mailing-list.html), with a link to a
 public git repository for review. We much prefer Github pull requests,
 however, and submitting a patch to the mailing list will take much
 more time for review.
@@ -87,7 +87,7 @@ This is a short list of people who currently maintain this project.
 * Zheng Li <zheng.li@citrix.com>
 
 You can usually find the developers hanging out in #xen-api on
-freenode. We are also reachable on the xen-api@list.xen.org mailing
+freenode. We are also reachable on the xen-api@lists.xenproject.org mailing
 list.
 
 Licensing
