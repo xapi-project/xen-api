@@ -695,10 +695,11 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 			  let cur_mem = cur_mem_ds.ds_value in
 			  cur_mem <> old_mem
 			with _ -> true end in
-		  if changed then
-			let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
-			if (Db.VM.get_resident_on ~__context ~self:vm_ref = Helpers.get_localhost ~__context)
-			then dirty_memory := StringSet.add vm_uuid !dirty_memory;
+			if changed then begin
+				let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
+				if (Db.VM.get_resident_on ~__context ~self:vm_ref = Helpers.get_localhost ~__context)
+				then dirty_memory := StringSet.add vm_uuid !dirty_memory
+			end;
 		  
 		  (* Now update the rras/dss *)
 			Rrd.ds_update_named rrd timestamp (domid <> rrdi.domid)
