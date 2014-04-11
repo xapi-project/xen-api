@@ -249,6 +249,7 @@ val update_snapshot_metadata :
 val create_new_blob :
   __context:Context.t ->
   vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+val mark_vm_metrics_as_dirty : __context:Context.t -> vm:API.ref_VM -> unit
 
 (** {2 Experimental support for S3 suspend/ resume} *)
 
