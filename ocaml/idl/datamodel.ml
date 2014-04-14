@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 82
+let schema_minor_vsn = 81
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -54,12 +54,15 @@ let vgpu_tech_preview_release_schema_minor_vsn = 68
 let vgpu_productisation_release_schema_major_vsn = 5
 let vgpu_productisation_release_schema_minor_vsn = 69
 
+let clearwater_felton_release_schema_major_vsn = 5
+let clearwater_felton_release_schema_minor_vsn = 70
+
 let augusta_release_schema_major_vsn = 5
 let augusta_release_schema_minor_vsn = 81
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = clearwater_release_schema_major_vsn
-let last_release_schema_minor_vsn = clearwater_release_schema_minor_vsn
+let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
+let last_release_schema_minor_vsn = clearwater_felton_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -179,6 +182,12 @@ let get_product_releases in_product_since =
 
 let augusta_release =
 	{ internal = get_product_releases rel_augusta
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let clearwater_felton_release =
+	{ internal=get_product_releases rel_clearwater_felton
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -2985,13 +2994,13 @@ let vdi_copy = call
   ~lifecycle:[
 	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
 	Extended, rel_cowley, "The copy can now be performed between any two SRs.";
-	Extended, rel_clearwater, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
+	Extended, rel_clearwater_felton, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
   ~in_oss_since:None
   ~versioned_params:
   [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
-   {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=clearwater_release; param_default=Some (VString Ref.(string_of null))};
-   {param_type=Ref _vdi; param_name="base_vdi"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=clearwater_release; param_default=Some (VRef Ref.(string_of null))};
-   {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_release; param_default=Some (VString Ref.(string_of null))};
+   {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=rio_release; param_default=Some (VString Ref.(string_of null))};
+   {param_type=Ref _vdi; param_name="base_vdi"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=clearwater_felton_release; param_default=Some (VRef Ref.(string_of null))};
+   {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_felton_release; param_default=Some (VString Ref.(string_of null))};
   ]
   ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
   ~errs:[Api_errors.vdi_readonly; Api_errors.vdi_too_small; Api_errors.vdi_not_sparse]
