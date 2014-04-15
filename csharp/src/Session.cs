@@ -278,29 +278,6 @@ namespace XenAPI
             }
         }
 
-        public void login_with_password(string username, string password, string version, string originator)
-        {
-            try
-            {
-                _uuid = proxy.session_login_with_password(username, password, version, originator).parse();
-                SetAPIVersion();
-                if (APIVersion >= API_Version.API_1_6)
-                    SetADDetails();
-            }
-            catch (Failure exn)
-            {
-                if (exn.ErrorDescription[0] == Failure.MESSAGE_PARAMETER_COUNT_MISMATCH)
-                {
-                    // Call the pre-2.0 version instead.
-                    login_with_password(username, password, version);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
         public void login_with_password(string username, string password, API_Version version)
         {
             login_with_password(username, password, Helper.APIVersionString(version));

@@ -384,6 +384,7 @@ let field_default = function
   | Float         -> "0.0"
   | Bool          -> "false"
   | DateTime      -> "new Date(0)"
+  | Enum("vif_locking_mode", _) -> "Types.VifLockingMode.NETWORK_DEFAULT"  (* XOP-372 *)
   | Enum(name, _) -> sprintf "Types.%s.UNRECOGNIZED" (class_case name)
   | Set(t1)       -> sprintf "new LinkedHashSet<%s>()" (get_java_type t1)
   | Map(t1, t2)   -> sprintf "new HashMap<%s, %s>()" (get_java_type t1) (get_java_type t2)
