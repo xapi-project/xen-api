@@ -35,7 +35,6 @@ let simulate = ref false
 let persist = ref true
 let daemon = ref false
 let worker_pool_size = ref 4
-let default_vbd_backend_kind = ref "vbd"
 
 let config_spec = [
 	"pidfile", Config.Set_string pidfile;
@@ -53,7 +52,7 @@ let config_spec = [
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
 		);
 	"worker-pool-size", Config.Set_int worker_pool_size;
-	"default-vbd-backend-kind", Config.Set_string default_vbd_backend_kind;
+	"default-vbd-backend-kind", Config.Set_string Xenops_utils.default_vbd_backend_kind;
 	"database-path", Config.Set_string Xenops_utils.root;
 ]
 
