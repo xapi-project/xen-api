@@ -505,7 +505,7 @@ let device_by_id xc xs vm kind domain_selection id =
 			debug "VM = %s; does not exist in domain list" vm;
 			raise (Does_not_exist("domain", vm))
 		| Some frontend_domid ->
-			let devices = Device_common.list_devices ~xs frontend_domid in
+			let devices = Device_common.list_frontends ~xs frontend_domid in
 
 			let key = _device_id kind in
 			let id_of_device device =
