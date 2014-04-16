@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 70
+let schema_minor_vsn = 71
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -56,6 +56,9 @@ let vgpu_productisation_release_schema_minor_vsn = 69
 
 let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
+
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 71
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
@@ -176,6 +179,12 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
+
+let creedence_release =
+	{ internal = get_product_releases rel_creedence
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
 
 let clearwater_felton_release =
 	{ internal=get_product_releases rel_clearwater_felton
