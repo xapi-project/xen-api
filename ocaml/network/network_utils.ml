@@ -219,6 +219,42 @@ module Ip = struct
 			Some (ip, prefixlen)
 		with Not_found -> None
 
+	(* see http://en.wikipedia.org/wiki/IPv6_address#Modified_EUI-64 *)
+	let get_ipv6_interface_id dev =
+		let mac = get_mac dev in
+		let bytes = List.map (fun byte -> int_of_string ("0x" ^ byte)) (String.split ':' mac) in
+		let rec modified_bytes ac i = function
+			| [] ->
+				ac
+			| head :: tail ->
+				if i = 0 then
+					let head' = head lxor 2 in
+					modified_bytes (head' :: ac) 1 tail
+				else if i = 2 then
+					modified_bytes (254 :: 255 :: head :: ac) 3 tail
+				else
+					modified_bytes (head :: ac) (i + 1) tail
+		in
+		let bytes' = List.rev (modified_bytes [] 0 bytes) in
+		[0; 0; 0; 0; 0; 0; 0; 0] @ bytes'
+
+	let get_ipv6_link_local_addr dev =
+		let id = get_ipv6_interface_id dev in
+		let link_local = 0xfe :: 0x80 :: (List.tl (List.tl id)) in
+		let rec to_string ac i = function
+			| [] -> ac
+			| hd :: tl ->
+				let separator =
+					if i = 0 || i mod 2 = 1 then
+						""
+					else
+						":"
+				in
+				let ac' = ac ^ separator ^ Printf.sprintf "%02x" hd in
+				to_string ac' (i + 1) tl
+		in
+		to_string "" 0 link_local ^ "/64"
+
 	let get_ipv4 dev =
 		let addrs = addr dev "inet" in
 		List.filter_map split_addr addrs
@@ -239,13 +275,16 @@ module Ip = struct
 			ignore (call ~log:true (["addr"; "add"; addr; "dev"; dev] @ broadcast))
 		with _ -> ()
 
+	let set_ipv6_link_local_addr dev =
+		let addr = get_ipv6_link_local_addr dev in
+		try
+			ignore (call ~log:true ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+		with _ -> ()
+
 	let flush_ip_addr ?(ipv6=false) dev =
 		try
-			if ipv6 then begin
-				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "global"]);
-				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "site"])
-			end else
-				ignore (call ~log:true ["-4"; "addr"; "flush"; "dev"; dev])
+			let mode = if ipv6 then "-6" else "-4" in
+			ignore (call ~log:true [mode; "addr"; "flush"; "dev"; dev])
 		with _ -> ()
 
 	let route_show ?(version=V46) dev =
