@@ -48,6 +48,7 @@ let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
+let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -437,6 +438,15 @@ let set_vgpu_types = {
 			vgpus;
 }
 
+let add_default_pif_properties = {
+	description = "Adding default PIF properties";
+	version = (fun x -> x < creedence);
+	fn = fun ~__context ->
+		List.iter
+			(fun self -> Xapi_pif.set_default_properties ~__context ~self)
+			(Db.PIF.get_all ~__context)
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -455,6 +465,7 @@ let rules = [
 	remove_vmpp;
 	populate_pgpu_vgpu_types;
 	set_vgpu_types;
+	add_default_pif_properties;
 ]
 
 (* Maybe upgrade most recent db *)

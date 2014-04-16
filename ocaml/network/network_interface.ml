@@ -119,7 +119,7 @@ let default_interface = {
 	dns = [], [];
 	mtu = 1500;
 	ethtool_settings = [];
-	ethtool_offload = ["gro", "off"; "lro", "off"];
+	ethtool_offload = ["lro", "off"];
 	persistent_i = false;
 }
 let default_bridge = {
