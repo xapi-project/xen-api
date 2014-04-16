@@ -57,6 +57,9 @@ let vgpu_productisation_release_schema_minor_vsn = 69
 let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
 
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 71
+
 let augusta_release_schema_major_vsn = 5
 let augusta_release_schema_minor_vsn = 81
 
@@ -182,6 +185,12 @@ let get_product_releases in_product_since =
 
 let augusta_release =
 	{ internal = get_product_releases rel_augusta
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let creedence_release =
+	{ internal = get_product_releases rel_creedence
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
