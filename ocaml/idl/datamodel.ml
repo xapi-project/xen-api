@@ -54,12 +54,12 @@ let vgpu_tech_preview_release_schema_minor_vsn = 68
 let vgpu_productisation_release_schema_major_vsn = 5
 let vgpu_productisation_release_schema_minor_vsn = 69
 
-let clearwater_felton_release_major_vsn = 5
-let clearwater_felton_release_minor_vsn = 70
+let clearwater_felton_release_schema_major_vsn = 5
+let clearwater_felton_release_schema_minor_vsn = 70
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = vgpu_productisation_release_schema_major_vsn
-let last_release_schema_minor_vsn = vgpu_productisation_release_schema_minor_vsn
+let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
+let last_release_schema_minor_vsn = clearwater_felton_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
