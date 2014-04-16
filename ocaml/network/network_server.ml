@@ -102,7 +102,9 @@ module Interface = struct
 
 	let get_mac _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			Ip.get_mac name
+			match Linux_bonding.get_bond_master_of name with
+			| Some master -> Proc.get_bond_slave_mac master name
+			| None -> Ip.get_mac name
 		) ()
 
 	let is_up _ dbg ~name =
