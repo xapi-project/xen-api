@@ -280,7 +280,7 @@ let pool_joining_host_must_have_physical_managment_nic = "POOL_JOINING_HOST_MUST
 let pool_joining_external_auth_mismatch = "POOL_JOINING_EXTERNAL_AUTH_MISMATCH"
 let pool_joining_host_must_have_same_product_version = "POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION"
 
-(* workload balancing, deprecated since Clearwater *)
+(*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
 let wlb_disabled = "WLB_DISABLED"
 let wlb_connection_refused = "WLB_CONNECTION_REFUSED"

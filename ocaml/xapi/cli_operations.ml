@@ -3013,13 +3013,26 @@ let pool_retrieve_wlb_report fd printer rpc session_id params =
 			(fun (k, _) -> not (List.mem k (["report"; "filename"] @ stdparams)))
 			params
 	in
-	ignore (report, filename, other_params);
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_report_uri
+		(Printf.sprintf
+			"report=%s%s%s"
+			(Http.urlencode report)
+			(if List.length other_params = 0 then "" else "&")
+			(String.concat "&"
+				(List.map (fun (k, v) ->
+					(Printf.sprintf "%s=%s"
+						(Http.urlencode k)
+						(Http.urlencode v))) other_params)))
+		"Report generation"
+        (Printf.sprintf "WLB report: %s" report)
 
 let pool_retrieve_wlb_diagnostics fd printer rpc session_id params =
 	let filename = List.assoc_default "filename" params "" in
-	ignore filename;
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_diagnostics_uri ""
+		"WLB diagnostics download"
+    	"WLB diagnostics download"
 
 let vm_import fd printer rpc session_id params =
 	let sr =

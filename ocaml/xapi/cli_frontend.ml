@@ -267,7 +267,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Initialize workload balancing for the current pool with the target wlb server";
       implementation=No_fd Cli_operations.pool_initialize_wlb;
-      flags=[Hidden];
+      flags=[];
     };
     
     "pool-deconfigure-wlb",
@@ -276,7 +276,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Permanently remove the configuration for workload balancing";
       implementation=No_fd Cli_operations.pool_deconfigure_wlb;
-      flags=[Hidden];
+      flags=[];
     };
     
     "pool-send-wlb-configuration",
@@ -285,7 +285,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=["config:"];
       help="Sets the pool optimization criteria for the workload balancing server";
       implementation=No_fd Cli_operations.pool_send_wlb_configuration;
-      flags=[Hidden];
+      flags=[];
     };
     
     "pool-retrieve-wlb-configuration",
@@ -294,7 +294,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Retrieves the pool optimization criteria from the workload balancing server";
       implementation=No_fd Cli_operations.pool_retrieve_wlb_configuration;
-      flags=[Hidden];
+      flags=[];
     };
     
     "pool-retrieve-wlb-recommendations",
@@ -303,7 +303,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Retrieves vm migrate recommendations for the pool from the workload balancing server";
       implementation=No_fd Cli_operations.pool_retrieve_wlb_recommendations;
-      flags=[Hidden];
+      flags=[];
     };
 
     "pool-retrieve-wlb-report",
@@ -312,7 +312,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=["filename"];
       help="";
       implementation=With_fd Cli_operations.pool_retrieve_wlb_report;
-      flags=[Hidden; Neverforward];
+      flags=[Neverforward];
     };
     
     "pool-retrieve-wlb-diagnostics",
@@ -321,7 +321,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=["filename"];
       help="";
       implementation=With_fd Cli_operations.pool_retrieve_wlb_diagnostics;
-      flags=[Hidden; Neverforward];
+      flags=[Neverforward];
     };
     
     "pool-send-test-post",
@@ -1168,7 +1168,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Retrieve the workload balancing recommendations for the selected VM.";
       implementation=No_fd Cli_operations.vm_retrieve_wlb_recommendations;
-      flags=[Hidden; Vm_selectors];
+      flags=[Vm_selectors];
     };
 
    "vm-migrate",
