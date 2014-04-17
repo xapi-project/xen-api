@@ -43,7 +43,7 @@ let get_cached_pci_db () =
 	match !pci_db_cache with
 	| Some pci_db -> pci_db
 	| None ->
-		let pci_db = Pci_db.of_file Pci_db.base_pci_ids_path in
+		let pci_db = Pci_db.of_file "ocaml/test/data/base-pci.ids" in
 		pci_db_cache := Some pci_db;
 		pci_db
 
@@ -73,54 +73,54 @@ module ParseLspciLine = Generic.Make(struct
 	(* n.b. these tests might start failing if the copy of pci.ids in the chroot
 	 * changes. *)
 	let tests = [
-		(* Test that a display device present in pci.ids and with subdevice and
+		(* Test that a device present in pci.ids and with subdevice and
 		 * subvendor IDs can be parsed. *)
-		"0000:44:00.0 \"0300\" \"10de\" \"014e\" -ra1 \"10de\" \"100a\"",
+		"0000:44:00.0 \"0001\" \"0003\" \"0001\" -ra1 \"0001\" \"0002\"",
 		Xapi_pci_helpers.({
 			id = "0000:44:00.0";
-			vendor_id = 0x10deL;
-			vendor_name = "NVIDIA Corporation";
-			device_id = 0x014eL;
-			device_name = "NV43GL [Quadro FX 540]";
-			class_id = 0x03L;
-			class_name = "Display controller";
+			vendor_id = 0x0003L;
+			vendor_name = "SimpleVendorName3";
+			device_id = 0x0001L;
+			device_name = "SimpleDeviceName-3-1";
+			class_id = 0x00L;
+			class_name = "Class Name";
 			related = []
 		});
-		(* Test that a display device present in pci.ids without subdevice or
+		(* Test that a device present in pci.ids without subdevice or
 		 * subvendor IDs can be parsed. *)
-		"0000:44:00.0 \"0300\" \"10de\" \"014e\" -ra1 \"\" \"\"",
+		"0000:45:00.0 \"0001\" \"0003\" \"0001\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
-			vendor_id = 0x10deL;
-			vendor_name = "NVIDIA Corporation";
-			device_id = 0x014eL;
-			device_name = "NV43GL [Quadro FX 540]";
-			class_id = 0x03L;
-			class_name = "Display controller";
+			id = "0000:45:00.0";
+			vendor_id = 0x0003L;
+			vendor_name = "SimpleVendorName3";
+			device_id = 0x0001L;
+			device_name = "SimpleDeviceName-3-1";
+			class_id = 0x00L;
+			class_name = "Class Name";
 			related = []
 		});
-		(* Test that a display device not preset in pci.ids can be parsed. *)
-		"0000:44:00.0 \"0300\" \"0055\" \"abcd\" -ra1 \"\" \"\"",
+		(* Test that a device not preset in pci.ids can be parsed. *)
+		"0000:46:00.0 \"0001\" \"0055\" \"abcd\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
+			id = "0000:46:00.0";
 			vendor_id = 0x0055L;
 			vendor_name = "Unknown (0055)";
 			device_id = 0xabcdL;
 			device_name = "Unknown (abcd)";
-			class_id = 0x03L;
-			class_name = "Display controller";
+			class_id = 0x00L;
+			class_name = "Class Name";
 			related = [];
 		});
 		(* Test that an unknown device from a known vendor can be parsed. *)
-		"0000:44:00.0 \"0300\" \"10de\" \"abcd\" -ra1 \"\" \"\"",
+		"0000:47:00.0 \"0001\" \"0003\" \"abcd\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
-			vendor_id = 0x10deL;
-			vendor_name = "NVIDIA Corporation";
+			id = "0000:47:00.0";
+			vendor_id = 0x0003L;
+			vendor_name = "SimpleVendorName3";
 			device_id = 0xabcdL;
 			device_name = "Unknown (abcd)";
-			class_id = 0x03L;
-			class_name = "Display controller";
+			class_id = 0x00L;
+			class_name = "Class Name";
 			related = [];
 		});
 	]
