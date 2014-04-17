@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 921e918d453eeff1a73d515c84aadf52)
+version = "0.10.5"
+description = "Xen host memory ballooning daemon"
+requires = "stdext re re.str xcp threads"
+archive(byte) = "squeeze.cma"
+archive(byte, plugin) = "squeeze.cma"
+archive(native) = "squeeze.cmxa"
+archive(native, plugin) = "squeeze.cmxs"
+exists_if = "squeeze.cma"
+# OASIS_STOP
+
