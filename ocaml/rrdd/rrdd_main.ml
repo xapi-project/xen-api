@@ -394,14 +394,14 @@ let update_vbds doms =
 			!vals
 		with _ -> !vals
 	in
-	let xenbackdir = "/sys/devices/xen-backend" in
-	let dirs = Array.to_list (Sys.readdir xenbackdir) in
+	let sysfs_devices_dir = "/sys/devices/" in
+	let dirs = Array.to_list (Sys.readdir sysfs_devices_dir) in
 	let vbds =
 		List.filter
 			(fun s -> String.startswith "vbd-" s || String.startswith "tap-" s) dirs in
 	List.fold_left (fun acc vbd ->
 		let istap = String.startswith "tap-" vbd in
-		let statdir = Printf.sprintf "%s/%s/statistics/" xenbackdir vbd in
+		let statdir = Printf.sprintf "%s/%s/statistics/" sysfs_devices_dir vbd in
 		let blksize = 512L in
 		let rd_file = statdir ^ "rd_sect" in
 		let wr_file = statdir ^ "wr_sect" in
