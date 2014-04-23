@@ -19,6 +19,8 @@ exception Stunnel_verify_error of string
 val certificate_path : string
 val crl_path : string
 
+val timeoutidle : int option ref
+
 type pid =
   | StdFork of int (** we forked and exec'ed. This is the pid *)
   | FEFork of Forkhelpers.pidty (** the forkhelpers module did it for us. *)
