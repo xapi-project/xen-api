@@ -367,10 +367,13 @@ module MD = struct
 				None in
 
 		let backend_kind_keys =
-			let oc = Db.VDI.get_other_config ~__context ~self:vbd.API.vBD_VDI in
+			let vdi_ref = vbd.API.vBD_VDI in
+			let sc = Db.VDI.get_sm_config ~__context ~self:vdi_ref in
+			let oc = Db.VDI.get_other_config ~__context ~self:vdi_ref in
 			let k = Xapi_globs.vbd_backend_key in
 			try
-				let v = List.assoc k oc in
+				(* we want other_config to take precedence over sm_config *)
+				let v = List.assoc k (List.rev_append oc sc) in
 				[(k, v)]
 			with Not_found -> []
 		in
