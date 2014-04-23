@@ -31,7 +31,6 @@ let allowed_gpg_checksum = [
 	"da75ecb57ff12b2573f44466d36f395e"; (* centos64 version *)
 	"f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
 	"aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
-	"044d1327ea42400ac590195e0ec1e7e6";
 ]
 
 exception InvalidSignature
