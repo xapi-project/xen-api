@@ -121,13 +121,10 @@ let update_pcis ~__context ~host =
 	List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete
 
 let get_system_display_device () =
-	let device = "/dev/vga_arbiter" in
 	try
-		let line =
-			Unixext.with_input_channel
-				device
-				(fun chan -> input_line chan)
-		in
+		let device = Unix.openfile "/dev/vga_arbiter" [Unix.O_RDONLY] 0o000 in
+		let data = Unixext.try_read_string ~limit:1024 device in
+		let line = List.hd (String.split ~limit:2 '\n' data) in
 		(* Example contents of line:
 		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
 		let items = String.split ',' line in
