@@ -26,8 +26,10 @@ let gpg_binary_path = "/usr/bin/gpg"
 let gpg_homedir = Filename.concat Fhs.optdir "gpg/"
 let gpg_pub_keyring = gpg_homedir ^ "pubring.gpg"
 let allowed_gpg_checksum = [
+	(* 32-bit gpg checksums. *)
 	"be00ee82bffad791edfba477508d5d84"; (* centos52 version *)
 	"a267af68c53f5d998b982235bbccb01e"; (* centos53/54 version *)
+	(* Ancient gpg checksums. *)
 	"f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
 	"aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
 ]
