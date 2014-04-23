@@ -412,7 +412,7 @@ module Mem = struct
 	let retry f =
 		let start = Unix.gettimeofday () in
 		let interval = 10. in
-		let timeout = 0. in
+		let timeout = 60. in
 		let rec loop () =
 			try
 				f ()
@@ -1775,7 +1775,9 @@ module VBD = struct
 					Opt.iter
 						(fun device ->
 							if force && (not (Device.can_surprise_remove ~xs device))
-							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							then debug
+								"VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
+								vm (id_of vbd); (* this happens on normal shutdown too *)
 							(* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);

@@ -91,6 +91,7 @@ _xe()
                 case "${OLDSTYLE_WORDS[1]}" in
                     diagnostic-vm-status) cmd=vm-list;;
                     diagnostic-vdi-status) cmd=vdi-list;;
+                    host-cpu-info) cmd=host-list;;
                     *) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ || /^vgpu-type-/ { print $1 "-" $2 }
                         $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ && $0 !~ /^vgpu-type-/ { print $1 }'`-list;;
                 esac
