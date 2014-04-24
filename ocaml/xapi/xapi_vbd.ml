@@ -100,9 +100,9 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
            ~other_config ~qos_algorithm_type ~qos_algorithm_params =
 
 	if not empty then begin
-	  let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
-	  if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata])
-	  then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))
+		let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
+		if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata])
+		then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))
 	end;
 
 	(* All "CD" VBDs must be readonly *)
@@ -120,62 +120,62 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI
 	then raise (Api_errors.Server_error(Api_errors.vdi_readonly, [ Ref.string_of vDI ]));
 
-        (* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
-        debug "Checking whether there's a migrate in progress...";
-        let vm_current_ops = Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vM)) in
-        let migrate_ops = [ `migrate_send; `pool_migrate ] in
-        let migrate_ops_in_progress = List.filter (fun op -> List.mem op vm_current_ops) migrate_ops in
-        match migrate_ops_in_progress with
-        | op::_ ->
-            raise
-            (Api_errors.Server_error(Api_errors.other_operation_in_progress, [
-              "VM"; Ref.string_of vM; Record_util.vm_operation_to_string op ]));
-        | _ ->
+	(* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
+	debug "Checking whether there's a migrate in progress...";
+	let vm_current_ops = Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vM)) in
+	let migrate_ops = [ `migrate_send; `pool_migrate ] in
+	let migrate_ops_in_progress = List.filter (fun op -> List.mem op vm_current_ops) migrate_ops in
+	match migrate_ops_in_progress with
+	| op::_ ->
+		raise (Api_errors.Server_error(
+			Api_errors.other_operation_in_progress,
+			[ "VM"; Ref.string_of vM; Record_util.vm_operation_to_string op ]));
+	| _ ->
 
-	Mutex.execute autodetect_mutex
-	  (fun () ->
-	     let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
+	Mutex.execute autodetect_mutex (fun () ->
+		let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
 
-             if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
-               raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
+		if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
+			raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
 
-	     (* Resolve the "autodetect" into a fixed device name now *)
-	     let userdevice = if userdevice = "autodetect"
-	     then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
-	     else userdevice in
+		(* Resolve the "autodetect" into a fixed device name now *)
+		let userdevice =
+			if userdevice = "autodetect"
+			then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
+			else userdevice
+		in
 
-	     let uuid = Uuid.make_uuid () in
-	     let ref = Ref.make () in
-	     debug "VBD.create (device = %s; uuid = %s; ref = %s)"
-	       userdevice (Uuid.string_of_uuid uuid) (Ref.string_of ref);
+		let uuid = Uuid.make_uuid () in
+		let ref = Ref.make () in
+		debug "VBD.create (device = %s; uuid = %s; ref = %s)"
+			userdevice (Uuid.string_of_uuid uuid) (Ref.string_of ref);
 
-	     (* Check that the device is definitely unique. If the requested device is numerical
-		    (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
-		    all possible clashes. *)
-		 let userdevices = Xapi_vm_helpers.possible_VBD_devices_of_string userdevice in
-		 let existing_devices = Xapi_vm_helpers.all_used_VBD_devices ~__context ~self:vM in
-		 if Listext.List.intersect userdevices existing_devices <> []
-	     then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
+		(* Check that the device is definitely unique. If the requested device is numerical
+		   (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
+		   all possible clashes. *)
+		let userdevices = Xapi_vm_helpers.possible_VBD_devices_of_string userdevice in
+		let existing_devices = Xapi_vm_helpers.all_used_VBD_devices ~__context ~self:vM in
+		if Listext.List.intersect userdevices existing_devices <> []
+		then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
 
-	     (* Make people aware that non-shared disks make VMs not agile *)
-	     if not empty then assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI;
+		(* Make people aware that non-shared disks make VMs not agile *)
+		if not empty then assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI;
 
-	     let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	     Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-	       ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
-	       ~other_config:[];
+		let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+		Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+			~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
+			~other_config:[];
 
-	     Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
-	       ~current_operations:[] ~allowed_operations:[] ~storage_lock:false
-	       ~vM ~vDI ~userdevice ~device:"" ~bootable ~mode ~_type ~unpluggable ~empty ~reserved:false
-	       ~qos_algorithm_type ~qos_algorithm_params ~qos_supported_algorithms:[]
-	       ~currently_attached:false
-	       ~status_code:Int64.zero ~status_detail:""
-               ~runtime_properties:[] ~other_config
-	       ~metrics;
-	     update_allowed_operations ~__context ~self:ref;
-	     ref
-	  )
+		Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
+			~current_operations:[] ~allowed_operations:[] ~storage_lock:false
+			~vM ~vDI ~userdevice ~device:"" ~bootable ~mode ~_type ~unpluggable
+			~empty ~reserved:false ~qos_algorithm_type ~qos_algorithm_params
+			~qos_supported_algorithms:[] ~currently_attached:false
+			~status_code:Int64.zero ~status_detail:"" ~runtime_properties:[]
+			~other_config ~metrics;
+		update_allowed_operations ~__context ~self:ref;
+		ref
+	)
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
