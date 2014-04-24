@@ -56,6 +56,7 @@ Compiling from source
 ---------------------
 
 To build, simply type "make" in the libxenserver/src directory.
+To build on Windows with cygwin type "make CYGWIN=1"
 
 To run any of the tests, for example the test_vm_ops, do
 

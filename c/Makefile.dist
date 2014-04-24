@@ -25,19 +25,29 @@
 # HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-# OF THE POSSIBILITY OF SUCH DAMAGE
+# OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
 DESTDIR=/usr/local
 
-CFLAGS = -g -Iinclude                     \
+ifeq ($(CYGWIN), 1)
+	CYGWIN_LIBXML = -L/bin -lxml2-2
+	CYGWIN_CURL = -L/bin -lcurl-4
+	POS_FLAG = -U__STRICT_ANSI__
+	TEST_LDFLAGS = -L . lib@LIB_NAME@.so $(CYGWIN_CURL)
+else
+	POS_FLAG = -fPIC
+	TEST_LDFLAGS = -L . -l@LIB_NAME@
+endif
+
+CFLAGS = -g -Iinclude \
          $(shell xml2-config --cflags) \
          $(shell curl-config --cflags) \
-         -W -Wall -Wmissing-prototypes -Werror -std=c99 -fPIC
+         -W -Wall -Wmissing-prototypes -Werror -std=c99 $(POS_FLAG)
 
 LDFLAGS = -g $(shell xml2-config --libs) \
-          $(shell curl-config --libs) \
-	  -Wl,-rpath,$(shell pwd)
+             $(shell curl-config --libs) \
+          -Wl,-rpath,$(shell pwd) $(CYGWIN_LIBXML)
 
 # -h for Solaris
 SONAME_LDFLAG ?= -soname
@@ -72,7 +82,7 @@ lib@LIB_NAME@.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs lib@LIB_NAME@.a $^
 
 $(TEST_PROGRAMS): test/%: test/%.o lib@LIB_NAME@.so
-	$(CC) -o $@ $< -L . -l@LIB_NAME@ $(LDFLAGS)
+	$(CC) -o $@ $< $(TEST_LDFLAGS) $(LDFLAGS)
 
 
 .PHONY: install
@@ -112,10 +122,13 @@ $(TARBALL_DEST).tar.bz2: all
 
 
 .PHONY: clean
-clean:
+clean: cleantests
 	rm -f `find -name *.o`
 	rm -f lib@LIB_NAME@.so*
 	rm -f lib@LIB_NAME@.a
+
+.PHONY: cleantests
+cleantests:
 	rm -f $(TEST_PROGRAMS)
 
 
