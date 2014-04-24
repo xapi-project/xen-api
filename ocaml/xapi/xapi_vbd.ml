@@ -166,6 +166,16 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 			~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
 			~other_config:[];
 
+		(* Enable the SM driver to specify a VBD backend kind for the VDI *)
+		let other_config =
+			let vdi_sc = Db.VDI.get_sm_config ~__context ~self:vDI in
+			let k = Xapi_globs.vbd_backend_key in
+			try
+				let v = List.assoc k vdi_sc in
+				(k, v) :: other_config
+			with Not_found -> other_config
+		in
+
 		Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
 			~current_operations:[] ~allowed_operations:[] ~storage_lock:false
 			~vM ~vDI ~userdevice ~device:"" ~bootable ~mode ~_type ~unpluggable
