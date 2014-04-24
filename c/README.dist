@@ -6,6 +6,9 @@ Version @SDK_VERSION@
 libxenserver is a complete SDK for Citrix XenServer, exposing the XenServer
 API to C programmers.
 
+It is available in the XenServer-SDK-6.4.90.zip, which can be downloaded
+from http://www.citrix.com/downloads/xenserver/.
+
 For XenServer documentation, see http://docs.xensource.com. 
 libxenserver includes a C function call for each XenServer API call, so API
 documentation and examples written for for other languages can be easily
@@ -18,15 +21,11 @@ to understand the approach to error reporting and memory management taken
 by this library.
 
 For community content, blogs, and downloads, visit the XenServer Developer
-Network at http://community.citrix.com/cdn/xs.
+Network at https://www.citrix.com/community.html.
 
 libxenserver is free sofware. You can redistribute and modify it under the
 terms of the BSD license. See COPYING for details.
 
-This library may be accompanied by pedagogical examples. These do not form
-part of this library, and are licensed for redistribution and modification
-under the BSD license. Such examples are licensed clearly at the top
-of each file.
 
 Dependencies
 ------------
@@ -44,23 +43,19 @@ prefer.
 On Debian, these are packaged as libxml2-dev and libcurl3-dev.
 
 
-Downloads
----------
+Folder structure
+----------------
 
-libxenserver is available in the XenServer-SDK-@SDK_VERSION@.zip in two separate
-folders, one for the compiled binaries, and one for the source code.
-The binaries are compiled for the XenServer SDK virtual machine, and we
-recommend compiling from source if you wish to use the library in a
-different environment.
-
-The XenServer-SDK-@SDK_VERSION@.zip is available from
-http://www.citrix.com/downloads/xenserver/.
+libxenserver consists of two separate folders:
+- libxenserver/bin: contains the compiled binaries
+- libxenserver/src: contains the source code and tests; the tests can also
+be used as pedagogical examples.
 
 
-Compiling from Source
+Compiling from source
 ---------------------
 
-To build, simply type "make" in the libxenserver directory.
+To build, simply type "make" in the libxenserver/src directory.
 
 To run any of the tests, for example the test_vm_ops, do
 
@@ -68,5 +63,5 @@ To run any of the tests, for example the test_vm_ops, do
 
 The <url> should be of the form: https://hostname.domain/
 
-You can obtain a suitable <sr-name> by typing in "xe sr-list" on the host, e.g.:
+You can obtain a suitable <sr-name> by typing in "xe sr-list" on the host, e.g.
 "Auto-created spanning LVM SR on /dev/sda3"
