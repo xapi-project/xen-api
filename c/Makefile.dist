@@ -28,8 +28,7 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE
 #
 
-MAJOR = @LIB_MAJOR@
-MINOR = @LIB_MINOR@
+DESTDIR=/usr/local
 
 CFLAGS = -g -Iinclude                     \
          $(shell xml2-config --cflags) \
@@ -42,34 +41,32 @@ LDFLAGS = -g $(shell xml2-config --libs) \
 
 # -h for Solaris
 SONAME_LDFLAG ?= -soname
-# -R /usr/sfw/$(LIBDIR) -shared for Solaris
+# -R /usr/sfw/lib -shared for Solaris
 SHLIB_CFLAGS ?= -shared
 
 # ginstall for Solaris
-INSTALL      = install
-INSTALL_DIR  = $(INSTALL) -d -m0755 -p
-INSTALL_DATA = $(INSTALL) -m0644 -p
+INSTALL_DIR  = install -d -m0755 -p
+INSTALL_DATA = install -m0644 -p
 
-LIBXENAPI_HDRS = $(wildcard include/*.h)
+LIBXENAPI_HDRS_INT = $(wildcard include/*.h)
+LIBXENAPI_HDRS = $(wildcard include/xen/api/*.h)
 LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 
-TEST_PROGRAMS = test/test_vm_ops test/test_event_handling \
-                test/test_failures test/test_vm_async_migrate \
-                test/test_enumerate test/test_get_records
+TEST_PROGRAMS = $(patsubst %.c, %, $(wildcard test/*.c))
 
-TARBALL_DEST = lib@LIB_NAME@-$(MAJOR).$(MINOR)
+TARBALL_DEST = lib@LIB_NAME@-@LIB_MAJOR@.@LIB_MINOR@
 
 .PHONY: all
 all: $(TEST_PROGRAMS)
 
-lib@LIB_NAME@.so: lib@LIB_NAME@.so.$(MAJOR)
+lib@LIB_NAME@.so: lib@LIB_NAME@.so.@LIB_MAJOR@
 	ln -sf $< $@
 
-lib@LIB_NAME@.so.$(MAJOR): lib@LIB_NAME@.so.$(MAJOR).$(MINOR)
+lib@LIB_NAME@.so.@LIB_MAJOR@: lib@LIB_NAME@.so.@LIB_MAJOR@.@LIB_MINOR@
 	ln -sf $< $@
 
-lib@LIB_NAME@.so.$(MAJOR).$(MINOR): $(LIBXENAPI_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,lib@LIB_NAME@.so.$(MAJOR) $(SHLIB_CFLAGS) -o $@ $^
+lib@LIB_NAME@.so.@LIB_MAJOR@.@LIB_MINOR@: $(LIBXENAPI_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,lib@LIB_NAME@.so.@LIB_MAJOR@ $(SHLIB_CFLAGS) -o $@ $^
 
 lib@LIB_NAME@.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs lib@LIB_NAME@.a $^
@@ -79,15 +76,18 @@ $(TEST_PROGRAMS): test/%: test/%.o lib@LIB_NAME@.so
 
 
 .PHONY: install
-install: all
-	$(INSTALL_DIR) $(DESTDIR)/usr/include/xen/api
-	$(INSTALL_DIR) $(DESTDIR)/usr/$(LIBDIR)
-	$(INSTALL_PROG) lib@LIB_NAME@.so.$(MAJOR).$(MINOR) $(DESTDIR)/usr/$(LIBDIR)
-	ln -sf lib@LIB_NAME@.so.$(MAJOR).$(MINOR) $(DESTDIR)/usr/$(LIBDIR)/lib@LIB_NAME@.so.$(MAJOR)
-	ln -sf lib@LIB_NAME@.so.$(MAJOR) $(DESTDIR)/usr/$(LIBDIR)/lib@LIB_NAME@.so
-	$(INSTALL_DATA) lib@LIB_NAME@.a $(DESTDIR)/usr/$(LIBDIR)
+install: all lib@LIB_NAME@.a
+	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
+	$(INSTALL_DIR) $(DESTDIR)/lib
+	$(INSTALL_DATA) lib@LIB_NAME@.so.@LIB_MAJOR@.@LIB_MINOR@ $(DESTDIR)/lib
+	ln -sf lib@LIB_NAME@.so.@LIB_MAJOR@.@LIB_MINOR@ $(DESTDIR)/lib/lib@LIB_NAME@.so.@LIB_MAJOR@
+	ln -sf lib@LIB_NAME@.so.@LIB_MAJOR@ $(DESTDIR)/lib/lib@LIB_NAME@.so
+	$(INSTALL_DATA) lib@LIB_NAME@.a $(DESTDIR)/lib
+	for i in $(LIBXENAPI_HDRS_INT); do \
+	    $(INSTALL_DATA) $$i $(DESTDIR)/include/; \
+	done
 	for i in $(LIBXENAPI_HDRS); do \
-	    $(INSTALL_DATA) $$i $(DESTDIR)/usr/include/xen/api; \
+	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
 	done
 
 

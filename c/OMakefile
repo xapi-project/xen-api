@@ -68,8 +68,6 @@ c_source: gen_c_binding
     cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
     cp $(C_GEN_FOLDER)/*.c $(C_SRC_TMP_FOLDER)/src
     sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g -e s/@LIB_NAME@/xenserver/g Makefile.dist > $(C_SRC_TMP_FOLDER)/Makefile
-    cp ../LICENSE $(C_SRC_TMP_FOLDER)/COPYING
-    sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist >$(C_SRC_TMP_FOLDER)/README
     cp xen_internal.h $(C_SRC_TMP_FOLDER)/include
     cp xen_common.h xen_string_set.h $(C_SRC_TMP_FOLDER)/include/xen/api
     cp xen_common.c xen_string_set.c $(C_SRC_TMP_FOLDER)/src
@@ -77,6 +75,8 @@ c_source: gen_c_binding
     make -C $(C_SRC_TMP_FOLDER) -f Makefile uberheader
   cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-src.tar.bz2 libxenserver
   mkdir -p $(C_SRC_FOLDER) && cp -r $(C_SRC_TMP_FOLDER)/* $(C_SRC_FOLDER)
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist >$(SDK_C_FOLDER)/README
+  cp ../LICENSE $(SDK_C_FOLDER)/COPYING
 
 .PHONY: c_binaries
 c_binaries:  c_source
@@ -84,9 +84,9 @@ c_binaries:  c_source
     make -C $(C_SRC_TMP_FOLDER) -f Makefile libxenserver.so
   else
     touch $(C_SRC_TMP_FOLDER)/libxenserver.so $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_MAJOR) $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_VER)
-    touch $(addprefix $(C_SRC_TMP_FOLDER)/, COPYING README)
-  cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-bin.tar.bz2 $(addprefix libxenserver/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER) COPYING README)
-  mkdir -p $(C_BIN_FOLDER) && cp $(addprefix $(C_SRC_TMP_FOLDER)/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER) COPYING README) $(C_BIN_FOLDER)
+    touch $(addprefix $(SDK_C_FOLDER)/, COPYING README)
+  cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-bin.tar.bz2 $(addprefix libxenserver/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER))
+  mkdir -p $(C_BIN_FOLDER) && cp $(addprefix $(C_SRC_TMP_FOLDER)/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER)) $(C_BIN_FOLDER)
 
 .PHONY: c_folders
 c_folders: c_binaries c_source
