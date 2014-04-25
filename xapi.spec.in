@@ -241,7 +241,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xe-syslog-reconfigure
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
-@ETCDIR@/udhcpd.skel
+/etc/xensource/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
 /var/xapi
