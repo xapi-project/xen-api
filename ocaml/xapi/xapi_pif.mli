@@ -74,6 +74,7 @@ val db_introduce :
   ipv6_gateway:string ->
   primary_address_type:[< `IPv4 | `IPv6 ] ->
   managed:bool ->
+  properties:(string * string) list ->
   [ `PIF ] Ref.t
   
 (** Perform a database delete of the PIF record on the pool master. *)
@@ -126,7 +127,21 @@ val set_primary_address_type :
   __context:Context.t ->
   self:API.ref_PIF ->
   primary_address_type:[`IPv4 | `IPv6 ] -> unit
-  
+
+(** Set the default properties of a PIF *)
+val set_default_properties :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  unit
+
+(** Set a property on a PIF *)
+val set_property :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  name:string ->
+  value:string ->
+  unit
+
 (** Attempt to bring down the PIF: disconnect the underlying network interface from
  *  its bridge and disable the interface. *)
 val unplug : __context:Context.t -> self:API.ref_PIF -> unit
@@ -192,6 +207,7 @@ val pool_introduce :
   ipv6_gateway:string ->
   primary_address_type:[< `IPv4 | `IPv6 ] ->
   managed:bool ->
+  properties:(string * string) list ->
   [ `PIF ] Ref.t
 
 (** Create a new PIF record with the given details. Also create a network for the
