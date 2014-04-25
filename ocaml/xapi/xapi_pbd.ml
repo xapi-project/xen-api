@@ -22,6 +22,12 @@ open Db_filter_types
 module D=Debug.Make(struct let name="xapi_pbd" end)
 open D
 
+let assert_no_srmaster_key dev_cfg =
+	let k = "SRmaster" in
+	if List.mem_assoc k dev_cfg
+	then raise (Api_errors.Server_error (Api_errors.value_not_supported,
+		[k; List.assoc k dev_cfg; "This key is for internal use only"]))
+
 let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other_config =
 	let pbds = Db.SR.get_PBDs ~__context ~self:sR in
 	if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds 
@@ -30,6 +36,8 @@ let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other
 		; Ref.string_of host
 		; Ref.string_of (List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds)
 		]));
+	(* This field should never be present in the record itself *)
+	assert_no_srmaster_key device_config;
 	(* Make sure each PBD has a unique secret in the database *)
 	let dev_cfg = Xapi_secret.duplicate_passwds ~__context device_config in
 	let ref = Ref.make() in
@@ -196,4 +204,5 @@ let destroy ~__context ~self =
 
 let set_device_config ~__context ~self ~value = 
   (* Only allowed from the SM plugin *)
+  assert_no_srmaster_key value;
   Db.PBD.set_device_config ~__context ~self ~value
