@@ -30,10 +30,10 @@
 
 JAVAGEN_DIR = $(BINDINGS_TMP)/javagen
 JAVATMP_DIR = $(BINDINGS_TMP)/XenServerJava-tmp
-JAVABIN_DIR = $(BINDINGS_TMP)/XenServerJava-bin/XenServerJava
-JAVASRC_DIR = $(BINDINGS_TMP)/XenServerJava-src/XenServerJava
-JAVASAM_DIR = $(BINDINGS_TMP)/XenServerJava-samples/XenServerJava
-JAVADOC_DIR = $(BINDINGS_TMP)/XenServerJavadoc/javadoc
+JAVABIN_DIR = $(BINDINGS_TMP)/XenServerJava-bin
+JAVASRC_DIR = $(BINDINGS_TMP)/XenServerJava-src
+JAVASAM_DIR = $(BINDINGS_TMP)/XenServerJava-samples
+JAVADOC_DIR = $(BINDINGS_TMP)/XenServerJava-javadoc
 
 SDK_JAVA_FOLDER=$(SDK_FOLDER)/XenServerJava
 
@@ -59,31 +59,26 @@ Brand(src, dst) =
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(src) >$(JAVATMP_DIR)/t-$(basename $(dst))
 	$(INSTALL) $(JAVATMP_DIR)/t-$(basename $(dst)) $(dst)
 
+#N.B. the following also does a test build of the tests
 
 .PHONY: java_bindings_all
 java_bindings_all: main
   if $(equal $(COMPILE_JAVA), yes)
-	Empty($(JAVAGEN_DIR) $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
+	Empty($(JAVAGEN_DIR) $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR) $(JAVASAM_DIR))
 	Brand(lib/Makefile.dist, $(JAVAGEN_DIR)/Makefile)
 	mkdir -p $(JAVAGEN_DIR)/com/xensource/xenapi
 	$(INSTALL) lib/com/xensource/xenapi/*.java $(JAVAGEN_DIR)/com/xensource/xenapi
 	Brand(lib/com/xensource/xenapi/Connection.java, $(JAVAGEN_DIR)/com/xensource/xenapi/Connection.java)
+	./main $(JAVAGEN_DIR)	
+	cp -r $(JAVAGEN_DIR)/* $(JAVASRC_DIR)
+	$(INSTALL) samples/*.java $(JAVASAM_DIR)
+	$(INSTALL) samples/*.java $(JAVAGEN_DIR)
 	$(INSTALL) $(XMLRPC_DIST)/{xmlrpc-common-3.1,xmlrpc-client-3.1,ws-commons-util-1.0.2}.jar $(JAVAGEN_DIR)
-	./main $(JAVAGEN_DIR)
-	make -C $(JAVAGEN_DIR) all docs cleanclass
+	make -C $(JAVAGEN_DIR) all docs
 	mv $(JAVAGEN_DIR)/*.jar $(JAVABIN_DIR)
-	Brand(README.dist, $(JAVATMP_DIR)/README.txt)
-	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVABIN_DIR)
-	LicenceJava($(JAVABIN_DIR))
 	mv $(JAVAGEN_DIR)/doc/* $(JAVADOC_DIR)
 	rmdir $(JAVAGEN_DIR)/doc
-	mv $(JAVAGEN_DIR)/* $(JAVASRC_DIR)
-	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVASRC_DIR)
-	LicenceJava($(JAVASRC_DIR))
-	Empty($(JAVASAM_DIR))
-	$(INSTALL) samples/*.java $(JAVASAM_DIR)
-	$(INSTALL) $(JAVATMP_DIR)/README.txt $(JAVASAM_DIR)
-	LicenceJava($(JAVASAM_DIR))
+	Brand(README.dist, $(JAVATMP_DIR)/README.txt)
   else
 	Empty($(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
 
@@ -91,8 +86,10 @@ java_bindings_all: main
 java_folders: java_bindings_all
 	mkdir -p $(SDK_JAVA_FOLDER)/bin && cp -r $(JAVABIN_DIR)/* $(SDK_JAVA_FOLDER)/bin
 	mkdir -p $(SDK_JAVA_FOLDER)/src && cp -r $(JAVASRC_DIR)/* $(SDK_JAVA_FOLDER)/src
-	mkdir -p $(SDK_JAVA_FOLDER)/samples && cp -r $(JAVASAM_DIR)/{*.java,README.txt} $(SDK_JAVA_FOLDER)/samples
+	mkdir -p $(SDK_JAVA_FOLDER)/samples && cp -r $(JAVASAM_DIR)/*.java $(SDK_JAVA_FOLDER)/samples
 	mkdir -p $(SDK_JAVA_FOLDER)/javadoc && cp -r $(JAVADOC_DIR)/* $(SDK_JAVA_FOLDER)/javadoc
+	$(INSTALL) $(JAVATMP_DIR)/README.txt $(SDK_JAVA_FOLDER)
+	LicenceJava($(SDK_JAVA_FOLDER))
 
 .PHONY: clean
 clean:

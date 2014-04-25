@@ -78,6 +78,10 @@ API_PYTHON=$(API_SRC)/xen-api-src/scripts/examples/python
 PYTHON_FILES=XenAPI.py provision.py
 PYTHON_SAMPLES=install.py powercycle.py permute.py vm_start_async.py watch-all-events.py fixpbds.py shell.py license.py
 
+API_REF=$(MY_OBJ_DIR)/api-ref
+API_REF_HTML=$(API_REF)/usr/share/doc/xapi/docs/html/xenserver
+API_REF_PDF=$(API_REF)/usr/share/doc/xapi/docs/pdf
+
 SDK_ZIP=XenServer-SDK-$(SDK_VERSION).zip
 SDK_ZIP_LN=XenServer-SDK.zip
 SDK_FOLDER=$(MY_OUTPUT_DIR)/XenServer-SDK
@@ -85,6 +89,7 @@ SDK_NET_FOLDER=$(SDK_FOLDER)/XenServer.NET
 SDK_PS_FOLDER=$(SDK_FOLDER)/XenServerPowerShell
 SDK_PY_FOLDER=$(SDK_FOLDER)/XenServerPython
 SDK_PY_FOLDER_SAMPLES=$(SDK_PY_FOLDER)/samples
+API_REF_FOLDER=$(SDK_FOLDER)/API-reference
 
 export SDK_VERSION
 export PROJECT_OUTPUTDIR
@@ -169,11 +174,17 @@ bins: omake-phase powershell-module powershell_samples csharp-bin
 
 .PHONY: python-module
 python-module:
-	mkdir -p $(API_SRC) && tar -xf $(PROJECT_OUTPUTDIR)/api/SOURCES/xen-api-src.tar.bz2  -C $(API_SRC) xen-api-src/scripts/examples/python
+	mkdir -p $(API_SRC) && tar -xf $(PROJECT_OUTPUTDIR)/api/SOURCES/xen-api-src.tar.bz2 -C $(API_SRC) xen-api-src/scripts/examples/python
 	mkdir -p $(SDK_PY_FOLDER) && cp $(addprefix $(API_PYTHON)/, $(PYTHON_FILES)) $(SDK_PY_FOLDER)
 	mkdir -p $(SDK_PY_FOLDER_SAMPLES) && cp $(addprefix $(API_PYTHON)/, $(PYTHON_SAMPLES) README) $(SDK_PY_FOLDER_SAMPLES)
 
-$(MY_OUTPUT_DIR)/$(SDK_ZIP): bins python-module
+.PHONY: api-ref
+api-ref:
+	mkdir -p $(API_REF) && tar -xf $(PROJECT_OUTPUTDIR)/api/sdk.tar.gz -C $(API_REF)
+	mkdir -p $(API_REF_FOLDER)/html && cp -r $(API_REF_HTML)/* $(API_REF_FOLDER)/html
+	mkdir -p $(API_REF_FOLDER)/pdf && cp $(API_REF_PDF)/xenenterpriseapi.pdf $(API_REF_FOLDER)/pdf/XenServerAPI.pdf
+
+$(MY_OUTPUT_DIR)/$(SDK_ZIP): bins python-module api-ref
 	cd $(MY_OUTPUT_DIR) && zip -q -r9 $(SDK_ZIP) XenServer-SDK
 	ln -sf $(SDK_ZIP) $(MY_OUTPUT_DIR)/$(SDK_ZIP_LN)
 	rm -Rf $(SDK_FOLDER)

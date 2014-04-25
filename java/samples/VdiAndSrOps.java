@@ -60,7 +60,6 @@ public class VdiAndSrOps extends TestBase
                 testSrOp("SR.forget", false, nullSmConfig, version);
                 testSrOp("SR.createAsync", false, nullSmConfig, version);
                 testSrOp("SR.forget", false, nullSmConfig, version);
-                testSrOp("SR.makeAsync", false, nullSmConfig, version);
                 testSrOp("SR.forget", false, nullSmConfig, version);
                 testSrOp("SR.introduce", false, nullSmConfig, version);
                 testSrOp("SR.forget", false, nullSmConfig, version);
@@ -201,14 +200,6 @@ public class VdiAndSrOps extends TestBase
             {
                 SR.createAsync(c, our_host, new HashMap<String, String>(), TEST_SR_SIZE, TEST_SR_NAME, TEST_SR_DESC,
                         TEST_SR_TYPE, TEST_SR_CONTENT, true, smConfig);
-            } else if (op.equals("SR.make"))
-            {
-                SR.make(c, our_host, new HashMap<String, String>(), TEST_SR_SIZE, TEST_SR_NAME, TEST_SR_DESC,
-                        TEST_SR_TYPE, TEST_SR_CONTENT, smConfig);
-            } else if (op.equals("SR.makeAsync"))
-            {
-                SR.makeAsync(c, our_host, new HashMap<String, String>(), TEST_SR_SIZE, TEST_SR_NAME, TEST_SR_DESC,
-                        TEST_SR_TYPE, TEST_SR_CONTENT, smConfig);
             } else if (op.equals("SR.forget"))
             {
                 Set<SR> srs = SR.getByNameLabel(c, TEST_SR_NAME);

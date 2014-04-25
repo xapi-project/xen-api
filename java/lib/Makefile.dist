@@ -28,14 +28,13 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Makefile to compile the Xen Java SDK bindings
+# Makefile to compile the Xen Java SDK bindings and tests
 
 BINDINGJAVAFILES := $(wildcard com/xensource/xenapi/*.java)
 BINDINGCLASSFILES := $(BINDINGJAVAFILES:.java=.class)
 BINDINGJAR := xenserver-@SDK_VERSION@.jar
 
 CLASSPATH := :xmlrpc-client-3.1.jar:xmlrpc-common-3.1.jar:ws-commons-util-1.0.2.jar
-EXAMPLECLASSPATH := :$(BINDINGJAR)$(CLASSPATH)
 
 .PHONY: all
 all: $(BINDINGJAR) tests
