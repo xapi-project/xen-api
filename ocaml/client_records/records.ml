@@ -263,6 +263,10 @@ let pif_record rpc session_id pif =
 	make_field ~name:"IPv6-gateway"      ~get:(fun () -> (x ()).API.pIF_ipv6_gateway) ();
 	make_field ~name:"primary-address-type" ~get:(fun () -> Record_util.primary_address_type_to_string (x ()).API.pIF_primary_address_type) ();
 	make_field ~name:"DNS"          ~get:(fun () -> (x ()).API.pIF_DNS) ();
+	make_field ~name:"properties"
+		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pIF_properties)
+		~get_map:(fun () -> (x ()).API.pIF_properties)
+		~set_in_map:(fun k v -> Client.PIF.set_property rpc session_id pif k v) ();
 	make_field ~name:"io_read_kbs" ~get:(fun () -> 
 	  try 
 	    let host = (x ()).API.pIF_host in

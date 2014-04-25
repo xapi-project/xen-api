@@ -612,7 +612,8 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 				~iPv6:pif.API.pIF_IPv6
 				~ipv6_gateway:pif.API.pIF_ipv6_gateway
 				~primary_address_type:pif.API.pIF_primary_address_type
-				~managed:pif.API.pIF_managed in
+				~managed:pif.API.pIF_managed
+				~properties:pif.API.pIF_properties in
 
 	new_pif_ref
 
