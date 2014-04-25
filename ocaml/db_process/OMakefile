@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
-OCAMLPACKS    =  xml-light2 uuid sexpr xcp stunnel http-svr gzip uuid
+OCAMLPACKS    =  xml-light2 uuid sexpr xcp stunnel http-svr gzip uuid xcp-inventory
 
 OCamlProgram(xapi-db-upgrade-4.2, xapi-db-upgrade-4.2)
 OCamlProgram(xapi-db-process, xapi_db_process)

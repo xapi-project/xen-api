@@ -489,7 +489,7 @@ let resynchronise_ha_state () =
 			(fun __context ->
 				(* Make sure the control domain is marked as "running" - in the case of *)
 				(* HA failover it will have been marked as "halted". *)
-				let control_domain_uuid = Util_inventory.lookup Util_inventory._control_domain_uuid in
+				let control_domain_uuid = Inventory.lookup Inventory._control_domain_uuid in
 				let control_domain = Db.VM.get_by_uuid ~__context ~uuid:control_domain_uuid in
 				Db.VM.set_power_state ~__context ~self:control_domain ~value:`Running;
 
