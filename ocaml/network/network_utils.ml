@@ -219,6 +219,42 @@ module Ip = struct
 			Some (ip, prefixlen)
 		with Not_found -> None
 
+	(* see http://en.wikipedia.org/wiki/IPv6_address#Modified_EUI-64 *)
+	let get_ipv6_interface_id dev =
+		let mac = get_mac dev in
+		let bytes = List.map (fun byte -> int_of_string ("0x" ^ byte)) (String.split ':' mac) in
+		let rec modified_bytes ac i = function
+			| [] ->
+				ac
+			| head :: tail ->
+				if i = 0 then
+					let head' = head lxor 2 in
+					modified_bytes (head' :: ac) 1 tail
+				else if i = 2 then
+					modified_bytes (254 :: 255 :: head :: ac) 3 tail
+				else
+					modified_bytes (head :: ac) (i + 1) tail
+		in
+		let bytes' = List.rev (modified_bytes [] 0 bytes) in
+		[0; 0; 0; 0; 0; 0; 0; 0] @ bytes'
+
+	let get_ipv6_link_local_addr dev =
+		let id = get_ipv6_interface_id dev in
+		let link_local = 0xfe :: 0x80 :: (List.tl (List.tl id)) in
+		let rec to_string ac i = function
+			| [] -> ac
+			| hd :: tl ->
+				let separator =
+					if i = 0 || i mod 2 = 1 then
+						""
+					else
+						":"
+				in
+				let ac' = ac ^ separator ^ Printf.sprintf "%02x" hd in
+				to_string ac' (i + 1) tl
+		in
+		to_string "" 0 link_local ^ "/64"
+
 	let get_ipv4 dev =
 		let addrs = addr dev "inet" in
 		List.filter_map split_addr addrs
@@ -239,13 +275,16 @@ module Ip = struct
 			ignore (call ~log:true (["addr"; "add"; addr; "dev"; dev] @ broadcast))
 		with _ -> ()
 
+	let set_ipv6_link_local_addr dev =
+		let addr = get_ipv6_link_local_addr dev in
+		try
+			ignore (call ~log:true ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+		with _ -> ()
+
 	let flush_ip_addr ?(ipv6=false) dev =
 		try
-			if ipv6 then begin
-				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "global"]);
-				ignore (call ~log:true ["-6"; "addr"; "flush"; "dev"; dev; "scope"; "site"])
-			end else
-				ignore (call ~log:true ["-4"; "addr"; "flush"; "dev"; dev])
+			let mode = if ipv6 then "-6" else "-4" in
+			ignore (call ~log:true [mode; "addr"; "flush"; "dev"; dev])
 		with _ -> ()
 
 	let route_show ?(version=V46) dev =
@@ -391,6 +430,12 @@ module Linux_bonding = struct
 				error "Failed to remove slave %s from bond %s" slave master
 		else
 			error "Bond %s does not exist; cannot remove slave" master
+
+	let get_bond_master_of slave =
+		try
+			let path = Unix.readlink (Sysfs.getpath slave "master") in
+			Some (List.hd (List.rev (String.split '/' path)))
+		with _ -> None
 end
 
 module Dhclient = struct
@@ -479,28 +524,46 @@ module Sysctl = struct
 end
 
 module Proc = struct
-	let get_bond_links_up name = 
+	let get_bond_slave_info name key =
 		try
 			let raw = Unixext.string_of_file (bonding_dir ^ name) in
 			let lines = String.split '\n' raw in
 			let check_lines lines =
-			let rec loop acc = function
-				| [] -> acc
-				| line1 :: line2 :: tail ->
-					if (String.startswith "Slave Interface:" line1)
-						&& (String.startswith "MII Status:" line2)
-						&& (String.endswith "up" line2)
-					then
-						loop (acc + 1) tail
-					else
-						loop acc (line2 :: tail)
-			  | _ :: [] -> acc in
-			loop 0 lines in
+				let rec loop current acc = function
+					| [] -> acc
+					| line :: tail ->
+						try
+							Scanf.sscanf line "%s@: %s@\n" (fun k v ->
+								if k = "Slave Interface" then begin
+									let interface = Some (String.strip String.isspace v) in
+									loop interface acc tail
+								end else if k = key then
+									match current with
+									| Some interface -> loop current ((interface, String.strip String.isspace v) :: acc) tail
+									| None -> loop current acc tail
+								else
+									loop current acc tail
+							)
+						with _ ->
+							loop current acc tail
+				in
+				loop None [] lines
+			in
 			check_lines lines
 		with e ->
 			error "Error: could not read %s." (bonding_dir ^ name);
-			0
+			[]
 
+	let get_bond_slave_mac name slave =
+		let macs = get_bond_slave_info name "Permanent HW addr" in
+		if List.mem_assoc slave macs then
+			List.assoc slave macs
+		else
+			raise Not_found
+
+	let get_bond_links_up name =
+		let statusses = get_bond_slave_info name "MII Status" in
+		List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
 end
 
 module Ovs = struct

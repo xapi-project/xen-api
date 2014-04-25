@@ -38,6 +38,8 @@ let version_minor = Version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
 (* api version *)
+(* Normally xencenter_min_verstring and xencenter_max_verstring below should be set to the same value,
+ * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
 let api_version_minor = 2L
 let api_version_string =
@@ -51,6 +53,17 @@ let tools_version_none = (-1, -1, -1, -1)
 let tools_version = ref tools_version_none
 
 (* client min/max version range *)
+(* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
+ * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
+ * xencenter_min should equal the current version of XenCenter.
+ *
+ * xencenter_max is not what you would guess after reading the previous paragraph, which would involve
+ * predicting the future. Instead, it should always equal the current version of XenCenter. It must not
+ * change without issuing a new version of XenCenter. This is used to make sure that even if the user is
+ * not required to upgrade, we at least warn them.
+ *
+ * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
+ * will need to be made in XenCenter *)
 let xencenter_min_verstring = "2.0"
 let xencenter_max_verstring = "2.2"
 

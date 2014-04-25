@@ -2909,6 +2909,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
 				(fun session_id rpc -> Client.PIF.set_primary_address_type rpc session_id self primary_address_type)
 
+		let set_property ~__context ~self ~name ~value =
+			info "PIF.set_property: PIF = '%s'; name = '%s'; value = '%s'" (pif_uuid ~__context self) name value;
+			let host = Db.PIF.get_host ~__context ~self in
+			let local_fn = Local.PIF.set_property ~self ~name ~value in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.set_property rpc session_id self name value)
+
 		let scan ~__context ~host =
 			info "PIF.scan: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.PIF.scan ~host in
@@ -3334,6 +3340,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
 			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
+
+			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op:`migrate_send;
 
 			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
 			    (fun () ->
