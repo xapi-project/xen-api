@@ -15,6 +15,8 @@
 module D = Debug.Make(struct let name="license" end)
 open D
 
+let ( |> ) a b = b a
+
 (* Dependency injection for unit tests *)
 module type V6clientS = module type of V6client
 let v6client = ref (module V6client : V6clientS)

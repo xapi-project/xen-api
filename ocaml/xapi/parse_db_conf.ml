@@ -154,3 +154,17 @@ let parse_db_conf s =
       raise Cannot_parse_database_config_file
     end
 
+let get_db_conf path =
+  if Sys.file_exists path then
+    parse_db_conf path
+  else begin
+    warn "No db_conf file. Using default";
+    [{path="/var/lib/xcp/state.db";
+     mode=No_limit;
+     compress=false;
+     is_on_remote_storage=false;
+     write_limit_period=default_write_limit_period;
+     write_limit_write_cycles=default_write_cycles;
+     other_parameters=["available_this_boot","true"];
+     last_generation_count=Generation.null_generation}]
+  end

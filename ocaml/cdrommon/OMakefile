@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common
 OCAMLINCLUDES = ../xapi
-OCAMLPACKS += unix cdrom
+OCAMLPACKS += unix cdrom xcp-inventory
 
 OCamlProgram(cdrommon, cdrommon)
 

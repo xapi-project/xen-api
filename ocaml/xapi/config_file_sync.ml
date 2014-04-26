@@ -18,6 +18,8 @@ open D
 open OPasswd.Common
 open Stringext
 
+let ( |> ) a b = b a
+
 let superuser = "root"
 
 type config = { password : string } with rpc

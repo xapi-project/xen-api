@@ -154,13 +154,13 @@ version:
 	let git_id = \"$(shell git show-ref --head | grep -E ' HEAD$$' | cut -f 1 -d ' ')\" \n \
 	let hostname = \"$(shell hostname)\" \n \
 	let date = \"$(shell date -u +%Y-%m-%d)\" \n \
-	let product_version = Util_inventory.lookup ~default:\"\" \"PRODUCT_VERSION\" \n \
-	let product_version_text = Util_inventory.lookup ~default:\"\" \"PRODUCT_VERSION_TEXT\" \n \
-	let product_version_text_short = Util_inventory.lookup ~default:\"\" \"PRODUCT_VERSION_TEXT_SHORT\" \n \
+	let product_version = Inventory.lookup ~default:\"\" \"PRODUCT_VERSION\" \n \
+	let product_version_text = Inventory.lookup ~default:\"\" \"PRODUCT_VERSION_TEXT\" \n \
+	let product_version_text_short = Inventory.lookup ~default:\"\" \"PRODUCT_VERSION_TEXT_SHORT\" \n \
 	let platform_name = \"$(PLATFORM_NAME)\" \n \
 	let platform_version = \"$(PLATFORM_VERSION)\" \n \
-	let product_brand = Util_inventory.lookup ~default:\"\" \"PRODUCT_BRAND\" \n \
-	let build_number = Util_inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n \
+	let product_brand = Inventory.lookup ~default:\"\" \"PRODUCT_BRAND\" \n \
+	let build_number = Inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n \
 	let xapi_version_major = $(shell cut -d. -f1 VERSION) \n \
 	let xapi_version_minor = $(shell cut -d. -f2 VERSION) \n" \
 	> ocaml/util/version.ml
