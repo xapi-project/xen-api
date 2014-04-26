@@ -666,6 +666,8 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 	end
 
 	module SR = struct
+		let probe context ~dbg ~device_config = failwith "HACK: SR.probe not implemented"
+
 		let locks : (string, unit) Storage_locks.t = Storage_locks.make ()
 		let with_sr sr f = Storage_locks.with_instance_lock locks sr f
 

@@ -143,6 +143,8 @@ module SMAPIv1 = struct
 	end
 
 	module SR = struct
+		let probe context ~dbg ~device_config = failwith "HACK: SR.probe not implemented"
+
 		let create context ~dbg ~sr ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
