@@ -168,12 +168,12 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 
 		(* Enable the SM driver to specify a VBD backend kind for the VDI *)
 		let other_config =
-			let vdi_sc = Db.VDI.get_sm_config ~__context ~self:vDI in
-			let k = Xapi_globs.vbd_backend_key in
 			try
+				let vdi_sc = Db.VDI.get_sm_config ~__context ~self:vDI in
+				let k = Xapi_globs.vbd_backend_key in
 				let v = List.assoc k vdi_sc in
 				(k, v) :: other_config
-			with Not_found -> other_config
+			with _ -> other_config
 		in
 
 		Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
