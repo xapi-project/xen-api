@@ -59,7 +59,7 @@ let read_pool_role () =
 		then (debug "Executable name is not 'xapi', so we must be running \
 		             in unit-test mode; setting pool-role to 'Master'";
 		      Master)
-		else (error "Failed to read pool role from %s" Constants.pool_config_file;
+		else (error "Failed to read pool role from %s" !filename;
 		      Broken)
 
 let get_role () =
