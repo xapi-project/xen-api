@@ -637,12 +637,12 @@ let lookup_vdi_fields f vdi_refs l =
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
 	try
-		Unix.access Constants.pool_secret_path [Unix.F_OK];
-		pool_secret := Unixext.string_of_file Constants.pool_secret_path
+		Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK];
+		pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path
 	with _ -> (* No pool secret exists. *)
 		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
 		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
-		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
+		Unixext.write_string_to_file !Xapi_globs.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)

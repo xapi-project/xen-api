@@ -175,7 +175,6 @@ ocaml/fhs.ml :
 	let inventory=\"$(INVENTORY)\"\n \
 	let hooksdir=\"$(HOOKSDIR)\"\n \
 	let libexecdir=\"$(LIBEXECDIR)\"\n \
-	let xapiconf=\"$(XAPICONF)\"\n \
 	let scriptsdir=\"$(SCRIPTSDIR)\"\n \
 	let varpatchdir=\"$(VARPATCHDIR)\"\n \
 	let webdir=\"$(WEBDIR)\"\n \
