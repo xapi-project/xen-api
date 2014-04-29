@@ -122,9 +122,16 @@ let callback1 is_json req fd body call =
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
   (* in the whitelist, then forward *)
-  if !Xapi_globs.slave_emergency_mode && (not (List.mem call.Rpc.name emergency_call_list)) 
+
+  let whitelisted = List.mem call.Rpc.name whitelist in
+  let emergency_call = List.mem call.Rpc.name emergency_call_list in
+  let is_slave = not (Pool_role.is_master ()) in
+
+  if !Xapi_globs.slave_emergency_mode && (not emergency_call)
   then raise !Xapi_globs.emergency_mode_error;
-  if ((not (Pool_role.is_master ())) && (Context.is_unix_socket fd || is_himn_req req) && (not (List.mem call.Rpc.name whitelist)))
+  if is_slave && 
+    ((Context.is_unix_socket fd && not whitelisted) ||
+     (is_himn_req req && not emergency_call))
   then
     forward req body call
   else
