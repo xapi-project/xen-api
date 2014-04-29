@@ -896,8 +896,8 @@ let server_init() =
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
-      "listening to events from xenopsd", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
-      "listening to events from xapi", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+      "listening to events from xenopsd", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
+      "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);

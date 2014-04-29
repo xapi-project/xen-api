@@ -19,9 +19,6 @@ open Printf
 
 module D = Debug.Make(struct let name="xapi_globs" end)
 
-(* set this to true to use the experimental codepath *)
-let use_xenopsd = ref false
-
 (* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
 let relax_xsm_sr_check = ref true
 
