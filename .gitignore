@@ -38,6 +38,7 @@
 TAGS
 dist
 mk/.*
+config.mk
 ocaml/idl/vm_lifecycle.eps
 ocaml/idl/xen*-datamodel-graph.gif
 ocaml/idl/xen*-datamodel-graph.map
