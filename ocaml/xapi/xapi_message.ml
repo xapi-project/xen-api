@@ -541,7 +541,7 @@ let get_since_for_events ~__context since =
 			 | (last_in_memory, _, _) :: _ when last_in_memory < since ->
 				   Some (List.filter_map
 							 (fun (gen,_ref,msg) ->
-								  if gen > since then Some (gen, Xapi_event.MCreate (_ref, msg)) else None)
+								  if gen > since then Some (gen, Xapi_event.Message.Create (_ref, msg)) else None)
 							 !in_memory_cache)
 			 | (last_in_memory, _, _) :: _ ->
 				 debug "get_since_for_events: last_in_memory (%Ld) > since (%Ld): Using slow message lookup" last_in_memory since;
@@ -553,11 +553,11 @@ let get_since_for_events ~__context since =
 	let result = match cached_result with
 		| Some x -> x
 		| None ->
-			List.map (fun (ts,x,y) -> (ts, Xapi_event.MCreate (x,y))) (get_from_generation since)
+			List.map (fun (ts,x,y) -> (ts, Xapi_event.Message.Create (x,y))) (get_from_generation since)
 	in
 	let delete_results = Mutex.execute deleted_mutex (fun () ->
 		let deleted = List.filter (fun (deltime,_ref) -> deltime > since) !deleted in
-		List.map (fun (ts , _ref) -> (ts,Xapi_event.MDel _ref)) deleted) in
+		List.map (fun (ts , _ref) -> (ts,Xapi_event.Message.Del _ref)) deleted) in
 	let all_results = result @ delete_results in
 	let newsince = List.fold_left (fun acc (ts,m) -> max ts acc) since all_results in
 	(newsince, List.map snd all_results)
@@ -607,7 +607,7 @@ let repopulate_cache () =
 
 let register_event_hook () =
 	repopulate_cache ();
-	Xapi_event.message_get_since_for_events := get_since_for_events
+	Xapi_event.Message.get_since_for_events := get_since_for_events
 
 (** Handler for PUTing messages to a host.
 	Query params: { cls=<obj class>, uuid=<obj uuid> } *)
