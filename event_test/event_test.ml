@@ -36,6 +36,11 @@ let error fmt =
                         Printf.fprintf stderr "Error: %s\n%!" txt
                 ) fmt
 
+let info fmt =
+        Printf.ksprintf
+                (fun txt ->
+                        Printf.fprintf stderr "%s\n%!" txt
+                ) fmt
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
 		Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
@@ -47,28 +52,60 @@ let watch_events rpc session_id =
 
         let root = ref StringMap.empty in
 
-        let rec loop token =
-                Event.from rpc session_id ["*"] token 30. >>= fun rpc ->
-                debug "received event: %s" (Jsonrpc.to_string rpc);
-                let e = event_from_of_rpc rpc in
-                List.iter ~f:(fun ev ->
-                        (* type-specific table *)
-                        let ty = match StringMap.find !root ev.ty with
-                                | None -> StringMap.empty
-                                | Some x -> x in
-                        let ty = match ev.op with
+        let update map ev =
+                (* type-specific table *)
+                let ty = match StringMap.find map ev.ty with
+                        | None -> StringMap.empty
+                        | Some x -> x in
+                let ty = match ev.op with
                         | `add
                         | `_mod ->
-                                 begin match ev.snapshot with
-                                 | None ->
+                                begin match ev.snapshot with
+                                | None ->
                                         error "Event contained no snapshot";
                                         ty
                                  | Some s ->
                                         StringMap.add ty ~key:ev.reference ~data:s 
                                  end
                         | `del -> StringMap.remove ty ev.reference in
-                        root := StringMap.add !root ~key:ev.ty ~data:ty
-                ) e.events;
+                if StringMap.is_empty ty
+                then StringMap.remove map ev.ty
+                else StringMap.add map ~key:ev.ty ~data:ty in
+
+        let compare () =
+                let open Event_types in
+                Event.from rpc session_id ["*"] "" 0. >>= fun rpc ->
+                let e = event_from_of_rpc rpc in
+                if e.events = [] then error "Empty list of events";
+                let current = List.fold_left ~init:StringMap.empty ~f:update e.events in
+                List.iter ~f:(fun (key, diff) -> match key, diff with
+                | key, `Left _ -> error "Replica has extra table: %s" key
+                | key, `Right _ -> error "Replica has missing table: %s" key
+                | _, `Unequal(_,_) -> ()
+                ) (StringMap.symmetric_diff !root current (fun _ _ -> true));
+                List.iter ~f:(fun key ->
+                        match StringMap.find !root key with
+                        | None ->
+                                error "Table missing in replica: %s" key
+                        | Some root_table ->
+                                let current_table = StringMap.find_exn current key in
+                                List.iter ~f:(fun (key, diff) -> match key, diff with
+                                | r, `Left rpc -> error "Replica has extra object: %s: %s" r (Jsonrpc.to_string rpc)
+                                | r, `Right rpc -> error "Replica has missing object: %s: %s" r (Jsonrpc.to_string rpc)
+                                | r, `Unequal(rpc1, rpc2) -> error "Replica has out-of-sync object: %s: %s <> %s" r (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
+                                ) (StringMap.symmetric_diff root_table current_table (fun a b -> a = b))
+                ) (StringMap.keys current);
+                return () in
+                
+        let rec loop token =
+                Event.from rpc session_id ["*"] token 30. >>= fun rpc ->
+                debug "received event: %s" (Jsonrpc.to_string rpc);
+                let e = event_from_of_rpc rpc in
+                List.iter ~f:(fun ev -> root := update !root ev) e.events;
+                compare () >>= fun () ->
+                info "object counts: %s" (String.concat ~sep:", " (List.map ~f:(fun key ->
+                  Printf.sprintf "%s (%d)" key (StringMap.length (StringMap.find_exn !root key))
+                ) (StringMap.keys !root)));
                 loop e.token in
         loop ""
 
