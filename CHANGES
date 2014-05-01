@@ -1,5 +1,6 @@
 trunk (unreleased)
 * improve async support
+* add an event-based async example
 
 0.9.5 (02-Mar-2014)
 * Adapt to cohttp.0.10.0 (adds `flush` support)
