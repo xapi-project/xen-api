@@ -51,12 +51,6 @@ module IO = struct
 		|`Ok -> return (Some buf)
 		|`Eof _ -> return None
 
-	let read_exactly ic len =
-	  let buf = String.create len in
-	  read_exactly ic buf 0 len >>= function
-	  | true -> return (Some buf)
-	  | false -> return None
-
 	let write (_, oc) buf =
 		Writer.write oc buf;
 		return ()
