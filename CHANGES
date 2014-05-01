@@ -1,3 +1,6 @@
+trunk (unreleased)
+* improve async support
+
 0.9.5 (02-Mar-2014)
 * Adapt to cohttp.0.10.0 (adds `flush` support)
 * Regenerate build with OASIS 0.4.1

@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5cde0b2d66d4e2d2547b8e0d1694fb67)
-version = "0.9.6"
+# DO NOT EDIT (digest: 618a87f0c5a67a57d839288116791a94)
+version = "0.9.5"
 description = "Xen API client"
 requires = "xmlm rpclib cohttp"
 archive(byte) = "xen-api-client.cma"
@@ -9,10 +9,10 @@ archive(native) = "xen-api-client.cmxa"
 archive(native, plugin) = "xen-api-client.cmxs"
 exists_if = "xen-api-client.cma"
 package "lwt" (
- version = "0.9.6"
+ version = "0.9.5"
  description = "Xen API client"
  requires =
- "xen-api-client rpclib xmlm lwt lwt.ssl lwt.unix cohttp uri cstruct cstruct.lwt"
+ "xen-api-client rpclib xmlm lwt lwt.ssl lwt.unix cohttp uri cstruct cstruct.lwt re.str"
  archive(byte) = "xen-api-client-lwt.cma"
  archive(byte, plugin) = "xen-api-client-lwt.cma"
  archive(native) = "xen-api-client-lwt.cmxa"
@@ -21,10 +21,10 @@ package "lwt" (
 )
 
 package "async" (
- version = "0.9.6"
+ version = "0.9.5"
  description = "Xen API client"
  requires =
- "xen-api-client xmlm core async async_core async_unix rpclib cohttp uri threads"
+ "xen-api-client xmlm core async async_unix rpclib cohttp uri threads"
  archive(byte) = "xen-api-client-async.cma"
  archive(byte, plugin) = "xen-api-client-async.cma"
  archive(native) = "xen-api-client-async.cmxa"
