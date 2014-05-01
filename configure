@@ -13,11 +13,16 @@ let dir name default docv doc =
   let doc = Printf.sprintf "Set the directory for installing %s" doc in
   Arg.(value & opt string default & info [name] ~docv ~doc)
 
+let path name default docv doc = 
+  let doc = Printf.sprintf "Set the path for %s" doc in
+  Arg.(value & opt string default & info [name] ~docv ~doc)
+
 let varpatchdir = dir "varpatchdir" "/var/patch" "VARPATCHDIR" "hotfixes"
 let etcdir = dir "etcdir" "/etc/xensource" "ETCDIR" "configuration files"
 let optdir = dir "optdir" "/opt/xensource" "OPTDIR" "system files"
 let plugindir = dir "plugindir" "/etc/xapi.d/plugins" "PLUGINDIR" "xapi plugins"
 let hooksdir = dir "hooksdir" "/etc/xapi.d" "HOOKSDIR" "hook scripts"
+let inventory = path "inventory" "/etc/xensource-inventory" "INVENTORY" "the inventory file"
 let xapiconf = dir "xapiconf" "/etc/xapi.conf" "XAPICONF" "xapi master config file"
 let libexecdir = dir "libexecdir" "/opt/xensource/libexec" "LIBEXECDIR" "utility binaries"
 let scriptsdir = dir "scriptsdir" "/etc/xensource/scripts" "SCRIPTSDIR" "utility scripts"
@@ -38,8 +43,8 @@ let output_file filename lines =
   List.iter (output_string oc) lines;
   close_out oc
 
-let configure varpatchdir etcdir optdir plugindir hooksdir xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir =
-  Printf.printf "Configuring with the following params:\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\txhadir=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" varpatchdir etcdir optdir plugindir hooksdir xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir;
+let configure varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir =
+  Printf.printf "Configuring with the following params:\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\txhadir=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir;
 
   (* Write config.mk *)
   let lines = 
@@ -50,6 +55,7 @@ let configure varpatchdir etcdir optdir plugindir hooksdir xapiconf libexecdir s
       Printf.sprintf "OPTDIR=%s" optdir;
       Printf.sprintf "PLUGINDIR=%s" plugindir;
       Printf.sprintf "HOOKSDIR=%s" hooksdir;
+      Printf.sprintf "INVENTORY=%s" inventory; 
       Printf.sprintf "XAPICONF=%s" xapiconf;
       Printf.sprintf "LIBEXECDIR=%s" libexecdir;
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
@@ -69,6 +75,7 @@ let configure varpatchdir etcdir optdir plugindir hooksdir xapiconf libexecdir s
       Printf.sprintf "let optdir=\"%s\"" optdir;
       Printf.sprintf "let plugindir=\"%s\"" plugindir;
       Printf.sprintf "let hooksdir=\"%s\"" hooksdir;
+      Printf.sprintf "let inventory=\"%s\"" inventory;
       Printf.sprintf "let libexecdir=\"%s\"" libexecdir;
       Printf.sprintf "let xapiconf=\"%s\"" xapiconf;
       Printf.sprintf "let scriptsdir=\"%s\"" scriptsdir;
@@ -81,7 +88,7 @@ let configure varpatchdir etcdir optdir plugindir hooksdir xapiconf libexecdir s
   in
   output_file fhs_ml fhs_lines
 
-let configure_t = Term.(pure configure $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ xhadir $ bindir $ sbindir $ udevdir )
+let configure_t = Term.(pure configure $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ xhadir $ bindir $ sbindir $ udevdir )
 
 let () = 
   match 
