@@ -35,7 +35,9 @@ all: version
 	omake -j 8 phase1
 	omake -j 8 phase2
 	omake -j 8 phase3
+ifeq ($(DISABLE_TESTS),false)
 	@make test
+endif
 
 .PHONY: phase3
 phase3:
