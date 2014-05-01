@@ -30,6 +30,12 @@ let debug fmt =
                         then Printf.fprintf stderr "%s\n%!" txt
                 ) fmt
 
+let error fmt =
+        Printf.ksprintf
+                (fun txt ->
+                        Printf.fprintf stderr "Error: %s\n%!" txt
+                ) fmt
+
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
 		Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
@@ -37,10 +43,32 @@ let exn_to_string = function
 
 let watch_events rpc session_id =
         let open Event_types in
+        let module StringMap = Map.Make(String) in
+
+        let root = ref StringMap.empty in
+
         let rec loop token =
                 Event.from rpc session_id ["*"] token 30. >>= fun rpc ->
                 debug "received event: %s" (Jsonrpc.to_string rpc);
                 let e = event_from_of_rpc rpc in
+                List.iter ~f:(fun ev ->
+                        (* type-specific table *)
+                        let ty = match StringMap.find !root ev.ty with
+                                | None -> StringMap.empty
+                                | Some x -> x in
+                        let ty = match ev.op with
+                        | `add
+                        | `_mod ->
+                                 begin match ev.snapshot with
+                                 | None ->
+                                        error "Event contained no snapshot";
+                                        ty
+                                 | Some s ->
+                                        StringMap.add ty ~key:ev.reference ~data:s 
+                                 end
+                        | `del -> StringMap.remove ty ev.reference in
+                        root := StringMap.add !root ~key:ev.ty ~data:ty
+                ) e.events;
                 loop e.token in
         loop ""
 
