@@ -1,4 +1,4 @@
-trunk (unreleased)
+0.9.6 (1-May-2014)
 * improve async support
 * add an event-based async example
 
