@@ -67,6 +67,14 @@ Executable list_vms_async
   MainIs: list_vms.ml
   BuildDepends: xen-api-client, xen-api-client.async, core, async, async_unix, threads
 
+Executable event_test_async
+  CompiledObject:     best
+  Build$: flag(async)
+  Install: false
+  Path: event_test
+  MainIs: event_test.ml
+  BuildDepends: xen-api-client, xen-api-client.async, core, async, async_unix, threads
+
 Executable upload_disk_lwt
   CompiledObject:     best
   Build$:             flag(lwt)

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 26ed89ed5831d8a4926f30faa9020402) *)
+(* DO NOT EDIT (digest: 7cd8952eb4e083fc7ad3b9adf0d271a2) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -608,6 +608,7 @@ let package_default =
           ("lwt_test", ["lib"; "lwt"]);
           ("lwt", ["lib"]);
           ("lib_test", ["lib"]);
+          ("event_test", ["async"; "lib"]);
           ("async_test", ["async"; "lib"]);
           ("async", ["lib"])
        ]
@@ -616,6 +617,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 620 "myocamlbuild.ml"
+# 621 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
