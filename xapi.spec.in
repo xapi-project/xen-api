@@ -89,6 +89,7 @@ This package contains Xen-API documentation and examples in several programming 
 cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 
 %build
+./configure
 COMPILE_JAVA=no %{__make}
 COMPILE_JAVA=no %{__make} test
 
