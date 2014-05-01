@@ -113,13 +113,13 @@ let main () =
 	let rpc = make !uri in
 	Session.login_with_password rpc !username !password "1.0"
 	>>= fun session_id ->
-        watch_events rpc session_id >>= fun result ->
-        ( if result
-          then Printf.printf "Event test OK\n"
-          else Printf.printf "Event test failed\n"  );
+        let a = watch_events rpc session_id in
+        let b = watch_events rpc session_id in
+        a >>= fun () ->
+        b >>= fun () ->
 	Session.logout rpc session_id
 	>>= fun () ->
-	shutdown (if result then 0 else 1);
+        shutdown 0;
 	return ()
 
 
