@@ -1606,7 +1606,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
     {
       reqd=["uuid"];
       optn=["timeout"; "force"];
-      help="Attempt to detach the VBD while the VM is in the running state. If the optional argument 'timeout=N' is given then the command will wait for up to 'N' seconds for the unplug to complete. If the optional argument 'force' is given and the device supports surprise removal then it will be immediately unplugged.";
+      help="Attempt to detach the VBD while the VM is in the running state. If the optional argument 'timeout=N' is given then the command will wait for up to 'N' seconds for the unplug to complete. If the optional argument 'force' is given then it will be immediately unplugged.";
       implementation=No_fd Cli_operations.vbd_unplug;
       flags=[];
     };

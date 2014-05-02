@@ -129,8 +129,12 @@ let rm_device_state ~xs (x: device) =
 	safe_rm ~xs (backend_error_path_of_device ~xs x);
 	safe_rm ~xs (Filename.dirname (error_path_of_device ~xs x))
 
+
+(* The surprise-remove flag is now ignored: a vbd-unplug --force will
+	 unplug regardless of surprise-remove. Leave this code here for now,
+	 to warn the user in the logs. *)
 let can_surprise_remove ~xs (x: device) =
-  (* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
+				(* "(info key in xenstore) && 2" tells us whether a vbd can be surprised removed *)
         let key = backend_path_of_device ~xs x ^ "/info" in
 	try
 	  let info = Int64.of_string (xs.Xs.read key) in

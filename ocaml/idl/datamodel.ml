@@ -573,7 +573,8 @@ let _ =
     ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
   error Api_errors.pif_tunnel_still_exists ["PIF"]
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
-
+	error Api_errors.bridge_not_available [ "bridge" ]
+    ~doc:"Could not find bridge required by VM." ();
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -1250,7 +1251,7 @@ let session_login  = call ~flags:[]
   [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")}]
-  ~errs:[Api_errors.session_authentication_failed]
+  ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
   ()
