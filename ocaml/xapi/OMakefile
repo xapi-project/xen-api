@@ -153,7 +153,6 @@ XAPI_MODULES = $(COMMON) \
 	slave_backup \
 	sm_fs_ops \
 	sparse_dd_wrapper \
-	vmopshelpers \
 	pciops \
 	vgpuops \
 	vbdops \

@@ -17,7 +17,6 @@
  
 open Printf
 open Stringext
-open Vmopshelpers
 open Threadext
 open Pervasiveext
 open Listext
@@ -517,16 +516,16 @@ let resynchronise_ha_state () =
 (*     2. No other domains have been started.                     *)
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
-	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
 	let open Xenctrl in
+	let host_info = with_intf (fun xc -> physinfo xc) in
 	let host_free_pages = host_info.free_pages in
 	let host_scrub_pages = host_info.scrub_pages in
-	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
+	let domain0_info = with_intf (fun xc -> domain_getinfo xc 0) in
+	let domain0_total_pages = domain0_info.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
-		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
+		pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
 	Int64.mul 1024L boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)
