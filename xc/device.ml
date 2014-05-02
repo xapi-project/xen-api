@@ -1808,7 +1808,6 @@ let cmdline_of_info info restore domid =
 	@ (if info.acpi then [ "-acpi" ] else [])
 	@ (if restore then [ "-loadvm"; restorefile ] else [])
 	@ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
-	@ (if info.pci_passthrough then ["-priv"] else [])
 	@ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	@ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
 	@ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
