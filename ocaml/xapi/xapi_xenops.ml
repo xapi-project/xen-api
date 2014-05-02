@@ -33,21 +33,19 @@ let make_client queue_name =
 	end) in
 	(module Client: XENOPS)
 
-let all_known_xenopsds = List.map
-	(fun x -> !Xenops_interface.queue_name ^ "." ^ x)
-	[ "classic"; "libvirt"; "simulator" ]
-let default_xenopsd = List.hd all_known_xenopsds
+let all_known_xenopsds () = !Xapi_globs.xenopsd_queues
+let default_xenopsd () = !Xapi_globs.default_xenopsd
 
 let queue_of_other_config oc =
 	if List.mem_assoc "xenops" oc then begin
 		let queue_name = List.assoc "xenops" oc in
-		if List.mem queue_name all_known_xenopsds
+		if List.mem queue_name (all_known_xenopsds ())
 		then queue_name
 		else begin
-			error "Unknown xenops queue: %s, using default %s" queue_name default_xenopsd;
-			default_xenopsd
+			error "Unknown xenops queue: %s, using default %s" queue_name (default_xenopsd ());
+			default_xenopsd ()
 		end
-	end else default_xenopsd
+	end else default_xenopsd ()
 
 let queue_of_vmr vm = queue_of_other_config vm.API.vM_other_config
 
@@ -1561,7 +1559,7 @@ let on_xapi_restart ~__context =
 	List.iter (fun queue_name ->
 		let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
 		()
-	) all_known_xenopsds;
+	) (all_known_xenopsds ());
 
 	(* For each VM resident on this host, check if the xenopsd
 	   has forgotten about it: this means it has shut down *)
@@ -1574,7 +1572,7 @@ let on_xapi_restart ~__context =
 		let all = List.map (fun queue_name ->
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.list dbg () |> List.map (fun (vm, _) -> vm.Vm.id, queue_name)
-		) all_known_xenopsds in
+		) (all_known_xenopsds ()) in
 		List.concat all in
 	let in_xenopsd = List.map fst vm_to_xenopsd in
 

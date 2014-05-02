@@ -786,6 +786,14 @@ let options_of_xapi_globs_spec =
 
 let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
 
+let xenopsd_queues = ref ([
+  "org.xen.xcp.xenops.classic";
+  "org.xen.xcp.xenops.simulator";
+  "org.xen.xcp.xenops.xenlight";
+])
+
+let default_xenopsd = ref "org.xen.xcp.xenops.xenlight"
+
 let other_options = [
   "logconfig", Arg.Set_string log_config_file, 
     (fun () -> !log_config_file), "Log config file to use";
@@ -818,6 +826,12 @@ let other_options = [
         D.log_backtrace ()
     ), (fun () -> "<default>"), (* no API to query the current list *)
     "comma-separated list of modules to suppress logging from";
+
+  "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
+    (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
+
+  "xenopsd-default", Arg.Set_string default_xenopsd,
+    (fun () -> !default_xenopsd), "default xenopsd to use";
 ] 
 
 let resources = [
