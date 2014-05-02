@@ -1079,6 +1079,17 @@ let watchdog f =
 		exit !exit_code
     end
 
+let loadavg () =
+	let split_colon line =
+		let words = String.split ' ' line in
+		let stripped = List.map (String.strip String.isspace) words in
+		List.filter (fun x -> x <> "") stripped
+	in
+	let all = Unixext.string_of_file "/proc/loadavg" in
+	try
+		float_of_string (List.hd (split_colon all))
+	with _ -> -1.
+
 let set_thread_queue_params () =
 	let safe_limit = 0.9 in
 	let cpu_num =
@@ -1110,7 +1121,7 @@ let set_thread_queue_params () =
 			if now -. last_clock < !calm_down then last_decision else
 				let cpuload =
 					let upbound = (cpu_num +. 1.) *. 2. in
-					let loadavg = Rrdd_common.loadavg () in
+					let loadavg = loadavg () in
 					(sqrt loadavg) /. (sqrt upbound) in
 				let memload = Helpers.memusage () in
 				let load = max cpuload memload in

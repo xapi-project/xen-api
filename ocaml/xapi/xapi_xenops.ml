@@ -23,6 +23,7 @@ open Threadext
 open Pervasiveext
 open Fun
 module XenAPI = Client.Client
+module Rrdd = Rrd_client.Client
 open Xenops_interface
 
 module type XENOPS = module type of Xenops_client.Client

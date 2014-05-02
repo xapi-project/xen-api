@@ -33,7 +33,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	rrdd \
 	test
 
 clean:

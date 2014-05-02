@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Listext
 open Threadext

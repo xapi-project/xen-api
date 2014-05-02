@@ -15,6 +15,8 @@
  *  @group Main Loop and Start-up
  *)
 
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Stringext
 open Listext
