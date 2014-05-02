@@ -151,11 +151,8 @@ JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
 # Phase 3 targets divided into two depending on whether we're building the Xen stuff or not:
 OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
-	allxenops \
-	ocaml/xenops/cancel_utils_test \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/storage_impl_test \
-	ocaml/xapi/cancel_tests \
 	ocaml/license/v6d
 
 #ocaml/xapi/monitor_fake_plugin

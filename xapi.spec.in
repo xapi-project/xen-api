@@ -46,13 +46,6 @@ Group: System/Hypervisor
 This package contains daemon that defines and controls XCP editions and
 associated features
 
-%package xenops
-Summary: Low-level debugging tools
-Group: System/Hypervisor
-
-%description xenops
-This package contains the xenops-based low-level debugging tools.
-
 %package client-devel
 Summary: xapi Development Headers and Libraries
 Group:   Development/Libraries
@@ -257,29 +250,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 @OPTDIR@/libexec/v6d
 /etc/rc.d/init.d/v6d
-
-%files xenops
-%defattr(-,root,root,-)
-@OPTDIR@/debug/xenops
-@OPTDIR@/debug/add_vbd
-@OPTDIR@/debug/add_vif
-@OPTDIR@/debug/build_domain
-@OPTDIR@/debug/build_hvm
-@OPTDIR@/debug/create_domain
-@OPTDIR@/debug/debug_ha_query_liveset
-@OPTDIR@/debug/destroy_domain
-@OPTDIR@/debug/event_listen
-@OPTDIR@/debug/graph
-@OPTDIR@/debug/memory_breakdown
-@OPTDIR@/debug/memory_summary
-@OPTDIR@/debug/pause_domain
-@OPTDIR@/debug/restore_domain
-@OPTDIR@/debug/shutdown_domain
-@OPTDIR@/debug/sm_stress
-@OPTDIR@/debug/suspend_domain
-@OPTDIR@/debug/unpause_domain
-@OPTDIR@/debug/vncproxy
-@OPTDIR@/debug/with-vdi
 
 %files tests
 %defattr(-,root,root,-)

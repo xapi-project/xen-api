@@ -14,7 +14,6 @@ OCamlLibrary(fhs, fhs)
 	idl \
 	util \
 	xapi \
-	xenops \
 	xva \
 	console \
 	auth \

@@ -23,7 +23,6 @@
 open Pervasiveext
 open Printf
 open Threadext
-open Xenops
 
 module DD=Debug.Make(struct let name="xapi" end)
 open DD

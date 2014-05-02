@@ -1,17 +1,17 @@
 OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              http-svr xen-utils netdev tapctl rpclib xenstore-compat	\
-             xenctrl uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
+             uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory
 
 OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
-	../xenops ../xva ../util \
+	../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../rrdd/interface ..
 
 UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate \
-          xapi_services system_domains cancel_tests config_file_sync)
+          xapi_services system_domains cancel_tests config_file_sync updates)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -23,7 +23,7 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # (the same holds for OCaml packages)
 XEN_OCAML_LIBS = ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xenctrl xenctrlext xenstore-compat cpuid # xenlight
+XEN_OCAMLPACKS = xenstore-compat cpuid # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
 OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
@@ -42,9 +42,7 @@ OCamlProgram(http_test, http_test)
 OCamlProgram(show_bat, show_bat)
 #OCamlProgram(monitor_fake_plugin, monitor_fake_plugin rrdd_fake_common rrd)
 
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper ../xenops/updates storage_migrate storage_impl ../xenops/task_server storage_task storage_locks storage_impl_test)
-
-OCamlProgram(cancel_tests, cancel_tests ../xenops/xenops_helpers)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
 
 COMMON = \
 	xapi_templates \
@@ -60,7 +58,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle sparse_encoding)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle sparse_encoding)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
@@ -78,9 +76,8 @@ XAPI_MODULES = $(COMMON) \
 	../rfb/rfb_randomtest \
 	../client_records/records \
 	../client_records/record_util \
-	../xenops/task_server \
-	../xenops/updates \
-	../xenops/xenopsMemory \
+	task_server \
+	updates \
 	storage_task \
 	storage_access \
 	storage_mux \
@@ -138,6 +135,7 @@ XAPI_MODULES = $(COMMON) \
 	vm_placement \
 	xapi_vm_placement \
 	xapi_vm_helpers \
+	xenopsMemory \
 	memory_check \
 	xapi_vm_memory_constraints \
 	xapi_vbd_helpers \
