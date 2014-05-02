@@ -22,6 +22,7 @@ let base_suite =
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_vdi_allowed_operations.test;
+			Test_sr_operations.test;
 			Test_pool_license.test;
 			Test_platformdata.test;
 			Test_sm_features.test;

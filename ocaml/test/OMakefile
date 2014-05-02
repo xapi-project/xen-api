@@ -8,6 +8,7 @@ OCAMLINCLUDES = \
 	../idl \
 	../idl/ocaml_backend \
 	../autogen \
+	../client_records \
 
 OCAML_LIBS = \
 	../fhs \
@@ -30,6 +31,7 @@ OCAML_OBJS = \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_vdi_allowed_operations \
+	test_sr_operations \
 	test_pool_license \
 	test_platformdata \
 	test_sm_features \

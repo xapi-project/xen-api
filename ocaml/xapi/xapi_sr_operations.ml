@@ -109,24 +109,17 @@ let valid_operations ~__context record _ref' : table =
 	if (Db.VDI.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "managed", Literal "true")))) <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
 
-  let safe_to_parallelise = [ ] in
+  let safe_to_parallelise = function `scan -> [`pbd_create] | _ -> [] in
   let current_ops = List.setify (List.map snd current_ops) in
   
-  (* If there are any current operations, all the non_parallelisable operations
-     must definitely be stopped *)
-  if current_ops <> []
-  then set_errors Api_errors.other_operation_in_progress
-    [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    (List.set_difference all_ops safe_to_parallelise);
-
-  let all_are_parallelisable = List.fold_left (&&) true 
-    (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
-  (* If not all are parallelisable (eg a vdi_resize), ban the otherwise 
-     parallelisable operations too *)
-  if not(all_are_parallelisable)
-  then set_errors  Api_errors.other_operation_in_progress
-    [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    safe_to_parallelise;
+  (* If there are any current operations, all operations that are not
+   * parallelisable with the current ops are not allowed *)
+  let _ = List.map (fun op ->
+    set_errors Api_errors.other_operation_in_progress
+      ["SR"; _ref; sr_operation_to_string op]
+      (List.set_difference all_ops (safe_to_parallelise op))
+    ) current_ops
+  in
   table
 
 let throw_error (table: table) op = 
