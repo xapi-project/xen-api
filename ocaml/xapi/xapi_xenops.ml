@@ -25,6 +25,71 @@ open Fun
 module XenAPI = Client.Client
 open Xenops_interface
 
+module type XENOPS = module type of Xenops_client.Client
+
+let make_client queue_name =
+	let module Client = Xenops_interface.Client(struct
+		let rpc = Xcp_client.json_switch_rpc queue_name
+	end) in
+	(module Client: XENOPS)
+
+let all_known_xenopsds = List.map
+	(fun x -> !Xenops_interface.queue_name ^ "." ^ x)
+	[ "classic"; "libvirt"; "simulator" ]
+let default_xenopsd = List.hd all_known_xenopsds
+
+let queue_of_other_config oc =
+	if List.mem_assoc "xenops" oc then begin
+		let queue_name = List.assoc "xenops" oc in
+		if List.mem queue_name all_known_xenopsds
+		then queue_name
+		else begin
+			error "Unknown xenops queue: %s, using default %s" queue_name default_xenopsd;
+			default_xenopsd
+		end
+	end else default_xenopsd
+
+let queue_of_vmr vm = queue_of_other_config vm.API.vM_other_config
+
+let queue_of_vm ~__context ~self = queue_of_other_config (Db.VM.get_other_config ~__context ~self)
+
+let event_wait queue_name dbg ?from p =
+        let finished = ref false in
+        let event_id = ref from in
+	let module Client = (val make_client queue_name : XENOPS) in
+        while not !finished do
+                let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+                event_id := Some next_id;
+                List.iter (fun d -> if p d then finished := true) deltas;
+        done
+
+let task_ended queue_name dbg id =
+	let module Client = (val make_client queue_name : XENOPS) in
+        match (Client.TASK.stat dbg id).Task.state with
+                | Task.Completed _
+                | Task.Failed _ -> true
+                | Task.Pending _ -> false
+
+let assume_task_succeeded queue_name dbg id =
+	let module Client = (val make_client queue_name : XENOPS) in
+        let t = Client.TASK.stat dbg id in
+        Client.TASK.destroy dbg id;
+        match t.Task.state with
+        | Task.Completed _ -> t
+        | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+        | Task.Pending _ -> failwith "task pending"
+
+let wait_for_task queue_name dbg id =
+	let module Client = (val make_client queue_name : XENOPS) in
+        let finished = function
+                | Dynamic.Task id' ->
+                        id = id' && (task_ended queue_name dbg id)
+                | _ ->
+                        false in
+        let from = Client.UPDATES.last_id dbg in
+        if not(task_ended queue_name dbg id) then event_wait queue_name dbg ~from finished;
+        id
+
 let xenapi_of_xenops_power_state = function
 	| Some Running -> `Running
 	| Some Halted -> `Halted
@@ -603,7 +668,6 @@ module MD = struct
 end
 
 open Xenops_interface
-open Xenops_client
 open Fun
 
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
@@ -615,6 +679,7 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 			API.vM_VBDs = vm.API.vM_VBDs
 		} in
 		debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
+		let module Client = (val make_client (queue_of_vmr vm): XENOPS) in
 		let vm = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
 		let dbg = Context.string_of_task __context in
 		Client.VM.generate_state_string dbg vm
@@ -649,7 +714,8 @@ let create_metadata ~__context ~upgrade ~self =
 let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
-let vm_exists_in_xenopsd dbg id =
+let vm_exists_in_xenopsd queue_name dbg id =
+	let module Client = (val make_client queue_name : XENOPS) in
 	Client.VM.exists dbg id
 
 let string_of_exn = function
@@ -793,6 +859,7 @@ module Xenopsd_metadata = struct
 			let txt = md |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 			info "xenops: VM.import_metadata %s" txt;
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
 			let id = Client.VM.import_metadata dbg txt in
 
 			Xapi_cache._register_nolock id (Some txt);
@@ -807,6 +874,7 @@ module Xenopsd_metadata = struct
 		let dbg = Context.string_of_task __context in
 		info "xenops: VM.remove %s" id;
 		try
+			let module Client = (val make_client (queue_of_vm ~__context ~self:(vm_of_id ~__context id)) : XENOPS) in
 			Client.VM.remove dbg id
 		with 
 			| Bad_power_state(_, _) ->
@@ -819,6 +887,7 @@ module Xenopsd_metadata = struct
 			(fun () ->
 				info "xenops: VM.export_metadata %s" id;
 				let dbg = Context.string_of_task __context in
+				let module Client = (val make_client (queue_of_vm ~__context ~self:(vm_of_id ~__context id)) : XENOPS) in
 				let md = Client.VM.export_metadata dbg id |> Jsonrpc.of_string |> Metadata.t_of_rpc in
 
 				delete_nolock ~__context id;
@@ -833,10 +902,11 @@ module Xenopsd_metadata = struct
 
 	let update ~__context ~self =
 		let id = id_of_vm ~__context ~self in
+		let queue_name = queue_of_vm ~__context ~self in
 		Mutex.execute metadata_m
 			(fun () ->
 				let dbg = Context.string_of_task __context in
-				if vm_exists_in_xenopsd dbg id
+				if vm_exists_in_xenopsd queue_name dbg id
 				then
 					let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
 					begin match Xapi_cache.find_nolock id with
@@ -845,6 +915,7 @@ module Xenopsd_metadata = struct
 							debug "VM %s metadata has changed: updating xenopsd" id;
 							info "xenops: VM.import_metadata %s" txt;
 							Xapi_cache.update_nolock id (Some txt);
+							let module Client = (val make_client queue_name : XENOPS) in
 							let (_: Vm.id) = Client.VM.import_metadata dbg txt in
 							()
 					end
@@ -906,7 +977,8 @@ module Events_from_xenopsd = struct
 					Hashtbl.replace active id t;
 					id
 				)
-	let wait dbg vm_id () =
+	let wait queue_name dbg vm_id () =
+		let module Client = (val make_client queue_name : XENOPS) in
 		let t = make () in
 		let id = register t in
 		debug "Client.UPDATES.inject_barrier %d" id;
@@ -915,7 +987,8 @@ module Events_from_xenopsd = struct
 			(fun () ->
 				while not t.finished do Condition.wait t.c t.m done
 			)
-	let wakeup dbg id =
+	let wakeup queue_name dbg id =
+		let module Client = (val make_client queue_name : XENOPS) in
 		Client.UPDATES.remove_barrier dbg id;
 		let t = Mutex.execute active_m
 			(fun () ->
@@ -957,6 +1030,7 @@ let update_vm ~__context id =
 			else
 				let previous = Xenops_cache.find_vm id in
 				let dbg = Context.string_of_task __context in
+				let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
 				let info = try Some (Client.VM.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
@@ -1230,6 +1304,7 @@ let update_vbd ~__context (id: (string * string)) =
 			else
 				let previous = Xenops_cache.find_vbd id in
 				let dbg = Context.string_of_task __context in
+				let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
 				let info = try Some(Client.VBD.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VBD %s.%s: metadata has not changed" (fst id) (snd id)
@@ -1292,6 +1367,7 @@ let update_vif ~__context id =
 				let open Vif in
 				let previous = Xenops_cache.find_vif id in
 				let dbg = Context.string_of_task __context in
+				let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
 				let info = try Some (Client.VIF.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for VIF %s.%s: metadata has not changed" (fst id) (snd id)
@@ -1342,6 +1418,7 @@ let update_pci ~__context id =
 				let open Pci in
 				let previous = Xenops_cache.find_pci id in
 				let dbg = Context.string_of_task __context in
+				let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
 				let info = try Some (Client.PCI.stat dbg id) with _ -> None in
 				if Opt.map snd info = previous
 				then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
@@ -1385,15 +1462,16 @@ let update_pci ~__context id =
 		error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
 exception Not_a_xenops_task
-let wrap id = TaskHelper.Xenops id
-let unwrap x = match x with | TaskHelper.Xenops id -> id | _ -> raise Not_a_xenops_task
-let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
-let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
+let wrap queue_name id = TaskHelper.Xenops (queue_name, id)
+let unwrap x = match x with | TaskHelper.Xenops (queue_name, id) -> queue_name, id | _ -> raise Not_a_xenops_task
+let register_task __context queue_name id = TaskHelper.register_task __context (wrap queue_name id); id
+let unregister_task __context queue_name id = TaskHelper.unregister_task __context (wrap queue_name id); id
 
-let update_task ~__context id =
+let update_task ~__context queue_name id =
 	try
-		let self = TaskHelper.id_to_task_exn (TaskHelper.Xenops id) in (* throws Not_found *)
+		let self = TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id)) in (* throws Not_found *)
 		let dbg = Context.string_of_task __context in
+		let module Client = (val make_client queue_name : XENOPS) in
 		let task_t = Client.TASK.stat dbg id in
 		match task_t.Task.state with
 			| Task.Pending x ->
@@ -1406,9 +1484,10 @@ let update_task ~__context id =
 	| e ->
 		error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
-let rec events_watch ~__context from =
+let rec events_watch ~__context queue_name from =
 	let dbg = Context.string_of_task __context in
 	if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
+	let module Client = (val make_client queue_name : XENOPS) in
 	let barriers, events, next = Client.UPDATES.get dbg from None in
 	let done_events = ref [] in
 	let already_done x = List.mem x !done_events in
@@ -1453,74 +1532,37 @@ let rec events_watch ~__context from =
 							end
 						| Task id ->
 							debug "xenops event on Task %s" id;
-							update_task ~__context id
+							update_task ~__context queue_name id
 				end) l			
 	in
 	List.iter (fun (id,b_events) -> 
 		debug "Processing barrier %d" id;
 		do_updates b_events;
-		Events_from_xenopsd.wakeup dbg id) barriers;
+		Events_from_xenopsd.wakeup queue_name dbg id) barriers;
 	do_updates events;
-	events_watch ~__context (Some next)
+	events_watch ~__context queue_name (Some next)
 
-let manage_dom0 ~__context =
-	(* Tell xenopsd to manage domain 0 *)
-	let open Xenctrl in
-	let dbg = Context.string_of_task __context in
-	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-	let di = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let memory_actual_bytes = Xenctrl.pages_to_kib Int64.(mul (of_nativeint di.total_memory_pages) 1024L) in
-	let open Vm in
-	if not(vm_exists_in_xenopsd dbg uuid)
-	then begin
-		info "Client.VM.add %s" uuid;
-		Client.VM.add dbg {
-			id = uuid;
-			name = "Domain-0";
-			ssidref = 0l;
-			xsdata = [];
-			platformdata = [];
-			bios_strings = [];
-			ty = PV {
-				boot = Direct { kernel = ""; cmdline = ""; ramdisk = None };
-				framebuffer = false; framebuffer_ip = None; vncterm = false; vncterm_ip = None 
-			};
-			suppress_spurious_page_faults = false;
-			machine_address_size = None;
-			memory_static_max = memory_actual_bytes;
-			memory_dynamic_max = memory_actual_bytes;
-			memory_dynamic_min = memory_actual_bytes;
-			vcpu_max = 0;
-			vcpus = 0;
-			scheduler_params = { priority = None; affinity = [] };
-			on_crash = [];
-			on_shutdown = [];
-			on_reboot = [];
-			pci_msitranslate = true;
-			pci_power_mgmt = false;
-		} |> ignore;
-	end
+let events_from_xenopsd queue_name =
+	Server_helpers.exec_with_new_task (Printf.sprintf "%s events" queue_name)
+		(fun __context ->
+			while true do
+				try
+					events_watch ~__context queue_name None;
+				with e ->
+					error "%s event thread caught: %s" queue_name (string_of_exn e);
+					Thread.delay 10.
+			done
+		)
 
 let on_xapi_restart ~__context =
 	let dbg = Context.string_of_task __context in
-	(* Destroy each active task in xenopsd, since the previous xapi
-	   is not able to do it. *)
-	let tasks = Client.TASK.list dbg in
-	List.iter
-		(fun t ->
-			info "Deleting leaked xenopsd task %s (%s) (%s)" t.Task.id t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
-			Client.TASK.destroy dbg t.Task.id
-		) tasks;
-	(* Any VM marked as 'Suspended' in xenopsd is broken because the
-	   suspend or migrate must have failed in the middle. Remove these. *)
-	List.iter
-		(fun (vm, state) ->
-			if state.Vm.power_state = Suspended then begin
-				info "VM %s is suspended: shutting down" vm.Vm.id;
-				Client.VM.shutdown dbg vm.Vm.id None |> wait_for_task dbg |> success_task dbg |> ignore;
-				Client.VM.remove dbg vm.Vm.id
-			end
-		) (Client.VM.list dbg ());
+
+	(* For all available xenopsds, start the event thread *)
+	List.iter (fun queue_name ->
+		let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
+		()
+	) all_known_xenopsds;
+
 	(* For each VM resident on this host, check if the xenopsd
 	   has forgotten about it: this means it has shut down *)
 	let localhost = Helpers.get_localhost ~__context in
@@ -1528,7 +1570,14 @@ let on_xapi_restart ~__context =
 	(* xenopsd doesn't manage control domains *)
 	let vms = List.filter (fun self -> not(Db.VM.get_is_control_domain ~__context ~self)) vms in
 	let in_db = List.map (fun self -> id_of_vm ~__context ~self) vms in
-	let in_xenopsd = Client.VM.list dbg () |> List.map (fun (vm, _) -> vm.Vm.id) in
+	let vm_to_xenopsd =
+		let all = List.map (fun queue_name ->
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.list dbg () |> List.map (fun (vm, _) -> vm.Vm.id, queue_name)
+		) all_known_xenopsds in
+		List.concat all in
+	let in_xenopsd = List.map fst vm_to_xenopsd in
+
 	List.iter add_caches in_xenopsd;
 	List.iter
 		(fun id ->
@@ -1548,24 +1597,14 @@ let on_xapi_restart ~__context =
 					try
 						info "VM %s is running here but isn't in the database: terminating" id;
 						let dbg = Context.string_of_task __context in
-						Client.VM.shutdown dbg id None |> wait_for_task dbg |> ignore;
+						let queue_name = List.assoc id vm_to_xenopsd in
+						let module Client = (val make_client queue_name : XENOPS) in
+						Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore;
 						Client.VM.remove dbg id
 					with e ->
 						error "Failed to remove VM %s: %s" id (string_of_exn e)
 				end
 		) (List.set_difference in_xenopsd in_db)
-
-let events_from_xenopsd () =
-    Server_helpers.exec_with_new_task "xenops events"
-		(fun __context ->
-			while true do
-				try
-					events_watch ~__context None;
-				with e ->
-					error "event thread caught: %s" (string_of_exn e);
-					Thread.delay 10.
-			done
-		)
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
@@ -1676,7 +1715,8 @@ let events_from_xapi () =
 			done
 		)
 
-let success_task f dbg id =
+let success_task queue_name f dbg id =
+	let module Client = (val make_client queue_name : XENOPS) in
 	finally
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
@@ -1696,7 +1736,7 @@ let success_task f dbg id =
 
 (* Catch any uncaught xenops exceptions and transform into the most relevant XenAPI error.
    We do not want a XenAPI client to see a raw xenopsd error. *)
-let transform_xenops_exn ~__context f =
+let transform_xenops_exn ~__context queue_name f =
 	let reraise code params =
 		error "Re-raising as %s [ %s ]" code (String.concat "; " params);
 		raise (Api_errors.Server_error(code, params)) in
@@ -1747,7 +1787,7 @@ let transform_xenops_exn ~__context f =
 		| Cancelled id ->
 			let task =
 				try 
-					TaskHelper.id_to_task_exn (TaskHelper.Xenops id) 
+					TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id)) 
 				with _ ->
 					debug "xenopsd task id %s is not associated with a XenAPI task" id;
 					Ref.null in
@@ -1759,8 +1799,10 @@ let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	info "xenops: UPDATES.refresh_vm %s" id;
 	let dbg = Context.string_of_task __context in
+	let queue_name = queue_of_vm ~__context ~self in
+	let module Client = (val make_client queue_name : XENOPS) in
 	Client.UPDATES.refresh_vm dbg id;
-	Events_from_xenopsd.wait dbg id ()
+	Events_from_xenopsd.wait queue_name dbg id ()
 
 let with_events_suppressed ~__context ~self f =
 	let vm = id_of_vm ~__context ~self in
@@ -1806,59 +1848,67 @@ let update_debug_info __context t =
 				debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task) (Printexc.to_string e)
 		) debug_info
 
-let sync_with_task __context x =
+let sync_with_task __context queue_name x =
 	let dbg = Context.string_of_task __context in
-	x |> register_task __context |> wait_for_task dbg |> unregister_task __context |> success_task (update_debug_info __context) dbg
+	x |> register_task __context queue_name |> wait_for_task queue_name dbg |> unregister_task __context queue_name |> success_task queue_name (update_debug_info __context) dbg
 
-let sync __context x =
+let sync __context queue_name x =
 	let dbg = Context.string_of_task __context in
-	x |> wait_for_task dbg |> success_task (update_debug_info __context) dbg
+	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg
 
 let pause ~__context ~self =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.pause %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.pause dbg id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.pause dbg id |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ();
 			assert (Db.VM.get_power_state ~__context ~self = `Paused)
 		)
 
 let unpause ~__context ~self =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.unpause %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.unpause dbg id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.unpause dbg id |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ();
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
 		)
 
 let set_xenstore_data ~__context ~self xsdata =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.set_xenstore_data %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.set_xsdata dbg id xsdata |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.set_xsdata dbg id xsdata |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ();
 		)
 
 let set_vcpus ~__context ~self n =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.set_vcpus %s" id;
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			try
-				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context;
+				Client.VM.set_vcpus dbg id (Int64.to_int n) |> sync_with_task __context queue_name;
 				Db.VM.set_VCPUs_at_startup ~__context ~self ~value:n;
 				let metrics = Db.VM.get_metrics ~__context ~self in
 				if metrics <> Ref.null then
 					Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:n;
-				Events_from_xenopsd.wait dbg id ();
+				Events_from_xenopsd.wait queue_name dbg id ();
 			with
 				| Invalid_vcpus n ->
 					raise (Api_errors.Server_error(Api_errors.invalid_value, [
@@ -1872,14 +1922,16 @@ let set_vcpus ~__context ~self n =
 		)
 
 let set_shadow_multiplier ~__context ~self target =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.set_shadow_multiplier %s" id;
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			try
-				Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context;
-				Events_from_xenopsd.wait dbg id ();
+				Client.VM.set_shadow_multiplier dbg id target |> sync_with_task __context queue_name;
+				Events_from_xenopsd.wait queue_name dbg id ();
 			with
 				| Not_enough_memory needed ->
 					let host = Db.VM.get_resident_on ~__context ~self in
@@ -1891,18 +1943,21 @@ let set_shadow_multiplier ~__context ~self target =
 		)
 
 let set_memory_dynamic_range ~__context ~self min max =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			debug "xenops: VM.set_memory_dynamic_range %s" id;
 			let dbg = Context.string_of_task __context in
-			Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ()
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.set_memory_dynamic_range dbg id min max |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ()
 		)
 
 let start ~__context ~self paused =
 	let dbg = Context.string_of_task __context in
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			(* For all devices which we want xenopsd to manage, set currently_attached = true
 			   so the metadata is pushed. *)
@@ -1914,6 +1969,7 @@ let start ~__context ~self paused =
 			List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) vbds;
 			List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
 
+			let module Client = (val make_client queue_name : XENOPS) in
 			debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
 			try
 				with_events_suppressed ~__context ~self
@@ -1930,13 +1986,13 @@ let start ~__context ~self paused =
 											let vm_unpause = Client.VM.unpause dbg id in
 											begin
 											  try 
-											    sync_with_task __context vm_start;
+											    sync_with_task __context queue_name vm_start;
 											  with e ->
 											  (* If the VM.start throws an error, clean up the unpause
 											     which will fail in an irrelevant manor, then reraise
 											     the original error *)
 											    begin
-											      try sync __context vm_unpause with _ -> () 
+											      try sync __context queue_name vm_unpause with _ -> () 
 											    end;
 											    raise e
 											end;
@@ -1944,14 +2000,14 @@ let start ~__context ~self paused =
 											(* At this point, the start paused has succeeded. Now
 											   we _do_ care about any error from unpause *)
 
-											sync_with_task __context vm_unpause
+											sync_with_task __context queue_name vm_unpause
 										end
 									else
-										Client.VM.start dbg id |> sync_with_task __context;
+										Client.VM.start dbg id |> sync_with_task __context queue_name;
 								)
 						with e ->
 							let dbg = Context.string_of_task __context in
-							Events_from_xenopsd.wait dbg id ();
+							Events_from_xenopsd.wait queue_name dbg id ();
 					(* If the VM power_state is Halted, the event thread will have removed
 					   the metadata and cleared resident_on. *)
 							raise e
@@ -1967,7 +2023,8 @@ let start ~__context ~self paused =
 	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
 
 let start ~__context ~self paused =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			try
 				start ~__context ~self paused
@@ -1981,7 +2038,8 @@ let start ~__context ~self paused =
 		)
 
 let reboot ~__context ~self timeout =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			assert_resident_on ~__context ~self;
 			let id = id_of_vm ~__context ~self in
@@ -1989,21 +2047,24 @@ let reboot ~__context ~self timeout =
 			(* Ensure we have the latest version of the VM metadata before the reboot *)
 			Events_from_xapi.wait ~__context ~self;
 			info "xenops: VM.reboot %s" id;
-			Client.VM.reboot dbg id timeout |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ();
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
 		)
 
 let shutdown ~__context ~self timeout =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			assert_resident_on ~__context ~self;
 			let id = id_of_vm ~__context ~self in
 
 			let dbg = Context.string_of_task __context in
 			info "xenops: VM.shutdown %s" id;
-			Client.VM.shutdown dbg id timeout |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ();
 			assert (Db.VM.get_power_state ~__context ~self = `Halted);
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
@@ -2014,11 +2075,13 @@ let shutdown ~__context ~self timeout =
 		)
 
 let suspend ~__context ~self =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			assert_resident_on ~__context ~self;
 			let id = id_of_vm ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			let vm_t, state = Client.VM.stat dbg id in
 			(* XXX: this needs to be at boot time *)
 			let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
@@ -2038,14 +2101,14 @@ let suspend ~__context ~self =
 					try
 						let dbg = Context.string_of_task __context in
 						info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-						Client.VM.suspend dbg id disk |> sync_with_task __context;
-						Events_from_xenopsd.wait dbg id ();
+						Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
+						Events_from_xenopsd.wait queue_name dbg id ();
 						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
 						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 					with e ->
 						error "Caught exception suspending VM: %s" (string_of_exn e);
 						(* If the domain has suspended, we have to shut it down *)
-						Events_from_xenopsd.wait dbg id ();
+						Events_from_xenopsd.wait queue_name dbg id ();
 						if Db.VM.get_power_state ~__context ~self = `Suspended then begin
 							info "VM has already suspended; we must perform a hard_shutdown";
 							Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
@@ -2059,10 +2122,12 @@ let suspend ~__context ~self =
 
 let resume ~__context ~self ~start_paused ~force =
 	let dbg = Context.string_of_task __context in
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let vdi = Db.VM.get_suspend_VDI ~__context ~self in
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+			let module Client = (val make_client queue_name : XENOPS) in
 			(* NB we don't set resident_on because we don't want to
 			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
 			   failures cases. This means we must remove the metadata from
@@ -2075,10 +2140,10 @@ let resume ~__context ~self ~start_paused ~force =
 					Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 						(fun () ->
 							info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-							Client.VM.resume dbg id disk |> sync_with_task __context;
+							Client.VM.resume dbg id disk |> sync_with_task __context queue_name;
 							if not start_paused then begin
 								info "xenops: VM.unpause %s" id;
-								Client.VM.unpause dbg id |> sync_with_task __context;
+								Client.VM.unpause dbg id |> sync_with_task __context queue_name;
 							end;
 						)
 				)
@@ -2098,28 +2163,34 @@ let resume ~__context ~self ~start_paused ~force =
 		)
 
 let s3suspend ~__context ~self =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			debug "xenops: VM.s3suspend %s" id;
-			Client.VM.s3suspend dbg id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ()
+			Client.VM.s3suspend dbg id |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ()
 		)
 
 let s3resume ~__context ~self =
-	transform_xenops_exn ~__context
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
 			let id = id_of_vm ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			debug "xenops: VM.s3resume %s" id;
-			Client.VM.s3resume dbg id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg id ()
+			Client.VM.s3resume dbg id |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ()
 		)
 
 let is_vm_running ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	let dbg = Context.string_of_task __context in
+	let queue_name = queue_of_vm ~__context ~self in
+	let module Client = (val make_client queue_name : XENOPS) in
 	debug "xenops: VM.stat %s" id;
 	(* If the metadata is still present, VM is "Running" *)
 	try Client.VM.stat dbg id |> ignore; true with _ -> false
@@ -2129,13 +2200,15 @@ let md_of_vbd ~__context ~self =
 	MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
 
 let vbd_plug ~__context ~self =
-	transform_xenops_exn ~__context
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			Events_from_xapi.wait ~__context ~self:vm;
 			let vbd = md_of_vbd ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			finally
 				(fun () ->
 					with_events_suppressed ~__context ~self:vm
@@ -2143,57 +2216,63 @@ let vbd_plug ~__context ~self =
 							info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 							let id = Client.VBD.add dbg vbd in
 							info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-							Client.VBD.plug dbg id |> sync_with_task __context;
+							Client.VBD.plug dbg id |> sync_with_task __context queue_name;
 						)
 				) (fun () -> refresh_vm ~__context ~self:vm);
-			Events_from_xenopsd.wait dbg (fst vbd.Vbd.id) ();
+			Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
 			assert (Db.VBD.get_currently_attached ~__context ~self)
 		)
 
 let vbd_unplug ~__context ~self force =
-	transform_xenops_exn ~__context
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vbd = md_of_vbd ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			begin
 				try
 					info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-					Client.VBD.unplug dbg vbd.Vbd.id force |> sync_with_task __context;
+					Client.VBD.unplug dbg vbd.Vbd.id force |> sync_with_task __context queue_name;
 				with Device_detach_rejected(_, _, _) ->
 					raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
 			end;
-			Events_from_xenopsd.wait dbg (fst vbd.Vbd.id) ();
+			Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
 			assert (not(Db.VBD.get_currently_attached ~__context ~self))
 		)
 
 let vbd_eject_hvm ~__context ~self =
-	transform_xenops_exn ~__context
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vbd = md_of_vbd ~__context ~self in
 			info "xenops: VBD.eject %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
 			let dbg = Context.string_of_task __context in
-			Client.VBD.eject dbg vbd.Vbd.id |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg (fst vbd.Vbd.id) ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VBD.eject dbg vbd.Vbd.id |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
 			Events_from_xapi.wait ~__context ~self:vm;
 			assert (Db.VBD.get_empty ~__context ~self);
 			assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
 		)
 
 let vbd_insert_hvm ~__context ~self ~vdi =
-	transform_xenops_exn ~__context
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VBD.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vbd = md_of_vbd ~__context ~self in
 			let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
 			info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (disk |> rpc_of_disk |> Jsonrpc.to_string);
 			let dbg = Context.string_of_task __context in
-			Client.VBD.insert dbg vbd.Vbd.id disk |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg (fst vbd.Vbd.id) ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VBD.insert dbg vbd.Vbd.id disk |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
 			Events_from_xapi.wait ~__context ~self:vm;
 			assert (not(Db.VBD.get_empty ~__context ~self));
 			assert (Db.VBD.get_VDI ~__context ~self = vdi)
@@ -2203,6 +2282,8 @@ let ejectable ~__context ~self =
 	let dbg = Context.string_of_task __context in
 	let vm = Db.VBD.get_VM ~__context ~self in
 	let id = Db.VM.get_uuid ~__context ~self:vm in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	let module Client = (val make_client queue_name : XENOPS) in
 	let _, state = Client.VM.stat dbg id in
 	state.Vm.hvm
 
@@ -2229,13 +2310,15 @@ let md_of_vif ~__context ~self =
 	MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self)
 
 let vif_plug ~__context ~self =
-	transform_xenops_exn ~__context
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VIF.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			Events_from_xapi.wait ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				finally
 					(fun () ->
@@ -2244,66 +2327,69 @@ let vif_plug ~__context ~self =
 								info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 								let id = Client.VIF.add dbg vif in
 								info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-								Client.VIF.plug dbg id |> sync_with_task __context;
+								Client.VIF.plug dbg id |> sync_with_task __context queue_name;
 							)
 					) (fun () -> refresh_vm ~__context ~self:vm)
 			);
-			Events_from_xenopsd.wait dbg (fst vif.Vif.id) ();
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
-let vm_set_vm_data ~__context ~self =
-	transform_xenops_exn ~__context
-		(fun () ->
-			()
-		)
+let vm_set_vm_data ~__context ~self = ()
 
 let vif_set_locking_mode ~__context ~self =
-	transform_xenops_exn ~__context
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VIF.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.set_locking_mode %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let dbg = Context.string_of_task __context in
-			Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg (fst vif.Vif.id) ();
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VIF.set_locking_mode dbg vif.Vif.id vif.Vif.locking_mode |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 		)
 
 let vif_unplug ~__context ~self force =
-	transform_xenops_exn ~__context
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VIF.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let dbg = Context.string_of_task __context in
-			Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context;
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context queue_name;
 			(* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
-			Events_from_xenopsd.wait dbg (fst vif.Vif.id) ();
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 			assert (not(Db.VIF.get_currently_attached ~__context ~self))
 		)
 
 let vif_move ~__context ~self network =
-	transform_xenops_exn ~__context
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context queue_name
 		(fun () ->
-			let vm = Db.VIF.get_VM ~__context ~self in
 			assert_resident_on ~__context ~self:vm;
 			let vif = md_of_vif ~__context ~self in
 			info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
 			let network = Db.Network.get_record ~__context ~self:network in
 			let backend = backend_of_network network in
 			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
 			(* Nb., at this point, the database shows the vif on the new network *)
 			Xapi_network.attach_for_vif ~__context ~vif:self ();
-			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context;
-			Events_from_xenopsd.wait dbg (fst vif.Vif.id) ();
+			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
 let task_cancel ~__context ~self =
 	try
-		let id = TaskHelper.task_to_id_exn self |> unwrap in
+		let queue_name, id = TaskHelper.task_to_id_exn self |> unwrap in
+		let module Client = (val make_client queue_name : XENOPS) in
 		let dbg = Context.string_of_task __context in
 		info "xenops: TASK.cancel %s" id;
 		Client.TASK.cancel dbg id |> ignore; (* it might actually have completed, we don't care *)
