@@ -157,7 +157,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/master.d/03-mpathalert-daemon
 %config(noreplace) /etc/xensource/pool.conf
 @OPTDIR@/bin/fix_firewall.sh
-@OPTDIR@/bin/list_domains
 @OPTDIR@/bin/mpathalert
 @OPTDIR@/bin/perfmon
 @OPTDIR@/bin/static-vdis
@@ -199,7 +198,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/block_device_io
 @OPTDIR@/libexec/cdrommon
 @OPTDIR@/libexec/fence
-@OPTDIR@/libexec/fence.bin
 @OPTDIR@/libexec/generate_ssl_cert
 @OPTDIR@/libexec/host-backup
 @OPTDIR@/libexec/host-bugreport-upload
@@ -239,6 +237,12 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
 /var/xapi
+@OPTDIR@/debug/debug_ha_query_liveset
+@OPTDIR@/debug/event_listen
+@OPTDIR@/debug/graph
+@OPTDIR@/debug/sm_stress
+@OPTDIR@/debug/vncproxy
+@OPTDIR@/debug/with-vdi
 
 %files xe
 %defattr(-,root,root,-)
