@@ -30,7 +30,10 @@ module type XENOPS = module type of Xenops_client.Client
 
 let make_client queue_name =
 	let module Client = Xenops_interface.Client(struct
-		let rpc = Xcp_client.json_switch_rpc queue_name
+		let rpc x =
+			if !Xcp_client.use_switch
+			then Xcp_client.json_switch_rpc queue_name x
+			else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
 	end) in
 	(module Client: XENOPS)
 
