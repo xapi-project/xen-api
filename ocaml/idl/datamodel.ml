@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 70
+let schema_minor_vsn = 71
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -54,12 +54,15 @@ let vgpu_tech_preview_release_schema_minor_vsn = 68
 let vgpu_productisation_release_schema_major_vsn = 5
 let vgpu_productisation_release_schema_minor_vsn = 69
 
-let clearwater_felton_release_major_vsn = 5
-let clearwater_felton_release_minor_vsn = 70
+let clearwater_felton_release_schema_major_vsn = 5
+let clearwater_felton_release_schema_minor_vsn = 70
+
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 71
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = vgpu_productisation_release_schema_major_vsn
-let last_release_schema_minor_vsn = vgpu_productisation_release_schema_minor_vsn
+let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
+let last_release_schema_minor_vsn = clearwater_felton_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -176,6 +179,12 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
+
+let creedence_release =
+	{ internal = get_product_releases rel_creedence
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
 
 let clearwater_felton_release =
 	{ internal=get_product_releases rel_clearwater_felton
@@ -498,6 +507,10 @@ let _ =
     ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+  error Api_errors.cannot_change_pif_properties ["PIF"]
+    ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
+  error Api_errors.incompatible_pif_properties []
+    ~doc:"These PIFs can not be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
     ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]
@@ -560,7 +573,8 @@ let _ =
     ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
   error Api_errors.pif_tunnel_still_exists ["PIF"]
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
-
+	error Api_errors.bridge_not_available [ "bridge" ]
+    ~doc:"Could not find bridge required by VM." ();
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -1237,7 +1251,7 @@ let session_login  = call ~flags:[]
   [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")}]
-  ~errs:[Api_errors.session_authentication_failed]
+  ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
   ()
@@ -4641,6 +4655,7 @@ let pif_pool_introduce_params first_rel =
     {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
     {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
+    {param_type=Map(String, String); param_name="properties"; param_doc=""; param_release=creedence_release; param_default=Some (VMap [])};
   ]
 
 (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
@@ -4676,6 +4691,18 @@ let pif_db_forget = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_set_property = call
+	~name:"set_property"
+	~doc:"Set the value of a property of the PIF"
+	~params:[
+		Ref _pif, "self", "The PIF";
+		String, "name", "The property name";
+		String, "value", "The property value";
+	]
+	~lifecycle:[Published, rel_creedence, ""]
+	~allowed_roles:_R_POOL_OP
+	()
+
 let pif = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
       ~gen_events:true
@@ -4683,7 +4710,7 @@ let pif =
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
-		pif_db_introduce; pif_db_forget
+		pif_db_introduce; pif_db_forget; pif_set_property
 		] ~contents:
       [ uid _pif;
 	(* qualifier changed RW -> StaticRO in Miami *)
@@ -4721,6 +4748,7 @@ let pif =
 	field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed" "Indicates whether the interface \
 		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
 		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
+	field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
       ]
 	()
 

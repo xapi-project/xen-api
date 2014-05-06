@@ -721,9 +721,15 @@ let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
 let request_backup ~__context ~host ~generation ~force =
   if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
-  let master_address = Helpers.get_main_ip_address () in
-  Pool_db_backup.fetch_database_backup ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
-	~force:(if force then None else (Some generation))
+  if Pool_role.is_master () then begin
+    debug "Requesting database backup on master: Using direct sync";
+      let connections = Db_conn_store.read_db_connections () in
+      Db_cache_impl.sync connections (Db_ref.get_database (Db_backend.make ()))
+  end else begin
+    let master_address = Helpers.get_main_ip_address () in
+    Pool_db_backup.fetch_database_backup ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
+      ~force:(if force then None else (Some generation))
+  end
 
 (* request_config_file_sync is used to inform a slave that it should consider resyncing dom0 config files
    (currently only /etc/passwd) *)

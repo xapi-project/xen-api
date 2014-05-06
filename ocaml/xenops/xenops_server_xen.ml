@@ -169,8 +169,9 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 			  try 
 			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
 			  with e ->
-			    warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
-			    0L
+                            warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
+                            warn "Defaulting to 'now'";
+                            Oclock.gettime Oclock.monotonic
 			in
 			compare (create_time a) (create_time b)
 		) possible in
@@ -411,7 +412,7 @@ module Mem = struct
 	let retry f =
 		let start = Unix.gettimeofday () in
 		let interval = 10. in
-		let timeout = 0. in
+		let timeout = 60. in
 		let rec loop () =
 			try
 				f ()
@@ -1349,8 +1350,10 @@ module VM = struct
 						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
 						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
 						if try ignore(Xenctrl.domain_getinfo xc di.domid); false with _ -> true then begin
-							debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.domid;
-							Domain.destroy task ~xc ~xs ~qemu_domid di.domid;
+							try
+								debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.domid;
+								Domain.destroy task ~xc ~xs ~qemu_domid di.domid;
+							with e -> debug "Domain.destroy failed. Re-raising original error."
 						end;
 						raise e
 				end;
@@ -1516,6 +1519,18 @@ module VM = struct
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
 		let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+		(* Don't take the timeoffset from [state] (last boot record). Put back
+		 * the one from [vm] which came straight from the platform keys. *)
+		let persistent = match vm.ty with
+			| HVM {timeoffset} ->
+				begin match persistent.VmExtra.ty with
+				| Some (HVM hvm_info) ->
+					{persistent with VmExtra.ty = Some (HVM {hvm_info with timeoffset = timeoffset})}
+				| _ ->
+					persistent
+				end
+			| _ -> persistent
+		in
 		let non_persistent = match DB.read k with
 		| None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
 		| Some vmextra -> vmextra.VmExtra.non_persistent
@@ -1760,7 +1775,9 @@ module VBD = struct
 					Opt.iter
 						(fun device ->
 							if force && (not (Device.can_surprise_remove ~xs device))
-							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							then debug
+								"VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
+								vm (id_of vbd); (* this happens on normal shutdown too *)
 							(* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);

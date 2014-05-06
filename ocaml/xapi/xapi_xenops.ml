@@ -1894,11 +1894,31 @@ let start ~__context ~self paused =
 							Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
 								(fun () ->
 									info "xenops: VM.start %s" id;
-									Client.VM.start dbg id |> sync_with_task __context;
-									if not paused then begin
-										info "xenops: VM.unpause %s" id;
-										Client.VM.unpause dbg id |> sync __context;
-									end;
+									if not paused then
+										begin
+											let vm_start = Client.VM.start dbg id in
+											info "xenops: Queueing VM.unpause %s" id;
+											let vm_unpause = Client.VM.unpause dbg id in
+											begin
+											  try 
+											    sync_with_task __context vm_start;
+											  with e ->
+											  (* If the VM.start throws an error, clean up the unpause
+											     which will fail in an irrelevant manor, then reraise
+											     the original error *)
+											    begin
+											      try sync __context vm_unpause with _ -> () 
+											    end;
+											    raise e
+											end;
+
+											(* At this point, the start paused has succeeded. Now
+											   we _do_ care about any error from unpause *)
+
+											sync_with_task __context vm_unpause
+										end
+									else
+										Client.VM.start dbg id |> sync_with_task __context;
 								)
 						with e ->
 							let dbg = Context.string_of_task __context in

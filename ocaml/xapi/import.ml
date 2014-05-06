@@ -643,33 +643,43 @@ end
 module Net : HandlerTools = struct
 	type precheck_t =
 		| Found_net of API.ref_network
+		| Found_no_net of API.network_t
 		| Create of API.network_t
 	
 	let precheck __context config rpc session_id state x =
 		let net_record = API.From.network_t "" x.snapshot in
 		let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
-		match possibilities with
-		| [] ->
+		match possibilities, config.import_type with
+		| [], Metadata_import _ ->
 			begin
 				(* Lookup by bridge name as fallback *)
 				let expr = "field \"bridge\"=\"" ^ net_record.API.network_bridge ^ "\"" in
 				let nets = Client.Network.get_all_records_where rpc session_id expr in
 				match nets with
-				| [] -> Create net_record
+				| [] ->
+					(* In vm_metadata_only_mode the network must exist *)
+					let msg =
+						Printf.sprintf "Unable to find Network with name_label = '%s' nor bridge = '%s'"
+						net_record.API.network_name_label net_record.API.network_bridge
+					in
+					error "%s" msg;
+					Found_no_net (net_record)
 				| (net, _) :: _ -> Found_net net
 			end
-		| (n::ns) -> Found_net n
+		| [], Full_import _ -> Create net_record
+		| (n::ns), _ -> Found_net n
 
 	let handle_dry_run __context config rpc session_id state x precheck_result =
 		match precheck_result with
 		| Found_net net -> state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
+		| Found_no_net n -> raise (Api_errors.Server_error(Api_errors.bridge_not_available, [n.API.network_bridge]))
 		| Create _ ->
 			let dummy_net = Ref.make () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_net) :: state.table
 
 	let handle __context config rpc session_id state x precheck_result =
 		match precheck_result with
-		| Found_net _ ->
+		| Found_net _ | Found_no_net _ ->
 			handle_dry_run __context config rpc session_id state x precheck_result
 		| Create net_record ->
 			let net =
