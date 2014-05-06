@@ -44,19 +44,25 @@ type host_info = {
 }
 
 let read_localhost_info () =
-	let xen_verstring =
+	let xen_verstring, total_memory_mib =
 		try
 			let xc = Xenctrl.interface_open () in
 			let v = Xenctrl.version xc in
 			Xenctrl.interface_close xc;
 			let open Xenctrl in
-			Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+			let xen_verstring = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
+			let total_memory_mib =
+				let open Xenops_client in
+				Client.HOST.get_total_memory_mib "read_localhost_info" in
+			xen_verstring, total_memory_mib
 		with e ->
 			if Pool_role.is_unit_test ()
-			then "0.0.0"
+			then "0.0.0", 0L
 			else begin
 			        warn "Failed to read xen version";
-                                "unknown"
+				match Balloon.get_memtotal () with
+				| None -> "unknown", 0L
+				| Some x -> "unknown", x
                         end
 	and linux_verstring =
 		let verstring = ref "" in
@@ -69,9 +75,6 @@ let read_localhost_info () =
 	let me = Helpers.get_localhost_uuid () in
 	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
-	let total_memory_mib =
-		let open Xenops_client in
-		Client.HOST.get_total_memory_mib "read_localhost_info" in
 
 	let dom0_static_max = 
 		(* Query the balloon driver to determine how much memory is available for domain 0. *)
