@@ -20,7 +20,8 @@ val create :
   __context:Context.t ->
   vM:[ `VM ] Ref.t ->
   gPU_group:[ `GPU_group ] Ref.t ->
-  device:string -> other_config:(string * string) list -> [ `VGPU ] Ref.t
+  device:string -> other_config:(string * string) list ->
+  _type:[ `VGPU_type ] Ref.t -> [ `VGPU ] Ref.t
 
 (** Destroy a VGPU. *)
 val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit
@@ -29,3 +30,7 @@ val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit
 val copy :
   __context:Context.t ->
   vm:[ `VM ] Ref.t -> [ `VGPU ] Ref.t -> [ `VGPU ] Ref.t
+
+(* Determine whether a VGPU requires passthrough of an entire PGPU, or
+ * will be only require part of the PGPU. *)
+val requires_passthrough : __context:Context.t -> self:API.ref_VGPU -> bool

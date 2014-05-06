@@ -34,7 +34,7 @@ install:
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
-	$(IPROG) udhcpd.skel $(DESTDIR)/var/lib/xcp/udhcpd.skel
+	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCDIR)/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
@@ -102,7 +102,6 @@ install:
 	$(IPROG) plugins/iovirt $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
-	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)

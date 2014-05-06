@@ -43,7 +43,7 @@ let startup_check () =
 *)
 let setup_db_conf() =
   debug "parsing db config file";
-  let dbs = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
+  let dbs = Parse_db_conf.get_db_conf Xapi_globs.db_conf_path in
   (* initialise our internal record of db conections from db.conf *)
   Db_conn_store.initialise_db_connections dbs
 
@@ -198,12 +198,9 @@ let register_callback_fns() =
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
     TaskHelper.init ()
 
-let nowatchdog = ref false
+
 let noevents = ref false
 let debug_dummy_data = ref false
-
-(** Start the XML-RPC server. *)
-let daemonize = ref false
 
 let show_version () = 
   List.iter (fun (x, y) -> printf "%s=%s\n" x y)
@@ -219,22 +216,7 @@ let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Arg.parse [
-	       "-daemon", Arg.Set daemonize, "run as a daemon in the background";
-	       "-config", Arg.Set_string Xapi_globs.config_file, "set config file to use";
-	       "-logconfig", Arg.Set_string Xapi_globs.log_config_file, "set log config file to use";
-	       "-writereadyfile", Arg.Set_string Xapi_globs.ready_file, "touch specified file when xapi is ready to accept requests";
-	       "-writeinitcomplete", Arg.Set_string Xapi_globs.init_complete, "touch specified file when xapi init process is complete";
-	       "-nowatchdog", Arg.Set nowatchdog, "turn watchdog off, avoiding initial fork";
-	       "-setdom0mem", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-dom0memgradient", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-dom0memintercept", Arg.Unit (fun () -> ()), "(ignored)";
-	       "-onsystemboot", Arg.Set Xapi_globs.on_system_boot, "indicates that this server start is the first since the host rebooted";
-	       "-noevents", Arg.Set noevents, "turn event thread off for debugging -leaves crashed guests undestroyed";
-	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
-	       "-version", Arg.Unit show_version, "show version of the binary"
-	     ] (fun x -> printf "Warning, ignoring unknown argument: %s" x)
-    "XenAPI server"
+  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources ()
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
@@ -489,7 +471,7 @@ let resynchronise_ha_state () =
 			(fun __context ->
 				(* Make sure the control domain is marked as "running" - in the case of *)
 				(* HA failover it will have been marked as "halted". *)
-				let control_domain_uuid = Util_inventory.lookup Util_inventory._control_domain_uuid in
+				let control_domain_uuid = Inventory.lookup Inventory._control_domain_uuid in
 				let control_domain = Db.VM.get_by_uuid ~__context ~uuid:control_domain_uuid in
 				Db.VM.set_power_state ~__context ~self:control_domain ~value:`Running;
 
@@ -791,8 +773,6 @@ let server_init() =
   try
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
-    "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
@@ -916,8 +896,8 @@ let server_init() =
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
-      "listening to events from xenopsd", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
-      "listening to events from xapi", [], (fun () -> if not (!noevents) && (!Xapi_globs.use_xenopsd) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+      "listening to events from xenopsd", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
+      "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
@@ -982,7 +962,7 @@ let delay_on_eintr f =
   | e -> raise e
 
 let watchdog f =
-	if !nowatchdog then begin
+	if !Xapi_globs.nowatchdog then begin
 		try
 			ignore(Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]);
 			delay_on_eintr f;
@@ -1013,15 +993,18 @@ let watchdog f =
 				let cmd = Sys.argv.(0) in
 
 				let overriden_args = [ "-onsystemboot"; "-daemon" ] in
+				let overriden_args1 = [ "-daemon" ] in
 				let core_args = 
-					List.filter (fun x -> not(List.mem x overriden_args))
-						(List.tl (Array.to_list Sys.argv)) in
+					List.rev(fst(List.fold_left (fun (acc, delete_next) x ->
+						let acc = if List.mem x overriden_args || delete_next then acc else x :: acc in
+						let delete_next = List.mem x overriden_args1 in
+						acc, delete_next
+					) ([], false) (List.tl (Array.to_list Sys.argv)))) in
+
 				let args = 
 					"-nowatchdog" :: core_args 
 					@ (if !Xapi_globs.on_system_boot then [ "-onsystemboot" ] else []) in
-
 				let newpid = Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None None None [] cmd args in
-
 				(* parent just reset the sighandler *)
 				Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun i -> restart := false; Unix.kill (Forkhelpers.getpid newpid) Sys.sigterm));
 				pid := Some newpid;

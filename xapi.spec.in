@@ -238,11 +238,10 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xapi-health-check
 @OPTDIR@/libexec/xapi-rolling-upgrade
 @OPTDIR@/libexec/xha-lc
-@OPTDIR@/libexec/pci-info
 @OPTDIR@/libexec/xe-syslog-reconfigure
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
-/var/lib/xcp/udhcpd.skel
+/etc/xensource/udhcpd.skel
 @OPTDIR@/debug/rbac_static.csv
 /etc/xapi.d/host-post-declare-dead/10resetvdis
 /var/xapi

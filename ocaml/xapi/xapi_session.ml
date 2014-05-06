@@ -367,7 +367,10 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 			~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
 	end 
 	else
-	let login_as_local_superuser auth_type = 
+	let () =
+		if Pool_role.is_slave() then
+			raise (Api_errors.Server_error (Api_errors.host_is_slave, [Pool_role.get_master_address()])) in
+	let login_as_local_superuser auth_type =
 		if (auth_type <> "") && (uname <> local_superuser)
 		then (* makes local superuser = root only*)
 		     failwith ("Local superuser must be "^local_superuser)

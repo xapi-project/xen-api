@@ -24,17 +24,33 @@ type vm_config = {
 	platform: (string * string) list;
 }
 
-(* Currently this only tests the behaviour of the "hvm_serial"
- * other_config/platform key. *)
-module HVMBuilderOfVM = Generic.Make(Generic.EncapsulateState(struct
+let string_of_vm_config conf =
+	Printf.sprintf "other_config = %s, platform = %s"
+		(string_of_string_map conf.oc)
+		(string_of_string_map conf.platform)
+
+let load_vm_config __context conf =
+	let (_: API.ref_VM) = make_vm ~__context
+		~name_label:test_vm_name
+		~hVM_boot_policy:"BIOS order"
+		~other_config:conf.oc
+		~platform:conf.platform
+		()
+	in ()
+
+let run_builder_of_vm __context =
+	let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
+	let vm = List.nth vms 0 in
+	let vm_record = Db.VM.get_record ~__context ~self:vm in
+	Xapi_xenops.builder_of_vm ~__context ~vm:vm_record "0" false
+
+(* Test the behaviour of the "hvm_serial" other_config/platform key. *)
+module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = vm_config
 		type output_t = string option
 
-		let string_of_input_t conf =
-			Printf.sprintf "other_config = %s, platform = %s"
-				(string_of_string_map conf.oc)
-				(string_of_string_map conf.platform)
+		let string_of_input_t = string_of_vm_config
 		let string_of_output_t = function
 			| Some s -> Printf.sprintf "Some %s" s
 			| None -> "None"
@@ -42,20 +58,10 @@ module HVMBuilderOfVM = Generic.Make(Generic.EncapsulateState(struct
 
 	module State = XapiDb
 
-	let load_input __context conf =
-		let (_: API.ref_VM) = make_vm ~__context
-			~name_label:test_vm_name
-			~hVM_boot_policy:"BIOS order"
-			~other_config:conf.oc
-			~platform:conf.platform
-			()
-		in ()
+	let load_input = load_vm_config
 
-	let extract_output __context =
-		let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
-		let vm = List.nth vms 0 in
-		let vm_record = Db.VM.get_record ~__context ~self:vm in
-		match Xapi_xenops.builder_of_vm ~__context ~vm:vm_record "0" false with
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
 		| Vm.HVM {Vm.serial = serial} -> serial
 		| _ -> failwith "expected HVM metadata"
 
@@ -106,8 +112,96 @@ module HVMBuilderOfVM = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
+let vgpu_pci_id = "vgpu_pci_id", "0000:0a:00.0"
+let vgpu_config = "vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"
+
+let vgpu_platform_data = [vgpu_pci_id; vgpu_config]
+
+module VideoMode = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = vm_config
+		type output_t = Vm.video_card
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = function
+			| Vm.Cirrus -> "Cirrus"
+			| Vm.Standard_VGA -> "Standard_VGA"
+			| Vm.Vgpu -> "Vgpu"
+	end
+
+	module State = XapiDb
+
+	let load_input = load_vm_config
+
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
+		| Vm.HVM {Vm.video = video_mode} -> video_mode
+		| _ -> failwith "expected HVM metadata"
+
+	let tests = [
+		(* Default video mode should be Cirrus. *)
+		{oc=[]; platform=[]}, Vm.Cirrus;
+		(* Unrecognised video mode should default to Cirrus. *)
+		{oc=[]; platform=["vga", "foo"]}, Vm.Cirrus;
+		(* Video modes set in the platform map should be respected. *)
+		{oc=[]; platform=["vga", "cirrus"]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"]}, Vm.Standard_VGA;
+		(* We should be able to enable vGPU mode. *)
+		{oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
+		(* vGPU mode should override whatever's set for the "vga" key. *)
+		{oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
+		{oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
+		(* If somehow only one of the vGPU keys is set, this shouldn't
+		 * trigger vGPU mode. This should only ever happen if a user is
+		 * experimenting with vgpu_manual_setup. *)
+		{oc=[]; platform=[vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_pci_id]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_pci_id]}, Vm.Standard_VGA;
+		{oc=[]; platform=[vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "cirrus"; vgpu_config]}, Vm.Cirrus;
+		{oc=[]; platform=["vga", "std"; vgpu_config]}, Vm.Standard_VGA;
+	]
+end))
+
+module VideoRam = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = vm_config
+		type output_t = int
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = string_of_int
+	end
+
+	module State = XapiDb
+
+	let load_input = load_vm_config
+
+	let extract_output __context _ =
+		match run_builder_of_vm __context with
+		| Vm.HVM {Vm.video_mib = video_mib} -> video_mib
+		| _ -> failwith "expected HVM metadata"
+
+	let tests = [
+		(* Video ram defaults to 4MiB. *)
+		{oc=[]; platform=[]}, 4;
+		(* Specifying a different amount of videoram works. *)
+		{oc=[]; platform=["videoram", "8"]}, 8;
+		(* Default videoram should be 16MiB for vGPU. *)
+		{oc = []; platform=vgpu_platform_data}, 16;
+		(* Insufficient videoram values should be overridden for vGPU. *)
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "8"]}, 16;
+		(* videoram values larger than the default should be allowed for vGPU. *)
+		{oc = []; platform=vgpu_platform_data @ ["videoram", "32"]}, 32;
+		(* Other VGA options shouldn't affect the videoram setting. *)
+		{oc = []; platform=["vga", "cirrus"]}, 4;
+		{oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
+	]
+end))
+
 let test =
 	"test_xenopsd_metadata" >:::
 		[
-			"test_HVM_builder_of_VM" >:: HVMBuilderOfVM.test;
+			"test_hvm_serial" >:: HVMSerial.test;
+			"test_videomode" >:: VideoMode.test;
+			"test_videoram" >:: VideoRam.test;
 		]

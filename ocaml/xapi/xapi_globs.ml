@@ -19,9 +19,6 @@ open Printf
 
 module D = Debug.Make(struct let name="xapi_globs" end)
 
-(* set this to true to use the experimental codepath *)
-let use_xenopsd = ref false
-
 (* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
 let relax_xsm_sr_check = ref true
 
@@ -38,8 +35,10 @@ let version_minor = Version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
 (* api version *)
+(* Normally xencenter_min_verstring and xencenter_max_verstring below should be set to the same value,
+ * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 0L
+let api_version_minor = 2L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -51,8 +50,19 @@ let tools_version_none = (-1, -1, -1, -1)
 let tools_version = ref tools_version_none
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.10"
-let xencenter_max_verstring = "2.0"
+(* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
+ * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
+ * xencenter_min should equal the current version of XenCenter.
+ *
+ * xencenter_max is not what you would guess after reading the previous paragraph, which would involve
+ * predicting the future. Instead, it should always equal the current version of XenCenter. It must not
+ * change without issuing a new version of XenCenter. This is used to make sure that even if the user is
+ * not required to upgrade, we at least warn them.
+ *
+ * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
+ * will need to be made in XenCenter *)
+let xencenter_min_verstring = "2.0"
+let xencenter_max_verstring = "2.2"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -89,7 +99,6 @@ let http_realm = "xapi"
 let xe_path = Filename.concat Fhs.bindir "xe"
 let sm_dir = Filename.concat Fhs.optdir "sm"
 
-let config_file = ref Fhs.xapiconf
 let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
 let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
 let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
@@ -467,8 +476,15 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 (* Pool.other_config key to enable pass-through of PIF carrier *)
 let pass_through_pif_carrier = "pass_through_pif_carrier"
 
-(* Remember the specific PCI devices needed for vGPU passthrough *)
+(* Remember the specific PCI devices needed for GPU passthrough *)
 let vgpu_pci = "vgpu_pci"
+
+(* Name for fields in VM.platform used for vGPU *)
+let vgpu_manual_setup_key = "vgpu_manual_setup"
+
+let vgpu_pci_key = "vgpu_pci_id"
+let vgpu_config_key = "vgpu_config"
+let vgpu_extra_args_key = "vgpu_extra_args"
 
 let dev_zero = "/dev/zero"
 
@@ -704,104 +720,133 @@ let redo_log_max_startup_time = ref 5.
 (** The delay between each attempt to connect to the block device I/O process *)
 let redo_log_connect_delay = ref 0.1
 
+let nowatchdog = ref false
+
+(* Path to the pool configuration file. *)
+let pool_config_file = ref (Filename.concat Fhs.etcdir "pool.conf")
+
+(* Path to the pool secret file. *)
+let pool_secret_path = ref (Filename.concat Fhs.etcdir "ptoken")
+
+let udhcpd = ref (Filename.concat Fhs.libexecdir "udhcpd")
+
+type xapi_globs_spec_ty = | Float of float ref | Int of int ref
+
 let xapi_globs_spec =
-	[ "master_connection_reset_timeout",
-	  Config.Set_float master_connection_reset_timeout;
-	  "master_connection_retry_timeout",
-	  Config.Set_float master_connection_retry_timeout;
-	  "master_connection_default_timeout",
-	  Config.Set_float master_connection_default_timeout;
-	  "qemu_dm_ready_timeout",
-	  Config.Set_float qemu_dm_ready_timeout;
-	  "hotplug_timeout",
-	  Config.Set_float hotplug_timeout;
-	  "pif_reconfigure_ip_timeout",
-	  Config.Set_float pif_reconfigure_ip_timeout;
-	  "pool_db_sync_interval",
-	  Config.Set_float pool_db_sync_interval;
-	  "pool_data_sync_interval",
-	  Config.Set_float pool_data_sync_interval;
-	  "domain_shutdown_ack_timeout",
-	  Config.Set_float domain_shutdown_ack_timeout;
-	  "domain_shutdown_total_timeout",
-	  Config.Set_float domain_shutdown_total_timeout;
-	  "emergency_reboot_delay_base",
-	  Config.Set_float emergency_reboot_delay_base;
-	  "emergency_reboot_delay_extra",
-	  Config.Set_float emergency_reboot_delay_extra;
-	  "ha_xapi_healthcheck_interval",
-	  Config.Set_int ha_xapi_healthcheck_interval;
-	  "ha_xapi_healthcheck_timeout",
-	  Config.Set_int ha_xapi_healthcheck_timeout;
-	  "ha_xapi_restart_attempts",
-	  Config.Set_int ha_xapi_restart_attempts;
-	  "ha_xapi_restart_timeout",
-	  Config.Set_int ha_xapi_restart_timeout;
-	  "logrotate_check_interval",
-	  Config.Set_float logrotate_check_interval;
-	  "rrd_backup_interval",
-	  Config.Set_float rrd_backup_interval;
-	  "session_revalidation_interval",
-	  Config.Set_float session_revalidation_interval;
-	  "update_all_subjects_interval",
-	  Config.Set_float update_all_subjects_interval;
-	  "wait_memory_target_timeout",
-	  Config.Set_float wait_memory_target_timeout;
-	  "snapshot_with_quiesce_timeout",
-	  Config.Set_float snapshot_with_quiesce_timeout;
-	  "host_heartbeat_interval",
-	  Config.Set_float host_heartbeat_interval;
-	  "host_assumed_dead_interval",
-	  Config.Set_float host_assumed_dead_interval;
-	  "fuse_time",
-	  Config.Set_float fuse_time;
-	  "db_restore_fuse_time",
-	  Config.Set_float db_restore_fuse_time;
-	  "inactive_session_timeout",
-	  Config.Set_float inactive_session_timeout;
-	  "pending_task_timeout",
-	  Config.Set_float pending_task_timeout;
-	  "completed_task_timeout",
-	  Config.Set_float completed_task_timeout;
-	  "minimum_time_between_bounces",
-	  Config.Set_float minimum_time_between_bounces;
-	  "minimum_time_between_reboot_with_no_added_delay",
-	  Config.Set_float minimum_time_between_reboot_with_no_added_delay;
-	  "ha_monitor_interval",
-	  Config.Set_float ha_monitor_interval;
-	  "ha_monitor_plan_interval",
-	  Config.Set_float ha_monitor_plan_interval;
-	  "ha_monitor_startup_timeout",
-	  Config.Set_float ha_monitor_startup_timeout;
-	  "ha_default_timeout_base",
-	  Config.Set_float ha_default_timeout_base;
-	  "guest_liveness_timeout",
-	  Config.Set_float guest_liveness_timeout;
-	  "permanent_master_failure_retry_interval",
-	  Config.Set_float permanent_master_failure_retry_interval;
-	  "redo_log_max_block_time_empty",
-	  Config.Set_float redo_log_max_block_time_empty;
-	  "redo_log_max_block_time_read",
-	  Config.Set_float redo_log_max_block_time_read;
-	  "redo_log_max_block_time_writedelta",
-	  Config.Set_float redo_log_max_block_time_writedelta;
-	  "redo_log_max_block_time_writedb",
-	  Config.Set_float redo_log_max_block_time_writedb;
-	  "redo_log_max_startup_time",
-	  Config.Set_float redo_log_max_startup_time;
-	  "redo_log_connect_delay",
-	  Config.Set_float redo_log_connect_delay;
+	[ "master_connection_reset_timeout", Float master_connection_reset_timeout;
+	  "master_connection_retry_timeout", Float master_connection_retry_timeout;
+	  "master_connection_default_timeout", Float master_connection_default_timeout;
+	  "qemu_dm_ready_timeout", Float qemu_dm_ready_timeout;
+	  "hotplug_timeout", Float hotplug_timeout;
+	  "pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout;
+	  "pool_db_sync_interval", Float pool_db_sync_interval;
+	  "pool_data_sync_interval", Float pool_data_sync_interval;
+	  "domain_shutdown_ack_timeout", Float domain_shutdown_ack_timeout;
+	  "domain_shutdown_total_timeout", Float domain_shutdown_total_timeout;
+	  "emergency_reboot_delay_base", Float emergency_reboot_delay_base;
+	  "emergency_reboot_delay_extra", Float emergency_reboot_delay_extra;
+	  "ha_xapi_healthcheck_interval", Int ha_xapi_healthcheck_interval;
+	  "ha_xapi_healthcheck_timeout", Int ha_xapi_healthcheck_timeout;
+	  "ha_xapi_restart_attempts", Int ha_xapi_restart_attempts;
+	  "ha_xapi_restart_timeout", Int ha_xapi_restart_timeout;
+	  "logrotate_check_interval", Float logrotate_check_interval;
+	  "rrd_backup_interval", Float rrd_backup_interval;
+	  "session_revalidation_interval", Float session_revalidation_interval;
+	  "update_all_subjects_interval", Float update_all_subjects_interval;
+	  "wait_memory_target_timeout", Float wait_memory_target_timeout;
+	  "snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout;
+	  "host_heartbeat_interval", Float host_heartbeat_interval;
+	  "host_assumed_dead_interval", Float host_assumed_dead_interval;
+	  "fuse_time", Float fuse_time;
+	  "db_restore_fuse_time", Float db_restore_fuse_time;
+	  "inactive_session_timeout", Float inactive_session_timeout;
+	  "pending_task_timeout", Float pending_task_timeout;
+	  "completed_task_timeout", Float completed_task_timeout;
+	  "minimum_time_between_bounces", Float minimum_time_between_bounces;
+	  "minimum_time_between_reboot_with_no_added_delay", Float minimum_time_between_reboot_with_no_added_delay;
+	  "ha_monitor_interval", Float ha_monitor_interval;
+	  "ha_monitor_plan_interval", Float ha_monitor_plan_interval;
+	  "ha_monitor_startup_timeout", Float ha_monitor_startup_timeout;
+	  "ha_default_timeout_base", Float ha_default_timeout_base;
+	  "guest_liveness_timeout", Float guest_liveness_timeout;
+	  "permanent_master_failure_retry_interval", Float permanent_master_failure_retry_interval;
+	  "redo_log_max_block_time_empty", Float redo_log_max_block_time_empty;
+	  "redo_log_max_block_time_read", Float redo_log_max_block_time_read;
+	  "redo_log_max_block_time_writedelta", Float redo_log_max_block_time_writedelta;
+	  "redo_log_max_block_time_writedb", Float redo_log_max_block_time_writedb;
+	  "redo_log_max_startup_time", Float redo_log_max_startup_time;
+	  "redo_log_connect_delay", Float redo_log_connect_delay;
 	]
 
-let xapi_globs_conf = "/etc/xensource/xapi_globs.conf"
+let options_of_xapi_globs_spec = 
+  List.map (fun (name,ty) -> 
+    "name", (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x),
+    (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
+    (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
-let read_external_config () =
-	let unknown_key k v = D.warn "Unknown key/value pairs: (%s, %s)" k v in
-	if Sys.file_exists xapi_globs_conf then begin
-		(* Will raise exception if xapi_globs.conf is mis-formatted. It's up to the
-		   caller to inspect and handle the failure.
-		*)
-		Config.read xapi_globs_conf xapi_globs_spec unknown_key;
-		D.info "Read global variables successfully from %s" xapi_globs_conf
-	end
+let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
+
+let other_options = [
+  "logconfig", Arg.Set_string log_config_file, 
+    (fun () -> !log_config_file), "Log config file to use";
+
+  "writereadyfile", Arg.Set_string ready_file, 
+    (fun () -> !ready_file), "touch specified file when xapi is ready to accept requests";
+
+  "writeinitcomplete", Arg.Set_string init_complete, 
+    (fun () -> !init_complete), "touch specified file when xapi init process is complete";
+
+  "nowatchdog", Arg.Set nowatchdog, 
+    (fun () -> string_of_bool !nowatchdog), "turn watchdog off, avoiding initial fork";
+
+  "onsystemboot", Arg.Set on_system_boot, 
+    (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
+
+  "relax-xsm-sr-check", Arg.Set relax_xsm_sr_check,
+    (fun () -> string_of_bool !relax_xsm_sr_check), "allow storage migration when SRs have been mirrored out-of-band (and have matching SR uuids)";
+
+  "disable-logging-for", Arg.String
+    (fun x ->
+      try
+        let modules = String.split_f String.isspace x in
+        List.iter (fun x ->
+          D.debug "Disabling logging for: %s" x;
+          Debug.disable x
+        ) modules
+      with e ->
+        D.error "Processing disabled-logging-for = %s" x;
+        D.log_backtrace ()
+    ), (fun () -> "<default>"), (* no API to query the current list *)
+    "comma-separated list of modules to suppress logging from";
+] 
+
+let resources = [
+  { Xcp_service.name = "xapissl";
+    description = "Script for starting stunnel";
+    essential = true;
+    path = xapissl_path;
+    perms = [ Unix.X_OK ];
+  };
+  { Xcp_service.name = "pool_config_file";
+    description = "Pool configuration file";
+    essential = true;
+    path = pool_config_file;
+    perms = [ Unix.R_OK; Unix.W_OK ];
+  };
+  { Xcp_service.name = "pool_secret_path";
+    description = "Pool configuration file";
+    essential = false;
+    path = pool_secret_path;
+    perms = [ Unix.R_OK; Unix.W_OK ];
+  };
+  { Xcp_service.name = "udhcpd";
+    description = "DHCP server";
+    essential = true;
+    path = udhcpd;
+    perms = [ Unix.X_OK ];
+  };
+]
+
+let all_options = options_of_xapi_globs_spec @ other_options
+
 

@@ -16,6 +16,7 @@
  *)
  
 open API
+open Fun
 open Listext
 open Threadext
 
@@ -60,6 +61,20 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
 	  delete_record ~__context ~self:ref
 	end in
   List.iter do_gc all_refs
+
+let gc_VGPU_types ~__context =
+	(* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
+	 * of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
+	let open Db_filter_types in
+	let garbage = Db.VGPU_type.get_records_where ~__context
+		~expr:(And ((Eq (Field "VGPUs", Literal "()")),
+		            (Eq (Field "supported_on_PGPUs", Literal "()")))) in
+	match garbage with
+	| [] -> ()
+	| _ ->
+		debug "GC-ing the follwing unused and unsupported VGPU_types: [ %s ]"
+			(String.concat "; " (List.map Ref.string_of (List.map fst garbage)));
+		List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
 
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network) 
@@ -109,13 +124,34 @@ let gc_VGPUs ~__context =
   gc_connector ~__context Db.VGPU.get_all Db.VGPU.get_record (fun x->valid_ref __context x.vGPU_VM) (fun x->valid_ref __context x.vGPU_GPU_group)
     (fun ~__context ~self ->
        Db.VGPU.destroy ~__context ~self)
+
 let gc_PGPUs ~__context =
-  let pgpus = Db.PGPU.get_all ~__context in
-    List.iter
-      (fun pgpu ->
-        if not (valid_ref __context (Db.PGPU.get_host ~__context ~self:pgpu)) then
-          Db.PGPU.destroy ~__context ~self:pgpu
-      ) pgpus
+	let pgpus = Db.PGPU.get_all ~__context in
+	(* Go through the list of PGPUs, destroying any with an invalid host ref.
+	 * Keep a list of groups which contained PGPUs which were destroyed. *)
+	let affected_groups =
+		List.fold_left
+			(fun acc pgpu ->
+				if not (valid_ref __context (Db.PGPU.get_host ~__context ~self:pgpu))
+				then begin
+					let group = Db.PGPU.get_GPU_group ~__context ~self:pgpu in
+					Db.PGPU.destroy ~__context ~self:pgpu;
+					debug "GCed PGPU %s" (Ref.string_of pgpu);
+					group :: acc
+				end else
+					acc)
+			[] pgpus
+		|> List.filter (valid_ref __context)
+		|> List.setify
+	in
+	(* Update enabled/supported VGPU types on the groups which contained the
+	 * destroyed PGPUs. *)
+	List.iter
+		(fun group ->
+			Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:group;
+			Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:group)
+		affected_groups
+
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
 let gc_Host_patches ~__context =
@@ -484,6 +520,7 @@ let single_pass () =
 						"PBDs", gc_PBDs;
 						"VGPUs", gc_VGPUs;
 						"PGPUs", gc_PGPUs;
+						"VGPU_types", gc_VGPU_types;
 						"Host patches", gc_Host_patches;
 						"Host CPUs", gc_host_cpus;
 						"Host metrics", gc_host_metrics;

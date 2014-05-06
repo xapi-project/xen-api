@@ -489,6 +489,40 @@ let compare_int_lists : int list -> int list -> int =
 		let first_non_zero is = List.fold_left (fun a b -> if (a<>0) then a else b) 0 is in
 		first_non_zero (List.map2 compare a b)
 
+let group_by f list =
+	let evaluated_list = List.map (fun x -> (x, f x)) list in
+	let snd_equality (_, x) (_, y) = x = y in
+	let snd_compare (_, x) (_, y) = compare x y in
+	let sorted = List.sort snd_compare evaluated_list in
+	let rec take_while p ac = function
+		| [] -> (ac, [])
+		| x :: xs ->
+			if (p x) then take_while p (x :: ac) xs
+			else (ac, x :: xs)
+	in
+	let rec group ac = function
+		| [] -> ac
+		| x :: xs ->
+			let peers, rest = take_while (snd_equality x) [] (x :: xs) in
+			group (peers :: ac) rest
+	in
+	group [] sorted
+
+(** Groups list elements by equality of result of function application sorted
+ *  in order of that result *)
+let group_by ~ordering f list =
+	match ordering with
+	| `descending -> group_by f list
+	| `ascending -> List.rev (group_by f list)
+
+(** Schwarzian transform sort *)
+let sort_by_schwarzian ?(descending=false) f list =
+	let comp x y = if descending then compare y x else compare x y in
+	let (|>) a f = f a in
+	List.map (fun x -> (x, f x)) list |>
+	List.sort (fun (_, x') (_, y') -> comp x' y') |>
+	List.map (fun (x, _) -> x)
+
 let version_string_of : __context:Context.t -> [`host] api_object -> string =
 	fun ~__context host ->
 		try
@@ -603,12 +637,12 @@ let lookup_vdi_fields f vdi_refs l =
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
 	try
-		Unix.access Constants.pool_secret_path [Unix.F_OK];
-		pool_secret := Unixext.string_of_file Constants.pool_secret_path
+		Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK];
+		pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path
 	with _ -> (* No pool secret exists. *)
 		let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
 		pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
-		Unixext.write_string_to_file Constants.pool_secret_path !pool_secret
+		Unixext.write_string_to_file !Xapi_globs.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
@@ -871,7 +905,11 @@ module NetworkSet = Set.Make(struct type t = API.ref_network let compare = compa
 
 let empty_cache = (SRSet.empty, NetworkSet.empty)
 
-let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm_t =
+let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
+	(* Any kind of vGPU means that the VM is not agile. *)
+	if vm_t.API.vM_VGPUs <> [] then
+		raise (Api_errors.Server_error
+			(Api_errors.vm_has_vgpu, [Ref.string_of vm]));
 	(* All referenced VDIs should be in shared SRs *)
 	let check_vbd ok_srs vbd =
 		if Db.VBD.get_empty ~__context ~self:vbd
@@ -900,13 +938,13 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm_t =
 
 let vm_assert_agile ~__context ~self =
 	let vm_t = Db.VM.get_record ~__context ~self in
-	let _ = caching_vm_t_assert_agile ~__context empty_cache vm_t in
+	let _ = caching_vm_t_assert_agile ~__context empty_cache self vm_t in
 	()
 
 let partition_vm_ps_by_agile ~__context vm_ps =
 	let distinguish_vm (agile_vm_ps, not_agile_vm_ps, cache) ((vm, vm_t) as vm_p) =
 		try
-			let cache = caching_vm_t_assert_agile ~__context cache vm_t in
+			let cache = caching_vm_t_assert_agile ~__context cache vm vm_t in
 			(vm_p :: agile_vm_ps, not_agile_vm_ps, cache)
 		with _ ->
 		  (agile_vm_ps, vm_p :: not_agile_vm_ps, cache) in

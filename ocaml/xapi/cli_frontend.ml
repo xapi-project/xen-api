@@ -2418,10 +2418,34 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.vm_appliance_assert_can_be_recovered;
 			flags=[];
 		};
+		"gpu-group-create",
+		{
+			reqd=["name-label"];
+			optn=["name-description"];
+			help="Create an empty GPU group";
+			implementation=No_fd Cli_operations.gpu_group_create;
+			flags=[];
+		};
+		"gpu-group-destroy",
+		{
+			reqd=["uuid"];
+			optn=[""];
+			help="Destroy a GPU group";
+			implementation=No_fd Cli_operations.gpu_group_destroy;
+			flags=[];
+		};
+		"gpu-group-get-remaining-capacity",
+		{
+			reqd=["uuid";"vgpu-type-uuid"];
+			optn=[];
+			help="Calculate the number of VGPUs of the specified type which still be started in the group";
+			implementation = No_fd Cli_operations.gpu_group_get_remaining_capacity;
+			flags=[];
+		};
 	"vgpu-create",
 	{
 		reqd=["vm-uuid";"gpu-group-uuid"];
-		optn=[]; (* "device" should be added here once we allow >1 vGPU/VM *)
+		optn=["vgpu-type-uuid"]; (* "device" should be added here once we allow >1 vGPU/VM *)
 		help="Create a vGPU.";
 		implementation=No_fd Cli_operations.vgpu_create;
 		flags=[];

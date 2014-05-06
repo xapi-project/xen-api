@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (C) 2006-2013 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,22 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stringext
-
-module D = Debug.Make(struct let name = "config_shared" end)
-open D
-
-let disable_logging_for =
-	"disable-logging-for", Config.String
-		(fun x ->
-			try
-				let modules = String.split_f String.isspace x in
-				List.iter
-					(fun x ->
-						debug "Disabling logging for: %s" x;
-						Debug.disable x
-					) modules
-			with e ->
-				error "Processing disabled-logging-for = %s" x;
-				log_backtrace ()
-		)
+(** Stop gpumon if it's running, perform f, then start gpumon if
+  * no other threads which require gpumon to be stopped are running. *)
+val with_gpumon_stopped : f:(unit -> 'a) -> 'a

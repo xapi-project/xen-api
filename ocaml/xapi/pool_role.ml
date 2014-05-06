@@ -20,8 +20,9 @@ open Threadext
 include Pool_role_shared
 
 let set_role r =
+  filename := !Xapi_globs.pool_config_file;
   let old_role = get_role () in
   Mutex.execute role_m
     (fun () ->
-       Unixext.write_string_to_file Constants.pool_config_file (string_of r));
+       Unixext.write_string_to_file !Xapi_globs.pool_config_file (string_of r));
   Localdb.put Constants.this_node_just_became_master (string_of_bool (old_role <> Master && r = Master))

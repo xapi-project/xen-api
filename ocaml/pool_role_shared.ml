@@ -30,6 +30,7 @@ type t =
 let role = ref None
 let role_unit_tests = ref false
 let role_m = Mutex.create ()
+let filename = ref (Filename.concat Fhs.etcdir "pool.conf")
 
 let set_pool_role_for_test () =
 	Mutex.execute role_m (fun _ -> role := Some Master;
@@ -46,7 +47,7 @@ let string_of = function
 let read_pool_role () =
 	try
 		let s = String.strip String.isspace
-			(Unixext.string_of_file Constants.pool_config_file) in
+			(Unixext.string_of_file !filename) in
 		match String.split ~limit:2 ':' s with
 			| [ "master" ]      -> Master
 			| [ "slave"; m_ip ] -> Slave m_ip
@@ -58,7 +59,8 @@ let read_pool_role () =
 		then (debug "Executable name is not 'xapi', so we must be running \
 		             in unit-test mode; setting pool-role to 'Master'";
 		      Master)
-		else Broken
+		else (error "Failed to read pool role from %s" !filename;
+		      Broken)
 
 let get_role () =
 	Mutex.execute role_m (fun _ ->

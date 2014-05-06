@@ -21,9 +21,8 @@ let _ =
 	Debug.set_facility Syslog.Local5;
 
 	init_args(); (* need to read args to find out whether to daemonize or not *)
+	Xcp_service.maybe_daemonize ();
 
-  if !daemonize then
-    Unixext.daemonize ();
   Unixext.pidfile_write "/var/run/xapi.pid";
 
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go 

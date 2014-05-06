@@ -17,49 +17,27 @@ open D
 open Listext
 open Stringext
 
-type pci = {
-	id: string;
-	vendor_id: string;
-	vendor_name: string;
-	device_id: string;
-	device_name: string;
-	class_id: string;
-	class_name: string;
-	related: string list;
-}
+type managed_class = Display_controller | Network_controller
 
-type pci_class = Display_controller | Network_controller
-
-let prog = Filename.concat Fhs.libexecdir "pci-info"
-
-let find_class_id = function
-	| Display_controller -> "03"
-	| Network_controller -> "02"
+let lookup_class_id = function
+	| Display_controller -> 03L
+	| Network_controller -> 02L
 
 let managed_classes = [Display_controller]
 
-let read_pcis () =
-	let result, _ = Forkhelpers.execute_command_get_output prog [] in
-	let result = String.split '\n' result in
-	let rec read ac = function
-		| [] -> ac
-		| hd :: tl ->
-			try
-				let parse id vendor_id vendor_name device_id device_name class_id class_name related =
-					if id = "" then
-						failwith "empty record"
-					else
-						let related = if related = "" then [] else String.split ',' related in
-						{id; vendor_id; vendor_name; device_id; device_name; class_id; class_name; related}
-				in
-				let pci = Scanf.sscanf hd "%s@\t %s@\t %s@\t %s@\t %s@\t %s@\t %s@\t %s@\t" parse in
-				read (pci :: ac) tl
-			with _ -> read ac tl
-	in
-	read [] result
-
 let get_pcis_by_class pcis cls =
-	List.filter (fun pci -> pci.class_id = find_class_id cls) pcis
+	List.filter (fun pci -> pci.Xapi_pci_helpers.class_id = lookup_class_id cls) pcis
+
+let string_of_pci ~__context ~self =
+	let pci = Db.PCI.get_record_internal ~__context ~self in
+	String.concat "/" [pci.Db_actions.pCI_vendor_id; pci.Db_actions.pCI_device_id]
+
+(* We use ints within code but schema uses hex strings _without_ leading '0x' *)
+let int_of_id string_id =
+	let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
+	int_of_hex_str string_id
+let id_of_int hex_id =
+	Printf.sprintf "%04Lx" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config =
@@ -81,6 +59,8 @@ let update_pcis ~__context ~host =
 		(Db.PCI.get_all ~__context)
 	in
 
+	let open Xapi_pci_helpers in
+	let pci_db = Pci_db.open_default () in
 	let rec update_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
@@ -88,26 +68,34 @@ let update_pcis ~__context ~host =
 				try
 					let (rf, rc) = List.find (fun (rf, rc) ->
 						rc.Db_actions.pCI_pci_id = pci.id &&
-						rc.Db_actions.pCI_vendor_id = pci.vendor_id &&
-						rc.Db_actions.pCI_device_id = pci.device_id)
+						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor_id &&
+						rc.Db_actions.pCI_device_id = id_of_int pci.device_id)
 						existing in
+					if rc.Db_actions.pCI_vendor_name <> pci.vendor_name
+					then Db.PCI.set_vendor_name ~__context ~self:rf ~value:pci.vendor_name;
+					if rc.Db_actions.pCI_device_name <> pci.device_name
+					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device_name;
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
 					rf, rc
 				with Not_found ->
-					let self = create ~__context ~class_id:pci.class_id ~class_name:pci.class_name
-						~vendor_id:pci.vendor_id ~vendor_name:pci.vendor_name ~device_id:pci.device_id
-						~device_name:pci.device_name ~host ~pci_id:pci.id ~functions:1L
-						~dependencies:[] ~other_config:[] in
+					let self = create ~__context
+						~class_id:(id_of_int pci.class_id)
+						~class_name:pci.class_name
+						~vendor_id:(id_of_int pci.vendor_id)
+						~vendor_name:pci.vendor_name
+						~device_id:(id_of_int pci.device_id)
+						~device_name:pci.device_name ~host ~pci_id:pci.id
+						~functions:1L ~dependencies:[] ~other_config:[] in
 					self, Db.PCI.get_record_internal ~__context ~self
 			in
 			update_or_create ((obj, pci) :: cur) remaining_pcis
 	in
-	let all_pcis = read_pcis () in
-	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class all_pcis cls) managed_classes) in
+	let host_pcis = Xapi_pci_helpers.get_host_pcis pci_db in
+	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class host_pcis cls) managed_classes) in
 	let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
-	let deps = List.map (fun dep -> List.find (fun pci -> pci.id = dep) all_pcis) deps in
+	let deps = List.map (fun dep -> List.find (fun pci -> pci.id = dep) host_pcis) deps in
 	let managed_pcis = List.setify (class_pcis @ deps) in
 	let current = update_or_create [] managed_pcis in
 
@@ -133,13 +121,10 @@ let update_pcis ~__context ~host =
 	List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete
 
 let get_system_display_device () =
-	let device = "/dev/vga_arbiter" in
 	try
-		let line =
-			Unixext.with_input_channel
-				device
-				(fun chan -> input_line chan)
-		in
+		let device = Unix.openfile "/dev/vga_arbiter" [Unix.O_RDONLY] 0o000 in
+		let data = Unixext.try_read_string ~limit:1024 device in
+		let line = List.hd (String.split ~limit:2 '\n' data) in
 		(* Example contents of line:
 		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
 		let items = String.split ',' line in

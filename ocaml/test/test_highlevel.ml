@@ -66,8 +66,9 @@ module Generic = struct
 		module State : STATE
 		(* A function to apply an input to the system state. *)
 		val load_input : State.state_t -> Io.input_t -> unit
-		(* A function to extract an output from the system state. *)
-		val extract_output : State.state_t -> Io.output_t
+		(* A function to extract an output from the system state. How this is done
+		 * may depend on the input to the test. *)
+		val extract_output : State.state_t -> Io.input_t -> Io.output_t
 		(* A list of input/output pairs. *)
 		val tests : (Io.input_t * Io.output_t) list
 	end
@@ -79,7 +80,7 @@ module Generic = struct
 		let transform input =
 			let state = T.State.create_default_state () in
 			T.load_input state input;
-			T.extract_output state
+			T.extract_output state input
 
 		let tests = T.tests
 	end

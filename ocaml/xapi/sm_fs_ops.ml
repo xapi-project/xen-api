@@ -231,26 +231,38 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 								Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src device_dst size
 							)
 						else
-							let task_id = Context.get_task_id __context in
-							let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id task_id vdi_dst in
-							debug "remote_uri = %s" remote_uri;
-							Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
-							let finished () =
-								match Db.Task.get_status ~__context ~self:task_id with
-								| `success -> true
-								| `failure | `cancelled ->
-									begin match Db.Task.get_error_info ~__context ~self:task_id with
-									| [] -> (* This should never happen *)
-										failwith("Copy of VDI to remote failed with unspecified error!")
-									| code :: params ->
-										debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
-										raise (Api_errors.Server_error (code, params))
-									end
-								| _ -> false
-							in
-							while not (finished ()) do
-								Thread.delay 0.5
-							done
+							(* Create a new subtask for the inter-host sparse_dd. Without
+							 * this there was a race in VM.copy, as both VDI.copy and VM.copy
+							 * would be waiting on the same VDI.copy task.
+							 *
+							 * Now, VDI.copy waits for the sparse_dd task, and VM.copy in turn
+							 * waits for the VDI.copy task.
+							 *
+							 * Note that progress updates are still applied directly to the
+							 * VDI.copy task. *)
+							Server_helpers.exec_with_subtask ~__context ~task_in_database:true "sparse_dd"
+								(fun ~__context ->
+									let task_id = Context.get_task_id __context in
+									let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id task_id vdi_dst in
+									debug "remote_uri = %s" remote_uri;
+									Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
+									let finished () =
+										match Db.Task.get_status ~__context ~self:task_id with
+										| `success -> true
+										| `failure | `cancelled ->
+											begin match Db.Task.get_error_info ~__context ~self:task_id with
+											| [] -> (* This should never happen *)
+												failwith("Copy of VDI to remote failed with unspecified error!")
+											| code :: params ->
+												debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
+												raise (Api_errors.Server_error (code, params))
+											end
+										| _ -> false
+									in
+									while not (finished ()) do
+										Thread.delay 0.5
+									done
+								)
 					)
 			with
 			| Unix.Unix_error(Unix.EIO, _, _) ->

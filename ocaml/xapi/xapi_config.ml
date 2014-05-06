@@ -21,19 +21,6 @@ open Stringext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let read_config filename =
-	let configargs = [
-		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
-		Config_shared.disable_logging_for;
-		"relax-xsm-sr-check", Config.Set_bool Xapi_globs.relax_xsm_sr_check;
-	] in
-	try
-		Config.read filename configargs (fun _ _ -> ())
-	with Config.Error ls ->
-		List.iter (fun (p,s) ->
-								 eprintf "config file error: %s: %s\n" p s) ls;
-		exit 2
-
 let log_if_not_empty format_string value =
 	if value <> "" then debug format_string value
 
@@ -46,5 +33,4 @@ let dump_config () =
 	debug "build_number: %s" Version.build_number;
 	debug "git changeset: %s" Version.git_id;
 	debug "version: %d.%d" version_major version_minor;
-	debug "use-xenopsd: %b" !Xapi_globs.use_xenopsd
 	(* debug "License filename: %s" !License_file.filename *)

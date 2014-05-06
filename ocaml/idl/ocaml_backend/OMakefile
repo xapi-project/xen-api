@@ -119,8 +119,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 
 XAPI_CLIENT_OBJS = \
 	../../fhs \
-	../../util/util_globs_inventory \
-	../../util/util_inventory \
 	../../util/version \
 	../../xapi/xapi_inventory \
 	../../xapi/xapi_fist \

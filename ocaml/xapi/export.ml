@@ -98,6 +98,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~includ
 	(fun vgpu -> if Db.is_valid_ref __context vgpu then begin
 	       add vgpu;
 	       let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+	       add vgpu.API.vGPU_type;
 	       add vgpu.API.vGPU_GPU_group end)
 	vm.API.vM_VGPUs;
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
@@ -282,12 +283,22 @@ let make_sr table __context self =
     snapshot = API.Legacy.To.sR_t sr;
   }    
 
+(** Convert a VGPU_type reference to an obj *)
+let make_vgpu_type table __context self =
+	let vgpu_type = Db.VGPU_type.get_record ~__context ~self in
+	{
+		cls = Datamodel._vgpu_type;
+		id = Ref.string_of (lookup table (Ref.string_of self));
+		snapshot = API.Legacy.To.vGPU_type_t vgpu_type
+	}
+
 (** Convert a VGPU reference to an obj *)
 let make_vgpu table ~preserve_power_state __context self = 
 	let vgpu = Db.VGPU.get_record ~__context ~self in
 	let vgpu = { vgpu with 
 		API.vGPU_currently_attached = if preserve_power_state then vgpu.API.vGPU_currently_attached else false;
 		API.vGPU_GPU_group = lookup table (Ref.string_of vgpu.API.vGPU_GPU_group);
+		API.vGPU_type = lookup table (Ref.string_of vgpu.API.vGPU_type);
 		API.vGPU_VM = lookup table (Ref.string_of vgpu.API.vGPU_VM);
 	} in
 	{
@@ -319,9 +330,10 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
 	let nets = List.map (make_network table __context) (filter table (Db.Network.get_all ~__context)) in
 	let vdis = List.map (make_vdi table __context) (filter table (Db.VDI.get_all ~__context)) in
 	let srs  = List.map (make_sr table __context) (filter table (Db.SR.get_all ~__context)) in
+	let vgpu_types = List.map (make_vgpu_type table __context) (filter table (Db.VGPU_type.get_all ~__context)) in
 	let vgpus = List.map (make_vgpu ~preserve_power_state table __context) (filter table (Db.VGPU.get_all ~__context)) in
 	let gpu_groups = List.map (make_gpu_group table __context) (filter table (Db.GPU_group.get_all ~__context)) in
-	hosts @ vms @ gms @ vbds @ vifs @ nets @ vdis @ srs @ vgpus @ gpu_groups
+	hosts @ vms @ gms @ vbds @ vifs @ nets @ vdis @ srs @ vgpu_types @ vgpus @ gpu_groups
 
 open Xapi_globs
 
