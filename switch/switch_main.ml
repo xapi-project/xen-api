@@ -47,31 +47,29 @@ let make_server () =
 	let (_: 'a) = logging_thread () in
 
   	(* (Response.t * Body.t) Lwt.t *)
-	let callback conn_id ?body req =
+	let callback conn_id req body =
+		let conn_id_s = Cohttp.Connection.to_string conn_id in
 		let open Protocol in
-		lwt body = match body with
-			| None -> return None
-			| Some b ->
-				lwt s = Cohttp_lwt_body.string_of_body (Some b) in
-				return (Some s) in
+		lwt body = Cohttp_lwt_body.to_string body in 
 		let uri = Cohttp.Request.uri req in
 		let path = Uri.path uri in
-		match In.of_request body (Cohttp.Request.meth req) path with
+		match In.of_request (Some body) (Cohttp.Request.meth req) path with
 		| None ->
-			error "<- [unparsable request; path = %s; body = %s]" path (match body with Some x -> "\"" ^ x ^ "\"" | None -> "None");
+			error "<- [unparsable request; path = %s; body = %s]" path ("\"" ^ body ^ "\"");
 			error "-> 404 [Not_found]";
 			Cohttp_lwt_unix.Server.respond_not_found ~uri ()
 		| Some request ->
-			debug "<- %s [%s]" path (match body with None -> "" | Some x -> x);
-			let session = Connections.get_session conn_id in
-			lwt response = process_request conn_id session request in
+			debug "<- %s [%s]" path body;
+			let session = Connections.get_session conn_id_s in
+			lwt response = process_request conn_id_s session request in
 			let status, body = Out.to_response response in
 			debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
 			Cohttp_lwt_unix.Server.respond_string ~status ~body ()
 		in
 	let conn_closed conn_id () =
-		let session = Connections.get_session conn_id in
-		Connections.remove conn_id;
+		let conn_id_s = Cohttp.Connection.to_string conn_id in
+		let session = Connections.get_session conn_id_s in
+		Connections.remove conn_id_s;
 		match session with
 		| None -> ()
 		| Some session ->

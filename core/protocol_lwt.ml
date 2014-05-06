@@ -66,7 +66,7 @@ module IO = struct
 
 	let write = Lwt_io.write
 	let write_line = Lwt_io.write_line
-
+	let flush = Lwt_io.flush
 	let connect port =
 		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
 		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
