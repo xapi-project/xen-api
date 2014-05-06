@@ -59,7 +59,7 @@ let start_server handlers =
 
 let harness_init () =
 	Printexc.record_backtrace true;
-	Pool_role_shared.set_pool_role_for_test ();
+	Pool_role.set_pool_role_for_test ();
 	Xapi.register_callback_fns ();
 	start_server handlers
 
