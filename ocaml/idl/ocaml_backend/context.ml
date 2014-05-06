@@ -104,7 +104,7 @@ let preauth ~__context =
       Internal -> false
     | Http (req,s) -> is_unix_socket s
 
-let initial =
+let get_initial () =
   { session_id = None;
     task_id = Ref.of_string "initial_task";
     task_in_database = false;
@@ -161,7 +161,7 @@ let make_dbg http_other_config task_name task_id =
 
 (** constructors *)
 
-let from_forwarded_task ?(__context=initial) ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
+let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
   let task_name = 
     if Ref.is_dummy task_id 
     then Ref.name_of_dummy task_id
@@ -181,7 +181,7 @@ let from_forwarded_task ?(__context=initial) ?(http_other_config=[]) ?session_id
 		dbg = dbg;
 	  } 
 
-let make ?(__context=initial) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
   let task_id, task_uuid =
     if task_in_database 
     then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
