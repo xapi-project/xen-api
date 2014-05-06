@@ -16,7 +16,6 @@
  *)
  
 open Client
-open Vmopshelpers
 open Listext
 open Client
 module D = Debug.Make(struct let name="xapi" end)
@@ -129,7 +128,7 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 let snapshot_with_quiesce ~__context ~vm ~new_name =
 	debug "snapshot_with_quiesce: begin";
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-	let result = Vmopshelpers.with_xs (fun xs ->
+	let result = Xenstore.with_xs (fun xs ->
 		(* 1. We first check if the VM supports quiesce-mode *)
 		if quiesce_enabled ~xs ~domid ~vm
 		then begin Pervasiveext.finally

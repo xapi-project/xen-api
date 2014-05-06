@@ -7,7 +7,6 @@ OCAMLINCLUDES = \
 	../ \
 	../database \
 	../xapi \
-	../xenops \
 	../idl \
 	../idl/ocaml_backend \
 	../autogen \

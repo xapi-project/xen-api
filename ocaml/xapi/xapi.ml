@@ -17,7 +17,6 @@
  
 open Printf
 open Stringext
-open Vmopshelpers
 open Threadext
 open Pervasiveext
 open Listext
@@ -517,16 +516,16 @@ let resynchronise_ha_state () =
 (*     2. No other domains have been started.                     *)
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
-	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
 	let open Xenctrl in
+	let host_info = with_intf (fun xc -> physinfo xc) in
 	let host_free_pages = host_info.free_pages in
 	let host_scrub_pages = host_info.scrub_pages in
-	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
+	let domain0_info = with_intf (fun xc -> domain_getinfo xc 0) in
+	let domain0_total_pages = domain0_info.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
-		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
+		pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
 	Int64.mul 1024L boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)
@@ -795,7 +794,6 @@ let server_init() =
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
-	"Manage Dom0", [], (fun () -> Xapi_xenops.manage_dom0 ~__context);
     (* Start up database engine if we're a master.
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want
@@ -896,7 +894,6 @@ let server_init() =
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
-      "listening to events from xenopsd", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xenopsd ()));
       "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
@@ -1081,6 +1078,17 @@ let watchdog f =
 		exit !exit_code
     end
 
+let loadavg () =
+	let split_colon line =
+		let words = String.split ' ' line in
+		let stripped = List.map (String.strip String.isspace) words in
+		List.filter (fun x -> x <> "") stripped
+	in
+	let all = Unixext.string_of_file "/proc/loadavg" in
+	try
+		float_of_string (List.hd (split_colon all))
+	with _ -> -1.
+
 let set_thread_queue_params () =
 	let safe_limit = 0.9 in
 	let cpu_num =
@@ -1112,7 +1120,7 @@ let set_thread_queue_params () =
 			if now -. last_clock < !calm_down then last_decision else
 				let cpuload =
 					let upbound = (cpu_num +. 1.) *. 2. in
-					let loadavg = Rrdd_common.loadavg () in
+					let loadavg = loadavg () in
 					(sqrt loadavg) /. (sqrt upbound) in
 				let memload = Helpers.memusage () in
 				let load = max cpuload memload in

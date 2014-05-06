@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Listext
 open Threadext
@@ -240,7 +242,11 @@ let update_pifs ~__context host pifs =
 					let set_carrier vif =
 						if vif.pv then (
 							let open Xenops_client in
-							Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context
+							let open Xapi_xenops in
+							let vm_uuid = fst vif.vif in
+							let queue_name = queue_of_vm ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:vm_uuid) in
+							let module Client = (val make_client queue_name : XENOPS) in
+							Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context queue_name
 						)
 					in List.iter set_carrier (List.filter_map vif_device_of_string ifs)
 				with e ->

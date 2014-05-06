@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Pervasiveext
 open Stringext
