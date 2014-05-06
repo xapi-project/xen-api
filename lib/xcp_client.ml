@@ -58,8 +58,9 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 			let oc = Unix.out_channel_of_descr fd in
 			Request.write (fun t oc -> Request.write_body t oc req) http_req oc;
 			match Response.read ic with
-				| None -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
-				| Some t ->
+				| `Eof -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
+				| `Invalid x -> failwith (Printf.sprintf "Failed to read HTTP response from: %s (got '%s')" (url ()) x)
+				| `Ok t ->
 					begin match Cohttp.Response.status t with
 						| `OK ->
 							let body = match Response.read_body_chunk t ic with

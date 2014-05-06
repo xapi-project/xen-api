@@ -221,9 +221,11 @@ let http_handler call_of_string string_of_response process s =
 	let module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO) in
 	let module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO) in
 	match Request.read ic with
-	| None ->
+	| `Eof ->
 		debug "Failed to read HTTP request"
-	| Some req ->
+        | `Invalid x ->
+		debug "Failed to read HTTP request. Got: '%s'" x
+	| `Ok req ->
 		begin match Cohttp.Request.meth req, Uri.path (Cohttp.Request.uri req) with
 		| `POST, _ ->
 			let headers = Cohttp.Request.headers req in
