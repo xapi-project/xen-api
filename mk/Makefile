@@ -57,6 +57,7 @@ $(OUTPUT_XAPI_SRC):
 	fi; # git archive in xen-api/mk/Makefile
 
 $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
+	(cd $(REPO); ./configure)
 	$(MAKE) clean
 	$(MAKE) -C $(REPO) version
 	$(MAKE) -C $(REPO) srpm
