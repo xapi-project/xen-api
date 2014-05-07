@@ -14,7 +14,7 @@
 
 (* A very very simple HTTP server! *)
 
-open Stringext
+open Xstringext
 open Pervasiveext
 open Fun
 

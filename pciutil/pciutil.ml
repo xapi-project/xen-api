@@ -15,7 +15,7 @@
  * Util to parse pciids
  *)
 
-open Stringext
+open Xstringext
 
 (* defaults, if we can't find better information: *)
 let unknown_vendor vendor = Some (Printf.sprintf "Unknown vendor %s" vendor)

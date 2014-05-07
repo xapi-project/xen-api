@@ -15,7 +15,7 @@
 
 open Printf
 open Pervasiveext
-open Stringext
+open Xstringext
 
 exception Stunnel_binary_missing
 exception Stunnel_error of string

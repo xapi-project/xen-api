@@ -16,7 +16,7 @@
 let sha1sum = "/usr/bin/sha1sum"
 
 open Pervasiveext
-open Stringext
+open Xstringext
 
 (** Helper function to prevent double-closes of file descriptors *)
 let close to_close fd = 
