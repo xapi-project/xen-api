@@ -686,7 +686,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	a host that does not support pooling then an error will be thrown at this stage *)
 	let rpc = rpc master_address in
 	let session_id =
-	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
+		try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string ""
 		with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
