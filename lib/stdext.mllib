@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5624266dc569a5630eaf94478b6cbce9)
+# DO NOT EDIT (digest: c978081ca056d24ca2e8600834c60c52)
 Arrayext
 Backtrace
 Base64
@@ -23,7 +23,7 @@ Pervasiveext
 Qring
 Range
 Ring
-Stringext
+Xstringext
 Threadext
 Trie
 Unixext
