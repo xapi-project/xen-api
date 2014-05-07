@@ -18,7 +18,7 @@ type context = unit
 open Fun
 open Listext
 open Pervasiveext
-open Stringext
+open Xstringext
 open Threadext
 open Rrdd_shared
 

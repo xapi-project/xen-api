@@ -15,7 +15,7 @@
  * @group Pool Management
  *)
 
-open Stringext
+open Xstringext
 open Threadext
 
 (** The role of this node *)
