@@ -18,11 +18,11 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 open Fun
-open Stringext
+open Xstringext
 open Pervasiveext
 open Threadext
 open Constants
-open Stringext
+open Xstringext
 
 type driver_list = Storage_interface.query_result list with rpc
 

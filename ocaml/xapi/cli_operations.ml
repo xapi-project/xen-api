@@ -18,7 +18,7 @@
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
-open Stringext
+open Xstringext
 open Pervasiveext
 open Listext
 open Fun

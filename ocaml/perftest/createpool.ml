@@ -17,7 +17,7 @@ open Client
 open Perfutil
 open Listext
 open Pervasiveext
-open Stringext
+open Xstringext
 open Scenario
 open Perfdebug
 

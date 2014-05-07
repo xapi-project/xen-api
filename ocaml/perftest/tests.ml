@@ -16,7 +16,7 @@
 open Client
 open Listext 
 open Threadext
-open Stringext
+open Xstringext
 open Pervasiveext
 open Testtypes
 open Perfdebug

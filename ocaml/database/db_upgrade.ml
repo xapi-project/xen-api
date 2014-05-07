@@ -16,7 +16,7 @@ module D = Debug.Make(struct let name = "xapi" (* this is set to 'xapi' delibera
 open D
 
 open Db_cache_types
-open Stringext
+open Xstringext
 open Pervasiveext
 
 (** Automatically insert blank tables and new columns with default values *)

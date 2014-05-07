@@ -16,7 +16,7 @@
 open Cliops
 open Util
 open Log
-open Stringext
+open Xstringext
 
 let log = Testlog.log
 let set_ignore_errors = Testlog.set_ignore_errors

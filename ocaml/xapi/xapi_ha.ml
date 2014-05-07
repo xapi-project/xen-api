@@ -24,7 +24,7 @@ open D
 module Rrdd = Rrd_client.Client
 
 open Listext
-open Stringext
+open Xstringext
 open Threadext
 open Pervasiveext
 open Forkhelpers

@@ -245,7 +245,7 @@ module Mux = struct
         (* Assume it has either the format:
            SR/VDI -- for a particular SR and VDI
            content_id -- for a particular content *)
-        let open Stringext in
+        let open Xstringext in
         match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
             | [ sr; name ] ->
                 let module C = Client(struct let rpc = of_sr sr end) in

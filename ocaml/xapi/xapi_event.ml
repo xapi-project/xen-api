@@ -16,7 +16,7 @@ open Threadext
 open Pervasiveext
 open Listext
 open Event_types
-open Stringext
+open Xstringext
 
 module D=Debug.Make(struct let name="xapi_event" end)
 open D

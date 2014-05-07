@@ -13,7 +13,7 @@
  *)
 
 (* v6 licensing daemon *)
-open Stringext
+open Xstringext
 open Printf
 
 module D=Debug.Make(struct let name="v6daemon" end)

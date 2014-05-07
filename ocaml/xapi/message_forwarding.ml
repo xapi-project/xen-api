@@ -18,7 +18,7 @@
 open Threadext
 open Pervasiveext
 open Listext
-open Stringext
+open Xstringext
 open Server_helpers
 open Client
 

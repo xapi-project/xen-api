@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stringext
+open Xstringext
 
 type class_id = int64
 type subclass_id = int64

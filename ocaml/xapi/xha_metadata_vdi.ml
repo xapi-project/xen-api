@@ -20,7 +20,7 @@ open D
 
 open Client
 open Listext
-open Stringext
+open Xstringext
 
 let create ~__context ~sr = 
   Helpers.call_api_functions ~__context

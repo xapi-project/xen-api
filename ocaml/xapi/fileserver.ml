@@ -17,7 +17,7 @@
 
 open Printf
 open Http
-open Stringext
+open Xstringext
 open Pervasiveext
 
 module D = Debug.Make(struct let name="xapi" end)

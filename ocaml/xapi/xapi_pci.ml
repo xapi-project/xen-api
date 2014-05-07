@@ -15,7 +15,7 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 open Listext
-open Stringext
+open Xstringext
 
 type managed_class = Display_controller | Network_controller
 

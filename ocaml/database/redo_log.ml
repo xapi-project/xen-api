@@ -13,7 +13,7 @@
  *)
 open Pervasiveext
 open Threadext
-open Stringext
+open Xstringext
 
 module R = Debug.Make(struct let name = "redo_log" end)
 

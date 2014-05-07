@@ -15,7 +15,7 @@
  * @group Import and Export
  *)
 
-open Stringext
+open Xstringext
 open Http
 open Importexport
 open Xva

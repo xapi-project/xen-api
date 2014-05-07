@@ -15,7 +15,7 @@
  * @group Storage
  *)
 
-open Stringext
+open Xstringext
 open Debug
 open Http
 open Forkhelpers

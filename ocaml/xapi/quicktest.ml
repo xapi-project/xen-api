@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stringext
+open Xstringext
 open Threadext
 open Pervasiveext
 open Fun
@@ -485,7 +485,7 @@ let compare_snapshots session_id test one two =
 		compare_vms session_id test x y in
 	List.iter2 compare_all one_s two_s
 
-let read_sys path = Stringext.String.strip Stringext.String.isspace (Unixext.string_of_file path)
+let read_sys path = Xstringext.String.strip Xstringext.String.isspace (Unixext.string_of_file path)
 
 let verify_network_connectivity session_id test vm =
   let vifs = Client.VM.get_VIFs !rpc session_id vm in

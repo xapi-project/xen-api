@@ -26,7 +26,7 @@ let statefile_sm_config = [ "type", "raw" ]
 
 open Client
 open Listext
-open Stringext
+open Xstringext
 
 (** Return the minimum size of an HA statefile, as of
     XenServer HA state-file description vsn 1.3 *)

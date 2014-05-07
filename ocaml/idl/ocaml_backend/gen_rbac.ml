@@ -80,8 +80,8 @@ let permission_description = "A basic permission"
 let permission_name wire_name =
 	let s1 =replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
 	let s2 = replace_char s1 '/' '_' in
-	let s3 = Stringext.String.replace "*" "WILDCHAR" s2 in
-	Stringext.String.replace ":" "_" s3
+	let s3 = Xstringext.String.replace "*" "WILDCHAR" s2 in
+	Xstringext.String.replace ":" "_" s3
 
 let permission_index = ref 0
 let writer_permission name nperms =

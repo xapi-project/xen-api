@@ -15,7 +15,7 @@ module Rrdd = Rrd_client.Client
 
 open Fun
 open Printf
-open Stringext
+open Xstringext
 open Pervasiveext
 open Xapi_vm_helpers
 open Client

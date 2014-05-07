@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 module L = Debug.Make(struct let name="license" end)
-open Stringext
+open Xstringext
 
 let get_expiry_date ~__context ~host =
 	let license = Db.Host.get_license_params ~__context ~self:host in

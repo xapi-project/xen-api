@@ -13,7 +13,7 @@
  *)
 open API
 open Pervasiveext
-open Stringext
+open Xstringext
 open Listext
 
 (* === Common XML operations === *)

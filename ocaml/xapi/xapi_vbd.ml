@@ -15,7 +15,7 @@
  * @group XenAPI functions
  *)
  
-open Stringext
+open Xstringext
 open Xapi_vbd_helpers
 open Vbdops
 open Threadext

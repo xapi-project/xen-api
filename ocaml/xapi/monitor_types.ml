@@ -16,7 +16,7 @@
  *)
 
 open Fun
-open Stringext
+open Xstringext
 open Xenctrl
 
 type vcpu = {

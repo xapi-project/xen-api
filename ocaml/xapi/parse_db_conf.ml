@@ -13,7 +13,7 @@
  *)
 (* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
 
-open Stringext
+open Xstringext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 

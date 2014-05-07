@@ -16,7 +16,7 @@
 open Pervasiveext
 open Client
 open Db_cache (* eek! *)
-open Stringext
+open Xstringext
 open Threadext
 
 let nullref = Ref.string_of (Ref.null)
