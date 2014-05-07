@@ -14,7 +14,7 @@
 (* Code to parse the XenSource inventory file *)
 
 open Pervasiveext
-open Stringext
+open Xstringext
 open Threadext
 
 let inventory_filename = ref Xcp_inventory_config.default_inventory
