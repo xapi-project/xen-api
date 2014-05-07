@@ -9,3 +9,8 @@ library xenops
   build-deps: xcp, xenctrl, xenstore, xenstore_transport.unix, uuid, xenstore-compat
   cdir: src
   c-sources: statdev_stubs.c
+
+executable list_domains
+  src-dir: list_domains
+  main-is: list_domains.ml
+  build-deps: xenops
