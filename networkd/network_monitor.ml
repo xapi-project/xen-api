@@ -16,7 +16,7 @@ open Network_interface
 include Network_stats
 
 open Fun
-open Stringext
+open Xstringext
 open Threadext
 
 let write_stats stats =

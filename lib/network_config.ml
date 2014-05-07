@@ -15,7 +15,7 @@
 open Network_interface
 
 open Fun
-open Stringext
+open Xstringext
 
 module D = Debug.Make(struct let name = "network_config" end)
 open D

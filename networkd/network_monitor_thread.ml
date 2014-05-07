@@ -15,7 +15,7 @@
 open Network_utils
 
 open Fun
-open Stringext
+open Xstringext
 open Listext
 open Threadext
 

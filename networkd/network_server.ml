@@ -16,7 +16,7 @@ open Network_utils
 open Network_interface
 
 open Fun
-open Stringext
+open Xstringext
 open Listext
 
 module D = Debug.Make(struct let name = "network_server" end)
