@@ -1,4 +1,4 @@
-open Stringext
+open Xstringext
 open Pervasiveext
 
 let debug (fmt : ('a, unit, string, unit) format4) = (Printf.kprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt)
