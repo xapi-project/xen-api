@@ -87,14 +87,9 @@ let wlb_host_port ~__context =
     split_host_port url
 
 let assert_wlb_licensed ~__context =
-  let all_hosts = Db.Host.get_all ~__context in
-  List.iter (fun host ->
-    let edition = Db.Host.get_edition ~__context ~self:host in
-    match edition with
-    | "free" -> raise_license_restriction()
-    (* | "free/libre" -> raise_license_restriction() *)
-    | _ -> ()
-  ) all_hosts
+  if not (Pool_features.is_enabled ~__context Features.WLB)
+  then
+    raise_license_restriction()
 
 let assert_wlb_initialized ~__context =
   let pool = Helpers.get_pool ~__context in
