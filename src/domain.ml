@@ -14,7 +14,7 @@
 (** Functions relating to Xen domains *)
 
 open Printf
-open Stringext
+open Xstringext
 open Listext
 open Pervasiveext
 

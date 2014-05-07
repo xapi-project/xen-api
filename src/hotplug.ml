@@ -13,7 +13,7 @@
  *)
 
 open Printf
-open Stringext
+open Xstringext
 
 open Device_common
 

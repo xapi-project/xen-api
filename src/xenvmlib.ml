@@ -15,7 +15,7 @@
 
 (** xenvm library *)
 
-open Stringext
+open Xstringext
 
 type answer = Ok | Error of string | Msg of string | Unknown of string
 
