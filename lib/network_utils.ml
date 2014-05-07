@@ -13,7 +13,7 @@
  *)
 
 open Listext
-open Stringext
+open Xstringext
 open Fun
 open Network_interface
 
