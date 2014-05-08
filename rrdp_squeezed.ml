@@ -15,7 +15,7 @@
 open Fun
 open Pervasiveext
 open Xenstore
-open Stringext
+open Xstringext
 
 open Rrdp_common
 
