@@ -13,7 +13,7 @@
  *)
 
 open Pervasiveext
-open Stringext
+open Xstringext
 open Listext
 open Rrd
 open Fun
