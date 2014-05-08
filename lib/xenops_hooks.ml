@@ -25,6 +25,7 @@ let scriptname__vm_pre_destroy  = "vm-pre-shutdown"
 let scriptname__vm_pre_migrate  = "vm-pre-migrate"
 let scriptname__vm_pre_start    = "vm-pre-start"
 let scriptname__vm_pre_reboot   = "vm-pre-reboot"
+let scriptname__vm_pre_resume   = "vm-pre-resume"
 let scriptname__vm_post_destroy  = "vm-post-destroy"
 
 (* VM Script hook reason codes *)
@@ -80,6 +81,8 @@ let vm_pre_start ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_start ~reason ~id
 let vm_pre_reboot ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_reboot ~reason ~id
+let vm_pre_resume ~reason ~id =
+  execute_vm_hook ~script_name:scriptname__vm_pre_resume ~reason ~id
 let vm_post_destroy ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
 
@@ -88,6 +91,7 @@ type script =
 	| VM_pre_migrate
 	| VM_pre_start
 	| VM_pre_reboot
+	| VM_pre_resume
 	| VM_post_destroy
 with rpc
 
@@ -97,5 +101,6 @@ let vm ~script ~reason ~id =
 		| VM_pre_migrate  -> scriptname__vm_pre_migrate
 		| VM_pre_start    -> scriptname__vm_pre_start
 		| VM_pre_reboot   -> scriptname__vm_pre_reboot
+		| VM_pre_resume   -> scriptname__vm_pre_resume
 		| VM_post_destroy -> scriptname__vm_post_destroy in
 	execute_vm_hook ~script_name ~reason ~id
