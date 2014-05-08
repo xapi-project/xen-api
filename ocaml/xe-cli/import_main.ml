@@ -51,7 +51,7 @@ let _ =
   let path = !path in
   if path = "" then failwith "Must supply an XVA path (file or directory) as an argument";
 
-  let session_id: API.ref_session = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password in
+  let session_id: API.ref_session = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" ~originator:"cli" in
 
   let send_fn = match Import.classify path with
     | Zurich -> stream_from_xva_dir path

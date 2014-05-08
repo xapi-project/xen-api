@@ -41,7 +41,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 (* Normally xencenter_min_verstring and xencenter_max_verstring below should be set to the same value,
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 2L
+let api_version_minor = 3L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -64,8 +64,8 @@ let tools_version = ref tools_version_none
  *
  * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
  * will need to be made in XenCenter *)
-let xencenter_min_verstring = "2.0"
-let xencenter_max_verstring = "2.2"
+let xencenter_min_verstring = "2.3"
+let xencenter_max_verstring = "2.3"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -250,6 +250,12 @@ let max_tasks = 200
 (* After this we start to invalidate older sessions *)
 (* We must allow for more sessions than running tasks *)
 let max_sessions = max_tasks * 2
+
+(* For sessions with specified originator, their session limits are counted independently. *)
+let max_sessions_per_originator = 50
+
+(* For sessions with specifiied user name (non-root), their session limit are counted independently *)
+let max_sessions_per_user_name = 50
 
 (* The Unix.time that represents the maximum time in the future that a 32 bit time can cope with *)
 let the_future = 2147483647.0
@@ -485,6 +491,11 @@ let vgpu_config_key = "vgpu_config"
 let vgpu_extra_args_key = "vgpu_extra_args"
 
 let dev_zero = "/dev/zero"
+
+let wlb_timeout = "wlb_timeout"
+let wlb_reports_timeout = "wlb_reports_timeout"
+let default_wlb_timeout = 30.0
+let default_wlb_reports_timeout = 600.0
 
 (** {2 Settings relating to dynamic memory control} *)
 

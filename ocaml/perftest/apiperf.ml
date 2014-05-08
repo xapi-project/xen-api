@@ -153,7 +153,7 @@ let _ =
 
   if not !master && !slave_limit = 0 then failwith "Must provide either -master or -slaves argument";
 
-  let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" in
+  let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" "perftest" in
   finally
     (fun () ->
        let hosts = Client.Host.get_all rpc session in

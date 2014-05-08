@@ -23,6 +23,7 @@ module Net = (val (Network.get_client ()) : Network.CLIENT)
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
+open Workload_balancing
 
 (* Surpress exceptions *)
 let no_exn f x = 
@@ -685,7 +686,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	a host that does not support pooling then an error will be thrown at this stage *)
 	let rpc = rpc master_address in
 	let session_id =
-	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
+		try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string ""
 		with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
@@ -1277,6 +1278,21 @@ let enable_binary_storage ~__context =
 
 let disable_binary_storage ~__context =
   call_fn_on_hosts ~__context Client.Host.disable_binary_storage
+
+let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
+  init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
+
+let deconfigure_wlb ~__context =
+  decon_wlb ~__context
+
+let send_wlb_configuration ~__context ~config =
+  send_wlb_config ~__context ~config
+
+let retrieve_wlb_configuration ~__context =
+  retrieve_wlb_config ~__context
+
+let retrieve_wlb_recommendations ~__context =
+  get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
