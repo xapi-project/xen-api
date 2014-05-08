@@ -16,3 +16,5 @@ val _current_allocation : string
 val _requested_target : string
 val _low_mem_balloon : string
 val _high_mem_balloon : string
+
+val get_memtotal: unit -> int64 option

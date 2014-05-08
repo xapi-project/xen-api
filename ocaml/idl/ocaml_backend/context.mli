@@ -21,9 +21,6 @@ type origin =
 
 (** {6 Constructors} *)
 
-(** [initial] is the initial context. *)
-val initial : t
-
 (** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
     [__context] is the calling context,
     [http_other_config] are extra bits of context picked up from HTTP headers,
