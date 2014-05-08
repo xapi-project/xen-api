@@ -412,7 +412,7 @@ module Mem = struct
 	let retry f =
 		let start = Unix.gettimeofday () in
 		let interval = 10. in
-		let timeout = 0. in
+		let timeout = 60. in
 		let rec loop () =
 			try
 				f ()
@@ -1519,6 +1519,18 @@ module VM = struct
 	let set_internal_state vm state =
 		let k = vm.Vm.id in
 		let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+		(* Don't take the timeoffset from [state] (last boot record). Put back
+		 * the one from [vm] which came straight from the platform keys. *)
+		let persistent = match vm.ty with
+			| HVM {timeoffset} ->
+				begin match persistent.VmExtra.ty with
+				| Some (HVM hvm_info) ->
+					{persistent with VmExtra.ty = Some (HVM {hvm_info with timeoffset = timeoffset})}
+				| _ ->
+					persistent
+				end
+			| _ -> persistent
+		in
 		let non_persistent = match DB.read k with
 		| None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
 		| Some vmextra -> vmextra.VmExtra.non_persistent
@@ -1767,7 +1779,9 @@ module VBD = struct
 					Opt.iter
 						(fun device ->
 							if force && (not (Device.can_surprise_remove ~xs device))
-							then debug "VM = %s; VBD = %s; Device is not surprise-removable" vm (id_of vbd); (* happens on normal shutdown too *)
+							then debug
+								"VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
+								vm (id_of vbd); (* this happens on normal shutdown too *)
 							(* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);

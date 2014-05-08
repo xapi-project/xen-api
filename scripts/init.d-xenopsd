@@ -43,6 +43,9 @@ start() {
 		fi
 	fi
 	
+	# Enable backtraces
+	export OCAMLRUNPARAM="b"
+
 	${BIN} -daemon -config /etc/xenopsd.conf >/dev/null 2>&1 </dev/null
 
 	MAX_RETRIES=30
