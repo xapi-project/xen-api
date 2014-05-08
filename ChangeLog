@@ -1,3 +1,6 @@
+0.9.4 (8-May-2014):
+* add list_domains
+
 0.9.2 (25-Sep-2013):
 * use syslog from xcp-idl
 
