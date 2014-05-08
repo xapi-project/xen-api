@@ -847,6 +847,7 @@ let rec atomics_of_operation = function
 	| VM_resume (id, data) ->
 		[
 			VM_create (id, None);
+			VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
 			VM_restore (id, data);
 		] @ (atomics_of_operation (VM_restore_devices id)
 		) @ [
