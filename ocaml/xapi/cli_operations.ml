@@ -2464,14 +2464,14 @@ let vm_compute_maximum_memory printer rpc session_id params =
 
 let vm_retrieve_wlb_recommendations printer rpc session_id params =
 	let table vm =
-		List.map (fun (host,recom) -> (Client.Host.get_name_label rpc session_id host, String.concat " " recom))
+		List.map (fun (host,recom) -> ((Client.Host.get_name_label rpc session_id host) ^ "(" ^ (Client.Host.get_uuid rpc session_id host) ^ ")", String.concat " " recom))
 			(Client.VM.retrieve_wlb_recommendations rpc session_id (vm.getref()))
 	in
 	try
 		let vms = select_vms rpc session_id params [] in
 		match List.length vms with
 			| 0 -> failwith "No matching VMs found"
-			| 1 -> printer (Cli_printer.PTable [("Host", "Stars, RecID, ZeroScoreReason") :: table (List.hd vms)])
+			| 1 -> printer (Cli_printer.PTable [("Host(Uuid)", "Stars, RecID, ZeroScoreReason") :: table (List.hd vms)])
 			| _ -> failwith "Multiple VMs found. Operation can only be performed on one VM at a time"
 	with
 		| Records.CLI_failed_to_find_param name ->
@@ -3013,13 +3013,26 @@ let pool_retrieve_wlb_report fd printer rpc session_id params =
 			(fun (k, _) -> not (List.mem k (["report"; "filename"] @ stdparams)))
 			params
 	in
-	ignore (report, filename, other_params);
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_report_uri
+		(Printf.sprintf
+			"report=%s%s%s"
+			(Http.urlencode report)
+			(if List.length other_params = 0 then "" else "&")
+			(String.concat "&"
+				(List.map (fun (k, v) ->
+					(Printf.sprintf "%s=%s"
+						(Http.urlencode k)
+						(Http.urlencode v))) other_params)))
+		"Report generation"
+        (Printf.sprintf "WLB report: %s" report)
 
 let pool_retrieve_wlb_diagnostics fd printer rpc session_id params =
 	let filename = List.assoc_default "filename" params "" in
-	ignore filename;
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_diagnostics_uri ""
+		"WLB diagnostics download"
+    	"WLB diagnostics download"
 
 let vm_import fd printer rpc session_id params =
 	let sr =
