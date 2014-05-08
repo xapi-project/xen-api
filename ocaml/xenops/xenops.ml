@@ -120,7 +120,6 @@ let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
 	Domain.destroy task ~xc ~xs ~qemu_domid:0 domid
-
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
 	Domain.pv_restore task ~xc ~xs default_xenguest domid ~static_max_kib ~target_kib ~vcpus fd;
@@ -224,16 +223,16 @@ let stat ~xs d =
 			let take = limit - (String.length dots) in
 			dots ^ (String.sub params (len - take) take) in
 	let backend_proto = match d.backend.kind with
-		| Vbd | Tap -> "blk"
+		| Vbd _ | Tap -> "blk"
 		| Vif -> "net"
 		| x -> string_of_kind x in
 	let frontend_type = match d.frontend.kind with
-		| Vbd | Tap ->
+		| Vbd _ | Tap ->
 			let be = frontend_path_of_device ~xs d in
 			(try if xs.Xs.read (sprintf "%s/device-type" be) = "cdrom" then "cdrom" else "disk" with _ -> "??")
 		| x -> string_of_kind x in
 	let backend_device = match d.backend.kind with
-		| Vbd | Tap ->
+		| Vbd _ | Tap ->
 			let be = backend_path_of_device ~xs d in
 			(try xs.Xs.read (sprintf "%s/physical-device" be)
 			with Xenbus.Xb.Noent ->
@@ -242,7 +241,7 @@ let stat ~xs d =
 		| Vif -> "-"
 		| _ -> string_of_int d.backend.devid in
 	let frontend_device = match d.frontend.kind with
-		| Vbd | Tap -> Device_number.to_linux_device (Device_number.of_xenstore_key d.frontend.devid)
+		| Vbd _ | Tap -> Device_number.to_linux_device (Device_number.of_xenstore_key d.frontend.devid)
 		| _ -> string_of_int d.frontend.devid in
 	{ device = d; frontend_state = frontend_state; backend_state = backend_state; frontend_device = frontend_device; frontend_type = frontend_type; backend_proto = backend_proto; backend_device = backend_device }
 
@@ -264,17 +263,16 @@ let list_devices ~xc ~xs =
 	let infos = List.map of_device devices in
 	print_table (header :: infos)
 
-let find_device ~xs (frontend: endpoint) (backend: endpoint) = 
-  let all = list_devices_between ~xs backend.domid frontend.domid in
+let find_device ~xs (frontend: endpoint) backend_domid =
+  let all = list_devices_between ~xs backend_domid frontend.domid in
   match List.filter (fun x -> x.frontend = frontend) all with
   | [ d ] -> d
   | _ -> failwith "failed to find device"
 
 let del_vbd ~xs ~domid ~backend_domid ~device_number ~phystype =
 	let devid = Device_number.to_xenstore_key device_number in
-	let frontend = { domid = domid; kind = Vbd; devid = devid } in
-	let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
-	let device = find_device ~xs frontend backend in
+	let frontend = { domid = domid; kind = default_vbd_frontend_kind; devid = devid } in
+	let device = find_device ~xs frontend backend_domid in
 	Device.clean_shutdown task ~xs device
 
 let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
@@ -282,8 +280,7 @@ let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
 
 let del_vif ~xs ~domid ~backend_domid ~devid =
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
-	let backend = { domid = backend_domid; kind = Vif; devid = devid } in
-	let device = find_device ~xs frontend backend in
+	let device = find_device ~xs frontend backend_domid in
 	Device.clean_shutdown task ~xs device
 
 let pci_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
