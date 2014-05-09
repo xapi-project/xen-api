@@ -494,18 +494,23 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let open Xenops_client in
-		let dbg = Context.string_of_task __context in
-		let xen_dmesg = Client.HOST.get_console_data dbg in
-		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
-			"true"
-		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
-			"false"
-		else if List.mem_assoc "iommu" current_info then
-			List.assoc "iommu" current_info
-		else
-			"false"
-	in
+		try
+			let xc = Xenctrl.interface_open () in
+			Xenctrl.interface_close xc;
+			let open Xenops_client in
+			let dbg = Context.string_of_task __context in
+			let xen_dmesg = Client.HOST.get_console_data dbg in
+			if String.has_substr xen_dmesg "I/O virtualisation enabled" then
+				"true"
+			else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
+				"false"
+			else if List.mem_assoc "iommu" current_info then
+				List.assoc "iommu" current_info
+			else
+				"false"
+		with _ ->
+			warn "Not running on xen; assuming I/O vierualization disabled";
+			"false" in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info
 
