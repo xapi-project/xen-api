@@ -22,6 +22,9 @@ open Xenops_interface
 module D = Debug.Debugger(struct let name = service_name end)
 open D
 
+(* shared place for config option *)
+let default_vbd_backend_kind = ref "vbd"
+
 module Unix = struct
 	include Unix
 	let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> Unixext.file_descr_of_int
