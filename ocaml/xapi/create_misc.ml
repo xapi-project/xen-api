@@ -156,7 +156,7 @@ and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_in
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
 		let metrics_ref = Ref.make() in
-		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_default_memory_constraints host_info)
+		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
 		~vcpus:(calculate_domain_zero_vcpu_count ~__context);
 		Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
 	end
@@ -168,7 +168,7 @@ and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref : unit =
 
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Determine domain 0 memory constraints. *)
-	let memory = create_domain_zero_default_memory_constraints host_info in
+	let memory = create_domain_zero_memory_constraints host_info in
 	(* Determine information about the host machine. *)
 	let domarch =
 		let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
@@ -255,71 +255,25 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~last_updated: Date.never
 		~other_config:[];
 
-and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
-	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	try
-		(* Look up the current domain zero record in xenopsd *)
-		let open Xenops_interface in
-		let open Xenops_client in
-		let vm, state = Client.VM.stat "dbsync" host_info.dom0_uuid in
-		{
-			static_min = static_min;
-			static_max = vm.Vm.memory_static_max;
-			dynamic_min = state.Vm.memory_target;
-			dynamic_max = state.Vm.memory_target;
-			target = state.Vm.memory_target;
-		}
-	with _ ->
-		let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
-		let target = if target > static_max then static_max else target in
-		{
-			static_min  = static_min;
-			dynamic_min = target;
-			target      = target;
-			dynamic_max = target;
-			static_max  = static_max;
-		}
-
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
-	(* Fetch existing memory constraints for domain 0. *)
-	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref in
-	(* Generate new memory constraints from the old constraints. *)
-	let constraints = update_domain_zero_memory_constraints host_info constraints in
+	let constraints = create_domain_zero_memory_constraints host_info in
 	(* Write the updated memory constraints to the database. *)
 	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints
 
-and update_domain_zero_memory_constraints (host_info: host_info) (constraints: Vm_memory_constraints.t) : Vm_memory_constraints.t =
-	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	let constraints = {constraints with
-		static_min = static_min;
-		static_max = static_max;} in
-	match Vm_memory_constraints.transform constraints with
-		| None ->
-			(* The existing constraints are invalid, and cannot be transformed  *)
-			(* into valid constraints. Reset the constraints to their defaults. *)
-			create_domain_zero_default_memory_constraints host_info
-		| Some constraints ->
-			constraints
-
-(** Calculates the range of memory to which domain 0 is constrained, in bytes. *)
-and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * int64 =
-
-	(** Calculates the minimum amount of memory needed by domain 0, in bytes. *)
-	let calculate_domain_zero_memory_static_min () =
-		(* Base our calculation on the total amount of host memory. *)
-		let host_total_memory_mib = host_info.total_memory_mib in
-		let minimum = 200L in            (*   lower hard limit                               *)
-		let intercept = 126L in          (*   [domain 0 memory] when [total host memory] = 0 *)
-		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
-		let result = Int64.add (Int64.of_float (gradient *. (Int64.to_float host_total_memory_mib))) intercept in
-		let result = if result < minimum then minimum else result in
-		Int64.(mul result (mul 1024L 1024L)) in
-
-	(* static_min must not be greater than static_max *)
-	let static_min = calculate_domain_zero_memory_static_min () in
-	let static_max = host_info.dom0_static_max in
-	let static_min = minimum static_min static_max in
-	static_min, static_max
+and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
+	match Memory_client.Client.get_domain_zero_policy "create_misc" with
+	| Memory_interface.Fixed_size x ->
+		{
+			static_min = x; static_max = x;
+			dynamic_min = x; dynamic_max = x;
+			target = x;
+		}
+	| Memory_interface.Auto_balloon(low, high) ->
+		{
+			static_min = low; static_max = high;
+			dynamic_min = low; dynamic_max = high;
+			target = high;
+		}
 
 and calculate_domain_zero_vcpu_count ~__context : int =
 	List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
