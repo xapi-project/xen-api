@@ -32,7 +32,8 @@ module Client = Rrd_interface.Client(struct
   let rpc call =
     retry_econnrefused
       (fun () ->
-        if !use_switch
+        (* TODO: the message switch doesn't handle raw HTTP very well *)
+        if (* !use_switch *) false
         then json_switch_rpc !queue_name call
         else xml_http_rpc
           ~srcstr:(get_user_agent ())
