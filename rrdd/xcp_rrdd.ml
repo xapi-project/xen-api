@@ -664,10 +664,18 @@ let _ =
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
 	debug "Starting xenstore-watching thread ..";
-        let () = Watcher.create_watcher_thread (Xs.get_client ()) in
+        let () =
+                try
+                        Watcher.create_watcher_thread (Xs.get_client ())
+                with e ->
+                        error "xenstore-watching thread has failed" in
 
 	debug "Creating monitoring loop thread ..";
-       	Debug.with_thread_associated "main" monitor_loop ();
+        let () =
+                try
+       	                Debug.with_thread_associated "main" monitor_loop ()
+                with e ->
+                        error "monitoring loop thread has failed" in
 
 	while true do
 		Thread.delay 300.
