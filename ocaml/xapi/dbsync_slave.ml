@@ -121,10 +121,20 @@ let refresh_localhost_info ~__context info =
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
-		let open Xenops_client in
-		let dbg = Context.string_of_task __context in
-		let mib = Client.HOST.get_total_memory_mib dbg in
-		Int64.mul 1024L (Int64.mul 1024L mib) in
+		try
+			let xc = Xenctrl.interface_open () in
+			Xenctrl.interface_close xc; (* we're on xen *)
+			let open Xenops_client in
+			let dbg = Context.string_of_task __context in
+			let mib = Client.HOST.get_total_memory_mib dbg in
+			Int64.mul 1024L (Int64.mul 1024L mib)
+		with _ ->
+			warn "Failed to detect xen, querying /proc/meminfo";
+			begin match Balloon.get_memtotal () with
+                        |  None -> 0L
+                        | Some x -> Int64.(div x (mul 1024L 1024L))
+			end in
+
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
