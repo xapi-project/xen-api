@@ -1250,7 +1250,9 @@ let session_login  = call ~flags:[]
   ~versioned_params:
   [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
    {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
-   {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")}]
+   {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")};
+   {param_type=String; param_name="originator"; param_doc="Key string for distinguishing different API users sharing the same login name."; param_release=clearwater_release; param_default=Some (VString "")}
+  ]
   ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
   ~secret:true
   ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
@@ -3423,6 +3425,7 @@ let session =
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session"; 
+		  field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
 		]
 	()
 

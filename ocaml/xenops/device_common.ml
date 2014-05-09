@@ -17,7 +17,7 @@ open Hashtblext
 open Pervasiveext
 open Xenstore
 
-type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
 with rpc
 
 type devid = int
@@ -46,11 +46,19 @@ open D
 
 open Printf
 
+let supported_vbd_backends = [ "vbd"; "vbd3" ] (* TODO: get from xenopsd config *)
+let default_vbd_frontend_kind = Vbd "vbd"
+let vbd_kind_of_string backend_kind =
+	if List.mem backend_kind supported_vbd_backends then Vbd backend_kind
+	else Vbd "unsupported"
+
 let string_of_kind = function
-  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+	| Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+	| Vbd x -> x
 let kind_of_string = function
-  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
-  | x -> raise (Unknown_device_type x)
+	| "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
+	| b when List.mem b supported_vbd_backends -> Vbd b
+	| x -> raise (Unknown_device_type x)
 
 let string_of_endpoint (x: endpoint) =
   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
@@ -125,7 +133,7 @@ let string_of_device (x: device) =
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
-			   | Vbd | Tap -> Vbd
+			   | Tap | Vbd _ -> default_vbd_frontend_kind
 			   | _ -> backend.kind);
 		   devid = backend.devid } in
   { backend = backend; frontend = frontend }

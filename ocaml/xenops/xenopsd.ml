@@ -52,6 +52,7 @@ let config_spec = [
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
 		);
 	"worker-pool-size", Config.Set_int worker_pool_size;
+	"default-vbd-backend-kind", Config.Set_string Xenops_utils.default_vbd_backend_kind;
 	"database-path", Config.Set_string Xenops_utils.root;
 ]
 
@@ -72,6 +73,7 @@ let dump_config_file () : unit =
 	debug "persist = %b" !persist;
 	debug "daemon = %b" !daemon;
 	debug "worker-pool-size = %d" !worker_pool_size;
+	debug "default-vbd-backend-kind = %s" !default_vbd_backend_kind;
 	debug "database-path = %s" !Xenops_utils.root
 
 let socket : Http_svr.socket option ref = ref None

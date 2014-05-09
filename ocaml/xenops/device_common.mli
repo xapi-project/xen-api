@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
+val vbd_kind_of_string : string -> kind
+val default_vbd_frontend_kind : kind
 
 type devid = int
 
