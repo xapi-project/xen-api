@@ -79,8 +79,10 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
     let maybe_create_pbd_for_shared_sr s =
       let mpbd,mpbd_rec = List.find (fun (_,pbdr)->pbdr.API.pBD_SR = s) master_pbds in
       let master_devconf = mpbd_rec.API.pBD_device_config in
-       maybe_create_pbd rpc session_id s master_devconf me (* copy device config from master *) in
-      List.iter (fun s -> try ignore (maybe_create_pbd_for_shared_sr s) with _ -> ()) shared_sr_refs
+      let my_devconf = List.remove_assoc "SRmaster" master_devconf in (* this should never be used *)
+      maybe_create_pbd rpc session_id s my_devconf me
+    in
+    List.iter (fun s -> try ignore (maybe_create_pbd_for_shared_sr s) with _ -> ()) shared_sr_refs
   in
 
   let other_config = 
