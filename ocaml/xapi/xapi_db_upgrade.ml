@@ -48,7 +48,7 @@ let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
-let augusta = Datamodel.augusta_release_schema_major_vsn, Datamodel.augusta_release_schema_minor_vsn
+let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -406,7 +406,7 @@ let remove_wlb = {
 
 let add_default_pif_properties = {
 	description = "Adding default PIF properties";
-	version = (fun x -> x < augusta);
+	version = (fun x -> x < creedence);
 	fn = fun ~__context ->
 		List.iter
 			(fun self -> Xapi_pif.set_default_properties ~__context ~self)
