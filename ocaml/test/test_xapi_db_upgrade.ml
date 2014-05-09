@@ -97,10 +97,33 @@ let update_snapshots () =
 	assert_equal ~msg:"b_snap2.parent <> b_snap"
 		(Db.VM.get_parent ~__context ~self:b_snap2)b_snap
 
+let remove_restricted_pbd_keys () =
+	let restricted_keys = ["SRmaster"] in
+	let other_keys = ["foo"; "bar"] in (* to check we don't remove too much *)
+	let device_config = List.map (fun k -> (k, "some_value")) (restricted_keys @ other_keys) in
+	let __context = make_test_database () in
+	let pbd = make_pbd ~__context ~device_config () in
+	
+	remove_restricted_pbd_keys.fn ~__context;
+
+	let device_config' = Db.PBD.get_device_config ~__context ~self:pbd in
+
+	List.iter (fun k ->
+		assert_bool (Printf.sprintf "Restricted key, %s, not removed from PBD.device_config" k)
+			(not (List.mem_assoc k device_config'))
+	) restricted_keys;
+
+	List.iter (fun k ->
+		assert_bool (Printf.sprintf "Non-restricted key, %s, removed from PBD.device_config" k)
+			(List.mem_assoc k device_config')
+	) other_keys
+
+
 let test =
 	"test_db_upgrade" >:::
 		[
 			"upgrade_vm_memory_for_dmc" >:: upgrade_vm_memory_for_dmc;
 			"upgrade_bios" >:: upgrade_bios;
 			"update_snapshots" >:: update_snapshots;
+			"remove_restricted_pbd_keys" >:: remove_restricted_pbd_keys;
 		]
