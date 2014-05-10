@@ -748,7 +748,7 @@ let start_smapiv1_servers () =
 		List.map (fun (_, x) -> x.API.sM_type) needed
 	) in
 	List.iter (fun ty ->
-		let path = !Storage_interface.default_path ^ "/" ^ ty in
+		let path = !Storage_interface.default_path ^ ".d/" ^ ty in
 		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
 		let module S = Storage_interface.Server(SMAPIv1) in
 		let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
@@ -793,7 +793,7 @@ let bind ~__context ~pbd =
 	let ty = Db.SR.get_type ~__context ~self:sr in
 	let sr = Db.SR.get_uuid ~__context ~self:sr in
 	let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
-	let uri () = Storage_interface.uri () ^ "/" ^ ty in
+	let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
 	let rpc = external_rpc queue_name uri in
 	let service = make_service uuid ty in
 	System_domains.register_service service queue_name;
