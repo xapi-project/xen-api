@@ -52,7 +52,8 @@ let read_localhost_info () =
 			let open Xenctrl in
 			let xen_verstring = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
 			let total_memory_mib =
-				let open Xenops_client in
+				let open Xapi_xenops_queue in
+				let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 				Client.HOST.get_total_memory_mib "read_localhost_info" in
 			xen_verstring, total_memory_mib
 		with e ->
@@ -497,7 +498,8 @@ let create_chipset_info ~__context =
 		try
 			let xc = Xenctrl.interface_open () in
 			Xenctrl.interface_close xc;
-			let open Xenops_client in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 			let dbg = Context.string_of_task __context in
 			let xen_dmesg = Client.HOST.get_console_data dbg in
 			if String.has_substr xen_dmesg "I/O virtualisation enabled" then
