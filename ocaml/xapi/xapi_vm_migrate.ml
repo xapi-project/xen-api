@@ -70,7 +70,7 @@ let get_ip_from_url url =
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
 	let session_id = Ref.string_of (Context.get_session_id __context) in
-	let ip = Db.Host.get_address ~__context ~self:host in
+	let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
 	let open Xenops_client in
 	let vm' = Db.VM.get_uuid ~__context ~self:vm in
