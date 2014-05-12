@@ -15,7 +15,7 @@ let get_backtrace () =
   let b = Printexc.get_backtrace () in
   let nicify_locator s =
     try
-      match Stringext.String.split ',' s with
+      match Xstringext.String.split ',' s with
       | file :: line :: character :: [] ->
         let i = String.index_from file 0 '"' + 1 in
         let i2 = String.index_from file i '"' in
@@ -26,7 +26,7 @@ let get_backtrace () =
     with _ -> s
     in
   try
-    let list = Stringext.String.split '\n' b in
+    let list = Xstringext.String.split '\n' b in
 	let list = List.filter ((<>) "") list in
     "Raised at " ^ (String.concat " -> " (List.map nicify_locator list))
   with _ ->
