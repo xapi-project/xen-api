@@ -14,7 +14,7 @@
 
 open Fun
 open Pervasiveext
-open Stringext
+open Xstringext
 open Listext
 open Unixext
 open Threadext
