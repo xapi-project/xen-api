@@ -27,7 +27,7 @@
  * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17 
  *)
 
-open Stringext
+open Xstringext
 
 type protocol = | Hixie76 | Hybi10
 

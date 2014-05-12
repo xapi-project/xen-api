@@ -14,7 +14,7 @@
 
 open Int32
 open Printf
-open Stringext
+open Xstringext
 
 exception InvalidFeatureString of string
 exception MaskingNotSupported of string

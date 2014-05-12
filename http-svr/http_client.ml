@@ -13,7 +13,7 @@
  *)
 (* A very simple HTTP client *)
 
-open Stringext
+open Xstringext
 
 module D = Debug.Make(struct let name="http" end)
 open D

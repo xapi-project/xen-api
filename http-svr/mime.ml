@@ -13,7 +13,7 @@
  *)
 (* MIME handling for HTTP responses *)
 
-open Stringext
+open Xstringext
 open Printf
 
 (** Map extension to MIME type *)
