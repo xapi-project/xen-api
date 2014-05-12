@@ -24,7 +24,7 @@ open Squeezed_xenstore
 open Pervasiveext
 open Threadext
 open Listext
-open Stringext
+open Xstringext
 open Fun
 
 module M = Debug.Make(struct let name = "memory" end)
