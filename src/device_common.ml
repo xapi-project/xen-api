@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
-open Stringext
+open Xstringext
 open Hashtblext
 open Pervasiveext
 

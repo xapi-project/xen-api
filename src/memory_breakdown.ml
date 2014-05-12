@@ -13,7 +13,7 @@
  *)
 
 open Listext
-open Stringext
+open Xstringext
 open Unixext
 
 (** Command-line tool for sampling host and guest memory usage. *)
