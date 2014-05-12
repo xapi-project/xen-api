@@ -1,4 +1,4 @@
-open Stringext
+open Xstringext
 
 let loadavg () =
 	let split_colon line =

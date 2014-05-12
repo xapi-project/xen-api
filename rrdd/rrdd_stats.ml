@@ -65,7 +65,7 @@ let plus_process_memory_info pmi1 pmi2 = {
 	lib = pmi1.lib + pmi2.lib;
 }
 
-open Stringext
+open Xstringext
 open Threadext
 
 (* TODO: Move this function (and its clones) to xen-api-libs. *)

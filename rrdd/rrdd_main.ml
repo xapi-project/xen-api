@@ -102,7 +102,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 (* Monitoring code --- START. *)
 
 open Listext
-open Stringext
+open Xstringext
 open Threadext
 open Network_stats
 open Rrdd_shared
@@ -163,7 +163,7 @@ module Meminfo = struct
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
 	let watch_fired xc path domains _ =
-		match List.filter (fun x -> x <> "") (Stringext.String.split '/' path) with
+		match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
 			fire_event_on_vm domid domains
 		| _ -> debug "Ignoring unexpected watch: %s" path
