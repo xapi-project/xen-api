@@ -1238,8 +1238,8 @@ let unbind_from_nvidia devstr =
 				let devstr2 = String.copy devstr in
 				devstr2.[7] <- '.';
 				if false
-					|| (Stringext.String.has_substr gpu_info devstr2)
-					|| (Stringext.String.has_substr gpu_info devstr)
+					|| (Xstringext.String.has_substr gpu_info devstr2)
+					|| (Xstringext.String.has_substr gpu_info devstr)
 				then gpu_path
 				else find_gpu rest
 		in
