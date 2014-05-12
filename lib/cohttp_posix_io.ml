@@ -112,6 +112,8 @@ module Unbuffered_IO = struct
     else String.sub buf 0 actually_read
 
   let write oc x = ignore(Unix.write oc x 0 (String.length x))
+
+  let flush oc = ()
 end
 
 module Buffered_IO = struct
@@ -151,4 +153,6 @@ module Buffered_IO = struct
     else String.sub buf 0 actually_read
 
   let write oc x = output_string oc x; flush oc
+
+  let flush oc = flush oc
 end
