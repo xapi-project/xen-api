@@ -37,32 +37,32 @@ open Clock
 
 module StringSet = Set.Make(struct type t = string let compare = String.compare end)
 
-module IntStringRelation = Relation.Make(struct type t = int let compare = compare end)(String)
+module StringStringRelation = Relation.Make(struct type t = string let compare = compare end)(String)
 
 module Connections = struct
-	let t = ref (IntStringRelation.empty)
+	let t = ref (StringStringRelation.empty)
 
 	let get_session conn_id =
 		(* Nothing currently stops you registering multiple sessions per connection *)
-		let sessions = IntStringRelation.get_bs conn_id !t in
-		if sessions = IntStringRelation.B_Set.empty
+		let sessions = StringStringRelation.get_bs conn_id !t in
+		if sessions = StringStringRelation.B_Set.empty
 		then None
-		else Some(IntStringRelation.B_Set.choose sessions)
+		else Some(StringStringRelation.B_Set.choose sessions)
 
 	let get_origin conn_id = match get_session conn_id with
 		| None -> Protocol.Anonymous conn_id
 		| Some x -> Protocol.Name x
 
 	let add conn_id session =
-		debug "+ connection %d" conn_id;
-		t := IntStringRelation.add conn_id session !t
+		debug "+ connection %s" conn_id;
+		t := StringStringRelation.add conn_id session !t
 
 	let remove conn_id =
-		debug "- connection %d" conn_id;
-		t := IntStringRelation.remove_a conn_id !t
+		debug "- connection %s" conn_id;
+		t := StringStringRelation.remove_a conn_id !t
 
 	let is_session_active session =
-		IntStringRelation.get_as session !t <> IntStringRelation.A_Set.empty
+		StringStringRelation.get_as session !t <> StringStringRelation.A_Set.empty
 
 end
 

@@ -152,7 +152,7 @@ module In = struct
 end
 
 type origin =
-	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
+	| Anonymous of string (** An un-named connection, probably a temporary client connection *)
 	| Name of string   (** A service with a well-known name *)
 with rpc
 (** identifies where a message came from *)
@@ -261,7 +261,7 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 		) req oc >>= fun () ->
 
 		Response.read ic >>= function
-		| Some response ->
+		| `Ok response ->
 			if Cohttp.Response.status response <> `OK then begin
 				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
@@ -272,7 +272,10 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 				| Transfer.Chunk x -> return (Ok x)
 				| Transfer.Done -> return (Ok "")
 			end
-		| None ->
+		| `Invalid s ->
+			Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
+			return (Error Failed_to_read_response)
+		| `Eof ->
 			Printf.fprintf stderr "Empty response\n%!";
 			return (Error Failed_to_read_response)
 end

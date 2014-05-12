@@ -103,7 +103,7 @@ module In : sig
 end
 
 type origin =
-	| Anonymous of int (** An un-named connection, probably a temporary client connection *)
+	| Anonymous of string (** An un-named connection, probably a temporary client connection *)
 	| Name of string   (** A service with a well-known name *)
 (** identifies where a message came from *)
 

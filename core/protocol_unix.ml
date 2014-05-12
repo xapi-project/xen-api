@@ -84,6 +84,8 @@ module IO = struct
 		let ic = Unix.in_channel_of_descr fd in
 		let oc = Unix.out_channel_of_descr fd in
 		(ic, oc)
+
+	let flush oc = ()
 end
 
 module Connection = Protocol.Connection(IO)

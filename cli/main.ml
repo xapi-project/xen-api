@@ -93,7 +93,7 @@ let diagnostics common_opts =
       let ms = Int64.div (f x) 1_000_000L in
       Printf.sprintf "%Ld ms" ms in
     let origin = function
-      | Anonymous id -> Printf.sprintf "anonymous-%d" id
+      | Anonymous id -> Printf.sprintf "anonymous-%s" id
       | Name x -> x in
     let kind = function
       | Message.Request q -> q
