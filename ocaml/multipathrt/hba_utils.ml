@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Client
-open Stringext
+open Xstringext
 open Utils
 
 let get_fc_sr rpc session =

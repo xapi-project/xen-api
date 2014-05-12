@@ -14,7 +14,7 @@
 
 (** Attempt to mirror the object graph on the server *)
 
-open Stringext
+open Xstringext
 
 open Datamodel_types
 

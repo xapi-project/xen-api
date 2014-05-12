@@ -147,12 +147,12 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
 	let get_vm_uuid_of_snap s =
 		let snapshot_of = Ref.string_of s.API.vM_snapshot_of in
 		try
-			if Stringext.String.startswith "Ref:" snapshot_of then
+			if Xstringext.String.startswith "Ref:" snapshot_of then
 				(* This should be a snapshot in the archive *)
 				let v = Listext.List.find (fun v -> v.cls = Datamodel._vm && v.id = snapshot_of) x.objects in
 				let v = API.Legacy.From.vM_t "" v.snapshot in
 				Some v.API.vM_uuid
-			else if Stringext.String.startswith Ref.ref_prefix snapshot_of then
+			else if Xstringext.String.startswith Ref.ref_prefix snapshot_of then
 				(* This should be a snapshot in a live system *)
 				if Db.is_valid_ref __context s.API.vM_snapshot_of then
 					Some (Db.VM.get_uuid ~__context ~self:s.API.vM_snapshot_of)

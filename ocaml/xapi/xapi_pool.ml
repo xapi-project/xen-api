@@ -15,7 +15,7 @@ open Client
 open Db_filter_types
 open Pervasiveext
 open Threadext
-open Stringext
+open Xstringext
 open Listext
 open Network
 
@@ -1427,7 +1427,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 				raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);string_of_e]))
 			| err_of_e when err_of_e=Api_errors.auth_unknown_type ->
 				raise (Api_errors.Server_error(Api_errors.auth_unknown_type, [msg_of_e]))
-			| err_of_e when Stringext.String.startswith Api_errors.auth_enable_failed err_of_e ->
+			| err_of_e when Xstringext.String.startswith Api_errors.auth_enable_failed err_of_e ->
 				raise (Api_errors.Server_error(Api_errors.pool_auth_prefix^err_of_e, [(Ref.string_of failed_host);msg_of_e]))
 			| _ -> (* Api_errors.Server_error *)
 				raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);string_of_e]))
@@ -1482,7 +1482,7 @@ let disable_external_auth ~__context ~pool ~config =
 	then begin (* FAILED *)
 		match List.hd failedhosts_list with (host,err,msg) ->
 		debug "Failed to disable the external authentication of at least one host in the pool";
-		if Stringext.String.startswith Api_errors.auth_disable_failed err
+		if Xstringext.String.startswith Api_errors.auth_disable_failed err
 		then (* tagged exception *)
 			raise (Api_errors.Server_error(Api_errors.pool_auth_prefix^err, [(Ref.string_of host);msg]))
 		else (* generic exception *)

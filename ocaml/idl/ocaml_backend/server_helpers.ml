@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Locking_helpers
-open Stringext
+open Xstringext
 open Pervasiveext
 open Threadext
 

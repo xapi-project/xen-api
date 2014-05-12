@@ -17,7 +17,7 @@
 
 open Listext
 open Pervasiveext
-open Stringext
+open Xstringext
 open Xapi_support
 
 module D = Debug.Make(struct let name="xapi" end)

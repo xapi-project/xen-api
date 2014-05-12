@@ -14,7 +14,7 @@
 
 (** A central location for settings related to xapi *)
 
-open Stringext
+open Xstringext
 open Printf
 
 module D = Debug.Make(struct let name="xapi_globs" end)

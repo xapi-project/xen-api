@@ -16,7 +16,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open OPasswd.Common
-open Stringext
+open Xstringext
 
 let ( |> ) a b = b a
 

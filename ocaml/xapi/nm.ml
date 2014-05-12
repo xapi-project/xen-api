@@ -14,7 +14,7 @@
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-open Stringext
+open Xstringext
 open Listext
 open Threadext
 open Fun

@@ -16,7 +16,7 @@
 
 open Xapi_globs
 open Printf
-open Stringext
+open Xstringext
 
 module D=Debug.Make(struct let name="xapi" end)
 open D

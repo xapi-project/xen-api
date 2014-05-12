@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stringext
+open Xstringext
 open Opt
 
 type pci = {

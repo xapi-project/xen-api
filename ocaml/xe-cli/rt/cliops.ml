@@ -20,7 +20,7 @@ exception OpFailed of string
 
 open Util
 open Parsers
-open Stringext
+open Xstringext
 
 let log=Testlog.log
 let pic=ref ""

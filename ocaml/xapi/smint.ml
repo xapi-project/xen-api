@@ -91,14 +91,14 @@ let parse_string_int64_features strings =
 	let text_features =
 		List.filter
 			(fun s ->
-				let s = List.hd (Stringext.String.split '/' s) in
+				let s = List.hd (Xstringext.String.split '/' s) in
 				let p = List.mem s (List.map fst string_to_capability_table) in
 				if not p then debug "SM.feature: unknown feature %s" s;
 				p)
 			strings in
 	List.map
 		(fun c ->
-			match Stringext.String.split '/' c with
+			match Xstringext.String.split '/' c with
 				| [] -> failwith "parse_feature" (* not possible *)
 				| [cs] -> (cs, 1L) (* default version *)
 				| [cs; vs]

@@ -18,7 +18,7 @@
 module Rrdd = Rrd_client.Client
 
 open Fun
-open Stringext
+open Xstringext
 open Listext
 open Printf
 open Create_misc

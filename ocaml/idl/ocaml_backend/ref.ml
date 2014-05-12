@@ -34,7 +34,7 @@ let of_string x = x
 let dummy_sep = '|'
 let dummy_prefix = "DummyRef:"
   
-open Stringext
+open Xstringext
 
 let make_dummy task_name =
   let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in

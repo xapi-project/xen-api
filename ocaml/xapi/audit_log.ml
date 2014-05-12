@@ -15,7 +15,7 @@ module D = Debug.Make(struct let name="audit_log" end)
 open D
 
 open Http
-open Stringext
+open Xstringext
 open Pervasiveext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"
@@ -116,8 +116,8 @@ let transfer_all_audit_files fd_out ?filter since =
 (* map the ISO8601 timestamp format into the one in our logs *)
 let log_timestamp_of_iso8601 iso8601_timestamp =
 	let step1 = iso8601_timestamp in
-	let step2 = Stringext.String.replace "-" "" step1 in
-	let step3 = Stringext.String.replace "Z" "" step2 in
+	let step2 = Xstringext.String.replace "-" "" step1 in
+	let step3 = Xstringext.String.replace "Z" "" step2 in
 	step3
 
 (*

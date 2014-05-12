@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Stringext
+open Xstringext
 module XenAPI = Client.Client
 open Fun
 open Storage_interface

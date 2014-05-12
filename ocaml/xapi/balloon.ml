@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stringext
+
+open Xstringext
 open Pervasiveext
 open Printf
 open Xenstore
@@ -35,7 +36,7 @@ let parse_proc_xen_balloon () =
 		_high_mem_balloon] in
 	List.map (fun key -> 
 			  let s = (Unixext.string_of_file (sysfs_stem ^ key)) in
-			  let stripped = Stringext.String.strip Stringext.String.isspace s in
+			  let stripped = Xstringext.String.strip Xstringext.String.isspace s in
 			  (key, Some (Int64.of_string stripped))) keys 
 			
 
@@ -50,7 +51,7 @@ let parse_meminfo () =
 				try
 					while true do
 						let line = input_line ic in
-						match Stringext.String.split ' ' line with
+						match Xstringext.String.split ' ' line with
 						| key :: value :: "kB" :: [] ->
 							table := (key, Int64.(mul (of_string value) 1024L)) :: !table
 						| _ -> ()

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Client
-open Stringext
+open Xstringext
 
 (* Resize failure modes advertised in LVHDSR.py *)
 let resize_failure_modes = [

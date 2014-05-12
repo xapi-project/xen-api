@@ -15,7 +15,7 @@
 open Db_filter_types
 open Listext
 open Monitor_types
-open Stringext
+open Xstringext
 open Threadext
 
 module D = Debug.Make(struct let name = "monitor_dbcalls" end)

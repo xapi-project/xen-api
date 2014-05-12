@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stringext
+open Xstringext
 
 (** Types used to store events: *****************************************************************)
 type op = API.event_operation 

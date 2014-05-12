@@ -16,7 +16,7 @@
     not dynamic performance data. *)
 
 open Fun
-open Stringext
+open Xstringext
 open Threadext
 
 module D=Debug.Make(struct let name="xapi_guest_metrics" end)

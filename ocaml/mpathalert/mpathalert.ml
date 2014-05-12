@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Stringext
+open Xstringext
 open Listext
 
 open Client
@@ -78,7 +78,7 @@ let rec retry_with_session f rpc x =
 		Thread.delay !delay;
 		retry_with_session f rpc x
 
-let keep_mpath = List.filter (fun (key, value) -> Stringext.String.startswith "mpath-" key)
+let keep_mpath = List.filter (fun (key, value) -> Xstringext.String.startswith "mpath-" key)
 
 (* create a list of alerts from a PBD event *)
 let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stringext
+open Xstringext
 open Threadext
 open Pervasiveext
 open Client
@@ -33,7 +33,7 @@ module Uds = struct (* {{{1 *)
 		finally (fun () -> func ic oc) (fun () -> Unix.close fd)
 
 	let http_response_code d =
-		match Stringext.String.split ' ' d with
+		match Xstringext.String.split ' ' d with
 		| _ :: code :: _ -> int_of_string code
 		| _ -> raise (Parse_error "Failed to parse HTTP reponse code")
 

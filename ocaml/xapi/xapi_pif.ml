@@ -20,7 +20,7 @@ open Db_filter_types
 open Fun
 open Listext
 open Pervasiveext
-open Stringext
+open Xstringext
 open Threadext
 
 open Network

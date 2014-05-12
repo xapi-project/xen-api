@@ -17,7 +17,7 @@
  
 open Pervasiveext
 open Listext
-open Stringext
+open Xstringext
 open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol

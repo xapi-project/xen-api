@@ -15,7 +15,7 @@
  * @group XenAPI functions
  *)
 
-open Stringext
+open Xstringext
 
 module D = Debug.Make(struct let name = "xapi_secret" end)
 open D

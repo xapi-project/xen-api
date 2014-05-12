@@ -14,7 +14,7 @@
 open Http
 open Printf
 open Pervasiveext
-open Stringext
+open Xstringext
 open Forkhelpers
 
 let content_type = "application/data"

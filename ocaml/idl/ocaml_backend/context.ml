@@ -13,7 +13,7 @@
  *)
 open Pervasiveext
 open Fun
-open Stringext
+open Xstringext
 
 module Real = Debug.Make(struct let name = "taskhelper" end)
 module Dummy = Debug.Make(struct let name = "dummytaskhelper" end)

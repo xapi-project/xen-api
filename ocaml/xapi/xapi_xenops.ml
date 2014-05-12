@@ -17,7 +17,7 @@ open D
 
 open Network
 
-open Stringext
+open Xstringext
 open Listext
 open Threadext
 open Pervasiveext
