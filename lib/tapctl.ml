@@ -1,7 +1,7 @@
 open Listext
 open Threadext
 open Forkhelpers
-open Stringext
+open Xstringext
 
 (* Tapdisk stats *)
 module Stats = struct
