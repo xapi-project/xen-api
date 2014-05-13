@@ -1,3 +1,9 @@
+1.2.1 (13 May 2014)
+-------------------
+
+* Ship the API reference inside the SDK zip file (html and pdf format).
+* Bugs fixed: CA-89829, CA-109972, CA-124005, CA-126115, CA-129648, XOP-541.
+
 1.2.0 (4 Mar 2014)
 ------------------
 
