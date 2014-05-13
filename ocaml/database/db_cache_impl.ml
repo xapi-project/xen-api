@@ -32,6 +32,8 @@ module W = Debug.Debugger(struct let name = "db_write" end)
 open Db_cache_types
 open Db_ref
 
+let fist_delay_read_records_where = ref false
+
 (* Only needed by the DB_ACCESS signature *)
 let initialise () = ()
 
@@ -122,8 +124,7 @@ let read_set_ref t rcd =
    and iterates through set-refs [returning (fieldname, ref list) list; where fieldname is the
    name of the Set Ref field in tbl; and ref list is the list of foreign keys from related
    table with remote-fieldname=objref] *)
-let read_record t tblname objref  =
-	let db = get_database t in
+let read_record_internal db tblname objref =
 	let tbl = TableSet.find tblname (Database.tableset db) in
 	let row = Table.find_exn tblname objref tbl in
 	let fvlist = Row.fold (fun k _ _ d env -> (k,d)::env) row [] in
@@ -142,6 +143,7 @@ let read_record t tblname objref  =
 	let set_ref = List.map (fun (k, v) -> 
 		k, String_unmarshall_helper.set (fun x -> x) v) set_ref in
 	(fvlist, set_ref)
+let read_record t = read_record_internal (get_database t)
 
 (* Delete row from tbl *)
 let delete_row_locked t tblname objref =
@@ -210,8 +212,7 @@ let read_refs t tblname =
 	Table.fold (fun r _ _ _ acc -> r :: acc) tbl []
 		
 (* Return a list of all the refs for which the expression returns true. *)
-let find_refs_with_filter t (tblname: string) (expr: Db_filter_types.expr) = 
-	let db = get_database t in
+let find_refs_with_filter_internal db (tblname: string) (expr: Db_filter_types.expr) =
 	let tbl = TableSet.find tblname (Database.tableset db) in
 	let eval_val row = function
 		| Db_filter_types.Literal x -> x
@@ -221,10 +222,13 @@ let find_refs_with_filter t (tblname: string) (expr: Db_filter_types.expr) =
 			if Db_filter.eval_expr (eval_val row) expr
 			then Row.find Db_names.ref row :: acc else acc
 		) tbl []
+let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
 		
 let read_records_where t tbl expr =
-	let reqd_refs = find_refs_with_filter t tbl expr in
-	List.map (fun ref->ref, read_record t tbl ref) reqd_refs
+	let db = get_database t in
+	let reqd_refs = find_refs_with_filter_internal db tbl expr in
+	if !fist_delay_read_records_where then Thread.delay 0.5;
+	List.map (fun ref->ref, read_record_internal db tbl ref) reqd_refs
 	
 let process_structured_field_locked t (key,value) tblname fld objref proc_fn_selector =
 	

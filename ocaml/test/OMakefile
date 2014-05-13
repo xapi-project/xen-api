@@ -27,6 +27,7 @@ OCAML_OBJS = \
 	test_common \
 	test_basic \
 	test_helpers \
+	test_db_lowlevel \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_vdi_allowed_operations \
