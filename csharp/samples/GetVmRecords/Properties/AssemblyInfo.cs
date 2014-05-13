@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("GetVmRecords")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Citrix Systems, Inc.")]
 [assembly: AssemblyProduct("GetVmRecords")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]
