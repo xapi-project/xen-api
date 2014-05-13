@@ -57,7 +57,14 @@ let find_related_ids pci other_pcis =
 			(fun p -> p.id <> pci.id && slot p.id = slot pci.id) other_pcis)
 
 let get_host_pcis pci_db =
-	let lspci_out, _ = Forkhelpers.execute_command_get_output "/sbin/lspci" ["-mnD"] in
+	let lspci_path =
+		(* TODO: switch to using $PATH like normal people *)
+		if Sys.file_exists "/sbin/lspci"
+		then "/sbin/lspci"
+		else if Sys.file_exists "/usr/bin/lspci"
+		then "/usr/bin/lspci"
+		else "lspci" in
+	let lspci_out, _ = Forkhelpers.execute_command_get_output lspci_path ["-mnD"] in
 	let lspci_lines = String.split '\n' lspci_out in
 
 	let rec parse_lspci_lines pci_db ac = function
