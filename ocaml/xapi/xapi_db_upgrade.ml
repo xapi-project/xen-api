@@ -453,6 +453,17 @@ let add_default_pif_properties = {
 			(Db.PIF.get_all ~__context)
 }
 
+let remove_restricted_pbd_keys = {
+	description = "Removing restricted legacy PBD.device_config keys";
+	version = (fun x -> x < creedence);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let dc = Db.PBD.get_device_config ~__context ~self in
+			let dc' = List.filter (fun (k, _) -> k <> "SRmaster") dc in
+			Db.PBD.set_device_config ~__context ~self ~value:dc'
+		) (Db.PBD.get_all ~__context)
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -472,6 +483,7 @@ let rules = [
 	populate_pgpu_vgpu_types;
 	set_vgpu_types;
 	add_default_pif_properties;
+	remove_restricted_pbd_keys;
 ]
 
 (* Maybe upgrade most recent db *)
