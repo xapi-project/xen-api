@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("VmPowerStates")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Citrix Systems, Inc.")]
 [assembly: AssemblyProduct("VmPowerStates")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]

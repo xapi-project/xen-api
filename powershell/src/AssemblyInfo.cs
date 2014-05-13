@@ -38,7 +38,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("XenServerPowerShell")]
 [assembly: AssemblyDescription("Citrix XenServer PowerShell Module")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Citrix")]
+[assembly: AssemblyCompany("Citrix Systems, Inc.")]
 [assembly: AssemblyProduct("XenServerPowerShell")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]
