@@ -15,3 +15,6 @@ val stats : Db_ref.t -> (string * int) list
 
 (** [refresh_row context tbl ref] generates a RefreshRow event *)
 val refresh_row : Db_ref.t -> string -> string -> unit
+
+(** Used for Test_db_lowlevel *)
+val fist_delay_read_records_where : bool ref
