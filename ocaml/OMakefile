@@ -15,7 +15,6 @@ OCamlLibrary(fhs, fhs)
 	idl \
 	util \
 	xapi \
-	xenguest \
 	xenops \
 	xva \
 	console \
