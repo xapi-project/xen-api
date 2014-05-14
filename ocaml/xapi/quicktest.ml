@@ -272,6 +272,26 @@ let event_message_test session_id =
 	let ok = has_msg message1 && has_msg message2 && has_msg message3 in
 	if ok then success test else failed test "Failed to get messages for object"
 
+let event_inject_test session_id =
+  let test = make_test "Event.inject test" 0 in
+  start test;
+  let events = Client.Event.from !rpc session_id [ "pool" ] "" 1.0 |> event_from_of_rpc in
+  let token = events.token in
+  let pool = List.hd (Client.Pool.get_all !rpc session_id) in
+  let starttime = Unix.gettimeofday () in
+  let (x: Thread.t) = Thread.create
+    (fun () ->
+      let _ = Client.Event.from !rpc session_id [ "pool" ] token 5.0 in
+      ()
+    ) () in
+  ignore(Client.Event.inject ~rpc:!rpc ~session_id ~_class:"pool" ~_ref:(Ref.string_of pool));
+  Thread.join x;
+  let endtime = Unix.gettimeofday () in
+  if endtime -. starttime > 4.5 
+  then failed test "Failed to see injected event"
+  else success test
+
+
 let all_srs_with_vdi_create session_id = 
   let all_srs : API.ref_SR list = Quicktest_storage.list_srs session_id in
   (* Filter out those which support the vdi_create capability *)
@@ -842,6 +862,7 @@ let _ =
 				maybe_run_test "event" (fun () -> event_from_parallel_test s);
 (*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
 				maybe_run_test "event" (fun () -> event_message_test s);
+				maybe_run_test "event" (fun () -> event_inject_test s);
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
