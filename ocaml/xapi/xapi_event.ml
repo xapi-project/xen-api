@@ -60,7 +60,15 @@ module Subscription = struct
 	| [ cls; id ] -> Object(String.lowercase cls, id)
 	| _ ->
 		raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
-
+	let to_string subs = 
+	  let to_string x =
+	    match x with
+	    | Class y -> Printf.sprintf "class(%s)" y
+	    | Object (cls,id) -> Printf.sprintf "object(%s,%s)" cls id
+	    | All -> "all"
+	  in 
+	  Printf.sprintf "[%s]" (String.concat "," (List.map to_string subs))
+	      
 	let any = List.fold_left (fun acc x -> acc || x) false
 
 	(** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
@@ -72,14 +80,17 @@ module Subscription = struct
 		| Object (x, _) -> x = tbl in
 		any (List.map matches subs)
 
-	(** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
-	let event_matches subs ev =
-		let tbl = String.lowercase ev.ty in
+	(** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
+	let object_matches subs ty _ref =
+		let tbl = String.lowercase ty in
 		let matches = function
 		| All -> true
 		| Class x -> x = tbl
-		| Object (x, y) -> x = tbl && (y = ev.reference) in
+		| Object (x, y) -> x = tbl && (y = _ref) in
 		any (List.map matches subs)
+
+	(** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
+	let event_matches subs ev = object_matches subs ev.ty ev.reference
 end
 
 module Next = struct
@@ -405,16 +416,20 @@ let from_inner __context session subs from from_t deadline =
 			(fun acc table ->
 		 		Db_cache_types.Table.fold_over_recent !last_generation
 					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
-						let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
-				  		if dtime > 0L then begin
-							if ctime > !last_generation then
-								(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
-							else
-								(creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
+						if Subscription.object_matches subs (String.lowercase table) objref then begin
+							let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
+							if dtime > 0L then begin
+								if ctime > !last_generation then
+									(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
+								else
+									(creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
+							end else begin
+								((if ctime > !last_generation then (table, objref, ctime)::creates else creates),
+								(if mtime > !last_generation then (table, objref, mtime)::mods else mods),
+								deletes, last)
+							end 
 						end else begin
-							((if ctime > !last_generation then (table, objref, ctime)::creates else creates),
-							(if mtime > !last_generation then (table, objref, mtime)::mods else mods),
-							deletes, last)
+							(creates,mods,deletes,last)
 						end
 					) (fun () -> ()) (Db_cache_types.TableSet.find table tableset) acc
 			) ([],[],[],!last_generation) tables) in
