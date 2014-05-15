@@ -225,5 +225,7 @@ ocaml/fhs.*
 ocaml/xapi/storage_impl_test
 ocaml/xenops/domain_sethandle
 
+# Unit tests
 ocaml/test/suite
 xapi-db.xml*
+oUnit-*.cache
