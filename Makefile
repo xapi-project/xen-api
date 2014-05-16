@@ -51,7 +51,7 @@ test:
 	@echo @
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
-	@./ocaml/test/suite -verbose
+	@./ocaml/test/suite -verbose true
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
