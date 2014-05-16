@@ -77,12 +77,29 @@ let print_delta d =
 let event_wait dbg ?from p =
 	let finished = ref false in
 	let event_id = ref from in
+	let counter = ref 1 in
+
 	while not !finished do
-		debug "Calling UPDATES.get %s %s 30" dbg (Opt.default "None" (Opt.map string_of_int !event_id));
-		let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+		debug "Calling UPDATES.get (loop %d) %s %s 30" !counter dbg (Opt.default "None" (Opt.map string_of_int !event_id));
+		let barriers, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
+
+		let same_id = match !event_id with
+				| Some n -> n = next_id
+				| None -> false in
+		if ((deltas = []) || same_id) then (
+			let ev_str = match !event_id with
+				| None -> "None"
+				| Some n -> string_of_int n
+			in
+			debug "Called UPDATES.get (loop %d) and got %d barriers, %d deltas; %s event_id %s->%d; dbg=%s"
+				!counter (List.length barriers) (List.length deltas)
+				(if same_id then "repeated" else "changed") ev_str next_id dbg;
+		);
+
 		List.iter (fun d -> print_delta d) deltas;
 		event_id := Some next_id;
 		List.iter (fun d -> if p d then finished := true) deltas;
+		counter := !counter + 1;
 	done
 
 let task_ended dbg id =
