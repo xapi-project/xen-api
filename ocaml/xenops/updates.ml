@@ -135,9 +135,16 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 
 	type id = int
 
+	(* Type for inner snapshot that we create when injecting a barrier *)
+	type barrier = {
+		bar_id: int;    (* This int is a token from outside. *)
+		map_s: int M.t;    (* Snapshot of main map *)
+		event_id: id    (* Snapshot of "next" from when barrier was injected *)
+	}
+
 	type t = {
-		map: int M.t;
-		barriers: (int * (int M.t)) list;
+		map: int M.t; (* Events with incrementing ids from "next" *)
+		barriers: barrier list;
 		next: id
 	}
 
@@ -169,13 +176,17 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 
 	let inject_barrier id filterfn t = {
 		map = t.map;
-		barriers = (id,M.filter filterfn t.map)::t.barriers;
+		barriers = {
+			bar_id = id;
+			map_s = M.filter filterfn t.map;
+			event_id = t.next
+		}::t.barriers;
 		next = t.next + 1
 	}, t.next + 1
 
 	let remove_barrier id t = {
 		map = t.map;
-		barriers = List.filter (fun x -> fst x <> id) t.barriers;
+		barriers = List.filter (fun br -> br.bar_id <> id) t.barriers;
 		next = t.next + 1
 	}, t.next + 1
 
@@ -189,9 +200,20 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 			in
 			xs, last
 		in
-		let barriers = List.map (fun (id,map) -> (id,get_from_map map |> fst)) t.barriers in
-		let rest,last = get_from_map t.map in
-		(barriers,rest,last)
+		let rec filter_barriers bl acc =
+			match bl with (* Stops at first too-old one, unlike List.filter *)
+				| x::xs when (x.event_id > from) ->
+					filter_barriers xs (x::acc)
+				| _ -> List.rev acc
+		in
+		let recent_b = filter_barriers t.barriers [] in
+		let barriers = List.map (fun (br) -> (br.bar_id,get_from_map br.map_s |> fst)) recent_b in
+		let rest,last_event = get_from_map t.map in
+		let last = match recent_b with
+				(* assumes recent_b is sorted newest-first *)
+			| [] -> last_event
+			| x::_ -> max last_event x.event_id in
+		(barriers, rest, last)
 
 	let last_id t = t.next - 1
 
@@ -216,15 +238,28 @@ let empty () = {
 	m = Mutex.create ();
 }
 
+
+type rpcable_barrier_t = {
+	bar_id: int;
+	u_snap: (Interface.Dynamic.id * int) list;
+	event_id: int
+} with rpc
+
 type rpcable_t = {
 	u' : (Interface.Dynamic.id * int) list;
-	b : (int * (Interface.Dynamic.id * int) list) list;
+	b: rpcable_barrier_t list;
 	next : int;
 } with rpc
 
 let rpc_of_t t =
 	let get_u u = U.M.fold (fun x y acc -> (x,y)::acc) u [] in
-	let b = List.map (fun (id,t) -> (id,get_u t)) t.u.U.barriers in
+	let b = List.map
+		(fun br -> {
+			bar_id = br.U.bar_id;
+			u_snap = get_u br.U.map_s;
+			event_id = br.U.event_id
+		})
+		t.u.U.barriers in
 	rpc_of_rpcable_t { u'=get_u t.u.U.map; b=b; next = t.u.U.next }
 
 let t_of_rpc rpc =
@@ -234,12 +269,19 @@ let t_of_rpc rpc =
 		List.fold_left (fun map (x,y) -> U.M.add x y map) map u 
 	in
 	let map = map_of u'.u' in
-	let barriers = List.map (fun (id,u) -> (id,map_of u)) u'.b in
-	{ u = { U.map = map; next=u'.next; barriers };	  
-	  c = Condition.create ();
-	  m = Mutex.create ();
-}
-	
+	let barriers = List.map
+		(fun rb -> {
+			U.bar_id = rb.bar_id;
+			U.map_s = map_of rb.u_snap;
+			U.event_id = rb.event_id
+		})
+		u'.b in
+	{
+		u = { U.map = map; next=u'.next; barriers };
+		c = Condition.create ();
+		m = Mutex.create ();
+	}
+
 let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 	let from = Opt.default U.initial from in
 	let cancel = ref false in
@@ -320,13 +362,15 @@ module Dump = struct
 	} with rpc
 	type t = {
 		updates: u list;
-		barriers : (int * (u list)) list;
+		barriers : (int * int * (u list)) list;
+		(* In barriers, first int is token id of barrier;
+		 * second int is event id of snapshot (from "next") *)
 	} with rpc
 	let make_list updates = 
 		U.M.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) updates []
 	let make_raw u =
 		{ updates = make_list u.U.map;
-		  barriers = List.map (fun (id,map) -> (id, make_list map)) u.U.barriers;
+		  barriers = List.map (fun (br) -> (br.U.bar_id, br.U.event_id, make_list br.U.map_s)) u.U.barriers;
 		}
 	let make t =
 		Mutex.execute t.m
