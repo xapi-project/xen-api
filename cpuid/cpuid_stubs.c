@@ -26,11 +26,14 @@ CAMLprim value do_cpuid(value leaf, value word)
 
     eax = Int32_val(leaf);
     ecx = Int32_val(word);
-
+#if defined(__i386__) || defined(__x86_64__)
     /* Execute CPUID; the MOVs are because ocamlc uses -fPIC and
      * 32-bit gcc won't let you just use "=b" to get at %ebx in PIC */
     asm("mov %%ebx, %4 ; cpuid ; mov %%ebx, %1 ; mov %4, %%ebx " 
         : "+a" (eax), "=r" (ebx), "+c" (ecx), "=d" (edx), "=r" (tmp));
+#else
+    caml_failwith("do_cpuid: not implemented");
+#endif
     
     /* Wrap the return value up as an OCaml tuple */
     rv = caml_alloc_tuple(4);
