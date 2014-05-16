@@ -39,6 +39,7 @@ import com.xensource.xenapi.Types;
  */
 public class DeprecatedMethod extends TestBase
 {
+    @SuppressWarnings("deprecation")
     public static void RunTest(ILog logger, TargetServer server) throws Exception
     {
         TestBase.logger = logger;

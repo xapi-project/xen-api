@@ -75,7 +75,9 @@ typedef enum xen_api_version
     xen_api_version_1_9 = 9,
     xen_api_version_1_10 = 10,
     xen_api_version_2_0 = 11,
-    xen_api_latest_version = 11,
+    xen_api_version_2_1 = 12,
+    xen_api_version_2_2 = 13,
+    xen_api_latest_version = 13,
     xen_api_unknown_version = 99,
     /* Also change xen_api_version_to_string() and set_api_version() in xen_common.c */
 } xen_api_version;

@@ -684,8 +684,12 @@ and returns_xenobject msg =
 and get_params_doc msg classname params =
   let sessionDoc = "\n        /// <param name=\"session\">The session</param>" in
   let refDoc =  if is_method_static msg then ""
+                else if (msg.msg_name = "get_by_permission") then
+                  sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given permission</param>" (String.lowercase classname)
+                else if (msg.msg_name = "revert") then
+                  sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given snapshotted state</param>" (String.lowercase classname)
                 else sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
-                     (String.lowercase classname) (String.capitalize classname) in
+                     (String.lowercase classname) (String.lowercase classname) in
   String.concat "" (sessionDoc::(refDoc::(List.map (fun x -> get_param_doc msg x) params)))
 
 and get_param_doc msg x =

@@ -201,6 +201,15 @@
   <data name="FIELD_TYPE_ERROR" xml:space="preserve">
     <value>One of the fields you supplied was of the wrong type.</value>
   </data>
+  <data name="GPU_GROUP_CONTAINS_NO_PGPUS" xml:space="preserve">
+    <value>The GPU group does not contain any pGPUs.</value>
+  </data>
+  <data name="GPU_GROUP_CONTAINS_PGPU" xml:space="preserve">
+    <value>The GPU group contains active pGPUs and cannot be deleted.</value>
+  </data>
+  <data name="GPU_GROUP_CONTAINS_VGPU" xml:space="preserve">
+    <value>The GPU group contains active vGPUs and cannot be deleted.</value>
+  </data>
   <data name="HANDLE_INVALID" xml:space="preserve">
     <value>Object has been deleted.{0}:{1}</value>
   </data>
@@ -473,6 +482,15 @@
   </data>
   <data name="PBD_EXISTS" xml:space="preserve">
     <value>A PBD already exists connecting the SR to the server</value>
+  </data>
+  <data name="PGPU_INSUFFICIENT_CAPACITY_FOR_VGPU" xml:space="preserve">
+    <value>There is insufficient capacity on this pGPU to run the vGPU.</value>
+  </data>
+  <data name="PGPU_IN_USE_BY_VM" xml:space="preserve">
+    <value>This pGPU is currently in use by running VMs.</value>
+  </data>
+  <data name="PGPU_NOT_COMPATIBLE_WITH_GPU_GROUP" xml:space="preserve">
+    <value>pGPU type not compatible with destination group.</value>
   </data>
   <data name="PIF_ALREADY_BONDED" xml:space="preserve">
     <value>You cannot create a bond of an interface which is a member of an existing bond.</value>
@@ -847,6 +865,15 @@ Authorized Roles: {1}</value>
   </data>
   <data name="VDI_READONLY" xml:space="preserve">
     <value>The operation required write access but VDI {0} is read-only</value>
+  </data>
+  <data name="VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE" xml:space="preserve">
+    <value>vGPU type is not compatible with one or more of the vGPU types currently running on this pGPU</value>
+  </data>
+  <data name="VGPU_TYPE_NOT_ENABLED" xml:space="preserve">
+    <value>vGPU type is not one of the pGPU's enabled types.</value>
+  </data>
+  <data name="VGPU_TYPE_NOT_SUPPORTED" xml:space="preserve">
+    <value>vGPU type is not one of the pGPU's supported types.</value>
   </data>
   <data name="VIFS_MAX_ALLOWED" xml:space="preserve">
     <value>You have reached the maximum number of virtual network interfaces allowed for this virtual machine.</value>
