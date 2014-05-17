@@ -416,29 +416,33 @@ let create_host_cpu ~__context =
 		let tbl = Hashtbl.create 32 in
 		let rec get_lines () =
 			let s = input_line in_chan in
-			if s = "" then
-				()
-			else (
-				let i = String.index s ':' in
-				let k = trim_end (String.sub s 0 i) in
-				let v =
-					if String.length s < i + 2
-					then ""
-					else String.sub s (i + 2) (String.length s - i - 2)
-				in
-				Hashtbl.add tbl k v;
-				get_lines ()
-			)
-			in
+			begin
+				try
+					let i = String.index s ':' in
+					let k = trim_end (String.sub s 0 i) in
+					let v =
+						if String.length s < i + 2
+						then ""
+						else String.sub s (i + 2) (String.length s - i - 2)
+					in
+					Hashtbl.add tbl k v
+				with e ->
+					info "cpuinfo: skipping line [%s]" s
+			end;
+			if s <> "" then get_lines () in
 		get_lines ();
 		close_in in_chan;
-		Hashtbl.find tbl "vendor_id",
-		Hashtbl.find tbl "model name",
-		Hashtbl.find tbl "cpu MHz",
-		Hashtbl.find tbl "flags",
-		Hashtbl.find tbl "stepping",
-		Hashtbl.find tbl "model",
-		Hashtbl.find tbl "cpu family"
+		let find key =
+			if Hashtbl.mem tbl key
+			then Hashtbl.find tbl key
+			else "unknown" in
+		find "vendor_id",
+		find "model name",
+		find "cpu MHz",
+		find "flags",
+		find "stepping",
+		find "model",
+		find "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
 	let cpu_count, socket_count = get_cpu_layout () in
