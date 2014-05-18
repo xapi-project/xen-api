@@ -477,9 +477,10 @@ let create_host_cpu ~__context =
 
 	(* Recreate all Host_cpu objects *)
 	
-	let speed = Int64.of_float (float_of_string cpu_mhz) in
-	let model = Int64.of_string model in
-	let family = Int64.of_string family in
+	(* Not all /proc/cpuinfo files contain MHz information. *)
+	let speed = try Int64.of_float (float_of_string cpu_mhz) with _ -> 0L in
+	let model = try Int64.of_string model with _ -> 0L in
+	let family = try Int64.of_string family with _ -> 0L in
 
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
