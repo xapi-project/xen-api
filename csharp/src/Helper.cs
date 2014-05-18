@@ -50,7 +50,8 @@ namespace XenAPI
         API_2_0 = 11, // XenServer 6.2 (Clearwater)
         API_2_1 = 12, // XenServer 6.2 with vGPU (vGPU)
         API_2_2 = 13, // XenServer 6.2 Hotfix XS62ESP1004 (Felton)
-        LATEST = 13,
+        API_2_3 = 14, //
+        LATEST = 14,
         // Don't forget to change LATEST above, and APIVersionString below.
         UNKNOWN = 99
     }
@@ -89,6 +90,8 @@ namespace XenAPI
                     return "2.1";
                 case API_Version.API_2_2:
                     return "2.2";
+                case API_Version.API_2_3:
+                    return "2.3";
                 default:
                     return "Unknown";
             }
