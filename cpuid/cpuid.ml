@@ -42,6 +42,12 @@ and cpu_info =
 		maskable: maskability;
 	}
 
+(* Features are stored as a bitmap; 1 means feature present *)
+let no_features = {
+	base_ecx = 0l; base_edx = 0l;
+	ext_ecx = 0l; ext_edx = 0l;
+}
+
 let features_to_string f =
 	sprintf "%8.8lx-%8.8lx-%8.8lx-%8.8lx"
 		f.base_ecx f.base_edx f.ext_ecx f.ext_edx
@@ -69,43 +75,53 @@ let string_to_features s =
 	
 (* CPUID wrapper: Arguments are leaf and count, *)
 (* return values are %eax, %ebx, %ecx and %edx  *)
-external cpuid: int32 -> int32 -> (int32 * int32 * int32 * int32) = "do_cpuid"
+external cpuid_exn: int32 -> int32 -> (int32 * int32 * int32 * int32) = "do_cpuid"
 
-let read_manufacturer () = 
-	match cpuid 0l 0l with
-	| (_, 0x68747541l, 0x444D4163l, 0x69746E65l) -> AMD
-	| (_, 0x756e6547l, 0x6c65746el, 0x49656e69l) -> Intel 
-	| _ -> Unknown
+let read_manufacturer () =
+	try
+		match cpuid_exn 0l 0l with
+		| (_, 0x68747541l, 0x444D4163l, 0x69746E65l) -> AMD
+		| (_, 0x756e6547l, 0x6c65746el, 0x49656e69l) -> Intel 
+		| _ -> Unknown
+	with _ -> Unknown
 
 (* Unfold the family/model/stepping numbers from leaf 1 *)
-let read_family () = 
-	match cpuid 1l 0l with (eax, _, _, _) ->
-		let family = (shift_right (logand eax 0x00000f00l) 8) in
-		match family with
-		| 0xfl -> add family (shift_right (logand eax 0x0ff00000l) 20)
-		| _ -> family
+let read_family () =
+	try
+		match cpuid_exn 1l 0l with (eax, _, _, _) ->
+			let family = (shift_right (logand eax 0x00000f00l) 8) in
+			match family with
+			| 0xfl -> add family (shift_right (logand eax 0x0ff00000l) 20)
+			| _ -> family
+	with _ -> 0l
 
-let read_model () = 
-	match cpuid 1l 0l with (eax, _, _, _) -> 
-		logor (shift_right (logand eax 0x000000f0l) 4) 
-			(shift_right (logand eax 0x000f0000l) 12)
+let read_model () =
+	try
+		match cpuid_exn 1l 0l with (eax, _, _, _) -> 
+			logor (shift_right (logand eax 0x000000f0l) 4) 
+				(shift_right (logand eax 0x000f0000l) 12)
+	with _ -> 0l
 
-let read_stepping () = 
-	match cpuid 1l 0l with (eax, _, _, _) -> 
-		logand eax 0xfl		
+let read_stepping () =
+	try
+		match cpuid_exn 1l 0l with (eax, _, _, _) -> 
+			logand eax 0xfl		
+	with _ -> 0l
 
 (* Read the feature flags and extended feature flags *)
-let read_features () = 
-	let base = cpuid 1l 0l in
-	let ext = cpuid 0x80000001l 0l in
-	match (base, ext) with 
-	| ((_, _, base_ecx, base_edx), (_, _, ext_ecx, ext_edx)) -> 
-		{
-			base_ecx = base_ecx;
-			base_edx = base_edx;
-			ext_ecx = ext_ecx;
-			ext_edx = ext_edx
-		} 
+let read_features () =
+	try
+		let base = cpuid_exn 1l 0l in
+		let ext = cpuid_exn 0x80000001l 0l in
+		match (base, ext) with 
+		| ((_, _, base_ecx, base_edx), (_, _, ext_ecx, ext_edx)) -> 
+			{
+				base_ecx = base_ecx;
+				base_edx = base_edx;
+				ext_ecx = ext_ecx;
+				ext_edx = ext_edx
+			} 
+	with _ -> no_features
 		
 (* Does this Intel CPU support "FlexMigration"? 
  * It's not sensibly documented, so check by model *)
@@ -157,21 +173,23 @@ let get_features_from_xen () =
 			ext_ecx = ext_ecx;
 			ext_edx = ext_edx
 		}
+
+let everything_masked = {
+	base_ecx = 0xffffffffl; base_edx = 0xffffffffl;
+	ext_ecx = 0xffffffffl; ext_edx = 0xffffffffl;
+}
 		
 let get_current_mask () =
-	let masks = Xen_cmdline.list_cpuid_masks () in
-	let get_mask m =
-		if List.mem_assoc m masks = false then
-			0xffffffffl
-		else
-			Int32.of_string (List.assoc m masks)
-	in
-	{
-		base_ecx = get_mask "cpuid_mask_ecx";
-		base_edx = get_mask "cpuid_mask_edx";
-		ext_ecx = get_mask "cpuid_mask_ext_ecx";
-		ext_edx = get_mask "cpuid_mask_ext_edx"
-	}
+	try
+		let masks = Xen_cmdline.list_cpuid_masks () in
+		let get_mask m = Int32.of_string (List.assoc m masks) in
+		{
+			base_ecx = get_mask "cpuid_mask_ecx";
+			base_edx = get_mask "cpuid_mask_edx";
+			ext_ecx = get_mask "cpuid_mask_ext_ecx";
+			ext_edx = get_mask "cpuid_mask_ext_edx"
+		}
+	with _ -> everything_masked
 	
 let read_cpu_info () =
 	let manufacturer = read_manufacturer () in
