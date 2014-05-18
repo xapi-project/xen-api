@@ -508,9 +508,14 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 			error "VM = %s; domid = %d; domain_set_mmap_limit %Ld KiB failed: %s"
 				(Uuid.to_string uuid) domid kib (Printexc.to_string e)
 	end;
-	debug "VM = %s; domid = %d; shadow_allocation_set %d MiB" (Uuid.to_string uuid) domid shadow_mib;
-	Xenctrl.shadow_allocation_set xc domid shadow_mib;
-
+	begin
+		try
+			debug "VM = %s; domid = %d; shadow_allocation_set %d MiB" (Uuid.to_string uuid) domid shadow_mib;
+			Xenctrl.shadow_allocation_set xc domid shadow_mib;
+		with e ->
+			error "VM = %s; domid = %d; shadow_allocation_set %d failed: %s"
+				(Uuid.to_string uuid) domid shadow_mib (Printexc.to_string e)
+	end;
 	create_channels ~xc uuid domid
 
 let resume_post ~xc ~xs domid =
