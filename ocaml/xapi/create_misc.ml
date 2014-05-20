@@ -261,19 +261,29 @@ and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints
 
 and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
-	match Memory_client.Client.get_domain_zero_policy "create_misc" with
-	| Memory_interface.Fixed_size x ->
-		{
-			static_min = x; static_max = x;
-			dynamic_min = x; dynamic_max = x;
-			target = x;
-		}
-	| Memory_interface.Auto_balloon(low, high) ->
-		{
-			static_min = low; static_max = high;
-			dynamic_min = low; dynamic_max = high;
-			target = high;
-		}
+	try
+		match Memory_client.Client.get_domain_zero_policy "create_misc" with
+		| Memory_interface.Fixed_size x ->
+			{
+				static_min = x; static_max = x;
+				dynamic_min = x; dynamic_max = x;
+				target = x;
+			}
+		| Memory_interface.Auto_balloon(low, high) ->
+			{
+				static_min = low; static_max = high;
+				dynamic_min = low; dynamic_max = high;
+				target = high;
+			}
+	with e ->
+		if Pool_role.is_unit_test ()
+		then
+			{
+				static_min = 0L; static_max = 0L;
+				dynamic_min = 0L; dynamic_max = 0L;
+				target = 0L;
+			}
+		else raise e
 
 and calculate_domain_zero_vcpu_count ~__context : int =
 	List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
