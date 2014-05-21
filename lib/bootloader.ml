@@ -59,7 +59,7 @@ type t = {
 let command bootloader q pv_bootloader_args image vm_uuid = 
   (* Let's not do anything fancy while parsing the pv_bootloader_args string:
      no escaping of spaces or quotes for now *)
-  let pv_bootloader_args = if pv_bootloader_args = "" then [] else Re_str.split (Re_str.regexp "[ ]") pv_bootloader_args in
+  let pv_bootloader_args = if pv_bootloader_args = "" then [] else Xstringext.String.split ' ' pv_bootloader_args in
   let q = if q then [ "-q" ] else [] in
   let vm = [ "--vm"; vm_uuid ] in
   let image = [ image ] in
@@ -109,15 +109,16 @@ let parse_output x =
 		kernel_args = (try List.assoc "args" l with _ -> "")
 	}
 
-let runtimeError_regexp = Re_str.regexp_string "RuntimeError: "
+let runtimeError = "RuntimeError: "
 
 let parse_exception x =
 	debug "Bootloader failed: %s" x;
 	(* Look through the error for the prefix "RuntimeError: " - raise an exception with a message
 	 * containing the error from the end of this prefix onwards. *)
-	match Re_str.bounded_split runtimeError_regexp x 2 with
-	| [ _; suffix ] ->
-		raise (Error_from_bootloader suffix)
+	let l = String.length runtimeError in
+	match Xstringext.String.find_all runtimeError x with
+	| i::_ ->
+		raise (Error_from_bootloader (String.sub x (i+l) (String.length x - i - l)))
 	| _ -> (* no expected prefix *)
 		raise (Bad_error x)
 

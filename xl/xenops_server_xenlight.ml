@@ -2781,7 +2781,7 @@ let process_one_watch xc xs (path, token) =
 
 	if path = _introduceDomain || path = _releaseDomain
 	then look_for_different_domains xc xs
-	else match List.filter (fun x -> x <> "") (Re_str.split (Re_str.regexp "[/]") path) with
+	else match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
 		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
 			debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 			fire_event_on_device frontend kind devid
