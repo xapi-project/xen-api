@@ -16,9 +16,7 @@
 
 module Request = Cohttp.Request.Make(Cohttp_posix_io.Buffered_IO)
 module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO)
-
-let colon = Re_str.regexp "[:]"
-
+    
 let get_user_agent () = Sys.argv.(0)
 
 let switch_port = ref 8080
@@ -28,6 +26,15 @@ let switch_rpc queue_name string_of_call response_of_string =
 	let c = Protocol_unix.Client.connect !switch_port in
 	fun call ->
 		response_of_string (Protocol_unix.Client.rpc c ~dest:queue_name (string_of_call call))
+
+let split_colon str =
+  try 
+    let x = String.index str ':' in
+    let uname = String.sub str 0 x in
+    let passwd = String.sub str (x+1) (String.length str - x - 1) in
+    [uname ; passwd]
+  with Not_found ->
+    [str]
 
 (* Use HTTP to frame RPC messages *)
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
@@ -42,7 +49,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 	let userinfo = Uri.userinfo uri in
 	let headers = match userinfo with
 		| Some x ->
-			begin match Re_str.split_delim colon x with
+			begin match split_colon x with
 			| username :: password :: [] ->
 				Cohttp.Header.add_authorization headers (Cohttp.Auth.Basic (username, password))
 			| _ -> headers

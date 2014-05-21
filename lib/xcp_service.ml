@@ -61,14 +61,16 @@ module Config_file = struct
 	let parse_line data spec =
 		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
 		(* Strip comments *)
-		match Re_str.(split_delim (regexp (quote "#"))) data with
+		match Xstringext.String.split '#' data with
 		| [] -> ()
 		| x :: _ ->
-			begin match Re_str.bounded_split_delim (Re_str.regexp "[ \t]*=[ \t]*") x 2 with
+			begin match Xstringext.String.split ~limit:2 with
 			| key :: v :: [] ->
 				(* For values we will accept "v" and 'v' *)
-				let v =
-					if String.length v < 2
+				let strip = Xstringext.String.strip Xstringext.String.is_space in
+				let key = strip key in
+				let v = strip v in
+				let v = if String.length v < 2
 					then v
 					else
 						let first = v.[0] and last = v.[String.length v - 1] in
@@ -108,7 +110,7 @@ let common_options = [
 	"disable-logging-for", Arg.String
 		(fun x ->
 			try
-				let modules = Re_str.split (Re_str.regexp "[ ]+") x in
+				let modules = Xstringext.String.split ' ' x in
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
@@ -129,15 +131,13 @@ type res = {
 let default_resources = [
 ]
 
-let colon = Re_str.regexp_string ":"
-
 let canonicalise x =
 	if not(Filename.is_relative x)
 	then x
 	else begin
 		(* Search the PATH and XCP_PATH for the executable *)
-		let paths = Re_str.split colon (Sys.getenv "PATH") in
-		let xen_paths = try Re_str.split colon (Sys.getenv "XCP_PATH") with _ -> [] in
+		let paths = Xstringext.String.split ':' (Sys.getenv "PATH") in
+		let xen_paths = try Xstringext.String.split ':' (Sys.getenv "XCP_PATH") with _ -> [] in
 		let first_hit = List.fold_left (fun found path -> match found with
 			| Some hit -> found
 			| None ->

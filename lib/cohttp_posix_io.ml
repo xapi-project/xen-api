@@ -15,7 +15,6 @@
  *
  *)
 
-
 module Unbuffered_IO = struct
   (** Use as few Unix.{read,write} calls as we can (for efficiency) without
       explicitly buffering the stream beyond the HTTP headers. This will
@@ -74,7 +73,12 @@ module Unbuffered_IO = struct
     done;
     Buffer.contents buf
 
-  let crlf = Re_str.regexp_string "\r\n"
+
+  (* Raises Not_found if there's no crlf *)
+  let rec find_crlf str from = 
+    let cr = String.index_from str from '\r' in
+    let lf = String.index_from str cr '\n' in
+    if lf=cr+1 then cr else find_crlf str cr
 
   (* We assume read_line is only used to read the HTTP header *)
   let rec read_line ic = match ic.header_buffer, ic.header_buffer_idx with
@@ -84,7 +88,7 @@ module Unbuffered_IO = struct
   | Some buf, i when i < (String.length buf) ->
     begin
       try
-        let eol = Re_str.search_forward crlf buf i in
+        let eol = find_crlf buf i in
         let line = String.sub buf i (eol - i) in
         ic.header_buffer_idx <- i + 4;
         Some line
