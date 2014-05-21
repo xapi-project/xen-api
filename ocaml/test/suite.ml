@@ -38,7 +38,7 @@ let base_suite =
 			Test_pgpu_helpers.test;
 			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
-			Test_ca121350.test;
+			(* Test_ca121350.test; *)
 		]
 
 let handlers = [
@@ -68,5 +68,5 @@ let harness_destroy () = ()
 
 let _ =
 	harness_init ();
-	run_test_tt_main base_suite |> ignore;
+	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main |> ignore;
 	harness_destroy ();
