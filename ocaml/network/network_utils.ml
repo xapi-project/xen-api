@@ -181,7 +181,10 @@ module Ip = struct
 		ignore (call ~log:true ("link" :: "set" :: dev :: args))
 
 	let link_set_mtu dev mtu =
+	 try
 		ignore (link_set dev ["mtu"; string_of_int mtu])
+   with exn -> error "MTU size is not supported %s" (string_of_int mtu);
+							 ()
 
 	let link_set_up dev =
 		ignore (link_set dev ["up"])
