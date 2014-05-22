@@ -501,6 +501,9 @@ let decon_wlb ~__context =
     let params = pool_uuid_param ~__context in
     try Locking_helpers.Named_mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer"
       ~params ~handle_response ~__context) with
+    | Api_errors.Server_error (code, params) as e -> 
+         debug "Got WLB error when perform_wlb_request: %s" (Printf.sprintf "%s [ %s ]" code (String.concat "; " params));
+         raise e
     | _ -> clear_wlb_config ~__context ~pool
 
 let send_wlb_config ~__context ~config =
