@@ -58,28 +58,38 @@ module Config_file = struct
 	| Set_float f -> f := (float_of_string v)
 	| _ -> failwith "Unsupported type in config file"
 
+
 	let parse_line data spec =
 		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
+
+		let re = Re.compile (Re_emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\([^\\ \t]+\\)") in
+		  
 		(* Strip comments *)
-		match Xstringext.String.split '#' data with
-		| [] -> ()
-		| x :: _ ->
-			begin match Xstringext.String.split ~limit:2 with
-			| key :: v :: [] ->
-				(* For values we will accept "v" and 'v' *)
-				let strip = Xstringext.String.strip Xstringext.String.is_space in
-				let key = strip key in
-				let v = strip v in
-				let v = if String.length v < 2
-					then v
-					else
-						let first = v.[0] and last = v.[String.length v - 1] in
-						if first = last && (first = '"' || first = '\'')
-						then String.sub v 1 (String.length v - 2)
-						else v in
-				if List.mem_assoc key spec then apply v (List.assoc key spec)
-			| _ -> ()
-			end
+		let stripped = 
+		  try
+		    let i = String.index data '#' in
+		    String.sub data 0 i
+		  with Not_found -> data
+		in
+
+		try
+		  let ofs = Re.get_all_ofs (Re.exec re stripped) in
+		  let key_ofs = ofs.(1) in
+		  let v_ofs = ofs.(2) in
+		  let get (x,y) = String.sub stripped x (y-x) in
+		  let key = get key_ofs in
+		  let v = get v_ofs in
+		  let v = 
+		    if String.length v < 2
+		    then v
+		    else
+		      let first = v.[0] and last = v.[String.length v - 1] in
+		      if first = last && (first = '"' || first = '\'')
+		      then String.sub v 1 (String.length v - 2)
+		      else v in
+		  if List.mem_assoc key spec then apply v (List.assoc key spec)
+		with Not_found ->
+		  ()
 
 	let parse filename spec =
 		(* Remove the unnecessary doc parameter *)
@@ -101,6 +111,12 @@ module Config_file = struct
 
 end
 
+let rec split_c c str =
+  try 
+    let i = String.index str c in
+    String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
+  with Not_found -> [str]
+
 let common_options = [
 	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
 	"switch-port", Arg.Set_int Xcp_client.switch_port, (fun () -> string_of_int !Xcp_client.switch_port), "port on localhost where the message switch is listening";
@@ -110,7 +126,7 @@ let common_options = [
 	"disable-logging-for", Arg.String
 		(fun x ->
 			try
-				let modules = Xstringext.String.split ' ' x in
+				let modules = List.filter (fun x -> x <> "") (split_c ' ' x) in
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
@@ -136,8 +152,8 @@ let canonicalise x =
 	then x
 	else begin
 		(* Search the PATH and XCP_PATH for the executable *)
-		let paths = Xstringext.String.split ':' (Sys.getenv "PATH") in
-		let xen_paths = try Xstringext.String.split ':' (Sys.getenv "XCP_PATH") with _ -> [] in
+		let paths = split_c ':' (Sys.getenv "PATH") in
+		let xen_paths = try split_c ':' (Sys.getenv "XCP_PATH") with _ -> [] in
 		let first_hit = List.fold_left (fun found path -> match found with
 			| Some hit -> found
 			| None ->

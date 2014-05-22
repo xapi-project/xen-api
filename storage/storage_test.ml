@@ -144,12 +144,10 @@ let start verbose queue sr = match queue, sr with
 
     let q = Client.Query.query ~dbg in
     let features = List.map (fun s ->
-      try 
-	match Xstringext.String.split ~limit:2 '/' s with
-	| [cap;vsn] -> Some (cap,Int64.of_string vsn)
-	| [cap] -> Some (cap,1L)
-	| _ -> None
-      with _ -> None) q.features in
+      try
+	let i = String.index s '/' in
+	Some (String.sub s 0 i, Int64.of_string (String.sub s (i+1) (String.length s - i - 1)))
+      with _ -> Some (s, 1L)) q.features in
     let features = List.fold_left (fun acc x -> match x with Some x -> x::acc | None -> acc) [] features in
 
     let needs_capabilities caps suite =
