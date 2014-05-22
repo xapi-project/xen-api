@@ -1888,7 +1888,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 			let args = vgpu_args_of_info info domid in
 			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 			let cancel = Cancel_utils.Vgpu domid in
-			let vgpu_pid = init_daemon ~task ~path:"/usr/lib/xen/bin/vgpu" ~args
+			let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
 				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
 			Forkhelpers.dontwaitpid vgpu_pid
 		| None -> () in
