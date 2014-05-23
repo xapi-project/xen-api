@@ -1738,8 +1738,6 @@ module VM = struct
 		end else
 			Some (queue_operation dbg id op)
 
-	let path_separator = Re_str.regexp_string "/"
-
 	let receive_memory uri cookies s context : unit =
 		let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
 		let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
@@ -1752,7 +1750,7 @@ module VM = struct
 				let remote_instance = List.assoc "instance_id" cookies in
 				let is_localhost = instance_id = remote_instance in
 				(* The URI is /service/xenops/memory/id *)
-				let bits = Re_str.split_delim path_separator (Uri.path uri) in
+				let bits = Xstringext.String.split '/' (Uri.path uri) in
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id
@@ -1773,8 +1771,9 @@ module VM = struct
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
 				] in
-				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
-				Response.write (fun _ _ -> ()) response s;
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 
+				  ~status:`Not_found ~headers () in
+				Response.write (fun _ _ -> ()) response s
 		) ()
 
 	let generate_state_string _ dbg vm =

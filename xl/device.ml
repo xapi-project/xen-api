@@ -44,11 +44,12 @@ module PV_Vnc = struct
 	(* Look up the commandline args for the vncterm pid; *)
 	(* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
 	let is_cmdline_valid domid pid =
-		let null = Re_str.regexp "[\000]" in
+
+		let is_null = function | '\000' -> true | _ -> false in
 		let cmdline =
 			Printf.sprintf "/proc/%d/cmdline" pid
 			|> Unixext.string_of_file
-			|> Re_str.split null
+			|> Xstringext.String.split_f is_null
 		in
 		if (List.mem !Xl_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 		then true
