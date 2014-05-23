@@ -124,8 +124,9 @@ let record_host_memory_properties ~__context =
 		try
 			let xc = Xenctrl.interface_open () in
 			Xenctrl.interface_close xc; (* we're on xen *)
-			let open Xenops_client in
 			let dbg = Context.string_of_task __context in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (default_xenopsd ()): XENOPS) in
 			let mib = Client.HOST.get_total_memory_mib dbg in
 			Int64.mul 1024L (Int64.mul 1024L mib)
 		with _ ->

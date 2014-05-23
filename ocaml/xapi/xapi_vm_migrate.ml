@@ -68,7 +68,8 @@ let get_ip_from_url url =
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url) 
 
 let rec migrate_with_retries queue_name max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
-	let open Xenops_client in
+	let open Xapi_xenops_queue in
+	let module Client = (val make_client queue_name: XENOPS) in
 	let progress = ref "(none yet)" in
 	let f () =
 		progress := "XenopsAPI.VM.migrate";
@@ -99,7 +100,7 @@ let migrate_with_retry queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xeno
 
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
-	let open Xapi_xenops in
+	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in
 	let module XenopsAPI = (val make_client queue_name : XENOPS) in
 	let session_id = Ref.string_of (Context.get_session_id __context) in
@@ -143,7 +144,7 @@ let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
 	debug "VM.pool_migrate_complete %s" id;
 	let dbg = Context.string_of_task __context in
-	let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
+	let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 	if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then begin
 		Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
@@ -329,7 +330,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (vdis @ snapshots_vdis) in
 	let dbg = Context.string_of_task __context in
-	let open Xapi_xenops in
+	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in
 	let module XenopsAPI = (val make_client queue_name : XENOPS) in
 	let dest_host = List.assoc _host dest in
@@ -818,7 +819,7 @@ let handler req fd _ =
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
 			let dbg = Context.string_of_task __context in
-			let queue_name = Xapi_xenops.queue_of_vm ~__context ~self:vm in
+			let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
 				Xapi_xenops.transform_xenops_exn ~__context queue_name (fun () ->
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);

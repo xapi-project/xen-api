@@ -52,7 +52,8 @@ let read_localhost_info () =
 			let open Xenctrl in
 			let xen_verstring = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
 			let total_memory_mib =
-				let open Xenops_client in
+				let open Xapi_xenops_queue in
+				let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 				Client.HOST.get_total_memory_mib "read_localhost_info" in
 			xen_verstring, total_memory_mib
 		with e ->
@@ -425,29 +426,33 @@ let create_host_cpu ~__context =
 		let tbl = Hashtbl.create 32 in
 		let rec get_lines () =
 			let s = input_line in_chan in
-			if s = "" then
-				()
-			else (
-				let i = String.index s ':' in
-				let k = trim_end (String.sub s 0 i) in
-				let v =
-					if String.length s < i + 2
-					then ""
-					else String.sub s (i + 2) (String.length s - i - 2)
-				in
-				Hashtbl.add tbl k v;
-				get_lines ()
-			)
-			in
+			begin
+				try
+					let i = String.index s ':' in
+					let k = trim_end (String.sub s 0 i) in
+					let v =
+						if String.length s < i + 2
+						then ""
+						else String.sub s (i + 2) (String.length s - i - 2)
+					in
+					Hashtbl.add tbl k v
+				with e ->
+					info "cpuinfo: skipping line [%s]" s
+			end;
+			if s <> "" then get_lines () in
 		get_lines ();
 		close_in in_chan;
-		Hashtbl.find tbl "vendor_id",
-		Hashtbl.find tbl "model name",
-		Hashtbl.find tbl "cpu MHz",
-		Hashtbl.find tbl "flags",
-		Hashtbl.find tbl "stepping",
-		Hashtbl.find tbl "model",
-		Hashtbl.find tbl "cpu family"
+		let find key =
+			if Hashtbl.mem tbl key
+			then Hashtbl.find tbl key
+			else "unknown" in
+		find "vendor_id",
+		find "model name",
+		find "cpu MHz",
+		find "flags",
+		find "stepping",
+		find "model",
+		find "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
 	let cpu_count, socket_count = get_cpu_layout () in
@@ -482,9 +487,10 @@ let create_host_cpu ~__context =
 
 	(* Recreate all Host_cpu objects *)
 	
-	let speed = Int64.of_float (float_of_string cpu_mhz) in
-	let model = Int64.of_string model in
-	let family = Int64.of_string family in
+	(* Not all /proc/cpuinfo files contain MHz information. *)
+	let speed = try Int64.of_float (float_of_string cpu_mhz) with _ -> 0L in
+	let model = try Int64.of_string model with _ -> 0L in
+	let family = try Int64.of_string family with _ -> 0L in
 
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
@@ -507,7 +513,8 @@ let create_chipset_info ~__context =
 		try
 			let xc = Xenctrl.interface_open () in
 			Xenctrl.interface_close xc;
-			let open Xenops_client in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 			let dbg = Context.string_of_task __context in
 			let xen_dmesg = Client.HOST.get_console_data dbg in
 			if String.has_substr xen_dmesg "I/O virtualisation enabled" then
