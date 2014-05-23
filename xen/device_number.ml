@@ -165,7 +165,7 @@ let to_disk_number = function
 	| Ide, disk, _ -> disk
 
 let of_disk_number hvm n = 
-	if hvm && (n < 16)
+	if hvm && (n < 4)
 	then Ide, n, 0
 	else Xen, n, 0
 
