@@ -41,7 +41,20 @@ let list_drivers req s = respond req (System_domains.rpc_of_services (System_dom
 let fix_cookie cookie =
   let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
 
-  let comps = Stringext.split_trim_left ~on:";" ~trim:" \t" str_cookie in
+  let bounded_split_delim re s n =
+    let rec extract_comps_inner start acc m =
+      let get_fin () = List.rev ((String.sub s start (String.length s - start))::acc) in
+      if m=1 then get_fin () else
+	try 	
+	  let first_end, all_end = Re.get_ofs (Re.exec ~pos:start re s) 0 in
+	  extract_comps_inner all_end ((String.sub s start (first_end - start))::acc) (m-1)
+	with Not_found ->
+	  get_fin ()
+    in extract_comps_inner 0 [] n
+  in
+
+  let comps = bounded_split_delim (Re.compile (Re_emacs.re "[;,][ \t]*")) str_cookie 0 in
+
           (* We don't handle $Path, $Domain, $Port, $Version (or $anything
              $else) *)
   let cookies = List.filter (fun s -> s.[0] != '$') comps in
