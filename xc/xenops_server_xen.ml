@@ -314,7 +314,7 @@ module Mem = struct
 			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
 				let needed = Memory.bytes_of_kib needed in
 				let free = Memory.bytes_of_kib free in
-				error "Cannot free %Ld KiB; only %Ld KiB are available" needed free;
+				error "Cannot free %Ld; only %Ld are available" needed free;
 				raise (Cannot_free_this_much_memory(needed, free))
 			| Memory_interface.Domains_refused_to_cooperate domids ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
