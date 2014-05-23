@@ -25,6 +25,7 @@ let mount = ref "/bin/mount"
 let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
 let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
+let vgpu = ref "/usr/lib/xen/bin/vgpu"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 
 let alternatives = ref "/usr/lib/xcp/alternatives"
@@ -47,5 +48,6 @@ let essentials = [
 let nonessentials = [
 	X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
 	X_OK, "alternatives", alternatives, "path to the alternative xenguests";
+	X_OK, "vgpu", vgpu, "path to the vgpu binary";
 ]
 
