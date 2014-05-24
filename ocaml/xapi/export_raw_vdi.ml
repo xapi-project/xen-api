@@ -25,16 +25,15 @@ let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_des
 			let task_id = Context.get_task_id __context in
 			debug "export_raw_vdi task_id = %s vdi = %s;" (Ref.string_of task_id) (Ref.string_of vdi);
 			try
-				Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RO
-					(fun fd ->
+				Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RO
+					(fun path ->
 						let headers = Http.http_200_ok ~keep_alive:false () @
 							[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id); Http.Hdr.content_type ] in
 						Http_svr.headers s headers;
 						try
 							debug "Copying VDI contents...";
-							ignore(Unixext.copy_file fd s);
+							Vhd_tool_wrapper.send Vhd_tool_wrapper.ignore_progress "none" s path "";
 							debug "Copying VDI complete.";
-							Unixext.fsync fd;
 						with Unix.Unix_error(Unix.EIO, _, _) ->
 							raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
 					)
