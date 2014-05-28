@@ -67,7 +67,7 @@ let update_pcis ~__context ~host =
 			let obj =
 				try
 					let (rf, rc) = List.find (fun (rf, rc) ->
-						rc.Db_actions.pCI_pci_id = pci.id &&
+						rc.Db_actions.pCI_pci_id = pci.pci_id &&
 						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor_id &&
 						rc.Db_actions.pCI_device_id = id_of_int pci.device_id)
 						existing in
@@ -86,7 +86,7 @@ let update_pcis ~__context ~host =
 						~vendor_id:(id_of_int pci.vendor_id)
 						~vendor_name:pci.vendor_name
 						~device_id:(id_of_int pci.device_id)
-						~device_name:pci.device_name ~host ~pci_id:pci.id
+						~device_name:pci.device_name ~host ~pci_id:pci.pci_id
 						~functions:1L ~dependencies:[] ~other_config:[] in
 					self, Db.PCI.get_record_internal ~__context ~self
 			in
@@ -95,7 +95,7 @@ let update_pcis ~__context ~host =
 	let host_pcis = Xapi_pci_helpers.get_host_pcis pci_db in
 	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class host_pcis cls) managed_classes) in
 	let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
-	let deps = List.map (fun dep -> List.find (fun pci -> pci.id = dep) host_pcis) deps in
+	let deps = List.map (fun dep -> List.find (fun pci -> pci.pci_id = dep) host_pcis) deps in
 	let managed_pcis = List.setify (class_pcis @ deps) in
 	let current = update_or_create [] managed_pcis in
 
