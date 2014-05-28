@@ -3344,10 +3344,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
 
 			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
-			    (fun () ->
-			        let host = Db.VM.get_resident_on ~__context ~self:vm in
-			        do_op_on ~local_fn ~__context ~host
-			            (fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options))
+					(fun () ->
+							let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+							let host = Db.VM.get_resident_on ~__context ~self:vm in
+							VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
+								(fun () ->
+									do_op_on ~local_fn ~__context ~host
+									(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;
