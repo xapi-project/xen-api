@@ -29,7 +29,7 @@ let print_host_pcis () =
 			(fun p ->
 				let x_to_str = Printf.sprintf "%04Lx" in
 				Printf.printf "%s " (String.concat " "
-					[p.id; x_to_str p.vendor_id; p.vendor_name; x_to_str p.device_id;
+					[p.pci_id; x_to_str p.vendor_id; p.vendor_name; x_to_str p.device_id;
 						p.device_name; x_to_str p.class_id; p.class_name]);
 				List.iter (fun s -> print_string (s ^ ", ")) p.related;
 				print_newline ())
@@ -56,7 +56,7 @@ module ParseLspciLine = Generic.Make(struct
 		let string_of_output_t pci = Xapi_pci_helpers.(
 			Printf.sprintf
 				"{%s; %Lx; %s; %Lx; %s; %Lx; %s; [%s]}"
-				pci.id
+				pci.pci_id
 				pci.vendor_id
 				pci.vendor_name
 				pci.device_id
@@ -77,7 +77,7 @@ module ParseLspciLine = Generic.Make(struct
 		 * subvendor IDs can be parsed. *)
 		"0000:44:00.0 \"0300\" \"10de\" \"014e\" -ra1 \"10de\" \"100a\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
+			pci_id = "0000:44:00.0";
 			vendor_id = 0x10deL;
 			vendor_name = "nVidia Corporation";
 			device_id = 0x014eL;
@@ -90,7 +90,7 @@ module ParseLspciLine = Generic.Make(struct
 		 * subvendor IDs can be parsed. *)
 		"0000:44:00.0 \"0300\" \"10de\" \"014e\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
+			pci_id = "0000:44:00.0";
 			vendor_id = 0x10deL;
 			vendor_name = "nVidia Corporation";
 			device_id = 0x014eL;
@@ -102,7 +102,7 @@ module ParseLspciLine = Generic.Make(struct
 		(* Test that a display device not preset in pci.ids can be parsed. *)
 		"0000:44:00.0 \"0300\" \"0055\" \"abcd\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
+			pci_id = "0000:44:00.0";
 			vendor_id = 0x0055L;
 			vendor_name = "Unknown (0055)";
 			device_id = 0xabcdL;
@@ -114,7 +114,7 @@ module ParseLspciLine = Generic.Make(struct
 		(* Test that an unknown device from a known vendor can be parsed. *)
 		"0000:44:00.0 \"0300\" \"10de\" \"abcd\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
-			id = "0000:44:00.0";
+			pci_id = "0000:44:00.0";
 			vendor_id = 0x10deL;
 			vendor_name = "nVidia Corporation";
 			device_id = 0xabcdL;

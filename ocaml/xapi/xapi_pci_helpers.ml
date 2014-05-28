@@ -16,7 +16,7 @@ open Stringext
 open Opt
 
 type pci = {
-	id: string;
+	pci_id: string;
 	vendor_id: int64;
 	vendor_name: string;
 	device_id: int64;
@@ -34,7 +34,7 @@ let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
 	Scanf.sscanf (String.concat " " fields) "%s \"%s@\" \"%Lx@\" \"%Lx@\""
-		(fun id class_subclass vendor_id device_id ->
+		(fun pci_id class_subclass vendor_id device_id ->
 			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
 			let class_id = int_of_hex_str (String.sub class_subclass 0 2) in
 			let open Pci_db in
@@ -45,15 +45,15 @@ let parse_lspci_line pci_db line =
 			let class_name = (Pci_db.get_class pci_db class_id).c_name in
 			(* we'll fill in the related field when we've finished parsing *)
 			let related = [] in
-			{id; vendor_id; vendor_name; device_id; device_name; class_id;
+			{pci_id; vendor_id; vendor_name; device_id; device_name; class_id;
 				class_name; related})
 
 let find_related_ids pci other_pcis =
 	let slot id = String.sub id 0 (String.index id '.') in
 	List.map
-		(fun p -> p.id)
+		(fun p -> p.pci_id)
 		(List.filter
-			(fun p -> p.id <> pci.id && slot p.id = slot pci.id) other_pcis)
+			(fun p -> p.pci_id <> pci.pci_id && slot p.pci_id = slot pci.pci_id) other_pcis)
 
 let get_host_pcis pci_db =
 	let lspci_out, _ = Forkhelpers.execute_command_get_output "/sbin/lspci" ["-mnD"] in
