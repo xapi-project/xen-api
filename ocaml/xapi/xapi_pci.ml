@@ -26,7 +26,8 @@ let lookup_class_id = function
 let managed_classes = [Display_controller]
 
 let get_pcis_by_class pcis cls =
-	List.filter (fun pci -> pci.Xapi_pci_helpers.class_id = lookup_class_id cls) pcis
+	let open Xapi_pci_helpers in
+	List.filter (fun pci -> pci.pci_class.id = lookup_class_id cls) pcis
 
 let string_of_pci ~__context ~self =
 	let pci = Db.PCI.get_record_internal ~__context ~self in
@@ -68,25 +69,25 @@ let update_pcis ~__context ~host =
 				try
 					let (rf, rc) = List.find (fun (rf, rc) ->
 						rc.Db_actions.pCI_pci_id = pci.pci_id &&
-						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor_id &&
-						rc.Db_actions.pCI_device_id = id_of_int pci.device_id)
+						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id &&
+						rc.Db_actions.pCI_device_id = id_of_int pci.device.id)
 						existing in
-					if rc.Db_actions.pCI_vendor_name <> pci.vendor_name
-					then Db.PCI.set_vendor_name ~__context ~self:rf ~value:pci.vendor_name;
-					if rc.Db_actions.pCI_device_name <> pci.device_name
-					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device_name;
+					if rc.Db_actions.pCI_vendor_name <> pci.vendor.name
+					then Db.PCI.set_vendor_name ~__context ~self:rf ~value:pci.vendor.name;
+					if rc.Db_actions.pCI_device_name <> pci.device.name
+					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device.name;
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
 					rf, rc
 				with Not_found ->
 					let self = create ~__context
-						~class_id:(id_of_int pci.class_id)
-						~class_name:pci.class_name
-						~vendor_id:(id_of_int pci.vendor_id)
-						~vendor_name:pci.vendor_name
-						~device_id:(id_of_int pci.device_id)
-						~device_name:pci.device_name ~host ~pci_id:pci.pci_id
+						~class_id:(id_of_int pci.pci_class.id)
+						~class_name:pci.pci_class.name
+						~vendor_id:(id_of_int pci.vendor.id)
+						~vendor_name:pci.vendor.name
+						~device_id:(id_of_int pci.device.id)
+						~device_name:pci.device.name ~host ~pci_id:pci.pci_id
 						~functions:1L ~dependencies:[] ~other_config:[] in
 					self, Db.PCI.get_record_internal ~__context ~self
 			in

@@ -15,14 +15,16 @@
 open Xstringext
 open Opt
 
+type pci_property = {
+	id: int64;
+	name: string;
+}
+
 type pci = {
 	pci_id: string;
-	vendor_id: int64;
-	vendor_name: string;
-	device_id: int64;
-	device_name: string;
-	class_id: int64;
-	class_name: string;
+	vendor: pci_property;
+	device: pci_property;
+	pci_class: pci_property;
 	related: string list;
 }
 
@@ -45,8 +47,13 @@ let parse_lspci_line pci_db line =
 			let class_name = (Pci_db.get_class pci_db class_id).c_name in
 			(* we'll fill in the related field when we've finished parsing *)
 			let related = [] in
-			{pci_id; vendor_id; vendor_name; device_id; device_name; class_id;
-				class_name; related})
+			{
+				pci_id;
+				vendor = {id = vendor_id; name = vendor_name};
+				device = {id = device_id; name = device_name};
+				pci_class = {id = class_id; name = class_name};
+				related
+			})
 
 let find_related_ids pci other_pcis =
 	let slot id = String.sub id 0 (String.index id '.') in
