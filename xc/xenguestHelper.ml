@@ -49,9 +49,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
 	let server_to_slave_r, server_to_slave_w = Unix.pipe () in
 
 	let args = [ "-controloutfd"; slave_to_server_w_uuid;
-		     "-controlinfd"; server_to_slave_r_uuid;
-		     "-debuglog";
-		     last_log_file
+		     "-controlinfd"; server_to_slave_r_uuid
 	] @ args in
 	let pid = Forkhelpers.safe_close_and_exec None None None 
 	  ([ slave_to_server_w_uuid, slave_to_server_w;
