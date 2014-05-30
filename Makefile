@@ -1,18 +1,38 @@
-BINDIR ?= /usr/bin
-SBINDIR ?= /usr/sbin
-ETCDIR ?= /etc
+.PHONY: all clean install build
+all: build doc
 
-.PHONY: install uninstall clean
+NAME=rrdd-libs
+J=4
 
-dist/build/xcp-rrdd/xcp-rrdd:
-	obuild configure
-	obuild build
+export OCAMLRUNPARAM=b
 
-install:
-	install -D dist/build/xcp-rrdd/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
+setup.bin: setup.ml
+	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+
+setup.data: setup.bin
+	@./setup.bin -configure --enable-tests
+
+build: setup.data setup.bin
+	@./setup.bin -build -j $(J)
+
+doc: setup.data setup.bin
+	@./setup.bin -doc -j $(J)
+
+install: setup.bin
+	install -m 755 xcp_rrdd.native $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	@./setup.bin -install
 
 uninstall:
-	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	@ocamlfind remove $(NAME) || true
+
+test: setup.bin build
+	@./setup.bin -test
+
+reinstall: setup.bin
+	@ocamlfind remove $(NAME) || true
+	@./setup.bin -reinstall
 
 clean:
-	rm -rf dist
+	@ocamlbuild -clean
+	@rm -f setup.data setup.log setup.bin
