@@ -1,3 +1,7 @@
+0.9.3 (31-May-2013)
+* Update to stdext 0.11.0
+* Use Oasis rather than obuild
+
 0.9.2 (24-Sep-2013)
 * Fix the unit for the datasource memory_internal_free
 * Block wr_reqs, wr_avg_usecs and wr_max_usecs were counting
