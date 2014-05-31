@@ -1,0 +1,26 @@
+OASISFormat: 0.3
+Name:        xcp-rrdd
+Version:     0.9.3
+Synopsis:    XenServer RRD daemon
+Authors:     John Else
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library rrdd_libs
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        rrdd-libs
+  Modules:            Stats, Constants, Pool_role_shared
+  ByteOpt:            -bin-annot
+  NativeOpt:          -bin-annot
+  BuildDepends:       xcp, stdext, threads
+
+Executable "xcp-rrdd"
+  CompiledObject:     best
+  Path:               rrdd
+  MainIs:             xcp_rrdd.ml
+  Custom:             true
+  Install:            true
+  BuildDepends:       threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenctrl, xenops, rrd-transport, threads, rpclib.syntax
+
