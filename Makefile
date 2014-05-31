@@ -1,17 +1,38 @@
-dist/build/lib-xenops/xenops.cmxa dist/build/list_domains/list_domains:
-	obuild configure
-	obuild build
+.PHONY: all clean install build
+all: build doc
 
-BINDIR?=/usr/sbin
+NAME=xenops
+J=4
 
-install:
-	ocamlfind install xenops src/META $(wildcard dist/build/lib-xenops/*)
-	install -m 755 dist/build/list_domains/list_domains ${BINDIR}
+export OCAMLRUNPARAM=b
+
+setup.bin: setup.ml
+	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+
+setup.data: setup.bin
+	@./setup.bin -configure --enable-tests
+
+build: setup.data setup.bin
+	@./setup.bin -build -j $(J)
+
+doc: setup.data setup.bin
+	@./setup.bin -doc -j $(J)
+
+install: setup.bin
+	install -m 755 list_domains.native ${BINDIR}/list_domains
+	@./setup.bin -install
 
 uninstall:
-	ocamlfind remove xenops
-	rm -f ${BINDIR}/list_domains
+	@ocamlfind remove $(NAME) || true
 
-.PHONY: clean
+test: setup.bin build
+	@./setup.bin -test
+
+reinstall: setup.bin
+	@ocamlfind remove $(NAME) || true
+	@./setup.bin -reinstall
+
 clean:
-	rm -rf dist
+	@ocamlbuild -clean
+	@rm -f setup.data setup.log setup.bin
