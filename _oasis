@@ -22,5 +22,5 @@ Executable "xcp-rrdd"
   MainIs:             xcp_rrdd.ml
   Custom:             true
   Install:            true
-  BuildDepends:       threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenctrl, xenops, rrd-transport, threads, rpclib.syntax
+  BuildDepends:       threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, xcp-rrd, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenops, rrd-transport, threads, rpclib.syntax, io-page.unix, xen-gnt.unix
 
