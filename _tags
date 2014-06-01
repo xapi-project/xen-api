@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 248490cae68fda6339fe3458d5ebe40a)
+# DO NOT EDIT (digest: 8e4c3ba86cdb89f74f649d353c23f4d7)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -26,6 +26,7 @@
 <rrdd/xcp_rrdd.{native,byte}>: pkg_forkexec
 <rrdd/xcp_rrdd.{native,byte}>: pkg_gzip
 <rrdd/xcp_rrdd.{native,byte}>: pkg_http-svr
+<rrdd/xcp_rrdd.{native,byte}>: pkg_io-page.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rpclib
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rpclib.syntax
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rpclib.unix
@@ -39,12 +40,13 @@
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xcp.network
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xcp.rrd
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xcp.xen
-<rrdd/xcp_rrdd.{native,byte}>: pkg_xenctrl
+<rrdd/xcp_rrdd.{native,byte}>: pkg_xen-gnt.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xenops
 <rrdd/xcp_rrdd.{native,byte}>: use_rrdd_libs
 <rrdd/*.ml{,i}>: pkg_forkexec
 <rrdd/*.ml{,i}>: pkg_gzip
 <rrdd/*.ml{,i}>: pkg_http-svr
+<rrdd/*.ml{,i}>: pkg_io-page.unix
 <rrdd/*.ml{,i}>: pkg_rpclib
 <rrdd/*.ml{,i}>: pkg_rpclib.syntax
 <rrdd/*.ml{,i}>: pkg_rpclib.unix
@@ -58,7 +60,7 @@
 <rrdd/*.ml{,i}>: pkg_xcp.network
 <rrdd/*.ml{,i}>: pkg_xcp.rrd
 <rrdd/*.ml{,i}>: pkg_xcp.xen
-<rrdd/*.ml{,i}>: pkg_xenctrl
+<rrdd/*.ml{,i}>: pkg_xen-gnt.unix
 <rrdd/*.ml{,i}>: pkg_xenops
 <rrdd/*.ml{,i}>: use_rrdd_libs
 <rrdd/xcp_rrdd.{native,byte}>: custom
