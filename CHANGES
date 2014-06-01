@@ -1,4 +1,4 @@
-0.9.4 (1-Jun-2014)
+0.9.6 (1-Jun-2014)
 * Runs even if xen isn't
 * Update to stdext 0.11.0
 * Use Oasis rather than obuild

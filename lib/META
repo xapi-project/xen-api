@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5c39c5bb741418299ece241050150fc6)
-version = "0.9.4"
+# DO NOT EDIT (digest: e94292551f05d3a925cb29462211f7d5)
+version = "0.9.6"
 description = "XenServer RRD daemon"
 requires = "xcp stdext threads"
 archive(byte) = "rrdd_libs.cma"
