@@ -29,7 +29,7 @@ type context = unit
 (** The main body of squeezed is single-threaded, so we protect it with a mutex here. *)
 let big_server_mutex = Mutex.create ()
 
-let wrap dbg f = 
+let wrap dbg f =
 	try
 (*
 		Debug.with_thread_associated dbg
@@ -42,7 +42,7 @@ let wrap dbg f =
 	with
 	| Squeeze.Cannot_free_this_much_memory (needed, free) ->
 		(* NB both needed and free have been inflated by the lowmem_emergency_pool etc *)
-		let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib 
+		let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib
 		and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
 		raise (Memory_interface.Cannot_free_this_much_memory (needed, free))
 	| Squeeze.Domains_refused_to_cooperate domids ->
@@ -64,7 +64,7 @@ let start_balance_thread balance_check_interval =
 			) in
 	let (_: Thread.t) = Thread.create body () in
 	()
-  
+
 
 let get_diagnostics _ dbg = "diagnostics not yet available"
 
@@ -96,11 +96,11 @@ let reserve_memory _ dbg session_id kib =
 		reservation_id
 	)
 
-let reserve_memory_range _ dbg session_id min max = 
+let reserve_memory_range _ dbg session_id min max =
 	let reservation_id = Uuidm.to_string (Uuidm.create `V4) in
-	if min < 0L 
+	if min < 0L
 	then raise (Invalid_memory_value min);
-	if max < 0L 
+	if max < 0L
 	then raise (Invalid_memory_value max);
 	wrap dbg
 	(fun () ->
@@ -141,7 +141,7 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
 		)
 	)
 
-let balance_memory _ dbg = 
+let balance_memory _ dbg =
 	wrap dbg
 	(fun () ->
 		Xenctrl.with_intf
@@ -154,10 +154,43 @@ let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_host_initial_free_memory _ dbg = 0L (* XXX *)
 
+let sysfs_stem = "/sys/devices/system/xen_memory/xen_memory0/"
+
+let _current_allocation = "info/current_kb"
+let _requested_target = "target_kb"
+let _low_mem_balloon = "info/low_kb"
+let _high_mem_balloon = "info/high_kb"
+
+(** Queries the balloon driver and forms a string * int64 association list *)
+let parse_sysfs_balloon () =
+	let keys = [
+		_current_allocation;
+		_requested_target;
+		_low_mem_balloon;
+		_high_mem_balloon] in
+	let string_of_file filename =
+		let results = ref [] in
+		let ic = open_in filename in
+		try
+			while true do
+				let line = input_line ic in
+				results := line :: !results
+			done;
+			"" (* this will never occur... *)
+		with End_of_file -> String.concat "" (List.rev !results) in
+	let r = Re_str.regexp "[ \t\n]+" in
+	let strip line = match Re_str.split_delim r line with
+		| x :: _ -> x
+		| [] -> "" in
+	List.map (fun key ->
+		let s = string_of_file (sysfs_stem ^ key) in
+		key, Int64.of_string (strip s)
+	) keys
+
 (* The total amount of memory addressable by this OS, read without
    asking xen (which may not be running if we've just installed
    the packages and are now setting them up) *)
-let get_total_memory () =
+let parse_proc_meminfo () =
 	let ic = open_in "/proc/meminfo" in
 	let r = Re_str.regexp "[ \t\n]+" in
 	finally
@@ -175,6 +208,16 @@ let get_total_memory () =
 
 		) (fun () -> close_in ic)
 
+let get_total_memory () =
+	try
+		let pairs = parse_sysfs_balloon () in
+		let keys = [ _low_mem_balloon; _high_mem_balloon; _current_allocation ] in
+		let vs = List.map (fun x -> List.assoc x pairs) keys in
+		Int64.mul 1024L (List.fold_left Int64.add 0L vs)
+	with _ ->
+		error "Failed to query balloon driver; parsing /proc/meminfo instead";
+		parse_proc_meminfo ()
+
 let get_domain_zero_policy _ dbg =
 	wrap dbg
 	(fun () ->
@@ -185,4 +228,3 @@ let get_domain_zero_policy _ dbg =
 			| Some x -> x)
 		else Fixed_size dom0_max
 	)
-
