@@ -1,3 +1,7 @@
+0.10.1 (18-Oct-2013):
+* clients will retry forever to connect to a switch. This allows
+  services to start in any order from init.d
+
 0.10.0 (17-Jun-2013):
 * protocol bump to allow the same process to be both a client
   and a server
