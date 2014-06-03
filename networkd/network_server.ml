@@ -431,7 +431,7 @@ module Bridge = struct
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
-			update_config name {get_config name with vlan; bridge_mac=mac; other_config};
+			update_config name {(get_config name) with vlan; bridge_mac=mac; other_config};
 			begin match !kind with
 			| Openvswitch ->
 				let fail_mode =
