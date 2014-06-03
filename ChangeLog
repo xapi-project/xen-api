@@ -1,3 +1,10 @@
+0.9.17 (3-Jun-2014)
+* Allow HVM guests to use up to 16 devices
+* Use cohttp 0.11.2
+* Remove Re_str usage (not threadsafe)
+* Add VGPU APIs to xen interface
+* Add new RRD plugin registration interface for interdomain RRD transport
+
 0.9.14 (26-Sep-2013):
 * services: search the PATH as well as the XCP_PATH for executables
 
