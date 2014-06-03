@@ -39,7 +39,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("XenServer.NET")]
 [assembly: AssemblyDescription("Citrix XenServer C#.NET SDK")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Citrix Systems, Inc.")]
 [assembly: AssemblyProduct("XenServer.NET")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]
