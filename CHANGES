@@ -1,3 +1,7 @@
+0.7.5 (2014-06-03)
+* Upgrade to cohttp 0.11.2
+* Fix incorrect handling of tar file prefixes
+
 0.7.3 (2014-04-04)
 * sparse_dd: Fix references to Vhd_lwt.File.use_unbuffered
 
