@@ -7,6 +7,9 @@
 
 . /etc/init.d/functions
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
     if [ ! -f @ETCDIR@/ptoken ]; then
         echo -n $"Creating pool secret (this may take some time)"

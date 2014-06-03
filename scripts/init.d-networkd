@@ -21,6 +21,9 @@ PID_FILE="/var/run/xcp-networkd.pid"
 # lock file
 SUBSYS_FILE="/var/lock/subsys/xcp-networkd"
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
 	echo -n $"Starting the XCP networking daemon: "
 	
