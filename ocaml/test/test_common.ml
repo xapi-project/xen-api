@@ -175,10 +175,13 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
 		?(class_name="") ?(vendor_id="") ?(vendor_name="") ?(device_id="")
 		?(device_name="") ?(host=Ref.null) ?(pci_id="") ?(functions=0L)
-		?(dependencies=[]) ?(other_config=[]) () =
+		?(dependencies=[]) ?(other_config=[]) ?(subsystem_vendor_id="")
+		?(subsystem_vendor_name="") ?(subsystem_device_id="")
+		?(subsystem_device_name="") () =
 	Db.PCI.create ~__context ~ref ~uuid ~class_id ~class_name ~vendor_id
 		~vendor_name ~device_id ~device_name ~host ~pci_id ~functions ~dependencies
-		~other_config;
+		~other_config ~subsystem_vendor_id ~subsystem_vendor_name
+		~subsystem_device_id ~subsystem_device_name;
 	ref
 
 let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)

@@ -25,6 +25,8 @@ type pci = {
 	vendor: pci_property;
 	device: pci_property;
 	pci_class: pci_property;
+	subsystem_vendor: pci_property option;
+	subsystem_device: pci_property option;
 	related: string list;
 }
 
@@ -35,8 +37,10 @@ let wrap_lookup f id =
 let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
-	Scanf.sscanf (String.concat " " fields) "%s \"%s@\" \"%Lx@\" \"%Lx@\""
-		(fun pci_id class_subclass vendor_id device_id ->
+	Scanf.sscanf (String.concat " " fields)
+		"%s \"%s@\" \"%Lx@\" \"%Lx@\" \"%s@\" \"%s@\""
+		(fun pci_id class_subclass vendor_id device_id
+				subsystem_vendor_id subsystem_device_id ->
 			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
 			let class_id = int_of_hex_str (String.sub class_subclass 0 2) in
 			let open Pci_db in
@@ -45,12 +49,33 @@ let parse_lspci_line pci_db line =
 			let device_name = wrap_lookup (fun device_id ->
 				(Pci_db.get_device pci_db vendor_id device_id).d_name) device_id in
 			let class_name = (Pci_db.get_class pci_db class_id).c_name in
+			let subsystem_vendor = match subsystem_vendor_id with
+			| "" -> None
+			| id_str ->
+				let id = int_of_hex_str id_str in
+				let name =
+					wrap_lookup
+						(fun subsystem_vendor_id ->
+							(Pci_db.get_vendor pci_db subsystem_vendor_id).v_name) id in
+				Some {id; name} in
+			let subsystem_device = match subsystem_vendor, subsystem_device_id with
+			| _, ""
+			| None, _ -> None
+			| Some subsystem_vendor, id_str ->
+				let id = int_of_hex_str id_str in
+				let name =
+					wrap_lookup
+						(fun subsystem_device_id ->
+							Pci_db.get_subdevice pci_db vendor_id device_id subsystem_vendor.id subsystem_device_id) id in
+				Some {id; name} in
 			(* we'll fill in the related field when we've finished parsing *)
 			let related = [] in
 			{
 				pci_id;
 				vendor = {id = vendor_id; name = vendor_name};
 				device = {id = device_id; name = device_name};
+				subsystem_vendor;
+				subsystem_device;
 				pci_class = {id = class_id; name = class_name};
 				related
 			})
