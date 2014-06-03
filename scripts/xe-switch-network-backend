@@ -6,16 +6,15 @@
 #   xe-switch-network-backend  <option>
 #
 # where <option> is either:
-#   bridge          - Linux standard Bridge network stack
-#   openvswitch     - OpenvSwitch stack
-#   contrailvrouter - Contrail vRouter
+#   bridge      - Linux standard Bridge network stack
+#   openvswitch - OpenvSwitch stack
 #
 #########################################################################
 
 set -e
 
 if [ $# -ne 1 ] ; then
-	echo "Need bridge or openvswitch or contrailvrouter..."
+	echo "Need bridge or openvswitch..."
 	exit 1
 fi
 
@@ -25,9 +24,8 @@ new=$1
 case $new in
     bridge) ;;
     vswitch|openvswitch) ;;
-    contrailvrouter) ;;
     *)
-	echo "Mode must be \"bridge\" or \"vswitch\" or \"contrailvrouter\""
+	echo "Mode must be \"bridge\" or \"vswitch\""
 	exit 1
 esac
 
@@ -62,20 +60,10 @@ fi
 
 if [ "$new" = "openvswitch" ] ; then
 	echo "Enabling openvswitch daemon"
-        chkconfig --del contrail-vrouter
 	chkconfig --add openvswitch
-fi
-
-if [ "$new" = "contrailvrouter" ] ; then
-	echo "Enabling Contrail Vrouter daemon"
+else
+	echo "Disabling openvswitch daemon"
 	chkconfig --del openvswitch
-        chkconfig --add contrail-vrouter
-fi
-
-if [ "$new" = "bridge" ] ; then
-	echo "Enabling Linux Bridge, hence disabling other forwarding daemons"
-	chkconfig --del openvswitch
-        chkconfig --del contrail-vrouter
 fi
 
 echo "Configure system for $new networking"

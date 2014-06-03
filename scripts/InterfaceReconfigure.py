@@ -960,8 +960,5 @@ def DatapathFactory():
     elif network_backend in ["openvswitch", "vswitch"]:
         from InterfaceReconfigureVswitch import DatapathVswitch
         return DatapathVswitch
-    elif network_backend in ["contrailvrouter"]:
-        from InterfaceReconfigureVrouter import DatapathVrouter
-        return DatapathVrouter
     else:
         raise Error("unknown network backend %s" % network_backend)

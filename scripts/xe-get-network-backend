@@ -17,7 +17,7 @@ set -e
 backend=$(cat /etc/xensource/network.conf)
 
 case "$backend" in
-    bridge|openvswitch|contrailvrouter)
+    bridge|openvswitch)
 	;;
     vswitch)
 	backend=openvswitch
