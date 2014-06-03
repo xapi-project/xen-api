@@ -88,6 +88,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x0003L; name = "SimpleVendorName3"};
 			device = {id = 0x0001L; name = "SimpleDeviceName-3-1"};
 			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = Some {id = 0x0001L; name = "SimpleVendorName1"};
+			subsystem_device = Some {id = 0x0002L; name = "SimpleSubDeviceName-3-1-1-2"};
 			related = []
 		});
 		(* Test that a device present in pci.ids without subdevice or
@@ -98,6 +100,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x0003L; name = "SimpleVendorName3"};
 			device = {id = 0x0001L; name = "SimpleDeviceName-3-1"};
 			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = []
 		});
 		(* Test that a device not preset in pci.ids can be parsed. *)
@@ -107,6 +111,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x0055L; name = "Unknown (0055)"};
 			device = {id = 0xabcdL; name = "Unknown (abcd)"};
 			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = [];
 		});
 		(* Test that an unknown device from a known vendor can be parsed. *)
@@ -116,6 +122,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x0003L; name = "SimpleVendorName3"};
 			device = {id = 0xabcdL; name = "Unknown (abcd)"};
 			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = [];
 		});
 	]
