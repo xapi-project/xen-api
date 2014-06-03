@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 70
+let schema_minor_vsn = 72
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -54,8 +54,11 @@ let vgpu_tech_preview_release_schema_minor_vsn = 68
 let vgpu_productisation_release_schema_major_vsn = 5
 let vgpu_productisation_release_schema_minor_vsn = 69
 
-let clearwater_felton_release_major_vsn = 5
-let clearwater_felton_release_minor_vsn = 70
+let clearwater_felton_release_schema_major_vsn = 5
+let clearwater_felton_release_schema_minor_vsn = 70
+
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 72
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = vgpu_productisation_release_schema_major_vsn
@@ -7664,6 +7667,10 @@ let pci =
 				"VMs that currently have a function of this PCI device passed-through to them" ~internal_only:true;
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_boston, ""] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_vendor_id" "Subsystem vendor ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_vendor_name" "Subsystem vendor name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_device_id" "Subsystem device ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
 			]
 		()
 

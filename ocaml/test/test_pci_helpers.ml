@@ -82,12 +82,14 @@ module ParseLspciLine = Generic.Make(struct
 	let tests = [
 		(* Test that a display device present in pci.ids and with subdevice and
 		 * subvendor IDs can be parsed. *)
-		"0000:44:00.0 \"0300\" \"10de\" \"014e\" -ra1 \"10de\" \"100a\"",
+		"0000:44:00.0 \"0300\" \"10de\" \"0150\" -ra1 \"1043\" \"4016\"",
 		Xapi_pci_helpers.({
 			pci_id = "0000:44:00.0";
 			vendor = {id = 0x10deL; name = "nVidia Corporation"};
-			device = {id = 0x014eL; name = "NV43GL [Quadro FX 540]"};
+			device = {id = 0x0150L; name = "NV15 [GeForce2 GTS/Pro]"};
 			pci_class = {id = 0x03L; name = "Display controller"};
+			subsystem_vendor = Some {id = 0x1043L; name = "ASUSTeK Computer Inc."};
+			subsystem_device = Some {id = 0x4016L; name = "V7700 AGP Video Card"};
 			related = []
 		});
 		(* Test that a display device present in pci.ids without subdevice or
@@ -98,6 +100,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x10deL; name = "nVidia Corporation"};
 			device = {id = 0x014eL; name = "NV43GL [Quadro FX 540]"};
 			pci_class = {id = 0x03L; name = "Display controller"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = []
 		});
 		(* Test that a display device not preset in pci.ids can be parsed. *)
@@ -107,6 +111,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x0055L; name = "Unknown (0055)"};
 			device = {id = 0xabcdL; name = "Unknown (abcd)"};
 			pci_class = {id = 0x03L; name = "Display controller"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = [];
 		});
 		(* Test that an unknown device from a known vendor can be parsed. *)
@@ -116,6 +122,8 @@ module ParseLspciLine = Generic.Make(struct
 			vendor = {id = 0x10deL; name = "nVidia Corporation"};
 			device = {id = 0xabcdL; name = "Unknown (abcd)"};
 			pci_class = {id = 0x03L; name = "Display controller"};
+			subsystem_vendor = None;
+			subsystem_device = None;
 			related = [];
 		});
 	]

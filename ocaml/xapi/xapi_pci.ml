@@ -41,11 +41,15 @@ let id_of_int hex_id =
 	Printf.sprintf "%04Lx" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
-		~device_name ~host ~pci_id ~functions ~dependencies ~other_config =
+		~device_name ~host ~pci_id ~functions ~dependencies ~other_config
+		~subsystem_vendor_id ~subsystem_vendor_name
+		~subsystem_device_id ~subsystem_device_name =
 	let p = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
-		~device_name ~host ~pci_id ~functions ~dependencies:[] ~other_config:[];
+		~device_name ~host ~pci_id ~functions ~dependencies:[] ~other_config:[]
+		~subsystem_vendor_id ~subsystem_vendor_name
+		~subsystem_device_id ~subsystem_device_name;
 	debug "PCI %s, %s, %s created" pci_id vendor_name device_name;
 	p
 
@@ -62,6 +66,10 @@ let update_pcis ~__context ~host =
 
 	let open Xapi_pci_helpers in
 	let pci_db = Pci_db.open_default () in
+	let strings_of_pci_property = function
+		| None -> "", ""
+		| Some property -> id_of_int property.id, property.name
+	in
 	let rec update_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
@@ -72,15 +80,36 @@ let update_pcis ~__context ~host =
 						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id &&
 						rc.Db_actions.pCI_device_id = id_of_int pci.device.id)
 						existing in
+					(* sync the vendor name. *)
 					if rc.Db_actions.pCI_vendor_name <> pci.vendor.name
 					then Db.PCI.set_vendor_name ~__context ~self:rf ~value:pci.vendor.name;
+					(* sync the device name. *)
 					if rc.Db_actions.pCI_device_name <> pci.device.name
 					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device.name;
+					(* sync the subsystem vendor fields. *)
+					let subsystem_vendor_id, subsystem_vendor_name =
+						strings_of_pci_property pci.subsystem_vendor in
+					if rc.Db_actions.pCI_subsystem_vendor_id <> subsystem_vendor_id
+					then Db.PCI.set_subsystem_vendor_id ~__context ~self:rf ~value:subsystem_vendor_id;
+					if rc.Db_actions.pCI_subsystem_vendor_name <> subsystem_vendor_name
+					then Db.PCI.set_subsystem_vendor_name ~__context ~self:rf ~value:subsystem_vendor_name;
+					(* sync the subsystem device fields. *)
+					let subsystem_device_id, subsystem_device_name =
+						strings_of_pci_property pci.subsystem_device in
+					if rc.Db_actions.pCI_subsystem_device_id <> subsystem_device_id
+					then Db.PCI.set_subsystem_device_id ~__context ~self:rf ~value:subsystem_device_id;
+					if rc.Db_actions.pCI_subsystem_device_name <> subsystem_device_name
+					then Db.PCI.set_subsystem_device_name ~__context ~self:rf ~value:subsystem_device_name;
+					(* sync the attached VMs. *)
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
 					rf, rc
 				with Not_found ->
+					let subsystem_vendor_name, subsystem_vendor_id =
+						strings_of_pci_property pci.subsystem_vendor in
+					let subsystem_device_name, subsystem_device_id =
+						strings_of_pci_property pci.subsystem_device in
 					let self = create ~__context
 						~class_id:(id_of_int pci.pci_class.id)
 						~class_name:pci.pci_class.name
@@ -88,7 +117,9 @@ let update_pcis ~__context ~host =
 						~vendor_name:pci.vendor.name
 						~device_id:(id_of_int pci.device.id)
 						~device_name:pci.device.name ~host ~pci_id:pci.pci_id
-						~functions:1L ~dependencies:[] ~other_config:[] in
+						~functions:1L ~dependencies:[] ~other_config:[]
+						~subsystem_vendor_id ~subsystem_vendor_name
+						~subsystem_device_id ~subsystem_device_name in
 					self, Db.PCI.get_record_internal ~__context ~self
 			in
 			update_or_create ((obj, pci) :: cur) remaining_pcis
