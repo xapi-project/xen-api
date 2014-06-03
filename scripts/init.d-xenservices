@@ -13,6 +13,9 @@
 # Source function library.
 . /etc/init.d/functions
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
     # If this domain hasn't got sufficient privileges then assume it is a domU
     # and start the hypercall simulator

@@ -24,6 +24,9 @@ PID_FILE="/var/run/${NAME}.pid"
 # lock file
 SUBSYS_FILE="/var/lock/subsys/${NAME}"
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
 	echo -n $"Starting ${FULL_NAME}: "
 

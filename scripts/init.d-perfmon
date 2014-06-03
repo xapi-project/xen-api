@@ -18,6 +18,9 @@ if [ -f /etc/sysconfig/perfmon ]; then
   . /etc/sysconfig/perfmon
 fi
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
 	echo -n $"Starting perfmon: "
 

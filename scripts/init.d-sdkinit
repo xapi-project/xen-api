@@ -8,6 +8,9 @@
 
 . /etc/init.d/functions
 
+# Enable core dumping
+ulimit -c unlimited
+
 case "$1" in
     start)
 	# This is a run-once script!

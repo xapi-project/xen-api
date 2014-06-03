@@ -21,6 +21,9 @@ if [ "x${INSTALLATION_UUID}" = "x" ] ; then
     exit 1
 fi
 
+# Enable core dumping
+ulimit -c unlimited
+
 case "$1" in
     start)
         # Need this to be present so that we get run on shutdown.
