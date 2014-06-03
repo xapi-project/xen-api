@@ -1,23 +1,37 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 ETCDIR ?= /etc
+all: build doc
 
 .PHONY: test install uninstall clean
 
-dist/build/xcp-networkd/xcp-networkd:
-	obuild configure --enable-tests
-	obuild build
+export OCAMLRUNPARAM=b
+J=4
 
-test:
-	obuild test --output
+setup.bin: setup.ml
+	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
+	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+
+setup.data: setup.bin
+	@./setup.bin -configure --enable-tests
+
+build: setup.data setup.bin
+	@./setup.bin -build -j $(J)
+
+doc: setup.data setup.bin
+	@./setup.bin -doc -j $(J)
+
+test: setup.bin build
+	@./setup.bin -test
 
 install:
-	install -D dist/build/xcp-networkd/xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd
-	install -D dist/build/networkd_db/networkd_db $(DESTDIR)$(BINDIR)/networkd_db
+	install -D networkd.native $(DESTDIR)$(SBINDIR)/xcp-networkd
+	install -D networkd_db.native $(DESTDIR)$(BINDIR)/networkd_db
 
 uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/xcp-networkd
 	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 
 clean:
-	rm -rf dist
+	@ocamlbuild -clean
+	@rm -f setup.data setup.log setup.bin
