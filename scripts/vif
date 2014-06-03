@@ -24,9 +24,9 @@ BRCTL="/usr/sbin/brctl"
 IP="/sbin/ip"
 
 vsctl="/usr/bin/ovs-vsctl"
+VRCTL="/opt/contrail/bin/vrouter-ctl"
 
 setup_vif_rules="@LIBEXECDIR@/setup-vif-rules"
-
 handle_promiscuous()
 {
     # other-config keys are optional
@@ -41,6 +41,9 @@ handle_promiscuous()
                 ;;
             openvswitch)
                 logger -t script-vif "${dev}: Promiscuous ports are not supported via Open vSwitch."
+                ;;
+            contrailvrouter)
+                logger -t script-vif "${dev}: Promiscuous ports are not supported via Contrail vRouter."
                 ;;
         esac
     fi
@@ -81,6 +84,23 @@ set_vif_external_id()
     logger -t scripts-vif "vif${DOMID}.${DEVID} external-ids:\"${key}\"=\"${value}\""
 
     echo "-- set interface vif${DOMID}.${DEVID} external-ids:\"${key}\"=\"${value}\""
+}
+
+#
+# Return true if this is an hardware vitualized VM.
+#
+isHVM()
+{
+    local vmpath=$(xenstore-read /local/domain/${DOMID}/vm 2>/dev/null)
+    local vmid=$(basename ${vmpath})
+    if [ -z "${vmid}" ]; then
+        return 0
+    fi
+    local pvboot=$(xe vm-param-get uuid=${vmid} param-name=PV-bootloader 2>/dev/null)
+    if [ -z "${pvboot}" ]; then
+        return 1
+    fi
+    return 0
 }
 
 handle_vswitch_vif_details()
@@ -218,6 +238,93 @@ call_hook_script() {
     fi
 }
 
+add_vm_interface()
+{
+    local dev=$1
+    local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
+    if [ $? -ne 0 -o -z "${address}" ]; then
+        logger -t scripts-vif "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
+        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
+        exit 1
+    fi
+
+    logger -t scripts-vif "Adding ${dev} with address ${address}"
+
+    local vif_uuid=$(xenstore-read ${PRIVATE}/vif-uuid 2>/dev/null)
+    if [ -z "${vif_uuid}" ]; then
+	logger -t scripts-vif "Failed to read vif-uuid"
+	exit 1
+    fi
+
+    local config=$(xe vif-param-get uuid=${vif_uuid} param-name=other-config 2>/dev/null)
+    if [ -z "${config}" ]; then
+	logger -t scripts-vif "Unable to read vif config parameters"
+	exit 1
+    fi
+
+    local vmi=$(echo ${config} | tr ';' '\n' | awk '/nicira-iface-id:/ {print $2;}' 2>/dev/null)
+    if [ -z "${vmi}" ]; then
+	logger -t scripts-vif "Unable to find virtual-machine-interface uuid"
+	exit 1
+    fi
+
+    local vm=$(echo ${config} | tr ';' '\n' | awk '/cloudstack-vm-id:/ {print $2;}' 2>/dev/null)
+    if [ -z "${vm}" ]; then
+	vm=$(echo ${config} | tr ';' '\n' | awk '/nicira-vm-id:/ {print $2;}' 2>/dev/null)
+	if [ -z  "${vm}" ]; then
+	    logger -t scripts-vif "Unable to find virtual-machine uuid"
+	    exit 1
+	fi
+    fi
+
+    local guestmac=$(xenstore-read "/local/domain/$DOMID/device/vif/$DEVID/mac" 2>/dev/null)
+
+    $VRCTL --vmi=$vmi --vm=$vm --mac-address=${guestmac} add $dev
+    if [ $? == 0 ]; then
+	logger -t scripts-vif "add ${dev} succeeded"
+    else
+	logger -t scripts-vif "add ${dev} failure"
+    fi
+
+}
+
+del_vm_interface()
+{
+    f [ "${TYPE}" = "vif" ] ; then
+case "${ACTION}" in                                                                         |        handle_ethtool rx
+online)                                                                                     |        handle_ethtool tx
+    xenstore-write "${HOTPLUG}/vif" "${dev}"                                                |        handle_ethtool sg
+    xenstore-write "${HOTPLUG}/hotplug" "online"                                            |        handle_ethtool tso
+                                                                                            |        handle_ethtool ufo
+    logger -t scripts-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"                     |        handle_ethtool gso
+    xenstore-write "${HOTPLUG_STATUS}" "connected"                                          |
+    ;;                                                                                      |        handle_mtu
+                                                                                            |        add_to_bridge
+add)                                                                                        |        handle_promiscuous
+    # Try to determine whether this is an HVM or PV machine.                                |
+local vif_uuid=$(xenstore-read ${PRIVATE}/vif-uuid 2>/dev/null)
+    if [ -z "${vif_uuid}" ]; then
+	logger -t scripts-vif "Failed to read vif-uuid"
+	exit 1
+    fi
+
+    local config=$(xe vif-param-get uuid=${vif_uuid} param-name=other-config 2>/dev/null)
+    if [ -z "${config}" ]; then
+	logger -t scripts-vif "Unable to read vif config parameters"
+	exit 1
+    fi
+
+    local vmi=$(echo ${config} | tr ';' '\n' | awk '/iface-id:/ {print $2;}' 2>/dev/null)
+    if [ -z "${vmi}" ]; then
+	logger -t scripts-vif "Unable to find virtual-machine-interface uuid"
+	exit 1
+    fi
+
+    $VRCTL --vmi=$vmi del
+}
+
+
+
 NETWORK_MODE=$(cat @ETCDIR@/network.conf)
 ACTION=$1
 
@@ -231,6 +338,7 @@ fi
 case $NETWORK_MODE in
     bridge|openvswitch) ;;
     vswitch) NETWORK_MODE=openvswitch ;;
+    contrailvrouter) NETWORK_MODE=contrailvrouter ;;
     *)
         logger -t scripts-vif "Unknown network mode $NETWORK_MODE"
         exit 1
@@ -269,50 +377,100 @@ HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
 logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in
 online)
-    if [ "${TYPE}" = "vif" ] ; then
-        handle_ethtool rx
-        handle_ethtool tx
-        handle_ethtool sg
-        handle_ethtool tso
-        handle_ethtool ufo
-        handle_ethtool gso
+    case $NETWORK_MODE in
+        bridge|openvswitch)
+            if [ "${TYPE}" = "vif" ] ; then
+                handle_ethtool rx
+                handle_ethtool tx
+                handle_ethtool sg
+                handle_ethtool tso
+                handle_ethtool ufo
+                handle_ethtool gso
 
-        handle_mtu
-        add_to_bridge
-        handle_promiscuous
+                handle_mtu
+                add_to_bridge
+                handle_promiscuous
 
-        # only for the benefit of xenrt test case, see CA-61528
-        xenstore-write "${HOTPLUG}/vif" "${dev}"
-        xenstore-write "${HOTPLUG}/hotplug" "online"
+                # only for the benefit of xenrt test case, see CA-61528
+                xenstore-write "${HOTPLUG}/vif" "${dev}"
+                xenstore-write "${HOTPLUG}/hotplug" "online"
 
-        logger -t script-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
-        xenstore-write "${HOTPLUG_STATUS}" "connected"
-        call_hook_script $DOMID "${ACTION}"
-    fi
+                logger -t script-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
+                xenstore-write "${HOTPLUG_STATUS}" "connected"
+                call_hook_script $DOMID "${ACTION}"
+            fi
+            ;;
+
+        contrailvrouter)
+            xenstore-write "${HOTPLUG}/vif" "${dev}"
+            xenstore-write "${HOTPLUG}/hotplug" "online"
+            logger -t scripts-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
+            xenstore-write "${HOTPLUG_STATUS}" "connected"
+            ;;
+    esac
     ;;
 
 add)
-    if [ "${TYPE}" = "tap" ] ; then
-        add_to_bridge
-    fi
+    case $NETWORK_MODE in
+        bridge|openvswitch)
+            if [ "${TYPE}" = "tap" ] ; then
+                add_to_bridge
+            fi
+            ;;
+
+        contrailvrouter)
+            # Try to determine whether this is an HVM or PV machine.
+            # HVMs use qemu tap interfaces to send and receive packets.
+            isHVM
+            if [ $? -gt 0 -a "${TYPE}" == "vif" ]; then
+                logger -t scripts-vif "HVM ${dev} unused"
+            else
+                add_vm_interface ${dev}
+            fi
+
+            ${IP} link set ${dev} up
+            ;;
+    esac
     ;;
 
 remove)
-    if [ "${TYPE}" = "vif" ] ;then
-        call_hook_script $DOMID "${ACTION}"
+    case $NETWORK_MODE in
+        bridge|openvswitch)
+            if [ "${TYPE}" = "vif" ] ;then
+                call_hook_script $DOMID "${ACTION}"
 		# Unclear whether this is necessary, since netback also does it:
-        logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
-        xenstore-rm "${HOTPLUG_STATUS}"
-        logger -t script-vif "${dev}: removing ${HOTPLUG}/hotplug"
-		# Trigger xapi to clean up:
-        xenstore-rm "${HOTPLUG}/hotplug"
-    fi
-    logger -t scripts-vif "${dev} has been removed"
-    remove_from_bridge
+                logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
+                xenstore-rm "${HOTPLUG_STATUS}"
+                logger -t script-vif "${dev}: removing ${HOTPLUG}/hotplug"
+	 	# Trigger xapi to clean up:
+                xenstore-rm "${HOTPLUG}/hotplug"
+            fi
+            logger -t scripts-vif "${dev} has been removed"
+            remove_from_bridge
+            ;;
+
+        contrailvrouter)
+            ${IP} link set ${dev} down
+
+            if [ "${TYPE}" == "tap" ]; then
+                del_vm_interface
+            fi
+            ;;
+    esac
     ;;
 
+
 move)
-    if [ "${TYPE}" = "vif" ] ;then
-        add_to_bridge
-    fi
+    case $NETWORK_MODE in
+        bridge|openvswitch)
+            if [ "${TYPE}" = "vif" ] ;then
+                add_to_bridge
+            fi
+            ;;
+
+        contrailvrouter)
+            logger -t scripts-vif "${dev}: ignored action ${ACTION} in Contrail vRouter"
+            ;;
+    esac
+    ;;
 esac

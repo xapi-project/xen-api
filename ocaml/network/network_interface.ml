@@ -195,7 +195,7 @@ module Interface = struct
 	external make_config : debug_info -> ?conservative:bool -> config:(iface * interface_config_t) list-> unit -> unit = ""
 end
 
-type kind = Openvswitch | Bridge
+type kind = Openvswitch | Bridge | Contrailvrouter
 type bond_mode = Balance_slb | Active_backup | Lacp
 type fail_mode = Standalone | Secure
 
