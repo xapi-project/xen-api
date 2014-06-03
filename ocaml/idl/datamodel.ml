@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 72
+let schema_minor_vsn = 71
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -57,8 +57,8 @@ let vgpu_productisation_release_schema_minor_vsn = 69
 let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
 
-let creedence_release_schema_major_vsn = 5
-let creedence_release_schema_minor_vsn = 72
+let clearwater_whetstone_release_schema_major_vsn = 5
+let clearwater_whetstone_release_schema_minor_vsn = 71
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = vgpu_productisation_release_schema_major_vsn
