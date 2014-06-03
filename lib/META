@@ -1,4 +1,6 @@
-version = "0.1.0"
+# OASIS_START
+# DO NOT EDIT (digest: 52c38aed0162c844605c70d53281e4f3)
+version = "0.9.1"
 description = "XCP inventory library"
 requires = "uuidm stdext threads"
 archive(byte) = "xcp-inventory.cma"
@@ -6,4 +8,5 @@ archive(byte, plugin) = "xcp-inventory.cma"
 archive(native) = "xcp-inventory.cmxa"
 archive(native, plugin) = "xcp-inventory.cmxs"
 exists_if = "xcp-inventory.cma"
+# OASIS_STOP
 
