@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2011 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -16,13 +16,13 @@ body {
 	padding: 0;
 	margin: 0;
 	border: 0;
-	font-family: "Nimbus Sans L", "Trebuchet MS", Helvetica, Arial, sans-serif; 
+	font-family: Arial, Verdana, sans-serif; 
 	font-size: 80%;
 	font-weight: normal;
 	line-height: 140%;
 	background: white;	
-	color : black;
-	background-color: #eee;
+	color : #35383d;
+	background-color: white;
 }
 
 #wrap {
@@ -32,27 +32,22 @@ body {
 
 #header {
 	width: 100%;
-	height: 4.5em;
-	margin: 0;
-	padding: 0;
-	color: white;
-	background-color: #990000;
+	height: 2em;
+	margin: 0 22em 0 .5em;
+	padding: 1.5em 1em;
+//	color: white;
+	background-color: white;
 	border: 1px solid black;
-	border-width: 0 1px;
-}
-
-#header h1 {
-	font-size: 200%;
-	margin: .7em;
+	border-width: 0;
 }
 
 #main {
 	width: 100%;
 	float: left;
 	margin: 0;
-	padding: 0;
-	background-color: #cc3300;
-	border: 1px solid black;
+	padding: 0;	
+	background-color: white;
+	border: 0px solid black;
 	border-top: 0;
 }
 
@@ -64,27 +59,29 @@ body {
 }
 
 #content {
-	color: black;
-	background-color: #ffffdd;
+//	color: black;
+	background-color: white;
 	padding: 1.5em 1em;
-	margin: 0 22em 0 .5em;
+	margin: 0 15em 0 .5em;
 	line-height: 170%;
 }
 
 #sidebar {
 	float: right;
-	width: 20em;
+	width: 12em;
 	padding: 1em;
 	color: white;
+	border-left: 1px dotted #cccccc;
 }
 
-#sidebar #class_overview a {
-	font-weight: bold;
-}
 
 #sidebar th {
 	text-align: left;
-	border-bottom: 1px solid white;
+	border-bottom: 0px solid white;
+}
+
+#sidebar #class_overview a {
+	color: #306580;
 }
 
 #footer {
@@ -95,27 +92,36 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6, h7, h8, h9 {
+	color: #545454;
 	border: 0em;
 	font-weight: bold; 
-	font-family: sans-serif;
 	text-align: left;
 	border-width : thin;
 }
 
 h1 {
-	font-size: 200%;
-	margin-top: 1.2em;
+	font-size: 20px;
+	margin-bottom: 8px;
+	margin-top: 2px;
+	line-height: 26px;
+	font-weight: normal;
+	color: #772432;
 }
 
 h2 {
-	font-size : 150%;
-	margin: 1em 0 .5em;
+	font-size: 20px;
+	margin-bottom: 8px;
+	margin-top: 20px;
+	line-height: 26px;
+	font-weight: normal;
+	color: #545454;
 }
 
 h3 {
-	font-size : 110%;
-	border-bottom-style: solid;
-	margin: .8em 0 .5em;
+	font-weight: bold;
+	font-size: 15px;
+	line-height: 18px;
+	color: #545454;
 }
 
 h4, h5, h6, h7, h8, h9 {
@@ -125,11 +131,24 @@ h4, h5, h6, h7, h8, h9 {
 a, a:link, a:visited, a:active, a:hover { color : inherit; text-decoration: none;}
 a:hover { color : inherit; text-decoration : underline }
 
-#sidebar a, #header a {color: white}
-#content a {color: black}
+#header a {color: #545454}
+#content a {color: #35383d}
 
-#content h1, #content h2 {color: #900}
-#content h1 a {color: #900}
+//#content h1, #content h2 {color: #772432}
+#header a:hover {text-decoration: none;}
+
+#sidebar h2 {
+	font-weight: bold;
+	font-size: 15px;
+	line-height: 18px;
+	color: #772432;
+}
+
+#sidebar a {
+	color: #35383d;
+	font-size: 11px;
+	font-weight: bold;
+}
 
 .title {
 	margin-top: 0;
@@ -157,8 +176,9 @@ hr {
 
 #menu li a {
 	padding: 15px 0 0 2em;
-	font-size: 1.3em;
-	font-weight: bold;
+	color: #434343;
+	line-height: 19px;
+	font-size: 14px;
 }
 
 #menu li a:hover
@@ -209,7 +229,7 @@ th {
 }
 
 .description {
-	font-weight: bold;
+//	font-weight: bold;
 	margin-bottom: 1em;
 }
 
@@ -238,13 +258,13 @@ tt, .code {
 {
 	margin: 0em 0;
 	padding: .5em .7em .7em;
-	background-color: #ffeeaa;
+	background-color: #dddddd;
 	cursor: pointer;
 }
 
 .field2
 {
-	background-color: #ffddaa;
+	background-color: #e8e8e8;
 }
 
 .field-type {
@@ -282,17 +302,18 @@ tt, .code {
 }
 
 .lifecycle {
-	font-size: 90%;
+	font-size: 12px;
 	float: right;
 	font-variant:small-caps;
-	color: #900;
+	color: #306580;
 	margin: auto 0.5em;
 }
 
 .small-button {
-	font-size: 70%;
+	font-size: 80%;
 	float: right;
 	margin: 0.2em 0 0.2em 0.5em;
+	color: #306580;
 }
 
 .stat {
