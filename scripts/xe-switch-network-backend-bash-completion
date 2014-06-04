@@ -6,7 +6,7 @@ _xe-switch-network-backend()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="bridge openvswitch"
+    opts="bridge openvswitch contrailvrouter"
 
     if [[ ${cur} == * ]] ; then
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
