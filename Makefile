@@ -31,14 +31,13 @@ EXTRA_INSTALL_PATH=
 export ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR UDEVDIR OCAMLPATH EXTRA_INSTALL_PATH
 
 .PHONY: all
-all: version ocaml/fhs.ml
+all: version
 	omake -j 8 phase1
 	omake -j 8 phase2
 	omake -j 8 phase3
+ifeq ($(DISABLE_TESTS),false)
 	@make test
-
-config.mk ocaml/fhs.ml: configure
-	./configure
+endif
 
 .PHONY: phase3
 phase3:
@@ -52,7 +51,7 @@ test:
 	@echo @
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
-	@./ocaml/test/suite -verbose
+	@./ocaml/test/suite -verbose true
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack

@@ -15,7 +15,7 @@
  * Provide some helpers for XAPI
  *)
 
-open Stringext
+open Xstringext
 open Pervasiveext
 open Threadext
 open Printf

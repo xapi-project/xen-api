@@ -16,7 +16,7 @@
  *)
 
 open Pervasiveext
-open Stringext
+open Xstringext
 open Printf
 open Smint
 

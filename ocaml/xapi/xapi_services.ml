@@ -18,11 +18,11 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 open Fun
-open Stringext
+open Xstringext
 open Pervasiveext
 open Threadext
 open Constants
-open Stringext
+open Xstringext
 
 type driver_list = Storage_interface.query_result list with rpc
 
@@ -41,9 +41,20 @@ let list_drivers req s = respond req (System_domains.rpc_of_services (System_dom
 let fix_cookie cookie =
   let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
 
-  let cookie_re = Re_str.regexp "[;,][ \t]*" in
+  let bounded_split_delim re s n =
+    let rec extract_comps_inner start acc m =
+      let get_fin () = List.rev ((String.sub s start (String.length s - start))::acc) in
+      if m=1 then get_fin () else
+	try 	
+	  let first_end, all_end = Re.get_ofs (Re.exec ~pos:start re s) 0 in
+	  extract_comps_inner all_end ((String.sub s start (first_end - start))::acc) (m-1)
+	with Not_found ->
+	  get_fin ()
+    in extract_comps_inner 0 [] n
+  in
 
-  let comps = Re_str.split_delim cookie_re str_cookie in
+  let comps = bounded_split_delim (Re.compile (Re_emacs.re "[;,][ \t]*")) str_cookie 0 in
+
           (* We don't handle $Path, $Domain, $Port, $Version (or $anything
              $else) *)
   let cookies = List.filter (fun s -> s.[0] != '$') comps in
@@ -112,21 +123,6 @@ let http_proxy_to_plugin req from name =
 	end else
 		http_proxy_to req from (Unix.ADDR_UNIX path)
 
-let http_proxy_to_driver req from uuid ty instance rest =
-	try
-		(* Remove the URI prefix /service/driver/uuid/ty/instance *)
-		let uri = "/" ^ (String.concat "/" rest) in
-		let req = { req with Http.Request.uri = uri } in
-		match System_domains.get_service (Storage_access.make_service uuid instance) with
-			| Some address ->
-				http_proxy_to req from address
-			| None ->
-				error "There is no registered driver: %s/%s/%s" uuid ty instance;
-				Http_svr.headers from (Http.http_404_missing ~version:"1.0" ())
-	with e ->
-		error "Failed to proxy to %s/%s/%s: %s" uuid ty instance (Printexc.to_string e);
-		raise e
-
 let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
@@ -138,8 +134,6 @@ let post_handler (req: Http.Request.t) s _ =
 					Http_svr.response_str req ~hdrs:[] s response
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| [ ""; services; "SM" ] when services = _services ->
 					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
 				| _ ->
@@ -164,8 +158,6 @@ let put_handler (req: Http.Request.t) s _ =
 					ignore (hand_over_connection req s (Filename.concat "/var/lib/xcp" "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
 					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
 					Import_raw_vdi.import vdi req s ()
@@ -185,8 +177,6 @@ let get_handler (req: Http.Request.t) s _ =
 					ignore (hand_over_connection req s (Filename.concat "/var/lib/xcp" "xenopsd.forwarded"))
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
-				| "" :: services :: "driver" :: uuid :: ty :: instance :: rest when services = _services ->
-					http_proxy_to_driver req s uuid ty instance rest
 				| "" :: services :: "driver" :: [] when services = _services ->
 					list_drivers req s
 				| [ ""; services; "SM"; driver ] when services = _services ->

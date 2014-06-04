@@ -16,7 +16,7 @@
 
 open Threadext
 open Listext
-open Stringext
+open Xstringext
 open Pervasiveext
 open Client
 

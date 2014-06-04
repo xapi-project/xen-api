@@ -57,6 +57,9 @@ let vgpu_productisation_release_schema_minor_vsn = 69
 let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
 
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 71
+
 let augusta_release_schema_major_vsn = 5
 let augusta_release_schema_minor_vsn = 81
 
@@ -182,6 +185,12 @@ let get_product_releases in_product_since =
 
 let augusta_release =
 	{ internal = get_product_releases rel_augusta
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let creedence_release =
+	{ internal = get_product_releases rel_creedence
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -4682,7 +4691,7 @@ let pif_pool_introduce_params first_rel =
     {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
     {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
-    {param_type=Map(String, String); param_name="properties"; param_doc=""; param_release=augusta_release; param_default=Some (VMap [])};
+    {param_type=Map(String, String); param_name="properties"; param_doc=""; param_release=creedence_release; param_default=Some (VMap [])};
   ]
 
 (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
@@ -4726,7 +4735,7 @@ let pif_set_property = call
 		String, "name", "The property name";
 		String, "value", "The property value";
 	]
-	~lifecycle:[Published, rel_augusta, ""]
+	~lifecycle:[Published, rel_creedence, ""]
 	~allowed_roles:_R_POOL_OP
 	()
 
@@ -4775,7 +4784,7 @@ let pif =
 	field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed" "Indicates whether the interface \
 		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
 		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
-	field ~lifecycle:[Published, rel_augusta, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
+	field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
       ]
 	()
 

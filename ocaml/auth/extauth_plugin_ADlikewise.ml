@@ -533,7 +533,7 @@ let on_enable config_params =
 				 Db.Host.get_hostname ~__context ~self:host
 			)
 	in
-	if (Stringext.String.fold_left
+	if (Xstringext.String.fold_left
 			 (fun b ch -> b && (ch>='0')&&(ch<='9'))
 			 true
 			 hostname
@@ -571,7 +571,7 @@ let on_enable config_params =
 			match List.assoc "disable_modules" config_params with
 			| "" -> []
 			| disabled_modules_string ->
-				Stringext.String.split ',' disabled_modules_string
+				Xstringext.String.split ',' disabled_modules_string
 		with Not_found ->
 			[]
 	in
@@ -717,7 +717,7 @@ let on_disable config_params =
 	let lw_force_domain_leave_script = Filename.concat Fhs.libexecdir "lw-force-domain-leave" in
 	(try
 		let output, stderr = Forkhelpers.execute_command_get_output lw_force_domain_leave_script [] in
-		debug "execute %s: stdout=[%s],stderr=[%s]" lw_force_domain_leave_script (Stringext.String.replace "\n" ";" output) (Stringext.String.replace "\n" ";" stderr)
+		debug "execute %s: stdout=[%s],stderr=[%s]" lw_force_domain_leave_script (Xstringext.String.replace "\n" ";" output) (Xstringext.String.replace "\n" ";" stderr)
 	with e-> (debug "exception executing %s: %s" lw_force_domain_leave_script (ExnHelper.string_of_exn e);)
 	);
 		

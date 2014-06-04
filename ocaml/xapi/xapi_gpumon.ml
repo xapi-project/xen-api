@@ -16,7 +16,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Fun
-open Stringext
+open Xstringext
 open Threadext
 
 let service = "/sbin/service"

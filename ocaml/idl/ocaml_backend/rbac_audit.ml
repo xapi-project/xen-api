@@ -44,7 +44,7 @@ open Db_filter_types
 
 
 let is_http action = 
-	Stringext.String.startswith Datamodel.rbac_http_permission_prefix action
+	Xstringext.String.startswith Datamodel.rbac_http_permission_prefix action
 
 let call_type_of ~action =
 	if is_http action then "HTTP" else "API"
@@ -158,7 +158,7 @@ let populate_audit_record_with_obj_names_of_refs line =
 		let sexpr_idx = (String.index line ']') + 1 in
 		let before_sexpr_str = String.sub line 0 sexpr_idx in
 		(* remove the [...] prefix *)
-		let sexpr_str = Stringext.String.sub_to_end line sexpr_idx in
+		let sexpr_str = Xstringext.String.sub_to_end line sexpr_idx in
 		let sexpr = SExpr_TS.of_string sexpr_str	in
 		match sexpr with
 		|SExpr.Node els -> begin
@@ -336,7 +336,7 @@ let rec sexpr_args_of __context name rpc_value action =
 		let name_uuid_ref = get_obj_of_ref value in
 		match name_uuid_ref with
 		| None ->
-			if Stringext.String.startswith Ref.ref_prefix value
+			if Xstringext.String.startswith Ref.ref_prefix value
 			then (* it's a ref, just not in the db cache *)
 				Some (get_sexpr_arg name (get_db_namevalue __context name action value) "" value)
 			else (* ignore values that are not a ref *)
@@ -394,7 +394,7 @@ and
 
 let has_to_audit action =
 	let has_side_effect action =
-		not (Stringext.String.has_substr action ".get") (* TODO: a bit slow? *)
+		not (Xstringext.String.has_substr action ".get") (* TODO: a bit slow? *)
 	in
 	has_side_effect action
 	&&
@@ -476,8 +476,8 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 			 )
 		)
 	in
-	let line = Stringext.String.replace "\n" " " _line in (* no \n in line *)
-	let line = Stringext.String.replace "\r" " " line in (* no \r in line *)
+	let line = Xstringext.String.replace "\n" " " _line in (* no \n in line *)
+	let line = Xstringext.String.replace "\r" " " line in (* no \r in line *)
 
 	let audit_line = append_line "%s" line in
 	(*D.debug "line=%s, audit_line=%s" line audit_line;*)
@@ -489,7 +489,7 @@ let allowed_pre_fn ~__context ~action ?args () =
 	try
 		if (has_to_audit action)
 			(* for now, we only cache arg results for destroy actions *)
-			&& (Stringext.String.has_substr action ".destroy")
+			&& (Xstringext.String.has_substr action ".destroy")
 		then let args' = add_dummy_args __context action args in Some(sexpr_of_parameters __context action args')
 		else None
 	with e -> 

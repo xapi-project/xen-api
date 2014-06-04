@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
-open Stringext
+open Xstringext
 module XenAPI = Client.Client
 open Fun
 open Storage_interface
@@ -734,85 +734,27 @@ module type SERVER = sig
     val process : Smint.request -> Rpc.call -> Rpc.response
 end
 
-module Driver_kind = struct
-	type t =
-		| SMAPIv1
-		| SMAPIv2_unix of string
-		| SMAPIv2_tcp of string
-
-	let to_server kind path =
-		let open Xmlrpc_client in
-		match kind with
-			| SMAPIv1 ->
-				(module Server(SMAPIv1) : SERVER)
-			| SMAPIv2_unix fs ->
-				(module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
-			| SMAPIv2_tcp ip ->
-				(module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
-
-	let to_sockaddr = function
-		| SMAPIv1 -> None
-		| SMAPIv2_unix path -> Some (Unix.ADDR_UNIX path)
-		| SMAPIv2_tcp ip -> Some (Unix.ADDR_INET(Unix.inet_addr_of_string ip, 80))
-
-	let to_xml_string probe_results =
-	  let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) probe_results.probed_srs in
-	  (String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
-
-	let probe task kind ty path device_config sr_sm_config =
-		let open Xmlrpc_client in
-		match kind with
-		| SMAPIv1 ->
-			Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) ty sr_sm_config
-		| SMAPIv2_unix fs ->
-			let module C = Client(struct
-				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path)
-			end) in
-			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-			to_xml_string result
-		| SMAPIv2_tcp ip ->
-			let module C = Client(struct
-				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path)
-			end) in
-			let result = C.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-			to_xml_string result
-
-	let classify ~__context driver ty =
-		let dom0 = Helpers.get_domain_zero ~__context in
-		if driver = dom0 then begin
-			(* Look for an SMAPIv1 plugin first *)
-			if List.mem ty (Sm.supported_drivers ())
-			then SMAPIv1
-			else begin
-				let socket = Filename.concat "/var/lib/xcp" (Printf.sprintf "sm/%s" ty) in
-				if not(Sys.file_exists socket) then begin
-					error "SM plugin unix domain socket does not exist: %s" socket;
-					raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ ty ]));
-				end;
-				if not(System_domains.queryable ~__context (Xmlrpc_client.Unix socket) ()) then begin
-					error "SM plugin did not respond to a query on: %s" socket;
-					raise (Api_errors.Server_error(Api_errors.sm_plugin_communication_failure, [ ty ]));
-				end;
-				SMAPIv2_unix socket
-			end
-		end else SMAPIv2_tcp(System_domains.ip_of ~__context driver)
-
-	let query kind ty path =
-		let open Xmlrpc_client in
-		match kind with
-		| SMAPIv1 ->
-			Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
-		| SMAPIv2_unix fs ->
-			let module C = Client(struct
-				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" ~transport:(Unix fs) ~http:(xmlrpc ~version:"1.0" path)
-			end) in
-			C.Query.query ~dbg:"dbg"
-		| SMAPIv2_tcp ip ->
-			let module C = Client(struct
-				let rpc = XMLRPC_protocol.rpc ~srcstr:"smapiv2" ~dststr:"smapiv1" ~transport:(TCP(ip, 80)) ~http:(xmlrpc ~version:"1.0" path)
-			end) in
-			C.Query.query ~dbg:"dbg"
-end
+(* Start a set of servers for all SMAPIv1 plugins *)
+let start_smapiv1_servers () =
+	let drivers =
+		if Pool_role.is_master ()
+		then Sm.supported_drivers ()
+		else Server_helpers.exec_with_new_task "start_smapiv1_servers" (fun __context ->
+		let all = Db.SM.get_all_records ~__context in
+		let needed = List.filter (fun (_, x) ->
+			let version = Xapi_sm.version_of_string x.API.sM_version in
+			version < [ 2; 0 ]
+		) all in
+		List.map (fun (_, x) -> x.API.sM_type) needed
+	) in
+	List.iter (fun ty ->
+		let path = !Storage_interface.default_path ^ ".d/" ^ ty in
+		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+		let module S = Storage_interface.Server(SMAPIv1) in
+		let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
+		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
+		()
+	) drivers
 
 let make_service uuid ty =
 	{
@@ -821,6 +763,17 @@ let make_service uuid ty =
 		instance = ty;
 		url = Constants.path [ Constants._services; Constants._driver; uuid; Constants._SM; ty ];
 	}
+
+let external_rpc queue_name uri =
+	fun call ->
+		let open Xcp_client in
+			if !use_switch
+			then json_switch_rpc queue_name call
+			else xml_http_rpc
+				~srcstr:(get_user_agent ())
+				~dststr:queue_name
+				uri
+				call
 
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)
@@ -838,15 +791,16 @@ let bind ~__context ~pbd =
 
 	let sr = Db.PBD.get_SR ~__context ~self:pbd in
 	let ty = Db.SR.get_type ~__context ~self:sr in
-	let path = Constants.path [ Constants._services; Constants._SM; ty ] in
-	let kind = Driver_kind.classify ~__context driver ty in
-	let module Impl = (val (Driver_kind.to_server kind path): SERVER) in
 	let sr = Db.SR.get_uuid ~__context ~self:sr in
-	info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
+	let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+	let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
+	let rpc = external_rpc queue_name uri in
 	let service = make_service uuid ty in
-	Opt.iter (System_domains.register_service service) (Driver_kind.to_sockaddr kind);
-	let info = Driver_kind.query kind ty path in
-	Storage_mux.register sr (Impl.process (Some path)) uuid info;
+	System_domains.register_service service queue_name;
+	let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+	let dbg = Context.string_of_task __context in
+	let info = Client.Query.query ~dbg in
+	Storage_mux.register sr rpc uuid info;
 	info
 
 let unbind ~__context ~pbd =
@@ -865,14 +819,18 @@ let unbind ~__context ~pbd =
 
 let rpc call = Storage_mux.Server.process None call
 
-let probe ~__context ~_type ~device_config ~sr_sm_config =
-  let driver = System_domains.storage_driver_domain_of_sr_type ~__context ~_type in
-  let kind = Driver_kind.classify ~__context driver _type in
-  let path = Constants.path [ Constants._services; Constants._SM; _type ] in
-  let subtask_of = Context.get_task_id __context in
-  Driver_kind.probe subtask_of kind _type path device_config sr_sm_config
-
 module Client = Client(struct let rpc = rpc end)
+
+let probe ~__context ~_type ~device_config ~sr_sm_config =
+	let task = Context.get_task_id __context in
+	(* Look for an SMAPIv1 plugin first *)
+	if List.mem _type (Sm.supported_drivers ()) then begin
+		Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sr_sm_config
+	end else begin
+		let result = Client.SR.probe ~dbg:(Ref.string_of task) ~device_config in
+		let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) result.probed_srs in
+		(String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
+	end
 
 let print_delta d =
 	debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
@@ -942,8 +900,8 @@ let get_mirror_task vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.find m
 exception Not_an_sm_task
 let wrap id = TaskHelper.Sm id
 let unwrap x = match x with | TaskHelper.Sm id -> id | _ -> raise Not_an_sm_task
-let register_task __context id = TaskHelper.register_task __context (wrap id) |> unwrap
-let unregister_task __context id = TaskHelper.unregister_task __context (wrap id) |> unwrap
+let register_task __context id = TaskHelper.register_task __context (wrap id); id
+let unregister_task __context id = TaskHelper.unregister_task __context (wrap id); id
 
 let update_task ~__context id =
 	try

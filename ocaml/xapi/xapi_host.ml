@@ -11,9 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Pervasiveext
-open Stringext
+open Xstringext
 open Listext
 open Threadext
 open Xapi_host_helpers
@@ -429,8 +432,9 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	let open Xenops_client in
 	let dbg = Context.string_of_task __context in
+	let open Xapi_xenops_queue in
+	let module Client = (val make_client (default_xenopsd ()): XENOPS) in
 	Client.HOST.get_console_data dbg
 
 let dmesg_clear ~__context ~host =
@@ -440,7 +444,8 @@ let get_log ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
 
 let send_debug_keys ~__context ~host ~keys =
-	let open Xenops_client in
+	let open Xapi_xenops_queue in
+	let module Client = (val make_client (default_xenopsd ()): XENOPS) in
 	let dbg = Context.string_of_task __context in
 	Client.HOST.send_debug_keys dbg keys
 

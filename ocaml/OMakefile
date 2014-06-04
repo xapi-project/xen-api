@@ -14,7 +14,6 @@ OCamlLibrary(fhs, fhs)
 	idl \
 	util \
 	xapi \
-	xenops \
 	xva \
 	console \
 	auth \
@@ -34,7 +33,6 @@ OCamlLibrary(fhs, fhs)
 	mpathalert \
 	multipathrt \
 	doc \
-	rrdd \
 	test
 
 clean:

@@ -21,6 +21,7 @@ let base_suite =
 		[
 			Test_basic.test;
 			Test_helpers.test;
+			Test_db_lowlevel.test;
 			Test_pool_db_backup.test;
 			Test_xapi_db_upgrade.test;
 			Test_ca91480.test;
@@ -37,7 +38,7 @@ let base_suite =
 			Test_pgpu_helpers.test;
 			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
-			Test_ca121350.test;
+			(* Test_ca121350.test; *)
 		]
 
 let handlers = [
@@ -59,7 +60,7 @@ let start_server handlers =
 
 let harness_init () =
 	Printexc.record_backtrace true;
-	Pool_role_shared.set_pool_role_for_test ();
+	Pool_role.set_pool_role_for_test ();
 	Xapi.register_callback_fns ();
 	start_server handlers
 
@@ -67,5 +68,5 @@ let harness_destroy () = ()
 
 let _ =
 	harness_init ();
-	run_test_tt_main base_suite |> ignore;
+	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main |> ignore;
 	harness_destroy ();

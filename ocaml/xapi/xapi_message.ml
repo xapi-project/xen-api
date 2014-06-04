@@ -29,7 +29,7 @@
  *)
 
 open Listext   
-open Stringext
+open Xstringext
 open Threadext
  
 module D = Debug.Make(struct let name="xapi" end)

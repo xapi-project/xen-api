@@ -29,9 +29,9 @@ let allowed_dom0_directory_for_provision_scripts =
 
 let is_whitelisted script =
   let safe_char = function 'a'..'z'-> true |'-'->true |'/'->true |_ -> false in
-  let safe_str str = List.fold_left (&&) true (List.map safe_char (Stringext.String.explode str)) in
+  let safe_str str = List.fold_left (&&) true (List.map safe_char (Xstringext.String.explode str)) in
   (* make sure the script prefix is the allowed dom0 directory *)
-  (Stringext.String.startswith allowed_dom0_directory_for_provision_scripts script)
+  (Xstringext.String.startswith allowed_dom0_directory_for_provision_scripts script)
   (* avoid ..-style attacks and other weird things *)
   &&(safe_str script)
 let assert_script_is_whitelisted script =

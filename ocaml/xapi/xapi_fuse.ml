@@ -19,6 +19,8 @@ open Threadext
 module D = Debug.Make(struct let name="xapi_fuse" end)
 open D
 
+module Rrdd = Rrd_client.Client
+
 let time f = 
   let start = Unix.gettimeofday () in
   (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));

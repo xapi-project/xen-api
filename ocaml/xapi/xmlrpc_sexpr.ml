@@ -18,7 +18,7 @@
 open Xml
 open XMLRPC
 open SExpr
-open Stringext
+open Xstringext
 
 
 (** Accepts an xml-rpc tree of type xml.xml

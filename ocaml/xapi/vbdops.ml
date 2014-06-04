@@ -17,7 +17,7 @@
  
 open Printf
 open Threadext
-open Stringext
+open Xstringext
 open Pervasiveext
 open Client
 

@@ -57,7 +57,7 @@ let get_session_id (req: Request.t) =
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
   (* it is necessary to do that manually from the slaves *)
-	if Stringext.String.startswith
+	if Xstringext.String.startswith
 		Datamodel.rbac_http_permission_prefix
 		action
 	then

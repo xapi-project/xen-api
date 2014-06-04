@@ -7,7 +7,6 @@ OCAMLINCLUDES = \
 	../ \
 	../database \
 	../xapi \
-	../xenops \
 	../idl \
 	../idl/ocaml_backend \
 	../autogen \
@@ -31,6 +30,7 @@ OCAML_OBJS = \
 	test_common \
 	test_basic \
 	test_helpers \
+	test_db_lowlevel \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \
 	test_ca91480 \

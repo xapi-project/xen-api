@@ -34,6 +34,8 @@ val is_broken: unit -> bool
 (** Returns true if this is a unit test *)
 val is_unit_test: unit -> bool
 
+val set_pool_role_for_test: unit -> unit
+
 exception This_host_is_a_master
 exception This_host_is_broken
 

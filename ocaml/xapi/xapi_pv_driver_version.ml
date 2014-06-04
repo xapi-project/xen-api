@@ -13,7 +13,7 @@
  *)
 (** Detect when PV drivers are out of date *)
 
-open Stringext
+open Xstringext
 open Printf
 
 module D=Debug.Make(struct let name="xapi" end)
@@ -100,7 +100,7 @@ let string_of = function
 	| Unknown -> "Unknown"
 
 let get_product_vsn () =
-	match (Stringext.String.split '.' Version.product_version) with
+	match (Xstringext.String.split '.' Version.product_version) with
 		| [maj; min; mic] ->
 			Some (int_of_string maj, int_of_string min, int_of_string mic)
 		| _ ->

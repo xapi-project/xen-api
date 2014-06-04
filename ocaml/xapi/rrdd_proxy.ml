@@ -23,6 +23,8 @@
 module D = Debug.Make(struct let name="rrdd_proxy" end)
 open D
 
+module Rrdd = Rrd_client.Client
+
 (* Helper methods. Should probably be moved to the Http.Request module. *)
 let get_query_string_from_query ~(query : (string * string) list) : string =
 	String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) query)

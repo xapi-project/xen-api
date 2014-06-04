@@ -14,8 +14,6 @@
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-open Xenops
-
 let ( +++ ) = Int64.add
 let ( --- ) = Int64.sub
 let ( *** ) = Int64.mul

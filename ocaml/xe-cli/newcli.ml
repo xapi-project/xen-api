@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* New cli talking to the in-server cli interface *)
-open Stringext
+open Xstringext
 open Cli_protocol
 
 (* Param config priorities:

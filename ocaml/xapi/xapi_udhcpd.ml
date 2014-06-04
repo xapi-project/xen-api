@@ -13,7 +13,7 @@
  *)
 (* Interface to udhcpd *)
 
-open Stringext
+open Xstringext
 
 module D = Debug.Make(struct let name="xapi_udhcpd" end)
 open D

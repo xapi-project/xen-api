@@ -17,7 +17,7 @@
  * it provides sending and receiving functions, and don't add anything.
  **************************************************************************)
 exception X
-open Stringext
+open Xstringext
 open Xenbus
 
 let pkt_recv con =

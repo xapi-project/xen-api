@@ -18,7 +18,7 @@ open Datamodel
 open Datamodel_utils
 open Dm_api
 
-open Stringext
+open Xstringext
 
 let rec formatted_wrap formatter s = 
   let split_in_2 c s =

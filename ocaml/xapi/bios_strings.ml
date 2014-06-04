@@ -13,7 +13,7 @@
  *)
 module D = Debug.Make(struct let name="bios_strings" end)
 open D
-open Stringext
+open Xstringext
 
 let dmidecode_prog = "/usr/sbin/dmidecode"
 

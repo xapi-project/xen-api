@@ -15,8 +15,10 @@
  *  @group Main Loop and Start-up
  *)
 
+module Rrdd = Rrd_client.Client
+
 open Fun
-open Stringext
+open Xstringext
 open Listext
 open Printf
 open Create_misc
@@ -84,7 +86,11 @@ let refresh_localhost_info ~__context info =
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-    let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
+    let caps = try
+      String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc))
+    with _ ->
+      warn "Unable to query hypervisor capabilities";
+      [] in
     Db.Host.set_capabilities ~__context ~self:host ~value:caps;
     Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context);
 
@@ -115,10 +121,21 @@ let refresh_localhost_info ~__context info =
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
-		let open Xenops_client in
-		let dbg = Context.string_of_task __context in
-		let mib = Client.HOST.get_total_memory_mib dbg in
-		Int64.mul 1024L (Int64.mul 1024L mib) in
+		try
+			let xc = Xenctrl.interface_open () in
+			Xenctrl.interface_close xc; (* we're on xen *)
+			let dbg = Context.string_of_task __context in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+			let mib = Client.HOST.get_total_memory_mib dbg in
+			Int64.mul 1024L (Int64.mul 1024L mib)
+		with _ ->
+			warn "Failed to detect xen, querying /proc/meminfo";
+			begin match Balloon.get_memtotal () with
+                        |  None -> 0L
+                        | Some x -> Int64.(div x (mul 1024L 1024L))
+			end in
+
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in

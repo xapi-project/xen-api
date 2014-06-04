@@ -149,9 +149,9 @@ let permission_of_action ?args ~keys _action =
 						let key_name =
 							List.find
 							(fun key_name ->
-							 if Stringext.String.endswith "*" key_name
+							 if Xstringext.String.endswith "*" key_name
 							 then begin (* resolve wildcards at the end *)
-								 Stringext.String.startswith
+								 Xstringext.String.startswith
 									 (String.sub key_name 0 ((String.length key_name) - 1))
 									 key_name_in_args
 							 end

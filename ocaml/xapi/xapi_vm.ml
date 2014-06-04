@@ -11,9 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+module Rrdd = Rrd_client.Client
+
 open Fun
 open Printf
-open Stringext
+open Xstringext
 open Pervasiveext
 open Xapi_vm_helpers
 open Client
@@ -280,7 +282,8 @@ let power_state_reset ~__context ~vm =
 		let resident = Db.VM.get_resident_on ~__context ~self:vm in
 		if resident = localhost then begin
 			let open Xenops_interface in
-			let open Xenops_client in
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (queue_of_vm ~__context ~self:vm): XENOPS) in
 			let running =
 				try
 					let dbg = Context.string_of_task __context in
@@ -604,7 +607,8 @@ let wait_memory_target_live ~__context ~self =
 	let tolerance_bytes = wait_memory_target_tolerance_bytes in
 	let raise_error error =
 		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
-	let open Xenops_client in
+	let open Xapi_xenops_queue in
+	let module Client = (val make_client (queue_of_vm ~__context ~self): XENOPS) in
 	let id = Xapi_xenops.id_of_vm ~__context ~self in
 	let dbg = Context.string_of_task __context in
 	let rec wait accumulated_wait_time_seconds =

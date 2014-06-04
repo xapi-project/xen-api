@@ -15,7 +15,7 @@
  * @group Virtual-Machine Management
  *)
 
-open Stringext
+open Xstringext
 open Printf
 open Xapi_vm_memory_constraints
 open Listext

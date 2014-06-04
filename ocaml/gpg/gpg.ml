@@ -13,7 +13,7 @@
  *)
 (** Wrapper around gpg *)
 
-open Stringext
+open Xstringext
 open Pervasiveext
 
 module D = Debug.Make(struct let name="gpg" end)

@@ -13,7 +13,7 @@
  *)
  
 open Datamodel_types
-open Stringext
+open Xstringext
 
 type change_t = lifecycle_change * string * string
 and changes_t = change_t list

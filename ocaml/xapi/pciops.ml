@@ -15,7 +15,7 @@ module D=Debug.Make(struct let name="pciops" end)
 open D
 
 open Listext
-open Stringext
+open Xstringext
 open Threadext
 
 let reservations : (API.ref_PCI, int64) Hashtbl.t = Hashtbl.create 5

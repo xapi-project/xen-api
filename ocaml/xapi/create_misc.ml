@@ -19,7 +19,7 @@ open Fun
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Printf
-open Stringext
+open Xstringext
 open Db_filter
 open Db_filter_types
 open Network
@@ -43,18 +43,40 @@ type host_info = {
 	dom0_static_max: int64;
 }
 
+(* NB: this is dom0's view of the world, not Xen's. *)
+let read_dom0_memory_usage () =
+        try
+		let map = Balloon.parse_proc_xen_balloon () in
+		let lookup = fun x -> Opt.unbox (List.assoc x map) in
+		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
+		let values = List.map lookup keys in
+		let result = List.fold_left Int64.add 0L values in
+		Some (Int64.mul 1024L result)
+        with _ ->
+                None
+
 let read_localhost_info () =
-	let xen_verstring =
+	let xen_verstring, total_memory_mib =
 		try
 			let xc = Xenctrl.interface_open () in
 			let v = Xenctrl.version xc in
 			Xenctrl.interface_close xc;
 			let open Xenctrl in
-			Printf.sprintf "%d.%d%s" v.major v.minor v.extra
+			let xen_verstring = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
+			let total_memory_mib =
+				let open Xapi_xenops_queue in
+				let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+				Client.HOST.get_total_memory_mib "read_localhost_info" in
+			xen_verstring, total_memory_mib
 		with e ->
 			if Pool_role.is_unit_test ()
-			then "0.0.0"
-			else raise e
+			then "0.0.0", 0L
+			else begin
+			        warn "Failed to read xen version";
+				match Balloon.get_memtotal () with
+				| None -> "unknown", 0L
+				| Some x -> "unknown", Int64.(div x (mul 1024L 1024L))
+                        end
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =
@@ -66,21 +88,12 @@ let read_localhost_info () =
 	let me = Helpers.get_localhost_uuid () in
 	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
-	let total_memory_mib =
-		let open Xenops_client in
-		Client.HOST.get_total_memory_mib "read_localhost_info" in
 
-	let dom0_static_max = 
-		(* Query the balloon driver to determine how much memory is available for domain 0. *)
-		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
-		(* max_memory_pages is hard-wired to the maximum native integer value ("infinity"). *)
-		let map = Balloon.parse_proc_xen_balloon () in
-		let lookup = fun x -> Opt.unbox (List.assoc x map) in
-		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
-		let values = List.map lookup keys in
-		let result = List.fold_left Int64.add 0L values in
-		Int64.mul 1024L result in
-
+	let dom0_static_max = match read_dom0_memory_usage () with
+        | Some x -> x
+        | None ->
+		info "Failed to query balloon driver, assuming target = static_max";
+		Int64.(mul total_memory_mib (mul 1024L 1024L)) in
 	{
 		name_label=this_host_name;
 		xen_verstring=xen_verstring;
@@ -147,7 +160,7 @@ and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_in
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
 		let metrics_ref = Ref.make() in
-		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_default_memory_constraints host_info)
+		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
 		~vcpus:(calculate_domain_zero_vcpu_count ~__context);
 		Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
 	end
@@ -159,7 +172,7 @@ and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref : unit =
 
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Determine domain 0 memory constraints. *)
-	let memory = create_domain_zero_default_memory_constraints host_info in
+	let memory = create_domain_zero_memory_constraints host_info in
 	(* Determine information about the host machine. *)
 	let domarch =
 		let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
@@ -246,71 +259,35 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~last_updated: Date.never
 		~other_config:[];
 
-and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
-	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	try
-		(* Look up the current domain zero record in xenopsd *)
-		let open Xenops_interface in
-		let open Xenops_client in
-		let vm, state = Client.VM.stat "dbsync" host_info.dom0_uuid in
-		{
-			static_min = static_min;
-			static_max = vm.Vm.memory_static_max;
-			dynamic_min = state.Vm.memory_target;
-			dynamic_max = state.Vm.memory_target;
-			target = state.Vm.memory_target;
-		}
-	with _ ->
-		let target = static_min +++ (Int64.(mul 100L (mul 1024L 1024L))) in
-		let target = if target > static_max then static_max else target in
-		{
-			static_min  = static_min;
-			dynamic_min = target;
-			target      = target;
-			dynamic_max = target;
-			static_max  = static_max;
-		}
-
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
-	(* Fetch existing memory constraints for domain 0. *)
-	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref in
-	(* Generate new memory constraints from the old constraints. *)
-	let constraints = update_domain_zero_memory_constraints host_info constraints in
+	let constraints = create_domain_zero_memory_constraints host_info in
 	(* Write the updated memory constraints to the database. *)
 	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints
 
-and update_domain_zero_memory_constraints (host_info: host_info) (constraints: Vm_memory_constraints.t) : Vm_memory_constraints.t =
-	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
-	let constraints = {constraints with
-		static_min = static_min;
-		static_max = static_max;} in
-	match Vm_memory_constraints.transform constraints with
-		| None ->
-			(* The existing constraints are invalid, and cannot be transformed  *)
-			(* into valid constraints. Reset the constraints to their defaults. *)
-			create_domain_zero_default_memory_constraints host_info
-		| Some constraints ->
-			constraints
-
-(** Calculates the range of memory to which domain 0 is constrained, in bytes. *)
-and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * int64 =
-
-	(** Calculates the minimum amount of memory needed by domain 0, in bytes. *)
-	let calculate_domain_zero_memory_static_min () =
-		(* Base our calculation on the total amount of host memory. *)
-		let host_total_memory_mib = host_info.total_memory_mib in
-		let minimum = 200L in            (*   lower hard limit                               *)
-		let intercept = 126L in          (*   [domain 0 memory] when [total host memory] = 0 *)
-		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
-		let result = Int64.add (Int64.of_float (gradient *. (Int64.to_float host_total_memory_mib))) intercept in
-		let result = if result < minimum then minimum else result in
-		Int64.(mul result (mul 1024L 1024L)) in
-
-	(* static_min must not be greater than static_max *)
-	let static_min = calculate_domain_zero_memory_static_min () in
-	let static_max = host_info.dom0_static_max in
-	let static_min = minimum static_min static_max in
-	static_min, static_max
+and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
+	try
+		match Memory_client.Client.get_domain_zero_policy "create_misc" with
+		| Memory_interface.Fixed_size x ->
+			{
+				static_min = x; static_max = x;
+				dynamic_min = x; dynamic_max = x;
+				target = x;
+			}
+		| Memory_interface.Auto_balloon(low, high) ->
+			{
+				static_min = low; static_max = high;
+				dynamic_min = low; dynamic_max = high;
+				target = high;
+			}
+	with e ->
+		if Pool_role.is_unit_test ()
+		then
+			{
+				static_min = 0L; static_max = 0L;
+				dynamic_min = 0L; dynamic_max = 0L;
+				target = 0L;
+			}
+		else raise e
 
 and calculate_domain_zero_vcpu_count ~__context : int =
 	List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
@@ -417,15 +394,19 @@ let make_software_version ~__context =
 
 let create_host_cpu ~__context =
 	let get_cpu_layout () =
-	        let open Xenctrl in
-		let p = Xenctrl.with_intf (fun xc ->
-			Xenctrl.physinfo xc) in
-		let cpu_count = p.nr_cpus in
-		let socket_count =
-			p.nr_cpus /
-			(p.threads_per_core * p.cores_per_socket)
-		in
-		cpu_count, socket_count
+                try
+	                let open Xenctrl in
+                        let p = Xenctrl.with_intf (fun xc ->
+	                        Xenctrl.physinfo xc) in
+                        let cpu_count = p.nr_cpus in
+		        let socket_count =
+		        	p.nr_cpus /
+		        	(p.threads_per_core * p.cores_per_socket)
+		        in
+                        cpu_count, socket_count
+		with _ ->
+			warn "Failed to query physical CPU information";
+			1, 1
 	in
 	let trim_end s =
 		let i = ref (String.length s - 1) in
@@ -448,29 +429,33 @@ let create_host_cpu ~__context =
 		let tbl = Hashtbl.create 32 in
 		let rec get_lines () =
 			let s = input_line in_chan in
-			if s = "" then
-				()
-			else (
-				let i = String.index s ':' in
-				let k = trim_end (String.sub s 0 i) in
-				let v =
-					if String.length s < i + 2
-					then ""
-					else String.sub s (i + 2) (String.length s - i - 2)
-				in
-				Hashtbl.add tbl k v;
-				get_lines ()
-			)
-			in
+			begin
+				try
+					let i = String.index s ':' in
+					let k = trim_end (String.sub s 0 i) in
+					let v =
+						if String.length s < i + 2
+						then ""
+						else String.sub s (i + 2) (String.length s - i - 2)
+					in
+					Hashtbl.add tbl k v
+				with e ->
+					info "cpuinfo: skipping line [%s]" s
+			end;
+			if s <> "" then get_lines () in
 		get_lines ();
 		close_in in_chan;
-		Hashtbl.find tbl "vendor_id",
-		Hashtbl.find tbl "model name",
-		Hashtbl.find tbl "cpu MHz",
-		Hashtbl.find tbl "flags",
-		Hashtbl.find tbl "stepping",
-		Hashtbl.find tbl "model",
-		Hashtbl.find tbl "cpu family"
+		let find key =
+			if Hashtbl.mem tbl key
+			then Hashtbl.find tbl key
+			else "unknown" in
+		find "vendor_id",
+		find "model name",
+		find "cpu MHz",
+		find "flags",
+		find "stepping",
+		find "model",
+		find "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
 	let cpu_count, socket_count = get_cpu_layout () in
@@ -505,9 +490,10 @@ let create_host_cpu ~__context =
 
 	(* Recreate all Host_cpu objects *)
 	
-	let speed = Int64.of_float (float_of_string cpu_mhz) in
-	let model = Int64.of_string model in
-	let family = Int64.of_string family in
+	(* Not all /proc/cpuinfo files contain MHz information. *)
+	let speed = try Int64.of_float (float_of_string cpu_mhz) with _ -> 0L in
+	let model = try Int64.of_string model with _ -> 0L in
+	let family = try Int64.of_string family with _ -> 0L in
 
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
@@ -527,18 +513,24 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let open Xenops_client in
-		let dbg = Context.string_of_task __context in
-		let xen_dmesg = Client.HOST.get_console_data dbg in
-		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
-			"true"
-		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
-			"false"
-		else if List.mem_assoc "iommu" current_info then
-			List.assoc "iommu" current_info
-		else
-			"false"
-	in
+		try
+			let xc = Xenctrl.interface_open () in
+			Xenctrl.interface_close xc;
+			let open Xapi_xenops_queue in
+			let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+			let dbg = Context.string_of_task __context in
+			let xen_dmesg = Client.HOST.get_console_data dbg in
+			if String.has_substr xen_dmesg "I/O virtualisation enabled" then
+				"true"
+			else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
+				"false"
+			else if List.mem_assoc "iommu" current_info then
+				List.assoc "iommu" current_info
+			else
+				"false"
+		with _ ->
+			warn "Not running on xen; assuming I/O vierualization disabled";
+			"false" in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info
 

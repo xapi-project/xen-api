@@ -48,7 +48,7 @@ let with_cmd cmd params_list fn =
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
 		end
 	in
-	let output_lines = Stringext.String.split '\n' output_str in
+	let output_lines = Xstringext.String.split '\n' output_str in
 	fn output_lines
 
 let getent_common nss_database fn =
@@ -60,7 +60,7 @@ let getent_common nss_database fn =
 				(match lines with
 					| [] -> raise Not_found
 					| line::lines ->
-						let recs = Stringext.String.split ':' line in 
+						let recs = Xstringext.String.split ':' line in 
 						let username = List.nth recs 0 in
 						let uid = List.nth recs 2 in
 						(match fn username uid recs with
@@ -261,7 +261,7 @@ let query_group_membership subject_identifier =
 			match lines with
 			| [] -> raise Not_found
 			| gidline::_ ->
-				let gids = Stringext.String.split ' ' gidline in 
+				let gids = Xstringext.String.split ' ' gidline in 
 				debug "Resolved %i group ids for subject %s (%s): %s"
 					(List.length gids)
 					subject_name

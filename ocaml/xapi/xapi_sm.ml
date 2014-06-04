@@ -19,7 +19,7 @@
    The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
 
 open Listext
-open Stringext
+open Xstringext
 open Fun
 
 (* We treat versions as '.'-separated integer lists under the usual

@@ -19,7 +19,7 @@
 module D = Debug.Make(struct let name = "db_hiupgrade" end)
 open D
 
-open Stringext
+open Xstringext
 open Pervasiveext
 
 (** The type of an upgrade rule. The rules should ideally be idempotent and composable.
@@ -48,7 +48,7 @@ let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release
 let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
-let augusta = Datamodel.augusta_release_schema_major_vsn, Datamodel.augusta_release_schema_minor_vsn
+let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -406,7 +406,7 @@ let remove_wlb = {
 
 let add_default_pif_properties = {
 	description = "Adding default PIF properties";
-	version = (fun x -> x < augusta);
+	version = (fun x -> x < creedence);
 	fn = fun ~__context ->
 		List.iter
 			(fun self -> Xapi_pif.set_default_properties ~__context ~self)
@@ -447,6 +447,17 @@ let set_vgpu_types = {
 			vgpus;
 }
 
+let remove_restricted_pbd_keys = {
+	description = "Removing restricted legacy PBD.device_config keys";
+	version = (fun x -> x < creedence);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let dc = Db.PBD.get_device_config ~__context ~self in
+			let dc' = List.filter (fun (k, _) -> k <> "SRmaster") dc in
+			Db.PBD.set_device_config ~__context ~self ~value:dc'
+		) (Db.PBD.get_all ~__context)
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -466,6 +477,7 @@ let rules = [
 	set_vgpu_types;
 	remove_wlb;
 	add_default_pif_properties;
+	remove_restricted_pbd_keys;
 ]
 
 (* Maybe upgrade most recent db *)
