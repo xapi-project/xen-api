@@ -9,6 +9,6 @@ BuildTools:  ocamlbuild
 
 Library "xcp-inventory"
   CompiledObject:     best
-  Modules:            Inventory
+  Modules:            Inventory, Xcp_inventory_config
   Path:               lib
   BuildDepends:       uuidm, stdext, threads
