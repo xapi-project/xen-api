@@ -1,3 +1,8 @@
+0.9.37 (4-Jun-2014):
+* Lots of changes!
+* Update to Cohttp 0.11.2
+* Update to Stdext 0.11.0
+
 0.9.24 (10-Sep-2013):
 * update to xenstore 1.2.3
 
