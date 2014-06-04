@@ -24,10 +24,7 @@ function make_header(t) {
 	else
 		title = 'Xapi &ndash; Documentation';
 
-	html = '<h1 style="float:left"><a href="index.html" style="text-decoration: none">'
-		+ title
-		+ '</a></h1><ul id="menu"><li><a href="index.html">XenAPI Docs</a></li>'
-		+ '<li><a href="codedoc.html">Code Docs</a></li></ul>';
+	html = '<h1 style="float:left; font-size: 24px;"><a href="index.html">XenServer Management API</a></h1>'
 	document.getElementById('header').innerHTML = html;
 }
 
@@ -66,6 +63,8 @@ function get_release_name(s)
 	case 'clearwater-felton':
 		return 'XenServer 6.2 SP1 Hotfix 4'
 		break;
+	case 'creedence':
+		return 'XenServer "Creedence"'
 	default:
 		return (s + ' (unreleased)');
 		break;
