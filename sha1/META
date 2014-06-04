@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 01eec012713c50755892eb7a62b3fdfc)
-version = "0.9.3"
+# DO NOT EDIT (digest: 894a657c904b010fbc5b143f2cb80014)
+version = "0.9.6"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "stdext forkexec threads"
 archive(byte) = "sha1.cma"
