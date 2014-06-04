@@ -1,3 +1,13 @@
+0.9.4 (3-Jun-2014):
+* Use oasis for building
+* Update to new stdext interface
+* Fix CA-118425/SCTX-1559: An earlier error could cause problems with VLANs 
+* Enable LACP bonding on linux bridge
+* Fix CA-116420: Bonds were getting incorrect MAC addresses on 3.x kernels
+* Fix CA-120846: Finding MAC addresses for bonds
+* Fix CA-105789: Bridge had incorrect MAC address on first boot
+* Fix CA-121503: Pay attention to return codes from subprocesses (Andrew Cooper)
+
 0.9.3 (24-Sep-2013):
 * Allow the Bond.create to carry on even if the MTU size is invalid
 * network monitor: better represent duplex mode for NIC bonds
