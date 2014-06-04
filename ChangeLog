@@ -1,3 +1,9 @@
+0.9.6 (4-Jun-2014)
+* Fix CPUID functions on ARM to do The Right Thing
+* Update to stdext 0.11.0
+* Add a configurable timeout to the stunnel bindings
+* Set SO_KEEPALIVE on server sockets
+
 0.9.3 (25-Sep-2013):
 * Log to syslog via xcp-idl
 
