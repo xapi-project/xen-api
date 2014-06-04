@@ -1,6 +1,6 @@
 OASISFormat:  0.3
 Name:         tapctl
-Version:      0.1
+Version:      0.9.2
 Synopsis:     Tapdisk control utility
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
