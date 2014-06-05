@@ -24,6 +24,7 @@ let nvidia_vendor_id = 0x10deL
 
 type vgpu_conf = {
 	pdev_id : int64;
+	psubdev_id : int64 option;
 	vdev_id : int64;
 	vsubdev_id : int64;
 	framebufferlength : int64;
@@ -129,21 +130,30 @@ let of_conf_file file_path =
 				| k :: [v] -> (k, v)
 				| _ -> ("", "")
 			) args in
-		Scanf.sscanf (List.assoc "plugin0.pdev_id" args) "\"0x%Lx\"" (fun pdev_id ->
-			(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
-			Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\"" (fun vdev_id vsubdev_id ->
-				Scanf.sscanf (List.assoc "plugin0.max_resolution" args) "%Ldx%Ld" (fun max_x max_y ->
-					let framebufferlength = Int64.of_string
-						(List.assoc "plugin0.framebufferlength" args) in
-					let num_heads = Int64.of_string
-						(List.assoc "plugin0.num_heads" args) in
-					let max_instance = Int64.of_string
-						(List.assoc "plugin0.max_instance" args) in
-							{pdev_id; vdev_id; vsubdev_id; framebufferlength;
-							 num_heads; max_instance; max_x; max_y; file_path}
+		(* plugin0.pdev_id will either be just the physical device id, or of the
+		 * form "device_id:subdevice_id" *)
+		let pdev_id, psubdev_id =
+			let pdev_id_data = (List.assoc "plugin0.pdev_id" args) in
+			try
+				Scanf.sscanf pdev_id_data "\"0x%Lx:0x%Lx\""
+					(fun pdev_id psubdev_id -> pdev_id, Some psubdev_id)
+			with Scanf.Scan_failure _ ->
+				Scanf.sscanf pdev_id_data "\"0x%Lx\""
+					(fun pdev_id -> pdev_id, None)
+		in
+		(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
+		Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\"" (fun vdev_id vsubdev_id ->
+			Scanf.sscanf (List.assoc "plugin0.max_resolution" args) "%Ldx%Ld" (fun max_x max_y ->
+				let framebufferlength = Int64.of_string
+					(List.assoc "plugin0.framebufferlength" args) in
+				let num_heads = Int64.of_string
+					(List.assoc "plugin0.num_heads" args) in
+				let max_instance = Int64.of_string
+					(List.assoc "plugin0.max_instance" args) in
+				{pdev_id; psubdev_id; vdev_id; vsubdev_id; framebufferlength;
+						 num_heads; max_instance; max_x; max_y; file_path}
 				)
 			)
-		)
 	with e ->
 		raise (Parse_error e)
 
