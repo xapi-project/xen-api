@@ -62,7 +62,7 @@ module ParseLspciLine = Generic.Make(struct
 		let string_of_input_t str = str
 		let string_of_output_t pci = Xapi_pci_helpers.(
 			Printf.sprintf
-				"{%s; %Lx; %s; %Lx; %s; %Lx; %s; [%s]}"
+				"{%s; %Lx; %s; %Lx; %s; %Lx; %s; %s; %s; [%s]}"
 				pci.pci_id
 				pci.vendor.id
 				pci.vendor.name
@@ -70,6 +70,12 @@ module ParseLspciLine = Generic.Make(struct
 				pci.device.name
 				pci.pci_class.id
 				pci.pci_class.name
+				(match pci.subsystem_vendor with
+					| Some vendor -> Printf.sprintf "Some {%Lx; %s}" vendor.id vendor.name
+					| None -> "None")
+				(match pci.subsystem_device with
+					| Some device -> Printf.sprintf "Some {%Lx; %s}" device.id device.name
+					| None -> "None")
 				(String.concat "; " pci.related))
 	end
 
