@@ -21,9 +21,12 @@ open Xapi_vgpu_type
 let skip = true
 let k100_path = "/usr/share/nvidia/vgx/grid_k100.conf"
 
-let print_vgpu_conf conf =
-	Printf.printf "%04Lx %04Lx %04Lx %Ld\n"
+let string_of_vgpu_conf conf =
+	Printf.sprintf "%04Lx %04Lx %04Lx %Ld"
 		conf.pdev_id conf.vdev_id conf.vsubdev_id conf.framebufferlength
+
+let print_vgpu_conf conf =
+	Printf.printf "%s\n" (string_of_vgpu_conf conf)
 
 let test_of_conf_file path () =
 	skip_if skip "Generates print...";
