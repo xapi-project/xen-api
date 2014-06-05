@@ -61,17 +61,28 @@ let get_cmd =
   Term.(ret(pure Impl.get $ common_options_t $ filename $ key)),
   Term.info "get" ~sdocs:_common_options ~doc ~man
 
+let filename =
+  let doc = Printf.sprintf "Path to the vhd file." in
+  Arg.(value & pos 0 (some file) None & info [] ~doc)
+
 let info_cmd =
   let doc = "display general information about a vhd" in
   let man = [
     `S "DESCRIPTION";
     `P "Display general information about a vhd, including header and footer fields. This won't directly display block allocation tables or sector bitmaps.";
   ] @ help in
-  let filename =
-    let doc = Printf.sprintf "Path to the vhd file." in
-    Arg.(value & pos 0 (some file) None & info [] ~doc) in
   Term.(ret(pure Impl.info $ common_options_t $ filename)),
   Term.info "info" ~sdocs:_common_options ~doc ~man
+
+let contents_cmd =
+  let doc = "display the contents of the vhd" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Display the contents of the vhd: headers, metadata and data blocks. Everything is displayed in the order it appears in the vhd file, not the order it appears in the virtual disk image itself.";
+  ] @ help in
+  Term.(ret(pure Impl.contents $ common_options_t $ filename)),
+  Term.info "contents" ~sdocs:_common_options ~doc ~man
+  
 
 let create_cmd =
   let doc = "create a dynamic vhd" in
@@ -110,6 +121,10 @@ let source =
 let source_fd =
   let doc = Printf.sprintf "An open-file descriptor pointing to the source disk" in
   Arg.(value & opt (some int) None & info [ "source-fd" ] ~doc)
+
+let source_format =
+  let doc = "Source format" in
+  Arg.(value & opt string "raw" & info [ "source-format" ] ~doc)
 
 let source_protocol =
   let doc = "Transport protocol for the source data." in
@@ -155,11 +170,12 @@ let serve_cmd =
     `P "EXAMPLES";
     `P " vhd-tool serve --source fd:5 --source-protocol=chunked --destination file:///foo.raw --destination-format raw";
     `P " vhd-tool serve --source fd:5 --source-protocol=nbd --destination file:///foo.raw --destination-format raw";
+    `P " vhd-tool serve --source fd:5 --source-format=vhd --source-protocol=none --destination file:///foo.raw --destination-format raw";
   ] in
   let ignore_checksums =
     let doc = "Do not verify checksums" in
     Arg.(value & flag & info ["ignore-checksums"] ~doc) in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_protocol $ destination $ destination_fd $ destination_format $ destination_size $ prezeroed $ progress $ machine $ tar_filename_prefix $ ignore_checksums)),
+  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_format $ source_protocol $ destination $ destination_fd $ destination_format $ destination_size $ prezeroed $ progress $ machine $ tar_filename_prefix $ ignore_checksums)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =
@@ -205,9 +221,6 @@ let stream_cmd =
     `S "EXAMPLES";
     `P "  $(tname) stream --source=foo.vhd --source-format=vhd --destination-format=raw --destination=http://user:password@xenserver/import_raw_vdi?vdi=<uuid>";
   ] @ help in
-  let source_format =
-    let doc = "Source format" in
-    Arg.(value & opt string "raw" & info [ "source-format" ] ~doc) in
   let source =
     let doc = Printf.sprintf "The disk to be streamed" in
     Arg.(value & opt string "stdin:" & info [ "source" ] ~doc) in
@@ -229,7 +242,7 @@ let default_cmd =
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [info_cmd; get_cmd; create_cmd; check_cmd; serve_cmd; stream_cmd]
+let cmds = [info_cmd; contents_cmd; get_cmd; create_cmd; check_cmd; serve_cmd; stream_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
