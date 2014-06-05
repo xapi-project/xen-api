@@ -110,6 +110,30 @@ module ParseLspciLine = Generic.Make(struct
 			subsystem_device = None;
 			related = []
 		});
+		(* Test that a device present in pci.ids with an unknown subsystem device
+		 * ID can be parsed. *)
+		"0000:0a:00.0 \"0001\" \"0003\" \"0001\" -ra1 \"0001\" \"0123\"",
+		Xapi_pci_helpers.({
+			pci_id = "0000:0a:00.0";
+			vendor = {id = 0x0003L; name = "SimpleVendorName3"};
+			device = {id = 0x0001L; name = "SimpleDeviceName-3-1"};
+			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = Some {id = 0x0001L; name = "SimpleVendorName1"};
+			subsystem_device = Some {id = 0x0123L; name = "Unknown (0123)"};
+			related = [];
+		});
+		(* Test that a device present in pci.ids with an unknown subsystem vendor
+		 * ID and an unknown subsystem device ID can be parsed. *)
+		"0000:0a:00.0 \"0001\" \"0003\" \"0001\" -ra1 \"0123\" \"0123\"",
+		Xapi_pci_helpers.({
+			pci_id = "0000:0a:00.0";
+			vendor = {id = 0x0003L; name = "SimpleVendorName3"};
+			device = {id = 0x0001L; name = "SimpleDeviceName-3-1"};
+			pci_class = {id = 0x00L; name = "Class Name"};
+			subsystem_vendor = Some {id = 0x0123L; name = "Unknown (0123)"};
+			subsystem_device = Some {id = 0x0123L; name = "Unknown (0123)"};
+			related = [];
+		});
 		(* Test that a device not preset in pci.ids can be parsed. *)
 		"0000:46:00.0 \"0001\" \"0055\" \"abcd\" -ra1 \"\" \"\"",
 		Xapi_pci_helpers.({
