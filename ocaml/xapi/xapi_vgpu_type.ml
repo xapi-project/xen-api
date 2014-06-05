@@ -122,7 +122,7 @@ let of_conf_file file_path =
 		let args = List.filter
 			(fun s -> not (String.startswith "#" s || s = "")) conf in
 		let args = List.map (String.strip String.isspace) args in
-		(* Expeciting space separated key value entries *)
+		(* Expecting space separated key value entries *)
 		let args = List.map
 			(fun s ->
 				match (String.split ' ' s ~limit:2) with
