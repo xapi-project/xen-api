@@ -22,7 +22,7 @@ Executable list_domains
   CompiledObject:     best
   Path:               list_domains
   MainIs:             list_domains.ml
-  Install:            true
+  Install:            false
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       xenops
