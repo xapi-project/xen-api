@@ -22,8 +22,14 @@ let skip = true
 let k100_path = "/usr/share/nvidia/vgx/grid_k100.conf"
 
 let string_of_vgpu_conf conf =
-	Printf.sprintf "%04Lx %04Lx %04Lx %Ld"
-		conf.pdev_id conf.vdev_id conf.vsubdev_id conf.framebufferlength
+	Printf.sprintf "%04Lx %s %04Lx %04Lx %Ld"
+		conf.pdev_id
+		(match conf.psubdev_id with
+			| Some id -> Printf.sprintf "Some %04Lx" id
+			| None -> "None")
+		conf.vdev_id
+		conf.vsubdev_id
+		conf.framebufferlength
 
 let print_vgpu_conf conf =
 	Printf.printf "%s\n" (string_of_vgpu_conf conf)
