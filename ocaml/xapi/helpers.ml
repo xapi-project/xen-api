@@ -85,6 +85,68 @@ let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
 	Db.Host.get_by_uuid ~__context ~uuid
 
+(* Determine the gateway and DNS PIFs:
+ * If one of the PIFs with IP has other_config:defaultroute=true, then
+ * pick this one as gateway PIF. If there are multiple, pick a random one of these.
+ * If there are none, then pick the management interface. If there is no management
+ * interface, pick a random PIF.
+ * Similarly for the DNS PIF, but with other_config:peerdns. *)
+let determine_gateway_and_dns_ifs ~__context ?(management_interface : API.ref_PIF option) () =
+	let localhost = get_localhost ~__context in
+	let ip_pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+			Not (Eq (Field "ip_configuration_mode", Literal "None")))) in
+	if ip_pifs = [] then
+		None, None
+	else
+		let gateway_pif, gateway_rc =
+			let oc = List.filter (fun (_, r) ->
+				List.mem_assoc "defaultroute" r.API.pIF_other_config &&
+				List.assoc "defaultroute" r.API.pIF_other_config = "true"
+			) ip_pifs in
+			match oc with
+			| (ref, rc) :: tl ->
+				if tl <> [] then
+					warn "multiple PIFs with other_config:defaultroute=true - choosing %s" rc.API.pIF_device;
+				(ref, rc)
+			| [] ->
+				match management_interface with
+				| Some pif -> let rc = Db.PIF.get_record ~__context ~self:pif in (pif, rc)
+				| None ->
+					let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
+					match mgmt with
+					| (ref, rc) :: _ -> (ref, rc)
+					| [] ->
+						let (ref, rc) = List.hd ip_pifs in
+						warn "no gateway PIF found - choosing %s" rc.API.pIF_device;
+						(ref, rc)
+		in
+		let dns_pif, dns_rc =
+			let oc = List.filter (fun (_, r) ->
+				List.mem_assoc "peerdns" r.API.pIF_other_config &&
+				List.assoc "peerdns" r.API.pIF_other_config = "true"
+			) ip_pifs in
+			match oc with
+			| (ref, rc) :: tl ->
+				if tl <> [] then
+					warn "multiple PIFs with other_config:peerdns=true - choosing %s" rc.API.pIF_device;
+				(ref, rc)
+			| [] ->
+				match management_interface with
+				| Some pif -> let pif_rc = Db.PIF.get_record ~__context ~self:pif in (pif, pif_rc)
+				| None ->
+					let mgmt = List.filter (fun (_, r) -> r.API.pIF_management) ip_pifs in
+					match mgmt with
+					| (ref, rc) :: _ -> (ref, rc)
+					| [] ->
+						let (ref, rc) = List.hd ip_pifs in
+						warn "no DNS PIF found - choosing %s" rc.API.pIF_device;
+						(ref, rc)
+		in
+		let gateway_bridge = Db.Network.get_bridge ~__context ~self:gateway_rc.API.pIF_network in
+		let dns_bridge = Db.Network.get_bridge ~__context ~self:dns_rc.API.pIF_network in
+		Some (gateway_pif, gateway_bridge), Some (dns_pif, dns_bridge)
+
 let update_pif_address ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
 	let bridge = Db.Network.get_bridge ~__context ~self:network in
@@ -112,6 +174,26 @@ let update_pif_address ~__context ~self =
 	with _ ->
 		debug "Bridge %s is not up; not updating IP" bridge
 
+let set_gateway ~__context ~pif ~bridge =
+	let dbg = Context.string_of_task __context in
+	try
+			match Net.Interface.get_ipv4_gateway dbg bridge with
+			| Some addr -> Db.PIF.set_gateway ~__context ~self:pif ~value:(Unix.string_of_inet_addr addr)
+			| None -> ()
+	with _ ->
+		warn "Unable to get the gateway of PIF %s (%s)" (Ref.string_of pif) bridge
+
+let set_DNS ~__context ~pif ~bridge =
+	let dbg = Context.string_of_task __context in
+	try
+			match Net.Interface.get_dns dbg bridge with
+			| (nameservers, _) when nameservers != [] ->
+				let dns = String.concat "," (List.map (Unix.string_of_inet_addr) nameservers) in
+				Db.PIF.set_DNS ~__context ~self:pif ~value:dns;
+			| _ -> ()
+	with _ ->
+		warn "Unable to get the dns of PIF %s (%s)" (Ref.string_of pif) bridge
+
 let update_pif_addresses ~__context =
 	debug "Updating IP addresses in DB for DHCP and autoconf PIFs";
 	let host = get_localhost ~__context in
@@ -127,6 +209,9 @@ let update_pif_addresses ~__context =
 			)
 		)
 	) in
+	let gateway_if, dns_if = determine_gateway_and_dns_ifs ~__context () in
+	Opt.iter (fun (pif, bridge) -> set_gateway ~__context ~pif ~bridge) gateway_if;
+	Opt.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if;
 	List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
 let make_rpc ~__context rpc : Rpc.response =
