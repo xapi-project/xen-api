@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6dce1a9a50f608514e51caf58ef0ebc9)
+# DO NOT EDIT (digest: 25ce055fb4cc4259cfd4fd1e986a20f1)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -32,6 +32,7 @@
 "lib/link_stubs.c": pkg_xcp.network
 # Executable xcp_networkd
 <networkd/networkd.{native,byte}>: pkg_forkexec
+<networkd/networkd.{native,byte}>: pkg_netlink
 <networkd/networkd.{native,byte}>: pkg_rpclib
 <networkd/networkd.{native,byte}>: pkg_rpclib.unix
 <networkd/networkd.{native,byte}>: pkg_stdext
@@ -42,6 +43,7 @@
 <networkd/networkd.{native,byte}>: pkg_xen-api-client
 <networkd/networkd.{native,byte}>: use_networklibs
 <networkd/*.ml{,i}>: pkg_forkexec
+<networkd/*.ml{,i}>: pkg_netlink
 <networkd/*.ml{,i}>: pkg_rpclib
 <networkd/*.ml{,i}>: pkg_rpclib.unix
 <networkd/*.ml{,i}>: pkg_stdext
