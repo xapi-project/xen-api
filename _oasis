@@ -22,7 +22,7 @@ Executable xcp_networkd
   MainIs:             networkd.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network
+  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network, netlink
 
 Executable networkd_db
   CompiledObject:     best
