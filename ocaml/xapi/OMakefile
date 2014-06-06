@@ -11,7 +11,8 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../auth ../license ../client_records ../rfb ../gpg ..
 
 UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate \
-          xapi_services system_domains cancel_tests config_file_sync updates)
+          xapi_services system_domains cancel_tests config_file_sync updates \
+          vhd_tool_wrapper)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -77,6 +78,7 @@ XAPI_MODULES = $(COMMON) \
 	updates \
 	storage_task \
 	storage_access \
+	vhd_tool_wrapper \
 	storage_mux \
 	storage_migrate \
 	storage_proxy \
@@ -190,6 +192,7 @@ XAPI_MODULES = $(COMMON) \
 	cli_util \
 	cli_key \
 	cli_printer \
+	cli_progress_bar \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
