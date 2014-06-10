@@ -174,11 +174,11 @@ let read_config_dir conf_dir =
 	read_configs []
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
-let relevant_vgpu_types pci_db pci_dev_ids =
+let relevant_vgpu_types pci_db pci_dev_id =
 	let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 	let relevant_vgpu_confs =
 		List.filter
-			(fun c -> List.mem c.pdev_id pci_dev_ids)
+			(fun c -> c.pdev_id = pci_dev_id)
 			vgpu_confs
 	in
 	debug "Relevant confs = [ %s ]"
@@ -222,8 +222,8 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 
 let find_or_create_supported_types ~__context ~pci_db pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
-	debug "dev_ids = [ %s ]" (Printf.sprintf "%04Lx" dev_id);
-	let relevant_types = relevant_vgpu_types pci_db [dev_id] in
+	debug "dev_id = %s" (Printf.sprintf "%04Lx" dev_id);
+	let relevant_types = relevant_vgpu_types pci_db dev_id in
 	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
 			(List.map (fun vt -> vt.model_name) relevant_types));
