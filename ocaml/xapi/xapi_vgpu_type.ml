@@ -174,11 +174,25 @@ let read_config_dir conf_dir =
 	read_configs []
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
-let relevant_vgpu_types pci_db pci_dev_id =
+let relevant_vgpu_types pci_db pci_dev_id subsystem_device_id =
 	let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 	let relevant_vgpu_confs =
 		List.filter
-			(fun c -> c.pdev_id = pci_dev_id)
+			(fun c ->
+				let device_id_matches = (c.pdev_id = pci_dev_id) in
+				let subsystem_device_id_matches =
+					(* If the config file doesn't specify a physical subdevice ID, then
+					 * the config file is valid for this device no matter the device's
+					 * subsystem device ID.
+					 *
+					 * If the config file does specify a physical subdevice ID, then the
+					 * corresponding ID of the card must match. *)
+					match subsystem_device_id, c.psubdev_id with
+					| _, None -> true
+					| None, Some _ -> false
+					| Some device_id, Some conf_id -> device_id = conf_id
+				in
+				device_id_matches && subsystem_device_id_matches)
 			vgpu_confs
 	in
 	debug "Relevant confs = [ %s ]"
@@ -222,8 +236,13 @@ let relevant_vgpu_types pci_db pci_dev_id =
 
 let find_or_create_supported_types ~__context ~pci_db pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
+	let subsystem_dev_id =
+		match Db.PCI.get_subsystem_device_id ~__context ~self:pci with
+		| "" -> None
+		| id_string -> Some (Xapi_pci.int_of_id id_string)
+	in
 	debug "dev_id = %s" (Printf.sprintf "%04Lx" dev_id);
-	let relevant_types = relevant_vgpu_types pci_db dev_id in
+	let relevant_types = relevant_vgpu_types pci_db dev_id subsystem_dev_id in
 	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
 			(List.map (fun vt -> vt.model_name) relevant_types));
