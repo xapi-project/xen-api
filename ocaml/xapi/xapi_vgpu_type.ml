@@ -181,9 +181,18 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 			(fun c -> List.mem c.pdev_id pci_dev_ids)
 			vgpu_confs
 	in
-	debug "Relevant confs = [ %s ]" (String.concat "; " (List.map (fun c ->
-		Printf.sprintf "{pdev_id:%04Lx; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
-		c.pdev_id c.vdev_id c.vsubdev_id c.framebufferlength) relevant_vgpu_confs));
+	debug "Relevant confs = [ %s ]"
+		(String.concat "; " (List.map (fun c ->
+			Printf.sprintf
+				"{pdev_id:%04Lx; psubdev_id:%s; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
+				c.pdev_id
+				(match c.psubdev_id with
+					| None -> "Any"
+					| Some id -> Printf.sprintf "%04Lx" id)
+				c.vdev_id
+				c.vsubdev_id
+				c.framebufferlength)
+			relevant_vgpu_confs));
 	let rec build_vgpu_types pci_db ac = function
 		| [] -> ac
 		| conf::tl ->
