@@ -38,7 +38,7 @@ let parse_lspci_line pci_db line =
 	let fields = String.split ' ' line in
 	let fields = List.filter (fun s -> not (String.startswith "-" s)) fields in
 	Scanf.sscanf (String.concat " " fields)
-		"%s \"%s@\" \"%Lx@\" \"%Lx@\" \"%s@\" \"%s@\""
+		"%s \"%s@\" \"%Lx\" \"%Lx\" \"%s@\" \"%s@\""
 		(fun pci_id class_subclass vendor_id device_id
 				subsystem_vendor_id subsystem_device_id ->
 			let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
