@@ -260,9 +260,6 @@ module DB = struct
 	end)
 end
 
-(* Used to signal when work needs to be done on a VM *)
-let updates = Updates.empty ()
-
 let event_wait task timeout p =
 	let finished = ref false in
 	let success = ref false in
