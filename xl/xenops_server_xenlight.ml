@@ -260,18 +260,6 @@ module DB = struct
 	end)
 end
 
-let event_wait task timeout p =
-	let finished = ref false in
-	let success = ref false in
-	let event_id = ref None in
-	while not !finished do
-		let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) !event_id timeout updates in
-		if deltas = [] then finished := true;
-		List.iter (fun d -> if p d then (success := true; finished := true)) deltas;
-		event_id := Some next_id;
-	done;
-	!success
-
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
 	try
