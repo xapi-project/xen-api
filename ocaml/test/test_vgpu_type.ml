@@ -14,23 +14,66 @@
 
 open OUnit
 open Test_common
+open Test_highlevel
 open Test_vgpu_common
 open Xapi_vgpu_type
 
-(* This test generates a lot of print --- set skip to false to enable *)
-let skip = true
-let k100_path = "/usr/share/nvidia/vgx/grid_k100.conf"
+let string_of_vgpu_conf conf =
+	Printf.sprintf "%04Lx %s %04Lx %04Lx %Ld"
+		conf.pdev_id
+		(match conf.psubdev_id with
+			| Some id -> Printf.sprintf "Some %04Lx" id
+			| None -> "None")
+		conf.vdev_id
+		conf.vsubdev_id
+		conf.framebufferlength
 
 let print_vgpu_conf conf =
-	Printf.printf "%04Lx %04Lx %04Lx %Ld\n"
-		conf.pdev_id conf.vdev_id conf.vsubdev_id conf.framebufferlength
+	Printf.printf "%s\n" (string_of_vgpu_conf conf)
 
-let test_of_conf_file path () =
-	skip_if skip "Generates print...";
-	if (Sys.file_exists path && not (Sys.is_directory path)) then begin
-		let vgpu_conf = of_conf_file path in
-		print_vgpu_conf vgpu_conf
+module OfConfFile = Generic.Make(struct
+	module Io = struct
+		type input_t = string
+		type output_t = vgpu_conf
+
+		let string_of_input_t x = x
+		let string_of_output_t = string_of_vgpu_conf
 	end
+
+	let transform = of_conf_file
+
+	let tests = [
+		"ocaml/test/data/test_vgpu_subdevid.conf",
+		{
+			pdev_id = 0x3333L;
+			psubdev_id = Some 0x4444L;
+			vdev_id = 0x1111L;
+			vsubdev_id = 0x2222L;
+			framebufferlength = 0x10000000L;
+			num_heads = 2L;
+			max_instance = 8L;
+			max_x = 1920L;
+			max_y = 1200L;
+			file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
+		};
+		"ocaml/test/data/test_vgpu_nosubdevid.conf",
+		{
+			pdev_id = 0x3333L;
+			psubdev_id = None;
+			vdev_id = 0x1111L;
+			vsubdev_id = 0x2222L;
+			framebufferlength = 0x10000000L;
+			num_heads = 2L;
+			max_instance = 8L;
+			max_x = 1920L;
+			max_y = 1200L;
+			file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
+		};
+	]
+end)
+
+(* This test generates a lot of print --- set skip to false to enable *)
+let skip = true
 
 let print_nv_types () =
 	skip_if skip "Generates print...";
@@ -91,7 +134,7 @@ let test_find_or_create () =
 let test =
 	"test_vgpu_type" >:::
 		[
-			"test_of_conf_file" >:: test_of_conf_file k100_path;
+			"test_of_conf_file" >:: OfConfFile.test;
 			"print_nv_types" >:: print_nv_types;
 			"test_find_or_create" >:: test_find_or_create;
 		]
