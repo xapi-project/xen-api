@@ -58,7 +58,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 	let frontend_path = frontend_path_of_device ~xs device
 	and backend_path = backend_path_of_device ~xs device
 	and hotplug_path = Hotplug.get_hotplug_path device
-	and private_data_path = Hotplug.get_private_data_path_of_device device in
+	and private_data_path = Device_common.get_private_data_path_of_device device in
 
 	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_path hotplug_path;
 	Xs.transaction xs (fun t ->
@@ -104,7 +104,7 @@ let add_device ~xs device backend_list frontend_list private_list =
 	)
 
 let get_private_key ~xs device x =
-	let private_data_path = Hotplug.get_private_data_path_of_device device in
+	let private_data_path = Device_common.get_private_data_path_of_device device in
 	let key = private_data_path ^ "/" ^x in
 	try
 		xs.Xs.read key
@@ -770,7 +770,7 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 	Hotplug.release task ~xs x
 
 let move ~xs (x: device) bridge =
-	let xs_bridge_path = Hotplug.get_private_data_path_of_device x ^ "/bridge" in
+	let xs_bridge_path = Device_common.get_private_data_path_of_device x ^ "/bridge" in
 	xs.Xs.write xs_bridge_path bridge;
 	let domid = string_of_int x.frontend.domid in
 	let devid = string_of_int x.frontend.devid in
