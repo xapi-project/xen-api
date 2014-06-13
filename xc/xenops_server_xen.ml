@@ -112,29 +112,6 @@ module DB = struct
 	end)
 end
 
-(* Used to signal when work needs to be done on a VM *)
-let updates = Updates.empty ()
-
-let event_wait task timeout p =
-	let start = Unix.gettimeofday () in
-	let rec inner remaining event_id =
-		if (remaining > 0.0) then begin
-			let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id) 
-				~with_cancel:(Xenops_task.with_cancel task) event_id (Some (remaining |> ceil |> int_of_float)) updates in
-			let success = List.fold_left (fun acc d -> acc || (p d)) false deltas in
-			let finished = success || deltas = [] in
-			if not finished
-			then
-				let elapsed = Unix.gettimeofday () -. start in
-				inner (timeout -. elapsed) (Some next_id)
-			else
-				success
-		end else false
-	in 
-	let result = inner timeout None in
-	Xenops_task.check_cancelling task;
-	result
-
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
 	try

@@ -1448,10 +1448,19 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| None -> one op
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
-let queue_operation dbg id op =
+let queue_operation_int dbg id op =
 	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
 	Redirector.push id (op, task);
+	task
+
+let queue_operation dbg id op =
+	let task = queue_operation_int dbg id op in
 	task.Xenops_task.id
+
+let queue_operation_and_wait dbg id op =
+	let from = Updates.last_id dbg updates in
+	let task = queue_operation_int dbg id op in
+	event_wait task ~from 1200.0 (task_finished_p task.Xenops_task.id)
 
 module PCI = struct
 	open Pci
@@ -1670,7 +1679,7 @@ module VM = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let remove _ dbg id = immediate_operation dbg id (Atomic(VM_remove id))
+	let remove _ dbg id = queue_operation_and_wait dbg id (Atomic (VM_remove id)) |> ignore
 
 	let stat' x =
 		debug "VM.stat %s" x;
