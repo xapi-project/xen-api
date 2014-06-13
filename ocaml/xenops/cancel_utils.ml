@@ -40,24 +40,24 @@ let string_of = function
 let cancel_path_of ~xs = function
 	| Device device ->
 		(* Device operations can be cancelled separately *)
-		backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
+		Printf.sprintf "%s/xenops/cancel" (get_private_data_path_of_device device)
 	| Domain domid ->
-		Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/xenops/cancel" (get_private_path domid)
 	| Qemu (backend, frontend) ->
 		(* Domain and qemu watches are considered to be domain-global *)
-		Printf.sprintf "%s/cancel" (Device_common.device_model_path ~qemu_domid:backend frontend)
+		Printf.sprintf "%s/device-model/xenops/cancel" (get_private_path frontend)
 	| Vgpu domid ->
-		Printf.sprintf "%s/vgpu/cancel" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/vgpu/xenops/cancel" (get_private_path domid)
 	| TestPath x -> x
 
 let domain_shutdown_path_of ~xs = function
-	| Device device -> frontend_path_of_device ~xs device ^ "/tools/xenops/shutdown"
-	| Domain domid -> Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath domid)
+	| Device device -> Printf.sprintf "%s/xenops/shutdown" (get_private_data_path_of_device device)
+	| Domain domid -> Printf.sprintf "%s/xenops/shutdown" (get_private_path domid)
 	| Qemu (backend, _) ->
 		(* We only need to cancel when the backend domain shuts down. It will
 		   break suspend if we cancel when the frontend shuts down. *)
-		Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath backend)
-	| Vgpu domid -> Printf.sprintf "%s/vgpu/shutdown" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/device-model/xenops/shutdown" (get_private_path backend)
+	| Vgpu domid -> Printf.sprintf "%s/vgpu/xenops/shutdown" (get_private_path domid)
 	| TestPath x -> x
 
 let watches_of ~xs key = [
