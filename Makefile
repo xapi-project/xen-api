@@ -39,7 +39,11 @@ ifeq ($(DISABLE_TESTS),false)
 	@make test
 endif
 
-.PHONY: phase3
+.PHONY: phase1 phase2 phase3
+phase1:
+	omake phase1
+phase2:
+	omake phase2
 phase3:
 	omake phase3
 
