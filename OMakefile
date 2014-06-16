@@ -1,3 +1,6 @@
+OMakeFlags(--no-S)
+OMakeFlags(--no--progress)
+
 SCRIPTS=$(shell pwd)/scripts
 IPROG=$(SCRIPTS)/install.sh 755
 IDATA=$(SCRIPTS)/install.sh 644
