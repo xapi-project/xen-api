@@ -492,7 +492,7 @@ let device_by_id xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Hotplug.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
+				let path = Device_common.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
@@ -715,7 +715,7 @@ module VBD = struct
 
 	let write_private backend_domid vm devid private_list =
 		with_xs (fun xs ->
-			let private_data_path = Hotplug.get_private_data_path_of_device' vm "vbd" devid in
+			let private_data_path = Device_common.get_private_data_path_of_device' vm "vbd" devid in
 			Xs.transaction xs (fun t ->
 				t.Xst.mkdir private_data_path;
 				t.Xst.setperms private_data_path
@@ -1250,7 +1250,7 @@ module VIF = struct
 
 	let write_private backend_domid vm devid private_list =
 		with_xs (fun xs ->
-			let private_data_path = Hotplug.get_private_data_path_of_device' vm "vif" devid in
+			let private_data_path = Device_common.get_private_data_path_of_device' vm "vif" devid in
 			Xs.transaction xs (fun t ->
 				t.Xst.mkdir private_data_path;
 				t.Xst.setperms private_data_path
@@ -1430,7 +1430,7 @@ module VIF = struct
 			(fun xs ->
 				(* If the device is gone then this is ok *)
 				let device = device_by_id xs vm Vif Newest (id_of vif) in
-				let path = Hotplug.get_private_data_path_of_device device in
+				let path = Device_common.get_private_data_path_of_device device in
 				(* Delete the old keys *)
 				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
@@ -1551,7 +1551,7 @@ let with_disk ~xs task disk write f = match disk with
 			(fun () -> dp_destroy task dp)
 
 let get_private_key ~xs vm kind devid x =
-	let private_data_path = Hotplug.get_private_data_path_of_device' vm kind devid in
+	let private_data_path = Device_common.get_private_data_path_of_device' vm kind devid in
 	let key = private_data_path ^ "/" ^x in
 	try
 		xs.Xs.read key
@@ -1770,8 +1770,8 @@ module VM = struct
 		let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg in
 		let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x in
 		if not multiple then
-			log_exn_rm ~xs (Hotplug.get_private_path' vm.id);
-		log_exn_rm ~xs (Hotplug.get_private_path domid);
+			log_exn_rm ~xs (Device_common.get_private_path' vm.id);
+		log_exn_rm ~xs (Device_common.get_private_path domid);
 
 		(* Detach any remaining disks *)
 		List.iter (fun dp ->

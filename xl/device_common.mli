@@ -49,6 +49,11 @@ val backend_pause_token_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_state_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
+val get_private_path : Xenctrl.domid -> string
+val get_private_path' : string -> string
+val get_private_data_path_of_device : device -> string
+val get_private_data_path_of_device' : string -> string -> devid -> string
+
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string
 val string_of_kind : kind -> string

@@ -45,23 +45,6 @@ exception Loopdev_all_busy
    problems) but we still need to be able to synchronise with the kernel (definitely
    for unplug, not sure about plug) *)
 
-(* We store some transient data elsewhere in xenstore to avoid it getting
-   deleted by accident when a domain shuts down. We should always zap this
-   tree on boot. *)
-let private_path = "/xapi"
-
-(* The private data path is only used by xapi and ignored by frontend and backend *)
-let get_private_path domid = sprintf "%s/%d" private_path domid
-
-(* The private data path is only used by xapi and ignored by frontend and backend *)
-let get_private_path' vm = sprintf "%s/%s" private_path vm
-
-let get_private_data_path_of_device (x: device) = 
-	sprintf "%s/private/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
-
-let get_private_data_path_of_device' vm kind devid =
-	sprintf "%s/private/%s/%d" (get_private_path' vm) kind devid
-
 (* Path in xenstore where we stuff our transient hotplug-related stuff *)
 let get_hotplug_path (x: device) =
 	sprintf "%s/hotplug/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
