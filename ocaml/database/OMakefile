@@ -41,6 +41,6 @@ sdk-install: install
 
 .PHONY: clean
 clean:
-	rm -f *.cmo *.cmi *.cmx *.o *.cmx *.cma *.cmxa xenEnterpriseAPI* gen gen.opt *.omc *.annot db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml
-	rm -f block_device_io unit_test_marshall block_device_io.opt unit_test_marshall.opt
+	rm -f $(CLEAN_OBJS) xenEnterpriseAPI* gen gen.opt db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml
+	rm -f block_device_io unit_test_marshall block_device_io.opt unit_test_marshall.opt database_test
 

@@ -294,6 +294,6 @@ install:
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
 	rm -f config_constants.ml
-	rm -f binpack xapi_unit_test monitor_fake_plugin rrddump quicktestbin
+	rm -f binpack xapi_unit_test storage_impl_test monitor_fake_plugin rrddump quicktestbin
 
 

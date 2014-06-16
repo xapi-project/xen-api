@@ -52,4 +52,8 @@ OCAML_OBJS = \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS) suite
+
 .DEFAULT: suite

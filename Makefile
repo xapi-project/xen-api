@@ -93,7 +93,8 @@ clean:
 	omake clean
 	omake lib-uninstall
 	rm -rf dist/staging
-	rm -f .omakedb .omakedb.lock xapi.spec
+	rm -f .omakedb .omakedb.lock xapi.spec version.ml
+	find -name '*.omc' -delete
 
 .PHONY: otags
 otags:
