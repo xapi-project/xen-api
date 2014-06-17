@@ -343,11 +343,21 @@ let timeout_tasks ~__context =
 			(fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status)
 			all_tasks in
 
+	(* Any task that was incomplete at the point someone called Task.destroy
+	   will have `destroy in its current_operations. If they're now complete, 
+	   we can Kill these immediately *)
+	let completed_destroyable, completed_gcable =
+	  List.partition
+	    (fun (_, t) -> List.exists (fun (_,op) -> op = `destroy) t.Db_actions.task_current_operations)
+	    completed in
+
+	List.iter (fun (t, _) -> Db.Task.destroy ~__context ~self:t) completed_destroyable;
+
 	let completed_old, completed_young =
 		List.partition
 			(fun (_, t) ->
 				Date.to_float t.Db_actions.task_finished < oldest_completed_time)
-			completed in
+			completed_gcable in
 
 	let pending_old, pending_young =
 		List.partition
