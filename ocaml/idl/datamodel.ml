@@ -3471,7 +3471,8 @@ let status_type = Enum("task_status_type", [ "pending", "task is in progress";
 					     "success", "task was completed successfully";
 					     "failure", "task has failed";
 					     "cancelling", "task is being cancelled";
-					     "cancelled", "task has been cancelled" ])
+					     "cancelled", "task has been cancelled";
+					     ])
 
 
 let task_cancel = call
@@ -3508,7 +3509,7 @@ let task_destroy = call ~flags:[`Session]
 let extra_permission_task_destroy_any = "task.destroy/any"
 
 let task_allowed_operations =
-  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel ])
+  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel; task_destroy ])
 
 let task = 
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true

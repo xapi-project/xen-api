@@ -251,7 +251,8 @@ let cpu_feature_list_to_string list =
 
 let task_allowed_operations_to_string s =
   match s with
-      `cancel -> "Cancel"
+  | `cancel -> "Cancel"
+  | `destroy -> "Destroy"
 
 let alert_level_to_string s =
   match s with
