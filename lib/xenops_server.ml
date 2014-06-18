@@ -1460,7 +1460,7 @@ let queue_operation dbg id op =
 let queue_operation_and_wait dbg id op =
 	let from = Updates.last_id dbg updates in
 	let task = queue_operation_int dbg id op in
-	event_wait task ~from 1200.0 (task_finished_p task.Xenops_task.id)
+	event_wait updates task ~from 1200.0 (task_finished_p task.Xenops_task.id)
 
 module PCI = struct
 	open Pci
