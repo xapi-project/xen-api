@@ -113,6 +113,10 @@ module DB = struct
 	end)
 end
 
+(* These updates are local plugin updates, distinct from those that are
+   exposed via the UPDATES API *)
+let internal_updates = Updates.empty ()
+
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
 	try
@@ -2156,7 +2160,7 @@ module VIF = struct
 end
 
 module UPDATES = struct
-	let get last timeout = Updates.get "UPDATES.get" last timeout updates
+	let get last timeout = Updates.get "UPDATES.get" last timeout internal_updates
 end
 
 module IntMap = Map.Make(struct type t = int let compare = compare end)
@@ -2205,7 +2209,7 @@ module Actions = struct
 		domid > 0 && not (DB.exists id)
 
 	let found_running_domain domid id =
-		Updates.add (Dynamic.Vm id) updates
+		Updates.add (Dynamic.Vm id) internal_updates
 
 	let device_watches = ref IntMap.empty
 
@@ -2262,7 +2266,7 @@ module Actions = struct
 				let di = IntMap.find d domains in
 				let open Xenctrl.Domain_info in
 				let id = Uuid.uuid_of_int_array di.handle |> Uuid.string_of_uuid in
-				Updates.add (Dynamic.Vm id) updates in
+				Updates.add (Dynamic.Vm id) internal_updates in
 
 		let fire_event_on_device domid kind devid =
 			let d = int_of_string domid in
@@ -2281,7 +2285,7 @@ module Actions = struct
 					| x ->
 						debug "Unknown device kind: '%s'" x;
 						None in
-				Opt.iter (fun x -> Updates.add x updates) update in
+				Opt.iter (fun x -> Updates.add x internal_updates) update in
 
 		match List.filter (fun x -> x <> "") (String.split '/' path) with
 			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
@@ -2298,7 +2302,7 @@ module Actions = struct
 						(* Store the rtc/timeoffset for migrate *)
 						store_rtc_timeoffset uuid timeoffset;
 						(* Tell the higher-level toolstack about this too *)
-						Updates.add (Dynamic.Vm uuid) updates
+						Updates.add (Dynamic.Vm uuid) internal_updates
 					) timeoffset
 			| _  -> debug "Ignoring unexpected watch: %s" path
 end
