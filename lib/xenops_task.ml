@@ -6,12 +6,12 @@ module Updates = Updates.Updates(Xenops_interface)
 let updates = Updates.empty ()
 let tasks = Xenops_task.empty ()
 
-let event_wait task ?from timeout p =
+let event_wait local_updates task ?from timeout p =
 	let start = Unix.gettimeofday () in
 	let rec inner remaining event_id =
 		if (remaining > 0.0) then begin
 			let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id)
-				~with_cancel:(Xenops_task.with_cancel task) event_id (Some (remaining |> ceil |> int_of_float)) updates in
+				~with_cancel:(Xenops_task.with_cancel task) event_id (Some (remaining |> ceil |> int_of_float)) local_updates in
 			let success = List.fold_left (fun acc d -> acc || (p d)) false deltas in
 			let finished = success || deltas = [] in
 			if not finished

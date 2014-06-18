@@ -1122,7 +1122,7 @@ module VM = struct
 			) Oldest task vm
 
 	let wait_shutdown task vm reason timeout =
-		event_wait task timeout
+		event_wait internal_updates task timeout
 			(function
 				| Dynamic.Vm id when id = vm.Vm.id ->
 					debug "EVENT on our VM: %s" id;
