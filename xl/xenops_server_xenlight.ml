@@ -260,6 +260,8 @@ module DB = struct
 	end)
 end
 
+let internal_updates = Updates.empty ()
+
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
 	try
@@ -2526,7 +2528,7 @@ module VM = struct
 end
 
 module UPDATES = struct
-	let get last timeout = Updates.get "UPDATES.get" last timeout updates
+	let get last timeout = Updates.get "UPDATES.get" last timeout internal_updates
 end
 
 let _introduceDomain = "@introduceDomain"
@@ -2666,7 +2668,7 @@ let look_for_different_domains xc xs =
 				end;
 			end else begin
 				ShutdownWatchers.broadcast domid;
-				Updates.add (Dynamic.Vm id) updates;
+				Updates.add (Dynamic.Vm id) internal_updates;
 				(* A domain is 'running' if we know it has not shutdown *)
 				let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').Xenlight.Dominfo.shutdown) in
 				match IntMap.mem domid !watches, running with
@@ -2745,7 +2747,7 @@ let process_one_watch xc xs (path, token) =
 		else
 			let di = IntMap.find d !domains in
 			let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
-			Updates.add (Dynamic.Vm id) updates in
+			Updates.add (Dynamic.Vm id) internal_updates in
 
 	let fire_event_on_device domid kind devid =
 		let d = int_of_string domid in
@@ -2762,7 +2764,7 @@ let process_one_watch xc xs (path, token) =
 				| x ->
 					debug "Unknown device kind: '%s'" x;
 					None in
-			Opt.iter (fun x -> Updates.add x updates) update in
+			Opt.iter (fun x -> Updates.add x internal_updates) update in
 
 	if path = _introduceDomain || path = _releaseDomain
 	then look_for_different_domains xc xs
@@ -2781,7 +2783,7 @@ let process_one_watch xc xs (path, token) =
 					(* Store the rtc/timeoffset for migrate *)
 					store_rtc_timeoffset uuid timeoffset;
 					(* Tell the higher-level toolstack about this too *)
-					Updates.add (Dynamic.Vm uuid) updates
+					Updates.add (Dynamic.Vm uuid) internal_updates
 				) timeoffset
 		| _  -> debug "Ignoring unexpected watch: %s" path
 
