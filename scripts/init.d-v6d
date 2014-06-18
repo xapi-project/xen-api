@@ -21,6 +21,9 @@ PID_FILE="/var/run/v6d.pid"
 # lock file
 SUBSYS_FILE="/var/lock/subsys/v6d"
 
+# Enable core dumping
+ulimit -c unlimited
+
 start() {
 	echo -n $"Starting the v6 licensing daemon: "
 	
