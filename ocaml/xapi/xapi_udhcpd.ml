@@ -19,6 +19,7 @@ module D = Debug.Debugger(struct let name="xapi_udhcpd" end)
 open D
 
 open Forkhelpers
+open Fun
 open Pervasiveext
 open Threadext
 
@@ -67,12 +68,31 @@ type static_lease = {
 	mac : string;
 	ip : Ip.t;
 	vif : string; (* API.ref_VIF *)
+	network : string; (* API.ref_network *)
 } with rpc
 
 type static_leases = static_lease list with rpc
 
 (** List of static leases. Protected by mutex below. *)
 let assigned = ref [] 
+
+(** Updates the assigned_ips field of networks in xapi's database *)
+let update_db_nolock ~__context =
+  let loc_assigned = !assigned in
+  let networks = List.map (fun lease -> lease.network) loc_assigned |> Listext.List.setify in
+  let update_network net =
+    let cur_assigned = Db.Network.get_assigned_ips ~__context ~self:(Ref.of_string net) in
+    let cur_vifs = List.filter (fun lease -> lease.network = net) loc_assigned |> List.map (fun l -> Ref.of_string l.vif) in
+    let db_vifs = List.map fst cur_assigned in
+    let new_lease_vifs = Listext.List.set_difference cur_vifs db_vifs in
+    let released_lease_vifs = Listext.List.set_difference db_vifs cur_vifs in
+    List.iter (fun new_lease_vif ->
+      let lease = List.find (fun x -> x.vif = Ref.string_of new_lease_vif) loc_assigned in
+      Db.Network.add_to_assigned_ips ~__context ~self:(Ref.of_string net) ~key:new_lease_vif ~value:(Ip.string_of lease.ip)) new_lease_vifs;
+    List.iter (fun released_lease_vif ->
+      Db.Network.remove_from_assigned_ips ~__context ~self:(Ref.of_string net) ~key:released_lease_vif) released_lease_vifs
+  in
+  List.iter update_network networks
 
 (** Called on startup to reload the leases database *)
 let load_db_nolock () =
@@ -176,8 +196,9 @@ let maybe_add_lease_nolock ~__context vif =
 				match Ip.first (Ip.succ ip_begin) ip_end 
 					(fun ip -> List.filter (fun l -> l.ip = ip) !assigned = []) with
 						| Some ip ->
-							assigned := {mac = mac; ip = ip; vif = Ref.string_of vif} :: !assigned;
+							assigned := {mac = mac; ip = ip; vif = Ref.string_of vif; network = Ref.string_of network} :: !assigned;
 							save_db_nolock ();
+							update_db_nolock ~__context;
 							write_config_nolock ~__context ip_begin;
 							restart_nolock ()
 						| None ->
