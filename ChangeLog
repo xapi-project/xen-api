@@ -1,3 +1,6 @@
+0.10.3 (19-Jun-2014)
+* Critical bugfix after cohttp upgrade
+
 0.10.2 (2-Jun-2014)
 * Upgrade to cohttp-0.11.2
 
