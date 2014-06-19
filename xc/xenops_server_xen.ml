@@ -603,13 +603,18 @@ module VM = struct
 			"vcpu/number", string_of_int vm.vcpu_max;
 			"vcpu/current", string_of_int vm.vcpus;
 		] @ affinity @ weight in
+
+		let default k v p = if List.mem_assoc k p then p else (k,v)::p in
+
+		let platformdata = vm.platformdata |> default "acpi_s3" "0" |> default "acpi_s4" "0" in
+
 		let create_info = {
 			Domain.ssidref = vm.ssidref;
 			hvm = hvm;
 			hap = hvm;
 			name = vm.name;
 			xsdata = vm.xsdata;
-			platformdata = vm.platformdata @ vcpus;
+			platformdata = platformdata @ vcpus;
 			bios_strings = vm.bios_strings;
 		} in
 		{
