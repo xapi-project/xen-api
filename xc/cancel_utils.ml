@@ -35,39 +35,36 @@ let string_of = function
 	| Vgpu domid -> Printf.sprintf "domid %d" domid
 	| TestPath x -> x
 
-let cancel_path_of_key ~xs = function
+let cancel_path_of ~xs = function
 	| Device device ->
 		(* Device operations can be cancelled separately *)
-		backend_path_of_device ~xs device ^ "/tools/xenops/cancel"
+		Printf.sprintf "%s/xenops/cancel" (get_private_data_path_of_device device)
 	| Domain domid ->
-		Printf.sprintf "%s/tools/xenops/cancel" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/xenops/cancel" (get_private_path domid)
 	| Qemu (backend, frontend) ->
 		(* Domain and qemu watches are considered to be domain-global *)
-		Printf.sprintf "%s/cancel" (Device_common.device_model_path ~qemu_domid:backend frontend)
+		Printf.sprintf "%s/device-model/xenops/cancel" (get_private_path backend)
 	| Vgpu domid ->
-		Printf.sprintf "%s/vgpu/cancel" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/vgpu/xenops/cancel" (get_private_path domid)
 	| TestPath x -> x
 
-let cancel_path_of task =
-	Printf.sprintf "/xenops/task/%s/remove-to-cancel" task.Xenops_task.id
-
 let shutdown_path_of ~xs = function
-	| Device device -> frontend_path_of_device ~xs device ^ "/tools/xenops/shutdown"
-	| Domain domid -> Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath domid)
+	| Device device -> Printf.sprintf "%s/xenops/shutdown" (get_private_data_path_of_device device)
+	| Domain domid -> Printf.sprintf "%s/xenops/shutdown" (get_private_path domid)
 	| Qemu (backend, _) ->
 		(* We only need to cancel when the backend domain shuts down. It will
 		   break suspend if we cancel when the frontend shuts down. *)
-		Printf.sprintf "%s/tools/xenops/shutdown" (xs.Xs.getdomainpath backend)
-	| Vgpu domid -> Printf.sprintf "%s/vgpu/shutdown" (xs.Xs.getdomainpath domid)
+		Printf.sprintf "%s/xenops/shutdown" (get_private_path backend)
+	| Vgpu domid -> Printf.sprintf "%s/vgpu/xenops/shutdown" (get_private_path domid)
 	| TestPath x -> x
 
-let watches_of ~xs task key = [
-	Watch.key_to_disappear (cancel_path_of task);
+let watches_of ~xs key = [
+	Watch.key_to_disappear (cancel_path_of ~xs key);
 	Watch.value_to_become (shutdown_path_of ~xs key) ""
 ]
 
-let cancel ~xs task key =
-	let path = cancel_path_of task in
+let cancel ~xs key =
+	let path = cancel_path_of ~xs key in
 	if try ignore(xs.Xs.read path); true with _ -> false then begin
 		info "Cancelling operation on device: %s" (string_of key);
 		xs.Xs.rm path
@@ -89,7 +86,8 @@ let on_shutdown ~xs domid =
 			else info "Not cancelling watches associated with domid: %d- domain nolonger exists" domid
 		)
 
-let with_path ~xs path f =
+let with_path ~xs key f =
+	let path = cancel_path_of ~xs key in
 	finally
 		(fun () ->
 			xs.Xs.write path "";
@@ -106,14 +104,14 @@ let with_path ~xs path f =
 		)
 
 let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
-	with_path ~xs (cancel_path_of task)
+	with_path ~xs key
 		(fun () ->
 			Xenops_task.with_cancel task
 				(fun () ->
-					with_xs (fun xs -> cancel ~xs task key)
+					with_xs (fun xs -> cancel ~xs key)
 				)
 				(fun () ->
-					let cancel_watches = watches_of ~xs task key in
+					let cancel_watches = watches_of ~xs key in
 					let rec loop () =
 						let _, _ = Watch.wait_for ~xs ~timeout (Watch.any_of
 							(List.map (fun w -> (), w) (good_watches @ error_watches @ cancel_watches))
