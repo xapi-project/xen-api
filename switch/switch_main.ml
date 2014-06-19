@@ -53,7 +53,7 @@ let make_server () =
 		lwt body = Cohttp_lwt_body.to_string body in 
 		let uri = Cohttp.Request.uri req in
 		let path = Uri.path uri in
-		match In.of_request (Some body) (Cohttp.Request.meth req) path with
+		match In.of_request body (Cohttp.Request.meth req) path with
 		| None ->
 			error "<- [unparsable request; path = %s; body = %s]" path ("\"" ^ body ^ "\"");
 			error "-> 404 [Not_found]";
