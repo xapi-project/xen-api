@@ -9,7 +9,7 @@ OCamlProgram(sm_stress, sm_stress cli_utils utils)
 
 .PHONY: clean
 clean:
-	rm -f *.o *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt cli_test sm_stress
+	rm -f $(CLEAN_OBJS) cli_test sm_stress
 	rm -f $(DIST)/cli-regress-geneva/cli_test $(DIST)/cli-regress-geneva/sm_stress
 
 .PHONY: install

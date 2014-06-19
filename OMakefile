@@ -1,3 +1,6 @@
+OMakeFlags(--no-S)
+OMakeFlags(--no--progress)
+
 SCRIPTS=$(shell pwd)/scripts
 IPROG=$(SCRIPTS)/install.sh 755
 IDATA=$(SCRIPTS)/install.sh 644
@@ -103,12 +106,12 @@ DIST=$(ROOT)/dist
 SDK=$(DESTDIR)/usr/share/doc/xapi
 SDKWWW=$(DESTDIR)/usr/share/doc/xapi/www
 
-CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a *.cmt *.cmti
+CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a *.cmt *.cmti *.annot *.spit *.spot *.rej *.orig *.log
 export CLEAN_OBJS
 
-#.PHONY: clean
-#clean:
-#	rm -rf doc/
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS)
 
 COMPILE_OCAML=$(getenv COMPILE_OCAML, yes)
 COMPILE_JS=$(getenv COMPILE_JS, yes)

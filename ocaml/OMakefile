@@ -36,4 +36,4 @@ OCamlLibrary(fhs, fhs)
 	test
 
 clean:
-	rm -f fhs.*
+	rm -f $(CLEAN_OBJS) fhs.*

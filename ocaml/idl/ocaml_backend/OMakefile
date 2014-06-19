@@ -147,7 +147,7 @@ OCamlDocPackage(xapi-client, $(XAPI_CLIENT_OBJS))
 
 .PHONY: clean
 clean:
-	rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot doc/* xmlrpc_doc/* aPI.ml client.ml server.ml rbac_static.ml rbac_static.csv gen_api gen_api.run gen_api.opt write_out_api write_out_client write_out_db_actions write_out_server gen_api_main
+	rm -f *~ $(CLEAN_OBJS) *.opt *.run doc/* xmlrpc_doc/* aPI.ml client.ml server.ml rbac_static.ml rbac_static.csv gen_api gen_api.run gen_api.opt write_out_api write_out_client write_out_db_actions write_out_server gen_api_main
 
 .PHONY: lib-install
 META: META.in
