@@ -95,7 +95,7 @@ module In : sig
 
 	val headers: string -> Cohttp.Header.t
 
-	val of_request: (string option) -> Cohttp.Code.meth -> string -> t option
+	val of_request: string -> Cohttp.Code.meth -> string -> t option
 	(** parse a [t] from an HTTP request and body  *)
 
 	val to_request: t -> (string option) * Cohttp.Code.meth * Uri.t
