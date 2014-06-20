@@ -43,6 +43,7 @@ OCAML_OBJS = \
 	test_pgpu_helpers \
 	test_vm_helpers \
 	test_xenopsd_metadata \
+	../xenops/io \
 	test_xenopsd_io \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
