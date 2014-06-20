@@ -106,9 +106,9 @@ let update_pcis ~__context ~host =
 						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
 					rf, rc
 				with Not_found ->
-					let subsystem_vendor_name, subsystem_vendor_id =
+					let subsystem_vendor_id, subsystem_vendor_name =
 						strings_of_pci_property pci.subsystem_vendor in
-					let subsystem_device_name, subsystem_device_id =
+					let subsystem_device_id, subsystem_device_name =
 						strings_of_pci_property pci.subsystem_device in
 					let self = create ~__context
 						~class_id:(id_of_int pci.pci_class.id)
