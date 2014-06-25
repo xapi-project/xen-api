@@ -103,7 +103,7 @@ let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_ar
 	let cmdline = bootloader_args true extra_args legacy_args pv_bootloader_args disk vm_uuid in
 	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
 	try
-		let output, _ = Cancel_utils.cancellable_subprocess task bootloader_path cmdline in
+		let output, _ = Cancel_utils.cancellable_subprocess task [] bootloader_path cmdline in
 		parse_output output
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
 		parse_exception stderr
