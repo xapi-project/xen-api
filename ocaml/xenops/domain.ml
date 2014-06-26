@@ -739,6 +739,8 @@ let consume_qemu_record fd limit domid uuid =
 	) (fun () -> Unix.close fd2)
 
 let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras xenguest_path domid fd =
+	let module DD = Debug.Debugger(struct let name = "mig64" end) in
+	let open DD in
 	let uuid = get_uuid ~xc domid in
 	let open Suspend_image in
 	match read_save_signature fd with
@@ -998,6 +1000,8 @@ let write_qemu_record domid uuid fd =
  * context is saved to fd
  *)
 let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+	let module DD = Debug.Debugger(struct let name = "mig64" end) in
+	let open DD in
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	let open Suspend_image in let open Suspend_image.M in
