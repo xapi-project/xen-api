@@ -17,6 +17,7 @@ open Printf
 open Stringext
 open Listext
 open Pervasiveext
+open Threadext
 open Xenstore
 open Cancel_utils
 
@@ -758,6 +759,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			  "--syslog";
 			]
 		in
+		let (m, c) = Mutex.create (), Condition.create () in
 		let spawn_thread_and_close_fd name fd' f =
 			let status = ref Running in
 			let thread =
@@ -766,11 +768,17 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 						let result =
 							finally (fun () -> f ()) (fun () -> Unix.close fd')
 						in
-						status := Success result
+						Mutex.execute m (fun () ->
+							status := Success result;
+							Condition.signal c
+						)
 					with e ->
 						error "%s caught an exception: %s" name (Printexc.to_string e);
 						error "Setting result of thread to failure";
-						status := Thread_failure
+						Mutex.execute m (fun () ->
+							status := Thread_failure;
+							Condition.signal c
+						)
 				) ()
 			in
 			(thread, status)
@@ -794,7 +802,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			Xenops_task.cancel tasks task.Xenops_task.id;
 			raise (Xenops_interface.Cancelled "1")
 		| Running, _ | _, Running ->
-			Thread.delay 1.;
+			Condition.wait c m;
 			handle_threads ()
 		| Success _, Success (s, c) ->
 			debug "Waiting for conversion script thread to join";
@@ -803,7 +811,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			Thread.join xenguest_th;
 			(s, c)
 		in
-		let (store_mfn, console_mfn) = handle_threads () in
+		let (store_mfn, console_mfn) = Mutex.execute m handle_threads in
 		(* Consume the (legacy) QEMU Record *)
 		if hvm
 		then begin
