@@ -37,10 +37,11 @@ type header_type =
 	| Demu
 	| End_of_image
 
-(** A header is a header_type and a length *)
+type format = Structured | Legacy
 type header = header_type * int64
+
+val save_signature : string
+val read_save_signature : Unix.file_descr -> [`Ok of format | `Error of string]
 
 val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of error]
 val read_header : Unix.file_descr -> [`Ok of header | `Error of error]
-
-(* val with_conversion_script : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a *)

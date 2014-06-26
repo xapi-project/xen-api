@@ -39,6 +39,8 @@ type error =
 	| Invalid_header_type
 	| Io_error of exn
 
+type format = Structured | Legacy
+
 type header_type =
 	| Xenops
 	| Libxc
@@ -77,6 +79,16 @@ let wrap f =
 
 let read_int64 fd = wrap (fun () -> Io.read_int64 ~endianness:`little fd)
 let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)
+
+let save_signature = "XenSavedDomv2-\n"
+let legacy_save_signature = "XenSavedDomain\n"
+
+let write_save_signature fd = Io.write fd save_signature
+let read_save_signature fd =
+	match Io.read fd (String.length save_signature) with
+	| x when x = save_signature -> `Ok Structured
+	| x when x = legacy_save_signature -> `Ok Legacy
+	| x -> `Error (Printf.sprintf "Not a valid signature: \"%s\"" x)
 
 let read_header fd =
 	read_int64 fd >>= fun x ->
