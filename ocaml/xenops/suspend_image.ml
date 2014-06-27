@@ -99,3 +99,73 @@ let read_header fd =
 let write_header fd (hdr_type, len) =
 	write_int64 fd (int64_of_header_type hdr_type) >>= fun () ->
 	write_int64 fd len
+
+type 'a thread_status = Running | Thread_failure of exn | Success of 'a
+
+let with_conversion_script task name hvm fd f =
+	let module D = Debug.Debugger(struct let name = "suspend_image_conversion" end) in
+	let open D in
+	let open Pervasiveext in
+	let open Threadext in
+	let (pipe_r, pipe_w) = Unix.pipe () in
+	let fd_uuid = Uuid.(to_string (make_uuid ()))
+	and pipe_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let conv_script = "/usr/lib64/xen/bin/legacy.py"
+	and args =
+		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
+			"--width"; "32"; "--skip-qemu";
+			"--guest-type"; if hvm then "hvm" else "pv";
+			"--syslog";
+		]
+	in
+	let (m, c) = Mutex.create (), Condition.create () in
+	let spawn_thread_and_close_fd name fd' f =
+		let status = ref Running in
+		let thread =
+			Thread.create (fun () ->
+				try
+					let result =
+						finally (fun () -> f ()) (fun () -> Unix.close fd')
+					in
+					Mutex.execute m (fun () ->
+						status := Success result;
+						Condition.signal c
+					)
+				with e ->
+					Mutex.execute m (fun () ->
+						status := Thread_failure e;
+						Condition.signal c
+					)
+			) ()
+		in
+		(thread, status)
+	in
+	let (conv_th, conv_st) =
+		spawn_thread_and_close_fd "legacy.py" pipe_w (fun () ->
+			Cancel_utils.cancellable_subprocess task
+				[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
+		)
+	and (f_th, f_st) =
+		spawn_thread_and_close_fd name pipe_r (fun () ->
+			f pipe_r
+		)
+	in
+	debug "Spawned threads for conversion script and %s" name;
+	let rec handle_threads () = match (!conv_st, !f_st) with
+	| Thread_failure e, _ ->
+		`Error (Failure (Printf.sprintf "Conversion script thread caught exception: %s"
+			(Printexc.to_string e)))
+	| _, Thread_failure e ->
+		`Error (Failure (Printf.sprintf "Thread executing %s caught exception: %s"
+			name (Printexc.to_string e)))
+	| Running, _ | _, Running ->
+		Condition.wait c m;
+		handle_threads ()
+	| Success _, Success res ->
+		debug "Waiting for conversion script thread to join";
+		Thread.join conv_th;
+		debug "Waiting for xenguest thread to join";
+		Thread.join f_th;
+		`Ok res
+	in
+	Mutex.execute m handle_threads

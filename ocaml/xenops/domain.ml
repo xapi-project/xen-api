@@ -17,7 +17,6 @@ open Printf
 open Stringext
 open Listext
 open Pervasiveext
-open Threadext
 open Xenstore
 open Cancel_utils
 
@@ -740,78 +739,26 @@ let consume_qemu_record fd limit domid uuid =
 		end
 	) (fun () -> Unix.close fd2)
 
-type 'a thread_status = Running | Thread_failure | Success of 'a
-
 let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras xenguest_path domid fd =
 	let uuid = get_uuid ~xc domid in
 	let open Suspend_image in
 	match read_save_signature fd with
 	| `Ok Legacy ->
 		debug "Detected legacy suspend image! Piping through conversion tool.";
-		let (pipe_r, pipe_w) = Unix.pipe () in
-		let fd_uuid = Uuid.(to_string (make_uuid ()))
-		and pipe_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-		let conv_script = "/usr/lib64/xen/bin/legacy.py"
-		and args =
-			[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
-			  "--width"; "32"; "--skip-qemu";
-			  "--guest-type"; if hvm then "hvm" else "pv";
-			  "--syslog";
-			]
+		let (store_mfn, console_mfn) =
+			begin match
+				with_conversion_script task "xenguest" hvm fd (fun pipe_r ->
+					restore_libxc_record task ~hvm ~store_port ~console_port
+						~extras xenguest_path domid uuid pipe_r
+				)
+			with
+			| `Ok (s, c) -> (s, c)
+			| `Error e ->
+				error "Caught error when using converison script: %s" (Printexc.to_string e);
+				Xenops_task.cancel tasks task.Xenops_task.id;
+				raise e
+			end
 		in
-		let (m, c) = Mutex.create (), Condition.create () in
-		let spawn_thread_and_close_fd name fd' f =
-			let status = ref Running in
-			let thread =
-				Thread.create (fun () ->
-					try
-						let result =
-							finally (fun () -> f ()) (fun () -> Unix.close fd')
-						in
-						Mutex.execute m (fun () ->
-							status := Success result;
-							Condition.signal c
-						)
-					with e ->
-						error "%s caught an exception: %s" name (Printexc.to_string e);
-						error "Setting result of thread to failure";
-						Mutex.execute m (fun () ->
-							status := Thread_failure;
-							Condition.signal c
-						)
-				) ()
-			in
-			(thread, status)
-		in
-		let (conv_th, conv_st) =
-			spawn_thread_and_close_fd "legacy.py" pipe_w (fun () ->
-				Cancel_utils.cancellable_subprocess task
-					[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
-			)
-		and (xenguest_th, xenguest_st) =
-			spawn_thread_and_close_fd "xenguest" pipe_r (fun () ->
-				restore_libxc_record task ~hvm ~store_port ~console_port
-					~extras xenguest_path domid uuid pipe_r
-			)
-		in
-		debug "Spawned threads for conversion script and xenguest";
-		let rec handle_threads () = match (!conv_st, !xenguest_st) with
-		| Thread_failure, _ | _, Thread_failure ->
-			(* TODO: handle each failure individually *)
-			error "One of the threads has failed; cancelling task";
-			Xenops_task.cancel tasks task.Xenops_task.id;
-			raise (Xenops_interface.Cancelled "1")
-		| Running, _ | _, Running ->
-			Condition.wait c m;
-			handle_threads ()
-		| Success _, Success (s, c) ->
-			debug "Waiting for conversion script thread to join";
-			Thread.join conv_th;
-			debug "Waiting for xenguest thread to join";
-			Thread.join xenguest_th;
-			(s, c)
-		in
-		let (store_mfn, console_mfn) = Mutex.execute m handle_threads in
 		(* Consume the (legacy) QEMU Record *)
 		if hvm
 		then begin
