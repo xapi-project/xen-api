@@ -42,6 +42,7 @@ type header = header_type * int64
 
 val save_signature : string
 val read_save_signature : Unix.file_descr -> [`Ok of format | `Error of string]
+val read_legacy_qemu_header : Unix.file_descr -> [`Ok of int64 | `Error of string]
 
 val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of error]
 val read_header : Unix.file_descr -> [`Ok of header | `Error of error]
