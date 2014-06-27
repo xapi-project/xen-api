@@ -470,7 +470,11 @@ module Dhclient = struct
 	let generate_conf ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
 			"nis-servers"; "ntp-servers"; "interface-mtu"] in
-		let set_gateway = if List.mem `set_gateway options then ["routers"] else [] in
+		let set_gateway = 
+			if List.mem (`gateway interface) options 
+			then (debug "%s is the default gateway interface" interface; ["routers"])
+			else (debug "%s is NOT the default gateway interface" interface; [])
+		in
 		let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
 		let request = minimal @ set_gateway @ set_dns in
 		Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
@@ -484,9 +488,19 @@ module Dhclient = struct
 		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
 	let start ?(ipv6=false) interface options =
+		(* If we have a gateway interface, pass it to dhclient-script via -e *)
+		(* This prevents the default route being set erroneously on CentOS *)
+		(* Normally this wouldn't happen as we're not requesting routers, *)
+		(* but some buggy DHCP servers ignore this *)
+		(* See CA-137892 *)
+		let gw_opt = List.fold_left
+			(fun l x -> 
+				match x with 
+				| `gateway y -> ["-e"; "GATEWAYDEV="^y] 
+				| _ -> l) [] options in
 		write_conf_file ~ipv6 interface options;
 		let ipv6' = if ipv6 then ["-6"] else [] in
-		call_script ~log_successful_output:true dhclient (ipv6' @ ["-q";
+		call_script ~log_successful_output:true dhclient (ipv6' @ gw_opt @ ["-q";
 			"-pf"; pid_file ~ipv6 interface;
 			"-lf"; lease_file ~ipv6 interface;
 			"-cf"; conf_file ~ipv6 interface;
