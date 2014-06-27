@@ -35,9 +35,11 @@ using System.Resources;
 using System.Collections;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Runtime.Serialization;
 
 namespace XenAPI
 {
+    [Serializable]
     public partial class Failure : Exception
     {
         public const string INTERNAL_ERROR = "INTERNAL_ERROR";
@@ -73,9 +75,26 @@ namespace XenAPI
             }
         }
 
+        public Failure() : base() { }
+
         public Failure(params string[] err)
             : this(new List<string>(err))
         {}
+
+        public Failure(string message, Exception exception)
+            : base(message, exception)
+        {
+            errorDescription = new List<string>() { message };
+            Setup();
+        }
+
+        protected Failure(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            errorDescription = (List<string>)info.GetValue("errorDescription", typeof(List<string>));
+            errorText = info.GetString("errorText");
+            shortError = info.GetString("shortError");
+        }
 
         public Failure(List<string> errDescription)
         {
@@ -206,6 +225,20 @@ namespace XenAPI
         public override string ToString()
         {
             return Message;
+        }
+
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            if (info == null)
+            {
+                throw new ArgumentNullException("info");
+            }
+
+            info.AddValue("errorDescription", errorDescription, typeof(List<string>));
+            info.AddValue("errorText", errorText);
+            info.AddValue("shortError", shortError);
+
+            base.GetObjectData(info, context);
         }
     }
 }
