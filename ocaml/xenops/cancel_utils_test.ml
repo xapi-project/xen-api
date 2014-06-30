@@ -38,7 +38,7 @@ let subprocess_test _ =
 	let task = Xenops_task.add tasks "test" (fun _ -> None) in
 	let (_: Thread.t) = Thread.create (fun () -> Thread.delay 1.; Xenops_task.cancel tasks task.Xenops_task.id) () in
 	try
-		let (_, _) = cancellable_subprocess task "/bin/sleep" [ "3s" ] in
+		let (_, _) = cancellable_subprocess task [] "/bin/sleep" [ "3s" ] in
 		raise Did_not_cancel
 	with
 		| Cancelled(_) ->

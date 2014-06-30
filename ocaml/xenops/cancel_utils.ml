@@ -134,7 +134,7 @@ let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~
 		)
 
 open Forkhelpers
-let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
+let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd args =
 	let stdinandpipes = Opt.map (fun str -> 
 		let (x,y) = Unix.pipe () in
 		(str,x,y)) stdin in
@@ -143,7 +143,7 @@ let cancellable_subprocess (task: Xenops_task.t) ?env ?stdin ?(syslog_stdout=NoS
 	Pervasiveext.finally (fun () -> 
 		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
 			with_logfile_fd "execute_command_get_err" (fun err_fd ->
-				let t = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
+				let t = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) fds ~syslog_stdout cmd args in
 				let done_waitpid = ref false in
 				finally
 					(fun () ->
