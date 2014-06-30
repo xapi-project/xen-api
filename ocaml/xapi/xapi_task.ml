@@ -33,7 +33,9 @@ let create ~__context ~label ~description =
 
 let destroy ~__context ~self =
   TaskHelper.assert_can_destroy ~__context self;
-  Db.Task.destroy ~__context ~self
+  if TaskHelper.status_is_completed (Db.Task.get_status ~__context ~self) 
+  then Db.Task.destroy ~__context ~self
+  else Db.Task.add_to_current_operations ~__context ~self ~key:"task" ~value:`destroy
 
 let cancel ~__context ~task =
 	let localhost = Helpers.get_localhost ~__context in
