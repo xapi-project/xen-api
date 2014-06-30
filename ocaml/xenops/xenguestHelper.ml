@@ -75,6 +75,14 @@ let disconnect (_, _, r, w, pid) =
 	Unix.close w;
 	ignore(Forkhelpers.waitpid pid)
 
+let supports_feature path feat =
+	let open Forkhelpers in
+	let open Stringext.String in
+	try
+		execute_command_get_output path ("-supports" :: [feat])
+			|> fst |> strip isspace |> lowercase = "true"
+	with Spawn_internal_error _ -> false
+
 let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
 	let t = connect path domid args fds in
 	let cancelled = ref false in
