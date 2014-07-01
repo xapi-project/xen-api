@@ -170,8 +170,13 @@ def handle_bridge(vif_type, domid, devid, action):
 # Creation of openflow rules in the case of openvswitch.
 ###############################################################################
 
-def get_vswitch_port(vif_name):
-    (rc, stdout, stderr) = doexec([vsctl, "get", "interface", vif_name, "ofport"])
+def get_vswitch_port(vif_name, wait_for_valid):
+    args = ["get", "interface", vif_name, "ofport"]
+    if wait_for_valid:
+        cmd = [vsctl, "wait-until", "interface", vif_name, "ofport!=-1", "--"] + args
+    else:
+        cmd = [vsctl] + args
+    (rc, stdout, stderr) = doexec(cmd)
     return stdout.readline().strip()
 
 def clear_vswitch_rules(bridge_name, port):
@@ -243,8 +248,9 @@ def handle_vswitch(vif_type, domid, devid, action):
         vif_name = "%s%s.%s" % (vif_type, domid, devid)
         bridge_name = get_bridge_name_vswitch(vif_name) 
         ip_link_set(vif_name, "down")
-        port = get_vswitch_port(vif_name)
-        clear_vswitch_rules(bridge_name, port)
+        port = get_vswitch_port(vif_name, action == "filter")
+        if port != -1:
+            clear_vswitch_rules(bridge_name, port)
         if action == "filter":
             config = get_locking_config(domid, devid)
             locking_mode = config["locking_mode"]

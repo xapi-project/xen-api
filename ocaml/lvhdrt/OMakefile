@@ -7,7 +7,7 @@ OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 
 .PHONY: clean
 
 clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o lvhdrt
+	rm -f $(CLEAN_OBJS) lvhdrt
 
 .PHONY: install
 install:

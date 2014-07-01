@@ -80,7 +80,7 @@ xenapi.dvi: $(OPEN_TEX) $(SHARED_TEX) $(OPEN_EPS) $(SHARED_EPS)
 
 .PHONY: clean
 clean:
-	rm -rf *.cmi *.cma *.cmxa *.a *.cmo *.cmx *.o *.opt *.aux *.log *.fig *.run *.spot *.spit datamodel
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig datamodel
 	rm -rf *.ps *.pdf *.dvi *.annot
 	rm -rf *datamodel.tex datamodel-dtd.xml datamodel-coversheet.tex
 

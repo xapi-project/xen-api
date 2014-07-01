@@ -39,7 +39,11 @@ ifeq ($(DISABLE_TESTS),false)
 	@make test
 endif
 
-.PHONY: phase3
+.PHONY: phase1 phase2 phase3
+phase1:
+	omake phase1
+phase2:
+	omake phase2
 phase3:
 	omake phase3
 
@@ -89,7 +93,8 @@ clean:
 	omake clean
 	omake lib-uninstall
 	rm -rf dist/staging
-	rm -f .omakedb .omakedb.lock xapi.spec
+	rm -f .omakedb .omakedb.lock xapi.spec version.ml
+	find -name '*.omc' -delete
 
 .PHONY: otags
 otags:

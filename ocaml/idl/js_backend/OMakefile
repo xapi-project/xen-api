@@ -20,7 +20,7 @@ OCamlProgram(main, main)
 
 .PHONY: clean
 clean:
-        rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot gen_api
+	rm -f $(CLEAN_OBJS) main gen_api api.js
 
 .PHONY: js_binding
 js_binding: main

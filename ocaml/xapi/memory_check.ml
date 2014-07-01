@@ -56,13 +56,11 @@ type accounting_policy =
 		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
 (** Common logic of vm_compute_start_memory and vm_compute_used_memory *)
-let choose_memory_required ~policy ~ballooning_enabled ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max =
-	match (ballooning_enabled, policy) with
-		| (true, Dynamic_min) -> memory_dynamic_min
-		| (true, Dynamic_max) -> memory_dynamic_max
-		| (false, Dynamic_min)
-		| (false, Dynamic_max)
-		| (_, Static_max) -> memory_static_max
+let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max =
+	match policy with
+		| Dynamic_min -> memory_dynamic_min
+		| Dynamic_max -> memory_dynamic_max
+		| Static_max -> memory_static_max
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
 memory, to start a VM. If the given VM is a PV guest and if memory ballooning
@@ -77,7 +75,6 @@ let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
 	else
 		let memory_required = choose_memory_required
 			~policy: policy
-			~ballooning_enabled: (Helpers.ballooning_enabled_for_vm ~__context vm_record)
 			~memory_dynamic_min: vm_record.API.vM_memory_dynamic_min
 			~memory_dynamic_max: vm_record.API.vM_memory_dynamic_max
 			~memory_static_max:  vm_record.API.vM_memory_static_max in
@@ -95,7 +92,6 @@ let vm_compute_used_memory ~__context policy vm_ref =
 
 	let memory_required = choose_memory_required
 		~policy: policy
-		~ballooning_enabled: (Helpers.ballooning_enabled_for_vm ~__context vm_boot_record)
 		~memory_dynamic_min: vm_main_record.API.vM_memory_dynamic_min
 		(* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
 		~memory_dynamic_max: vm_main_record.API.vM_memory_dynamic_max 

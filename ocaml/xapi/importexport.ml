@@ -297,6 +297,51 @@ let vdi_of_req ~__context (req: Http.Request.t) =
 	then Ref.of_string vdi
 	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 
+let base_vdi_of_req ~__context (req: Http.Request.t) =
+	let all = req.Http.Request.query @ req.Http.Request.cookie in
+	if List.mem_assoc "base" all then begin
+		let base = List.assoc "base" all in
+		Some (if Db.is_valid_ref __context (Ref.of_string base) 
+		then Ref.of_string base
+		else Db.VDI.get_by_uuid ~__context ~uuid:base)
+	end else None
+
+module Format = struct
+	type t =
+	| Raw
+	| Vhd
+
+	let to_string = function
+	| Raw -> "raw"
+	| Vhd -> "vhd"
+
+	let of_string x = match String.lowercase x with
+	| "raw" -> Some Raw
+	| "vhd" -> Some Vhd
+	| _ -> None
+
+	let filename ~__context vdi format =
+		Printf.sprintf "%s.%s"
+			(Db.VDI.get_uuid ~__context ~self:vdi)
+			(to_string format)
+
+	let content_type = function
+	| Raw -> "application/octet-stream"
+	| Vhd -> "application/vhd"
+
+	let _key = "format"
+
+	let of_req (req: Http.Request.t) =
+		let all = req.Http.Request.query @ req.Http.Request.cookie in
+		if List.mem_assoc _key all then begin
+			let x = List.assoc _key all in
+			match of_string x with
+			| Some x -> `Ok x
+			| None -> `Unknown x
+		end else `Ok Raw (* default *)
+end
+
+
 let return_302_redirect (req: Http.Request.t) s address =
 	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.Http.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Http.Request.query)) in
 	let headers = Http.http_302_redirect url in

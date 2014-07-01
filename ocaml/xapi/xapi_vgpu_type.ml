@@ -24,6 +24,7 @@ let nvidia_vendor_id = 0x10deL
 
 type vgpu_conf = {
 	pdev_id : int64;
+	psubdev_id : int64 option;
 	vdev_id : int64;
 	vsubdev_id : int64;
 	framebufferlength : int64;
@@ -122,28 +123,37 @@ let of_conf_file file_path =
 		let args = List.filter
 			(fun s -> not (String.startswith "#" s || s = "")) conf in
 		let args = List.map (String.strip String.isspace) args in
-		(* Expeciting space separated key value entries *)
+		(* Expecting space separated key value entries *)
 		let args = List.map
 			(fun s ->
 				match (String.split ' ' s ~limit:2) with
 				| k :: [v] -> (k, v)
 				| _ -> ("", "")
 			) args in
-		Scanf.sscanf (List.assoc "plugin0.pdev_id" args) "\"0x%Lx\"" (fun pdev_id ->
-			(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
-			Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\"" (fun vdev_id vsubdev_id ->
-				Scanf.sscanf (List.assoc "plugin0.max_resolution" args) "%Ldx%Ld" (fun max_x max_y ->
-					let framebufferlength = Int64.of_string
-						(List.assoc "plugin0.framebufferlength" args) in
-					let num_heads = Int64.of_string
-						(List.assoc "plugin0.num_heads" args) in
-					let max_instance = Int64.of_string
-						(List.assoc "plugin0.max_instance" args) in
-							{pdev_id; vdev_id; vsubdev_id; framebufferlength;
-							 num_heads; max_instance; max_x; max_y; file_path}
+		(* plugin0.pdev_id will either be just the physical device id, or of the
+		 * form "device_id:subdevice_id" *)
+		let pdev_id, psubdev_id =
+			let pdev_id_data = (List.assoc "plugin0.pdev_id" args) in
+			try
+				Scanf.sscanf pdev_id_data "\"0x%Lx:0x%Lx\""
+					(fun pdev_id psubdev_id -> pdev_id, Some psubdev_id)
+			with Scanf.Scan_failure _ ->
+				Scanf.sscanf pdev_id_data "\"0x%Lx\""
+					(fun pdev_id -> pdev_id, None)
+		in
+		(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
+		Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\"" (fun vdev_id vsubdev_id ->
+			Scanf.sscanf (List.assoc "plugin0.max_resolution" args) "%Ldx%Ld" (fun max_x max_y ->
+				let framebufferlength = Int64.of_string
+					(List.assoc "plugin0.framebufferlength" args) in
+				let num_heads = Int64.of_string
+					(List.assoc "plugin0.num_heads" args) in
+				let max_instance = Int64.of_string
+					(List.assoc "plugin0.max_instance" args) in
+				{pdev_id; psubdev_id; vdev_id; vsubdev_id; framebufferlength;
+						 num_heads; max_instance; max_x; max_y; file_path}
 				)
 			)
-		)
 	with e ->
 		raise (Parse_error e)
 
@@ -164,16 +174,39 @@ let read_config_dir conf_dir =
 	read_configs []
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
-let relevant_vgpu_types pci_db pci_dev_ids =
+let relevant_vgpu_types pci_db pci_dev_id subsystem_device_id =
 	let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 	let relevant_vgpu_confs =
 		List.filter
-			(fun c -> List.mem c.pdev_id pci_dev_ids)
+			(fun c ->
+				let device_id_matches = (c.pdev_id = pci_dev_id) in
+				let subsystem_device_id_matches =
+					(* If the config file doesn't specify a physical subdevice ID, then
+					 * the config file is valid for this device no matter the device's
+					 * subsystem device ID.
+					 *
+					 * If the config file does specify a physical subdevice ID, then the
+					 * corresponding ID of the card must match. *)
+					match subsystem_device_id, c.psubdev_id with
+					| _, None -> true
+					| None, Some _ -> false
+					| Some device_id, Some conf_id -> device_id = conf_id
+				in
+				device_id_matches && subsystem_device_id_matches)
 			vgpu_confs
 	in
-	debug "Relevant confs = [ %s ]" (String.concat "; " (List.map (fun c ->
-		Printf.sprintf "{pdev_id:%04Lx; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
-		c.pdev_id c.vdev_id c.vsubdev_id c.framebufferlength) relevant_vgpu_confs));
+	debug "Relevant confs = [ %s ]"
+		(String.concat "; " (List.map (fun c ->
+			Printf.sprintf
+				"{pdev_id:%04Lx; psubdev_id:%s; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
+				c.pdev_id
+				(match c.psubdev_id with
+					| None -> "Any"
+					| Some id -> Printf.sprintf "%04Lx" id)
+				c.vdev_id
+				c.vsubdev_id
+				c.framebufferlength)
+			relevant_vgpu_confs));
 	let rec build_vgpu_types pci_db ac = function
 		| [] -> ac
 		| conf::tl ->
@@ -203,8 +236,13 @@ let relevant_vgpu_types pci_db pci_dev_ids =
 
 let find_or_create_supported_types ~__context ~pci_db pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
-	debug "dev_ids = [ %s ]" (Printf.sprintf "%04Lx" dev_id);
-	let relevant_types = relevant_vgpu_types pci_db [dev_id] in
+	let subsystem_dev_id =
+		match Db.PCI.get_subsystem_device_id ~__context ~self:pci with
+		| "" -> None
+		| id_string -> Some (Xapi_pci.int_of_id id_string)
+	in
+	debug "dev_id = %s" (Printf.sprintf "%04Lx" dev_id);
+	let relevant_types = relevant_vgpu_types pci_db dev_id subsystem_dev_id in
 	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
 			(List.map (fun vt -> vt.model_name) relevant_types));

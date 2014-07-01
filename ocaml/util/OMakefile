@@ -27,6 +27,7 @@ OCamlLibrary(encodings, encodings)
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)
+	rm -f version.ml
 
 .PHONY: install
 install:

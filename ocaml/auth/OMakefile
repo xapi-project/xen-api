@@ -13,7 +13,7 @@ section
 
 .PHONY: clean
 clean:
-	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig testauthx
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig testauth testauthx
 
 .PHONY: install
 install:

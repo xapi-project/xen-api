@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 81
+let schema_minor_vsn = 82
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -58,7 +58,7 @@ let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
 
 let creedence_release_schema_major_vsn = 5
-let creedence_release_schema_minor_vsn = 71
+let creedence_release_schema_minor_vsn = 72
 
 let augusta_release_schema_major_vsn = 5
 let augusta_release_schema_minor_vsn = 81
@@ -3471,7 +3471,8 @@ let status_type = Enum("task_status_type", [ "pending", "task is in progress";
 					     "success", "task was completed successfully";
 					     "failure", "task has failed";
 					     "cancelling", "task is being cancelled";
-					     "cancelled", "task has been cancelled" ])
+					     "cancelled", "task has been cancelled";
+					     ])
 
 
 let task_cancel = call
@@ -3508,7 +3509,7 @@ let task_destroy = call ~flags:[`Session]
 let extra_permission_task_destroy_any = "task.destroy/any"
 
 let task_allowed_operations =
-  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel ])
+  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel; task_destroy ])
 
 let task = 
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
@@ -4529,6 +4530,7 @@ let network =
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
       field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
       field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
+      field ~qualifier:DynamicRO ~in_product_since:rel_augusta ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP"
        ])
      ()
 
@@ -7746,6 +7748,10 @@ let pci =
 				"VMs that currently have a function of this PCI device passed-through to them" ~internal_only:true;
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_boston, ""] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_vendor_id" "Subsystem vendor ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_creedence, ""] "subsystem_vendor_name" "Subsystem vendor name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_device_id" "Subsystem device ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_creedence, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
 			]
 		()
 

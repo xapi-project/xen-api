@@ -147,7 +147,7 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
     ~name_label ~name_description ~mTU ~bridge
-    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked;
+    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
@@ -164,7 +164,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
 					~current_operations:[] ~allowed_operations:[]
 					~name_label ~name_description ~mTU ~bridge:name
-					~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked;
+					~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
 				r in
 		loop ())
 
