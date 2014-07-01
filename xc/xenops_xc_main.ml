@@ -23,8 +23,9 @@ let check_domain0_uuid () =
 			Inventory.update Inventory._control_domain_uuid uuid;
 			uuid in
 	Xenctrl.domain_sethandle xc 0 uuid;
-	(* make the /vm/ tree for dom0 *)
+	(* make the minimum entries for dom0 *)
 	let kvs = [
+		"/local/domain/0/domid", "0";
 		Printf.sprintf "/vm/%s/uuid" uuid, uuid;
 		Printf.sprintf "/vm/%s/name" uuid, "Domain-0";
 		Printf.sprintf "/vm/%s/domains/0" uuid, "/local/domain/0";
@@ -38,11 +39,15 @@ let check_domain0_uuid () =
 	   because the background thread will be gone after the fork() *)
 	forget_client ()	
 
+let make_var_run_xen () =
+	Unixext.mkdir_rec "/var/run/xen" 0o0755
+
 (* Start the program with the xen backend *)
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
 	Xenops_utils.set_root "xenopsd/classic";
 	check_domain0_uuid ();
+	make_var_run_xen ();
 	Xenopsd.main
 		~specific_essential_paths:Xc_path.essentials
 		~specific_nonessential_paths:Xc_path.nonessentials
