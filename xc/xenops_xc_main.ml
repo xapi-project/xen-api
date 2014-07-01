@@ -23,8 +23,9 @@ let check_domain0_uuid () =
 			Inventory.update Inventory._control_domain_uuid uuid;
 			uuid in
 	Xenctrl.domain_sethandle xc 0 uuid;
-	(* make the /vm/ tree for dom0 *)
+	(* make the minimum entries for dom0 *)
 	let kvs = [
+		"/local/domain/0/domid", "0";
 		Printf.sprintf "/vm/%s/uuid" uuid, uuid;
 		Printf.sprintf "/vm/%s/name" uuid, "Domain-0";
 		Printf.sprintf "/vm/%s/domains/0" uuid, "/local/domain/0";

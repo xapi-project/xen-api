@@ -22,7 +22,7 @@ let check_domain0_uuid () =
 			let uuid = Uuidm.(to_string (create `V4)) in
 			Inventory.update Inventory._control_domain_uuid uuid;
 			uuid in
-	Xenctrl.domain_sethandle xc 0 uuid
+        Xenctrl.domain_sethandle xc 0 uuid
 
 let make_vnc_dir () =
 	Xl_path.vnc_dir := Filename.concat (Xenops_utils.get_root ()) "vnc";
