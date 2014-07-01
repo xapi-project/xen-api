@@ -28,12 +28,16 @@ let make_vnc_dir () =
 	Xl_path.vnc_dir := Filename.concat (Xenops_utils.get_root ()) "vnc";
 	Unixext.mkdir_rec !Xl_path.vnc_dir 0o0755
 
+let make_var_run_xen () =
+	Unixext.mkdir_rec "/var/run/xen" 0o0755
+
 (* Start the program with the xenlight backend *)
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".xenlight";
 	Xenops_utils.set_root "xenopsd/xenlight";
 	check_domain0_uuid ();
 	make_vnc_dir ();
+	make_var_run_xen ();
 	Xenopsd.main
 		~specific_essential_paths:Xl_path.essentials
 		~specific_nonessential_paths:Xl_path.nonessentials
