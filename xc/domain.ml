@@ -499,9 +499,11 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	) vpt_align;
 	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
 	Xenctrl.domain_max_vcpus xc domid vcpus;
-	debug "VM = %s; domid = %d; domain_set_memmap_limit %Ld MiB" (Uuid.to_string uuid) domid xen_max_mib;
-	begin
-		let kib = Memory.kib_of_mib xen_max_mib in
+	let di = Xenctrl.domain_getinfo xc domid in
+	if not (di.Xenctrl.hvm_guest) then
+		begin
+			debug "VM = %s; domid = %d; domain_set_memmap_limit %Ld MiB" (Uuid.to_string uuid) domid xen_max_mib;
+			let kib = Memory.kib_of_mib xen_max_mib in
 		try
 			Xenctrl.domain_set_memmap_limit xc domid kib
 		with e ->
