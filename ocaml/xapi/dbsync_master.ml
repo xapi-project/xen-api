@@ -195,6 +195,22 @@ let switched_sync sync_keys key f =
 	then (debug "Sync: %s" key; f ())
 	else debug "Skipping sync keyed: %s" key
 
+let destroy_invalid_pool_patches ~__context =
+	let is_valid_pool_patch patch =
+		(* If patch has been applied to at least one host, then it is valid. *)
+		if (Db.Pool_patch.get_host_patches ~__context ~self:patch) <> [] then true
+		(* If patch hasn't been applied to any host, but we can still apply it, then it is valid. *)
+		(* File needs to exist in the master's filesystem for us to be able to apply it. *)
+		else if (Sys.file_exists (Db.Pool_patch.get_filename ~__context ~self:patch)) then true
+		else false
+	in
+	let pool_patches = Db.Pool_patch.get_all ~__context in
+	List.iter
+		(fun patch ->
+			if not (is_valid_pool_patch patch)
+			then Db.Pool_patch.destroy ~__context ~self:patch)
+		pool_patches
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context sync_keys =
@@ -236,4 +252,5 @@ let update_env __context sync_keys =
 	 is to just clear the cache, which we do here. *)
   Helpers.clear_tools_sr_cache ();
 
-  ensure_vm_metrics_records_exist_noexn __context
+	ensure_vm_metrics_records_exist_noexn __context;
+	destroy_invalid_pool_patches ~__context
