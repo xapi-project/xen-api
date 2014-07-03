@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: f3e306cb3822f9fd188eb6bf627dd3ca)
+# DO NOT EDIT (digest: 87e2609bb063ea0c0d4d7f9df6cc22d2)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -54,29 +55,29 @@
 <src/sparse_dd.{native,byte}>: pkg_xenstore.unix
 <src/sparse_dd.{native,byte}>: pkg_xenstore_transport
 <src/sparse_dd.{native,byte}>: pkg_xenstore_transport.unix
-<src/*.ml{,i}>: pkg_cmdliner
-<src/*.ml{,i}>: pkg_cohttp
-<src/*.ml{,i}>: pkg_cohttp.lwt
-<src/*.ml{,i}>: pkg_io-page.unix
-<src/*.ml{,i}>: pkg_lwt
-<src/*.ml{,i}>: pkg_lwt.unix
-<src/*.ml{,i}>: pkg_nbd
-<src/*.ml{,i}>: pkg_nbd.lwt
-<src/*.ml{,i}>: pkg_re.str
-<src/*.ml{,i}>: pkg_sha
-<src/*.ml{,i}>: pkg_sha.sha1
-<src/*.ml{,i}>: pkg_tapctl
-<src/*.ml{,i}>: pkg_tar
-<src/*.ml{,i}>: pkg_threads
-<src/*.ml{,i}>: pkg_uri
-<src/*.ml{,i}>: pkg_vhd-format
-<src/*.ml{,i}>: pkg_vhd-format.lwt
-<src/*.ml{,i}>: pkg_xcp
-<src/*.ml{,i}>: pkg_xenstore
-<src/*.ml{,i}>: pkg_xenstore.client
-<src/*.ml{,i}>: pkg_xenstore.unix
-<src/*.ml{,i}>: pkg_xenstore_transport
-<src/*.ml{,i}>: pkg_xenstore_transport.unix
+<src/*.ml{,i,y}>: pkg_cmdliner
+<src/*.ml{,i,y}>: pkg_cohttp
+<src/*.ml{,i,y}>: pkg_cohttp.lwt
+<src/*.ml{,i,y}>: pkg_io-page.unix
+<src/*.ml{,i,y}>: pkg_lwt
+<src/*.ml{,i,y}>: pkg_lwt.unix
+<src/*.ml{,i,y}>: pkg_nbd
+<src/*.ml{,i,y}>: pkg_nbd.lwt
+<src/*.ml{,i,y}>: pkg_re.str
+<src/*.ml{,i,y}>: pkg_sha
+<src/*.ml{,i,y}>: pkg_sha.sha1
+<src/*.ml{,i,y}>: pkg_tapctl
+<src/*.ml{,i,y}>: pkg_tar
+<src/*.ml{,i,y}>: pkg_threads
+<src/*.ml{,i,y}>: pkg_uri
+<src/*.ml{,i,y}>: pkg_vhd-format
+<src/*.ml{,i,y}>: pkg_vhd-format.lwt
+<src/*.ml{,i,y}>: pkg_xcp
+<src/*.ml{,i,y}>: pkg_xenstore
+<src/*.ml{,i,y}>: pkg_xenstore.client
+<src/*.ml{,i,y}>: pkg_xenstore.unix
+<src/*.ml{,i,y}>: pkg_xenstore_transport
+<src/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <src/sparse_dd.{native,byte}>: custom
 # OASIS_STOP
 <src/chunked.ml>: syntax_camlp4o, pkg_cstruct.syntax
