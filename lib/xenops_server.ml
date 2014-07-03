@@ -1460,7 +1460,8 @@ let queue_operation dbg id op =
 let queue_operation_and_wait dbg id op =
 	let from = Updates.last_id dbg updates in
 	let task = queue_operation_int dbg id op in
-	event_wait updates task ~from 1200.0 (task_finished_p task.Xenops_task.id)
+	event_wait updates task ~from 1200.0 (task_finished_p task.Xenops_task.id) |> ignore;
+	task
 
 module PCI = struct
 	open Pci
@@ -1679,7 +1680,15 @@ module VM = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let remove _ dbg id = queue_operation_and_wait dbg id (Atomic (VM_remove id)) |> ignore
+	let remove _ dbg id = 
+          let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
+          match task.Xenops_task.state with
+          | Task.Completed _ -> ()
+          | Task.Failed rpcty -> raise (exn_of_exnty (Xenops_interface.Exception.exnty_of_rpc rpcty))
+          | Task.Pending _ -> 
+	    error "VM.remove: queue_operation_and_wait returned a pending task";
+            Xenops_task.cancel tasks task.Xenops_task.id;
+            raise (Cancelled task.Xenops_task.id)
 
 	let stat' x =
 		debug "VM.stat %s" x;
@@ -1904,7 +1913,8 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 	let id = ref None in
 	while true do
 		let _, updates, next_id = B.UPDATES.get !id None in
-		assert (updates <> []);
+		assert (updates <> []); (* Note, backend updates don't use barriers, so we should
+					   always be getting updates *)
 		List.iter
 			(function
 				| Dynamic.Vm id ->
