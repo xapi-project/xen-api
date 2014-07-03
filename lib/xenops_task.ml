@@ -13,7 +13,7 @@ let event_wait local_updates task ?from timeout p =
 			let _, deltas, next_id = Updates.get (Printf.sprintf "event_wait task %s" task.Xenops_task.id)
 				~with_cancel:(Xenops_task.with_cancel task) event_id (Some (remaining |> ceil |> int_of_float)) local_updates in
 			let success = List.fold_left (fun acc d -> acc || (p d)) false deltas in
-			let finished = success || deltas = [] in
+			let finished = success in
 			if not finished
 			then
 				let elapsed = Unix.gettimeofday () -. start in
