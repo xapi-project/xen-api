@@ -1913,7 +1913,8 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 	let id = ref None in
 	while true do
 		let _, updates, next_id = B.UPDATES.get !id None in
-		assert (updates <> []);
+		assert (updates <> []); (* Note, backend updates don't use barriers, so we should
+					   always be getting updates *)
 		List.iter
 			(function
 				| Dynamic.Vm id ->
