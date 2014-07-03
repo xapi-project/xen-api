@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="vhd-format lwt cstruct uuidm cmdliner nbd cohttp xenstore xenstore_transport uri"
+OPAM_PACKAGES="vhd-format lwt cstruct uuidm cmdliner nbd cohttp xenstore xenstore_transport uri ssl sha tar"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
