@@ -699,8 +699,10 @@ let write_stream common s destination source_protocol destination_protocol preze
       Request.write (fun t _ -> return ()) request c >>= fun () ->
       Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
       begin match r with
-      | None -> fail (Failure "Unable to parse HTTP response from server")
-      | Some x ->
+      | `Invalid x -> fail (Failure (Printf.sprintf "Invalid HTTP response: %s"
+      x))
+      | `Eof -> fail (Failure "EOF while parsing HTTP response")
+      | `Ok x ->
         let code = Code.code_of_status (Cohttp.Response.status x) in
         if Code.is_success code then begin
           let advertises_nbd =
