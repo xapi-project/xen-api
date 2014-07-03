@@ -16,7 +16,7 @@ Executable "vhd-tool"
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, vhd-format, vhd-format.lwt, cmdliner, nbd, nbd.lwt, uri, cohttp, cohttp.lwt, tar, sha, sha.sha1, io-page.unix, re.str
+  BuildDepends:       lwt, lwt.unix, vhd-format, vhd-format.lwt, cmdliner, nbd, nbd.lwt, uri, cohttp (>= 0.10.0), cohttp.lwt, tar, sha, sha.sha1, io-page.unix, re.str
 
 Executable "sparse_dd"
   Build$:             flag(xenserver)
@@ -25,4 +25,4 @@ Executable "sparse_dd"
   MainIs:             sparse_dd.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, vhd-format, vhd-format.lwt, cmdliner, nbd, nbd.lwt, uri, cohttp, cohttp.lwt, xenstore, xenstore.client, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads, tapctl, xcp, sha, sha.sha1, tar, io-page.unix, re.str
+  BuildDepends:       lwt, lwt.unix, vhd-format, vhd-format.lwt, cmdliner, nbd, nbd.lwt, uri, cohttp (>= 0.10.0), cohttp.lwt, xenstore, xenstore.client, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads, tapctl, xcp, sha, sha.sha1, tar, io-page.unix, re.str
