@@ -58,36 +58,49 @@ module Config_file = struct
 	| Set_float f -> f := (float_of_string v)
 	| _ -> failwith "Unsupported type in config file"
 
-
-	let parse_line data =
-		let re = Re.compile (Re_emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\([^\\ \t]+\\)") in
-		  
-		(* Strip comments *)
-		let stripped = 
-		  try
-		    let i = String.index data '#' in
-		    String.sub data 0 i
-		  with Not_found -> data
-		in
-
+	(* Trim trailing whitespace from a line *)
+	let trim_trailing_ws line =
+		let re_ws = Re.compile (Re_emacs.re "[ \t]+$") in
 		try
-		  let ofs = Re.get_all_ofs (Re.exec re stripped) in
-		  let key_ofs = ofs.(1) in
-		  let v_ofs = ofs.(2) in
-		  let get (x,y) = String.sub stripped x (y-x) in
-		  let key = get key_ofs in
-		  let v = get v_ofs in
-		  let v = 
-		    if String.length v < 2
-		    then v
-		    else
-		      let first = v.[0] and last = v.[String.length v - 1] in
-		      if first = last && (first = '"' || first = '\'')
-		      then String.sub v 1 (String.length v - 2)
-		      else v in
-		  Some (key,v)
+			let ofs = fst (Re.get_all_ofs (Re.exec re_ws line)).(0) in
+			String.sub line 0 ofs
 		with Not_found ->
-		  None
+			line
+
+	let trim_comment line =
+		try
+			let i = String.index line '#' in
+			String.sub line 0 i
+		with Not_found -> line
+
+	let get_kv line =
+		let re = Re.compile (Re_emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\(.*\\)") in
+		let get (x,y) = String.sub line x (y-x) in
+		try
+			match Re.get_all_ofs (Re.exec re line) with
+			| [| _; key_ofs; v_ofs |] ->
+				(* First in array is always the full extent of all matches *)
+				Some (get key_ofs, get v_ofs)
+			| _ ->
+				None
+		with _ ->
+			None
+
+	let strip_quotes (k,v) =
+		if String.length v < 2
+		then (k,v)
+		else
+			let first = v.[0] and last = v.[String.length v - 1] in
+			if first = last && (first = '"' || first = '\'')
+			then (k,String.sub v 1 (String.length v - 2))
+			else (k,v)
+
+	let parse_line line = 
+		(* Strip comments *)
+		let stripped = line |> trim_comment |> trim_trailing_ws in
+		let lift f x = Some (f x) in
+		let (>>=) m f = match m with Some x -> f x | None -> None in
+		get_kv stripped >>= lift strip_quotes
 
 	let process_line data spec =
 		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
