@@ -59,9 +59,7 @@ module Config_file = struct
 	| _ -> failwith "Unsupported type in config file"
 
 
-	let parse_line data spec =
-		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
-
+	let parse_line data =
 		let re = Re.compile (Re_emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\([^\\ \t]+\\)") in
 		  
 		(* Strip comments *)
@@ -87,9 +85,16 @@ module Config_file = struct
 		      if first = last && (first = '"' || first = '\'')
 		      then String.sub v 1 (String.length v - 2)
 		      else v in
-		  if List.mem_assoc key spec then apply v (List.assoc key spec)
+		  Some (key,v)
 		with Not_found ->
-		  ()
+		  None
+
+	let process_line data spec =
+		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
+		match parse_line data with
+		| Some (key,v) -> 
+			if List.mem_assoc key spec then apply v (List.assoc key spec)
+		| None -> ()
 
 	let parse filename spec =
 		(* Remove the unnecessary doc parameter *)
@@ -99,7 +104,7 @@ module Config_file = struct
 			try
 				while true do
 					let line = input_line ic in
-					parse_line line spec
+					process_line line spec
 				done
 			with End_of_file -> ()
 		) (fun () -> close_in ic)

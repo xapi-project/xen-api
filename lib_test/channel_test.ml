@@ -59,19 +59,11 @@ let check_for_leak_proxy () =
   let after' = count_fds () in
   assert_equal ~printer:string_of_int before after'
 
-let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test channel passing";
-
-  let suite = "channel" >:::
+let tests = 
     [
       "check_for_leak with automatic selection" >:: (check_for_leak dup_automatic);
       "check_for_leak with sendmsg" >:: (check_for_leak dup_sendmsg);
       "check_for_leak_proxy" >:: check_for_leak_proxy;
-    ] in
+    ]
 
-  run_test_tt ~verbose:!verbose suite
 

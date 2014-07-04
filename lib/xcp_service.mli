@@ -16,6 +16,10 @@ val common_prefix: string
 
 type opt = string * Arg.spec * (unit -> string) * string
 
+module Config_file : sig
+  val parse_line : string -> (string * string) option
+end
+
 type res = {
 	name: string;
 	description: string;
