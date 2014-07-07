@@ -65,7 +65,7 @@ let filtered_xsdata =
 	let allowed (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith (p ^ "/") x) allowed_xsdata_prefixes) in
 	List.filter allowed
 
-exception Restore_signature_mismatch
+exception Suspend_image_failure
 exception Domain_build_failed
 exception Domain_restore_failed
 exception Domain_restore_truncated_hvmstate
@@ -75,7 +75,6 @@ exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
-let qemu_save_signature = "QemuDeviceModelRecord\n"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
 
@@ -790,13 +789,13 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 		if hvm
 		then begin
 			debug "Reading legacy (Xenops-level) QEMU record signature";
-			let read_signature = Io.read fd (String.length qemu_save_signature) in
-			if read_signature <> qemu_save_signature then begin
-				error "VM = %s; domid = %d; read invalid qemu record signature: \"%s\""
-					(Uuid.to_string uuid) domid read_signature;
-				raise Restore_signature_mismatch
-			end;
-			let length = Int64.of_int (Io.read_int ~endianness:`big fd) in
+			let length = begin match (read_legacy_qemu_header fd) with
+			| `Ok length -> length
+			| `Error e ->
+				error "VM = %s; domid = %d; Error reading QEMU signature: %s"
+					(Uuid.to_string uuid) domid e;
+				raise Suspend_image_failure
+			end in
 			debug "Consuming QEMU record into file";
 			consume_qemu_record fd length domid uuid
 		end;
@@ -834,7 +833,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 		end
 	| `Error e ->
 		error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
-		raise Restore_signature_mismatch
+		raise Suspend_image_failure
 
 let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 	if not cooperative

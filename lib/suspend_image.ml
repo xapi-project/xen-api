@@ -82,6 +82,7 @@ let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)
 
 let save_signature = "XenSavedDomv2-\n"
 let legacy_save_signature = "XenSavedDomain\n"
+let legacy_qemu_save_signature = "QemuDeviceModelRecord\n"
 
 let write_save_signature fd = Io.write fd save_signature
 let read_save_signature fd =
@@ -89,6 +90,15 @@ let read_save_signature fd =
 	| x when x = save_signature -> `Ok Structured
 	| x when x = legacy_save_signature -> `Ok Legacy
 	| x -> `Error (Printf.sprintf "Not a valid signature: \"%s\"" x)
+
+let read_legacy_qemu_header fd =
+	try
+		match Io.read fd (String.length legacy_qemu_save_signature) with
+		| x when x = legacy_qemu_save_signature ->
+			`Ok (Int64.of_int (Io.read_int ~endianness:`big fd))
+		| x -> `Error "Read invalid legacy qemu save signature"
+	with e ->
+		`Error ("Failed to read signature: " ^ (Printexc.to_string e))
 
 let read_header fd =
 	read_int64 fd >>= fun x ->

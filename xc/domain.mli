@@ -17,7 +17,7 @@ open Device_common
 
 type domid = Xenctrl.domid
 
-exception Restore_signature_mismatch
+exception Suspend_image_failure
 exception Domain_build_failed
 exception Domain_restore_failed
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
