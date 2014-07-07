@@ -75,7 +75,8 @@ exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
-let save_signature = "XenSavedDomain\n"
+let old_save_signature = "XenSavedDomain\n"
+let new_save_signature = "XenSavedDomv2-\n"
 let qemu_save_signature = "QemuDeviceModelRecord\n"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
@@ -732,63 +733,155 @@ let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info timeoff
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus xenguest_path domid
 
-(* restore a domain from a file descriptor. it read first the signature
- * to be we are not trying to restore from random data.
- * the linux_restore process is in charge to allocate memory as it's needed
- *)
+let restore_libxc_record (task: Xenops_task.t) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd =
+	let fd_uuid = Uuid.(to_string (create `V4)) in
+	let line = XenguestHelper.with_connection task xenguest_path domid
+	([
+		"-mode"; if hvm then "hvm_restore" else "restore";
+		"-domid"; string_of_int domid;
+		"-fd"; fd_uuid;
+		"-store_port"; string_of_int store_port;
+		"-console_port"; string_of_int console_port;
+		"-fork"; "true";
+	] @ extras) [ fd_uuid, fd ] XenguestHelper.receive_success in
+	match Xstringext.String.split ' ' line with
+	| [ store; console ] ->
+		debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
+		Nativeint.of_string store, Nativeint.of_string console
+	| _                  ->
+		error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
+		raise Domain_restore_failed
+
+let consume_qemu_record fd limit domid uuid =
+	let file = sprintf qemu_restore_path domid in
+	let fd2 = Unix.openfile file
+		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
+	in
+	finally (fun () ->
+		debug "VM = %s; domid = %d; reading %Ld bytes from %s"
+			(Uuid.to_string uuid) domid limit file;
+		if Unixext.copy_file ~limit fd fd2 <> limit
+		then begin
+			error "VM = %s; domid = %d; qemu save file was truncated"
+				(Uuid.to_string uuid) domid;
+			raise Domain_restore_truncated_hvmstate
+		end
+	) (fun () -> Unix.close fd2)
+
+type 'a thread_status = Running | Thread_failure | Success of 'a
+
 let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
 	let uuid = get_uuid ~xc domid in
-	let read_signature = Io.read fd (String.length save_signature) in
-	if read_signature <> save_signature then begin
-		error "VM = %s; domid = %d; read invalid save file signature: \"%s\"" (Uuid.to_string uuid) domid read_signature;
-		raise Restore_signature_mismatch;
-	end;
-	Unix.clear_close_on_exec fd;
-	let fd_uuid = Uuid.to_string (Uuid.create `V4) in
-
-	let line = XenguestHelper.with_connection task xenguest_path domid
-	  ([
-	    "-mode"; if hvm then "hvm_restore" else "restore";
-	    "-domid"; string_of_int domid;
-	    "-fd"; fd_uuid;
-	    "-store_port"; string_of_int store_port;
-		"-store_domid"; string_of_int store_domid;
-	    "-console_port"; string_of_int console_port;
-		"-console_domid"; string_of_int console_domid;
-		"-no_incr_generationid"; string_of_bool no_incr_generationid;
-	    "-fork"; "true";
-	  ] @ extras) [ fd_uuid, fd ] XenguestHelper.receive_success in
-
-	let store_mfn, console_mfn =
-		match Xstringext.String.split ' ' line with
-		| [ store; console ] ->
-			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
-			Nativeint.of_string store, Nativeint.of_string console
-		| _                  ->
-			error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
-			raise Domain_restore_failed
+	match Io.read fd (String.length new_save_signature) with
+	| x when x = old_save_signature ->
+		debug "Detected legacy suspend image! Piping through conversion tool.";
+		let (pipe_r, pipe_w) = Unix.pipe () in
+		let fd_uuid = Uuid.(to_string (create `V4))
+		and pipe_w_uuid = Uuid.(to_string (create `V4)) in
+		let conv_script = "/usr/lib64/xen/bin/legacy.py"
+		and args =
+			[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
+			  "--width"; "32"; "--skip-qemu";
+			  "--guest-type"; if hvm then "hvm" else "pv";
+			  "--syslog";
+			]
 		in
-
-	if hvm then (
-		(* restore qemu-dm tmp file *)
-		let read_signature = Io.read fd (String.length qemu_save_signature) in
-		if read_signature <> qemu_save_signature then begin
-			error "VM = %s; domid = %d; read invalid qemu save file signature: \"%s\"" (Uuid.to_string uuid) domid read_signature;
-			raise Restore_signature_mismatch;
+		let spawn_thread_and_close_fd name fd' f =
+			let status = ref Running in
+			let thread =
+				Thread.create (fun () ->
+					try
+						let result =
+							finally (fun () -> f ()) (fun () -> Unix.close fd')
+						in
+						status := Success result
+					with e ->
+						error "%s caught an exception: %s" name (Printexc.to_string e);
+						error "Setting result of thread to failure";
+						status := Thread_failure
+				) ()
+			in
+			(thread, status)
+		in
+		let (conv_th, conv_st) =
+			spawn_thread_and_close_fd "legacy.py" pipe_w (fun () ->
+				Cancellable_subprocess.run task
+					[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
+			)
+		and (xenguest_th, xenguest_st) =
+			spawn_thread_and_close_fd "xenguest" pipe_r (fun () ->
+				restore_libxc_record task ~hvm ~store_port ~console_port
+					~extras xenguest_path domid uuid pipe_r
+			)
+		in
+		debug "Spawned threads for conversion script and xenguest";
+		let rec handle_threads () = match (!conv_st, !xenguest_st) with
+		| Thread_failure, _ | _, Thread_failure ->
+			(* TODO: handle each failure individually *)
+			error "One of the threads has failed; cancelling task";
+			Xenops_task.cancel tasks task.Xenops_task.id;
+			raise (Xenops_interface.Cancelled "1")
+		| Running, _ | _, Running ->
+			Thread.delay 1.;
+			handle_threads ()
+		| Success _, Success (s, c) ->
+			debug "Waiting for conversion script thread to join";
+			Thread.join conv_th;
+			debug "Waiting for xenguest thread to join";
+			Thread.join xenguest_th;
+			(s, c)
+		in
+		let (store_mfn, console_mfn) = handle_threads () in
+		(* Consume the (legacy) QEMU Record *)
+		if hvm
+		then begin
+			debug "Reading legacy (Xenops-level) QEMU record signature";
+			let read_signature = Io.read fd (String.length qemu_save_signature) in
+			if read_signature <> qemu_save_signature then begin
+				error "VM = %s; domid = %d; read invalid qemu record signature: \"%s\""
+					(Uuid.to_string uuid) domid read_signature;
+				raise Restore_signature_mismatch
+			end;
+			let length = Int64.of_int (Io.read_int ~endianness:`big fd) in
+			debug "Consuming QEMU record into file";
+			consume_qemu_record fd length domid uuid
 		end;
-		let limit = Int64.of_int (Io.read_int ~endianness:`big fd) in
-
-		let file = sprintf qemu_restore_path domid in
-		let fd2 = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640 in
-		finally (fun () ->
-			debug "VM = %s; domid = %d; reading %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
-			if Unixext.copy_file ~limit fd fd2 <> limit then begin
-				error "VM = %s; domid = %d; qemu save file was truncated" (Uuid.to_string uuid) domid;
-				raise Domain_restore_truncated_hvmstate
-			end
-		) (fun () -> Unix.close fd2);
-	);
-	store_mfn, console_mfn
+		store_mfn, console_mfn
+	| x when x = new_save_signature ->
+		let open Suspend_image in
+		let open Suspend_image.M in
+		let rec process_header res =
+			debug "Reading next header...";
+			read_header fd >>= function
+			| Xenops, len ->
+				debug "Read Xenops record header (length=%Ld)" len;
+				let contents = Io.read fd (Io.int_of_int64_exn len) in
+				debug "Read Xenops record contents:\n%s" contents;
+				process_header res
+			| Libxc, _ ->
+				debug "Read Libxc record header";
+				let res = restore_libxc_record task ~hvm ~store_port ~console_port
+					~extras xenguest_path domid uuid fd
+				in
+				process_header (return (Some res))
+			| Qemu_trad, len ->
+				debug "Read Qemu_trad header (length=%Ld)" len;
+				consume_qemu_record fd len domid uuid;
+				process_header res
+			| End_of_image, _ ->
+				debug "Read suspend image footer";
+				res
+			| _ -> failwith "Unsupported"
+		in
+		begin match process_header (return None) with
+		| `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
+		| `Ok None -> failwith "Well formed, but useless stream"
+		| `Error Io_error e -> raise e
+		| `Error Invalid_header_type -> failwith "Invalid header type"
+		end
+	| invalid_signature ->
+		error "VM = %s; domid = %d; read invalid save file signature: \"%s\"" (Uuid.to_string uuid) domid invalid_signature;
+		raise Restore_signature_mismatch
 
 let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
 	if not cooperative
@@ -887,15 +980,8 @@ let restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_incr_g
 
 type suspend_flag = Live | Debug
 
-(* suspend register the callback function that will be call by linux_save
- * and is in charge to suspend the domain when called. the whole domain
- * context is saved to fd
- *)
-let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
-	let uuid = get_uuid ~xc domid in
-	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
-	Io.write fd save_signature;
-	let fd_uuid = Uuid.to_string (Uuid.create `V4) in
+let write_libxc_record (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+	let fd_uuid = Uuid.(to_string (create `V4)) in
 
 	let cmdline_to_flag flag =
 		match flag with
@@ -922,7 +1008,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 			if String.startswith prefix txt then
 				let rest = String.sub txt (String.length prefix)
 				                   (String.length txt - (String.length prefix)) in
-				match Xstringext.String.split_f (fun c -> c=' ' || c='%') rest with
+				match Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
 				| [ percent ] -> (
 					try
 						let percent = int_of_string percent in
@@ -968,26 +1054,62 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 		    raise (Xenguest_failure (Printf.sprintf "Received error from xenguesthelper: %s" x))
 		| _                       ->
 			error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
-	);
+	)
 
-	(* hvm domain need to also save qemu-dm data *)
-	if hvm then (
-		Io.write fd qemu_save_signature;
-		let file = sprintf qemu_save_path domid in
-		let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
-		let size = (Unix.stat file).Unix.st_size in
+let write_qemu_record domid uuid fd =
+	let file = sprintf qemu_save_path domid in
+	let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
+	finally (fun () ->
+		let size = Int64.of_int (Unix.stat file).Unix.st_size in
+		debug "Writing Qemu_trad header with length %Ld" size;
+		let open Suspend_image in let open Suspend_image.M in
+		write_header fd (Qemu_trad, size) >>= fun () ->
+		debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
+		if Unixext.copy_file ~limit:size fd2 fd <> size
+		then failwith "Failed to write whole qemu-dm state file";
+		return ()
+	) (fun () -> 
+		Unix.unlink file;
+		Unix.close fd2
+	)
 
-		finally (fun () ->
-			Io.write_int ~endianness:`big fd size;
-			let limit = Int64.of_int size in
-			debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
-			if Unixext.copy_file ~limit fd2 fd <> limit
-			then failwith "Failed to write whole qemu-dm state file"
-		) (fun () -> 
-			Unix.unlink file;
-			Unix.close fd2)
-	);
-	debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
+(* suspend register the callback function that will be call by linux_save
+ * and is in charge to suspend the domain when called. the whole domain
+ * context is saved to fd
+ *)
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+	let uuid = get_uuid ~xc domid in
+	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
+	let open Suspend_image in let open Suspend_image.M in
+	(* Suspend image signature *)
+	debug "Writing save signature: %s" new_save_signature;
+	Io.write fd new_save_signature;
+	(* Xenops record *)
+	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xenops_rec_len = String.length xenops_record in
+	let res =
+		debug "Writing Xenops header (length=%d)" xenops_rec_len;
+		write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
+		debug "Writing Xenops record contents";
+		Io.write fd xenops_record;
+		(* Libxc record *)
+		debug "Writing Libxc header";
+		write_header fd (Libxc, 0L) >>= fun () ->
+		debug "Writing Libxc record";
+		write_libxc_record task ~xc ~xs ~hvm xenguest_path domid uuid fd flags
+			progress_callback qemu_domid do_suspend_callback;
+		(* Qemu record (if this is a hvm domain) *)
+		(* Currently Qemu suspended inside above call with the libxc memory
+		 * image, we should try putting it below in the relevant section of the
+		 * suspend-image-writing *)
+		(if hvm then write_qemu_record domid uuid fd else return ()) >>= fun () ->
+		debug "Writing End_of_image footer";
+		write_header fd (End_of_image, 0L)
+	in match res with
+	| `Ok () ->
+		debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
+	| `Error Io_error e -> raise e
+	| `Error Invalid_header_type -> (* cannot happen on writing *) ()
 
 let send_s3resume ~xc domid =
 	let uuid = get_uuid ~xc domid in

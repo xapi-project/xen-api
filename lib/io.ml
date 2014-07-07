@@ -105,3 +105,10 @@ let unmarshall_int64 ~endianness buffer =
 let read_int64 ~endianness fd =
 	let buffer = read fd 8 in
 	unmarshall_int64 ~endianness buffer
+
+exception Integer_truncation
+let int_of_int64_exn i64 =
+	let i = Int64.to_int i64 in
+	if Int64.of_int i = i64
+	then i
+	else raise Integer_truncation
