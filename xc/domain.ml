@@ -75,8 +75,6 @@ exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
-let old_save_signature = "XenSavedDomain\n"
-let new_save_signature = "XenSavedDomv2-\n"
 let qemu_save_signature = "QemuDeviceModelRecord\n"
 let releaseDomain = "@releaseDomain"
 let introduceDomain = "@introduceDomain"
@@ -772,8 +770,9 @@ type 'a thread_status = Running | Thread_failure | Success of 'a
 
 let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
 	let uuid = get_uuid ~xc domid in
-	match Io.read fd (String.length new_save_signature) with
-	| x when x = old_save_signature ->
+	let open Suspend_image in
+	match read_save_signature fd with
+	| `Ok Legacy ->
 		debug "Detected legacy suspend image! Piping through conversion tool.";
 		let (pipe_r, pipe_w) = Unix.pipe () in
 		let fd_uuid = Uuid.(to_string (create `V4))
@@ -847,8 +846,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			consume_qemu_record fd length domid uuid
 		end;
 		store_mfn, console_mfn
-	| x when x = new_save_signature ->
-		let open Suspend_image in
+	| `Ok Structured ->
 		let open Suspend_image.M in
 		let rec process_header res =
 			debug "Reading next header...";
@@ -879,8 +877,8 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 		| `Error Io_error e -> raise e
 		| `Error Invalid_header_type -> failwith "Invalid header type"
 		end
-	| invalid_signature ->
-		error "VM = %s; domid = %d; read invalid save file signature: \"%s\"" (Uuid.to_string uuid) domid invalid_signature;
+	| `Error e ->
+		error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
 		raise Restore_signature_mismatch
 
 let resume (task: Xenops_task.t) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
@@ -1082,8 +1080,8 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	let open Suspend_image in let open Suspend_image.M in
 	(* Suspend image signature *)
-	debug "Writing save signature: %s" new_save_signature;
-	Io.write fd new_save_signature;
+	debug "Writing save signature: %s" save_signature;
+	Io.write fd save_signature;
 	(* Xenops record *)
 	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
 	let xenops_rec_len = String.length xenops_record in
