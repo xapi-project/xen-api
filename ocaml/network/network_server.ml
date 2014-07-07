@@ -132,15 +132,7 @@ module Interface = struct
 					Ip.flush_ip_addr name
 				end
 			| DHCP4 ->
-				let gateway =
-					if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
-						debug "%s is the default gateway interface" name;
-						[`set_gateway]
-					end else begin
-						debug "%s is NOT the default gateway interface" name;
-						[]
-					end
-				in
+				let gateway = Opt.default [] (Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
 				let dns =
 					if !config.dns_interface = None || !config.dns_interface = Some name then begin
 						debug "%s is the DNS interface" name;
