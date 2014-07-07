@@ -45,3 +45,5 @@ val read_save_signature : Unix.file_descr -> [`Ok of format | `Error of string]
 
 val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of error]
 val read_header : Unix.file_descr -> [`Ok of header | `Error of error]
+
+val with_conversion_script : Xenops_task.Xenops_task.t -> string -> bool -> Unix.file_descr -> (Unix.file_descr -> 'a) -> [`Ok of 'a | `Error of exn]
