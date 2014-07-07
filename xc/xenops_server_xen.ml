@@ -1139,12 +1139,6 @@ module VM = struct
 					debug "OTHER EVENT";
 					false)
 
-	(* Create an ext2 filesystem without maximal mount count and
-	   checking interval. *)
-	let mke2fs device =
-		run !Xc_path.mkfs ["-t"; "ext2"; device] |> ignore_string;
-		run !Xc_path.tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
-
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest write =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
@@ -1170,13 +1164,13 @@ module VM = struct
 		done;
 		if not(!finished) then raise Umount_timeout
 
-	let with_mounted_dir device write f =
+	let with_mounted_dir_ro device f =
 		let mount_point = Filename.temp_file "xenops_mount_" "" in
 		Unix.unlink mount_point;
 		Unix.mkdir mount_point 0o640;
 		finally
 			(fun () ->
-				mount ~ty:(Some "ext2") device mount_point write;
+				mount ~ty:(Some "ext2") device mount_point false;
 				f mount_point)
 			(fun () ->
 				(try umount mount_point with e -> debug "Caught %s" (Printexc.to_string e));
@@ -1184,34 +1178,38 @@ module VM = struct
 			)
 
 	(** open a file, and make sure the close is always done *)
-
 	let with_data ~xc ~xs task data write f = match data with
 		| Disk disk ->
-			with_disk ~xc ~xs task disk write
-				(fun path ->
-					if write then mke2fs path;
-					with_mounted_dir path write
-						(fun dir ->
-							(* Do we really want to balloon the guest down? *)
-							let flags =
-								if write
-								then [ Unix.O_WRONLY; Unix.O_CREAT ]
-								else [ Unix.O_RDONLY ] in
+			with_disk ~xc ~xs task disk write (fun path ->
+				let with_fd_of_path p f =
+					let is_raw_image =
+						Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
+							match Suspend_image.read_save_signature fd with
+							| `Ok _ -> true | _ -> false
+						)
+					in
+					match (write, is_raw_image) with
+					| true, _ -> (* Always write raw *)
+						Unixext.with_file path [Unix.O_WRONLY] 0o600 f
+					| false, true -> (* We're reading raw *)
+						Unixext.with_file path [Unix.O_RDONLY] 0o600 f
+					| false, false -> (* Assume reading from filesystem *)
+						with_mounted_dir_ro p (fun dir ->
 							let filename = dir ^ "/suspend-image" in
-							Unixext.with_file filename flags 0o600
-								(fun fd ->
-									finally
-										(fun () -> f fd)
-										(fun () ->
-											try
-												Fsync.fsync fd;
-											with Unix.Unix_error(Unix.EIO, _, _) ->
-												error "Caught EIO in fsync after suspend; suspend image may be corrupt";
-												raise (IO_error)
-										)
-								)
+							Unixext.with_file filename [Unix.O_RDONLY] 0o600 f
+						)
+				in
+				with_fd_of_path path (fun fd ->
+					finally
+						(fun () -> f fd)
+						(fun () ->
+							try Fsync.fsync fd;
+							with Unix.Unix_error(Unix.EIO, _, _) ->
+								error "Caught EIO in fsync after suspend; suspend image may be corrupt";
+								raise (IO_error)
 						)
 				)
+			)
 		| FD fd -> f fd
 
 	let save task progress_callback vm flags data =

@@ -20,7 +20,6 @@ let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 let vncterm = ref "/usr/lib/xcp/lib/vncterm"
 let xenguest = ref "/usr/lib/xcp/lib/xenguest"
 let tune2fs = ref "/sbin/tune2fs"
-let mkfs = ref "/sbin/mkfs"
 let mount = ref "/bin/mount"
 let umount = ref "/bin/umount"
 let ionice = ref "/usr/bin/ionice"
@@ -38,7 +37,6 @@ let essentials = [
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";
 	X_OK, "xenguest", xenguest, "path to the xenguest binary";
 	X_OK, "tune2fs", tune2fs, "path to the tune2fs binary";
-	X_OK, "mkfs", mkfs, "path to the mkfs binary";
 	X_OK, "mount", mount, "path to the mount binary";
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";

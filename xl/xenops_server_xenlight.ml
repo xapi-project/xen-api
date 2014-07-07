@@ -35,7 +35,6 @@ let _xenguest = "xenguest"
 let store_domid = 0
 let console_domid = 0
 let _tune2fs = "/sbin/tune2fs"
-let _mkfs = "/sbin/mkfs"
 let _mount = "/bin/mount"
 let _umount = "/bin/umount"
 let _ionice = "/usr/bin/ionice"
@@ -2224,12 +2223,6 @@ module VM = struct
 				true
 			) Oldest task vm
 
-	(* Create an ext2 filesystem without maximal mount count and
-	   checking interval. *)
-	let mke2fs device =
-		run !Xl_path.mkfs ["-t"; "ext2"; device] |> ignore_string;
-		run !Xl_path.tune2fs  ["-i"; "0"; "-c"; "0"; device] |> ignore_string
-
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
@@ -2269,34 +2262,38 @@ module VM = struct
 			)
 
 	(** open a file, and make sure the close is always done *)
-
 	let with_data ~xs task data write f = match data with
 		| Disk disk ->
-			with_disk ~xs task disk write
-				(fun path ->
-					if write then mke2fs path;
-					with_mounted_dir path
-						(fun dir ->
-							(* Do we really want to balloon the guest down? *)
-							let flags =
-								if write
-								then [ Unix.O_WRONLY; Unix.O_CREAT ]
-								else [ Unix.O_RDONLY; Unix.O_CLOEXEC ] in
+			with_disk ~xs task disk write (fun path ->
+				let with_fd_of_path p f =
+					let is_raw_image =
+						Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
+							match Suspend_image.read_save_signature fd with
+							| `Ok _ -> true | _ -> false
+						)
+					in
+					match (write, is_raw_image) with
+					| true, _ -> (* Always write raw *)
+						Unixext.with_file path [Unix.O_WRONLY] 0o600 f
+					| false, true -> (* We're reading raw *)
+						Unixext.with_file path [Unix.O_RDONLY] 0o600 f
+					| false, false -> (* Assume reading from filesystem *)
+						with_mounted_dir p (fun dir ->
 							let filename = dir ^ "/suspend-image" in
-							Unixext.with_file filename flags 0o600
-								(fun fd ->
-									finally
-										(fun () -> f fd)
-										(fun () ->
-											try
-												Fsync.fsync fd;
-											with Unix.Unix_error(Unix.EIO, _, _) ->
-												error "Caught EIO in fsync after suspend; suspend image may be corrupt";
-												raise (IO_error)
-										)
-								)
+							Unixext.with_file filename [Unix.O_RDONLY] 0o600 f
+						)
+				in
+				with_fd_of_path path (fun fd ->
+					finally
+						(fun () -> f fd)
+						(fun () ->
+							try Fsync.fsync fd;
+							with Unix.Unix_error(Unix.EIO, _, _) ->
+								error "Caught EIO in fsync after suspend; suspend image may be corrupt";
+								raise (IO_error)
 						)
 				)
+			)
 		| FD fd -> f fd
 
 	let save task progress_callback vm flags data =
