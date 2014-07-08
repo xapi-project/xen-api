@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7f1b6eddd60d89a8ed1e892667f6041f)
+# DO NOT EDIT (digest: bfd4f52972ebd9840fdc3ee9c81bee38)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -30,12 +30,6 @@
 <lib/*.ml{,i}>: pkg_xcp.storage
 <lib/*.ml{,i}>: pkg_xcp.xen
 <lib/*.ml{,i}>: pkg_xmlm
-# Executable xenguest
-<xenguest/xenguest_main.{native,byte}>: pkg_unix
-<xenguest/xenguest_main.{native,byte}>: pkg_xenctrl
-<xenguest/*.ml{,i}>: pkg_unix
-<xenguest/*.ml{,i}>: pkg_xenctrl
-<xenguest/xenguest_main.{native,byte}>: custom
 # Executable xenopsd_xc_main
 <xc/xenops_xc_main.{native,byte}>: use_libxenopsd_xc_main_stubs
 <xc/xenops_xc_main.{native,byte}>: pkg_cohttp
