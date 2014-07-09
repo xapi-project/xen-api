@@ -12,13 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Establish a XMLPRC interface with RRDD *)
-
 open Pervasiveext
 open Unixext
 open Threadext
 open Xstringext
 
+(* Establish a XMLPRC interface with RRDD *)
 module RRDD = Rrd_client.Client
 
 module Common = functor (N : (sig val name : string end)) -> struct
