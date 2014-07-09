@@ -53,7 +53,6 @@ let with_migrate f =
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
 
-module XenopsAPI = Xenops_client.Client
 open Storage_interface
 open Listext
 open Fun
@@ -73,7 +72,7 @@ let rec migrate_with_retries queue_name max try_no dbg vm_uuid xenops_vdi_map xe
 	let progress = ref "(none yet)" in
 	let f () =
 		progress := "XenopsAPI.VM.migrate";
-		let t1 = XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops in
+		let t1 = Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops in
 		progress := "wait_for_task";
 		let t2 = Xapi_xenops.wait_for_task queue_name dbg t1 in
 		progress := "success_task";
