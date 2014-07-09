@@ -2,7 +2,7 @@ all: build
 
 TESTS_FLAG=--enable-tests
 
-NAME=xcp-rrdd-plugin
+NAME=rrdd-plugin
 J=4
 
 LIBDIR=_build/lib
