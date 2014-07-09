@@ -1,3 +1,7 @@
+0.5.1 (09-Jul-2014)
+ * Add rrdd-plugin.mli
+ * Use Xstringext instead of Stringext
+
 0.5.0 (12-Mar-2014)
  * switch to rrd-transport library
  * switch build system to OASIS
