@@ -3,7 +3,7 @@
 open Pervasiveext
 open Unixext
 open Threadext
-open Stringext
+open Xstringext
 
 module RRDD = Rrd_client.Client
 
@@ -26,9 +26,8 @@ let wait_until_next_reading ?(neg_shift=0.5) () =
 
 let now () = Int64.of_float (Unix.gettimeofday ())
 
-let cut str = 
-	let open Stringext in
-		String.split_f (fun c -> c = ' ' || c = '\t') str
+let cut str =
+	String.split_f (fun c -> c = ' ' || c = '\t') str
 
 (** Execute the command [~cmd] with args [~args], apply f on each of
 	the lines that cmd output on stdout, and returns a list of
