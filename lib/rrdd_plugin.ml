@@ -82,7 +82,8 @@ let list_directory_entries_unsafe dir =
 
 let unregister signum =
 	info "Received signal %d: deregistering plugin %s..." signum N.name;
-	RRDD.Plugin.deregister N.name
+	RRDD.Plugin.deregister N.name;
+	exit 0
 
 (* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
