@@ -1,0 +1,8 @@
+0.5.0 (12-Mar-2014)
+ * switch to rrd-transport library
+ * switch build system to OASIS
+ * rename rrdp_common -> rrdd_plugin
+ * drop xcp prefix from library name
+
+0.4.0 (05-Dec-2013)
+ * initial release
