@@ -1,3 +1,6 @@
+0.5.2 (09-Jul-2014)
+ * make sure RRDD plugins exit on SIGTERM/SIGINT
+
 0.5.1 (09-Jul-2014)
  * Add rrdd-plugin.mli
  * Use Xstringext instead of Stringext
