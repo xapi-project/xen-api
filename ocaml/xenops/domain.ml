@@ -410,7 +410,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	(* If all devices were properly un-hotplugged, then zap the tree in xenstore.
 	   If there was some error leave the tree for debugging / async cleanup. *)
 	if failed_devices = []
-	then log_exn_rm ~xs (Hotplug.get_private_path domid);
+	then log_exn_rm ~xs (Device_common.get_private_path domid);
 
 	(* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
 	let still_exists () = 

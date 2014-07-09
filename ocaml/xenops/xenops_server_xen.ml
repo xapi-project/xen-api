@@ -490,7 +490,7 @@ let device_by_id xc xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Hotplug.get_private_data_path_of_device device in
+				let path = Device_common.get_private_data_path_of_device device in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
@@ -2106,7 +2106,7 @@ module VIF = struct
 			(fun xc xs ->
 				(* If the device is gone then this is ok *)
 				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
-				let path = Hotplug.get_private_data_path_of_device device in
+				let path = Device_common.get_private_data_path_of_device device in
 				(* Delete the old keys *)
 				List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
 				List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
