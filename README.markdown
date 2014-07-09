@@ -6,7 +6,7 @@ Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool. Xapi exposes the Xen API interface for many
 languages and is a component of the XenServer project.
 Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
-3.12.1.
+4.01.0.
 
 Xapi is the main component produced by the Linux Foundation's
 [Xapi Project](http://xenproject.org/developers/teams/xapi.html).
