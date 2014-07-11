@@ -486,6 +486,10 @@ let pool_record rpc session_id pool =
 			make_field ~name:"ha-allow-overcommit" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_allow_overcommit) ~set:(fun x -> Client.Pool.set_ha_allow_overcommit rpc session_id pool (bool_of_string x)) ();
 			make_field ~name:"ha-overcommitted" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted) ();
 			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.pool_blobs) ();
+      make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ();
+      make_field ~name:"wlb-username" ~get:(fun () -> (x ()).API.pool_wlb_username) ();
+      make_field ~name:"wlb-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled) ~set:(fun x -> Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)) ();
+      make_field ~name:"wlb-verify-cert" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert) ~set:(fun x -> Client.Pool.set_wlb_verify_cert rpc session_id pool (bool_of_string x)) ();
 			make_field ~name:"gui-config"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config)
 				~add_to_map:(fun k v -> Client.Pool.add_to_gui_config rpc session_id pool k v)
