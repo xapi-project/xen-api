@@ -1,7 +1,6 @@
 .PHONY: all clean install build
 all: build doc
 
-NAME=rrdd-libs
 J=4
 
 export OCAMLRUNPARAM=b
@@ -19,19 +18,18 @@ build: setup.data setup.bin
 doc: setup.data setup.bin
 	@./setup.bin -doc -j $(J)
 
-install: setup.bin
+install: build
 	install -m 755 xcp_rrdd.native $(DESTDIR)$(SBINDIR)/xcp-rrdd
-	@./setup.bin -install
 
 uninstall:
-	@ocamlfind remove $(NAME) || true
+	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 test: setup.bin build
 	@./setup.bin -test
 
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+reinstall: build
+	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	install -m 755 xcp_rrdd.native $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 clean:
 	@ocamlbuild -clean
