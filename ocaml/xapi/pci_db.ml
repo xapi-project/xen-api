@@ -85,12 +85,12 @@ let get_subdevice_names_by_id t v_id d_id id =
 let merge_hashtbls table1 table2 resolve_conflict =
 	Hashtbl.iter
 		(fun key2 value2 ->
-			if not (Hashtbl.mem table1 key2)
-			then Hashtbl.add table1 key2 value2
-			else begin
+			if Hashtbl.mem table1 key2
+			then begin
 				let value1 = Hashtbl.find table1 key2 in
 				resolve_conflict key2 value1 value2
-			end)
+			end
+			else Hashtbl.add table1 key2 value2)
 		table2
 
 (* Only merge values from the tables in t2 into t1 if the class/vendor/device
