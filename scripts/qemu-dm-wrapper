@@ -50,10 +50,15 @@ def main(argv):
 	loc2 = '/usr/lib64/xen/bin/qemu-dm'
 	loc3 = '/usr/lib/xen-4.1/bin/qemu-dm'
 	loc4 = '/usr/lib/xen-4.2/bin/qemu-dm'
-	qemu_dm_list = [loc1,loc2,loc3,loc4]
+	loc5 = '/usr/lib/xen-4.4/bin/qemu-dm'
+	qemu_dm_list = [loc1,loc2,loc3,loc4,loc5]
+	qemu_dm = None
 	for loc in qemu_dm_list:
 		if os.path.exists(loc):
 			qemu_dm = loc
+	if qemu_dm is None:
+		raise Exception("Cannot find qemu-dm in %s" % qemu_dm_list)
+
 	domid = int(argv[1])
 	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
 
