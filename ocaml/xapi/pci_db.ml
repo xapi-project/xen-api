@@ -113,8 +113,10 @@ let merge t1 t2 =
 	let merge_device_tables devices1 devices2 =
 		merge_hashtbls devices1 devices2
 			(fun device_id device1 device2 ->
-				if device1.d_name = device2.d_name
-				then merge_subdevice_tables device1.subdevice_names device2.subdevice_names)
+				(* Device names change from time to time, as pci.ids is updated, therefore
+				 * we merge subsystem entries even if the device name is not the same in
+				 * each database. *)
+				merge_subdevice_tables device1.subdevice_names device2.subdevice_names)
 	in
 	let merge_vendor_tables vendors1 vendors2 =
 		merge_hashtbls vendors1 vendors2
