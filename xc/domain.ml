@@ -816,6 +816,12 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 					~extras xenguest_path domid uuid fd
 				in
 				process_header (return (Some res))
+			| Libxc_legacy, _ ->
+				debug "Read Libxc_legacy record header";
+				let res = restore_libxc_record task ~hvm ~store_port ~console_port
+					~extras xenguest_path domid uuid fd
+				in
+				process_header (return (Some res))
 			| Qemu_trad, len ->
 				debug "Read Qemu_trad header (length=%Ld)" len;
 				consume_qemu_record fd len domid uuid;
@@ -828,8 +834,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 		begin match process_header (return None) with
 		| `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
 		| `Ok None -> failwith "Well formed, but useless stream"
-		| `Error Io_error e -> raise e
-		| `Error Invalid_header_type -> failwith "Invalid header type"
+		| `Error e -> raise e
 		end
 	| `Error e ->
 		error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
@@ -1008,14 +1013,19 @@ let write_libxc_record (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid uu
 			error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
 	)
 
-let write_qemu_record domid uuid fd =
+let write_qemu_record domid uuid legacy_libxc fd =
 	let file = sprintf qemu_save_path domid in
 	let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
 	finally (fun () ->
-		let size = Int64.of_int (Unix.stat file).Unix.st_size in
-		debug "Writing Qemu_trad header with length %Ld" size;
+		let size = Int64.of_int Unix.((stat file).st_size) in
 		let open Suspend_image in let open Suspend_image.M in
-		write_header fd (Qemu_trad, size) >>= fun () ->
+		(if legacy_libxc then begin
+			debug "Writing Qemu signature suitable for legacy libxc with length %Ld" size;
+			write_qemu_header_for_legacy_libxc fd size
+		end else begin
+			debug "Writing Qemu_trad header with length %Ld" size;
+			write_header fd (Qemu_trad, size)
+		end) >>= fun () ->
 		debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
 		if Unixext.copy_file ~limit:size fd2 fd <> size
 		then failwith "Failed to write whole qemu-dm state file";
@@ -1045,23 +1055,24 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 		debug "Writing Xenops record contents";
 		Io.write fd xenops_record;
 		(* Libxc record *)
-		debug "Writing Libxc header";
-		write_header fd (Libxc, 0L) >>= fun () ->
+		let legacy_libxc = not (XenguestHelper.supports_feature xenguest_path "migration-v2") in
+		debug "Writing Libxc%s header" (if legacy_libxc then "_legacy" else "");
+		let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
+		write_header fd (libxc_header, 0L) >>= fun () ->
 		debug "Writing Libxc record";
 		write_libxc_record task ~xc ~xs ~hvm xenguest_path domid uuid fd flags
 			progress_callback qemu_domid do_suspend_callback;
 		(* Qemu record (if this is a hvm domain) *)
 		(* Currently Qemu suspended inside above call with the libxc memory
-		 * image, we should try putting it below in the relevant section of the
-		 * suspend-image-writing *)
-		(if hvm then write_qemu_record domid uuid fd else return ()) >>= fun () ->
+		* image, we should try putting it below in the relevant section of the
+		* suspend-image-writing *)
+		(if hvm then write_qemu_record domid uuid legacy_libxc fd else return ()) >>= fun () ->
 		debug "Writing End_of_image footer";
 		write_header fd (End_of_image, 0L)
 	in match res with
 	| `Ok () ->
 		debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
-	| `Error Io_error e -> raise e
-	| `Error Invalid_header_type -> (* cannot happen on writing *) ()
+	| `Error e -> raise e
 
 let send_s3resume ~xc domid =
 	let uuid = get_uuid ~xc domid in
