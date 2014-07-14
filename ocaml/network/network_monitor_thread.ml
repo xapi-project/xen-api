@@ -116,7 +116,8 @@ let rec monitor dbg () =
 				if not(String.startswith "dummy" name) &&
 					not(String.startswith "xenbr" name) &&
 					not(String.startswith "xapi" name) &&
-					not(String.startswith "eth" name && String.contains name '.')
+					not(String.startswith "eth" name && String.contains name '.') &&
+					name <> "ovs-system"
 				then devs := (name,eth_stat) :: (!devs)
 			)
 		in
