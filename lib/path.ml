@@ -19,6 +19,7 @@ let chgrp = ref "/bin/chgrp"
 let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
 let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
 let eliloader = ref "/usr/bin/eliloader"
+let legacy_conv_tool = ref "/usr/lib64/xen/bin/legacy.py"
 
 open Unix
 
@@ -43,6 +44,7 @@ let essentials = [
 ]
 
 let nonessentials = [
+	X_OK, "legacy.py", legacy_conv_tool, "path to legacy.py conversion tool"
 ]
 
 let make_resources ~essentials ~nonessentials =
