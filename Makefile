@@ -27,10 +27,6 @@ uninstall:
 test: setup.bin build
 	@./setup.bin -test
 
-reinstall: build
-	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
-	install -m 755 xcp_rrdd.native $(DESTDIR)$(SBINDIR)/xcp-rrdd
-
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
