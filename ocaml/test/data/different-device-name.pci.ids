@@ -1,0 +1,10 @@
+# A set of new subdevices for a device already present in the base database,
+# however the device's name here does not match that of the same device in the
+# base database.
+
+0002  SimpleVendorName2
+	0001 JunkJunkJunk
+		0002 0be5  SubDeviceName5
+		0002 0be6  SubDeviceName6
+		0002 0be7  SubDeviceName7
+		0002 0be8  SubDeviceName8

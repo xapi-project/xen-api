@@ -150,6 +150,44 @@ let test_merge_new_subdevices () =
 			(0x0002L, 0x0be4L), "SubDeviceName4";
 		]
 
+(* Test that if a device in the secondary database has a name which does NOT
+ * match the device with the same ID in the primary database:
+ *
+ * 1) Subdevices for this device from the secondary database are merged into
+ *    the primary database.
+ * 2) The device name from the primary database is unchanged. *)
+let test_merge_different_device_name () =
+	let base_pci_db = Pci_db.of_file (data_file "base-pci.ids") in
+	let new_pci_db = Pci_db.of_file (data_file "different-device-name.pci.ids") in
+	Pci_db.merge base_pci_db new_pci_db;
+	let test_vendor_id = 0x0002L in
+	let device_id_with_subdevices = 0x0001L in
+	(* Test that the device name from the base database is unchanged. *)
+	assert_equal
+		~msg:"Merged device's name has changed"
+		~printer:print_string
+		"SimpleDeviceName-2-1"
+		(Pci_db.get_device base_pci_db test_vendor_id device_id_with_subdevices).Pci_db.d_name;
+	(* Test that the merged database has the new subdevices. *)
+	List.iter
+		(fun ((subvendor_id, subdevice_id), subdevice_name) ->
+			assert_equal
+				~msg:"New vendor's subdevice has an unexpected name"
+				~printer:print_string
+				subdevice_name
+				(Pci_db.get_subdevice
+					base_pci_db
+					test_vendor_id
+					device_id_with_subdevices
+					subvendor_id
+					subdevice_id))
+		[
+			(0x0002L, 0x0be5L), "SubDeviceName5";
+			(0x0002L, 0x0be6L), "SubDeviceName6";
+			(0x0002L, 0x0be7L), "SubDeviceName7";
+			(0x0002L, 0x0be8L), "SubDeviceName8";
+		]
+
 (* Test that the original database is respected when attempting to merge
  * a duplicate device. *)
 let test_merge_duplicate_device () =
@@ -241,6 +279,7 @@ let suite_test_merge =
 			"test_merge_new_vendor" >:: test_merge_new_vendor;
 			"test_merge_new_devices" >:: test_merge_new_devices;
 			"test_merge_new_subdevices" >:: test_merge_new_subdevices;
+			"test_merge_different_device_name" >:: test_merge_different_device_name;
 			"test_merge_duplicate_device" >:: test_merge_duplicate_device;
 			"test_merge_duplicate_subdevice" >:: test_merge_duplicate_subdevice;
 			"test_merge_new_class" >:: test_merge_new_class;
