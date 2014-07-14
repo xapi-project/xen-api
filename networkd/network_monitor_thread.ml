@@ -115,7 +115,8 @@ let get_link_stats () =
 		not(String.startswith "dummy" name) &&
 			not(String.startswith "xenbr" name) &&
 			not(String.startswith "xapi" name) &&
-			not(String.startswith "eth" name && String.contains name '.')
+			not(String.startswith "eth" name && String.contains name '.') &&
+			name <> "ovs-system"
 	) devs in
 
 	Cache.free cache;
