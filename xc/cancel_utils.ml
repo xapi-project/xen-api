@@ -42,8 +42,8 @@ let cancel_path_of ~xs = function
 	| Domain domid ->
 		Printf.sprintf "%s/xenops/cancel" (get_private_path domid)
 	| Qemu (backend, frontend) ->
-		(* Domain and qemu watches are considered to be domain-global *)
-		Printf.sprintf "%s/device-model/xenops/cancel" (get_private_path backend)
+		(* Domain and qemu watches are considered to be domain-local *)
+		Printf.sprintf "%s/device-model/xenops/cancel" (get_private_path frontend)
 	| Vgpu domid ->
 		Printf.sprintf "%s/vgpu/xenops/cancel" (get_private_path domid)
 	| TestPath x -> x
