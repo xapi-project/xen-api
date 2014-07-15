@@ -117,6 +117,13 @@ let write_header fd (hdr_type, len) =
 	write_int64 fd (int64_of_header_type hdr_type) >>= fun () ->
 	write_int64 fd len
 
+let conv_script = "/usr/lib64/xen/bin/legacy.py"
+
+let check_conversion_script () =
+	let open Unix in
+	try return (access conv_script [X_OK])
+	with _ -> `Error (Failure (Printf.sprintf "Executable not found: %s" conv_script))
+
 type 'a thread_status = Running | Thread_failure of exn | Success of 'a
 
 let with_conversion_script task name hvm fd f =
@@ -124,11 +131,11 @@ let with_conversion_script task name hvm fd f =
 	let open D in
 	let open Pervasiveext in
 	let open Threadext in
+	check_conversion_script () >>= fun () ->
 	let (pipe_r, pipe_w) = Unix.pipe () in
 	let fd_uuid = Uuid.(to_string (make_uuid ()))
 	and pipe_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let conv_script = "/usr/lib64/xen/bin/legacy.py"
-	and args =
+	let args =
 		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
 			"--width"; "32"; "--skip-qemu";
 			"--guest-type"; if hvm then "hvm" else "pv";
