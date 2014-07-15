@@ -83,6 +83,18 @@ let int64_of_header_type = function
 
 type header = header_type * int64 (* length *)
 
+let string_of_header h =
+	let s = Printf.sprintf in
+	match h with
+	| Xenops, len     -> s "Xenops header (record length=%Ld)" len
+	| Libxc, _        -> s "Libxc memory image"
+	| Libxl, _        -> s "Libxl save record"
+	| Libxc_legacy, _ -> s "Legacy Libxc (< Xen 4.5) record (w/ QEMU record)"
+	| Qemu_trad, len  -> s "Qemu (traditional) save record (record length=%Ld)" len
+	| Qemu_xen, len   -> s "Qemu (Xen) save record (record length=%Ld)" len
+	| Demu, len       -> s "vGPU save record (record length=%Ld)" len
+	| End_of_image, _ -> s "Suspend image footer"
+
 let wrap f =
 	try
 		return (f ())

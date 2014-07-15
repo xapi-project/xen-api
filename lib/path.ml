@@ -20,6 +20,7 @@ let hvmloader = ref "hvmloader"
 let pygrub = ref "pygrub"
 let eliloader = ref "eliloader"
 let legacy_conv_tool = ref "legacy.py"
+let verify_libxc_v2 = ref "verify-stream-v2"
 
 open Unix
 

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: a8ef08697c3793d83eba2a884f763348)
+# DO NOT EDIT (digest: 22822c5b3add633077bb5a3413defede)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -15,6 +15,26 @@
 "_darcs": not_hygienic
 # Library xenopsd
 "lib/xenopsd.cmxs": use_xenopsd
+# Executable suspend_image_viewer
+<lib/suspend_image_viewer.{native,byte}>: pkg_cmdliner
+<lib/suspend_image_viewer.{native,byte}>: pkg_cohttp
+<lib/suspend_image_viewer.{native,byte}>: pkg_fd-send-recv
+<lib/suspend_image_viewer.{native,byte}>: pkg_forkexec
+<lib/suspend_image_viewer.{native,byte}>: pkg_rpclib
+<lib/suspend_image_viewer.{native,byte}>: pkg_rpclib.syntax
+<lib/suspend_image_viewer.{native,byte}>: pkg_sexplib
+<lib/suspend_image_viewer.{native,byte}>: pkg_sexplib.syntax
+<lib/suspend_image_viewer.{native,byte}>: pkg_threads
+<lib/suspend_image_viewer.{native,byte}>: pkg_threads.posix
+<lib/suspend_image_viewer.{native,byte}>: pkg_uri
+<lib/suspend_image_viewer.{native,byte}>: pkg_uuidm
+<lib/suspend_image_viewer.{native,byte}>: pkg_uutf
+<lib/suspend_image_viewer.{native,byte}>: pkg_xcp
+<lib/suspend_image_viewer.{native,byte}>: pkg_xcp.storage
+<lib/suspend_image_viewer.{native,byte}>: pkg_xcp.xen
+<lib/suspend_image_viewer.{native,byte}>: pkg_xmlm
+<lib/suspend_image_viewer.{native,byte}>: use_xenopsd
+<lib/*.ml{,i}>: pkg_cmdliner
 <lib/*.ml{,i}>: pkg_cohttp
 <lib/*.ml{,i}>: pkg_fd-send-recv
 <lib/*.ml{,i}>: pkg_forkexec
@@ -31,6 +51,7 @@
 <lib/*.ml{,i}>: pkg_xcp.storage
 <lib/*.ml{,i}>: pkg_xcp.xen
 <lib/*.ml{,i}>: pkg_xmlm
+<lib/*.ml{,i}>: use_xenopsd
 # Executable xenopsd_xc_main
 <xc/xenops_xc_main.{native,byte}>: use_libxenopsd_xc_main_stubs
 <xc/xenops_xc_main.{native,byte}>: pkg_cohttp
