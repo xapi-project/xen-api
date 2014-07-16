@@ -19,9 +19,10 @@ shift 1
 ulimit -c 67108864
 
 echo vncterm-wrapper:
-xenstore-write -s /local/domain/$DOMID/vncterm-pid $$
 if [ -z "${XIU}" ]; then
-	exec /usr/lib64/xen/bin/vncterm $* > /dev/null 2>&1
+	/usr/lib64/xen/bin/vncterm $* > /dev/null 2>&1 &
+	xenstore-write -s /local/domain/$DOMID/vncterm-pid $!
 else
-	exec xenstore-write -s /local/domain/$DOMID/console/vnc-port 0
+	xenstore-write -s /local/domain/$DOMID/console/vnc-port 0
+	xenstore-write -s /local/domain/$DOMID/vncterm-pid $$
 fi
