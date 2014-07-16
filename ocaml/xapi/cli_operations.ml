@@ -1375,13 +1375,16 @@ let sr_scan printer rpc session_id params =
 	let sr_ref = Client.SR.get_by_uuid rpc session_id sr_uuid in
 	Client.SR.scan rpc session_id sr_ref
 
-let parse_host_uuid rpc session_id params =
+let parse_host_uuid ?(default_master=true) rpc session_id params =
 	if List.mem_assoc "host-uuid" params then
 		let host_uuid=List.assoc "host-uuid" params in
 		Client.Host.get_by_uuid rpc session_id host_uuid
 	else
-		let pool = List.hd (Client.Pool.get_all rpc session_id) in
-		Client.Pool.get_master rpc session_id pool
+		if default_master
+		then
+			let pool = List.hd (Client.Pool.get_all rpc session_id) in
+			Client.Pool.get_master rpc session_id pool
+		else failwith "Required parameter not found: host-uuid"
 
 let parse_device_config params =
 	(* Ack! We're supposed to use the format device-config:key=value but we need to match device-config-key=value for *)
@@ -1394,14 +1397,14 @@ let parse_device_config params =
 
 let sr_create fd printer rpc session_id params =
 	let name_label=List.assoc "name-label" params in
-	let host = parse_host_uuid rpc session_id params in
+	let shared = get_bool_param params "shared" in
+	let host = parse_host_uuid ~default_master:shared rpc session_id params in
 	let physical_size=
 		try
 			Record_util.bytes_of_string "physical-size" (List.assoc "physical-size" params)
 		with _ -> 0L in
 	let _type=List.assoc "type" params in
 	let content_type = List.assoc_default "content-type" params "" in
-	let shared = get_bool_param params "shared" in
 	let device_config = parse_device_config params in
 	(* If the device-config parameter is of the form k-filename=v, then we assume the
 	   key is 'k' and the value is stored in a file named 'v' *)
@@ -3054,13 +3057,26 @@ let pool_retrieve_wlb_report fd printer rpc session_id params =
 			(fun (k, _) -> not (List.mem k (["report"; "filename"] @ stdparams)))
 			params
 	in
-	ignore (report, filename, other_params);
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_report_uri
+		(Printf.sprintf
+			"report=%s%s%s"
+			(Http.urlencode report)
+			(if List.length other_params = 0 then "" else "&")
+			(String.concat "&"
+				(List.map (fun (k, v) ->
+					(Printf.sprintf "%s=%s"
+						(Http.urlencode k)
+						(Http.urlencode v))) other_params)))
+		"Report generation"
+        (Printf.sprintf "WLB report: %s" report)
 
 let pool_retrieve_wlb_diagnostics fd printer rpc session_id params =
 	let filename = List.assoc_default "filename" params "" in
-	ignore filename;
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+	download_file_with_task fd rpc session_id filename
+		Constants.wlb_diagnostics_uri ""
+		"WLB diagnostics download"
+    	"WLB diagnostics download"
 
 let vm_import fd printer rpc session_id params =
 	let sr =
