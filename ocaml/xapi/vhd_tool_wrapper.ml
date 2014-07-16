@@ -15,7 +15,7 @@
  * @group Import and Export
  *)
 
-module D=Debug.Make(struct let name="vhd_tool_wrapper" end)
+module D=Debug.Debugger(struct let name="vhd_tool_wrapper" end)
 open D
 
 open Pervasiveext
