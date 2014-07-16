@@ -63,7 +63,7 @@ let run_vhd_tool progress_cb args s s' path =
   ) (fun () -> close pipe_read; close pipe_write)
 
 let receive progress_cb format protocol (s: Unix.file_descr) (path: string) (prefix: string) (prezeroed: bool) =
-  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let s' = Uuid.(to_string (make_uuid ())) in
   let args = [ "serve";
                "--source-format"; format;
                "--source-protocol"; protocol;
@@ -130,7 +130,7 @@ let vhd_of_device path =
         find_backend_device path |> Opt.default path |> tapdisk_of_path
 
 let send progress_cb ?relative_to (protocol: string) (dest_format: string) (s: Unix.file_descr) (path: string) (prefix: string) =
-  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let s' = Uuid.(to_string (make_uuid ())) in
   let source_format, source = match vhd_of_device path with
     | Some vhd -> "hybrid", path ^ ":" ^ vhd
     | None -> "raw", path in
