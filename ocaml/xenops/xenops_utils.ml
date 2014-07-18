@@ -26,6 +26,7 @@ open D
 (* shared place for config option *)
 let default_vbd_backend_kind = ref "vbd"
 let vgpu_path = ref "/usr/lib/xen/bin/vgpu"
+let ca_140252_workaround = ref false
 
 module Unix = struct
 	include Unix
