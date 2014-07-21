@@ -100,6 +100,20 @@ let rec xenstore_iter t fn path =
 	| [] -> ()
 	| names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
 
+let xenstore_read_dir t path =
+	let rec inner acc nodes =
+		match nodes with
+		| [] -> acc
+		| n::ns ->
+			let v = try t.Xst.read n with _ -> "" in
+			let children = match t.Xst.directory n with
+			| [] | [""] -> []
+			| x -> List.map (Printf.sprintf "%s/%s" n) x
+			in
+			inner ((n, v) :: acc) (children @ ns)
+	in
+	inner [] [path] |> List.fast_sort compare
+
 type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 
 let string_of_domarch = function
@@ -808,7 +822,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
 				let contents = Io.read fd (Io.int_of_int64_exn len) in
-				debug "Read Xenops record contents:\n%s" contents;
+				debug "Read Xenops record contents: \"%s\"" contents;
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
@@ -1047,12 +1061,17 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
 	(* Xenops record *)
-	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xs_subtree =
+		Xs.transaction xs (fun t ->
+			xenstore_read_dir t (xs.Xs.getdomainpath domid)
+		)
+	in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;
 		write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
-		debug "Writing Xenops record contents";
+		debug "Writing Xenops record contents: \"%s\"" xenops_record;
 		Io.write fd xenops_record;
 		(* Libxc record *)
 		let legacy_libxc = not (XenguestHelper.supports_feature xenguest_path "migration-v2") in
