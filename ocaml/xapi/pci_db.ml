@@ -85,12 +85,12 @@ let get_subdevice_names_by_id t v_id d_id id =
 let merge_hashtbls table1 table2 resolve_conflict =
 	Hashtbl.iter
 		(fun key2 value2 ->
-			if not (Hashtbl.mem table1 key2)
-			then Hashtbl.add table1 key2 value2
-			else begin
+			if Hashtbl.mem table1 key2
+			then begin
 				let value1 = Hashtbl.find table1 key2 in
 				resolve_conflict key2 value1 value2
-			end)
+			end
+			else Hashtbl.add table1 key2 value2)
 		table2
 
 (* Only merge values from the tables in t2 into t1 if the class/vendor/device
@@ -113,8 +113,10 @@ let merge t1 t2 =
 	let merge_device_tables devices1 devices2 =
 		merge_hashtbls devices1 devices2
 			(fun device_id device1 device2 ->
-				if device1.d_name = device2.d_name
-				then merge_subdevice_tables device1.subdevice_names device2.subdevice_names)
+				(* Device names change from time to time, as pci.ids is updated, therefore
+				 * we merge subsystem entries even if the device name is not the same in
+				 * each database. *)
+				merge_subdevice_tables device1.subdevice_names device2.subdevice_names)
 	in
 	let merge_vendor_tables vendors1 vendors2 =
 		merge_hashtbls vendors1 vendors2
