@@ -667,9 +667,7 @@ class VMMonitor(ObjectMonitor):
             elif variable_name == "mem_usage": return "_$_DUMMY__"    # match nothing
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
-        elif config_tag == 'alarm_auto_inhibit_period': 
-            if variable_name == "fs_usage": return '604800'           # 1 week
-            else: return '3600'                                       # 1 hour
+        elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
         elif config_tag == 'alarm_trigger_level': 
             if variable_name == "fs_usage": return '0.9'              # trigger when 90% full
             elif variable_name == "mem_usage": return '0.95'          # tigger when mem demanded is close to phy_mem
