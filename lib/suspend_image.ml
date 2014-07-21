@@ -30,13 +30,14 @@ module Xenops_record = struct
 		time: string;
 		word_size: int;
 		(* All additional fields below should use the sexp_option extension *)
+		vm_str: string sexp_option;
 		xs_subtree: (string * string) list sexp_option;
 	} with sexp
 
-	let make ?xs_subtree () =
+	let make ?vm_str ?xs_subtree () =
 		let time = Date.(to_string (of_float (Unix.time ()))) in
 		let word_size = Sys.word_size in
-		{ word_size; time; xs_subtree }
+		{ word_size; time; vm_str; xs_subtree }
 	
 	let to_string t = t |> sexp_of_t |> Sexp.to_string
 	let of_string s = s |> Sexp.of_string |> t_of_sexp

@@ -1053,7 +1053,7 @@ let write_qemu_record domid uuid legacy_libxc fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	let open Suspend_image in let open Suspend_image.M in
@@ -1066,7 +1066,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 			xenstore_read_dir t (xs.Xs.getdomainpath domid)
 		)
 	in
-	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ())) in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;
