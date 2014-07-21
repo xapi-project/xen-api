@@ -616,7 +616,7 @@ class VMMonitor(ObjectMonitor):
      - Multiple <variable> nodes allowed
      - full list of child nodes is
        * name: what to call the variable (no default)
-       * alarm_priority: the priority of the messages generated (default '5')
+       * alarm_priority: the priority of the messages generated (default '3')
        * alarm_trigger_level: level of value that triggers an alarm (no default)
        * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
        * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
@@ -665,7 +665,7 @@ class HOSTMonitor(ObjectMonitor):
      - Multiple <variable> nodes allowed
      - full list of child nodes is
        * name: what to call the variable (no default)
-       * alarm_priority: the priority of the messages generated (default '5')
+       * alarm_priority: the priority of the messages generated (default '3')
        * alarm_trigger_level: level of value that triggers an alarm (no default)
        * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
        * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
