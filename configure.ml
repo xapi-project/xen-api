@@ -76,7 +76,6 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let libvirt = find_ocamlfind false "libvirt" in
-  let xenguest = find_ml_val true "Xenguest.init" ["xenctrl"] in
 
   Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir xenctrl xenlight libvirt;
 
@@ -92,7 +91,6 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
-      Printf.sprintf "ENABLE_XENGUESTBIN=--%s-xenguestbin" (if xenguest then "enable" else "disable");
     ] in
   output_file config_mk lines;
   (* Expand @LIBEXEC@ in udev rules *)

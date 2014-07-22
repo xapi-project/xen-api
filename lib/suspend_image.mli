@@ -24,14 +24,11 @@ module Xenops_record : sig
 	val of_string : string -> t
 end
 
-type error =
-	| Invalid_header_type
-	| Io_error of exn
-
 type header_type =
 	| Xenops
 	| Libxc
 	| Libxl
+	| Libxc_legacy
 	| Qemu_trad
 	| Qemu_xen
 	| Demu
@@ -43,8 +40,9 @@ type header = header_type * int64
 val save_signature : string
 val read_save_signature : Unix.file_descr -> [`Ok of format | `Error of string]
 val read_legacy_qemu_header : Unix.file_descr -> [`Ok of int64 | `Error of string]
+val write_qemu_header_for_legacy_libxc : Unix.file_descr -> int64 ->  [`Ok of unit | `Error of exn]
 
-val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of error]
-val read_header : Unix.file_descr -> [`Ok of header | `Error of error]
+val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of exn]
+val read_header : Unix.file_descr -> [`Ok of header | `Error of exn]
 
 val with_conversion_script : Xenops_task.Xenops_task.t -> string -> bool -> Unix.file_descr -> (Unix.file_descr -> 'a) -> [`Ok of 'a | `Error of exn]

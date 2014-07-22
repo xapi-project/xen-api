@@ -35,9 +35,6 @@ module Xenops_record = struct
 	let of_string s = t_of_rpc (Jsonrpc.of_string s)
 end
 
-type error =
-	| Invalid_header_type
-	| Io_error of exn
 
 type format = Structured | Legacy
 
@@ -45,15 +42,19 @@ type header_type =
 	| Xenops
 	| Libxc
 	| Libxl
+	| Libxc_legacy
 	| Qemu_trad
 	| Qemu_xen
 	| Demu
 	| End_of_image
 
+exception Invalid_header_type
+
 let header_type_of_int64 = function
 	| 0x000fL -> `Ok Xenops
 	| 0x00f0L -> `Ok Libxc
 	| 0x00f1L -> `Ok Libxl
+	| 0x00f2L -> `Ok Libxc_legacy
 	| 0x0f00L -> `Ok Qemu_trad
 	| 0x0f01L -> `Ok Qemu_xen
 	| 0x0f10L -> `Ok Demu
@@ -64,6 +65,7 @@ let int64_of_header_type = function
 	| Xenops       -> 0x000fL
 	| Libxc        -> 0x00f0L
 	| Libxl        -> 0x00f1L
+	| Libxc_legacy -> 0x00f2L
 	| Qemu_trad    -> 0x0f00L
 	| Qemu_xen     -> 0x0f01L
 	| Demu         -> 0x0f10L
@@ -75,7 +77,7 @@ let wrap f =
 	try
 		return (f ())
 	with e -> 
-		`Error (Io_error e)
+		`Error e
 
 let read_int64 fd = wrap (fun () -> Io.read_int64 ~endianness:`little fd)
 let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)
@@ -83,6 +85,7 @@ let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)
 let save_signature = "XenSavedDomv2-\n"
 let legacy_save_signature = "XenSavedDomain\n"
 let legacy_qemu_save_signature = "QemuDeviceModelRecord\n"
+let qemu_save_signature_legacy_libxc = "DeviceModelRecord0002"
 
 let write_save_signature fd = Io.write fd save_signature
 let read_save_signature fd =
@@ -100,6 +103,10 @@ let read_legacy_qemu_header fd =
 	with e ->
 		`Error ("Failed to read signature: " ^ (Printexc.to_string e))
 
+let write_qemu_header_for_legacy_libxc fd size =
+	wrap (fun () -> Io.write fd qemu_save_signature_legacy_libxc) >>= fun () ->
+	wrap (fun () -> Io.write_int ~endianness:`little fd (Io.int_of_int64_exn size))
+
 let read_header fd =
 	read_int64 fd >>= fun x ->
 	header_type_of_int64 x >>= fun hdr ->
@@ -110,6 +117,11 @@ let write_header fd (hdr_type, len) =
 	write_int64 fd (int64_of_header_type hdr_type) >>= fun () ->
 	write_int64 fd len
 
+let check_conversion_script () =
+	let open Unix in
+	try return (access !Path.legacy_conv_tool [X_OK])
+	with _ -> `Error (Failure (Printf.sprintf "Executable not found: %s" !Path.legacy_conv_tool))
+
 type 'a thread_status = Running | Thread_failure of exn | Success of 'a
 
 let with_conversion_script task name hvm fd f =
@@ -117,10 +129,11 @@ let with_conversion_script task name hvm fd f =
 	let open D in
 	let open Pervasiveext in
 	let open Threadext in
+	check_conversion_script () >>= fun () ->
 	let (pipe_r, pipe_w) = Unix.pipe () in
 	let fd_uuid = Uuidm.(to_string (create `V4))
 	and pipe_w_uuid = Uuidm.(to_string (create `V4)) in
-	let conv_script = "/usr/lib64/xen/bin/legacy.py"
+	let conv_script = !Path.legacy_conv_tool
 	and args =
 		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
 			"--width"; "32"; "--skip-qemu";
