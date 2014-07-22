@@ -1227,7 +1227,8 @@ module VM = struct
 
 				with_data ~xc ~xs task data true
 					(fun fd ->
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) domid fd flags'
+						let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
+						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd flags'
 							(fun () ->
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);

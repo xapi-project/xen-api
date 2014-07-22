@@ -100,6 +100,20 @@ let rec xenstore_iter t fn path =
 	| [] -> ()
 	| names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
 
+let xenstore_read_dir t path =
+	let rec inner acc nodes =
+		match nodes with
+		| [] -> acc
+		| n::ns ->
+			let v = try t.Xst.read n with _ -> "" in
+			let children = match t.Xst.directory n with
+			| [] | [""] -> []
+			| x -> List.map (Printf.sprintf "%s/%s" n) x
+			in
+			inner ((n, v) :: acc) (children @ ns)
+	in
+	inner [] [path] |> List.fast_sort compare
+
 type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
 
 let string_of_domarch = function
@@ -807,8 +821,8 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			read_header fd >>= function
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
-				let contents = Io.read fd (Io.int_of_int64_exn len) in
-				debug "Read Xenops record contents:\n%s" contents;
+				let _ = Io.read fd (Io.int_of_int64_exn len) in
+				debug "Read Xenops record contents";
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
@@ -1039,7 +1053,7 @@ let write_qemu_record domid uuid legacy_libxc fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
 	let open Suspend_image in let open Suspend_image.M in
@@ -1047,7 +1061,12 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
 	(* Xenops record *)
-	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xs_subtree =
+		Xs.transaction xs (fun t ->
+			xenstore_read_dir t (xs.Xs.getdomainpath domid)
+		)
+	in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;

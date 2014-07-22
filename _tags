@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: bfd4f52972ebd9840fdc3ee9c81bee38)
+# DO NOT EDIT (digest: a8ef08697c3793d83eba2a884f763348)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -21,6 +21,7 @@
 <lib/*.ml{,i}>: pkg_rpclib
 <lib/*.ml{,i}>: pkg_rpclib.syntax
 <lib/*.ml{,i}>: pkg_sexplib
+<lib/*.ml{,i}>: pkg_sexplib.syntax
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_threads.posix
 <lib/*.ml{,i}>: pkg_uri
@@ -38,6 +39,7 @@
 <xc/xenops_xc_main.{native,byte}>: pkg_rpclib
 <xc/xenops_xc_main.{native,byte}>: pkg_rpclib.syntax
 <xc/xenops_xc_main.{native,byte}>: pkg_sexplib
+<xc/xenops_xc_main.{native,byte}>: pkg_sexplib.syntax
 <xc/xenops_xc_main.{native,byte}>: pkg_threads
 <xc/xenops_xc_main.{native,byte}>: pkg_threads.posix
 <xc/xenops_xc_main.{native,byte}>: pkg_uri
@@ -68,6 +70,7 @@
 "xc/fsync_stubs.c": pkg_rpclib
 "xc/fsync_stubs.c": pkg_rpclib.syntax
 "xc/fsync_stubs.c": pkg_sexplib
+"xc/fsync_stubs.c": pkg_sexplib.syntax
 "xc/fsync_stubs.c": pkg_threads
 "xc/fsync_stubs.c": pkg_threads.posix
 "xc/fsync_stubs.c": pkg_uri
@@ -93,6 +96,7 @@
 "xc/xenctrlext_stubs.c": pkg_rpclib
 "xc/xenctrlext_stubs.c": pkg_rpclib.syntax
 "xc/xenctrlext_stubs.c": pkg_sexplib
+"xc/xenctrlext_stubs.c": pkg_sexplib.syntax
 "xc/xenctrlext_stubs.c": pkg_threads
 "xc/xenctrlext_stubs.c": pkg_threads.posix
 "xc/xenctrlext_stubs.c": pkg_uri
@@ -120,6 +124,7 @@
 <xc/watch_test.{native,byte}>: pkg_rpclib
 <xc/watch_test.{native,byte}>: pkg_rpclib.syntax
 <xc/watch_test.{native,byte}>: pkg_sexplib
+<xc/watch_test.{native,byte}>: pkg_sexplib.syntax
 <xc/watch_test.{native,byte}>: pkg_threads
 <xc/watch_test.{native,byte}>: pkg_threads.posix
 <xc/watch_test.{native,byte}>: pkg_uri
@@ -140,6 +145,7 @@
 <xc/*.ml{,i}>: pkg_rpclib
 <xc/*.ml{,i}>: pkg_rpclib.syntax
 <xc/*.ml{,i}>: pkg_sexplib
+<xc/*.ml{,i}>: pkg_sexplib.syntax
 <xc/*.ml{,i}>: pkg_threads
 <xc/*.ml{,i}>: pkg_threads.posix
 <xc/*.ml{,i}>: pkg_uri
@@ -161,6 +167,7 @@
 <simulator/xenops_simulator_main.{native,byte}>: pkg_rpclib
 <simulator/xenops_simulator_main.{native,byte}>: pkg_rpclib.syntax
 <simulator/xenops_simulator_main.{native,byte}>: pkg_sexplib
+<simulator/xenops_simulator_main.{native,byte}>: pkg_sexplib.syntax
 <simulator/xenops_simulator_main.{native,byte}>: pkg_threads
 <simulator/xenops_simulator_main.{native,byte}>: pkg_threads.posix
 <simulator/xenops_simulator_main.{native,byte}>: pkg_uri
@@ -177,6 +184,7 @@
 <simulator/*.ml{,i}>: pkg_rpclib
 <simulator/*.ml{,i}>: pkg_rpclib.syntax
 <simulator/*.ml{,i}>: pkg_sexplib
+<simulator/*.ml{,i}>: pkg_sexplib.syntax
 <simulator/*.ml{,i}>: pkg_threads
 <simulator/*.ml{,i}>: pkg_threads.posix
 <simulator/*.ml{,i}>: pkg_uri
@@ -196,6 +204,7 @@
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_rpclib
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_rpclib.syntax
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_sexplib
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_sexplib.syntax
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_threads
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_threads.posix
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_uri
@@ -213,6 +222,7 @@
 <libvirt/*.ml{,i}>: pkg_rpclib
 <libvirt/*.ml{,i}>: pkg_rpclib.syntax
 <libvirt/*.ml{,i}>: pkg_sexplib
+<libvirt/*.ml{,i}>: pkg_sexplib.syntax
 <libvirt/*.ml{,i}>: pkg_threads
 <libvirt/*.ml{,i}>: pkg_threads.posix
 <libvirt/*.ml{,i}>: pkg_uri
@@ -232,6 +242,7 @@
 <xl/xenops_xl_main.{native,byte}>: pkg_rpclib
 <xl/xenops_xl_main.{native,byte}>: pkg_rpclib.syntax
 <xl/xenops_xl_main.{native,byte}>: pkg_sexplib
+<xl/xenops_xl_main.{native,byte}>: pkg_sexplib.syntax
 <xl/xenops_xl_main.{native,byte}>: pkg_threads
 <xl/xenops_xl_main.{native,byte}>: pkg_threads.posix
 <xl/xenops_xl_main.{native,byte}>: pkg_uri
@@ -257,6 +268,7 @@
 <xl/*.ml{,i}>: pkg_rpclib
 <xl/*.ml{,i}>: pkg_rpclib.syntax
 <xl/*.ml{,i}>: pkg_sexplib
+<xl/*.ml{,i}>: pkg_sexplib.syntax
 <xl/*.ml{,i}>: pkg_threads
 <xl/*.ml{,i}>: pkg_threads.posix
 <xl/*.ml{,i}>: pkg_uri
@@ -282,6 +294,7 @@
 "xl/fsync_stubs.c": pkg_rpclib
 "xl/fsync_stubs.c": pkg_rpclib.syntax
 "xl/fsync_stubs.c": pkg_sexplib
+"xl/fsync_stubs.c": pkg_sexplib.syntax
 "xl/fsync_stubs.c": pkg_threads
 "xl/fsync_stubs.c": pkg_threads.posix
 "xl/fsync_stubs.c": pkg_uri
@@ -307,6 +320,7 @@
 "xl/poll_stubs.c": pkg_rpclib
 "xl/poll_stubs.c": pkg_rpclib.syntax
 "xl/poll_stubs.c": pkg_sexplib
+"xl/poll_stubs.c": pkg_sexplib.syntax
 "xl/poll_stubs.c": pkg_threads
 "xl/poll_stubs.c": pkg_threads.posix
 "xl/poll_stubs.c": pkg_uri

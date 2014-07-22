@@ -21,18 +21,26 @@ end
 open M
 
 module Xenops_record = struct
+	open Sexplib
+	open Sexplib.Std
+	open Sexplib.Conv
+	open Xenops_interface
+
 	type t = {
 		time: string;
 		word_size: int;
-	} with rpc
+		(* All additional fields below should use the sexp_option extension *)
+		vm_str: string sexp_option;
+		xs_subtree: (string * string) list sexp_option;
+	} with sexp
 
-	let make () =
-		let word_size = Sys.word_size
-		and time = Date.(to_string (of_float (Unix.time ()))) in
-		{ word_size; time }
+	let make ?vm_str ?xs_subtree () =
+		let time = Date.(to_string (of_float (Unix.time ()))) in
+		let word_size = Sys.word_size in
+		{ word_size; time; vm_str; xs_subtree }
 	
-	let to_string t = Jsonrpc.to_string (rpc_of_t t)
-	let of_string s = t_of_rpc (Jsonrpc.of_string s)
+	let to_string t = t |> sexp_of_t |> Sexp.to_string
+	let of_string s = s |> Sexp.of_string |> t_of_sexp
 end
 
 

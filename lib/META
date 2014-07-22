@@ -1,9 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 598e3ec74ec64f257ca3056a8131f7b4)
+# DO NOT EDIT (digest: fed8fcab2e3ef06f78f3331445df956b)
 version = "0.9.37"
 description = "XenServer domain managers"
 requires =
-"threads threads.posix uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen xcp.storage rpclib.syntax sexplib xcp uutf"
+"threads threads.posix uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen xcp.storage sexplib sexplib.syntax xcp uutf"
 archive(byte) = "xenopsd.cma"
 archive(byte, plugin) = "xenopsd.cma"
 archive(native) = "xenopsd.cmxa"
