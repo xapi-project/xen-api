@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 81cb3f15dc2a9ac7a504bb4b0a7bea60)
+# DO NOT EDIT (digest: ddedf87c49618f91146947e932ef8af2)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -24,6 +24,8 @@
 "lib/syslog_stubs.c": pkg_rpclib
 "lib/syslog_stubs.c": pkg_rpclib.syntax
 "lib/syslog_stubs.c": pkg_rpclib.xml
+"lib/syslog_stubs.c": pkg_sexplib
+"lib/syslog_stubs.c": pkg_sexplib.syntax
 "lib/syslog_stubs.c": pkg_threads
 "lib/syslog_stubs.c": pkg_unix
 "lib/syslog_stubs.c": pkg_uri
@@ -41,6 +43,8 @@
 <storage/storage_test.{native,byte}>: pkg_rpclib
 <storage/storage_test.{native,byte}>: pkg_rpclib.syntax
 <storage/storage_test.{native,byte}>: pkg_rpclib.xml
+<storage/storage_test.{native,byte}>: pkg_sexplib
+<storage/storage_test.{native,byte}>: pkg_sexplib.syntax
 <storage/storage_test.{native,byte}>: pkg_threads
 <storage/storage_test.{native,byte}>: pkg_unix
 <storage/storage_test.{native,byte}>: pkg_uri
@@ -57,6 +61,8 @@
 <storage/*.ml{,i}>: pkg_rpclib
 <storage/*.ml{,i}>: pkg_rpclib.syntax
 <storage/*.ml{,i}>: pkg_rpclib.xml
+<storage/*.ml{,i}>: pkg_sexplib
+<storage/*.ml{,i}>: pkg_sexplib.syntax
 <storage/*.ml{,i}>: pkg_threads
 <storage/*.ml{,i}>: pkg_unix
 <storage/*.ml{,i}>: pkg_uri
@@ -73,6 +79,8 @@
 <network/*.ml{,i}>: pkg_rpclib
 <network/*.ml{,i}>: pkg_rpclib.syntax
 <network/*.ml{,i}>: pkg_rpclib.xml
+<network/*.ml{,i}>: pkg_sexplib
+<network/*.ml{,i}>: pkg_sexplib.syntax
 <network/*.ml{,i}>: pkg_threads
 <network/*.ml{,i}>: pkg_unix
 <network/*.ml{,i}>: pkg_uri
@@ -88,6 +96,8 @@
 <rrd/*.ml{,i}>: pkg_rpclib
 <rrd/*.ml{,i}>: pkg_rpclib.syntax
 <rrd/*.ml{,i}>: pkg_rpclib.xml
+<rrd/*.ml{,i}>: pkg_sexplib
+<rrd/*.ml{,i}>: pkg_sexplib.syntax
 <rrd/*.ml{,i}>: pkg_threads
 <rrd/*.ml{,i}>: pkg_unix
 <rrd/*.ml{,i}>: pkg_uri
@@ -104,6 +114,8 @@
 <xen/*.ml{,i}>: pkg_rpclib
 <xen/*.ml{,i}>: pkg_rpclib.syntax
 <xen/*.ml{,i}>: pkg_rpclib.xml
+<xen/*.ml{,i}>: pkg_sexplib
+<xen/*.ml{,i}>: pkg_sexplib.syntax
 <xen/*.ml{,i}>: pkg_threads
 <xen/*.ml{,i}>: pkg_unix
 <xen/*.ml{,i}>: pkg_uri
@@ -119,6 +131,8 @@
 <memory/*.ml{,i}>: pkg_rpclib
 <memory/*.ml{,i}>: pkg_rpclib.syntax
 <memory/*.ml{,i}>: pkg_rpclib.xml
+<memory/*.ml{,i}>: pkg_sexplib
+<memory/*.ml{,i}>: pkg_sexplib.syntax
 <memory/*.ml{,i}>: pkg_threads
 <memory/*.ml{,i}>: pkg_unix
 <memory/*.ml{,i}>: pkg_uri
@@ -136,6 +150,8 @@
 <lib/channel_helper.{native,byte}>: pkg_rpclib
 <lib/channel_helper.{native,byte}>: pkg_rpclib.syntax
 <lib/channel_helper.{native,byte}>: pkg_rpclib.xml
+<lib/channel_helper.{native,byte}>: pkg_sexplib
+<lib/channel_helper.{native,byte}>: pkg_sexplib.syntax
 <lib/channel_helper.{native,byte}>: pkg_threads
 <lib/channel_helper.{native,byte}>: pkg_unix
 <lib/channel_helper.{native,byte}>: pkg_uri
@@ -152,6 +168,8 @@
 <lib/*.ml{,i}>: pkg_rpclib
 <lib/*.ml{,i}>: pkg_rpclib.syntax
 <lib/*.ml{,i}>: pkg_rpclib.xml
+<lib/*.ml{,i}>: pkg_sexplib
+<lib/*.ml{,i}>: pkg_sexplib.syntax
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_unix
 <lib/*.ml{,i}>: pkg_uri
@@ -170,6 +188,8 @@
 <lib_test/test.{native,byte}>: pkg_rpclib
 <lib_test/test.{native,byte}>: pkg_rpclib.syntax
 <lib_test/test.{native,byte}>: pkg_rpclib.xml
+<lib_test/test.{native,byte}>: pkg_sexplib
+<lib_test/test.{native,byte}>: pkg_sexplib.syntax
 <lib_test/test.{native,byte}>: pkg_threads
 <lib_test/test.{native,byte}>: pkg_unix
 <lib_test/test.{native,byte}>: pkg_uri
@@ -186,6 +206,8 @@
 <lib_test/*.ml{,i}>: pkg_rpclib
 <lib_test/*.ml{,i}>: pkg_rpclib.syntax
 <lib_test/*.ml{,i}>: pkg_rpclib.xml
+<lib_test/*.ml{,i}>: pkg_sexplib
+<lib_test/*.ml{,i}>: pkg_sexplib.syntax
 <lib_test/*.ml{,i}>: pkg_threads
 <lib_test/*.ml{,i}>: pkg_unix
 <lib_test/*.ml{,i}>: pkg_uri

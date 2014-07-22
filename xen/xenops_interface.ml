@@ -15,6 +15,8 @@
  * @group Xenops
  *)
 
+open Sexplib.Std
+
 let service_name = "xenops"
 let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 
@@ -39,6 +41,7 @@ type power_state =
 	| Halted
 	| Suspended
 	| Paused
+with sexp
 
 exception Already_exists of (string * string)
 exception Does_not_exist of (string * string)
@@ -84,6 +87,7 @@ external get_diagnostics: debug_info -> unit -> string = ""
 type disk =
 	| Local of string (** path to a local block device *)
 	| VDI of string   (** typically "SR/VDI" *)
+with sexp
 
 type disk_list = disk list
 
@@ -100,6 +104,7 @@ module Vm = struct
 		| Cirrus
 		| Standard_VGA
 		| Vgpu
+	with sexp
 
 	type hvm_info = {
 		hap: bool;
@@ -117,12 +122,14 @@ module Vm = struct
 		qemu_disk_cmdline: bool;
 		qemu_stubdom: bool;
 	}
+	with sexp
 
 	type pv_direct_boot = {
 		kernel: string;
 		cmdline: string;
 		ramdisk: string option;
 	}
+	with sexp
 
 	type pv_indirect_boot = {
 		bootloader: string;
@@ -131,10 +138,12 @@ module Vm = struct
 		bootloader_args: string;
 		devices: disk list;
 	}
+	with sexp
 
 	type pv_boot =
 		| Direct of pv_direct_boot
 		| Indirect of pv_indirect_boot
+	with sexp
 
 	type pv_info = {
 		boot: pv_boot;
@@ -143,23 +152,26 @@ module Vm = struct
 		vncterm: bool;
 		vncterm_ip: string option;
 	}
+	with sexp
 
 	type builder_info =
 	| HVM of hvm_info
 	| PV of pv_info
+	with sexp
 
-	type id = string
+	type id = string with sexp
 
 	type action =
 		| Coredump
 		| Shutdown
 		| Start
 		| Pause
+	with sexp
 
 	type scheduler_params = {
 		priority: (int * int) option; (* weight, cap *)
 		affinity: int list list (* vcpu -> pcpu list *)
-	}
+	} with sexp
 
 	type t = {
 		id: id;
@@ -182,17 +194,18 @@ module Vm = struct
 		on_reboot: action list;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
-	}
+	} with sexp
 
 	type console_protocol =
 		| Rfb
 		| Vt100
+	with sexp
 
 	type console = {
 		protocol: console_protocol;
 		port: int;
 		path: string;
-	}
+	} with sexp
 
 	type state = {
 		power_state: power_state;
@@ -209,7 +222,7 @@ module Vm = struct
 		xsdata_state: (string * string) list;
 		last_start_time: float;
 		hvm: bool;
-	}
+	} with sexp
 
 end
 
