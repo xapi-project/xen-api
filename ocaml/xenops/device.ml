@@ -1252,75 +1252,76 @@ let procfs_nvidia = "/proc/driver/nvidia/gpus"
 let bus_id_key = "Bus Location"
 
 let nvidia_smi = "/usr/bin/nvidia-smi"
-let nvidia_unbind_lock = Mutex.create ()
 
 let unbind_from_nvidia devstr =
-	Mutex.execute nvidia_unbind_lock (fun () ->
-		debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
-		let gpus = Sys.readdir procfs_nvidia in
-		(* Find the GPU with this device ID. *)
-		let rec find_gpu = function
-			| [] ->
-				failwith (Printf.sprintf "Couldn't find GPU with device ID %s" devstr)
-			| gpu :: rest ->
-				let gpu_path = Filename.concat procfs_nvidia gpu in
-				let gpu_info_file = Filename.concat gpu_path "information" in
-				let gpu_info = Unixext.string_of_file gpu_info_file in
-				(* Work around due to PCI ID formatting inconsistency. *)
-				let devstr2 = String.copy devstr in
-				devstr2.[7] <- '.';
-				if false
-					|| (String.has_substr gpu_info devstr2)
-					|| (String.has_substr gpu_info devstr)
-				then gpu_path
-				else find_gpu rest
-		in
-		(* Disable persistence mode on the device before unbinding it. In future it
-		 * might be worth augmenting gpumon so that it can do this, and to enable
-		 * xapi and/or xenopsd to tell it to do so. *)
-		let (_: string * string) =
-			Forkhelpers.execute_command_get_output
-				nvidia_smi
-				["--id="^devstr; "--persistence-mode=0"]
-		in
-		let unbind_lock_path =
-			Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
-		in
-		(* Grab the unbind lock. *)
-		write_string_to_file unbind_lock_path "1\n";
-		(* Unbind if we grabbed the lock; fail otherwise. *)
-		if Unixext.string_of_file unbind_lock_path = "1\n"
-		then unbind devstr (Supported Nvidia)
-		else failwith (Printf.sprintf "Couldn't lock GPU with device ID %s" devstr))
+	debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
+	let gpus = Sys.readdir procfs_nvidia in
+	(* Find the GPU with this device ID. *)
+	let rec find_gpu = function
+		| [] ->
+			failwith (Printf.sprintf "Couldn't find GPU with device ID %s" devstr)
+		| gpu :: rest ->
+			let gpu_path = Filename.concat procfs_nvidia gpu in
+			let gpu_info_file = Filename.concat gpu_path "information" in
+			let gpu_info = Unixext.string_of_file gpu_info_file in
+			(* Work around due to PCI ID formatting inconsistency. *)
+			let devstr2 = String.copy devstr in
+			devstr2.[7] <- '.';
+			if false
+				|| (String.has_substr gpu_info devstr2)
+				|| (String.has_substr gpu_info devstr)
+			then gpu_path
+			else find_gpu rest
+	in
+	(* Disable persistence mode on the device before unbinding it. In future it
+	 * might be worth augmenting gpumon so that it can do this, and to enable
+	 * xapi and/or xenopsd to tell it to do so. *)
+	let (_: string * string) =
+		Forkhelpers.execute_command_get_output
+			nvidia_smi
+			["--id="^devstr; "--persistence-mode=0"]
+	in
+	let unbind_lock_path =
+		Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
+	in
+	(* Grab the unbind lock. *)
+	write_string_to_file unbind_lock_path "1\n";
+	(* Unbind if we grabbed the lock; fail otherwise. *)
+	if Unixext.string_of_file unbind_lock_path = "1\n"
+	then unbind devstr (Supported Nvidia)
+	else failwith (Printf.sprintf "Couldn't lock GPU with device ID %s" devstr)
+
+let bind_lock = Mutex.create ()
 
 let bind devices new_driver =
-	List.iter
-		(fun device ->
-			let devstr = to_string device in
-			let old_driver = get_driver devstr in
-			match old_driver, new_driver with
-			| None, Nvidia ->
-				debug "pci: device %s not bound" devstr;
-				bind_to_nvidia devstr
-			| Some (Supported Nvidia), Nvidia ->
-				debug "pci: device %s already bound to nvidia; doing nothing" devstr
-			| Some driver, Nvidia ->
-				unbind devstr driver;
-				bind_to_nvidia devstr
-			| None, Pciback ->
-				debug "pci: device %s not bound" devstr;
-				bind_to_pciback devstr;
-				do_flr devstr
-			| Some (Supported Pciback), Pciback ->
-				debug "pci: device %s already bound to pciback; doing flr" devstr;
-				do_flr devstr
-			| Some (Supported Nvidia), Pciback ->
-				unbind_from_nvidia devstr;
-				bind_to_pciback devstr
-			| Some driver, Pciback ->
-				unbind devstr driver;
-				bind_to_pciback devstr)
-		devices
+	Mutex.execute bind_lock (fun () ->
+		List.iter
+			(fun device ->
+				let devstr = to_string device in
+				let old_driver = get_driver devstr in
+				match old_driver, new_driver with
+				| None, Nvidia ->
+					debug "pci: device %s not bound" devstr;
+					bind_to_nvidia devstr
+				| Some (Supported Nvidia), Nvidia ->
+					debug "pci: device %s already bound to nvidia; doing nothing" devstr
+				| Some driver, Nvidia ->
+					unbind devstr driver;
+					bind_to_nvidia devstr
+				| None, Pciback ->
+					debug "pci: device %s not bound" devstr;
+					bind_to_pciback devstr;
+					do_flr devstr
+				| Some (Supported Pciback), Pciback ->
+					debug "pci: device %s already bound to pciback; doing flr" devstr;
+					do_flr devstr
+				| Some (Supported Nvidia), Pciback ->
+					unbind_from_nvidia devstr;
+					bind_to_pciback devstr
+				| Some driver, Pciback ->
+					unbind devstr driver;
+					bind_to_pciback devstr)
+			devices)
 
 let enumerate_devs ~xs (x: device) =
 	let backend_path = backend_path_of_device ~xs x in
