@@ -745,7 +745,7 @@ class HOSTMonitor(ObjectMonitor):
         # possible to set up an alarm on each host that uses an SR by setting
         # appropriate configuration in the SR's other-config.
         if self.uuid not in sruuids_by_hostuuid:
-            print_debug("%s not in sruuids_by_hostuuid")
+            print_debug("%s not in sruuids_by_hostuuid" % self.uuid)
             self.secondary_variables.clear()
             self.secondary_xmlconfigs.clear()
             return
