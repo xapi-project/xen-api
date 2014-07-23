@@ -23,6 +23,8 @@ open Db_filter_types
 module Net = (val (Network.get_client ()) : Network.CLIENT)
 open Network_interface
 
+let ethtool_offload_defaults = ["gro", "off"; "lro", "off"]
+
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
@@ -84,6 +86,7 @@ let determine_ethtool_settings oc =
 	let autoneg = proc "autoneg" in
 	let settings = speed @ duplex @ autoneg in
 	let offload = List.flatten (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"]) in
+	let offload = offload @ List.filter (fun (k, v) -> not (List.mem_assoc k offload)) ethtool_offload_defaults in
 	settings, offload
 
 let determine_other_config ~__context pif_rc net_rc =
@@ -243,6 +246,14 @@ let linux_pif_config pif_type pif_rc mtu persistent =
 	 * by Interface.make_config in xcp-networkd/networkd/network_server.ml *)
 	let (ethtool_settings, ethtool_offload) =
 		determine_ethtool_settings pif_rc.API.pIF_other_config in
+	(* Still, on 2.6 kernels, GRO should cannot reliably be set on VLAN devices *)
+	let ethtool_offload =
+		if pif_type = `vlan_pif && List.mem_assoc "gro" ethtool_offload then begin
+			debug "Not setting GRO on the VLAN device; this will be inherited from the underlying interface";
+			List.remove_assoc "gro" ethtool_offload
+		end else
+			ethtool_offload
+	in
 	pif_rc.API.pIF_device ^ (match pif_type with
 		| `bond_pif -> ""
 		| `vlan_pif -> ("." ^ Int64.to_string pif_rc.API.pIF_VLAN)
