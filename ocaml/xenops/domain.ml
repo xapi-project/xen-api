@@ -786,8 +786,8 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			read_header fd >>= function
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
-				let contents = Io.read fd (Io.int_of_int64_exn len) in
-				debug "Read Xenops record contents:\n%s" contents;
+				let _ = Io.read fd (Io.int_of_int64_exn len) in
+				debug "Read Xenops record contents";
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
@@ -1033,7 +1033,7 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;
 		write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
-		debug "Writing Xenops record contents \"%s\"" xenops_record;
+		debug "Writing Xenops record contents";
 		Io.write fd xenops_record;
 		(* Libxc record *)
 		let legacy_libxc = not (XenguestHelper.supports_feature xenguest_path "migration-v2") in
