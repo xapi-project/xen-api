@@ -1023,12 +1023,17 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
 	(* Xenops record *)
-	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xs_subtree =
+		Xs.transaction xs (fun t ->
+			xenstore_read_dir t (xs.Xs.getdomainpath domid)
+		)
+	in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;
 		write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
-		debug "Writing Xenops record contents";
+		debug "Writing Xenops record contents \"%s\"" xenops_record;
 		Io.write fd xenops_record;
 		(* Libxc record *)
 		let legacy_libxc = not (XenguestHelper.supports_feature xenguest_path "migration-v2") in

@@ -20,23 +20,48 @@ end
 
 open M
 
+let (|>) a f = f a
+
 module Xenops_record = struct
 	type t = {
 		time: string;
 		word_size: int;
+		xs_subtree: (string * string) list option;
 	}
 
-	let make () =
-		let word_size = Sys.word_size
-		and time = Date.(to_string (of_float (Unix.time ()))) in
-		{ word_size; time }
+	let make ?xs_subtree () =
+		let time = Date.(to_string (of_float (Unix.time ()))) in
+		let word_size = Sys.word_size in
+		{ word_size; time; xs_subtree }
 
 	(* This needs to be compatible with usptream Xenopsd which uses sexplib
 	 * which cannot be ported to this branch. As such the following is an
 	 * recreation of what would happen when calling:
-	 *     sexp_of_t t |> Sexplib.Sexp.to_string *)
+	 *     sexp_of_t t |> Sexplib.Sexp.to_string
+	 * and has been tested in utop by chaining this function with sexplib like:
+	 *     to_string t |> Sexplib.Sexp.of_string |> t_of_sexp
+	 * and checking that we get t back where sexp_of_t and t_of_sexp are the
+	 * result of the following type definition with syntax extension upstream:
+	 *     type t = {
+	 *       time: string;
+	 *       word_size: int;
+	 *       xs_subtree: (string * string) list sexp_option;
+	 *     } with sexp
+	 * Upsteam may grow to have more fields, but as long as these have the
+	 * sexp_option modifier then what we produce will be parsed correctly *)
 	let to_string t =
-		Printf.sprintf "((time %s)(word_size %d))" t.time t.word_size
+		Printf.sprintf "((time %s)(word_size %d)%s)"
+		t.time t.word_size
+		begin match t.xs_subtree with
+		| None -> ""
+		| Some entries ->
+			List.map (fun (k, v) ->
+				Printf.sprintf "(\"%s\" \"%s\")"
+				(String.escaped k) (String.escaped v)
+			) entries
+			|> String.concat ""
+			|> Printf.sprintf "(xs_subtree(%s))"
+		end
 end
 
 
