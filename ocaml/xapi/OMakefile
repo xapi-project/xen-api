@@ -6,7 +6,9 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg ../network ../rrdd/interface ..
 
-UseCamlp4(rpc-light.syntax, features vdi_automaton storage_impl xapi_udhcpd storage_migrate xapi_services system_domains cancel_tests)
+UseCamlp4(rpc-light.syntax, features vdi_automaton storage_impl xapi_udhcpd \
+          storage_migrate xapi_services system_domains cancel_tests \
+          vhd_tool_wrapper)
 UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
@@ -83,6 +85,7 @@ XAPI_MODULES = $(COMMON) \
 	../xenops/updates \
 	storage_task \
 	storage_access \
+	vhd_tool_wrapper \
 	storage_mux \
 	storage_migrate \
 	storage_proxy \
@@ -196,6 +199,7 @@ XAPI_MODULES = $(COMMON) \
 	cli_util \
 	cli_key \
 	cli_printer \
+	cli_progress_bar \
 	ipq \
 	xapi_periodic_scheduler \
 	xapi_periodic_scheduler_init \
