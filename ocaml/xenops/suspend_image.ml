@@ -24,15 +24,19 @@ module Xenops_record = struct
 	type t = {
 		time: string;
 		word_size: int;
-	} with rpc
+	}
 
 	let make () =
 		let word_size = Sys.word_size
 		and time = Date.(to_string (of_float (Unix.time ()))) in
 		{ word_size; time }
-	
-	let to_string t = Jsonrpc.to_string (rpc_of_t t)
-	let of_string s = t_of_rpc (Jsonrpc.of_string s)
+
+	(* This needs to be compatible with usptream Xenopsd which uses sexplib
+	 * which cannot be ported to this branch. As such the following is an
+	 * recreation of what would happen when calling:
+	 *     sexp_of_t t |> Sexplib.Sexp.to_string *)
+	let to_string t =
+		Printf.sprintf "((time %s)(word_size %d))" t.time t.word_size
 end
 
 
