@@ -31,10 +31,8 @@ let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
 	in
 	let wait_time = next_reading -. neg_shift in
 	let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
-	if wait_time > 0. then begin
-		debug "Sleeping for %.1f seconds..." wait_time;
-		Thread.delay wait_time
-	end else
+	if wait_time > 0. then Thread.delay wait_time
+	else
 		debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
 (* Useful functions for plugins *)
@@ -154,7 +152,6 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 						datasources = dss_f ();
 					}) in
 					writer.Rrd_writer.write_payload payload;
-					debug "Done outputting to %s" path;
 					Thread.delay 0.003
 				done)
 				(fun () -> writer.Rrd_writer.cleanup ())
