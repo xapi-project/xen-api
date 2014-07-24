@@ -821,8 +821,10 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			read_header fd >>= function
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
-				let _ = Io.read fd (Io.int_of_int64_exn len) in
+				let rec_str = Io.read fd (Io.int_of_int64_exn len) in
 				debug "Read Xenops record contents";
+				let (_ : Xenops_record.t) = Xenops_record.of_string rec_str in
+				debug "Validated Xenops record contents";
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
