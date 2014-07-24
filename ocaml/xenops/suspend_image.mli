@@ -19,9 +19,8 @@ end
 
 module Xenops_record : sig
 	type t
-	val make : unit -> t
+	val make : ?xs_subtree:(string * string) list -> unit -> t
 	val to_string : t -> string
-	val of_string : string -> t
 end
 
 type header_type =

@@ -786,8 +786,8 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			read_header fd >>= function
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
-				let contents = Io.read fd (Io.int_of_int64_exn len) in
-				debug "Read Xenops record contents:\n%s" contents;
+				let _ = Io.read fd (Io.int_of_int64_exn len) in
+				debug "Read Xenops record contents";
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
@@ -1023,7 +1023,12 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
 	(* Xenops record *)
-	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xs_subtree =
+		Xs.transaction xs (fun t ->
+			xenstore_read_dir t (xs.Xs.getdomainpath domid)
+		)
+	in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;

@@ -43,6 +43,19 @@ let rec xenstore_iter t fn path =
        | [] -> ()
        | names -> List.iter (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n)) names
 
+let xenstore_read_dir t path =
+	let rec inner acc nodes =
+		match nodes with
+		| [] -> acc
+		| n::ns ->
+			let v = try t.Xst.read n with _ -> "" in
+			let children = match t.Xst.directory n with
+			| [] | [""] -> []
+			| x -> List.map (Printf.sprintf "%s/%s" n) x
+			in
+			inner ((n, v) :: acc) (children @ ns)
+	in
+	inner [] [path] |> List.fast_sort compare
 
 let dropnone x = List.filter_map (fun x -> x) x
 
