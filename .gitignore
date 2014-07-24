@@ -1,3 +1,8 @@
+*.native
 *.swp
 
-dist/
+setup.bin
+setup.data
+setup.log
+
+_build/
