@@ -25,8 +25,10 @@ module Common = functor (N : (sig val name : string end)) -> struct
 module D = Debug.Make(struct let name=N.name end)
 open D
 
-let wait_until_next_reading ?(neg_shift=0.5) () =
-	let next_reading = RRDD.Plugin.register N.name Rrd.Five_Seconds in
+let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
+	let next_reading =
+		RRDD.Plugin.Local.register N.name Rrd.Five_Seconds protocol
+	in
 	let wait_time = next_reading -. neg_shift in
 	let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
 	if wait_time > 0. then begin
@@ -130,19 +132,23 @@ let initialise () =
 		(debug "Storing process id into specified file ..";
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
-			
-let main_loop ~neg_shift ~dss_f =
+
+let choose_protocol = function
+	| Rrd_interface.V1 -> Rrd_protocol_v1.protocol
+	| Rrd_interface.V2 -> Rrd_protocol_v2.protocol
+
+let main_loop ~neg_shift ~protocol ~dss_f =
 	let rec main () =
 		try
 			let path = RRDD.Plugin.get_path ~uid:N.name in
 			let _ = mkdir_safe (Filename.dirname path) 0o644 in
 			let _, writer =
-				Rrd_writer.FileWriter.create path Rrd_protocol_v1.protocol
+				Rrd_writer.FileWriter.create path (choose_protocol protocol)
 			in
 			finally (fun () ->
 				info "Obtained path=%s\n" path;
 				while true do
-					wait_until_next_reading ~neg_shift ();
+					wait_until_next_reading ~neg_shift ~protocol;
 					let payload = Rrd_protocol.({
 						timestamp = now ();
 						datasources = dss_f ();
