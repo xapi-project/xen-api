@@ -388,55 +388,137 @@ let update_vbds doms =
 			!vals
 		with _ -> !vals
 	in
+	(* With blktap3, the IO statistics are maintained in a file 'statistics'
+	 * under the directory '/dev/shm/vbd3-<pid>-<minor>/'
+	 * The file contains the following information:
+	 * ds_req, f_req, oo_req, rd_req, rd_sect, wr_req, wr_sect
+	 * read requests: %Ld, avg usecs: %Ld, max usecs: %Ld
+	 * write requests: %Ld, avg usecs: %Ld, max usecs: %Ld *)
+
+	(* This method reads the first line from the 'statistics' file *)
+	let read_shm_stats_line line =
+		try
+			Scanf.sscanf line "%Ld %Ld %Ld %Ld %Ld %Ld %Ld"
+				(fun a b c d e f g -> (a, b, c, d, e, f, g))
+		with _ -> (0L, 0L, 0L, 0L, 0L, 0L, 0L)
+	in
+	(* This method obtains the latency metrics from the 'statistics' file *)
+	let get_latency_metrics line rdwr =
+		match rdwr with
+		| `Read ->
+			Scanf.sscanf line "read requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
+				(fun a b c -> (a, b, c))
+		| `Write ->
+			Scanf.sscanf line "write requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
+				(fun a b c -> (a, b, c))
+	in
+	let parse_shm_stats file_contents =
+		match file_contents with
+		| [shm_stats; read_latency_stats; write_latency_stats] ->
+				let _,_,_, shm_rd_req,_,shm_wr_req,_ = read_shm_stats_line shm_stats in
+				let _, shm_rd_avg_usecs, _ = get_latency_metrics read_latency_stats `Read in
+				let _, shm_wr_avg_usecs, _ = get_latency_metrics write_latency_stats `Write in
+				Some(shm_rd_req, shm_wr_req, shm_rd_avg_usecs, shm_wr_avg_usecs)
+		| _ -> None
+	in
+	let shm_devices_dir = "/dev/shm" in
 	let sysfs_devices_dir = "/sys/devices/" in
-	let dirs = Array.to_list (Sys.readdir sysfs_devices_dir) in
-	let vbds =
+	(* Method to read stats from sysfs *)
+	let read_all_sysfs_stats vbd =
+		let sysfs_stat_tree_exists vbd =
+			let statdir = Printf.sprintf "%s/%s/statistics/" sysfs_devices_dir vbd in
+				try
+					Sys.is_directory statdir
+				with _ -> false
+		in
+		if (sysfs_stat_tree_exists vbd) then
+			begin
+				let statdir = Printf.sprintf "%s/%s/statistics/" sysfs_devices_dir vbd in
+				let rd_file = statdir ^ "rd_sect" in
+				let wr_file = statdir ^ "wr_sect" in
+				let rd_usecs_file = statdir ^ "rd_usecs" in
+				let wr_usecs_file = statdir ^ "wr_usecs" in
+				let rd_reqs = read_int_file rd_file in
+				let wr_reqs = read_int_file wr_file in
+				let _, rd_avg_usecs, _ = read_usecs_file rd_usecs_file in
+				let _, wr_avg_usecs, _ = read_usecs_file wr_usecs_file in
+				Some(rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs)
+			end
+		else
+			None
+	in
+	let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
+	let shm_vbds =
 		List.filter
-			(fun s -> String.startswith "vbd-" s || String.startswith "tap-" s) dirs in
+			(fun s -> String.startswith "vbd3-" s) shm_dirs in
+	let sysfs_dirs = Array.to_list (Sys.readdir sysfs_devices_dir) in
+	let sysfs_vbds =
+		List.filter
+			(fun s -> String.startswith "vbd-" s || String.startswith "tap-" s) sysfs_dirs in
+	let vbds = shm_vbds @ sysfs_vbds in
 	List.fold_left (fun acc vbd ->
 		let istap = String.startswith "tap-" vbd in
-		let statdir = Printf.sprintf "%s/%s/statistics/" sysfs_devices_dir vbd in
-		let blksize = 512L in
-		let rd_file = statdir ^ "rd_sect" in
-		let wr_file = statdir ^ "wr_sect" in
-		let rd_usecs_file = statdir ^ "rd_usecs" in
-		let wr_usecs_file = statdir ^ "wr_usecs" in
-		let rd_bytes = Int64.mul (read_int_file rd_file) blksize in
-		let wr_bytes = Int64.mul (read_int_file wr_file) blksize in
-		let rd_reqs, rd_avg_usecs, rd_max_usecs = read_usecs_file rd_usecs_file in
-		let wr_reqs, wr_avg_usecs, wr_max_usecs = read_usecs_file wr_usecs_file in
-		let domid, devid =
-			if istap then Scanf.sscanf vbd "tap-%d-%d" (fun id devid -> (id, devid))
-			else Scanf.sscanf vbd "vbd-%d-%d" (fun id devid -> (id, devid))
+		let isvbd3 = String.startswith "vbd3-" vbd in
+		let avg64 a b = Int64.div (Int64.add a b) 2L in
+		let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
+		let stats = Unixext.read_lines stat_file in
+		(* Produce IO RRDs when demanded *)
+		let generate_rrds acc rd_reqs wr_reqs rd_avg_usecs wr_avg_usecs =
+			let blksize = 512L in
+			let rd_bytes = Int64.mul rd_reqs blksize in
+			let wr_bytes = Int64.mul wr_reqs blksize in
+			let domid, devid =
+				if istap then Scanf.sscanf vbd "tap-%d-%d" (fun id devid -> (id, devid))
+				else if isvbd3 then Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid))
+				else Scanf.sscanf vbd "vbd-%d-%d" (fun id devid -> (id, devid))
+			in
+			let open Device_number in
+			let device_name = devid |> of_xenstore_key |> to_linux_device in
+			let vbd_name = Printf.sprintf "vbd_%s" device_name in
+			(* If blktap fails to cleanup then we might find a backend domid which doesn't
+				 correspond to an active domain uuid. Skip these for now. *)
+			let newacc =
+				try
+					let uuid = uuid_of_domid doms domid in
+					(VM uuid, ds_make ~name:(vbd_name^"_write")
+						~description:("Writes to device '"^device_name^"' in bytes per second")
+						~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+						~units:"B/s" ())::
+					(VM uuid, ds_make ~name:(vbd_name^"_read")
+						~description:("Reads from device '"^device_name^"' in bytes per second")
+						~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+						~units:"B/s" ())::
+					(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
+						~description:("Read latency for device '" ^ device_name ^ "' in microseconds")
+						~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+						~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
+					(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
+						~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
+						~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
+						~default:false ~units:"μs" ())::
+					acc
+				with _ -> acc
+				in
+				newacc
 		in
-		let open Device_number in
-		let device_name = devid |> of_xenstore_key |> to_linux_device in
-		let vbd_name = Printf.sprintf "vbd_%s" device_name in
-		(* If blktap fails to cleanup then we might find a backend domid which doesn't
-			 correspond to an active domain uuid. Skip these for now. *)
-		let newacc =
-			try
-				let uuid = uuid_of_domid doms domid in
-				(VM uuid, ds_make ~name:(vbd_name^"_write")
-					~description:("Writes to device '"^device_name^"' in bytes per second")
-					~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-					~units:"B/s" ())::
-				(VM uuid, ds_make ~name:(vbd_name^"_read")
-					~description:("Reads from device '"^device_name^"' in bytes per second")
-					~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-					~units:"B/s" ())::
-				(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
-					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
-					~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
-					~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
-				(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
-					~description:("Reads from device '" ^ device_name ^ "' in microseconds")
-					~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
-					~default:false ~units:"μs" ())::
-				acc
-			with _ -> acc
-		in
-		newacc
+		match parse_shm_stats stats, read_all_sysfs_stats vbd with
+		| Some(a, b, c, d), Some(p, q, r, s) ->
+				let (shm_rd_reqs, shm_wr_reqs, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
+				let (rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
+				(* Take max for usecs *)
+				let rd_avg_usecs = max rd_avg_usecs shm_rd_avg_usecs in
+				let wr_avg_usecs = max wr_avg_usecs shm_wr_avg_usecs in
+				(* Average out the read/write requests *)
+				let rd_reqs = avg64 rd_reqs shm_rd_reqs in
+				let wr_reqs = avg64 wr_reqs shm_wr_reqs in
+				generate_rrds acc rd_reqs wr_reqs rd_avg_usecs wr_avg_usecs;
+		| Some(a, b, c, d), None ->
+				let (shm_rd_reqs, shm_wr_reqs, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
+				generate_rrds acc shm_rd_reqs shm_wr_reqs shm_rd_avg_usecs shm_wr_avg_usecs
+		| None, Some(p, q, r, s) ->
+				let (rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
+				generate_rrds acc rd_reqs wr_reqs rd_avg_usecs wr_avg_usecs
+		| None, None -> acc
 	) [] vbds
 
 (*****************************************************)
