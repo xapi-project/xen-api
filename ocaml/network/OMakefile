@@ -20,7 +20,7 @@ OCamlLibraryClib(network_utils, network_utils, link_stubs)
 OCamlProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlDocProgram($(NETWORKD), $(NETWORKD_FILES))
 OCamlProgram($(NETWORK_TEST), ../fhs network_test network_interface)
-OCamlProgram($(NETWORKD_DB), network_interface network_config networkd_db)
+OCamlProgram($(NETWORKD_DB), network_interface network_config network_utils networkd_db)
 
 .PHONY: install
 install:
