@@ -39,6 +39,9 @@
 config.mk
 dist
 _build
+configure
+setup.bin
+setup.data
 scripts/vif
 scripts/xen-backend.rules
 scripts/xen-backend-xl.rules
