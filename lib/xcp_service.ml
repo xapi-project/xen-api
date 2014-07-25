@@ -22,11 +22,14 @@ module StringSet = Set.Make(String)
 let default_service_name = Filename.basename Sys.argv.(0)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
+let extra_search_path = ref []
 let log_destination = ref "syslog:daemon"
 let daemon = ref false
 let have_daemonized () = Unix.getppid () = 1
 
 let common_prefix = "org.xen.xcp."
+
+let (|>) x f = f x
 
 let finally f g =
 	try
@@ -138,6 +141,7 @@ let rec split_c c str =
 let common_options = [
 	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
 	"switch-port", Arg.Set_int Xcp_client.switch_port, (fun () -> string_of_int !Xcp_client.switch_port), "port on localhost where the message switch is listening";
+	"search-path", Arg.String (fun s -> extra_search_path := (split_c ':' s) @ !extra_search_path), (fun () -> String.concat ":" !extra_search_path), "Search path for resources";
 	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
 	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
 	"daemon", Arg.Bool (fun x -> daemon := x), (fun () -> string_of_bool !daemon), "True if we are to daemonise";
@@ -171,7 +175,6 @@ let canonicalise x =
 	else begin
 		(* Search the PATH and XCP_PATH for the executable *)
 		let paths = split_c ':' (Sys.getenv "PATH") in
-		let xen_paths = try split_c ':' (Sys.getenv "XCP_PATH") with _ -> [] in
 		let first_hit = List.fold_left (fun found path -> match found with
 			| Some hit -> found
 			| None ->
@@ -179,12 +182,14 @@ let canonicalise x =
 				if Sys.file_exists possibility
 				then Some possibility
 				else None
-		) None (paths @ xen_paths) in
+		) None (paths @ !extra_search_path) in
 		match first_hit with
 		| None ->
-			warn "Failed to find %s on $PATH ( = %s) or $XCP_PATH ( = %s)" x (Sys.getenv "PATH") (try Sys.getenv "XCP_PATH" with Not_found -> "unset");
+			warn "Failed to find %s on $PATH ( = %s) or search_path option ( = %s)" x (Sys.getenv "PATH") (String.concat ":" !extra_search_path);
 			x
-		| Some hit -> hit
+		| Some hit -> 
+			info "Found '%s' at '%s'" x hit;
+			hit
 	end
 
 let to_opt = List.map (fun f -> f.name, Arg.String (fun x -> f.path := canonicalise x), (fun () -> !(f.path)), f.description)
@@ -205,6 +210,7 @@ let configure ?(options=[]) ?(resources=[]) () =
 		(fun _ -> failwith "Invalid argument")
 		(Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0));
 	read_config_file config_spec;
+	List.iter (fun r -> r.path := canonicalise !(r.path)) resources;
 	Config_file.dump config_spec;
 	(* Check the required binaries are all available *)
 	List.iter
