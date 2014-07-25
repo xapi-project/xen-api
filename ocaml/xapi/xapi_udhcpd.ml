@@ -31,6 +31,8 @@ let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
 let leases_db = Filename.concat "/var/lib/xcp" "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
+let (|>) x f = f x
+
 module Ip = struct
 	type t = int * int * int * int with rpc
 
