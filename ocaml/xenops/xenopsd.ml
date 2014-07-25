@@ -55,6 +55,7 @@ let config_spec = [
 	"default-vbd-backend-kind", Config.Set_string Xenops_utils.default_vbd_backend_kind;
 	"database-path", Config.Set_string Xenops_utils.root;
 	"vgpu-path", Config.Set_string Xenops_utils.vgpu_path;
+	"ca-140252-workaround", Config.Set_bool Xenops_utils.ca_140252_workaround;
 ]
 
 let read_config_file () =
@@ -76,7 +77,8 @@ let dump_config_file () : unit =
 	debug "worker-pool-size = %d" !worker_pool_size;
 	debug "default-vbd-backend-kind = %s" !default_vbd_backend_kind;
 	debug "database-path = %s" !Xenops_utils.root;
-	debug "vgpu-path = %s" !Xenops_utils.vgpu_path
+	debug "vgpu-path = %s" !Xenops_utils.vgpu_path;
+	debug "ca-140252-workaround = %b" !Xenops_utils.ca_140252_workaround
 
 let socket : Http_svr.socket option ref = ref None
 let server = Http_svr.Server.empty (Xenops_server.make_context ())

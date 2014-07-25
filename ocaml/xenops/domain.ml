@@ -456,6 +456,8 @@ let get_action_request ~xs domid =
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
+	if !Xenops_utils.ca_140252_workaround
+	then ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0);
 	let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
 	let console = Xenctrl.evtchn_alloc_unbound xc domid 0 in
 	debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
