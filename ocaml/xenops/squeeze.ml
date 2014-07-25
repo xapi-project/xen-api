@@ -25,6 +25,8 @@
 	Can we calibrate on boot if the offset is const?
 *)
 
+open Xenstore
+
 (* Make debug printing work both when linked into a daemon and from the commandline *)
 let start = Unix.gettimeofday ()
 
@@ -227,7 +229,13 @@ module Stuckness_monitor = struct
 					assume_balloon_driver_stuck_after then declare this domain stuck. *)
 				 let request = direction <> None in (* ie target <> actual *)
 				 if request && (now -. state.last_makingprogress_time > assume_balloon_driver_stuck_after)
-				 then state.stuck <- true;
+				 then begin 
+				 	let xs = Xs.domain_open () in
+				 	let supports_ballooning_path = Printf.sprintf "/local/domain/%d/control/feature-balloon" in
+				 	state.stuck <- true;
+				 	debug "xenstore-rm %s" (supports_ballooning_path domain.domid);
+				 	xs.Xs.rm (supports_ballooning_path domain.domid);
+				 	Xs.close xs end;
 			)
 			host.domains;
 		(* Clear out dead domains just in case someone keeps *)
