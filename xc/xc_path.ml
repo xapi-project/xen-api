@@ -14,18 +14,16 @@
 
 let vif_script = ref "/usr/lib/xcp/scripts/vif"
 let vbd_script = ref "/etc/xen/scripts/block"
-
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 
-let vncterm = ref "/usr/lib/xcp/lib/vncterm"
-let xenguest = ref "/usr/lib/xcp/lib/xenguest"
-let tune2fs = ref "/sbin/tune2fs"
-let mount = ref "/bin/mount"
-let umount = ref "/bin/umount"
-let ionice = ref "/usr/bin/ionice"
-let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
-let vgpu = ref "/usr/lib/xen/bin/vgpu"
-let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
+let vncterm = ref "vncterm"
+let xenguest = ref "xenguest"
+let tune2fs = ref "tune2fs"
+let mount = ref "mount"
+let umount = ref "umount"
+let ionice = ref "ionice"
+let setup_vif_rules = ref "setup-vif-rules"
+let vgpu = ref "vgpu"
 
 let alternatives = ref "/usr/lib/xcp/alternatives"
 

@@ -29,15 +29,8 @@ let simplified = true
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 
-let _alternatives = "/opt/xensource/alternatives"
-let _device_model = "device-model"
-let _xenguest = "xenguest"
 let store_domid = 0
 let console_domid = 0
-let _tune2fs = "/sbin/tune2fs"
-let _mount = "/bin/mount"
-let _umount = "/bin/umount"
-let _ionice = "/usr/bin/ionice"
 
 let suspend_save_signature = "XenSavedDomain\n"
 exception Restore_signature_mismatch
@@ -854,7 +847,7 @@ module VBD = struct
 
 	let ionice qos pid =
 		try
-			run _ionice (Ionice.set_args qos pid) |> ignore_string
+			run !(Xl_path.ionice) (Ionice.set_args qos pid) |> ignore_string
 		with e ->
 			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
 
@@ -881,7 +874,7 @@ module VBD = struct
 		try
 			let path = Device_common.kthread_pid_path_of_device ~xs device in
 			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run _ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+			let i = run !(Xl_path.ionice) (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->

@@ -13,13 +13,13 @@
  *)
 
 let network_conf = ref "/etc/xcp/network.conf"
-let qemu_dm_wrapper = ref "/usr/lib/xcp/lib/qemu-dm-wrapper"
-let qemu_system_i386 = ref "/usr/lib/xen/bin/qemu-system-i386"
-let chgrp = ref "/bin/chgrp"
-let hvmloader = ref "/usr/lib/xen-4.1/boot/hvmloader"
-let pygrub = ref "/usr/lib/xen-4.1/bin/pygrub"
-let eliloader = ref "/usr/bin/eliloader"
-let legacy_conv_tool = ref "/usr/lib64/xen/bin/legacy.py"
+let qemu_dm_wrapper = ref "qemu-dm-wrapper"
+let qemu_system_i386 = ref "qemu-system-i386"
+let chgrp = ref "chgrp"
+let hvmloader = ref "hvmloader"
+let pygrub = ref "pygrub"
+let eliloader = ref "eliloader"
+let legacy_conv_tool = ref "legacy.py"
 
 open Unix
 
