@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AUTH_ALREADY_ENABLED" xml:space="preserve">
     <value>External authentication for this server is already enabled.</value>
@@ -867,7 +867,7 @@ Authorized Roles: {1}</value>
     <value>The operation required write access but VDI {0} is read-only</value>
   </data>
   <data name="VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE" xml:space="preserve">
-    <value>vGPU type is not compatible with one or more of the vGPU types currently running on this pGPU</value>
+    <value>The VM cannot start because all GPUs are fully used or are running other types of vGPU</value>
   </data>
   <data name="VGPU_TYPE_NOT_ENABLED" xml:space="preserve">
     <value>vGPU type is not one of the pGPU's enabled types.</value>
@@ -934,6 +934,9 @@ Authorized Roles: {1}</value>
   </data>
   <data name="VM_REQUIRES_SR-SHORT" xml:space="preserve">
     <value>Cannot see required storage</value>
+  </data>
+  <data name="VM_REQUIRES_VGPU" xml:space="preserve">
+    <value>The VM cannot start because no GPU is available</value>
   </data>
   <data name="VM_REVERT_FAILED" xml:space="preserve">
     <value>An error occurred while reverting the specified virtual machine to the specified snapshot</value>
