@@ -14,6 +14,24 @@
 FILENAME=`basename $0`
 LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
 
+while getopts "fh" opt; do
+        case $opt in
+                f)
+                        IGNORE_CHKCONFIG=1
+                        ;;
+                h)
+                        echo "Usage: $FILENAME [OPTION]"
+                        echo "Restart the XenServer toolstack" 
+                        echo "  -f    restart all services, ignoring chkconfig state" 
+                        echo "  -h    display this help and exit"
+			exit 0
+                        ;;
+                \?)
+                        echo "Invalid option: -$OPTARG" >& 2
+                        ;;
+        esac
+done
+
 (
 flock -x -n 200
 if [ "$?" != 0 ]; then 
@@ -40,10 +58,11 @@ for svc in $SERVICES ; do
 		continue
 	fi
 
-	# restart other services only if chkconfig said they were enabled
+	# restart other services only if chkconfig said they were enabled,
+	# unless the '-f' option was specified 
 	chkconfig $svc
 
-	if [ $? -eq 0 ] ; then
+	if [ $? -eq 0 -o \( -n "$IGNORE_CHKCONFIG" -a -e /etc/init.d/$svc \) ] ; then
 		TO_RESTART="$svc $TO_RESTART"
 		service $svc stop
 	fi
