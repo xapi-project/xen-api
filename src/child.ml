@@ -91,6 +91,45 @@ let handle_comms comms_sock fd_sock state =
 	| None -> handle_comms_no_fd_sock2 comms_sock fd_sock state
 	| Some x -> handle_comms_with_fd_sock2 comms_sock fd_sock x state
 
+let log_failure args child_pid reason code =
+	(* The commandline might be too long to clip it *)
+	let cmdline = String.concat " " args in
+	let limit = 80 - 3 in
+	let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
+	Fe_debug.error "%d (%s) %s %d" child_pid cmdline' reason code
+
+let report_child_exit comms_sock args child_pid status =
+	let pr = match status with
+	| Unix.WEXITED n ->
+		(* Unfortunately logging this was causing too much spam *)
+		if n <> 0 then log_failure args child_pid "exitted with code" n;
+		Fe.WEXITED n
+	| Unix.WSIGNALED n ->
+		log_failure args child_pid (Printf.sprintf "exitted with signal: %s" (Unixext.string_of_signal n)) 0;
+		Fe.WSIGNALED n
+	| Unix.WSTOPPED n ->
+		log_failure args child_pid (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n)) 0;
+		Fe.WSTOPPED n
+	in
+	let result = Fe.Finished (pr) in
+	(* If the controlling process has called Forkhelpers.dontwaitpid
+	   then the comms_sock will be closed. We don't need to write our full debug
+	   logs in syslog if this happens: *)
+	begin
+		try Fecomms.write_raw_rpc comms_sock result
+		with Unix.Unix_error(Unix.EPIPE, _, _) -> ()
+	end
+
+let handle_sigchld comms_sock args pid signum =
+	let (child_pid, status) = Unix.wait () in
+	if child_pid = pid then begin
+		(* If the expected child has died (it should be the only child!) write its
+		   exit status to the socket and exit. *)
+		report_child_exit comms_sock args child_pid status;
+		Unix.close comms_sock;
+		exit 0
+	end
+
 let run state comms_sock fd_sock fd_sock_path =
 	let rec inner state =
 		let state = handle_comms comms_sock fd_sock state in
@@ -167,50 +206,56 @@ let run state comms_sock fd_sock fd_sock_path =
 			(* Close the end of the pipe that's only supposed to be written to by the child process. *)
 			Opt.iter Unix.close !out_childlogging;
 
-			let log_failure reason code =
-				(* The commandline might be too long to clip it *)
-				let cmdline = String.concat " " args in
-				let limit = 80 - 3 in
-				let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
-				Fe_debug.error "%d (%s) %s %d" result cmdline' reason code in
+			Opt.iter
+				(fun in_fd ->
+					let key = (match state.syslog_stdout.key with None -> Filename.basename name | Some key -> key) in
+					(* Read from the child's stdout and write each one to syslog *)
+					Unixext.lines_iter
+						(fun line ->
+							Fe_debug.info "%s[%d]: %s" key result line
+						) (Unix.in_channel_of_descr in_fd)
+				) !in_childlogging;
 
-			let status = ref (Unix.WEXITED (-1)) in
-			finally
-				(fun () ->
-					Opt.iter
-						(fun in_fd ->
-							let key = (match state.syslog_stdout.key with None -> Filename.basename name | Some key -> key) in
-							(* Read from the child's stdout and write each one to syslog *)
-							Unixext.lines_iter
-								(fun line ->
-									Fe_debug.info "%s[%d]: %s" key result line
-								) (Unix.in_channel_of_descr in_fd)
-						) !in_childlogging
-				) (fun () -> status := snd (Unix.waitpid [] result));
+			(* At this point either:
+			 * 1) lines_iter has received End_of_file, which means the child has
+			 *    probably exited.
+			 * 2) we weren't asked to log the child's stdout and it may still be
+			 *    running in the background.
+			 * We now temporarily block SIGCHLD to avoid a race. *)
+			let (_ : int list) = Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigchld] in
 
-			let pr = match !status with
-			| Unix.WEXITED n ->
-				(* Unfortunately logging this was causing too much spam *)
-				if n <> 0 then log_failure "exitted with code" n;
-				Fe.WEXITED n
-			| Unix.WSIGNALED n ->
-				log_failure (Printf.sprintf "exitted with signal: %s" (Unixext.string_of_signal n)) 0;
-				Fe.WSIGNALED n
-			| Unix.WSTOPPED n ->
-				log_failure (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n)) 0;
-				Fe.WSTOPPED n
+			(* First test whether the child has exited - if it has then report this
+			 * via the socket and exit. *)
+			match Unix.waitpid [Unix.WNOHANG] result with
+			| (pid, status) when pid = result -> begin
+				report_child_exit comms_sock args result status;
+				Unix.close comms_sock;
+				exit 0
+			end
+			| _ -> ();
+
+			(* At this point we know that the child is still running - set up a signal
+			 * handler to catch it exiting. *)
+			Sys.set_signal Sys.sigchld
+				(Sys.Signal_handle
+					(fun signum -> handle_sigchld comms_sock args result signum));
+
+			(* Unblock SIGCHLD so that the handler comes into effect. *)
+			let (_ : int list) = Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigchld] in
+
+			(* While the signal handler watches for the child to exit, we wait for the
+			 * client to send us Dontwaitpid, which signals it won't ever want to
+			 * waitpid the child. If this is received we can exit, and the child will
+			 * continue with init as its parent. *)
+			let rec wait_for_dontwaitpid () =
+				match Fecomms.read_raw_rpc comms_sock with
+				| Fe.Dontwaitpid -> begin
+					Unix.close comms_sock;
+					exit 0
+				end
+				| _ -> wait_for_dontwaitpid ()
 			in
-			let result = Fe.Finished (pr) in
-			(* If the controlling process has called Forkhelpers.dontwaitpid
-			   then the comms_sock will be closed. We don't need to write our full debug
-			   logs in syslog if this happens: *)
-			begin
-				try
-					Fecomms.write_raw_rpc comms_sock result
-				with Unix.Unix_error(Unix.EPIPE, _, _) -> ()
-			end;
-			Unix.close comms_sock;
-			exit 0;
+			wait_for_dontwaitpid ()
 		end
 	with
 		| Cancelled ->
