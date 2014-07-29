@@ -1134,7 +1134,7 @@ module VM = struct
 				debug "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld bytes" vm.Vm.id domid m;
 				raise (Not_enough_memory m)
 			| e ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
+				let m = Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
 				raise e
 
