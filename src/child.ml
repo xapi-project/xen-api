@@ -172,7 +172,6 @@ let run state comms_sock fd_sock fd_sock_path =
 				let cmdline = String.concat " " args in
 				let limit = 80 - 3 in
 				let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
-				if code=0 && name = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
 				Fe_debug.error "%d (%s) %s %d" result cmdline' reason code in
 
 			let status = ref (Unix.WEXITED (-1)) in
