@@ -1117,7 +1117,7 @@ module VM = struct
 				debug "%s" m;
 				raise (Bootloader_error (vm.Vm.id, x))
 			| e ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader error: %s" vm.Vm.id domid (Printexc.to_string e) in
+				let m = Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid (Printexc.to_string e) in
 				debug "%s" m;
 				raise e
 
