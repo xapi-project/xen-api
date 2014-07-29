@@ -18,6 +18,8 @@ module M = struct
     let return x = `Ok x
 end
 
+let (|>) x f = f x
+
 open M
 
 module Xenops_record = struct
