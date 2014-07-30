@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: b31a34a380f0d076b250adeb565172e0) *)
+(* DO NOT EDIT (digest: 63fef79c4708280c343c6882a49a79fb) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -567,14 +567,36 @@ let package_default =
           (["oasis_library_rrdd_plugin_byte"; "ocaml"; "compile"; "byte"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])]);
           (["oasis_library_rrdd_plugin_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_executable_rrdp_dummy_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_executable_rrdp_dummy_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_executable_rrdp_dummy_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_rrdp_dummy_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          (["oasis_executable_rrdp_dummy_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_rrdp_dummy_native";
+              "ocaml";
+              "compile";
+              "native"
+           ],
             [(OASISExpr.EBool true, S [A "-bin-annot"])])
        ];
-     includes = []
+     includes = [("test", ["lib"])]
   }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 579 "myocamlbuild.ml"
+# 601 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

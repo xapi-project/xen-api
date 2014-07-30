@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type target =
+	| Local
+	| Interdomain of (int * int)
+
 module Common : functor (N : (sig val name : string end)) -> sig
 	val wait_until_next_reading :
 		?neg_shift:float ->
@@ -32,6 +36,7 @@ module Common : functor (N : (sig val name : string end)) -> sig
 
 	val main_loop :
 		neg_shift:float ->
+		target:target ->
 		protocol:Rrd_interface.plugin_protocol ->
 		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
 		unit
