@@ -229,7 +229,10 @@ let update_env __context sync_keys =
   *)
 
   (* Helper function to allow us to switch off particular types of syncing *)
-  let switched_sync key f = 
+  let switched_sync key f =
+    let task_id = Context.get_task_id __context in
+    Db.Task.remove_from_other_config ~__context ~self:task_id ~key:"sync_operation";
+    Db.Task.add_to_other_config ~__context ~self:task_id ~key:"sync_operation" ~value:key;
     let skip_sync = 
       try
 	List.assoc key sync_keys = Xapi_globs.sync_switch_off

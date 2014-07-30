@@ -47,7 +47,7 @@ let create_host_metrics ~__context =
 
 
 let update_env () =
-  Server_helpers.exec_with_new_task "dbsync (update_env)"
+  Server_helpers.exec_with_new_task "dbsync (update_env)" ~task_in_database:true
     (fun __context ->
       let other_config = 
 	match Db.Pool.get_all ~__context with
