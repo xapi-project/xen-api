@@ -1,3 +1,6 @@
+0.5.4 (30-Jul-2014)
+ * Add prototype (dom0-only) xenostats transport support
+
 0.5.3 (30-Jul-2014)
  * Add protocol argument to main_loop
  * remove spammy logging
