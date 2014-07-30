@@ -69,6 +69,7 @@ let filtered_xsdata =
 	List.filter allowed
 
 exception Suspend_image_failure
+exception Not_enough_memory of int64
 exception Domain_build_failed
 exception Domain_restore_failed
 exception Domain_restore_truncated_hvmstate
@@ -467,7 +468,11 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory" (Uuid.to_string uuid) domid required_host_free_mib;
 	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	let (_: bool) = wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
+	if not(wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib)) then begin
+		error "VM = %s; domid = %d; Failed waiting for Xen to free %Ld MiB"
+			(Uuid.to_string uuid) domid required_host_free_mib;
+		raise (Not_enough_memory (Memory.bytes_of_mib required_host_free_mib))
+	end;
 
 	let shadow_mib = Int64.to_int shadow_mib in
 
