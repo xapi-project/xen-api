@@ -99,7 +99,7 @@ let unregister signum =
 (* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
-	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle unregister)) 
+	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle unregister))
 		signals_to_catch;
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
@@ -124,7 +124,7 @@ let initialise () =
 		Debug.log_to_stdout ()
 	);
 
-	if !pidfile <> "" then 
+	if !pidfile <> "" then
 		(debug "Storing process id into specified file ..";
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
@@ -153,9 +153,9 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 					Thread.delay 0.003
 				done)
 				(fun () -> writer.Rrd_writer.cleanup ())
-		with 
+		with
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
-				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n" 
+				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n"
 					Rrd_interface.daemon_name;
 				exit 1
 			| Sys.Break ->
@@ -169,7 +169,7 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 	in
 
 	debug "Entering main loop ..";
-	(try main () with 
+	(try main () with
 		| Sys.Break -> unregister (Sys.sigint));
 	debug "End."
 
