@@ -77,18 +77,16 @@ let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 
 let list_directory_unsafe name =
 	let handle = Unix.opendir name in
-	let next () =
-		let acc = ref [] in
+	let rec read_directory_contents acc handle =
 		try
-			while true do
-				let next_entry = Unix.readdir handle in acc := next_entry::!acc
-			done;
-			assert false
-		with End_of_file -> List.rev !acc in
+			let next_entry = Unix.readdir handle in
+			read_directory_contents (next_entry :: acc) handle
+		with End_of_file -> List.rev acc
+	in
 	finally
-		(fun () -> next ())
+		(fun () -> read_directory_contents [] handle)
 		(fun () -> Unix.closedir handle)
-		
+
 let list_directory_entries_unsafe dir =
 	let dirlist = list_directory_unsafe dir in
 	List.filter (fun x -> x <> "." && x <> "..") dirlist
