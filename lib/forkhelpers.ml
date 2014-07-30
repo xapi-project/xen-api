@@ -45,10 +45,16 @@ let waitpid_nohang ((sock, _) as x) =
 	(match Unix.select [sock] [] [] 0.0 with
 	  | ([s],_,_) -> waitpid x
 	  | _ -> (0,Unix.WEXITED 0))
-	  
-let dontwaitpid (sock, pid) =
-	Unix.close sock
 
+let dontwaitpid (sock, pid) =
+	begin
+		(* Try to tell the child fe that we're not going to wait for it. If the
+		 * other end of the pipe has been closed then this doesn't matter, as this
+		 * means the child has already exited. *)
+		try Fecomms.write_raw_rpc sock Fe.Dontwaitpid
+		with Unix.Unix_error(Unix.EPIPE, _, _) -> ()
+	end;
+	Unix.close sock
 
 let waitpid_fail_if_bad_exit ty =
   let (_,status) = waitpid ty in

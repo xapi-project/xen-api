@@ -26,5 +26,6 @@ and ferpc =
     | Execed of int
     | Finished of process_result
     | Log_reopen
+    | Dontwaitpid
 with rpc
 
