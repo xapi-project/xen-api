@@ -28,6 +28,8 @@ module Common : functor (N : (sig val name : string end)) -> sig
 
 	val list_directory_entries_unsafe : string -> string list
 
+	val initialise : unit -> unit
+
 	val main_loop :
 		neg_shift:float ->
 		protocol:Rrd_interface.plugin_protocol ->

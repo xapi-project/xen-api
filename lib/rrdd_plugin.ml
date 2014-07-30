@@ -31,10 +31,8 @@ let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
 	in
 	let wait_time = next_reading -. neg_shift in
 	let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
-	if wait_time > 0. then begin
-		debug "Sleeping for %.1f seconds..." wait_time;
-		Thread.delay wait_time
-	end else
+	if wait_time > 0. then Thread.delay wait_time
+	else
 		debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
 (* Useful functions for plugins *)
@@ -79,18 +77,16 @@ let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 
 let list_directory_unsafe name =
 	let handle = Unix.opendir name in
-	let next () =
-		let acc = ref [] in
+	let rec read_directory_contents acc handle =
 		try
-			while true do
-				let next_entry = Unix.readdir handle in acc := next_entry::!acc
-			done;
-			assert false
-		with End_of_file -> List.rev !acc in
+			let next_entry = Unix.readdir handle in
+			read_directory_contents (next_entry :: acc) handle
+		with End_of_file -> List.rev acc
+	in
 	finally
-		(fun () -> next ())
+		(fun () -> read_directory_contents [] handle)
 		(fun () -> Unix.closedir handle)
-		
+
 let list_directory_entries_unsafe dir =
 	let dirlist = list_directory_unsafe dir in
 	List.filter (fun x -> x <> "." && x <> "..") dirlist
@@ -103,7 +99,7 @@ let unregister signum =
 (* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
-	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle unregister)) 
+	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle unregister))
 		signals_to_catch;
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
@@ -128,7 +124,7 @@ let initialise () =
 		Debug.log_to_stdout ()
 	);
 
-	if !pidfile <> "" then 
+	if !pidfile <> "" then
 		(debug "Storing process id into specified file ..";
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
@@ -154,13 +150,12 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 						datasources = dss_f ();
 					}) in
 					writer.Rrd_writer.write_payload payload;
-					debug "Done outputting to %s" path;
 					Thread.delay 0.003
 				done)
 				(fun () -> writer.Rrd_writer.cleanup ())
-		with 
+		with
 			| Unix.Unix_error (Unix.ENOENT, _, _) ->
-				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n" 
+				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n"
 					Rrd_interface.daemon_name;
 				exit 1
 			| Sys.Break ->
@@ -174,7 +169,7 @@ let main_loop ~neg_shift ~protocol ~dss_f =
 	in
 
 	debug "Entering main loop ..";
-	(try main () with 
+	(try main () with
 		| Sys.Break -> unregister (Sys.sigint));
 	debug "End."
 
