@@ -75,10 +75,8 @@ let event_loop_start ctx =
 			| Some (_, s, us, _) when s = 0L && us = 0L -> 0
 			| Some (_, s, us, _) -> (Int64.mul s 1000L) +++ (Int64.div us 1000L) --- now |> Int64.to_int
 		in
-		(* the following list match is safe: it will never be an empty list, because we
-		 * always give at least one fd to poll (the interrupt fd). *)
 		debug "EVENTLOOP: calling poll with timeout value %d (ms)" timeout_ms;
-		let (interrupt :: fds_out), rc = Poll.poll ((interrupt_in, [POLLIN]) :: fds_in') timeout_ms in
+		let (interrupt, fds_out), rc = Poll.poll ((interrupt_in, [POLLIN]), fds_in') timeout_ms in
 		if rc < 0 then
 			warn "EVENTLOOP: poll error %d" rc
 		else if rc = 0 then begin
