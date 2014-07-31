@@ -472,10 +472,12 @@ let get_action_request ~xs domid =
 		Some (xs.Xs.read path)
 	with Xs_protocol.Enoent _ -> None
 
+let maybe_ca_140252_workaround ~xc domid =
+	if !Xenopsd.ca_140252_workaround
+	then ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
-	if !Xenopsd.ca_140252_workaround
-	then ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0);
 	let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
 	let console = Xenctrl.evtchn_alloc_unbound xc domid 0 in
 	debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
@@ -677,6 +679,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
+	maybe_ca_140252_workaround ~xc domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
@@ -924,6 +927,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~no_in
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
+	maybe_ca_140252_workaround ~xc domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
