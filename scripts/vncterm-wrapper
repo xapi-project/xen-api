@@ -23,7 +23,7 @@ if [ ! -e $vncterm ]; then
 	vncterm=/usr/bin/vncterm
 fi
 if [ ! -e $vncterm ]; then
-	vncterm=/usr/lib64/xen/lib/vncterm
+	vncterm=/usr/lib64/xen/bin/vncterm
 fi
 
 echo vncterm-wrapper:
