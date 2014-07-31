@@ -20,7 +20,7 @@ ulimit -c 67108864
 
 vncterm=/usr/lib/xen/bin/vncterm
 if [ ! -e $vncterm ]; then
-	vncterm=/usr/lib/xcp/lib/vncterm
+	vncterm=/usr/bin/vncterm
 fi
 if [ ! -e $vncterm ]; then
 	vncterm=/usr/lib64/xen/lib/vncterm
