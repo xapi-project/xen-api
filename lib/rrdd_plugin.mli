@@ -12,6 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module Utils : sig
+	val now : unit -> int64
+
+	val cut : string -> string list
+
+	val list_directory_unsafe : string -> string list
+
+	val list_directory_entries_unsafe : string -> string list
+end
+
 type target =
 	| Local
 	| Interdomain of (int * int)
@@ -22,15 +32,7 @@ module Common : functor (N : (sig val name : string end)) -> sig
 		protocol:Rrd_interface.plugin_protocol ->
 		unit
 
-	val now : unit -> int64
-
-	val cut : string -> string list
-
 	val exec_cmd : cmdstring:string -> f:(string -> 'a option) -> 'a list
-
-	val list_directory_unsafe : string -> string list
-
-	val list_directory_entries_unsafe : string -> string list
 
 	val initialise : unit -> unit
 

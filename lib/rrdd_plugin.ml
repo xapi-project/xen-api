@@ -17,6 +17,30 @@ open Unixext
 open Threadext
 open Xstringext
 
+module Utils = struct
+	(* Useful functions for plugins *)
+	let now () = Int64.of_float (Unix.gettimeofday ())
+
+	let cut str =
+		String.split_f (fun c -> c = ' ' || c = '\t') str
+
+	let list_directory_unsafe name =
+		let handle = Unix.opendir name in
+		let rec read_directory_contents acc handle =
+			try
+				let next_entry = Unix.readdir handle in
+				read_directory_contents (next_entry :: acc) handle
+			with End_of_file -> List.rev acc
+		in
+		finally
+			(fun () -> read_directory_contents [] handle)
+			(fun () -> Unix.closedir handle)
+
+	let list_directory_entries_unsafe dir =
+		let dirlist = list_directory_unsafe dir in
+		List.filter (fun x -> x <> "." && x <> "..") dirlist
+end
+
 type target =
 	| Local
 	| Interdomain of (int * int)
@@ -38,13 +62,6 @@ let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
 	if wait_time > 0. then Thread.delay wait_time
 	else
 		debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
-
-(* Useful functions for plugins *)
-
-let now () = Int64.of_float (Unix.gettimeofday ())
-
-let cut str =
-	String.split_f (fun c -> c = ' ' || c = '\t') str
 
 (** Execute the command [~cmd] with args [~args], apply f on each of
 	the lines that cmd output on stdout, and returns a list of
@@ -78,22 +95,6 @@ let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 		| Unix.WSTOPPED s  -> debug "Process %d was stopped by signal %d" pid s
 	end;
 	List.rev !vals
-
-let list_directory_unsafe name =
-	let handle = Unix.opendir name in
-	let rec read_directory_contents acc handle =
-		try
-			let next_entry = Unix.readdir handle in
-			read_directory_contents (next_entry :: acc) handle
-		with End_of_file -> List.rev acc
-	in
-	finally
-		(fun () -> read_directory_contents [] handle)
-		(fun () -> Unix.closedir handle)
-
-let list_directory_entries_unsafe dir =
-	let dirlist = list_directory_unsafe dir in
-	List.filter (fun x -> x <> "." && x <> "..") dirlist
 
 let cleanup_fn : (unit -> unit) option ref = ref None
 
@@ -184,7 +185,7 @@ let main_loop_local ~neg_shift ~protocol ~dss_f =
 			while true do
 				wait_until_next_reading ~neg_shift ~protocol;
 				let payload = Rrd_protocol.({
-					timestamp = now ();
+					timestamp = Utils.now ();
 					datasources = dss_f ();
 				}) in
 				writer.Rrd_writer.write_payload payload;
@@ -238,7 +239,7 @@ let main_loop_interdomain ~backend_domid ~page_count ~protocol ~dss_f =
 		try
 			while true do
 				let payload = Rrd_protocol.({
-					timestamp = now ();
+					timestamp = Utils.now ();
 					datasources = dss_f ();
 				}) in
 				writer.Rrd_writer.write_payload payload;
