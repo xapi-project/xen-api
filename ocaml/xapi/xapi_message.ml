@@ -569,7 +569,7 @@ let get_by_uuid ~__context ~uuid =
 	let (_,_ref,_) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
 	_ref
   with
-	  _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ uuid ]))
+	  _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ "message"; uuid ]))
 
 let get_all ~__context =
   try
