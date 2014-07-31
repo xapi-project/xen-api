@@ -13,6 +13,8 @@ short Poll_events_val(value event_list);
 value Val_poll(short event);
 value add_event(value event_list, short event);
 */
+/* From the OCaml Libxl bindings in Xen */
+short Poll_events_val(value event_list);
 value Val_poll_events(short events);
 
 static int list_len(value v)
