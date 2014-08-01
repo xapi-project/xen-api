@@ -475,6 +475,7 @@ let gc ~__context =
 	  in
 	  if List.length allmsg > Xapi_globs.message_limit then
 	begin
+	  warn "Messages have reached over the limit %d" Xapi_globs.message_limit;
 	  let sorted = List.sort (fun (t1,_) (t2,_) -> compare t1 t2) allmsg in
 	  let n = List.length sorted in
 	  let to_reap = n - Xapi_globs.message_limit in
