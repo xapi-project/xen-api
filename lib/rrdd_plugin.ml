@@ -18,7 +18,6 @@ open Threadext
 open Xstringext
 
 module Utils = struct
-	(* Useful functions for plugins *)
 	let now () = Int64.of_float (Unix.gettimeofday ())
 
 	let cut str =
@@ -63,9 +62,6 @@ let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
 	else
 		debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
-(** Execute the command [~cmd] with args [~args], apply f on each of
-	the lines that cmd output on stdout, and returns a list of
-	resulting values if f returns Some v *)
 let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 	debug "Forking command %s" cmdstring;
 	(* create pipe for reading from the command's output *)
@@ -133,7 +129,6 @@ let get_xs_state () =
 		in cached_xs_state := Some state;
 		state
 
-(* Plugins should call initialise () before spawning any threads. *)
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
 	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle cleanup))
