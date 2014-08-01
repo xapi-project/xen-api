@@ -528,6 +528,7 @@ module Bridge = struct
 					remove_config name;
 					List.iter (fun dev ->
 						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
+						Brctl.destroy_port name dev;
 						Interface.bring_down () dbg ~name:dev;
 						if Linux_bonding.is_bond_device dev then
 							Linux_bonding.remove_bond_master dev;
