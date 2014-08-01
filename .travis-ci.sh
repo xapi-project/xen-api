@@ -25,7 +25,6 @@ opam --git-version
 
 opam init 
 opam remote add xapi-project git://github.com/xapi-project/opam-repo-dev
-opam pin cohttp 0.9.12
 opam install ${OPAM_PACKAGES}
 
 eval `opam config -env`
