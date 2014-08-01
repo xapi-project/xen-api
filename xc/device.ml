@@ -1832,15 +1832,14 @@ let vgpu_args_of_info info domid =
 		| None -> []
 
 let prepend_wrapper_args domid args =
-	(string_of_int domid) :: args
+	(string_of_int domid) :: "--syslog" :: args
 
 (* Forks a daemon and waits for a path to appear (optionally with a given value)
  * and then returns the pid. If this doesn't happen in the timeout then an
  * exception is raised *)
 let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
 	debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
-	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "%s-%d" name domid) in
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout path args in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] path args in
 	debug
 		"%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
 		name (Forkhelpers.string_of_pidty pid);
