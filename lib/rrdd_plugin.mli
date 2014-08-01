@@ -27,10 +27,6 @@ type target =
 	| Interdomain of (int * int)
 
 module Common : functor (N : (sig val name : string end)) -> sig
-	val wait_until_next_reading :
-		?neg_shift:float ->
-		protocol:Rrd_interface.plugin_protocol ->
-		unit
 
 	val exec_cmd : cmdstring:string -> f:(string -> 'a option) -> 'a list
 
