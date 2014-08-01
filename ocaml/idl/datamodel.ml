@@ -2279,7 +2279,7 @@ let vm_assert_can_be_recovered = call
 
 let vm_get_SRs_required_for_recovery = call
 	~name:"get_SRs_required_for_recovery"
-	~in_product_since:rel_clearwater
+	~in_product_since:rel_creedence
 	~doc:"List all the SR's that are required for the VM to be recovered"
 	~params:[Ref _vm , "self" , "The VM for which the SRs have to be recovered";
 					Ref _session , "session_to" , "The session to which the SRs of the VM have to be recovered."]
@@ -7319,7 +7319,7 @@ let vm_appliance =
 		() in
 	let vm_appliance_get_SRs_required_for_recovery = call
 		~name:"get_SRs_required_for_recovery"
-		~in_product_since:rel_clearwater
+		~in_product_since:rel_creedence
 		~params:[Ref _vm_appliance , "self" , "The VM appliance for which the required list of SRs has to be recovered.";
 			Ref _session , "session_to", "The session to which the list of SRs have to be recovered ."]
 		~result:(Set(Ref _sr), "refs for SRs required to recover the VM")
