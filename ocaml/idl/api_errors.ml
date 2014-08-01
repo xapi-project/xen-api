@@ -399,6 +399,7 @@ let xenapi_missing_plugin = "XENAPI_MISSING_PLUGIN"
 let xenapi_plugin_failure = "XENAPI_PLUGIN_FAILURE"
 
 let sr_attached = "SR_ATTACHED"
+let sr_not_attached = "SR_NOT_ATTACHED"
 
 let domain_builder_error = "DOMAIN_BUILDER_ERROR"
 

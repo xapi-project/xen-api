@@ -897,6 +897,8 @@ let _ =
 
 
   (* Storage errors *)
+  error Api_errors.sr_not_attached ["sr"]
+    ~doc:"The SR is not attached." ();
   error Api_errors.sr_attach_failed ["sr"]
     ~doc:"Attaching this SR failed." ();
   error Api_errors.sr_backend_failure ["status"; "stdout"; "stderr"]
