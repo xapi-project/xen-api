@@ -13,16 +13,16 @@ setup.ml: _oasis
 setup.data: setup.ml
 	ocaml setup.ml -configure $(TESTS_FLAG)
 
-build: setup.data setup.ml
+build: setup.data
 	ocaml setup.ml -build -j $(J)
 
-install: setup.data setup.ml
+install: setup.data
 	ocaml setup.ml -install
 
 uninstall:
 	ocamlfind remove $(NAME)
 
-reinstall: setup.ml
+reinstall: setup.data
 	ocamlfind remove $(NAME) || true
 	ocaml setup.ml -reinstall
 
