@@ -187,7 +187,6 @@ let main_loop_local ~neg_shift ~protocol ~dss_f =
 					datasources = dss_f ();
 				}) in
 				writer.Rrd_writer.write_payload payload;
-				debug "Done outputting to %s" path;
 				Thread.delay 0.003
 			done
 		with
@@ -241,7 +240,6 @@ let main_loop_interdomain ~backend_domid ~page_count ~protocol ~dss_f =
 					datasources = dss_f ();
 				}) in
 				writer.Rrd_writer.write_payload payload;
-				debug "Done outputting payload";
 				Thread.delay 5.0
 			done
 		with
