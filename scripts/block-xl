@@ -6,9 +6,8 @@ DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
 
 VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
 DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
-XAPI=/xapi/${DOMID}/hotplug/vif/${DEVID}
 PRIVATE=/xapi/${DOMUUID}/private/vbd/${DEVID}
-HOTPLUG=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
+HOTPLUG=/xapi/${DOMUUID}/hotplug/${TYPE}/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 
 syslog ()

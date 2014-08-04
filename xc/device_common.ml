@@ -130,13 +130,27 @@ let backend_state_path_of_device ~xs (x: device) =
 let string_of_device (x: device) = 
   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
 
+(* We use this function below to switch from domid- to UUID-based private
+ * paths. It can be made a little more efficient by changing the functions below
+ * to take the UUID as an argument (and change the callers as well...) *)
+let uuid_of_domid domid =
+	Xenops_helpers.with_xc_and_xs (fun _ xs ->
+		let vm = xs.Xs.getdomainpath domid ^ "/vm" in
+		let vm_dir = xs.Xs.read vm in
+		xs.Xs.read (vm_dir ^ "/uuid")
+	)
+
 (* We store some transient data elsewhere in xenstore to avoid it getting
    deleted by accident when a domain shuts down. We should always zap this
    tree on boot. *)
 let private_path = "/xapi"
 
 (* The private data path is only used by xapi and ignored by frontend and backend *)
-let get_private_path domid = sprintf "%s/%d" private_path domid
+let get_private_path domid =
+	sprintf "%s/%s" private_path (uuid_of_domid domid)
+
+let get_private_path_by_uuid uuid =
+	sprintf "%s/%s" private_path (Uuidm.to_string uuid)
 
 let get_private_data_path_of_device (x: device) =
 	sprintf "%s/private/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid

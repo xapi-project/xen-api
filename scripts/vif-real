@@ -255,8 +255,8 @@ call_hook_script() {
 VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
 DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
 
-HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
-PRIVATE=/xapi/${DOMID}/private/vif/${DEVID}
+HOTPLUG=/xapi/${DOMUUID}/hotplug/${DOMID}/vif/${DEVID}
+PRIVATE=/xapi/${DOMUUID}/private/vif/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
 

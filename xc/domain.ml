@@ -357,6 +357,15 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 		(fun () -> String.concat "; ")
         (List.map string_of_device all_devices);
 
+	(* Any other domains with the same UUID as the one we are destroying.
+	 * There can be one during a localhost migration. *)
+	let other_domains = List.filter (fun x -> Xenctrl_uuid.uuid_of_handle x.Xenctrl.handle = uuid)
+		(Xenctrl.domain_getinfolist xc 0) in
+	debug "VM = %s; domid = %d; Domain.destroy: other domains with the same UUID = [ %a ]"
+		(Uuid.to_string uuid) domid
+		(fun () -> String.concat "; ")
+        (List.map (fun x -> string_of_int x.Xenctrl.domid) other_domains);
+
 	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
 	let _, all_pci_devices = List.split (Device.PCI.list xc xs domid) in
 	List.iter
@@ -425,10 +434,16 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let all_backend_types = try xs.Xs.directory backend_path with _ -> [] in
 	List.iter (fun ty -> log_exn_rm ~xs (Printf.sprintf "%s/%s/%d" backend_path ty domid)) all_backend_types;
 
-	(* If all devices were properly un-hotplugged, then zap the tree in xenstore.
-	   If there was some error leave the tree for debugging / async cleanup. *)
-	if failed_devices = []
-	then log_exn_rm ~xs (Device_common.get_private_path domid);
+	(* If all devices were properly un-hotplugged, then zap the private tree in
+	 * xenstore.  If there was some error leave the tree for debugging / async
+	 * cleanup.  If there are any remaining domains with the same UUID, then
+	 * zap only the hotplug tree for the destroyed domain. *)
+	if failed_devices = [] then begin
+		if List.length other_domains < 1 then
+			log_exn_rm ~xs (Device_common.get_private_path_by_uuid uuid)
+		else
+			log_exn_rm ~xs (Hotplug.get_hotplug_base_by_uuid uuid domid)
+	end;
 
 	(* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
 	let still_exists () = 
