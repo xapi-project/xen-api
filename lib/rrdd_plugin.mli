@@ -14,9 +14,8 @@
 
 (** Library to simplify writing an rrdd plugin. *)
 
+(** Utility functions useful for rrdd plugins. *)
 module Utils : sig
-	(** Utility functions useful for rrdd plugins. *)
-
 	val now : unit -> int64
 	(** Return the current unix epoch as an int64. *)
 
@@ -41,9 +40,8 @@ type target =
 	    this domain. *)
 (** Specify how the data we are collecting will be reported. *)
 
+(** Functions used for communication with rrdd and other processes. *)
 module Common : functor (N : (sig val name : string end)) -> sig
-	(** Functions used for communication with rrdd and other processes. *)
-
 	val exec_cmd : cmdstring:string -> f:(string -> 'a option) -> 'a list
 	(** Execute the command [~cmd] with args [~args], apply f on each of
 	    the lines that cmd output on stdout, and returns a list of
