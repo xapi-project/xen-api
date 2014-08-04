@@ -47,6 +47,44 @@ type target =
 (* Establish a XMLPRC interface with RRDD *)
 module RRDD = Rrd_client.Client
 
+module Xs = struct
+	module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
+	include Xs
+
+	type xs_state = {
+		my_domid: int32;
+		root_path: string;
+		client: Xs.client;
+	}
+
+	let cached_xs_state = ref None
+
+	let cached_xs_state_m = Mutex.create ()
+
+	let get_xs_state () =
+		Mutex.execute cached_xs_state_m
+			(fun () ->
+				match !cached_xs_state with
+				| Some state -> state
+				| None ->
+					(* This creates a background thread, so must be done after daemonising. *)
+					let client = Xs.make () in
+					let my_domid =
+						Xs.immediate
+							client
+							(fun handle -> Xs.read handle "domid")
+						|> Int32.of_string
+					in
+					let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
+					let state = {
+						my_domid;
+						root_path;
+						client
+					}
+					in cached_xs_state := Some state;
+					state)
+end
+
 module Common = functor (N : (sig val name : string end)) -> struct
 
 module D = Debug.Make(struct let name=N.name end)
@@ -100,37 +138,6 @@ let cleanup signum =
 		(fun f -> f ())
 		!cleanup_fn;
 	exit 0
-
-module Xs = Xs_client_unix.Client(Xs_transport_unix_client)
-type xs_state = {
-	my_domid: int32;
-	root_path: string;
-	client: Xs.client;
-}
-let cached_xs_state = ref None
-let cached_xs_state_m = Mutex.create ()
-let get_xs_state () =
-	Mutex.execute cached_xs_state_m
-		(fun () ->
-			match !cached_xs_state with
-			| Some state -> state
-			| None ->
-				(* This creates a background thread, so must be done after daemonising. *)
-				let client = Xs.make () in
-				let my_domid =
-					Xs.immediate
-						client
-						(fun handle -> Xs.read handle "domid")
-					|> Int32.of_string
-				in
-				let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
-				let state = {
-					my_domid;
-					root_path;
-					client
-				}
-				in cached_xs_state := Some state;
-				state)
 
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
@@ -215,21 +222,21 @@ let main_loop_interdomain ~backend_domid ~page_count ~protocol ~dss_f =
 	let shared_page_refs, writer =
 		Rrd_writer.PageWriter.create id (choose_protocol protocol)
 	in
-	let xs_state = get_xs_state () in
-	Xs.transaction xs_state.client (fun xs ->
+	let xs_state = Xs.get_xs_state () in
+	Xs.transaction xs_state.Xs.client (fun xs ->
 		Xs.write xs
-			(Printf.sprintf "%s/%s/grantrefs" xs_state.root_path N.name)
+			(Printf.sprintf "%s/%s/grantrefs" xs_state.Xs.root_path N.name)
 			(List.map string_of_int shared_page_refs |> String.concat ",");
 		Xs.write xs
-			(Printf.sprintf "%s/%s/protocol" xs_state.root_path N.name)
+			(Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path N.name)
 			(Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
 		Xs.write xs
-			(Printf.sprintf "%s/%s/ready" xs_state.root_path N.name)
+			(Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path N.name)
 			"true");
 	cleanup_fn := Some (fun () ->
-		Xs.immediate xs_state.client (fun xs ->
+		Xs.immediate xs_state.Xs.client (fun xs ->
 			Xs.write xs
-				(Printf.sprintf "%s/%s/shutdown" xs_state.root_path N.name)
+				(Printf.sprintf "%s/%s/shutdown" xs_state.Xs.root_path N.name)
 				"true");
 		writer.Rrd_writer.cleanup ());
 	let rec main () =
