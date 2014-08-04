@@ -40,10 +40,6 @@ module Utils = struct
 		List.filter (fun x -> x <> "." && x <> "..") dirlist
 end
 
-type target =
-	| Local
-	| Interdomain of (int * int)
-
 (* Establish a XMLPRC interface with RRDD *)
 module RRDD = Rrd_client.Client
 
@@ -85,20 +81,213 @@ module Xs = struct
 					state)
 end
 
+module Reporter = struct
+	type state =
+		| Running
+		| Cancelled
+		| Stopped
+
+	type target =
+		| Local
+		| Interdomain of (int * int)
+
+	type t = {
+		mutable state: state;
+		lock: Mutex.t;
+		condition: Condition.t;
+	}
+
+	let make () = {
+		state = Running;
+		lock = Mutex.create ();
+		condition = Condition.create ();
+	}
+
+	let choose_protocol = function
+		| Rrd_interface.V1 -> Rrd_protocol_v1.protocol
+		| Rrd_interface.V2 -> Rrd_protocol_v2.protocol
+
+	let wait_until_next_reading
+			(module D : Debug.DEBUG)
+			?(neg_shift=0.5)
+			~uid
+			~protocol =
+		let next_reading =
+			RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol
+		in
+		let wait_time = next_reading -. neg_shift in
+		let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
+		if wait_time > 0. then Thread.delay wait_time
+		else
+			D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
+
+	let create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f =
+		let reporter = make () in
+		let path = RRDD.Plugin.get_path ~uid in
+		D.info "Obtained path=%s\n" path;
+		let _ = mkdir_safe (Filename.dirname path) 0o644 in
+		let _, writer =
+			Rrd_writer.FileWriter.create path (choose_protocol protocol)
+		in
+		let cleanup () =
+			RRDD.Plugin.Local.deregister ~uid;
+			writer.Rrd_writer.cleanup ()
+		in
+		let (_: Thread.t) =
+			Thread.create
+				(fun () ->
+					let running = ref true in
+					while !running do
+						try
+							wait_until_next_reading
+								(module D : Debug.DEBUG)
+								~neg_shift
+								~uid
+								~protocol;
+							let payload = Rrd_protocol.({
+								timestamp = Utils.now ();
+								datasources = dss_f ();
+							}) in
+							writer.Rrd_writer.write_payload payload;
+							Thread.delay 0.003;
+							Mutex.execute reporter.lock
+								(fun () ->
+									match reporter.state with
+									| Running -> ()
+									| Stopped
+									| Cancelled ->
+										reporter.state <- Stopped;
+										cleanup ();
+										Condition.broadcast reporter.condition;
+										running := false)
+						with
+							| Sys.Break ->
+								Mutex.execute reporter.lock
+									(fun () ->
+										reporter.state <- Stopped;
+										cleanup ();
+										Condition.broadcast reporter.condition;
+										running := false)
+							| e ->
+								D.error
+									"Unexpected error %s, sleeping for 10 seconds..."
+									(Printexc.to_string e);
+								D.log_backtrace ();
+								Thread.delay 10.0
+					done)
+				()
+		in
+		reporter
+
+	let create_interdomain
+			(module D : Debug.DEBUG)
+			~uid
+			~backend_domid
+			~page_count
+			~protocol
+			~dss_f =
+		let reporter = make () in
+		let id = Rrd_writer.({
+			backend_domid = backend_domid;
+			shared_page_count = page_count;
+		}) in
+		let shared_page_refs, writer =
+			Rrd_writer.PageWriter.create id (choose_protocol protocol)
+		in
+		let xs_state = Xs.get_xs_state () in
+		Xs.transaction xs_state.Xs.client (fun xs ->
+			Xs.write xs
+				(Printf.sprintf "%s/%s/grantrefs" xs_state.Xs.root_path uid)
+				(List.map string_of_int shared_page_refs |> String.concat ",");
+			Xs.write xs
+				(Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path uid)
+				(Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
+			Xs.write xs
+				(Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
+				"true");
+		let cleanup () =
+			Xs.immediate xs_state.Xs.client (fun xs ->
+				Xs.write xs
+					(Printf.sprintf "%s/%s/shutdown" xs_state.Xs.root_path uid)
+					"true");
+			writer.Rrd_writer.cleanup ()
+		in
+		let (_: Thread.t) =
+			Thread.create
+				(fun () ->
+					let running = ref true in
+					while !running do
+						try
+							let payload = Rrd_protocol.({
+								timestamp = Utils.now ();
+								datasources = dss_f ();
+							}) in
+							writer.Rrd_writer.write_payload payload;
+							Thread.delay 5.0;
+							Mutex.execute reporter.lock
+								(fun () ->
+									match reporter.state with
+									| Running -> ()
+									| Stopped
+									| Cancelled ->
+										reporter.state <- Stopped;
+										cleanup ();
+										Condition.broadcast reporter.condition;
+										running := false);
+						with
+							| Sys.Break ->
+								Mutex.execute reporter.lock
+									(fun () ->
+										reporter.state <- Stopped;
+										cleanup ();
+										Condition.broadcast reporter.condition;
+										running := false)
+							| e ->
+								D.error
+									"Unexpected error %s, sleeping for 10 seconds..."
+									(Printexc.to_string e);
+								D.log_backtrace ();
+								Thread.delay 10.0
+					done)
+				()
+		in
+		reporter
+
+	let create (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
+		match target with
+		| Local ->
+			create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f
+		| Interdomain (backend_domid, page_count) ->
+			create_interdomain (module D : Debug.DEBUG)
+				~uid
+				~backend_domid
+				~page_count
+				~protocol
+				~dss_f
+
+	let get_state ~reporter =
+		Mutex.execute reporter.lock (fun () -> reporter.state)
+
+	let cancel ~reporter =
+		Mutex.execute reporter.lock
+			(fun () ->
+				match reporter.state with
+				| Running -> begin
+					reporter.state <- Cancelled;
+					Condition.wait reporter.condition reporter.lock
+				end
+				| Cancelled -> Condition.wait reporter.condition reporter.lock
+				| Stopped -> ())
+
+	let wait_until_stopped ~reporter =
+		Mutex.execute reporter.lock
+			(fun () -> Condition.wait reporter.condition reporter.lock)
+end
+
 module Common = functor (N : (sig val name : string end)) -> struct
 
 module D = Debug.Make(struct let name=N.name end)
 open D
-
-let wait_until_next_reading ?(neg_shift=0.5) ~protocol =
-	let next_reading =
-		RRDD.Plugin.Local.register N.name Rrd.Five_Seconds protocol
-	in
-	let wait_time = next_reading -. neg_shift in
-	let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
-	if wait_time > 0. then Thread.delay wait_time
-	else
-		debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
 let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 	debug "Forking command %s" cmdstring;
@@ -130,13 +319,13 @@ let exec_cmd ~cmdstring ~(f : string -> 'a option) =
 	end;
 	List.rev !vals
 
-let cleanup_fn : (unit -> unit) option ref = ref None
+let reporter_cache : Reporter.t option ref = ref None
 
 let cleanup signum =
 	info "Received signal %d: deregistering plugin %s..." signum N.name;
 	Opt.iter
-		(fun f -> f ())
-		!cleanup_fn;
+		(fun reporter -> Reporter.cancel reporter)
+		!reporter_cache;
 	exit 0
 
 let initialise () =
@@ -171,99 +360,16 @@ let initialise () =
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
 
-let choose_protocol = function
-	| Rrd_interface.V1 -> Rrd_protocol_v1.protocol
-	| Rrd_interface.V2 -> Rrd_protocol_v2.protocol
-
-let main_loop_local ~neg_shift ~protocol ~dss_f =
-	let rec main () =
-		try
-			let path = RRDD.Plugin.get_path ~uid:N.name in
-			let _ = mkdir_safe (Filename.dirname path) 0o644 in
-			let _, writer =
-				Rrd_writer.FileWriter.create path (choose_protocol protocol)
-			in
-			cleanup_fn := Some (fun () ->
-				RRDD.Plugin.Local.deregister ~uid:N.name;
-				writer.Rrd_writer.cleanup ());
-			info "Obtained path=%s\n" path;
-			while true do
-				wait_until_next_reading ~neg_shift ~protocol;
-				let payload = Rrd_protocol.({
-					timestamp = Utils.now ();
-					datasources = dss_f ();
-				}) in
-				writer.Rrd_writer.write_payload payload;
-				Thread.delay 0.003
-			done
-		with
-			| Unix.Unix_error (Unix.ENOENT, _, _) ->
-				warn "The %s seems not installed. You probably need to upgrade your version of XenServer.\n"
-					Rrd_interface.daemon_name;
-				exit 1
-			| Sys.Break ->
-				warn "Caught Sys.Break; exiting...";
-				cleanup Sys.sigint
-			| e ->
-				error "Unexpected error %s, sleeping for 10 seconds..." (Printexc.to_string e);
-				log_backtrace ();
-				Unix.sleep 10;
-				main ()
-	in
-
-	debug "Entering main loop ..";
-	main ()
-
-let main_loop_interdomain ~backend_domid ~page_count ~protocol ~dss_f =
-	let id = Rrd_writer.({
-		backend_domid = backend_domid;
-		shared_page_count = page_count;
-	}) in
-	let shared_page_refs, writer =
-		Rrd_writer.PageWriter.create id (choose_protocol protocol)
-	in
-	let xs_state = Xs.get_xs_state () in
-	Xs.transaction xs_state.Xs.client (fun xs ->
-		Xs.write xs
-			(Printf.sprintf "%s/%s/grantrefs" xs_state.Xs.root_path N.name)
-			(List.map string_of_int shared_page_refs |> String.concat ",");
-		Xs.write xs
-			(Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path N.name)
-			(Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
-		Xs.write xs
-			(Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path N.name)
-			"true");
-	cleanup_fn := Some (fun () ->
-		Xs.immediate xs_state.Xs.client (fun xs ->
-			Xs.write xs
-				(Printf.sprintf "%s/%s/shutdown" xs_state.Xs.root_path N.name)
-				"true");
-		writer.Rrd_writer.cleanup ());
-	let rec main () =
-		try
-			while true do
-				let payload = Rrd_protocol.({
-					timestamp = Utils.now ();
-					datasources = dss_f ();
-				}) in
-				writer.Rrd_writer.write_payload payload;
-				Thread.delay 5.0
-			done
-		with
-			| Sys.Break ->
-				warn "Caught Sys.Break; exiting...";
-				cleanup Sys.sigint
-			| e ->
-				error "Unexpected error %s, sleeping for 10 seconds..." (Printexc.to_string e);
-				log_backtrace ();
-				Unix.sleep 10;
-				main ()
-	in
-	main ()
-
 let main_loop ~neg_shift ~target ~protocol ~dss_f =
-	match target with
-	| Local -> main_loop_local ~neg_shift ~dss_f ~protocol
-	| Interdomain (backend_domid, page_count) ->
-		main_loop_interdomain ~dss_f ~backend_domid ~page_count ~protocol
+	let reporter =
+		Reporter.create
+			(module D : Debug.DEBUG)
+			~uid:N.name
+			~neg_shift
+			~target
+			~protocol
+			~dss_f
+	in
+	reporter_cache := Some reporter;
+	Reporter.wait_until_stopped reporter
 end

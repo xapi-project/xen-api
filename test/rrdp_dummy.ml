@@ -29,12 +29,12 @@ let generate_dummy_dss () =
 	]
 
 let _ =
-	let mode = ref Rrdd_plugin.Local in
+	let mode = ref Rrdd_plugin.Reporter.Local in
 	Arg.parse
 		[("-mode",
 			Arg.String (function
-				| "local" -> mode := Rrdd_plugin.Local
-				| "interdomain" -> mode := Rrdd_plugin.Interdomain (0, 1)
+				| "local" -> mode := Rrdd_plugin.Reporter.Local
+				| "interdomain" -> mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
 				| x -> invalid_arg x),
 			"Switch between local and interdomain mode")]
 		(fun _ -> ())

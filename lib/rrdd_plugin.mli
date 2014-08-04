@@ -30,15 +30,49 @@ module Utils : sig
 	(** List the contents of a directory, not including . and .. *)
 end
 
-type target =
-	| Local
-	(** Specifies that we will be reporting data to an rrdd process in the same
-	    domain as this process. *)
-	| Interdomain of (int * int)
-	(** [Interdomain (domid, pages)] specifies that we will be reporting data to
-	    an rrdd process in domain [domid], and we will be sharing [pages] with
-	    this domain. *)
-(** Specify how the data we are collecting will be reported. *)
+(** Asynchronous interface to create, cancel and query the state of stats
+    reporting threads. *)
+module Reporter : sig
+	type state =
+		| Running
+		(** The reporter is running. *)
+		| Cancelled
+		(** A thread has cancelled the reporter. *)
+		| Stopped
+		(** The reporter has stopped. *)
+	(** The state of a reporter. *)
+
+	type target =
+		| Local
+		(** Specifies that we will be reporting data to an rrdd process in the same
+				domain as this process. *)
+		| Interdomain of (int * int)
+		(** [Interdomain (domid, pages)] specifies that we will be reporting data to
+				an rrdd process in domain [domid], and we will be sharing [pages] with
+				this domain. *)
+	(** Specify how the data we are collecting will be reported. *)
+
+	type t
+	(** Abstract type of stats reporters. *)
+
+	val create : (module Debug.DEBUG) ->
+		uid:string ->
+		neg_shift:float ->
+		target:target ->
+		protocol:Rrd_interface.plugin_protocol ->
+		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
+		t
+
+	val get_state : reporter:t -> state
+	(** Query the state of a reporter. *)
+
+	val cancel : reporter:t -> unit
+	(** Signal to a reporter that we want it to cancel, and block until it has
+	    cleaned up and marked itself as Stopped. *)
+
+	val wait_until_stopped : reporter:t -> unit
+	(** Block until the reporter has marked itself stopped. *)
+end
 
 (** Functions used for communication with rrdd and other processes. *)
 module Common : functor (N : (sig val name : string end)) -> sig
@@ -60,7 +94,7 @@ module Common : functor (N : (sig val name : string end)) -> sig
 
 	val main_loop :
 		neg_shift:float ->
-		target:target ->
+		target:Reporter.target ->
 		protocol:Rrd_interface.plugin_protocol ->
 		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
 		unit
