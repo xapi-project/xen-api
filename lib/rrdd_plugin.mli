@@ -28,6 +28,11 @@ module Utils : sig
 
 	val list_directory_entries_unsafe : string -> string list
 	(** List the contents of a directory, not including . and .. *)
+
+	val exec_cmd : (module Debug.DEBUG) -> cmdstring:string -> f:(string -> 'a option) -> 'a list
+	(** Execute the command [~cmd] with args [~args], apply f on each of
+	    the lines that cmd output on stdout, and returns a list of
+	    resulting values if f returns Some v *)
 end
 
 (** Asynchronous interface to create, cancel and query the state of stats
@@ -76,11 +81,6 @@ end
 
 (** Functions used for communication with rrdd and other processes. *)
 module Common : functor (N : (sig val name : string end)) -> sig
-	val exec_cmd : cmdstring:string -> f:(string -> 'a option) -> 'a list
-	(** Execute the command [~cmd] with args [~args], apply f on each of
-	    the lines that cmd output on stdout, and returns a list of
-	    resulting values if f returns Some v *)
-
 	val initialise : unit -> unit
 	(** Utility function for daemons whose sole purpose is to report data to rrdd.
 	    This will set up signal handlers, as well as daemonising and writing a pid

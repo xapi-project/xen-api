@@ -38,6 +38,36 @@ module Utils = struct
 	let list_directory_entries_unsafe dir =
 		let dirlist = list_directory_unsafe dir in
 		List.filter (fun x -> x <> "." && x <> "..") dirlist
+
+	let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
+		D.debug "Forking command %s" cmdstring;
+		(* create pipe for reading from the command's output *)
+		let (out_readme, out_writeme) = Unix.pipe () in
+		let cmd, args = match String.split ' ' cmdstring with [] -> assert false | h::t -> h,t in
+		let pid = Forkhelpers.safe_close_and_exec None (Some out_writeme) None [] cmd args in
+		Unix.close out_writeme;
+		let in_channel = Unix.in_channel_of_descr out_readme in
+		let vals = ref [] in
+		let rec loop () =
+			let line = input_line in_channel in
+			let ret = f line in
+			begin
+				match ret with
+				| None -> ()
+				| Some v -> vals := v :: !vals
+			end;
+			loop ()
+		in
+		(try loop () with End_of_file -> ());
+		Unix.close out_readme;
+		let (pid, status) = Forkhelpers.waitpid pid in
+		begin
+			match status with
+			| Unix.WEXITED n   -> D.debug "Process %d exited normally with code %d" pid n
+			| Unix.WSIGNALED s -> D.debug "Process %d was killed by signal %d" pid s
+			| Unix.WSTOPPED s  -> D.debug "Process %d was stopped by signal %d" pid s
+		end;
+		List.rev !vals
 end
 
 (* Establish a XMLPRC interface with RRDD *)
@@ -288,36 +318,6 @@ module Common = functor (N : (sig val name : string end)) -> struct
 
 module D = Debug.Make(struct let name=N.name end)
 open D
-
-let exec_cmd ~cmdstring ~(f : string -> 'a option) =
-	debug "Forking command %s" cmdstring;
-	(* create pipe for reading from the command's output *)
-	let (out_readme, out_writeme) = Unix.pipe () in
-	let cmd, args = match String.split ' ' cmdstring with [] -> assert false | h::t -> h,t in
-	let pid = Forkhelpers.safe_close_and_exec None (Some out_writeme) None [] cmd args in
-	Unix.close out_writeme;
-	let in_channel = Unix.in_channel_of_descr out_readme in
-	let vals = ref [] in
-	let rec loop () =
-		let line = input_line in_channel in
-		let ret = f line in
-		begin
-			match ret with
-			| None -> ()
-			| Some v -> vals := v :: !vals
-		end;
-		loop ()
-	in
-	(try loop () with End_of_file -> ());
-	Unix.close out_readme;
-	let (pid, status) = Forkhelpers.waitpid pid in
-	begin
-		match status with
-		| Unix.WEXITED n   -> debug "Process %d exited normally with code %d" pid n
-		| Unix.WSIGNALED s -> debug "Process %d was killed by signal %d" pid s
-		| Unix.WSTOPPED s  -> debug "Process %d was stopped by signal %d" pid s
-	end;
-	List.rev !vals
 
 let reporter_cache : Reporter.t option ref = ref None
 
