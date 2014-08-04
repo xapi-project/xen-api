@@ -108,26 +108,29 @@ type xs_state = {
 	client: Xs.client;
 }
 let cached_xs_state = ref None
+let cached_xs_state_m = Mutex.create ()
 let get_xs_state () =
-	match !cached_xs_state with
-	| Some state -> state
-	| None ->
-		(* This creates a background thread, so must be done after daemonising. *)
-		let client = Xs.make () in
-		let my_domid =
-			Xs.immediate
-				client
-				(fun handle -> Xs.read handle "domid")
-			|> Int32.of_string
-		in
-		let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
-		let state = {
-			my_domid;
-			root_path;
-			client
-		}
-		in cached_xs_state := Some state;
-		state
+	Mutex.execute cached_xs_state_m
+		(fun () ->
+			match !cached_xs_state with
+			| Some state -> state
+			| None ->
+				(* This creates a background thread, so must be done after daemonising. *)
+				let client = Xs.make () in
+				let my_domid =
+					Xs.immediate
+						client
+						(fun handle -> Xs.read handle "domid")
+					|> Int32.of_string
+				in
+				let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
+				let state = {
+					my_domid;
+					root_path;
+					client
+				}
+				in cached_xs_state := Some state;
+				state)
 
 let initialise () =
 	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
