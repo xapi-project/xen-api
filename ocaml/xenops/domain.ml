@@ -686,10 +686,8 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
-*)
 	] in
 (*
 	let store_mfn =
@@ -896,10 +894,8 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	                                            ~vcpus ~extras:[] xenguest_path domid fd in
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
-*)
 	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
