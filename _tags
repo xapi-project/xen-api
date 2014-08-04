@@ -51,3 +51,4 @@
 <test/*.ml{,i}>: pkg_xcp.rrd
 <test/*.ml{,i}>: pkg_rrd-transport
 # OASIS_STOP
+<lib>: include

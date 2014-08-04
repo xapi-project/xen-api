@@ -2,5 +2,6 @@
 *.swp
 
 _build/
+api.docdir
 setup.data
 setup.log
