@@ -30,9 +30,9 @@ module Utils : sig
 	(** List the contents of a directory, not including . and .. *)
 
 	val exec_cmd : (module Debug.DEBUG) -> cmdstring:string -> f:(string -> 'a option) -> 'a list
-	(** Execute the command [~cmd] with args [~args], apply f on each of
-	    the lines that cmd output on stdout, and returns a list of
-	    resulting values if f returns Some v *)
+	(** [exec_cmd cmd f] executes [cmd], applies [f] on each of the lines which
+	    [cmd] outputs on stdout, and returns a list of resulting values for which
+	    applying [f] returns [Some value]. *)
 end
 
 (** Asynchronous interface to create, cancel and query the state of stats
@@ -67,6 +67,15 @@ module Reporter : sig
 		protocol:Rrd_interface.plugin_protocol ->
 		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
 		t
+	(** Create a stats reporter.
+	    {ul
+	    {- [uid] is the UID which will be registered with rrdd.}
+	    {- [neg_shift] is the amount of time before rrdd collects data that we
+	       should report our data.}
+	    {- [target] specifies the transport via which data will be reported to
+	       rrdd.}
+	    {- [protocol] specifies the protocol used to transmit the data.}
+	    {- [dss_f ()] will generate the list of datasources to be reported.}} *)
 
 	val get_state : reporter:t -> state
 	(** Query the state of a reporter. *)
@@ -79,7 +88,7 @@ module Reporter : sig
 	(** Block until the reporter has marked itself stopped. *)
 end
 
-(** Functions used for communication with rrdd and other processes. *)
+(** Functions useful for writing a single-purpose rrdd plugin daemon. *)
 module Common : functor (N : (sig val name : string end)) -> sig
 	val initialise : unit -> unit
 	(** Utility function for daemons whose sole purpose is to report data to rrdd.
@@ -104,6 +113,6 @@ module Common : functor (N : (sig val name : string end)) -> sig
 	       should report our data.}
 	    {- [target] specifies the transport via which data will be reported to
 	       rrdd.}
-	    {- [protocol] specifies the protocol used to tramsit the data.}
-	    {- [dds_f ()] will generate the list of datasources to be reported.}} *)
+	    {- [protocol] specifies the protocol used to transmit the data.}
+	    {- [dss_f ()] will generate the list of datasources to be reported.}} *)
 end
