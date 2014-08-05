@@ -4,7 +4,9 @@ TYPE=`echo ${XENBUS_PATH} | cut -f 2 -d '/'`
 DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
 DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
 
-HOTPLUG=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
+VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
+DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
+HOTPLUG=/xapi/${DOMUUID}/hotplug/${DOMID}/${TYPE}/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 
 syslog ()

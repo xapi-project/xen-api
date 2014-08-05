@@ -263,8 +263,7 @@ esac
 VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
 DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
 
-XAPI=/xapi/${DOMID}/hotplug/vif/${DEVID}
-HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
+HOTPLUG=/xapi/${DOMUUID}/hotplug/vif/${DEVID}
 PRIVATE=/xapi/${DOMUUID}/private/vif/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
