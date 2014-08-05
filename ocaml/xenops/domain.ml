@@ -455,9 +455,12 @@ let get_action_request ~xs domid =
 		Some (xs.Xs.read path)
 	with Xenbus.Xb.Noent -> None
 
-let maybe_ca_140252_workaround ~xc domid =
-	if !Xenops_utils.ca_140252_workaround
-	then ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+let maybe_ca_140252_workaround ~xc ~vcpus domid =
+	if !Xenops_utils.ca_140252_workaround then
+		debug "Allocating %d I/O req evtchns in advance for device model" vcpus;
+		for i = 1 to vcpus do
+			ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+		done
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
@@ -643,7 +646,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
-	maybe_ca_140252_workaround ~xc domid;
+	maybe_ca_140252_workaround ~xc ~vcpus domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
@@ -885,7 +888,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
-	maybe_ca_140252_workaround ~xc domid;
+	maybe_ca_140252_workaround ~xc ~vcpus domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
