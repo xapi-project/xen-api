@@ -643,7 +643,11 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 				Xapi_gpu_group.get_remaining_capacity_internal ~__context
 					~self:gpu_group ~vgpu_type
 			with
-			| Either.Left e -> raise e
+			| Either.Left e -> 
+				raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
+						Ref.string_of vm;
+						Ref.string_of gpu_group;
+						Ref.string_of vgpu_type;]))
 			| Either.Right _ -> ();
 			let host_lists =
 				group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type in
