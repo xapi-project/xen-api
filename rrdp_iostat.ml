@@ -45,22 +45,27 @@ let get_vdi_to_vm_map () = !vdi_to_vm_map
 let update_vdi_to_vm_map () =
 	let create_new_vdi_to_vm_map () =
 		(* We get a VM's VDI information from xenstore, /local/domain/0/backend/vbd/<domid>/<vbdid> *)
-		let base_path = "/local/domain/0/backend/vbd" in
+		let base_paths = ["/local/domain/0/backend/vbd"; "/local/domain/0/backend/vbd3"] in
 		try
 			let domUs = with_xc get_running_domUs in
 			D.debug "Running domUs: [%s]" (String.concat "; " (List.map (fun (domid, uuid) -> Printf.sprintf "%d (%s)" domid (String.sub uuid 0 8)) domUs));
 			with_xs (fun xs ->
 				List.map (fun (domid, vm) ->
 					(* Get VBDs for this domain *)
-					let vbds =
+					let enoents = ref 0 in
+					let vbds = List.map (fun base_path ->
 						try
 							let path = Printf.sprintf "%s/%d" base_path domid in
 							D.debug "Getting path %s..." path;
 							List.map (fun vbd -> Printf.sprintf "%s/%s" path vbd) (xs.Xs.directory path)
 						with Xs_protocol.Enoent _ ->
-							D.warn "Got ENOENT when listing VBDs for domain %d" domid;
+							D.debug "Got ENOENT when listing VBDs in %s for domain %d" base_path domid;
+							incr enoents;
 							[]
-					in
+					) base_paths |> List.flatten in
+
+					if !enoents = List.length base_paths then D.warn "Got ENOENT for each VBD backend path for domain %d" domid;
+
 					List.filter_map (fun vbd ->
 						try
 							let vdi    = xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd) in
