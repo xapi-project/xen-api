@@ -22,7 +22,9 @@
 #include <stdio.h> /* snprintf */
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
-#include <linux/fs.h> 
+#if defined(__linux__)
+# include <linux/fs.h> 
+#endif
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -53,12 +55,15 @@ CAMLprim value stub_unixext_fsync (value fd)
 	CAMLreturn(Val_unit);
 }
 	
+extern uint64_t blkgetsize(int fd, uint64_t *psize);
+
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {
   CAMLparam1(fd);
   uint64_t size;
   int c_fd = Int_val(fd);
-  if(ioctl(c_fd,BLKGETSIZE64,&size)) {
+  /* mirage-block-unix binding: */
+  if (blkgetsize(c_fd, &size)) {
     uerror("ioctl(BLKGETSIZE64)", Nothing);
   }
   CAMLreturn(caml_copy_int64(size));
@@ -72,6 +77,14 @@ CAMLprim value stub_unixext_get_max_fd (value unit)
 	CAMLreturn(Val_int(maxfd));
 }
 
+#if defined(__linux__)
+# define TCP_LEVEL SOL_TCP
+#elif defined(__APPLE__)
+# define TCP_LEVEL IPPROTO_TCP
+#else
+# error "Don't know how to use setsockopt on this platform"
+#endif
+
 CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idle, value interval)
 {
     CAMLparam4(fd, count, idle, interval);
@@ -81,17 +94,17 @@ CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idl
 	socklen_t optlen=sizeof(optval);
 	
 	optval = Int_val(count);
-	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPCNT, &optval, optlen) < 0) {
+	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
 	}
-	
+#if defined(__linux__)	
 	optval = Int_val(idle);
-	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPIDLE, &optval, optlen) < 0) {
+	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
 	}
-	 
+#endif
 	optval = Int_val(interval);
-	if(setsockopt(c_fd, SOL_TCP, TCP_KEEPINTVL, &optval, optlen) < 0) {
+	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPINTVL, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
 	}
 
@@ -298,12 +311,6 @@ CAMLprim value stub_fdset_is_empty(value set)
 	
 	CAMLreturn(Bool_val(ret == 0));
 }
-
-static int msg_flag_table[] = {
-  MSG_OOB, MSG_DONTROUTE, MSG_PEEK
-};
-
-#define UNIX_BUFFER_SIZE 16384
 
 CAMLprim value stub_statvfs(value filename) 
 {

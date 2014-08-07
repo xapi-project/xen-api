@@ -44,17 +44,27 @@ static int open_flag_table[] = {
 CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
 {
   CAMLparam3(path, flags, perm);
-  int ret, cv_flags;
+  int fd, ret, cv_flags;
   char * p;
 
-  cv_flags = convert_flag_list(flags, open_flag_table) | O_DIRECT;
+  cv_flags = convert_flag_list(flags, open_flag_table);
+ 
+#ifdef O_DIRECT
+  cv_flags |= O_DIRECT;
+#endif
   p = stat_alloc(string_length(path) + 1);
   strcpy(p, String_val(path));
   /* open on a named FIFO can block (PR#1533) */
   enter_blocking_section();
-  ret = open(p, cv_flags, Int_val(perm));
+  fd = open(p, cv_flags, Int_val(perm));
+#ifndef O_DIRECT
+  if (fd != -1)
+    ret = fcntl(fd, F_NOCACHE);
+#endif  
   leave_blocking_section();
   stat_free(p);
-  if (ret == -1) uerror("open", path);
-  CAMLreturn (Val_int(ret));
+  if (fd == -1) uerror("open", path);
+  if (ret == -1) uerror("fcntl", path);
+
+  CAMLreturn (Val_int(fd));
 }
