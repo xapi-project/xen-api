@@ -82,3 +82,11 @@ Test channel_test
   Command:            ./channel_test.native
   Run:                true
 
+Executable example
+  CompiledObject:     best
+  Path:               example
+  MainIs:             example.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, xcp, rpclib
+
