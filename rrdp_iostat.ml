@@ -51,25 +51,27 @@ let update_vdi_to_vm_map () =
 			D.debug "Running domUs: [%s]" (String.concat "; " (List.map (fun (domid, uuid) -> Printf.sprintf "%d (%s)" domid (String.sub uuid 0 8)) domUs));
 			with_xs (fun xs ->
 				List.map (fun (domid, vm) ->
-					try
-						(* Get VBDs for this domain *)
-						let path = Printf.sprintf "%s/%d" base_path domid in
-						D.debug "Getting path %s..." path;
-						let vbds = xs.Xs.directory path in
-						List.filter_map (fun vbd ->
-							try
-								let vdi    = xs.Xs.read (Printf.sprintf "%s/%s/sm-data/vdi-uuid" path vbd) in
-								let device = xs.Xs.read (Printf.sprintf "%s/%s/dev" path vbd) in
-								D.info "Found VDI %s at device %s in VM %s" vdi device vm;
-								Some (vdi, (vm, device))
-							with Xs_protocol.Enoent _ ->
-								(* CA-111132: an empty VBD (i.e. no ISO inserted) has no sm-data/vdi-uuid *)
-								D.debug "Got ENOENT when reading info for vbd %s in domain %d (might be empty)" vbd domid;
-								None
-						) vbds
-					with Xs_protocol.Enoent _ ->
-						D.warn "Got ENOENT when listing VBDs for domain %d" domid;
-						[]
+					(* Get VBDs for this domain *)
+					let vbds =
+						try
+							let path = Printf.sprintf "%s/%d" base_path domid in
+							D.debug "Getting path %s..." path;
+							List.map (fun vbd -> Printf.sprintf "%s/%s" path vbd) (xs.Xs.directory path)
+						with Xs_protocol.Enoent _ ->
+							D.warn "Got ENOENT when listing VBDs for domain %d" domid;
+							[]
+					in
+					List.filter_map (fun vbd ->
+						try
+							let vdi    = xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd) in
+							let device = xs.Xs.read (Printf.sprintf "%s/dev" vbd) in
+							D.info "Found VDI %s at device %s in VM %s" vdi device vm;
+							Some (vdi, (vm, device))
+						with Xs_protocol.Enoent _ ->
+							(* CA-111132: an empty VBD (i.e. no ISO inserted) has no sm-data/vdi-uuid *)
+							D.debug "Got ENOENT when reading info for vbd %s in domain %d (might be empty)" vbd domid;
+							None
+					) vbds
 				) domUs |> List.flatten
 			)
 		with e ->
