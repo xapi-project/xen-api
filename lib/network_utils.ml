@@ -663,6 +663,12 @@ module Ovs = struct
 			nb_links
 		with _ -> 0
 
+	let set_max_idle t =
+		try
+			ignore (vsctl ["set"; "Open_vSwitch"; "."; Printf.sprintf "other_config:max-idle=%d" t])
+		with _ ->
+			warn "Failed to set max-idle=%d on OVS" t
+
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
 		 * to which the VLAN bug workaround should not be applied. This could be
