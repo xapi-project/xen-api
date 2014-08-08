@@ -7,3 +7,7 @@
 *.cmx
 *.cmxs
 *.cmxa
+_build
+setup.data
+setup.log
+*.native

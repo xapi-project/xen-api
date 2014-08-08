@@ -1,0 +1,16 @@
+OASISFormat: 0.2
+Name:        xapi-script-storage
+Version:     0.1
+Synopsis:    Adapter which allows xapi to call storage scripts
+Authors:     David Scott
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Executable xapi_script_storage
+  CompiledObject:     best
+  Path:               .
+  MainIs:             main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       xcp, async_inotify, threads
