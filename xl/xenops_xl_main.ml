@@ -22,7 +22,24 @@ let check_domain0_uuid () =
 			let uuid = Uuidm.(to_string (create `V4)) in
 			Inventory.update Inventory._control_domain_uuid uuid;
 			uuid in
-        Xenctrl.domain_sethandle xc 0 uuid
+	Xenctrl.domain_sethandle xc 0 uuid;
+	(* make the minimum entries for dom0 *)
+	let kvs = [
+		"/local/domain/0/domid", "0";
+		"/local/domain/0/vm", "/vm/" ^ uuid;
+		"/local/domain/0/name", "Domain-0";
+		Printf.sprintf "/vm/%s/uuid" uuid, uuid;
+		Printf.sprintf "/vm/%s/name" uuid, "Domain-0";
+		Printf.sprintf "/vm/%s/domains/0" uuid, "/local/domain/0";
+		Printf.sprintf "/vm/%s/domains/0/create-time" uuid, "0"
+	] in
+	let open Xenstore in
+	with_xs (fun xs ->
+		List.iter (fun (k, v) -> xs.Xs.write k v) kvs
+	);
+	(* before daemonizing we need to forget the xenstore client
+	   because the background thread will be gone after the fork() *)
+	forget_client ()
 
 let make_vnc_dir () =
 	Xl_path.vnc_dir := Filename.concat (Xenops_utils.get_root ()) "vnc";

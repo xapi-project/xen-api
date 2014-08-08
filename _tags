@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b23791e7c31b60c938705474885c9199)
+# DO NOT EDIT (digest: ab7dd914f415df6626c6e1f237114821)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -40,6 +40,10 @@
 <lib/suspend_image_viewer.{native,byte}>: pkg_xcp
 <lib/suspend_image_viewer.{native,byte}>: pkg_xcp.storage
 <lib/suspend_image_viewer.{native,byte}>: pkg_xcp.xen
+<lib/suspend_image_viewer.{native,byte}>: pkg_xenstore
+<lib/suspend_image_viewer.{native,byte}>: pkg_xenstore.unix
+<lib/suspend_image_viewer.{native,byte}>: pkg_xenstore_transport
+<lib/suspend_image_viewer.{native,byte}>: pkg_xenstore_transport.unix
 <lib/suspend_image_viewer.{native,byte}>: pkg_xmlm
 <lib/suspend_image_viewer.{native,byte}>: use_xenopsd
 <lib/*.ml{,i}>: pkg_cmdliner
@@ -58,6 +62,10 @@
 <lib/*.ml{,i}>: pkg_xcp
 <lib/*.ml{,i}>: pkg_xcp.storage
 <lib/*.ml{,i}>: pkg_xcp.xen
+<lib/*.ml{,i}>: pkg_xenstore
+<lib/*.ml{,i}>: pkg_xenstore.unix
+<lib/*.ml{,i}>: pkg_xenstore_transport
+<lib/*.ml{,i}>: pkg_xenstore_transport.unix
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: use_xenopsd
 # Executable xenopsd_xc_main
@@ -221,6 +229,10 @@
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp.storage
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xcp.xen
+<simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore
+<simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore.unix
+<simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore_transport
+<simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore_transport.unix
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xmlm
 <simulator/xenops_simulator_main.{native,byte}>: use_xenopsd
 <simulator/*.ml{,i}>: pkg_cohttp
@@ -238,6 +250,10 @@
 <simulator/*.ml{,i}>: pkg_xcp
 <simulator/*.ml{,i}>: pkg_xcp.storage
 <simulator/*.ml{,i}>: pkg_xcp.xen
+<simulator/*.ml{,i}>: pkg_xenstore
+<simulator/*.ml{,i}>: pkg_xenstore.unix
+<simulator/*.ml{,i}>: pkg_xenstore_transport
+<simulator/*.ml{,i}>: pkg_xenstore_transport.unix
 <simulator/*.ml{,i}>: pkg_xmlm
 <simulator/*.ml{,i}>: use_xenopsd
 <simulator/xenops_simulator_main.{native,byte}>: custom
@@ -262,6 +278,10 @@
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xcp
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xcp.storage
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xcp.xen
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore.unix
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore_transport
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore_transport.unix
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xmlm
 <libvirt/xenops_libvirt_main.{native,byte}>: use_xenopsd
 <libvirt/*.ml{,i}>: pkg_cohttp
@@ -280,6 +300,10 @@
 <libvirt/*.ml{,i}>: pkg_xcp
 <libvirt/*.ml{,i}>: pkg_xcp.storage
 <libvirt/*.ml{,i}>: pkg_xcp.xen
+<libvirt/*.ml{,i}>: pkg_xenstore
+<libvirt/*.ml{,i}>: pkg_xenstore.unix
+<libvirt/*.ml{,i}>: pkg_xenstore_transport
+<libvirt/*.ml{,i}>: pkg_xenstore_transport.unix
 <libvirt/*.ml{,i}>: pkg_xmlm
 <libvirt/*.ml{,i}>: use_xenopsd
 <libvirt/xenops_libvirt_main.{native,byte}>: custom
