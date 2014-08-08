@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: a6fb13c5b64129c48136514cab4c324c)
+# DO NOT EDIT (digest: 0ebcf5703dd7a2a08118bd230d472f84)
 Suspend_image
 Cancellable_subprocess
 Bootloader
@@ -20,4 +20,5 @@ Path
 Storage
 Interface
 Xenctrl_uuid
+Xenstore
 # OASIS_STOP
