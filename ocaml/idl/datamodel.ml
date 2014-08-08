@@ -897,6 +897,8 @@ let _ =
 
 
   (* Storage errors *)
+  error Api_errors.sr_not_attached ["sr"]
+    ~doc:"The SR is not attached." ();
   error Api_errors.sr_attach_failed ["sr"]
     ~doc:"Attaching this SR failed." ();
   error Api_errors.sr_backend_failure ["status"; "stdout"; "stderr"]
@@ -2276,6 +2278,17 @@ let vm_assert_can_be_recovered = call
   ~errs:[Api_errors.vm_is_part_of_an_appliance; Api_errors.vm_requires_sr]
   ~allowed_roles:_R_READ_ONLY
   ()
+
+let vm_get_SRs_required_for_recovery = call
+	~name:"get_SRs_required_for_recovery"
+	~in_product_since:rel_creedence
+	~doc:"List all the SR's that are required for the VM to be recovered"
+	~params:[Ref _vm , "self" , "The VM for which the SRs have to be recovered";
+					Ref _session , "session_to" , "The session to which the SRs of the VM have to be recovered."]
+	~result:(Set(Ref _sr),"refs for SRs required to recover the VM")
+	~errs:[]
+	~allowed_roles:_R_READ_ONLY
+	()
 
 let vm_recover = call
   ~name:"recover"
@@ -6781,6 +6794,7 @@ let vm =
 		vm_set_order;
 		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
+		vm_get_SRs_required_for_recovery;
 		vm_recover;
 		vm_import_convert;
 		vm_set_appliance;
@@ -7305,6 +7319,16 @@ let vm_appliance =
 		~doc:"Assert whether all SRs required to recover this VM appliance are available."
 		~allowed_roles:_R_READ_ONLY
 		() in
+	let vm_appliance_get_SRs_required_for_recovery = call
+		~name:"get_SRs_required_for_recovery"
+		~in_product_since:rel_creedence
+		~params:[Ref _vm_appliance , "self" , "The VM appliance for which the required list of SRs has to be recovered.";
+			Ref _session , "session_to", "The session to which the list of SRs have to be recovered ."]
+		~result:(Set(Ref _sr), "refs for SRs required to recover the VM")
+		~errs:[]
+		~doc:"Get the list of SRs required by the VM appliance to recover."
+		~allowed_roles:_R_READ_ONLY
+		() in
 	let vm_appliance_recover = call
 		~name:"recover"
 		~in_product_since:rel_boston
@@ -7325,6 +7349,7 @@ let vm_appliance =
 			vm_appliance_hard_shutdown;
 			vm_appliance_shutdown;
 			vm_appliance_assert_can_be_recovered;
+			vm_appliance_get_SRs_required_for_recovery;
 			vm_appliance_recover;
 		]
 		~contents:([

@@ -69,6 +69,7 @@ let filtered_xsdata =
 	List.filter allowed
 
 exception Suspend_image_failure
+exception Not_enough_memory of int64
 exception Domain_build_failed
 exception Domain_restore_failed
 exception Domain_restore_truncated_hvmstate
@@ -454,6 +455,13 @@ let get_action_request ~xs domid =
 		Some (xs.Xs.read path)
 	with Xenbus.Xb.Noent -> None
 
+let maybe_ca_140252_workaround ~xc ~vcpus domid =
+	if !Xenops_utils.ca_140252_workaround then
+		debug "Allocating %d I/O req evtchns in advance for device model" vcpus;
+		for i = 1 to vcpus do
+			ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+		done
+
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
 	let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
@@ -465,7 +473,11 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let uuid = get_uuid ~xc domid in
 	debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory" (Uuid.to_string uuid) domid required_host_free_mib;
 	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	let (_: bool) = wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
+	if not(wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib)) then begin
+		error "VM = %s; domid = %d; Failed waiting for Xen to free %Ld MiB"
+			(Uuid.to_string uuid) domid required_host_free_mib;
+		raise (Not_enough_memory (Memory.bytes_of_mib required_host_free_mib))
+	end;
 
 	let shadow_mib = Int64.to_int shadow_mib in
 
@@ -634,6 +646,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
+	maybe_ca_140252_workaround ~xc ~vcpus domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
@@ -676,10 +689,8 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shadow_
 
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
-*)
 	] in
 (*
 	let store_mfn =
@@ -786,8 +797,8 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~console_port 
 			read_header fd >>= function
 			| Xenops, len ->
 				debug "Read Xenops record header (length=%Ld)" len;
-				let contents = Io.read fd (Io.int_of_int64_exn len) in
-				debug "Read Xenops record contents:\n%s" contents;
+				let _ = Io.read fd (Io.int_of_int64_exn len) in
+				debug "Read Xenops record contents";
 				process_header res
 			| Libxc, _ ->
 				debug "Read Libxc record header";
@@ -877,6 +888,7 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	let required_host_free_mib =
 		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
+	maybe_ca_140252_workaround ~xc ~vcpus domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
@@ -885,10 +897,8 @@ let hvm_restore (task: Xenops_task.t) ~xc ~xs ~static_max_kib ~target_kib ~shado
 	                                            ~vcpus ~extras:[] xenguest_path domid fd in
 	let local_stuff = [
 		"serial/0/limit",    string_of_int 65536;
-(*
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
-*)
 	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
@@ -1023,7 +1033,12 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid fd flags ?(pr
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
 	(* Xenops record *)
-	let xenops_record = Suspend_image.Xenops_record.(to_string (make ())) in
+	let xs_subtree =
+		Xs.transaction xs (fun t ->
+			xenstore_read_dir t (xs.Xs.getdomainpath domid)
+		)
+	in
+	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;

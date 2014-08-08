@@ -217,6 +217,30 @@ class Dom0FSUsageAlarmETG(EmailTextGenerator):
              self.value * 100.0,
              self.alarm_trigger_level * 100.0)
 
+class Dom0MemUsageAlarmETG(EmailTextGenerator):
+    def __init__(self, cls, obj_uuid, value, alarm_trigger_level):
+        if not alarm_trigger_level: alarm_trigger_level = 0.95
+        if cls != 'VM':
+            raise Exception, "programmer error - this alarm should only be available for control domain VM"
+        self.params = get_VM_params(obj_uuid)
+        self.cls = cls
+        self.value = value
+        self.alarm_trigger_level = alarm_trigger_level
+
+    def generate_subject(self):
+        pool_name = get_pool_name()
+        return '[%s] XenServer Alarm: Dom0 memory demand is high on "%s"' % (pool_name, self.params['name_label'])
+
+    def generate_body(self):
+        return \
+            'The memory demand on "%s" is about %.1f%% of the physical memory of the domain. ' \
+            'Occasional performance degradation can be expected when memory swapping is forced to happen.\n' \
+            'This alarm is set to be triggered when the ratio of the memory demand to the physical memory is beyond %.1f%%.\n' \
+            '\n' % \
+            (self.params['name_label'],
+             self.value * 100.0,
+             self.alarm_trigger_level * 100.0)
+
 class WlbConsultationFailure(EmailTextGenerator):
     def __init__(self, cls, obj_uuid):
         self.cls = cls
@@ -332,6 +356,8 @@ class XapiMessage:
                 etg = DiskUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
             elif name == 'fs_usage':
                 etg = Dom0FSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level)
+            elif name == 'mem_usage':
+                etg = Dom0MemUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level)
             else:
                 etg = None
         elif self.name == 'HA_HOST_FAILED':
