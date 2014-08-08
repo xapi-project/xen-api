@@ -30,6 +30,13 @@ type res = {
 
 val configure: ?options:opt list -> ?resources:res list -> unit -> unit
 
+val configure2:
+  name:string ->
+  version:string ->
+  doc:string ->
+  ?options:opt list -> ?resources:res list -> unit -> unit
+(** More advanced service configuration with manpage generation *)
+
 type server
 
 val make_socket_server: string -> (Unix.file_descr -> unit) -> server
@@ -48,4 +55,3 @@ val daemon: bool ref
 val daemonize: unit -> unit
 
 val maybe_daemonize: unit -> unit
-

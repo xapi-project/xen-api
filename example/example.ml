@@ -49,7 +49,6 @@ let get_default_format () = "vhd"
 let mount_path = ref "/mnt"
 
 let options = [
-  "use-switch", Arg.Set Xcp_client.use_switch, (fun () -> string_of_bool !Xcp_client.use_switch), "true if we want to use the message switch";
   "socket-path", Arg.Set_string socket_path, (fun () -> !socket_path), "Path of listening socket";
   "queue-name", Arg.String (fun x -> queues := csv x), (fun () -> String.concat "," !queues), "Comma-separated list of queue names to listen on";
   "default-format", Arg.String set_default_format, get_default_format, "Default format for disk files";
@@ -57,4 +56,6 @@ let options = [
 ]
 
 let _ =
-  configure ~options ~resources ();
+  Debug.log_to_stdout ();
+  let () = configure2 ~name:"Example-service" ~version:"1.0" ~doc:"This is an example service which demonstrates the configuration mechanism." ~options ~resources () in
+  ()
