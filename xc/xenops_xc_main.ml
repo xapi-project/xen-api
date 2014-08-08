@@ -26,6 +26,8 @@ let check_domain0_uuid () =
 	(* make the minimum entries for dom0 *)
 	let kvs = [
 		"/local/domain/0/domid", "0";
+		"/local/domain/0/vm", "/vm/" ^ uuid;
+		"/local/domain/0/name", "Domain-0";
 		Printf.sprintf "/vm/%s/uuid" uuid, uuid;
 		Printf.sprintf "/vm/%s/name" uuid, "Domain-0";
 		Printf.sprintf "/vm/%s/domains/0" uuid, "/local/domain/0";
@@ -37,7 +39,7 @@ let check_domain0_uuid () =
 	);
 	(* before daemonizing we need to forget the xenstore client
 	   because the background thread will be gone after the fork() *)
-	forget_client ()	
+	forget_client ()
 
 let make_var_run_xen () =
 	Unixext.mkdir_rec "/var/run/xen" 0o0755
