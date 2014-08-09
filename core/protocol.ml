@@ -244,10 +244,12 @@ type ('a, 'b) result =
 | Ok of 'a
 | Error of 'b
 
-module type IO = sig
-  include Cohttp.IO.S
+module type S = sig
+  val whoami: unit -> string
 
-  module IO: Cohttp.IO.S with type 'a t = 'a t
+  module IO: Cohttp.IO.S
+
+  val connect: int -> (IO.ic * IO.oc) IO.t
 
   module Ivar : sig
     type 'a t
@@ -266,10 +268,18 @@ module type IO = sig
 
     val with_lock: t -> (unit -> 'a IO.t) -> 'a IO.t
   end
+
+  module Clock : sig
+    type timer
+
+    val run_after: int -> (unit-> unit) -> timer
+
+    val cancel: timer -> unit
+  end
 end
 
-module Connection = functor(IO: IO) -> struct
-	open IO.IO
+module Connection = functor(IO: Cohttp.IO.S) -> struct
+	open IO
 	module Request = Cohttp.Request.Make(IO)
 	module Response = Cohttp.Response.Make(IO)
 
@@ -304,12 +314,117 @@ module Connection = functor(IO: IO) -> struct
 			return (Error Failed_to_read_response)
 end
 
-module Server = functor(IO: IO) -> struct
+
+module Client = functor(M: S) -> struct
+
+  module Connection = Connection(M.IO)
+
+  open M.IO
+
+  type t = {
+    requests_conn: (ic * oc);
+    events_conn: (ic * oc);
+    requests_m: M.Mutex.t;
+    wakener: (message_id, Message.t M.Ivar.t) Hashtbl.t;
+    dest_queue_name: string;
+    reply_queue_name: string;
+  }
+
+  let ( >>|= ) m f = m >>= function
+    | Ok x -> f x
+    | Error y -> return (Error y)
+
+  let rec iter_s f = function
+    | [] -> return (Ok ())
+    | x :: xs ->
+      f x >>|= fun () ->
+      iter_s f xs
+
+  let connect port dest_queue_name =
+    let token = M.whoami () in
+    M.connect port >>= fun requests_conn ->
+    Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
+    M.connect port >>= fun events_conn ->
+    Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
+
+    let wakener = Hashtbl.create 10 in
+    let requests_m = M.Mutex.create () in
+
+    Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
+    let (_ : (unit, exn) result M.IO.t) =
+      let rec loop from =
+        let timeout = 5. in
+        let transfer = {
+          In.from = from;
+          timeout = timeout;
+          queues = [ reply_queue_name ]
+        } in
+        let frame = In.Transfer transfer in
+        Connection.rpc events_conn frame >>|= fun raw ->
+        let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+        match transfer.Out.messages with
+        | [] -> loop from
+        | m :: ms ->
+          iter_s
+            (fun (i, m) ->
+              M.Mutex.with_lock requests_m (fun () ->
+                match m.Message.kind with
+                | Message.Response j ->
+                  if Hashtbl.mem wakener j then begin
+                    Connection.rpc events_conn (In.Ack i) >>|= fun (_: string) ->
+                    M.Ivar.fill (Hashtbl.find wakener j) m;
+                    return (Ok ())
+                  end else begin
+                    Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
+                    return (Ok ())
+                  end
+                | Message.Request _ -> return (Ok ())
+              )
+            ) transfer.Out.messages >>|= fun () ->
+          loop (Some transfer.Out.next) in
+      loop None in
+    Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
+    return (Ok {
+      requests_conn;
+      events_conn;
+      requests_m;
+      wakener = wakener;
+      dest_queue_name;
+      reply_queue_name;
+    })
+
+  let rpc c x =
+    let ivar = M.Ivar.create () in
+    let msg = In.Send(c.dest_queue_name, {
+      Message.payload = x;
+      kind = Message.Request c.reply_queue_name
+    }) in
+    M.Mutex.with_lock c.requests_m
+    (fun () ->
+      Connection.rpc c.requests_conn msg >>|= fun (id: string) ->
+      match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+      | None ->
+        return (Error (Queue_deleted c.dest_queue_name))
+      | Some mid ->
+        Hashtbl.add c.wakener mid ivar;
+        return (Ok ())
+    ) >>|= fun () ->
+    M.Ivar.read ivar >>= fun response ->
+    return (Ok response.Message.payload)
+
+  let list c prefix =
+    Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
+    return (Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+end
+
+
+module Server = functor(IO: Cohttp.IO.S) -> struct
 
 	module Connection = Connection(IO)
 
+  open IO
+
 	let listen process c name =
-		let open IO in
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
 		Connection.rpc c (In.CreatePersistent name) >>= fun _ ->

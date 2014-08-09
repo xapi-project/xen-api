@@ -35,10 +35,12 @@ open Lwt
 open Cohttp
 open Cohttp_lwt_unix
 
-let whoami () = Printf.sprintf "%s:%d"
-	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
 module IO = struct
+
+  let whoami () = Printf.sprintf "%s:%d"
+    (Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
   module IO = struct
 	type 'a t = 'a Lwt.t
 	let ( >>= ) = Lwt.bind
@@ -106,101 +108,22 @@ module IO = struct
 
     let with_lock = Lwt_mutex.with_lock
   end
+  module Clock = struct
+    type timer = unit Lwt.t
+
+    let run_after timeout f =
+      let t =
+        Lwt_unix.sleep (float_of_int timeout) >>= fun () ->
+        f ();
+        return () in
+      t
+    let cancel = Lwt.cancel
+  end
 end
+
+let whoami = IO.whoami
 
 module Connection = Protocol.Connection(IO)
 
-module Client = struct
-	type t = {
-		requests_conn: (IO.ic * IO.oc);
-		events_conn: (IO.ic * IO.oc);
-		requests_m: IO.Mutex.t;
-		wakener: (Protocol.message_id, Message.t IO.Ivar.t) Hashtbl.t;
-		dest_queue_name: string;
-		reply_queue_name: string;
-	}
-
-	let lwt_rpc c frame =
-    Connection.rpc c frame >>= function
-		| Error e -> fail e
-		| Ok raw -> return raw
-
-	let connect port dest_queue_name =
-		let token = whoami () in
-		IO.connect port >>= fun requests_conn ->
-		lwt_rpc requests_conn (In.Login token) >>= fun (_: string) ->
-		IO.connect port >>= fun events_conn ->
-		lwt_rpc events_conn (In.Login token) >>= fun (_: string) ->
-
-		let wakener = Hashtbl.create 10 in
-		let requests_m = IO.Mutex.create () in
-
-		lwt_rpc requests_conn (In.CreateTransient token) >>= fun reply_queue_name ->
-
-		let (_ : unit IO.t) =
-			let rec loop from =
-				let timeout = 5. in
-				let transfer = {
-					In.from = from;
-					timeout = timeout;
-					queues = [ reply_queue_name ]
-				} in
-				let frame = In.Transfer transfer in
-				lwt_rpc events_conn frame >>= fun raw ->
-				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
-				match transfer.Out.messages with
-				| [] -> loop from
-				| m :: ms ->
-					Lwt_list.iter_s
-						(fun (i, m) ->
-							IO.Mutex.with_lock requests_m (fun () ->
-								match m.Message.kind with
-								| Message.Response j ->
-									if Hashtbl.mem wakener j then begin
-										lwt_rpc events_conn (In.Ack i) >>= fun (_: string) ->
-										IO.Ivar.fill (Hashtbl.find wakener j) m;
-										return ()
-									end else begin
-										Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
-										return ()
-									end
-								| Message.Request _ -> return ()
-							)
-						) transfer.Out.messages >>= fun () ->
-					loop (Some transfer.Out.next) in
-			loop None in
-		lwt_rpc requests_conn (In.CreatePersistent dest_queue_name) >>= fun (_: string) ->
-		return {
-			requests_conn = requests_conn;
-			events_conn = events_conn;
-			requests_m;
-			wakener = wakener;
-			dest_queue_name = dest_queue_name;
-			reply_queue_name = reply_queue_name;
-		}
-
-	let rpc c x =
-		let ivar = IO.Ivar.create () in
-		let msg = In.Send(c.dest_queue_name, {
-			Message.payload = x;
-			kind = Message.Request c.reply_queue_name
-		}) in
-		IO.Mutex.with_lock c.requests_m
-		(fun () ->
-			lwt (id: string) = lwt_rpc c.requests_conn msg in
-			match message_id_opt_of_rpc (Jsonrpc.of_string id) with
-			| None ->
-				fail (Queue_deleted c.dest_queue_name)
-			| Some mid ->
-				Hashtbl.add c.wakener mid ivar;
-				return ()
-		) >>= fun () ->
-    IO.Ivar.read ivar >>= fun response ->
-		return response.Message.payload
-
-	let list c prefix =
-		lwt_rpc c.requests_conn (In.List prefix) >>= fun result ->
-		return (Out.string_list_of_rpc (Jsonrpc.of_string result))
-end
-
+module Client = Protocol.Client(IO)
 module Server = Protocol.Server(IO)

@@ -178,10 +178,12 @@ exception Failed_to_read_response
 
 exception Unsuccessful_response
 
-module type IO = sig
-  include Cohttp.IO.S
+module type S = sig
+  val whoami: unit -> string
 
-  module IO: Cohttp.IO.S with type 'a t = 'a t
+  module IO: Cohttp.IO.S
+
+  val connect: int -> (IO.ic * IO.oc) IO.t
 
   module Ivar : sig
     type 'a t
@@ -201,12 +203,29 @@ module type IO = sig
     val with_lock: t -> (unit -> 'a IO.t) -> 'a IO.t
   end
 
+  module Clock : sig
+    type timer
+
+    val run_after: int -> (unit-> unit) -> timer
+
+    val cancel: timer -> unit
+  end
 end
 
-module Connection(IO: IO) : sig
+module Connection(IO: Cohttp.IO.S) : sig
 	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result IO.t
 end
 
-module Server(IO: IO) : sig
+module Server(IO: Cohttp.IO.S) : sig
 	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
+end
+
+module Client(M: S) : sig
+  type t
+
+  val connect: int -> string -> (t, exn) result M.IO.t
+
+  val rpc: t -> string  -> (string, exn) result M.IO.t
+
+  val list: t -> string -> (string list, exn) result M.IO.t
 end

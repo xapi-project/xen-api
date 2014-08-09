@@ -33,8 +33,6 @@ SUCH DAMAGE.
 open Protocol
 open Cohttp
 
-let whoami () = Printf.sprintf "%s:%d"
-	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
 let with_lock m f =
   Mutex.lock m;
@@ -47,6 +45,10 @@ let with_lock m f =
     raise e
 
 module IO = struct
+
+  let whoami () = Printf.sprintf "%s:%d"
+    (Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
   module IO = struct
 	type 'a t = 'a
 	let ( >>= ) a f = f a
@@ -155,7 +157,28 @@ module IO = struct
 
     let with_lock = with_lock
   end
+
+  module Clock = struct
+    type timer = Protocol_unix_scheduler.t
+
+    let started = ref false
+    let started_m = Mutex.create ()
+
+    let run_after timeout f =
+      with_lock started_m
+        (fun () ->
+          if not !started then begin
+            Protocol_unix_scheduler.start ();
+            started := true
+          end
+        );
+      Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" f)
+
+    let cancel = Protocol_unix_scheduler.cancel
+  end
 end
+
+let whoami = IO.whoami
 
 module Connection = Protocol.Connection(IO)
 
@@ -185,15 +208,13 @@ module Client = struct
 	}
 
 	let connect port =
-		let token = whoami () in
+		let token = IO.whoami () in
 		let requests_conn = IO.connect port in
 		let (_: string) = rpc_exn requests_conn (In.Login token) in
 		let events_conn = IO.connect port in
 		let (_: string) = rpc_exn events_conn (In.Login token) in
 
 		let wakener = Hashtbl.create 10 in
-
-		Protocol_unix_scheduler.start ();
 
 		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
 
@@ -252,7 +273,7 @@ module Client = struct
 	let rpc c ?timeout ~dest:dest_queue_name x =
 		let t = IO.Ivar.create () in
 		let timer = Opt.map (fun timeout ->
-			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> IO.Ivar.fill t (Error Timeout)))
+      IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (Error Timeout))
 		) timeout in
 
 		let id = with_lock c.requests_m
@@ -274,7 +295,7 @@ module Client = struct
 		match IO.Ivar.read t with
     | Ok response ->
       (* release resources *)
-      Opt.iter Protocol_unix_scheduler.cancel timer;
+      Opt.iter IO.Clock.cancel timer;
       IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
       response.Message.payload
     | Error exn -> raise exn
@@ -291,7 +312,7 @@ module Server = struct
 
 	let listen process port name =
     let open IO.IO in
-		let token = whoami () in
+		let token = IO.whoami () in
 		let request_conn = IO.connect port in
 		let (_: string) = rpc_exn request_conn (In.Login token) in
 		let reply_conn = IO.connect port in
