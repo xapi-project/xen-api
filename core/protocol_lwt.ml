@@ -2,31 +2,31 @@
 Copyright (c) Citrix Systems Inc.
 All rights reserved.
 
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
+Redistribution and use in source and binary forms,
+with or without modification, are permitted provided
 that the following conditions are met:
 
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
+*   Redistributions of source code must retain the above
+    copyright notice, this list of conditions and the
     following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
+*   Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the
+    following disclaimer in the documentation and/or other
     materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 *)
 
@@ -99,23 +99,24 @@ module Client = struct
 		reply_queue_name: string;
 	}
 
-	let lwt_rpc c frame = match_lwt Connection.rpc c frame with
+	let lwt_rpc c frame =
+    Connection.rpc c frame >>= function
 		| Error e -> fail e
 		| Ok raw -> return raw
 
 	let connect port dest_queue_name =
 		let token = whoami () in
-		lwt requests_conn = IO.connect port in
-		lwt (_: string) = lwt_rpc requests_conn (In.Login token) in
-		lwt events_conn = IO.connect port in
-		lwt (_: string) = lwt_rpc events_conn (In.Login token) in
+		IO.connect port >>= fun requests_conn ->
+		lwt_rpc requests_conn (In.Login token) >>= fun (_: string) ->
+		IO.connect port >>= fun events_conn ->
+		lwt_rpc events_conn (In.Login token) >>= fun (_: string) ->
 
 		let wakener = Hashtbl.create 10 in
 		let requests_m = Lwt_mutex.create () in
 
-		lwt reply_queue_name = lwt_rpc requests_conn (In.CreateTransient token) in
+		lwt_rpc requests_conn (In.CreateTransient token) >>= fun reply_queue_name ->
 
-		let (_ : unit Lwt.t) =
+		let (_ : unit IO.t) =
 			let rec loop from =
 				let timeout = 5. in
 				let transfer = {
@@ -124,18 +125,18 @@ module Client = struct
 					queues = [ reply_queue_name ]
 				} in
 				let frame = In.Transfer transfer in
-				lwt raw = lwt_rpc events_conn frame in
+				lwt_rpc events_conn frame >>= fun raw ->
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				match transfer.Out.messages with
 				| [] -> loop from
 				| m :: ms ->
-					lwt () = Lwt_list.iter_s
+					Lwt_list.iter_s
 						(fun (i, m) ->
 							Lwt_mutex.with_lock requests_m (fun () ->
 								match m.Message.kind with
 								| Message.Response j ->
 									if Hashtbl.mem wakener j then begin
-										lwt (_: string) = lwt_rpc events_conn (In.Ack i) in
+										lwt_rpc events_conn (In.Ack i) >>= fun (_: string) ->
 										wakeup_later (Hashtbl.find wakener j) m;
 										return ()
 									end else begin
@@ -144,10 +145,10 @@ module Client = struct
 									end
 								| Message.Request _ -> return ()
 							)
-						) transfer.Out.messages in
+						) transfer.Out.messages >>= fun () ->
 					loop (Some transfer.Out.next) in
 			loop None in
-		lwt (_: string) = lwt_rpc requests_conn (In.CreatePersistent dest_queue_name) in
+		lwt_rpc requests_conn (In.CreatePersistent dest_queue_name) >>= fun (_: string) ->
 		return {
 			requests_conn = requests_conn;
 			events_conn = events_conn;
@@ -163,7 +164,7 @@ module Client = struct
 			Message.payload = x;
 			kind = Message.Request c.reply_queue_name
 		}) in
-		lwt () = Lwt_mutex.with_lock c.requests_m
+		Lwt_mutex.with_lock c.requests_m
 		(fun () ->
 			lwt (id: string) = lwt_rpc c.requests_conn msg in
 			match message_id_opt_of_rpc (Jsonrpc.of_string id) with
@@ -172,12 +173,12 @@ module Client = struct
 			| Some mid ->
 				Hashtbl.add c.wakener mid u;
 				return ()
-		) in
-		lwt response = t in
+		) >>= fun () ->
+    t >>= fun response ->
 		return response.Message.payload
 
 	let list c prefix =
-		lwt (result: string) = lwt_rpc c.requests_conn (In.List prefix) in
+		lwt_rpc c.requests_conn (In.List prefix) >>= fun result ->
 		return (Out.string_list_of_rpc (Jsonrpc.of_string result))
 end
 
