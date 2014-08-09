@@ -273,6 +273,10 @@ let read_config_file x =
 		Config_file.parse !config_file x;
 	end
 
+let startswith prefix x =
+        let prefix' = String.length prefix and x' = String.length x in
+        prefix' <= x' && (String.sub x 0 prefix' = prefix)
+
 let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
@@ -300,12 +304,16 @@ let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 				if f.essential
 				then Unix.access !(f.path) f.perms
 			with _ ->
-                                let m = Printf.sprintf "Cannot access %s: please set %s in %s" !(f.path) f.description !config_file in
-                                error "%s" m;
-				error "For example:";
-				error "    # %s" f.description;
-				error "    %s=/path/to/%s" f.name f.name;
-				failwith m
+                                let args = List.filter (fun x -> not(startswith ("--" ^ f.name) x)) (Array.to_list Sys.argv) in
+                                let lines = [
+                                        "Cannot access " ^ !(f.path);
+                                        Printf.sprintf "Please either add to %s" !config_file;
+                                        Printf.sprintf "  %s=<%s>" f.name f.description;
+                                        "or add a command-line argument";
+                                        Printf.sprintf "  %s --%s=<%s>" (String.concat " " args) f.name f.description;
+                                ] in
+                                List.iter (fun x -> error "%s" x) lines;
+                                failwith (String.concat "\n" lines)
 		) resources;
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
