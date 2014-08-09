@@ -30,7 +30,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 *)
 
-let time () = Oclock.gettime Oclock.monotonic
+(* Work around the lack of clock_gettime on OS X *)
+let time () = Int64.of_float (Unix.gettimeofday () *. 1000.0)
 
 let start_time = time ()
 

@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: acad485c686ffa7bcf0da436344cedf1)
+# DO NOT EDIT (digest: 1ebaf9c51b367fd4c1173c2f8121e951)
 version = "0.10.3"
 description = "A simple store-and-forward message switch"
-requires = "cohttp rpclib rpclib.json rpclib.syntax re re.str oclock"
+requires = "cohttp rpclib rpclib.json rpclib.syntax re re.str"
 archive(byte) = "message_switch.cma"
 archive(byte, plugin) = "message_switch.cma"
 archive(native) = "message_switch.cmxa"

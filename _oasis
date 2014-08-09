@@ -12,7 +12,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str,oclock
+  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str
 
 Library message_switch_lwt
   CompiledObject:     best
@@ -97,7 +97,6 @@ Executable switch
   CompiledObject:     best
   Path:               switch
   MainIs:             switch_main.ml
-  CCLib:              -lrt
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
