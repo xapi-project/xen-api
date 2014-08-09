@@ -11,3 +11,5 @@ _build
 setup.data
 setup.log
 *.native
+version.ml
+*.1
