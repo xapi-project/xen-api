@@ -51,7 +51,7 @@ module Client : sig
 
 	val connect: int -> string -> (t, exn) result Lwt.t
 
-	val rpc: t -> string  -> (string, exn) result Lwt.t
+	val rpc: t -> ?timeout:int -> string  -> (string, exn) result Lwt.t
 
 	val list: t -> string -> (string list, exn) result Lwt.t
 end

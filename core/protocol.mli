@@ -178,6 +178,8 @@ exception Failed_to_read_response
 
 exception Unsuccessful_response
 
+exception Timeout
+
 module type S = sig
   val whoami: unit -> string
 
@@ -225,7 +227,7 @@ module Client(M: S) : sig
 
   val connect: int -> string -> (t, exn) result M.IO.t
 
-  val rpc: t -> string  -> (string, exn) result M.IO.t
+  val rpc: t -> ?timeout: int -> string  -> (string, exn) result M.IO.t
 
   val list: t -> string -> (string list, exn) result M.IO.t
 end

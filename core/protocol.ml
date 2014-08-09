@@ -240,6 +240,8 @@ exception Failed_to_read_response
 
 exception Unsuccessful_response
 
+exception Timeout
+
 type ('a, 'b) result =
 | Ok of 'a
 | Error of 'b
@@ -314,6 +316,14 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 			return (Error Failed_to_read_response)
 end
 
+module Opt = struct
+  let iter f = function
+  | None -> ()
+  | Some x -> f x
+  let map f = function
+  | None -> None
+  | Some x -> Some (f x)
+end
 
 module Client = functor(M: S) -> struct
 
@@ -325,7 +335,7 @@ module Client = functor(M: S) -> struct
     requests_conn: (ic * oc);
     events_conn: (ic * oc);
     requests_m: M.Mutex.t;
-    wakener: (message_id, Message.t M.Ivar.t) Hashtbl.t;
+    wakener: (message_id, (Message.t, exn) result M.Ivar.t) Hashtbl.t;
     dest_queue_name: string;
     reply_queue_name: string;
   }
@@ -372,7 +382,7 @@ module Client = functor(M: S) -> struct
                 | Message.Response j ->
                   if Hashtbl.mem wakener j then begin
                     Connection.rpc events_conn (In.Ack i) >>|= fun (_: string) ->
-                    M.Ivar.fill (Hashtbl.find wakener j) m;
+                    M.Ivar.fill (Hashtbl.find wakener j) (Ok m);
                     return (Ok ())
                   end else begin
                     Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
@@ -393,8 +403,13 @@ module Client = functor(M: S) -> struct
       reply_queue_name;
     })
 
-  let rpc c x =
+  let rpc c ?timeout x =
     let ivar = M.Ivar.create () in
+
+    let timer = Opt.map (fun timeout ->
+      M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (Error Timeout))
+    ) timeout in
+
     let msg = In.Send(c.dest_queue_name, {
       Message.payload = x;
       kind = Message.Request c.reply_queue_name
@@ -407,10 +422,12 @@ module Client = functor(M: S) -> struct
         return (Error (Queue_deleted c.dest_queue_name))
       | Some mid ->
         Hashtbl.add c.wakener mid ivar;
-        return (Ok ())
-    ) >>|= fun () ->
-    M.Ivar.read ivar >>= fun response ->
-    return (Ok response.Message.payload)
+        return (Ok mid)
+    ) >>|= fun mid ->
+    M.Ivar.read ivar >>|= fun x ->
+    Hashtbl.remove c.wakener mid;
+    Opt.iter M.Clock.cancel timer;
+    return (Ok x.Message.payload)
 
   let list c prefix =
     Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
