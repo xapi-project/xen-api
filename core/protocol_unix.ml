@@ -2,31 +2,31 @@
 Copyright (c) Citrix Systems Inc.
 All rights reserved.
 
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
+Redistribution and use in source and binary forms,
+with or without modification, are permitted provided
 that the following conditions are met:
 
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
+*   Redistributions of source code must retain the above
+    copyright notice, this list of conditions and the
     following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
+*   Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the
+    following disclaimer in the documentation and/or other
     materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 *)
 
@@ -36,7 +36,18 @@ open Cohttp
 let whoami () = Printf.sprintf "%s:%d"
 	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
+let with_lock m f =
+  Mutex.lock m;
+  try
+    let r = f () in
+    Mutex.unlock m;
+    r
+  with e ->
+    Mutex.unlock m;
+    raise e
+
 module IO = struct
+  module IO = struct
 	type 'a t = 'a
 	let ( >>= ) a f = f a
 	let (>>) m n = m >>= fun _ -> n
@@ -102,6 +113,40 @@ module IO = struct
 		| Some x -> x
 
 	let flush oc = ()
+  end
+  include IO
+
+  module Ivar = struct
+    type 'a t = {
+      mutable v: 'a option;
+      m: Mutex.t;
+      c: Condition.t;
+    }
+
+    let create () = {
+      v = None;
+      m = Mutex.create ();
+      c = Condition.create ();
+    }
+
+    let fill r x =
+      with_lock r.m
+        (fun () ->
+          r.v <- Some x;
+          Condition.signal r.c
+        )
+
+    let read r =
+      with_lock r.m
+        (fun () ->
+          while r.v = None do
+            Condition.wait r.c r.m
+          done;
+          match r.v with
+          | Some x -> x
+          | None -> assert false
+        )
+  end
 end
 
 module Connection = Protocol.Connection(IO)
@@ -117,63 +162,18 @@ module Opt = struct
 	| Some x -> Some (f x)
 end
 
-let with_lock m f =
-	Mutex.lock m;
-	try
-		let r = f () in
-		Mutex.unlock m;
-		r
-	with e ->
-		Mutex.unlock m;
-		raise e
 
 let rpc_exn c frame = match Connection.rpc c frame with
 	| Error e -> raise e
 	| Ok raw -> raw
 
 module Client = struct
-	type 'a response = {
-		mutable v: 'a option;
-		mutable timed_out: bool;
-		m: Mutex.t;
-		c: Condition.t;
-	}
-	let task () = {
-		v = None;
-		timed_out = false;
-		m = Mutex.create ();
-		c = Condition.create ();
-	}
-	let wakeup_later r x =
-		with_lock r.m
-			(fun () ->
-				r.v <- Some x;
-				Condition.signal r.c
-			)
-	let timeout_later r =
-		with_lock r.m
-			(fun () ->
-				r.timed_out <- true;
-				Condition.signal r.c
-			)
-	let wait r =
-		with_lock r.m
-			(fun () ->
-				while r.v = None && not r.timed_out do
-					Condition.wait r.c r.m
-				done;
-				match r.v, r.timed_out with
-				| _, true -> raise Timeout
-				| Some x, _ -> x
-				| None, false -> assert false
-			)
-
 	type t = {
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
 		requests_m: Mutex.t;
-		wakener: (Protocol.message_id, Protocol.Message.t response) Hashtbl.t;
-		reply_queue_name: string; 
+		wakener: (Protocol.message_id, (Protocol.Message.t, exn) result IO.Ivar.t) Hashtbl.t;
+		reply_queue_name: string;
 	}
 
 	let connect port =
@@ -212,7 +212,7 @@ module Client = struct
 								| Message.Response j ->
 									if Hashtbl.mem wakener j then begin
 										let (_: string) = rpc_exn events_conn (In.Ack i) in
-										wakeup_later (Hashtbl.find wakener j) m;
+										IO.Ivar.fill (Hashtbl.find wakener j) (Ok m);
 									end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
 								| Message.Request _ -> ()
 							)
@@ -242,9 +242,9 @@ module Client = struct
 			)
 
 	let rpc c ?timeout ~dest:dest_queue_name x =
-		let t = task () in
+		let t = IO.Ivar.create () in
 		let timer = Opt.map (fun timeout ->
-			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> timeout_later t))
+			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> IO.Ivar.fill t (Error Timeout)))
 		) timeout in
 
 		let id = with_lock c.requests_m
@@ -263,12 +263,13 @@ module Client = struct
 				mid
 		) in
 		(* now block waiting for our response *)
-		let response = wait t in
-		(* release resources *)
-		Opt.iter Protocol_unix_scheduler.cancel timer;
-		with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
-
-		response.Message.payload
+		match IO.Ivar.read t with
+    | Ok response ->
+      (* release resources *)
+      Opt.iter Protocol_unix_scheduler.cancel timer;
+      with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
+      response.Message.payload
+    | Error exn -> raise exn
 
 	let list c prefix =
 		with_lock c.requests_m
@@ -343,4 +344,3 @@ module Server = struct
 				end in
 		loop None
 end
-

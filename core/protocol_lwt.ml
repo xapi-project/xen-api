@@ -39,6 +39,7 @@ let whoami () = Printf.sprintf "%s:%d"
 	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
 module IO = struct
+  module IO = struct
 	type 'a t = 'a Lwt.t
 	let ( >>= ) = Lwt.bind
 	let (>>) m n = m >>= fun _ -> n
@@ -85,6 +86,19 @@ module IO = struct
 		match !result with
 		| None -> assert false
 		| Some x -> return x
+  end
+  include IO
+  module Ivar = struct
+    type 'a t = {
+      t: 'a Lwt.t;
+      u: 'a Lwt.u;
+    }
+    let create () =
+      let t, u = Lwt.task () in
+      { t; u }
+    let fill t x = Lwt.wakeup_later t.u x
+    let read t = t.t
+  end
 end
 
 module Connection = Protocol.Connection(IO)
