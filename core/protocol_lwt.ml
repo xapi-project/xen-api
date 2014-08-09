@@ -99,6 +99,13 @@ module IO = struct
     let fill t x = Lwt.wakeup_later t.u x
     let read t = t.t
   end
+  module Mutex = struct
+    type t = Lwt_mutex.t
+
+    let create = Lwt_mutex.create
+
+    let with_lock = Lwt_mutex.with_lock
+  end
 end
 
 module Connection = Protocol.Connection(IO)
@@ -107,8 +114,8 @@ module Client = struct
 	type t = {
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
-		requests_m: Lwt_mutex.t;
-		wakener: (Protocol.message_id, Message.t Lwt.u) Hashtbl.t;
+		requests_m: IO.Mutex.t;
+		wakener: (Protocol.message_id, Message.t IO.Ivar.t) Hashtbl.t;
 		dest_queue_name: string;
 		reply_queue_name: string;
 	}
@@ -126,7 +133,7 @@ module Client = struct
 		lwt_rpc events_conn (In.Login token) >>= fun (_: string) ->
 
 		let wakener = Hashtbl.create 10 in
-		let requests_m = Lwt_mutex.create () in
+		let requests_m = IO.Mutex.create () in
 
 		lwt_rpc requests_conn (In.CreateTransient token) >>= fun reply_queue_name ->
 
@@ -146,12 +153,12 @@ module Client = struct
 				| m :: ms ->
 					Lwt_list.iter_s
 						(fun (i, m) ->
-							Lwt_mutex.with_lock requests_m (fun () ->
+							IO.Mutex.with_lock requests_m (fun () ->
 								match m.Message.kind with
 								| Message.Response j ->
 									if Hashtbl.mem wakener j then begin
 										lwt_rpc events_conn (In.Ack i) >>= fun (_: string) ->
-										wakeup_later (Hashtbl.find wakener j) m;
+										IO.Ivar.fill (Hashtbl.find wakener j) m;
 										return ()
 									end else begin
 										Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
@@ -173,22 +180,22 @@ module Client = struct
 		}
 
 	let rpc c x =
-		let t, u = Lwt.task () in
+		let ivar = IO.Ivar.create () in
 		let msg = In.Send(c.dest_queue_name, {
 			Message.payload = x;
 			kind = Message.Request c.reply_queue_name
 		}) in
-		Lwt_mutex.with_lock c.requests_m
+		IO.Mutex.with_lock c.requests_m
 		(fun () ->
 			lwt (id: string) = lwt_rpc c.requests_conn msg in
 			match message_id_opt_of_rpc (Jsonrpc.of_string id) with
 			| None ->
 				fail (Queue_deleted c.dest_queue_name)
 			| Some mid ->
-				Hashtbl.add c.wakener mid u;
+				Hashtbl.add c.wakener mid ivar;
 				return ()
 		) >>= fun () ->
-    t >>= fun response ->
+    IO.Ivar.read ivar >>= fun response ->
 		return response.Message.payload
 
 	let list c prefix =

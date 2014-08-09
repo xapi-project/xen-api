@@ -259,6 +259,13 @@ module type IO = sig
     val read: 'a t -> 'a IO.t
   end
 
+  module Mutex : sig
+    type t
+
+    val create: unit -> t
+
+    val with_lock: t -> (unit -> 'a IO.t) -> 'a IO.t
+  end
 end
 
 module Connection = functor(IO: IO) -> struct
