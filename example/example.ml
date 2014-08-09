@@ -21,13 +21,13 @@ let sh = ref "/bin/sh"
 
 let resources = [
   { Xcp_service.name = "ls";
-    description = "used to list things";
+    description = "program used to list things";
     essential = true;
     path = ls;
     perms = [ Unix.X_OK ];
   }; {
     Xcp_service.name = "sh";
-    description = "type commands in here and see what they do";
+    description = "interpreter for arcane programming language";
     essential = false;
     path = sh;
     perms = [ Unix.X_OK ];
