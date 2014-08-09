@@ -172,9 +172,47 @@ let rec list = function
 let command_of ?(name = Sys.argv.(0)) ?(version = "unknown") ?(doc = "Please describe this command.") xs =
   let term_of_option (key, arg, get_fn, doc) =
     let default = get_fn () in
-    let term = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
-    let make v = Config_file.apply v arg in
-    Term.(pure make $ term) in
+    match arg with
+    | Arg.Unit f ->
+      let t = Cmdliner.Arg.(value & flag & info [ key ] ~doc) in
+      let make = function true -> f () | false -> () in
+      Term.(pure make $ t)
+    | Arg.Bool f ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set b ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      let make v = b := v in
+      Term.(pure make $ t)
+    | Arg.Clear b ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      let make v = b := not v in
+      Term.(pure make $ t)
+    | Arg.String f ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_string s ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | Arg.Int f ->
+      let t = Cmdliner.Arg.(value & opt int (int_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_int s ->
+      let t = Cmdliner.Arg.(value & opt int (int_of_string default) & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | Arg.Float f ->
+      let t = Cmdliner.Arg.(value & opt float (float_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_float s ->
+      let t = Cmdliner.Arg.(value & opt float (float_of_string default) & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | _ ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      let make v = Config_file.apply v arg in
+      Term.(pure make $ t) in
   let terms = List.map term_of_option xs in
 
   let _common_options = "COMMON OPTIONS" in
@@ -262,31 +300,44 @@ let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 				if f.essential
 				then Unix.access !(f.path) f.perms
 			with _ ->
-				error "Cannot access %s: please set %s in %s" !(f.path) f.description !config_file;
+                                let m = Printf.sprintf "Cannot access %s: please set %s in %s" !(f.path) f.description !config_file in
+                                error "%s" m;
 				error "For example:";
 				error "    # %s" f.description;
 				error "    %s=/path/to/%s" f.name f.name;
-				exit 1
+				failwith m
 		) resources;
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
 let configure ?(options=[]) ?(resources=[]) () =
-  configure_common ~name:"Unknown" ~version:"Unknown" ~doc:"Unknown" ~options ~resources
-    (fun config_spec ->
-      Arg.parse (Arg.align (arg_spec config_spec))
-        (fun _ -> failwith "Invalid argument")
-        (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
-    )
+  try
+    configure_common ~name:"Unknown" ~version:"Unknown" ~doc:"Unknown" ~options ~resources
+      (fun config_spec ->
+        Arg.parse (Arg.align (arg_spec config_spec))
+          (fun _ -> failwith "Invalid argument")
+          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
+      )
+  with Failure _ ->
+    exit 1
+
+type ('a, 'b) error = [
+  | `Ok of 'a
+  | `Error of 'b
+]
 
 let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
-  configure_common ~name ~version ~doc ~options ~resources
-    (fun config_spec ->
-      match Term.eval (command_of ~name ~version ~doc config_spec) with
-      | `Ok () -> ()
-      | `Error _ -> exit 1
-      | _ -> exit 0
-    )
+  try
+    configure_common ~name ~version ~doc ~options ~resources
+      (fun config_spec ->
+        match Term.eval (command_of ~name ~version ~doc config_spec) with
+        | `Ok () -> ()
+        | `Error _ -> failwith "Failed to parse command-line arguments"
+        | _ -> exit 0 (* --help *)
+      );
+    `Ok ()
+  with Failure m ->
+    `Error m
 
 type 'a handler =
 	(string -> Rpc.call) ->
