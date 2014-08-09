@@ -187,7 +187,7 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown") ?(doc = "Please des
     `P "Check bug reports at http://github.com/xapi-project/xcp-idl";
   ] in
   Term.(ret(pure (fun (_: unit list) -> `Ok ()) $ (list terms))),
-  Term.info name ~version ~sdocs:_common_options ~doc ~man
+  Term.info name ~version ~sdocs:_common_options ~man
 
 let arg_spec = List.map (fun (a, b, _, c) -> "-" ^ a, b, c)
 
