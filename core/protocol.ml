@@ -242,10 +242,6 @@ exception Unsuccessful_response
 
 exception Timeout
 
-type ('a, 'b) result =
-| Ok of 'a
-| Error of 'b
-
 module type S = sig
   val whoami: unit -> string
 
@@ -301,19 +297,19 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 			if Cohttp.Response.status response <> `OK then begin
 				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
-				return (Error Unsuccessful_response)
+				return (`Error Unsuccessful_response)
 			end else begin
 				Response.read_body_chunk response ic >>= function
-				| Transfer.Final_chunk x -> return (Ok x)
-				| Transfer.Chunk x -> return (Ok x)
-				| Transfer.Done -> return (Ok "")
+				| Transfer.Final_chunk x -> return (`Ok x)
+				| Transfer.Chunk x -> return (`Ok x)
+				| Transfer.Done -> return (`Ok "")
 			end
 		| `Invalid s ->
 			Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
-			return (Error Failed_to_read_response)
+			return (`Error Failed_to_read_response)
 		| `Eof ->
 			Printf.fprintf stderr "Empty response\n%!";
-			return (Error Failed_to_read_response)
+			return (`Error Failed_to_read_response)
 end
 
 module Opt = struct
@@ -335,17 +331,17 @@ module Client = functor(M: S) -> struct
     requests_conn: (ic * oc);
     events_conn: (ic * oc);
     requests_m: M.Mutex.t;
-    wakener: (message_id, (Message.t, exn) result M.Ivar.t) Hashtbl.t;
+    wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
     dest_queue_name: string;
     reply_queue_name: string;
   }
 
   let ( >>|= ) m f = m >>= function
-    | Ok x -> f x
-    | Error y -> return (Error y)
+    | `Ok x -> f x
+    | `Error y -> return (`Error y)
 
   let rec iter_s f = function
-    | [] -> return (Ok ())
+    | [] -> return (`Ok ())
     | x :: xs ->
       f x >>|= fun () ->
       iter_s f xs
@@ -361,7 +357,7 @@ module Client = functor(M: S) -> struct
     let requests_m = M.Mutex.create () in
 
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
-    let (_ : (unit, exn) result M.IO.t) =
+    let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
       let rec loop from =
         let timeout = 5. in
         let transfer = {
@@ -382,19 +378,19 @@ module Client = functor(M: S) -> struct
                 | Message.Response j ->
                   if Hashtbl.mem wakener j then begin
                     Connection.rpc events_conn (In.Ack i) >>|= fun (_: string) ->
-                    M.Ivar.fill (Hashtbl.find wakener j) (Ok m);
-                    return (Ok ())
+                    M.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
+                    return (`Ok ())
                   end else begin
                     Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
-                    return (Ok ())
+                    return (`Ok ())
                   end
-                | Message.Request _ -> return (Ok ())
+                | Message.Request _ -> return (`Ok ())
               )
             ) transfer.Out.messages >>|= fun () ->
           loop (Some transfer.Out.next) in
       loop None in
     Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
-    return (Ok {
+    return (`Ok {
       requests_conn;
       events_conn;
       requests_m;
@@ -407,7 +403,7 @@ module Client = functor(M: S) -> struct
     let ivar = M.Ivar.create () in
 
     let timer = Opt.map (fun timeout ->
-      M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (Error Timeout))
+      M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
     ) timeout in
 
     let msg = In.Send(c.dest_queue_name, {
@@ -419,19 +415,19 @@ module Client = functor(M: S) -> struct
       Connection.rpc c.requests_conn msg >>|= fun (id: string) ->
       match message_id_opt_of_rpc (Jsonrpc.of_string id) with
       | None ->
-        return (Error (Queue_deleted c.dest_queue_name))
+        return (`Error (Queue_deleted c.dest_queue_name))
       | Some mid ->
         Hashtbl.add c.wakener mid ivar;
-        return (Ok mid)
+        return (`Ok mid)
     ) >>|= fun mid ->
     M.Ivar.read ivar >>|= fun x ->
     Hashtbl.remove c.wakener mid;
     Opt.iter M.Clock.cancel timer;
-    return (Ok x.Message.payload)
+    return (`Ok x.Message.payload)
 
   let list c prefix =
     Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
-    return (Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+    return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 end
 
 
@@ -456,10 +452,10 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 			} in
 			let frame = In.Transfer transfer in
 			Connection.rpc c frame >>= function
-			| Error e ->
+			| `Error e ->
 				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
 				return ()
-			| Ok raw ->
+			| `Ok raw ->
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				begin match transfer.Out.messages with
 				| [] -> loop from
@@ -484,3 +480,8 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 				end in
 		loop None
 end
+
+(* The following type is deprecated, used only by legacy Unix clients *)
+type ('a, 'b) result =
+| Ok of 'a
+| Error of 'b

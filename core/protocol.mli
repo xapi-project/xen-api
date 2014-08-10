@@ -215,7 +215,7 @@ module type S = sig
 end
 
 module Connection(IO: Cohttp.IO.S) : sig
-	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result IO.t
+	val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
 end
 
 module Server(IO: Cohttp.IO.S) : sig
@@ -225,9 +225,9 @@ end
 module Client(M: S) : sig
   type t
 
-  val connect: int -> string -> (t, exn) result M.IO.t
+  val connect: int -> string -> [ `Ok of t | `Error of exn ] M.IO.t
 
-  val rpc: t -> ?timeout: int -> string  -> (string, exn) result M.IO.t
+  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] M.IO.t
 
-  val list: t -> string -> (string list, exn) result M.IO.t
+  val list: t -> string -> [ `Ok of string list | `Error of exn ] M.IO.t
 end

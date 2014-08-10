@@ -40,17 +40,17 @@ module M : S
   with type 'a IO.t = 'a Deferred.t
 
 module Connection : sig
-	val rpc: (M.IO.ic * M.IO.oc) -> In.t -> (string, exn) result Deferred.t
+	val rpc: (M.IO.ic * M.IO.oc) -> In.t -> [ `Ok of string | `Error of exn ] Deferred.t
 end
 
 module Client : sig
 	type t
 
-	val connect: int -> string -> (t, exn) result Deferred.t
+	val connect: int -> string -> [ `Ok of t | `Error of exn ] Deferred.t
 
-	val rpc: t -> ?timeout:int -> string  -> (string, exn) result Deferred.t
+	val rpc: t -> ?timeout:int -> string  -> [ `Ok of string | `Error of exn ] Deferred.t
 
-	val list: t -> string -> (string list, exn) result Deferred.t
+	val list: t -> string -> [ `Ok of string list | `Error of exn ] Deferred.t
 end
 
 module Server : sig

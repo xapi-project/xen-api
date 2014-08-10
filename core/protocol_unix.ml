@@ -180,7 +180,14 @@ end
 
 let whoami = IO.whoami
 
-module Connection = Protocol.Connection(IO)
+module Connection = struct
+  module C = Protocol.Connection(IO)
+
+  let rpc t msg = match C.rpc t msg with
+  | `Ok x -> Ok x
+  | `Error y -> Error y
+
+end
 
 exception Timeout
 
