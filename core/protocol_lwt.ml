@@ -36,40 +36,15 @@ open Cohttp
 open Cohttp_lwt_unix
 
 
-module IO = struct
+module M = struct
 
   let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
   module IO = struct
-	type 'a t = 'a Lwt.t
-	let ( >>= ) = Lwt.bind
-	let (>>) m n = m >>= fun _ -> n
-	let return = Lwt.return
+    include Cohttp_lwt_unix_io
+  end
 
-	type ic = Lwt_io.input Lwt_io.channel
-	type oc = Lwt_io.output Lwt_io.channel
-
-	let iter = Lwt_list.iter_s
-
-	let read_line = Lwt_io.read_line_opt
-	let read ic count =
-		try_lwt Lwt_io.read ~count ic
-		with End_of_file -> return ""
-	let read_into_exactly ic buf off len =
-		try_lwt
-			lwt () = Lwt_io.read_into_exactly ic buf off len in
-			return true
-		with End_of_file -> return false
-	let read_exactly ic len =
-		let buf = String.create len in
-		read_into_exactly ic buf 0 len >>= function
-		| true -> return (Some buf)
-		| false -> return None
-
-	let write = Lwt_io.write
-	let write_line = Lwt_io.write_line
-	let flush = Lwt_io.flush
 	let connect port =
 		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
 		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
@@ -88,8 +63,7 @@ module IO = struct
 		match !result with
 		| None -> assert false
 		| Some x -> return x
-  end
-  include IO
+
   module Ivar = struct
     type 'a t = {
       t: 'a Lwt.t;
@@ -121,9 +95,9 @@ module IO = struct
   end
 end
 
-let whoami = IO.whoami
+let whoami = M.whoami
 
-module Connection = Protocol.Connection(IO)
+module Connection = Protocol.Connection(M.IO)
 
-module Client = Protocol.Client(IO)
-module Server = Protocol.Server(IO)
+module Client = Protocol.Client(M)
+module Server = Protocol.Server(M.IO)

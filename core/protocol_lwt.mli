@@ -34,16 +34,11 @@ open Protocol
 
 val whoami: unit -> string
 
-module IO : sig
-	type ic
-	type oc
-
-	val connect : int -> (ic * oc) Lwt.t
-	(** [connect port] connects to a switch listening on [port] *)
-end
+module M : S
+  with type 'a IO.t = 'a Lwt.t
 
 module Connection : sig
-	val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result Lwt.t
+	val rpc: (M.IO.ic * M.IO.oc) -> In.t -> (string, exn) result Lwt.t
 end
 
 module Client : sig
@@ -58,5 +53,5 @@ end
 
 module Server : sig
 
-	val listen: (string -> string Lwt.t) -> (IO.ic * IO.oc) -> string -> unit Lwt.t
+	val listen: (string -> string Lwt.t) -> (M.IO.ic * M.IO.oc) -> string -> unit Lwt.t
 end
