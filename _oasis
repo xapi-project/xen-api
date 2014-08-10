@@ -74,6 +74,15 @@ Executable client
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
+Executable client_async
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             client_async_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
+
 Executable client_unix
   CompiledObject:     best
   Path:               core_test
