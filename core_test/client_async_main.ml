@@ -55,17 +55,19 @@ let main () =
 	( match !timeout with
   	| None -> one ()
 	  | Some t ->
-      let start = Time.now () in
       let rec loop () =
         let sofar = Time.diff (Time.now()) start in
         if Time.Span.(sofar > (of_sec t))
         then return ()
-        else loop () in
+        else begin
+          one () >>= fun () ->
+          loop ()
+        end in
       loop ()
   ) >>= fun () ->
 	let t = Time.diff (Time.now()) start in
-	Printf.printf "Finished %d RPCs in %.02f\n" !counter (Time.Span.to_sec t);
-	return ()
+	Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
+  Shutdown.exit 0
 
 let _ =
 	Arg.parse [
