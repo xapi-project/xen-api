@@ -50,26 +50,21 @@ module M = struct
     include Cohttp_async_io
   end
 
-	let connect port = failwith "unimplemented"
-  (*
-		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
-		let result = ref None in
-		lwt () = while_lwt !result = None do
-			try_lwt
-				lwt () = Lwt_unix.connect fd sockaddr in
-				let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
-				let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
-				result := Some (ic, oc);
-				return ()
-			with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _) ->
-				lwt () = Lwt_unix.sleep 5. in
-				return ()
-		done in
-		match !result with
-		| None -> assert false
-		| Some x -> return x
-*)
+  let connect port =
+    let maximum_delay = 30. in
+    let connect () =
+      Tcp.connect (Tcp.to_host_and_port "127.0.0.1" port) in
+    let rec retry delay =
+      Monitor.try_with connect >>= function
+      | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _))->
+        let delay = min maximum_delay delay in
+        Clock.after (Time.Span.of_sec delay) >>= fun () ->
+        retry (delay +. delay)
+      | Error e -> raise e
+      | Ok (_, reader, writer) ->
+        return (reader, writer) in
+    retry 1.
+
   module Ivar = struct
     include Ivar
   end
@@ -105,7 +100,7 @@ module M = struct
     let run_after timeout f =
       let timer = { cancel = Ivar.create () } in
       let cancelled = Ivar.read timer.cancel in
-      let sleep = Clock.after (Time.Span.of_float (Float.of_int timeout)) in
+      let sleep = Clock.after (Time.Span.of_sec (Float.of_int timeout)) in
       let _ =
         Deferred.any [ cancelled; sleep ] >>= fun () ->
         if Deferred.is_determined cancelled
