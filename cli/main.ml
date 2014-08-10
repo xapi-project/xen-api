@@ -1,34 +1,18 @@
 (*
-Copyright (c) Citrix Systems Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
-that the following conditions are met:
-
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
-    materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
-SUCH DAMAGE.
-*)
+ * Copyright (c) Citrix Systems Inc.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *)
 
 open Protocol
 open Protocol_unix
@@ -53,24 +37,24 @@ end
 let _common_options = "COMMON OPTIONS"
 
 (* Options common to all commands *)
-let common_options_t = 
-  let docs = _common_options in 
-  let debug = 
+let common_options_t =
+  let docs = _common_options in
+  let debug =
     let doc = "Give only debug output." in
     Arg.(value & flag & info ["debug"] ~docs ~doc) in
   let verb =
     let doc = "Give verbose output." in
-    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
-    Arg.(last & vflag_all [false] [verbose]) in 
-  let port = 
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
+    Arg.(last & vflag_all [false] [verbose]) in
+  let port =
     let doc = Printf.sprintf "Specify port to connect to the message switch." in
     Arg.(value & opt int 8080 & info ["port"] ~docs ~doc) in
   Term.(pure Common.make $ debug $ verb $ port)
 
 
 (* Help sections common to all commands *)
-let help = [ 
- `S _common_options; 
+let help = [
+ `S _common_options;
  `P "These options are common to all commands.";
  `S "MORE HELP";
  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
@@ -110,7 +94,7 @@ let diagnostics common_opts =
           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
           Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
         ) queue.Diagnostics.queue_contents in
-    Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time); 
+    Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time);
     print_endline "Permanent queues";
     if d.Diagnostics.permanent_queues = []
     then print_endline "  None"
@@ -156,7 +140,7 @@ module Opt = struct
 end
 
 let summarise_payload m =
-  try    
+  try
     let call = Jsonrpc.call_of_string m in
     call.Rpc.name
   with _ ->
@@ -166,7 +150,7 @@ let summarise_payload m =
         if response.Rpc.success
         then "OK"
         else "FAILURE"
-      with _ -> 
+      with _ ->
         let limit = 10 in
         if String.length m > limit
         then String.sub m 0 limit
@@ -398,7 +382,7 @@ let call_cmd =
     let doc = "Time to wait for a response before failing." in
     Arg.(value & opt (some int) None & info ["timeout"] ~docv:"TIMEOUT" ~doc) in
 
-  Term.(ret(pure call $ common_options_t $ qname $ body $ path $ timeout)), 
+  Term.(ret(pure call $ common_options_t $ qname $ body $ path $ timeout)),
   Term.info "call" ~sdocs:_common_options ~doc ~man
 
 let serve common_options_t name program =
@@ -438,15 +422,15 @@ let serve_cmd =
   Term.(ret(pure serve $ common_options_t $ qname $ program)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
-let default_cmd = 
-  let doc = "interact with an XCP message switch" in 
+let default_cmd =
+  let doc = "interact with an XCP message switch" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-       
+
 let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; destroy_cmd; call_cmd; serve_cmd; diagnostics_cmd]
 
 let _ =
-  match Term.eval_choice default_cmd cmds with 
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1
   | _ -> exit 0
