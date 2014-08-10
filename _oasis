@@ -20,7 +20,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_async
   CompiledObject:     best
