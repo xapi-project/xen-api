@@ -91,10 +91,12 @@ module M = struct
           wait state in
       wait false >>= fun () ->
       t.m <- true;
-      f () >>= fun result -> (* XXX error handling *)
-      t.m <- false;
-      Condition.broadcast t.c ();
-      return result
+      Monitor.protect f
+        ~finally:(fun () ->
+          t.m <- false;
+          Condition.broadcast t.c ();
+          return ()
+        )
   end
   module Clock = struct
     type timer = {
