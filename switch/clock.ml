@@ -15,6 +15,6 @@
  *)
 
 (* Work around the lack of clock_gettime on OS X *)
-let time () = Int64.of_float (Unix.gettimeofday () *. 1000.0)
+let time () = Int64.of_float (Unix.gettimeofday () *. 1e9)
 
 let start_time = time ()
