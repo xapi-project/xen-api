@@ -23,3 +23,6 @@ killall server_unix_main.native || true
 echo Performance test of Lwt to Lwt
 ./server_main.native -port 8081 &
 ./client_main.native -port 8081 -secs 5
+
+echo Performance test of Async to Lwt
+./client_async_main.native -port 8081 -secs 5
