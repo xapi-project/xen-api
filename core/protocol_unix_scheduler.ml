@@ -1,35 +1,19 @@
 (*
-Copyright (c) Citrix Systems Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
-that the following conditions are met:
-
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
-    materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
-SUCH DAMAGE.
-*)
-
+ * Copyright (c) Citrix Systems Inc.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *)
+ 
 let finally' f g =
 	try
 		let result = f () in
@@ -51,7 +35,7 @@ module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 module Delay = struct
 	(* Concrete type is the ends of a pipe *)
-	type t = { 
+	type t = {
 		(* A pipe is used to wake up a thread blocked in wait: *)
 		mutable pipe_out: Unix.file_descr option;
 		mutable pipe_in: Unix.file_descr option;
@@ -60,7 +44,7 @@ module Delay = struct
 		m: Mutex.t
 	}
 
-	let make () = 
+	let make () =
 		{ pipe_out = None;
 		pipe_in = None;
 		signalled = false;
@@ -70,7 +54,7 @@ module Delay = struct
 
 	let wait (x: t) (seconds: float) =
 		let to_close = ref [ ] in
-		let close' fd = 
+		let close' fd =
 			if List.mem fd !to_close then Unix.close fd;
 			to_close := List.filter (fun x -> fd <> x) !to_close in
 		finally'
@@ -96,7 +80,7 @@ module Delay = struct
 					r = []
 				with Pre_signalled -> false
 			)
-			(fun () -> 
+			(fun () ->
 				Mutex.execute x.m
 					(fun () ->
 						x.pipe_out <- None;
@@ -104,7 +88,7 @@ module Delay = struct
 						List.iter close' !to_close)
 			)
 
-	let signal (x: t) = 
+	let signal (x: t) =
 		Mutex.execute x.m
 			(fun () ->
 				match x.pipe_in with
@@ -216,5 +200,3 @@ end
 				t := Some (Thread.create main_loop ())
 			| Some _ ->
 				()
-
-

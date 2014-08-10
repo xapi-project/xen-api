@@ -14,10 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Cohttp_lwt_unix
-open Lwt
+open Core.Std
+open Async.Std
+
 open Protocol
-open Protocol_lwt
+open Protocol_async
 
 let port = ref 8080
 let name = ref "server"
@@ -26,7 +27,7 @@ let timeout = ref None
 
 let (>>|=) m f = m >>= function
 | `Ok x -> f x
-| `Error y -> fail y
+| `Error y -> raise y
 
 let main () =
 	Client.connect !port !name >>|= fun c ->
@@ -35,24 +36,31 @@ let main () =
 		incr counter;
 		Client.rpc c !payload >>|= fun _ ->
 		return () in
-	let start = Unix.gettimeofday () in
-	lwt () = match !timeout with
-	| None -> one ()
-	| Some t ->
-		while_lwt (Unix.gettimeofday () -. start < t) do
-			one ()
-		done in
-	let t = Unix.gettimeofday () -. start in
-	Printf.printf "Finished %d RPCs in %.02f\n" !counter t;
-	return ()
+	let start = Time.now () in
+	( match !timeout with
+  	| None -> one ()
+	  | Some t ->
+      let rec loop () =
+        let sofar = Time.diff (Time.now()) start in
+        if Time.Span.(sofar > (of_sec t))
+        then return ()
+        else begin
+          one () >>= fun () ->
+          loop ()
+        end in
+      loop ()
+  ) >>= fun () ->
+	let t = Time.diff (Time.now()) start in
+	Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
+  Shutdown.exit 0
 
 let _ =
 	Arg.parse [
 		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
 		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
 		"-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
-		"-secs", Arg.String (fun x -> timeout := Some (float_of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> string_of_float x));
+		"-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
 		"Send a message to a name, optionally waiting for a response";
-
-	Lwt_unix.run (main ())
+  main ();
+  never_returns (Scheduler.go ())

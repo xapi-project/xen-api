@@ -1,34 +1,18 @@
 (*
-Copyright (c) Citrix Systems Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
-that the following conditions are met:
-
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
-    materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
-SUCH DAMAGE.
-*)
+ * Copyright (c) Citrix Systems Inc.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *)
 
 open Cohttp
 
@@ -240,9 +224,41 @@ exception Failed_to_read_response
 
 exception Unsuccessful_response
 
-type ('a, 'b) result =
-| Ok of 'a
-| Error of 'b
+exception Timeout
+
+module type S = sig
+  val whoami: unit -> string
+
+  module IO: Cohttp.IO.S
+
+  val connect: int -> (IO.ic * IO.oc) IO.t
+
+  module Ivar : sig
+    type 'a t
+
+    val create: unit -> 'a t
+
+    val fill: 'a t -> 'a -> unit
+
+    val read: 'a t -> 'a IO.t
+  end
+
+  module Mutex : sig
+    type t
+
+    val create: unit -> t
+
+    val with_lock: t -> (unit -> 'a IO.t) -> 'a IO.t
+  end
+
+  module Clock : sig
+    type timer
+
+    val run_after: int -> (unit-> unit) -> timer
+
+    val cancel: timer -> unit
+  end
+end
 
 module Connection = functor(IO: Cohttp.IO.S) -> struct
 	open IO
@@ -265,27 +281,147 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 			if Cohttp.Response.status response <> `OK then begin
 				Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
-				return (Error Unsuccessful_response)
+				return (`Error Unsuccessful_response)
 			end else begin
 				Response.read_body_chunk response ic >>= function
-				| Transfer.Final_chunk x -> return (Ok x)
-				| Transfer.Chunk x -> return (Ok x)
-				| Transfer.Done -> return (Ok "")
+				| Transfer.Final_chunk x -> return (`Ok x)
+				| Transfer.Chunk x -> return (`Ok x)
+				| Transfer.Done -> return (`Ok "")
 			end
 		| `Invalid s ->
 			Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
-			return (Error Failed_to_read_response)
+			return (`Error Failed_to_read_response)
 		| `Eof ->
 			Printf.fprintf stderr "Empty response\n%!";
-			return (Error Failed_to_read_response)
+			return (`Error Failed_to_read_response)
 end
+
+module Opt = struct
+  let iter f = function
+  | None -> ()
+  | Some x -> f x
+  let map f = function
+  | None -> None
+  | Some x -> Some (f x)
+end
+
+module Client = functor(M: S) -> struct
+
+  module Connection = Connection(M.IO)
+
+  open M.IO
+
+  type t = {
+    requests_conn: (ic * oc);
+    events_conn: (ic * oc);
+    requests_m: M.Mutex.t;
+    wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
+    dest_queue_name: string;
+    reply_queue_name: string;
+  }
+
+  let ( >>|= ) m f = m >>= function
+    | `Ok x -> f x
+    | `Error y -> return (`Error y)
+
+  let rec iter_s f = function
+    | [] -> return (`Ok ())
+    | x :: xs ->
+      f x >>|= fun () ->
+      iter_s f xs
+
+  let connect port dest_queue_name =
+    let token = M.whoami () in
+    M.connect port >>= fun requests_conn ->
+    Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
+    M.connect port >>= fun events_conn ->
+    Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
+
+    let wakener = Hashtbl.create 10 in
+    let requests_m = M.Mutex.create () in
+
+    Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
+    let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
+      let rec loop from =
+        let timeout = 5. in
+        let transfer = {
+          In.from = from;
+          timeout = timeout;
+          queues = [ reply_queue_name ]
+        } in
+        let frame = In.Transfer transfer in
+        Connection.rpc events_conn frame >>|= fun raw ->
+        let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+        match transfer.Out.messages with
+        | [] -> loop from
+        | m :: ms ->
+          iter_s
+            (fun (i, m) ->
+              M.Mutex.with_lock requests_m (fun () ->
+                match m.Message.kind with
+                | Message.Response j ->
+                  if Hashtbl.mem wakener j then begin
+                    Connection.rpc events_conn (In.Ack i) >>|= fun (_: string) ->
+                    M.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
+                    return (`Ok ())
+                  end else begin
+                    Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
+                    return (`Ok ())
+                  end
+                | Message.Request _ -> return (`Ok ())
+              )
+            ) transfer.Out.messages >>|= fun () ->
+          loop (Some transfer.Out.next) in
+      loop None in
+    Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
+    return (`Ok {
+      requests_conn;
+      events_conn;
+      requests_m;
+      wakener = wakener;
+      dest_queue_name;
+      reply_queue_name;
+    })
+
+  let rpc c ?timeout x =
+    let ivar = M.Ivar.create () in
+
+    let timer = Opt.map (fun timeout ->
+      M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
+    ) timeout in
+
+    let msg = In.Send(c.dest_queue_name, {
+      Message.payload = x;
+      kind = Message.Request c.reply_queue_name
+    }) in
+    M.Mutex.with_lock c.requests_m
+    (fun () ->
+      Connection.rpc c.requests_conn msg >>|= fun (id: string) ->
+      match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+      | None ->
+        return (`Error (Queue_deleted c.dest_queue_name))
+      | Some mid ->
+        Hashtbl.add c.wakener mid ivar;
+        return (`Ok mid)
+    ) >>|= fun mid ->
+    M.Ivar.read ivar >>|= fun x ->
+    Hashtbl.remove c.wakener mid;
+    Opt.iter M.Clock.cancel timer;
+    return (`Ok x.Message.payload)
+
+  let list c prefix =
+    Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
+    return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+end
+
 
 module Server = functor(IO: Cohttp.IO.S) -> struct
 
 	module Connection = Connection(IO)
 
+  open IO
+
 	let listen process c name =
-		let open IO in
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
 		Connection.rpc c (In.CreatePersistent name) >>= fun _ ->
@@ -300,15 +436,15 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 			} in
 			let frame = In.Transfer transfer in
 			Connection.rpc c frame >>= function
-			| Error e ->
+			| `Error e ->
 				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
 				return ()
-			| Ok raw ->
+			| `Ok raw ->
 				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
 				begin match transfer.Out.messages with
 				| [] -> loop from
 				| m :: ms ->
-					iter	
+					iter
 						(fun (i, m) ->
 							process m.Message.payload >>= fun response ->
 							begin
@@ -329,3 +465,7 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 		loop None
 end
 
+(* The following type is deprecated, used only by legacy Unix clients *)
+type ('a, 'b) result =
+| Ok of 'a
+| Error of 'b

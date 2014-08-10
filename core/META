@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1ebaf9c51b367fd4c1173c2f8121e951)
+# DO NOT EDIT (digest: c4890f06c5c62e8ccdd7b3b0b1014ab8)
 version = "0.10.3"
 description = "A simple store-and-forward message switch"
 requires = "cohttp rpclib rpclib.json rpclib.syntax re re.str"
@@ -36,12 +36,24 @@ package "lwt" (
  version = "0.10.3"
  description = "A simple store-and-forward message switch"
  requires =
- "lwt lwt.unix lwt.syntax cohttp cohttp.lwt rpclib rpclib.json rpclib.syntax message_switch"
+ "lwt lwt.unix cohttp cohttp.lwt rpclib rpclib.json rpclib.syntax message_switch"
  archive(byte) = "message_switch_lwt.cma"
  archive(byte, plugin) = "message_switch_lwt.cma"
  archive(native) = "message_switch_lwt.cmxa"
  archive(native, plugin) = "message_switch_lwt.cmxs"
  exists_if = "message_switch_lwt.cma"
+)
+
+package "async" (
+ version = "0.10.3"
+ description = "A simple store-and-forward message switch"
+ requires =
+ "async cohttp cohttp.async rpclib rpclib.json rpclib.syntax message_switch"
+ archive(byte) = "message_switch_async.cma"
+ archive(byte, plugin) = "message_switch_async.cma"
+ archive(native) = "message_switch_async.cmxa"
+ archive(native, plugin) = "message_switch_async.cmxs"
+ exists_if = "message_switch_async.cma"
 )
 # OASIS_STOP
 

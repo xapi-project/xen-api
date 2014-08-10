@@ -13,20 +13,31 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Core.Std
+open Async.Std
 
-let port = ref 8080
-let name = ref "server"
+open Protocol
 
-let process x = x
+val whoami: unit -> string
 
-let main () =
-	Protocol_unix.Server.listen process !port !name
+module M : S
+  with type 'a IO.t = 'a Deferred.t
 
-let _ =
-	Arg.parse [
-		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
-		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-		"Respond to RPCs on a name";
+module Connection : sig
+	val rpc: (M.IO.ic * M.IO.oc) -> In.t -> [ `Ok of string | `Error of exn ] Deferred.t
+end
 
-	main ()
+module Client : sig
+	type t
+
+	val connect: int -> string -> [ `Ok of t | `Error of exn ] Deferred.t
+
+	val rpc: t -> ?timeout:int -> string  -> [ `Ok of string | `Error of exn ] Deferred.t
+
+	val list: t -> string -> [ `Ok of string list | `Error of exn ] Deferred.t
+end
+
+module Server : sig
+
+	val listen: (string -> string Deferred.t) -> (M.IO.ic * M.IO.oc) -> string -> unit Deferred.t
+end

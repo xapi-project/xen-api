@@ -1,42 +1,39 @@
 (*
-Copyright (c) Citrix Systems Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, 
-with or without modification, are permitted provided 
-that the following conditions are met:
-
-*   Redistributions of source code must retain the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer.
-*   Redistributions in binary form must reproduce the above 
-    copyright notice, this list of conditions and the 
-    following disclaimer in the documentation and/or other 
-    materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND 
-CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
-SUCH DAMAGE.
-*)
+ * Copyright (c) Citrix Systems Inc.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *)
 
 open Protocol
 open Cohttp
 
-let whoami () = Printf.sprintf "%s:%d"
-	(Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
+let with_lock m f =
+  Mutex.lock m;
+  try
+    let r = f () in
+    Mutex.unlock m;
+    r
+  with e ->
+    Mutex.unlock m;
+    raise e
 
 module IO = struct
+
+  let whoami () = Printf.sprintf "%s:%d"
+    (Filename.basename Sys.argv.(0)) (Unix.getpid ())
+
+  module IO = struct
 	type 'a t = 'a
 	let ( >>= ) a f = f a
 	let (>>) m n = m >>= fun _ -> n
@@ -102,9 +99,79 @@ module IO = struct
 		| Some x -> x
 
 	let flush oc = ()
+  end
+  include IO
+
+  module Ivar = struct
+    type 'a t = {
+      mutable v: 'a option;
+      m: Mutex.t;
+      c: Condition.t;
+    }
+
+    let create () = {
+      v = None;
+      m = Mutex.create ();
+      c = Condition.create ();
+    }
+
+    let fill r x =
+      with_lock r.m
+        (fun () ->
+          r.v <- Some x;
+          Condition.signal r.c
+        )
+
+    let read r =
+      with_lock r.m
+        (fun () ->
+          while r.v = None do
+            Condition.wait r.c r.m
+          done;
+          match r.v with
+          | Some x -> x
+          | None -> assert false
+        )
+  end
+
+  module Mutex = struct
+    type t = Mutex.t
+
+    let create = Mutex.create
+
+    let with_lock = with_lock
+  end
+
+  module Clock = struct
+    type timer = Protocol_unix_scheduler.t
+
+    let started = ref false
+    let started_m = Mutex.create ()
+
+    let run_after timeout f =
+      with_lock started_m
+        (fun () ->
+          if not !started then begin
+            Protocol_unix_scheduler.start ();
+            started := true
+          end
+        );
+      Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" f)
+
+    let cancel = Protocol_unix_scheduler.cancel
+  end
 end
 
-module Connection = Protocol.Connection(IO)
+let whoami = IO.whoami
+
+module Connection = struct
+  module C = Protocol.Connection(IO)
+
+  let rpc t msg = match C.rpc t msg with
+  | `Ok x -> Ok x
+  | `Error y -> Error y
+
+end
 
 exception Timeout
 
@@ -117,67 +184,22 @@ module Opt = struct
 	| Some x -> Some (f x)
 end
 
-let with_lock m f =
-	Mutex.lock m;
-	try
-		let r = f () in
-		Mutex.unlock m;
-		r
-	with e ->
-		Mutex.unlock m;
-		raise e
 
 let rpc_exn c frame = match Connection.rpc c frame with
 	| Error e -> raise e
 	| Ok raw -> raw
 
 module Client = struct
-	type 'a response = {
-		mutable v: 'a option;
-		mutable timed_out: bool;
-		m: Mutex.t;
-		c: Condition.t;
-	}
-	let task () = {
-		v = None;
-		timed_out = false;
-		m = Mutex.create ();
-		c = Condition.create ();
-	}
-	let wakeup_later r x =
-		with_lock r.m
-			(fun () ->
-				r.v <- Some x;
-				Condition.signal r.c
-			)
-	let timeout_later r =
-		with_lock r.m
-			(fun () ->
-				r.timed_out <- true;
-				Condition.signal r.c
-			)
-	let wait r =
-		with_lock r.m
-			(fun () ->
-				while r.v = None && not r.timed_out do
-					Condition.wait r.c r.m
-				done;
-				match r.v, r.timed_out with
-				| _, true -> raise Timeout
-				| Some x, _ -> x
-				| None, false -> assert false
-			)
-
 	type t = {
 		requests_conn: (IO.ic * IO.oc);
 		events_conn: (IO.ic * IO.oc);
-		requests_m: Mutex.t;
-		wakener: (Protocol.message_id, Protocol.Message.t response) Hashtbl.t;
-		reply_queue_name: string; 
+		requests_m: IO.Mutex.t;
+		wakener: (Protocol.message_id, (Protocol.Message.t, exn) result IO.Ivar.t) Hashtbl.t;
+		reply_queue_name: string;
 	}
 
 	let connect port =
-		let token = whoami () in
+		let token = IO.whoami () in
 		let requests_conn = IO.connect port in
 		let (_: string) = rpc_exn requests_conn (In.Login token) in
 		let events_conn = IO.connect port in
@@ -185,11 +207,9 @@ module Client = struct
 
 		let wakener = Hashtbl.create 10 in
 
-		Protocol_unix_scheduler.start ();
-
 		let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
 
-		let requests_m = Mutex.create () in
+		let requests_m = IO.Mutex.create () in
 		let (_ : Thread.t) =
 			let rec loop from =
 				let timeout = 5. in
@@ -207,12 +227,12 @@ module Client = struct
 					List.iter
 						(fun (i, m) ->
 							(* If the Ack doesn't belong to us then assume it's another thread *)
-							with_lock requests_m (fun () ->
+							IO.Mutex.with_lock requests_m (fun () ->
 								match m.Message.kind with
 								| Message.Response j ->
 									if Hashtbl.mem wakener j then begin
 										let (_: string) = rpc_exn events_conn (In.Ack i) in
-										wakeup_later (Hashtbl.find wakener j) m;
+										IO.Ivar.fill (Hashtbl.find wakener j) (Ok m);
 									end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
 								| Message.Request _ -> ()
 							)
@@ -232,7 +252,7 @@ module Client = struct
 		let c = ref None in
 		let m = Mutex.create () in
 		fun port ->
-			with_lock m (fun () ->
+			IO.Mutex.with_lock m (fun () ->
 				match !c with
 				| Some x -> x
 				| None ->
@@ -242,9 +262,9 @@ module Client = struct
 			)
 
 	let rpc c ?timeout ~dest:dest_queue_name x =
-		let t = task () in
+		let t = IO.Ivar.create () in
 		let timer = Opt.map (fun timeout ->
-			Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" (fun () -> timeout_later t))
+      IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (Error Timeout))
 		) timeout in
 
 		let id = with_lock c.requests_m
@@ -263,15 +283,16 @@ module Client = struct
 				mid
 		) in
 		(* now block waiting for our response *)
-		let response = wait t in
-		(* release resources *)
-		Opt.iter Protocol_unix_scheduler.cancel timer;
-		with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
-
-		response.Message.payload
+		match IO.Ivar.read t with
+    | Ok response ->
+      (* release resources *)
+      Opt.iter IO.Clock.cancel timer;
+      IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
+      response.Message.payload
+    | Error exn -> raise exn
 
 	let list c prefix =
-		with_lock c.requests_m
+		IO.Mutex.with_lock c.requests_m
 		(fun () ->
 			let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
 			Out.string_list_of_rpc (Jsonrpc.of_string result)
@@ -281,17 +302,16 @@ end
 module Server = struct
 
 	let listen process port name =
-		let open IO in
-
-		let token = whoami () in
+    let open IO.IO in
+		let token = IO.whoami () in
 		let request_conn = IO.connect port in
 		let (_: string) = rpc_exn request_conn (In.Login token) in
 		let reply_conn = IO.connect port in
 		let (_: string) = rpc_exn reply_conn (In.Login token) in
 
 		(* Only allow one reply RPC at a time (no pipelining) *)
-		let m = Mutex.create () in
-		let reply req = with_lock m (fun () -> Connection.rpc reply_conn req) in
+		let m = IO.Mutex.create () in
+		let reply req = IO.Mutex.with_lock m (fun () -> Connection.rpc reply_conn req) in
 
 		Connection.rpc request_conn (In.Login token) >>= fun _ ->
 		Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
@@ -343,4 +363,3 @@ module Server = struct
 				end in
 		loop None
 end
-

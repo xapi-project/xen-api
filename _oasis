@@ -3,7 +3,7 @@ Name:        message_switch
 Version:     0.10.3
 Synopsis:    A simple store-and-forward message switch
 Authors:     Dave Scott
-License:     FreeBSD
+License:     ISC
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
 
@@ -20,7 +20,15 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+
+Library message_switch_async
+  CompiledObject:     best
+  Path:               core
+  Findlibparent:      message_switch
+  Findlibname:        async
+  Modules:            Protocol_async
+  BuildDepends:       async,cohttp,cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_unix
   CompiledObject:     best
@@ -66,6 +74,15 @@ Executable client
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
+Executable client_async
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             client_async_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
+
 Executable client_unix
   CompiledObject:     best
   Path:               core_test
@@ -84,6 +101,15 @@ Executable server
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
+Executable server_async
+  CompiledObject:     best
+  Path:               core_test
+  MainIs:             server_async_main.ml
+  Build$:             flag(tests)
+  Custom:             true
+  Install:            false
+  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
+
 Executable server_unix
   CompiledObject:     best
   Path:               core_test
@@ -100,4 +126,3 @@ Executable switch
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
-
