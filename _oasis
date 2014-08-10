@@ -22,6 +22,14 @@ Library message_switch_lwt
   Modules:            Protocol_lwt
   BuildDepends:       lwt,lwt.unix,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
+Library message_switch_async
+  CompiledObject:     best
+  Path:               core
+  Findlibparent:      message_switch
+  Findlibname:        async
+  Modules:            Protocol_async
+  BuildDepends:       async,cohttp,cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
+
 Library message_switch_unix
   CompiledObject:     best
   Path:               core
@@ -100,4 +108,3 @@ Executable switch
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
-
