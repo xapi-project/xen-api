@@ -5,7 +5,7 @@ MANDIR?=/tmp/
 
 all: main.native main.1
 
-main.native: setup.data version.ml
+main.native: setup.data version.ml main.ml
 	ocaml setup.ml -build
 
 setup.data: _oasis
