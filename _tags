@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7af85eea782ba1ccb7d1eb12b745b2c9)
-# Ignore VCS directories, you can use the same kind of rule outside
-# OASIS_START/STOP if you want to exclude directories that contains
+# DO NOT EDIT (digest: 7cba38f014d2136139251f598bbda461)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -14,11 +14,13 @@
 "_darcs": -traverse
 "_darcs": not_hygienic
 # Executable xapi_script_storage
+<main.{native,byte}>: pkg_xcp
 <main.{native,byte}>: pkg_async_inotify
 <main.{native,byte}>: pkg_threads
-<main.{native,byte}>: pkg_xcp
+<main.{native,byte}>: pkg_message_switch.async
+<*.ml{,i}>: pkg_xcp
 <*.ml{,i}>: pkg_async_inotify
 <*.ml{,i}>: pkg_threads
-<*.ml{,i}>: pkg_xcp
+<*.ml{,i}>: pkg_message_switch.async
 <main.{native,byte}>: custom
 # OASIS_STOP
