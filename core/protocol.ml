@@ -412,6 +412,10 @@ module Client = functor(M: S) -> struct
   let list c prefix =
     Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
     return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+
+  let destroy c queue_name =
+    Connection.rpc c.requests_conn (In.Destroy queue_name) >>|= fun result ->
+    return (`Ok ())
 end
 
 

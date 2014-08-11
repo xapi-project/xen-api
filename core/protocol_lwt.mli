@@ -33,6 +33,10 @@ module Client : sig
 	val rpc: t -> ?timeout:int -> string  -> [ `Ok of string | `Error of exn ] Lwt.t
 
 	val list: t -> string -> [ `Ok of string list | `Error of exn ] Lwt.t
+
+  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] Lwt.t
+  (** [destroy t queue_name] destroys the named queue, and all associated
+      messages. *)
 end
 
 module Server : sig

@@ -30,7 +30,7 @@ let (>>|=) m f = m >>= function
 | `Error y -> raise y
 
 let main () =
-	Client.connect !port !name >>|= fun c ->
+	Client.connect !port !name >>|= fun c ->  
 	let counter = ref 0 in
 	let one () =
 		incr counter;

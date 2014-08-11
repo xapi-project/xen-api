@@ -214,4 +214,8 @@ module Client(M: S) : sig
   val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] M.IO.t
 
   val list: t -> string -> [ `Ok of string list | `Error of exn ] M.IO.t
+
+  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] M.IO.t
+  (** [destroy t queue_name] destroys the named queue, and all associated
+      messages. *)
 end
