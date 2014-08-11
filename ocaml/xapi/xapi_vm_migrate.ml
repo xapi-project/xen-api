@@ -85,13 +85,16 @@ let rec migrate_with_retries max try_no dbg vm_uuid xenops_vdi_map xenops_vif_ma
 		(* CA-86347 Handle the excn if the VM happens to reboot during migration.
 		 * Such a reboot causes Xenops_interface.Cancelled the first try, then
 		 * Xenops_interface.Internal_error("End_of_file") the second, then success. *)
-		with e ->
-			let extra = match e with
-					| Xenops_interface.Cancelled s -> " (expected if the VM shuts down)"
-					| _ -> "" in
-			info "xenops: will retry migration: caught %s%s from %s in attempt %d of %d."
-				(Printexc.to_string e) extra !progress try_no max;
+		with 
+		| Xenops_interface.Cancelled _
+		| Xenops_interface.Internal_error "End_of_file" as e ->
+			debug "xenops: will retry migration: caught %s from %s in attempt %d of %d."
+				(Printexc.to_string e) !progress try_no max;
 			migrate_with_retries max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+		| e -> 
+			debug "xenops: not retrying migration: caught %s from %s in attempt %d of %d."
+				(Printexc.to_string e) !progress try_no max;
+			raise e
 	end
 
 let migrate_with_retry dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
@@ -117,7 +120,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 				Xapi_xenops.Events_from_xenopsd.wait dbg vm' ()
 			)
 		);
-	with e ->
+	with 
+	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
+		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+	| e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
 		let _, state = XenopsAPI.VM.stat dbg vm' in
