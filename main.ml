@@ -15,12 +15,17 @@ module U = Unix
 open Core.Std
 open Async.Std
 
+(* Process a message *)
+let process x = return x
+
 (* Active servers, one per sub-directory of the root_dir *)
 let servers = String.Table.create () ~size:4
 
-let create name =
+let create switch_port name =
   Printf.fprintf stderr "Adding %s\n%!" name;
-  Hashtbl.add_exn servers name ();
+  Protocol_async.M.connect switch_port >>= fun c ->
+  let server = Protocol_async.Server.listen process c (Filename.basename name) in
+  Hashtbl.add_exn servers name server;
   return ()
 
 let destroy name =
@@ -34,17 +39,17 @@ let rec diff a b = match a with
     if List.mem b a then diff aa b else a :: (diff aa b)
 
 (* Ensure the right servers are started *)
-let sync infos =
+let sync switch_port infos =
   let needed = List.map ~f:fst infos in
   let got_already = Hashtbl.keys servers in
-  Deferred.all_ignore (List.map ~f:create (diff needed got_already))
+  Deferred.all_ignore (List.map ~f:(create switch_port) (diff needed got_already))
   >>= fun () ->
   Deferred.all_ignore (List.map ~f:destroy (diff got_already needed))
 
-let main root_dir =
+let main ~root_dir ~switch_port =
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
   >>= fun (watch, infos) ->
-  sync infos
+  sync switch_port infos
   >>= fun () ->
   let pipe = Async_inotify.pipe watch in
   let open Async_inotify.Event in
@@ -55,7 +60,7 @@ let main root_dir =
       Shutdown.exit 1
     | `Ok (Created name)
     | `Ok (Moved (Into name)) ->
-      create name
+      create switch_port name
     | `Ok (Unlinked name)
     | `Ok (Moved (Away name)) ->
       destroy name
@@ -64,20 +69,20 @@ let main root_dir =
     | `Ok (Moved (Move (a, b))) ->
       destroy a
       >>= fun () ->
-      create b
+      create switch_port b
     | `Ok Queue_overflow ->
       Sys.readdir root_dir
       >>= fun names ->
       let files = Array.to_list names in
       Deferred.all (List.map ~f:(fun x -> Unix.stat (Filename.concat root_dir x)) files)
       >>= fun stats ->
-      sync (List.zip_exn files stats)
+      sync switch_port (List.zip_exn files stats)
     ) >>= fun () ->
     loop () in
   loop ()
 
-let main root_dir =
-  let (_: unit Deferred.t) = main root_dir in
+let main ~root_dir ~switch_port =
+  let (_: unit Deferred.t) = main ~root_dir ~switch_port in
   never_returns (Scheduler.go ())
 
 open Xcp_service
@@ -107,7 +112,7 @@ let _ =
     ~doc:description
     ~resources
     () with
-  | `Ok () -> main !root_dir
+  | `Ok () -> main ~root_dir:!root_dir ~switch_port:!Xcp_client.switch_port
   | `Error x ->
     Printf.fprintf stderr "Error: %s\n%!" x;
     Pervasives.exit 1
