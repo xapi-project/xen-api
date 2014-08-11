@@ -254,9 +254,6 @@ let check_host_liveness ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   List.iter check_host all_hosts
 
-let task_status_is_completed task_status =
-    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
-
 let timeout_sessions_common ~__context sessions =
   let unused_sessions = List.filter
     (fun (x, _) -> 
@@ -267,7 +264,7 @@ let timeout_sessions_common ~__context sessions =
           let tasks = (Db.Session.get_tasks ~__context ~self:s) in
           let parent = (Db.Session.get_parent ~__context ~self:s) in
 	      (List.for_all
-            (fun t -> task_status_is_completed
+            (fun t -> TaskHelper.status_is_completed
               (* task might not exist anymore, assume completed in this case *)
               (try Db.Task.get_status ~__context ~self:t with _->`success)
             ) 
@@ -324,14 +321,24 @@ let timeout_tasks ~__context =
 
 	let completed, pending =
 		List.partition
-			(fun (_, t) -> task_status_is_completed t.Db_actions.task_status)
+			(fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status)
 			all_tasks in
+
+	(* Any task that was incomplete at the point someone called Task.destroy
+	   will have `destroy in its current_operations. If they're now complete, 
+	   we can Kill these immediately *)
+	let completed_destroyable, completed_gcable =
+	  List.partition
+	    (fun (_, t) -> List.exists (fun (_,op) -> op = `destroy) t.Db_actions.task_current_operations)
+	    completed in
+
+	List.iter (fun (t, _) -> Db.Task.destroy ~__context ~self:t) completed_destroyable;
 
 	let completed_old, completed_young =
 		List.partition
 			(fun (_, t) ->
 				Date.to_float t.Db_actions.task_finished < oldest_completed_time)
-			completed in
+			completed_gcable in
 
 	let pending_old, pending_young =
 		List.partition
@@ -369,7 +376,7 @@ let timeout_tasks ~__context =
       let overflow = List.length young - Xapi_globs.max_tasks in
       (* We only consider deleting completed tasks *)
       let completed, pending = List.partition 
-	(fun (_, t) -> task_status_is_completed t.Db_actions.task_status) young in
+	(fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status) young in
       (* Sort the completed tasks so we delete oldest tasks in preference *)
       let completed =
 	List.sort (fun (_,t1) (_,t2) -> compare (Date.to_float t1.Db_actions.task_finished) (Date.to_float t2.Db_actions.task_finished)) completed in
@@ -382,7 +389,7 @@ let timeout_tasks ~__context =
       pending @ lucky, unlucky in
   (* Cancel the 'old' and 'unlucky' *)
   List.iter (fun (x, y) ->
-	       if not (task_status_is_completed y.Db_actions.task_status)
+	       if not (TaskHelper.status_is_completed y.Db_actions.task_status)
 	       then warn "GCed old task that was still in pending state: %s" y.Db_actions.task_uuid;
 	       TaskHelper.destroy ~__context x
 	    ) (old @ unlucky);

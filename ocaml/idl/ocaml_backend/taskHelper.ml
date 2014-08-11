@@ -152,6 +152,9 @@ let status_to_string = function
 	| `cancelling -> "cancelling"
 	| `cancelled -> "cancelled"
 
+let status_is_completed task_status =
+    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
+
 let complete ~__context (result: Xml.xml list) =
   operate_on_db_task ~__context
     (fun self ->

@@ -24,6 +24,7 @@ val clear_external_pid : __context:Context.t -> unit
 val set_result_on_task :
   __context:Context.t -> [ `task ] Ref.t -> Xml.xml list -> unit
 val set_result : __context:Context.t -> Xml.xml list -> unit
+val status_is_completed : [> `cancelled | `failure | `success ] -> bool
 val complete : __context:Context.t -> Xml.xml list -> unit
 val set_cancellable : __context:Context.t -> unit
 val set_not_cancellable : __context:Context.t -> unit
