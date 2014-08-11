@@ -485,8 +485,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
 	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
 	let timer_mode = int_platform_flag "timer_mode" in
-	let hpet = int_platform_flag "hpet" in
-	let vpt_align = int_platform_flag "vpt_align" in
 
 	let maybe_exn_ign name f opt =
           maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
@@ -496,14 +494,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 		debug "VM = %s; domid = %d; domain_set_timer_mode %d" (Uuid.to_string uuid) domid mode;
 		Xenctrlext.domain_set_timer_mode xc domid mode
 	) timer_mode;
-    maybe_exn_ign "hpet" (fun hpet -> 
-		debug "VM = %s; domid = %d; domain_set_hpet %d" (Uuid.to_string uuid) domid hpet;
-		Xenctrlext.domain_set_hpet xc domid hpet
-	) hpet;
-    maybe_exn_ign "vpt align" (fun vpt_align ->
-		debug "VM = %s; domid = %d; domain_set_vpt_align %d" (Uuid.to_string uuid) domid vpt_align;
-		Xenctrlext.domain_set_vpt_align xc domid vpt_align
-	) vpt_align;
 	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
 	Xenctrl.domain_max_vcpus xc domid vcpus;
 	let di = Xenctrl.domain_getinfo xc domid in
