@@ -22,11 +22,15 @@ let process x = return x
 let servers = String.Table.create () ~size:4
 
 let create switch_port name =
-  Printf.fprintf stderr "Adding %s\n%!" name;
-  Protocol_async.M.connect switch_port >>= fun c ->
-  let server = Protocol_async.Server.listen process c (Filename.basename name) in
-  Hashtbl.add_exn servers name server;
-  return ()
+  if Hashtbl.mem servers name
+  then return ()
+  else begin
+    Printf.fprintf stderr "Adding %s\n%!" name;
+    Protocol_async.M.connect switch_port >>= fun c ->
+    let server = Protocol_async.Server.listen process c (Filename.basename name) in
+    Hashtbl.add_exn servers name server;
+    return ()
+  end
 
 let destroy name =
   Printf.fprintf stderr "Removing %s\n%!" name;
@@ -39,8 +43,10 @@ let rec diff a b = match a with
     if List.mem b a then diff aa b else a :: (diff aa b)
 
 (* Ensure the right servers are started *)
-let sync switch_port infos =
-  let needed = List.map ~f:fst infos in
+let sync ~root_dir ~switch_port =
+  Sys.readdir root_dir
+  >>= fun names ->
+  let needed = Array.to_list names in
   let got_already = Hashtbl.keys servers in
   Deferred.all_ignore (List.map ~f:(create switch_port) (diff needed got_already))
   >>= fun () ->
@@ -48,8 +54,8 @@ let sync switch_port infos =
 
 let main ~root_dir ~switch_port =
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
-  >>= fun (watch, infos) ->
-  sync switch_port infos
+  >>= fun (watch, _) ->
+  sync ~root_dir ~switch_port
   >>= fun () ->
   let pipe = Async_inotify.pipe watch in
   let open Async_inotify.Event in
@@ -71,12 +77,7 @@ let main ~root_dir ~switch_port =
       >>= fun () ->
       create switch_port b
     | `Ok Queue_overflow ->
-      Sys.readdir root_dir
-      >>= fun names ->
-      let files = Array.to_list names in
-      Deferred.all (List.map ~f:(fun x -> Unix.stat (Filename.concat root_dir x)) files)
-      >>= fun stats ->
-      sync switch_port (List.zip_exn files stats)
+      sync ~root_dir ~switch_port
     ) >>= fun () ->
     loop () in
   loop ()
