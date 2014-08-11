@@ -125,15 +125,6 @@ static int xcext_domain_set_timer_mode(xc_interface *xch, unsigned int domid, in
                             HVM_PARAM_TIMER_MODE, (unsigned long) mode);
 }
 
-static int xcext_domain_set_hpet(xc_interface *xch, unsigned int domid, int hpet)
-{
-	return xc_set_hvm_param(xch, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) hpet);
-}
-static int xcext_domain_set_vpt_align(xc_interface *xch, unsigned int domid, int vpt_align)
-{
-	return xc_set_hvm_param(xch, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) vpt_align);
-}
-
 CAMLprim value stub_xenctrlext_domain_get_acpi_s_state(value xch, value domid)
 {
 	CAMLparam2(xch, domid);
@@ -160,28 +151,6 @@ CAMLprim value stub_xenctrlext_domain_set_timer_mode(value xch, value id, value 
 	int ret;
 
 	ret = xcext_domain_set_timer_mode(_H(xch), _D(id), Int_val(mode));
-	if (ret < 0)
-		failwith_xc(_H(xch));
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xenctrlext_domain_set_hpet(value xch, value id, value mode)
-{
-	CAMLparam3(xch, id, mode);
-	int ret;
-
-	ret = xcext_domain_set_hpet(_H(xch), _D(id), Int_val(mode));
-	if (ret < 0)
-		failwith_xc(_H(xch));
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xenctrlext_domain_set_vpt_align(value xch, value id, value mode)
-{
-	CAMLparam3(xch, id, mode);
-	int ret;
-
-	ret = xcext_domain_set_vpt_align(_H(xch), _D(id), Int_val(mode));
 	if (ret < 0)
 		failwith_xc(_H(xch));
 	CAMLreturn(Val_unit);
