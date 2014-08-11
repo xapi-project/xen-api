@@ -47,6 +47,9 @@ module M = struct
 		| None -> assert false
 		| Some x -> return x
 
+  let disconnect (ic, oc) =
+    Lwt_io.close ic
+
   module Ivar = struct
     type 'a t = {
       t: 'a Lwt.t;

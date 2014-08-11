@@ -171,6 +171,8 @@ module type S = sig
 
   val connect: int -> (IO.ic * IO.oc) IO.t
 
+  val disconnect: (IO.ic * IO.oc) -> unit IO.t
+
   module Ivar : sig
     type 'a t
 
@@ -210,6 +212,9 @@ module Client(M: S) : sig
   type t
 
   val connect: int -> string -> [ `Ok of t | `Error of exn ] M.IO.t
+
+  val disconnect: t -> unit M.IO.t
+  (** [disconnect] closes the connection *)
 
   val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] M.IO.t
 

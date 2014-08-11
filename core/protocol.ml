@@ -233,6 +233,8 @@ module type S = sig
 
   val connect: int -> (IO.ic * IO.oc) IO.t
 
+  val disconnect: (IO.ic * IO.oc) -> unit IO.t
+
   module Ivar : sig
     type 'a t
 
@@ -382,6 +384,10 @@ module Client = functor(M: S) -> struct
       dest_queue_name;
       reply_queue_name;
     })
+
+  let disconnect c =
+    M.disconnect c.requests_conn >>= fun () ->
+    M.disconnect c.events_conn
 
   let rpc c ?timeout x =
     let ivar = M.Ivar.create () in

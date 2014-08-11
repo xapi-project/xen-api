@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
- 
+
   let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
@@ -47,6 +47,10 @@ module M = struct
       | Ok (_, reader, writer) ->
         return (reader, writer) in
     retry 1.
+
+  let disconnect (_, writer) =
+    Writer.close writer;
+    return ()
 
   module Ivar = struct
     include Ivar

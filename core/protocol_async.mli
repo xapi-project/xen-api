@@ -32,6 +32,9 @@ module Client : sig
 
 	val connect: int -> string -> [ `Ok of t | `Error of exn ] Deferred.t
 
+  val disconnect: t -> unit Deferred.t
+  (** [disconnect] closes the connection *)
+
 	val rpc: t -> ?timeout:int -> string  -> [ `Ok of string | `Error of exn ] Deferred.t
 
 	val list: t -> string -> [ `Ok of string list | `Error of exn ] Deferred.t
