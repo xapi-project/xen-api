@@ -71,6 +71,7 @@ let filtered_xsdata =
 exception Suspend_image_failure
 exception Not_enough_memory of int64
 exception Domain_build_failed
+exception Domain_build_pre_failed of string
 exception Domain_restore_failed
 exception Domain_restore_truncated_hvmstate
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
@@ -486,24 +487,37 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
 	let timer_mode = int_platform_flag "timer_mode" in
 
-	let maybe_exn_ign name f opt =
-          maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
-        in
+	let log_reraise call_str f =
+		debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid call_str;
+		try ignore (f ())
+		with e ->
+			let err_msg =
+				Printf.sprintf "Calling '%s' failed: %s" call_str (Printexc.to_string e)
+			in
+			error "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid err_msg;
+			raise (Domain_build_pre_failed err_msg)
+	in
 
-	maybe_exn_ign "timer mode" (fun mode ->
-		debug "VM = %s; domid = %d; domain_set_timer_mode %d" (Uuid.to_string uuid) domid mode;
-		Xenctrlext.domain_set_timer_mode xc domid mode
+	maybe (fun mode ->
+		log_reraise (Printf.sprintf "domain_set_timer_mode %d" mode) (fun () ->
+			Xenctrlext.domain_set_timer_mode xc domid mode
+		)
 	) timer_mode;
-	debug "VM = %s; domid = %d; domain_max_vcpus %d" (Uuid.to_string uuid) domid vcpus;
-	Xenctrl.domain_max_vcpus xc domid vcpus;
-	let di = Xenctrl.domain_getinfo xc domid in
-	if not (di.Xenctrl.Domain_info.hvm_guest) then
-		begin
-			debug "VM = %s; domid = %d; domain_set_memmap_limit %Ld MiB" (Uuid.to_string uuid) domid xen_max_mib;
-			Xenctrl.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
-		end;
-	debug "VM = %s; domid = %d; shadow_allocation_set %d MiB" (Uuid.to_string uuid) domid shadow_mib;
-	Xenctrl.shadow_allocation_set xc domid shadow_mib;
+
+	log_reraise (Printf.sprintf "domain_max_vcpus %d" vcpus) (fun () ->
+		Xenctrl.domain_max_vcpus xc domid vcpus
+	);
+
+	if not (Xenctrl.((domain_getinfo xc domid).Domain_info.hvm_guest)) then begin
+		let kib = Memory.kib_of_mib xen_max_mib in
+		log_reraise (Printf.sprintf "domain_set_memmap_limit %Ld KiB" kib) (fun () ->
+			Xenctrl.domain_set_memmap_limit xc domid kib
+		)
+	end;
+
+	log_reraise (Printf.sprintf "shadow_allocation_set %d MiB" shadow_mib) (fun () ->
+		Xenctrl.shadow_allocation_set xc domid shadow_mib
+	);
 
 	create_channels ~xc uuid domid
 
