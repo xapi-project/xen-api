@@ -134,11 +134,19 @@ let string_of_device (x: device) =
  * paths. It can be made a little more efficient by changing the functions below
  * to take the UUID as an argument (and change the callers as well...) *)
 let uuid_of_domid domid =
-	Xenops_helpers.with_xc_and_xs (fun _ xs ->
-		let vm = xs.Xs.getdomainpath domid ^ "/vm" in
-		let vm_dir = xs.Xs.read vm in
-		xs.Xs.read (vm_dir ^ "/uuid")
-	)
+	try
+		Xenops_helpers.with_xc_and_xs (fun _ xs ->
+			let vm = xs.Xs.getdomainpath domid ^ "/vm" in
+			let vm_dir = xs.Xs.read vm in
+			xs.Xs.read (vm_dir ^ "/uuid")
+		)
+	with _ ->
+		error "uuid_of_domid failed for domid %d" domid;
+		(* Returning a random string on error is not very neat, but we must avoid
+		 * exceptions here. This patch must be followed soon by a patch that changes the
+		 * callers of get_private_path{_of_device} to call by UUID, so that this code
+		 * can go away. *)
+		Printf.sprintf "unknown-domid-%d" domid
 
 (* We store some transient data elsewhere in xenstore to avoid it getting
    deleted by accident when a domain shuts down. We should always zap this

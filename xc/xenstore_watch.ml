@@ -54,6 +54,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 	let list_domains xc =
 		let dis = Xenctrl.domain_getinfolist xc 0 in
 		let ids = List.map (fun x -> x.Xenctrl.domid) dis in
+		debug "Current domains: %s" (String.concat ", " (List.map string_of_int ids));
 		List.fold_left (fun map (k, v) -> IntMap.add k v map) IntMap.empty (List.combine ids dis)
 
 	let domain_looks_different a b = match a, b with
