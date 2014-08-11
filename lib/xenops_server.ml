@@ -1681,14 +1681,14 @@ module VM = struct
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
 	let remove _ dbg id = 
-          let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
-          match task.Xenops_task.state with
-          | Task.Completed _ -> ()
-          | Task.Failed rpcty -> raise (exn_of_exnty (Xenops_interface.Exception.exnty_of_rpc rpcty))
-          | Task.Pending _ -> 
-	    error "VM.remove: queue_operation_and_wait returned a pending task";
-            Xenops_task.cancel tasks task.Xenops_task.id;
-            raise (Cancelled task.Xenops_task.id)
+		let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
+		match task.Xenops_task.state with
+		| Task.Completed _ -> ()
+		| Task.Failed rpcty -> raise (exn_of_exnty (Xenops_interface.Exception.exnty_of_rpc rpcty))
+		| Task.Pending _ -> 
+			error "VM.remove: queue_operation_and_wait returned a pending task";
+			Xenops_task.cancel tasks task.Xenops_task.id;
+			raise (Cancelled task.Xenops_task.id)
 
 	let stat' x =
 		debug "VM.stat %s" x;
