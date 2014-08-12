@@ -486,7 +486,8 @@ let device_by_id xs vm kind domain_selection id =
 
 			let key = _device_id kind in
 			let id_of_device device =
-				let path = Device_common.get_private_data_path_of_device' vm (string_of_kind device.backend.kind) device.frontend.devid in
+				let path = Device_common.get_private_data_path_of_device_by_uuid
+					(vm |> uuid_of_string) (string_of_kind device.backend.kind) device.frontend.devid in
 				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
 				with _ -> None in
 			let ids = List.map id_of_device devices in
@@ -699,6 +700,12 @@ module VBD = struct
 			Storage.epoch_end task sr vdi
 		| _ -> ()
 
+	let device_kind_of_backend_keys backend_keys =
+		try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
+		with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
+
+	let device_kind_of vbd = device_kind_of_backend_keys vbd.extra_backend_keys
+
 	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
 	let write_extra backend_domid frontend_domid devid kv_list =
@@ -709,7 +716,8 @@ module VBD = struct
 
 	let write_private backend_domid vm devid private_list =
 		with_xs (fun xs ->
-			let private_data_path = Device_common.get_private_data_path_of_device' vm "vbd" devid in
+			let uuid = uuid_of_string vm in
+			let private_data_path = Device_common.get_private_data_path_of_device_by_uuid uuid "vbd" devid in
 			Xs.transaction xs (fun t ->
 				t.Xst.mkdir private_data_path;
 				t.Xst.setperms private_data_path
@@ -797,8 +805,8 @@ module VBD = struct
 				(* wait for plug *)
 				let device =
 					let open Device_common in
-					let frontend = { domid = frontend_domid; kind = Vbd; devid = devid } in
-					let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+					let frontend = { domid = frontend_domid; kind = Vbd !Xenopsd.default_vbd_backend_kind; devid = devid } in
+					let backend = { domid = backend_domid; kind = Vbd !Xenopsd.default_vbd_backend_kind; devid = devid } in
 					{ backend = backend; frontend = frontend }
 				in
 				with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
@@ -857,7 +865,7 @@ module VBD = struct
 				Opt.iter (function
 					| Ionice qos ->
 						try
-							let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+							let (device: Device_common.device) = device_by_id xs vm (device_kind_of vbd) Newest (id_of vbd) in
 							let path = Device_common.kthread_pid_path_of_device ~xs device in
 							let kthread_pid = xs.Xs.read path |> int_of_string in
 							ionice qos kthread_pid
@@ -898,7 +906,7 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+					let (device: Device_common.device) = device_by_id xs vm (device_kind_of vbd) Newest (id_of vbd) in
 					let qos_target = get_qos xc xs vm vbd device in
 
 					let device_number = device_number_of_device device in
@@ -964,7 +972,7 @@ module VBD = struct
 		in
 
 		(* Remember the VBD id with the device *)
-		let vbd_id = _device_id Device_common.Vbd, id_of vbd in
+		let vbd_id = _device_id (device_kind_of vbd), id_of vbd in
 		(* Remember the VDI with the device (for later deactivation) *)
 		let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
 		let dp_id = _dp_id, Storage.id_of vm vbd.Vbd.id in
@@ -1012,8 +1020,9 @@ module VBD = struct
 							(* wait for plug *)
 							let device =
 								let open Device_common in
-								let frontend = { domid = frontend_domid; kind = Vbd; devid = devid } in
-								let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+								let kind = device_kind_of vbd in
+								let frontend = { domid = frontend_domid; kind; devid } in
+								let backend = { domid = backend_domid; kind; devid } in
 								{ backend = backend; frontend = frontend }
 							in
 							with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
@@ -1038,11 +1047,12 @@ module VBD = struct
 					      rely on the event thread calling us again later.
 					*)
 					let domid = domid_of_uuid Oldest (uuid_of_string vm) in
+					let kind = device_kind_of vbd in
 					(* If the device is gone then we don't need to shut it down but we do need
 					   to free any storage resources. *)
 					let device =
 						try
-							Some (device_by_id xs vm Device_common.Vbd Oldest (id_of vbd))
+							Some (device_by_id xs vm kind Oldest (id_of vbd))
 						with
 							| (Does_not_exist(_,_)) ->
 								debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd);
@@ -1106,6 +1116,7 @@ module VBD = struct
 					with_ctx (fun ctx ->
 						let vdev = Opt.map Device_number.to_linux_device vbd.position in
 						let domid = domid_of_uuid Newest (uuid_of_string vm) in
+						let kind = device_kind_of vbd in
 						match vdev, domid with
 						| Some vdev, Some domid ->
 							let open Xenlight.Device_disk in
@@ -1116,7 +1127,7 @@ module VBD = struct
 							} in
 
 							(* We store away the disk so we can implement VBD.stat *)
-							let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+							let (device: Device_common.device) = device_by_id xs vm kind Newest (id_of vbd) in
 							xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
 
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.insert %s" (id_of vbd)) (fun () ->
@@ -1141,6 +1152,7 @@ module VBD = struct
 				with_ctx (fun ctx ->
 					let vdev = Opt.map Device_number.to_linux_device vbd.position in
 					let domid = domid_of_uuid Newest (uuid_of_string vm) in
+					let kind = device_kind_of vbd in
 					match vdev, domid with
 					| Some vdev, Some domid ->
 						let open Xenlight.Device_disk in
@@ -1154,7 +1166,7 @@ module VBD = struct
 							insert ctx disk' domid ()
 						);
 
-						let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Oldest (id_of vbd) in
+						let (device: Device_common.device) = device_by_id xs vm kind Oldest (id_of vbd) in
 						safe_rm xs (vdi_path_of_device ~xs device);
 						Storage.dp_destroy task (Storage.id_of vm vbd.Vbd.id)
 					| _ -> ()
@@ -1165,7 +1177,8 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					let (device: Device_common.device) = device_by_id xs vm Device_common.Vbd Newest (id_of vbd) in
+					let kind = device_kind_of vbd in
+					let (device: Device_common.device) = device_by_id xs vm kind Newest (id_of vbd) in
 					if Hotplug.device_is_online ~xs device
 					then begin
 						let qos_target = get_qos xc xs vm vbd device in
@@ -1244,7 +1257,8 @@ module VIF = struct
 
 	let write_private backend_domid vm devid private_list =
 		with_xs (fun xs ->
-			let private_data_path = Device_common.get_private_data_path_of_device' vm "vif" devid in
+			let uuid = uuid_of_string vm in
+			let private_data_path = Device_common.get_private_data_path_of_device_by_uuid uuid "vif" devid in
 			Xs.transaction xs (fun t ->
 				t.Xst.mkdir private_data_path;
 				t.Xst.setperms private_data_path
@@ -1545,7 +1559,8 @@ let with_disk ~xs task disk write f = match disk with
 			(fun () -> dp_destroy task dp)
 
 let get_private_key ~xs vm kind devid x =
-	let private_data_path = Device_common.get_private_data_path_of_device' vm kind devid in
+	let uuid = uuid_of_string vm in
+	let private_data_path = Device_common.get_private_data_path_of_device_by_uuid uuid kind devid in
 	let key = private_data_path ^ "/" ^x in
 	try
 		xs.Xs.read key
@@ -1744,8 +1759,9 @@ module VM = struct
 	let destroy = on_domain_if_exists (fun xc xs task vm di multiple ->
 		let open Xenlight.Dominfo in
 		let domid = di.domid in
+		let uuid = uuid_of_string vm.id in
 		let devices = Device_common.list_frontends ~xs domid in
-		let vbds = List.filter (fun device -> Device_common.(device.frontend.kind = Vbd)) devices in
+		let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
 		let vbds = List.map (fun device -> Device_common.(device.frontend.devid)) vbds in
 		let dps = List.map (fun devid -> get_private_key ~xs vm.id "vbd" devid _dp_id) vbds in
 
@@ -1764,8 +1780,9 @@ module VM = struct
 		let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg in
 		let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x in
 		if not multiple then
-			log_exn_rm ~xs (Device_common.get_private_path' vm.id);
-		log_exn_rm ~xs (Device_common.get_private_path domid);
+			log_exn_rm ~xs (Device_common.get_private_path_by_uuid uuid)
+		else
+			log_exn_rm ~xs (Hotplug.get_hotplug_base_by_uuid uuid domid);
 
 		(* Detach any remaining disks *)
 		List.iter (fun dp ->
@@ -2123,12 +2140,13 @@ module VM = struct
 					with_xs (fun xs -> xs.Xs.write disconnect_path flag);
 				) vifs;
 
-				List.iter (fun (_, devid, _, backend_domid) ->
+				List.iter (function (vbd, devid, _, backend_domid) ->
 					(* wait for plug *)
 					let device =
 						let open Device_common in
-						let frontend = { domid; kind = Vbd; devid = devid } in
-						let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+						let kind = VBD.device_kind_of vbd in
+						let frontend = { domid; kind; devid } in
+						let backend = { domid = backend_domid; kind; devid } in
 						{ backend = backend; frontend = frontend }
 					in
 					with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
@@ -2163,10 +2181,11 @@ module VM = struct
 					VBD.write_extra backend_domid domid devid extra_backend_keys;
 
 					(* We store away the disk so we can implement VBD.stat *)
+					let kind = VBD.device_kind_of vbd in
 					let device =
 						let open Device_common in
-						let frontend = { domid = domid; kind = Vbd; devid = devid } in
-						let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+						let frontend = { domid = domid; kind; devid } in
+						let backend = { domid = backend_domid; kind; devid } in
 						{ backend = backend; frontend = frontend }
 					in
 					with_xs (fun xs ->

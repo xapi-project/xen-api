@@ -46,12 +46,16 @@ exception Loopdev_all_busy
    for unplug, not sure about plug) *)
 
 (* Path in xenstore where we stuff our transient hotplug-related stuff *)
+let get_hotplug_base domid =
+	sprintf "%s/hotplug/%d" (get_private_path domid) domid
+let get_hotplug_base_by_uuid uuid domid =
+	sprintf "%s/hotplug/%d" (get_private_path_by_uuid uuid) domid
 let get_hotplug_path (x: device) =
-	sprintf "%s/hotplug/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
+	sprintf "%s/%s/%d" (get_hotplug_base x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
 let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 	| Vif -> get_hotplug_path x ^ "/hotplug"
-	| Vbd | Qdisk ->
+	| Vbd _ | Qdisk ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
@@ -92,7 +96,7 @@ let device_is_online ~xs (x: device) =
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
-  | ( Vbd | Tap | Qdisk ) -> 
+  | ( Vbd _ | Tap | Qdisk ) -> 
       if backend_request () 
       then not(backend_shutdown ())
       else hotplugged ~xs x
@@ -230,12 +234,12 @@ let release' (task:Xenops_task.t) ~xs (x: device) vm kind devid =
 			xs.Xs.rm (path ^ "/" ^ x)
 		  ) all;
 	xs.Xs.rm path;
-	xs.Xs.rm (get_private_data_path_of_device' vm kind devid)
+	xs.Xs.rm (get_private_data_path_of_device x)
 
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
-	| Vbd -> Some !Xl_path.vbd_script
+	| Vbd _ -> Some !Xl_path.vbd_script
 	| Vif | Tap -> Some !Xl_path.vif_script
 	| Qdisk -> None
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
