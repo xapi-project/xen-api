@@ -19,7 +19,7 @@ let chgrp = ref "chgrp"
 let hvmloader = ref "hvmloader"
 let pygrub = ref "pygrub"
 let eliloader = ref "eliloader"
-let legacy_conv_tool = ref "legacy.py"
+let legacy_conv_tool = ref "convert-legacy-stream"
 let verify_libxc_v2 = ref "verify-stream-v2"
 
 open Unix
@@ -45,7 +45,7 @@ let essentials = [
 ]
 
 let nonessentials = [
-	X_OK, "legacy.py", legacy_conv_tool, "path to legacy.py conversion tool"
+	X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool"
 ]
 
 let make_resources ~essentials ~nonessentials =

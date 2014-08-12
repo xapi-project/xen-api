@@ -186,7 +186,7 @@ let with_conversion_script task name hvm fd f =
 		(thread, status)
 	in
 	let (conv_th, conv_st) =
-		spawn_thread_and_close_fd "legacy.py" pipe_w (fun () ->
+		spawn_thread_and_close_fd "convert-legacy-stream" pipe_w (fun () ->
 			Cancellable_subprocess.run task
 				[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
 		)
