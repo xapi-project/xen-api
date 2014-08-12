@@ -285,7 +285,7 @@ esac
 # has been launched from libxl
 if [ -n "${UDEV_CALL}" ] && \
    xenstore-read "libxl/disable_udev" >/dev/null 2>&1; then
-    logger -t scripts-vif "called from udev and disable_udev set, skipping domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
+    logger -t scripts-vif "called from udev and disable_udev set, skipping domid:$DOMID devid:$DEVID mode:$NETWORK_MODE uuid:$DOMUUID"
     exit 0
 fi
 
