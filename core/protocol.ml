@@ -229,7 +229,15 @@ exception Timeout
 module type S = sig
   val whoami: unit -> string
 
-  module IO: Cohttp.IO.S
+  module IO: sig
+    include Cohttp.IO.S
+
+    val map: ('a -> 'b) -> 'a t -> 'b t
+
+    val any: 'a t list -> 'a t
+
+    val is_determined: 'a t -> bool
+  end
 
   val connect: int -> (IO.ic * IO.oc) IO.t
 
@@ -425,17 +433,29 @@ module Client = functor(M: S) -> struct
 end
 
 
-module Server = functor(IO: Cohttp.IO.S) -> struct
+module Server = functor(M: S) -> struct
 
-	module Connection = Connection(IO)
+	module Connection = Connection(M.IO)
 
-  open IO
+  open M.IO
+
+  type t = {
+    request_shutdown: unit M.Ivar.t;
+    on_shutdown: unit M.Ivar.t;
+  }
+
+  let shutdown t =
+    M.Ivar.fill t.request_shutdown ();
+    M.Ivar.read t.on_shutdown
 
 	let listen process c name =
 		let token = Printf.sprintf "%d" (Unix.getpid ()) in
 		Connection.rpc c (In.Login token) >>= fun _ ->
 		Connection.rpc c (In.CreatePersistent name) >>= fun _ ->
-		Printf.fprintf stdout "Serving requests forever\n%!";
+
+    let request_shutdown = M.Ivar.create () in
+    let on_shutdown = M.Ivar.create () in
+    let t = { request_shutdown; on_shutdown } in
 
 		let rec loop from =
 			let timeout = 5. in
@@ -445,34 +465,42 @@ module Server = functor(IO: Cohttp.IO.S) -> struct
 				queues = [ name ];
 			} in
 			let frame = In.Transfer transfer in
-			Connection.rpc c frame >>= function
-			| `Error e ->
-				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
-				return ()
-			| `Ok raw ->
-				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
-				begin match transfer.Out.messages with
-				| [] -> loop from
-				| m :: ms ->
-					iter
-						(fun (i, m) ->
-							process m.Message.payload >>= fun response ->
-							begin
-								match m.Message.kind with
-								| Message.Response _ ->
-									return () (* configuration error *)
-								| Message.Request reply_to ->
-									let request = In.Send(reply_to, { Message.kind = Message.Response i; payload = response }) in
-									Connection.rpc c request >>= fun _ ->
-									return ()
-					 		end >>= fun () ->
-							let request = In.Ack i in
-							Connection.rpc c request >>= fun _ ->
-							return ()
-						) transfer.Out.messages >>= fun () ->
-					loop (Some transfer.Out.next)
-				end in
-		loop None
+      let message = Connection.rpc c frame in
+      any [ map (fun _ -> ()) message; M.Ivar.read request_shutdown ] >>= fun () ->
+      if is_determined (M.Ivar.read request_shutdown) then begin
+        M.Ivar.fill on_shutdown ();
+        return ()
+      end else begin
+  			message >>= function
+  			| `Error e ->
+  				Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
+  				return ()
+  			| `Ok raw ->
+  				let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+  				begin match transfer.Out.messages with
+  				| [] -> loop from
+  				| m :: ms ->
+  					iter
+	  					(fun (i, m) ->
+	  						process m.Message.payload >>= fun response ->
+	  						begin
+	  							match m.Message.kind with
+	  							| Message.Response _ ->
+	  								return () (* configuration error *)
+	  							| Message.Request reply_to ->
+	  								let request = In.Send(reply_to, { Message.kind = Message.Response i; payload = response }) in
+	  								Connection.rpc c request >>= fun _ ->
+	  								return ()
+	  				 		end >>= fun () ->
+	  						let request = In.Ack i in
+	  						Connection.rpc c request >>= fun _ ->
+	  						return ()
+	  					) transfer.Out.messages >>= fun () ->
+	  				loop (Some transfer.Out.next)
+	  			end
+      end in
+    let (_: unit M.IO.t) = loop None in
+    return t
 end
 
 (* The following type is deprecated, used only by legacy Unix clients *)

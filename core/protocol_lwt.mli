@@ -43,6 +43,11 @@ module Client : sig
 end
 
 module Server : sig
+  type t
+  (** A listening server *)
 
-	val listen: (string -> string Lwt.t) -> (M.IO.ic * M.IO.oc) -> string -> unit Lwt.t
+  val listen: (string -> string Lwt.t) -> (M.IO.ic * M.IO.oc) -> string -> t Lwt.t
+
+  val shutdown: t -> unit Lwt.t
+  (** [shutdown t] shutdown a server *)
 end

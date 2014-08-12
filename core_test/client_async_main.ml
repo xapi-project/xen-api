@@ -30,7 +30,7 @@ let (>>|=) m f = m >>= function
 | `Error y -> raise y
 
 let main () =
-	Client.connect !port !name >>|= fun c ->  
+	Client.connect !port !name >>|= fun c ->
 	let counter = ref 0 in
 	let one () =
 		incr counter;
@@ -62,5 +62,5 @@ let _ =
 		"-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
 		"Send a message to a name, optionally waiting for a response";
-  main ();
+  let (_: 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())

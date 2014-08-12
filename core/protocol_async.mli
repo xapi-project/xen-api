@@ -45,6 +45,11 @@ module Client : sig
 end
 
 module Server : sig
+  type t
+  (** A listening server *)
 
-	val listen: (string -> string Deferred.t) -> (M.IO.ic * M.IO.oc) -> string -> unit Deferred.t
+  val listen: (string -> string Deferred.t) -> (M.IO.ic * M.IO.oc) -> string -> t Deferred.t
+
+  val shutdown: t -> unit Deferred.t
+  (** [shutdown t] shutdown a server *)
 end

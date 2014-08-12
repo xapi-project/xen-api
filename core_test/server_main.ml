@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
- 
+
 open Cohttp_lwt_unix
 open Lwt
 open Protocol
@@ -25,7 +25,10 @@ let process x = return x
 
 let main () =
 	lwt c = Protocol_lwt.M.connect !port in
-	Protocol_lwt.Server.listen process c !name
+	Protocol_lwt.Server.listen process c !name >>= fun t ->
+  (* forever *)
+  let t, u = Lwt.task () in
+  t
 
 let _ =
 	Arg.parse [

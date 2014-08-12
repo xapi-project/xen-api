@@ -167,7 +167,15 @@ exception Timeout
 module type S = sig
   val whoami: unit -> string
 
-  module IO: Cohttp.IO.S
+  module IO: sig
+    include Cohttp.IO.S
+
+    val map: ('a -> 'b) -> 'a t -> 'b t
+
+    val any: 'a t list -> 'a t
+
+    val is_determined: 'a t -> bool
+  end
 
   val connect: int -> (IO.ic * IO.oc) IO.t
 
@@ -204,8 +212,14 @@ module Connection(IO: Cohttp.IO.S) : sig
 	val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
 end
 
-module Server(IO: Cohttp.IO.S) : sig
-	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
+module Server(M: S) : sig
+  type t
+  (** A listening server *)
+
+	val listen: (string -> string M.IO.t) -> (M.IO.ic * M.IO.oc) -> string -> t M.IO.t
+
+  val shutdown: t -> unit M.IO.t
+  (** [shutdown t] shutdown a server *)
 end
 
 module Client(M: S) : sig

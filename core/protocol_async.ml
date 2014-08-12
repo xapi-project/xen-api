@@ -31,6 +31,10 @@ module M = struct
 
   module IO = struct
     include Cohttp_async_io
+
+    let map f t = Deferred.map ~f t
+    let any = Deferred.any
+    let is_determined = Deferred.is_determined
   end
 
   let connect port =
@@ -104,4 +108,4 @@ let whoami = M.whoami
 module Connection = Protocol.Connection(M.IO)
 
 module Client = Protocol.Client(M)
-module Server = Protocol.Server(M.IO)
+module Server = Protocol.Server(M)
