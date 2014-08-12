@@ -95,8 +95,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
   output_file config_mk lines;
   (* Expand @LIBEXEC@ in udev rules *)
   expand "@LIBEXEC@" libexecdir "scripts/vif.in" "scripts/vif";
-  expand "@LIBEXEC@" libexecdir "scripts/xen-backend.rules.in" "scripts/xen-backend.rules";
-  expand "@LIBEXEC@" libexecdir "scripts/xen-backend-xl.rules.in" "scripts/xen-backend-xl.rules"
+  expand "@LIBEXEC@" libexecdir "scripts/xen-backend.rules.in" "scripts/xen-backend.rules"
 
 let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir )
 
