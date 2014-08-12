@@ -1264,7 +1264,8 @@ module VIF = struct
 				t.Xst.setperms private_data_path
 					Xs_protocol.ACL.({owner = backend_domid; other = NONE; acl = []});
 				t.Xst.writev private_data_path
-					(("backend-kind", "vif") :: ("backend-id", string_of_int backend_domid) :: private_list);
+					(("bridge-MAC", "fe:ff:ff:ff:ff:ff") ::
+						("backend-kind", "vif") :: ("backend-id", string_of_int backend_domid) :: private_list);
 			)
 		)
 
