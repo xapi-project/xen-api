@@ -119,7 +119,7 @@ let openvswitch_not_active = "OPENVSWITCH_NOT_ACTIVE"
 let transport_pif_not_configured = "TRANSPORT_PIF_NOT_CONFIGURED"
 let is_tunnel_access_pif = "IS_TUNNEL_ACCESS_PIF"
 let pif_tunnel_still_exists = "PIF_TUNNEL_STILL_EXISTS"
-
+let bridge_not_available = "BRIDGE_NOT_AVAILABLE"
 let vlan_tag_invalid = "VLAN_TAG_INVALID"
 let vm_bad_power_state = "VM_BAD_POWER_STATE"
 let vm_is_template = "VM_IS_TEMPLATE"
