@@ -144,7 +144,12 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     if not vdi_record.Db_actions.vDI_managed
     then set_errors Api_errors.vdi_not_managed [ _ref ] all_ops;
 
-    if vdi_record.Db_actions.vDI_current_operations <> [] then begin
+		let vdi_operations_besides_copy =
+			List.exists
+				(fun (_, operation) -> operation <> `copy)
+				vdi_record.Db_actions.vDI_current_operations
+		in
+    if vdi_operations_besides_copy then begin
       debug "VBD operation %s not allowed because VDI.current-operations = [ %s ]"
 	(String.concat ";" (List.map vbd_operation_to_string current_ops))
 	(String.concat "; " 
