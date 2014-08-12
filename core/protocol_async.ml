@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
- 
+
   let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
@@ -31,6 +31,10 @@ module M = struct
 
   module IO = struct
     include Cohttp_async_io
+
+    let map f t = Deferred.map ~f t
+    let any = Deferred.any
+    let is_determined = Deferred.is_determined
   end
 
   let connect port =
@@ -47,6 +51,10 @@ module M = struct
       | Ok (_, reader, writer) ->
         return (reader, writer) in
     retry 1.
+
+  let disconnect (_, writer) =
+    Writer.close writer;
+    return ()
 
   module Ivar = struct
     include Ivar
@@ -100,4 +108,4 @@ let whoami = M.whoami
 module Connection = Protocol.Connection(M.IO)
 
 module Client = Protocol.Client(M)
-module Server = Protocol.Server(M.IO)
+module Server = Protocol.Server(M)

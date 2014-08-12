@@ -26,6 +26,10 @@ module M = struct
 
   module IO = struct
     include Cohttp_lwt_unix_io
+
+    let map = Lwt.map
+    let any = Lwt.choose
+    let is_determined t = Lwt.state t <> Lwt.Sleep
   end
 
 	let connect port =
@@ -46,6 +50,9 @@ module M = struct
 		match !result with
 		| None -> assert false
 		| Some x -> return x
+
+  let disconnect (ic, oc) =
+    Lwt_io.close ic
 
   module Ivar = struct
     type 'a t = {
@@ -83,4 +90,4 @@ let whoami = M.whoami
 module Connection = Protocol.Connection(M.IO)
 
 module Client = Protocol.Client(M)
-module Server = Protocol.Server(M.IO)
+module Server = Protocol.Server(M)

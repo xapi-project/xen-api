@@ -167,9 +167,19 @@ exception Timeout
 module type S = sig
   val whoami: unit -> string
 
-  module IO: Cohttp.IO.S
+  module IO: sig
+    include Cohttp.IO.S
+
+    val map: ('a -> 'b) -> 'a t -> 'b t
+
+    val any: 'a t list -> 'a t
+
+    val is_determined: 'a t -> bool
+  end
 
   val connect: int -> (IO.ic * IO.oc) IO.t
+
+  val disconnect: (IO.ic * IO.oc) -> unit IO.t
 
   module Ivar : sig
     type 'a t
@@ -202,8 +212,14 @@ module Connection(IO: Cohttp.IO.S) : sig
 	val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
 end
 
-module Server(IO: Cohttp.IO.S) : sig
-	val listen: (string -> string IO.t) -> (IO.ic * IO.oc) -> string -> unit IO.t
+module Server(M: S) : sig
+  type t
+  (** A listening server *)
+
+	val listen: (string -> string M.IO.t) -> (M.IO.ic * M.IO.oc) -> string -> t M.IO.t
+
+  val shutdown: t -> unit M.IO.t
+  (** [shutdown t] shutdown a server *)
 end
 
 module Client(M: S) : sig
@@ -211,7 +227,14 @@ module Client(M: S) : sig
 
   val connect: int -> string -> [ `Ok of t | `Error of exn ] M.IO.t
 
+  val disconnect: t -> unit M.IO.t
+  (** [disconnect] closes the connection *)
+
   val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] M.IO.t
 
   val list: t -> string -> [ `Ok of string list | `Error of exn ] M.IO.t
+
+  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] M.IO.t
+  (** [destroy t queue_name] destroys the named queue, and all associated
+      messages. *)
 end

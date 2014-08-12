@@ -36,5 +36,5 @@ let _ =
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
 		"Respond to RPCs on a name";
 
-  main ();
+  let (_: 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())
