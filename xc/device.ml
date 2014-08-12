@@ -532,8 +532,8 @@ let add_async ~xs ~hvm x domid =
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
        blkback from successfully opening the device since this can
        prevent qemu CD eject (and subsequent vdi_deactivate) *)
-	if hvm && (x.dev_type = CDROM) then
-		Hashtbl.add back_tbl "no-physical-device" "";
+	let no_phys_device =
+		if hvm && (x.dev_type = CDROM) then ["no-physical-device", ""] else [] in
 
 	Opt.iter
 		(fun protocol ->
@@ -542,8 +542,9 @@ let add_async ~xs ~hvm x domid =
 
 	let back = Hashtbl.fold (fun k v acc -> (k, v) :: acc) back_tbl [] in
 	let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
+	let priv = no_phys_device @ x.extra_private_keys in
 
-	Generic.add_device ~xs device back front x.extra_private_keys;
+	Generic.add_device ~xs device back front priv;
 	device
 
 let add_wait (task: Xenops_task.t) ~xs device =
