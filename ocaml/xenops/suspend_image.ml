@@ -146,7 +146,7 @@ let write_header fd (hdr_type, len) =
 	write_int64 fd (int64_of_header_type hdr_type) >>= fun () ->
 	write_int64 fd len
 
-let conv_script = "/usr/lib64/xen/bin/legacy.py"
+let conv_script = "/usr/lib64/xen/bin/convert-legacy-stream"
 
 let check_conversion_script () =
 	let open Unix in
@@ -194,7 +194,7 @@ let with_conversion_script task name hvm fd f =
 		(thread, status)
 	in
 	let (conv_th, conv_st) =
-		spawn_thread_and_close_fd "legacy.py" pipe_w (fun () ->
+		spawn_thread_and_close_fd "convert-legacy-stream" pipe_w (fun () ->
 			Cancel_utils.cancellable_subprocess task
 				[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
 		)
