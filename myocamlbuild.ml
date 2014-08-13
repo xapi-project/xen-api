@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 43dc5ced98bc4513642d6992db58333f) *)
+(* DO NOT EDIT (digest: bc7bfca88c4faf2e092fcb6e4b4377a9) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -39,10 +39,10 @@ module OASISExpr = struct
   open OASISGettext
 
 
-  type test = string 
+  type test = string
 
 
-  type flag = string 
+  type flag = string
 
 
   type t =
@@ -52,10 +52,10 @@ module OASISExpr = struct
     | EOr of t * t
     | EFlag of flag
     | ETest of test * string
-    
 
 
-  type 'a choices = (t * 'a) list 
+
+  type 'a choices = (t * 'a) list
 
 
   let eval var_get t =
@@ -368,11 +368,7 @@ module MyOCamlbuildFindlib = struct
           flag ["ocaml"; "pkg_threads"; "compile"] (S[A "-thread"]);
           flag ["ocaml"; "pkg_threads"; "doc"] (S[A "-I"; A "+threads"]);
           flag ["ocaml"; "pkg_threads"; "link"] (S[A "-thread"]);
-          flag ["ocaml"; "pkg_threads"; "infer_interface"] (S[A "-thread"]);
-          flag ["ocaml"; "package(threads)"; "compile"] (S[A "-thread"]);
-          flag ["ocaml"; "package(threads)"; "doc"] (S[A "-I"; A "+threads"]);
-          flag ["ocaml"; "package(threads)"; "link"] (S[A "-thread"]);
-          flag ["ocaml"; "package(threads)"; "infer_interface"] (S[A "-thread"]);
+          flag ["ocaml"; "pkg_threads"; "infer_interface"] (S[A "-thread"])
 
       | _ ->
           ()
@@ -394,10 +390,10 @@ module MyOCamlbuildBase = struct
   module OC = Ocamlbuild_pack.Ocaml_compiler
 
 
-  type dir = string 
-  type file = string 
-  type name = string 
-  type tag = string 
+  type dir = string
+  type file = string
+  type name = string
+  type tag = string
 
 
 (* # 62 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
@@ -412,7 +408,7 @@ module MyOCamlbuildBase = struct
          * directory.
          *)
         includes:  (dir * dir list) list;
-      } 
+      }
 
 
   let env_filename =
@@ -551,7 +547,7 @@ module MyOCamlbuildBase = struct
 end
 
 
-# 554 "myocamlbuild.ml"
+# 550 "myocamlbuild.ml"
 open Ocamlbuild_plugin;;
 let package_default =
   {
@@ -618,6 +614,6 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 622 "myocamlbuild.ml"
+# 618 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
