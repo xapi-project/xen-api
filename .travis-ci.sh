@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="oasis cmdliner crc cstruct gnt ounit xcp xcp-rrd"
+OPAM_PACKAGES="oasis cmdliner crc cstruct xen-gnt ounit xcp xcp-rrd"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in

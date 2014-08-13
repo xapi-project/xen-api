@@ -14,6 +14,8 @@
 
 open Rrd_protocol
 
+let (|>) a b = b a
+
 let now () = Int64.of_float (Unix.gettimeofday ())
 
 let get_extra_data_sources_flag =
