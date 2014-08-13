@@ -1,2 +1,18 @@
+0.7.2 (13-08-2014)
+ * Fix build dependencies of main library
+ * travis fixes
+
+0.7.1 (12-08-2014)
+ * Add OCaml 4.00.1 support
+ * Switch to new upstream grant table bindings
+
+0.7.0 (07-02-2014)
+ * Add unit tests and travis integration
+ * Remove unwanted modules from the interface
+ * Cache a single interface to gnttab
+
+0.6.0 (19-Dec-2013)
+ * Use record types instead of tuples in the interface
+
 0.5.0 (15-Dec-2013)
  * initial release.
