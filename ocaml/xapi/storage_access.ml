@@ -448,6 +448,7 @@ module SMAPIv1 = struct
 						in
 						Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
+						Db.VDI.set_snapshot_time ~__context ~self ~value:(Date.of_string vdi_info.snapshot_time);
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
 						debug "copying sm-config";
