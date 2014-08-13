@@ -107,8 +107,8 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 		  [`migrate_send],          `metadata_export;
 		  [`migrate_send],          `clean_shutdown;
 		  [`migrate_send],          `clean_reboot;
-        	  [`migrate_send],          `start;
-        	  [`migrate_send],          `start_on;
+		  [`migrate_send],          `start;
+		  [`migrate_send],          `start_on;
 		] in
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
