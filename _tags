@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 578c132bee9950778d1eb6c8003bef33)
+# DO NOT EDIT (digest: 78f37cccbc6bf3b2657e3666b59e689d)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -25,6 +25,7 @@
 <lib/*.ml{,i}>: pkg_xcp.rrd
 <lib/*.ml{,i}>: pkg_xcp-rrd
 <lib/*.ml{,i}>: pkg_xen-gnt
+<lib/*.ml{,i}>: pkg_xen-gnt.unix
 <lib/*.ml{,i}>: pkg_crc
 # Executable reader
 <utils/reader.{native,byte}>: oasis_executable_reader_byte
@@ -32,7 +33,6 @@
 <utils/reader.{native,byte}>: oasis_executable_reader_native
 <utils/*.ml{,i}>: oasis_executable_reader_native
 <utils/reader.{native,byte}>: use_rrd_transport
-<utils/reader.{native,byte}>: pkg_xen-gnt.unix
 <utils/reader.{native,byte}>: pkg_cmdliner
 <utils/reader.{native,byte}>: pkg_threads
 <utils/reader.{native,byte}>: pkg_bigarray
@@ -40,6 +40,7 @@
 <utils/reader.{native,byte}>: pkg_xcp.rrd
 <utils/reader.{native,byte}>: pkg_xcp-rrd
 <utils/reader.{native,byte}>: pkg_xen-gnt
+<utils/reader.{native,byte}>: pkg_xen-gnt.unix
 <utils/reader.{native,byte}>: pkg_crc
 # Executable writer
 <utils/writer.{native,byte}>: oasis_executable_writer_byte
@@ -47,7 +48,6 @@
 <utils/writer.{native,byte}>: oasis_executable_writer_native
 <utils/*.ml{,i}>: oasis_executable_writer_native
 <utils/writer.{native,byte}>: use_rrd_transport
-<utils/writer.{native,byte}>: pkg_xen-gnt.unix
 <utils/writer.{native,byte}>: pkg_cmdliner
 <utils/writer.{native,byte}>: pkg_threads
 <utils/writer.{native,byte}>: pkg_bigarray
@@ -55,9 +55,9 @@
 <utils/writer.{native,byte}>: pkg_xcp.rrd
 <utils/writer.{native,byte}>: pkg_xcp-rrd
 <utils/writer.{native,byte}>: pkg_xen-gnt
+<utils/writer.{native,byte}>: pkg_xen-gnt.unix
 <utils/writer.{native,byte}>: pkg_crc
 <utils/*.ml{,i}>: use_rrd_transport
-<utils/*.ml{,i}>: pkg_xen-gnt.unix
 <utils/*.ml{,i}>: pkg_cmdliner
 <utils/*.ml{,i}>: pkg_threads
 <utils/*.ml{,i}>: pkg_bigarray
@@ -65,28 +65,29 @@
 <utils/*.ml{,i}>: pkg_xcp.rrd
 <utils/*.ml{,i}>: pkg_xcp-rrd
 <utils/*.ml{,i}>: pkg_xen-gnt
+<utils/*.ml{,i}>: pkg_xen-gnt.unix
 <utils/*.ml{,i}>: pkg_crc
 # Executable test_suite
 "test/test_suite.byte": oasis_executable_test_suite_byte
 <test/*.ml{,i}>: oasis_executable_test_suite_byte
 "test/test_suite.byte": use_rrd_transport
 "test/test_suite.byte": pkg_oUnit
-"test/test_suite.byte": pkg_xen-gnt.unix
 "test/test_suite.byte": pkg_threads
 "test/test_suite.byte": pkg_bigarray
 "test/test_suite.byte": pkg_cstruct
 "test/test_suite.byte": pkg_xcp.rrd
 "test/test_suite.byte": pkg_xcp-rrd
 "test/test_suite.byte": pkg_xen-gnt
+"test/test_suite.byte": pkg_xen-gnt.unix
 "test/test_suite.byte": pkg_crc
 <test/*.ml{,i}>: use_rrd_transport
 <test/*.ml{,i}>: pkg_oUnit
-<test/*.ml{,i}>: pkg_xen-gnt.unix
 <test/*.ml{,i}>: pkg_threads
 <test/*.ml{,i}>: pkg_bigarray
 <test/*.ml{,i}>: pkg_cstruct
 <test/*.ml{,i}>: pkg_xcp.rrd
 <test/*.ml{,i}>: pkg_xcp-rrd
 <test/*.ml{,i}>: pkg_xen-gnt
+<test/*.ml{,i}>: pkg_xen-gnt.unix
 <test/*.ml{,i}>: pkg_crc
 # OASIS_STOP
