@@ -12,5 +12,5 @@ Build dependencies:
 * [cstruct](https://github.com/avsm/ocaml-cstruct)
 * [xcp](https://github.com/xapi-project/xcp-idl)
 * [xcp-rrd](https://github.com/xen-org/xcp-rrd)
-* [gnt](https://github.com/xapi-project/ocaml-gnt)
+* [xen-gnt](https://github.com/mirage/ocaml-gnt)
 * [crc](https://github.com/xapi-project/ocaml-crc)
