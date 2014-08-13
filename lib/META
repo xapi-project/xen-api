@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8f073fd8c364c71a4aa37cfe37fe91e5)
-version = "0.6.0"
+# DO NOT EDIT (digest: 813d5fbf7cd672425c43430a640d9f14)
+version = "0.7.2"
 description = "Shared-memory protocols for transmitting RRD data"
 requires =
 "bigarray cstruct xcp.rrd xcp-rrd xen-gnt xen-gnt.unix crc threads"
