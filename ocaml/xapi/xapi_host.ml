@@ -259,26 +259,6 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 						| Some (a,b) -> Hashtbl.replace plans vm (Error ( a, b))
 				)all_user_vms;
 
-			(* Check for the presence of PV drivers that support migration. *)
-			List.iter
-				(fun (vm, vm_record) ->
-					let pv_driver_version =
-						Xapi_pv_driver_version.of_guest_metrics
-							(Opt.of_exception (fun () ->
-								Db.VM_guest_metrics.get_record_internal
-									~__context ~self:vm_record.API.vM_guest_metrics)) in
-					let pv_drivers_error =
-						if not (Helpers.has_booted_hvm ~__context ~self:vm)
-						then None       (* PV guests don't need driver check *)
-						else            (* HVM guest do *)
-							if Xapi_pv_driver_version.is_ok_for_migrate pv_driver_version
-							then None
-							else Some Api_errors.vm_missing_pv_drivers in
-					Opt.iter
-						(fun e -> Hashtbl.replace plans vm (Error (e, [Ref.string_of vm])))
-						(pv_drivers_error))
-				(all_user_vms);
-
 			(* Compute the binpack which takes only memory size into account. We will check afterwards for storage
 			   and network availability. *)
 			let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts migratable_vms in
@@ -314,7 +294,7 @@ let get_vms_which_prevent_evacuation ~__context ~self =
 
 let compute_evacuation_plan_wlb ~__context ~self =
   (* We treat xapi as primary when it comes to "hard" errors, i.e. those that aren't down to memory constraints.  These are things like
-	 VM_REQUIRES_SR or VM_MISSING_PV_DRIVERS.
+	 VM_REQUIRES_SR or VM_LACKS_FEATURE_SUSPEND.
 
 	 We treat WLB as primary when it comes to placement of things that can actually move.  WLB will return a list of migrations to perform,
 	 and we pass those on.  WLB will only return a partial set of migrations -- if there's not enough memory available, or if the VM can't
