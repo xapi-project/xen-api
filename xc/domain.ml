@@ -445,6 +445,8 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 		else
 			log_exn_rm ~xs (Hotplug.get_hotplug_base_by_uuid uuid domid)
 	end;
+	(* Also zap any remaining cancellation paths in xenstore *)
+	Cancel_utils.cleanup_for_domain ~xs domid;
 
 	(* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
 	let still_exists () = 

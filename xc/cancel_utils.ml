@@ -35,28 +35,39 @@ let string_of = function
 	| Vgpu domid -> Printf.sprintf "domid %d" domid
 	| TestPath x -> x
 
+let root = "/xenops/tasks"
+
+let path_of domid =
+	Printf.sprintf "%s/%d" root domid
+
 let cancel_path_of ~xs = function
-	| Device device ->
+	| Device x ->
 		(* Device operations can be cancelled separately *)
-		Printf.sprintf "%s/xenops/cancel" (get_private_data_path_of_device device)
+		Printf.sprintf "%s/%s/%d/cancel" (path_of x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 	| Domain domid ->
-		Printf.sprintf "%s/xenops/cancel" (get_private_path domid)
+		Printf.sprintf "%s/cancel" (path_of domid)
 	| Qemu (backend, frontend) ->
 		(* Domain and qemu watches are considered to be domain-local *)
-		Printf.sprintf "%s/device-model/xenops/cancel" (get_private_path frontend)
+		Printf.sprintf "%s/device-model/cancel" (path_of frontend)
 	| Vgpu domid ->
-		Printf.sprintf "%s/vgpu/xenops/cancel" (get_private_path domid)
+		Printf.sprintf "%s/vgpu/cancel" (path_of domid)
 	| TestPath x -> x
 
 let shutdown_path_of ~xs = function
-	| Device device -> Printf.sprintf "%s/xenops/shutdown" (get_private_data_path_of_device device)
-	| Domain domid -> Printf.sprintf "%s/xenops/shutdown" (get_private_path domid)
+	| Device x -> Printf.sprintf "%s/%s/%d/shutdown" (path_of x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
+	| Domain domid -> Printf.sprintf "%s/shutdown" (path_of domid)
 	| Qemu (backend, _) ->
 		(* We only need to cancel when the backend domain shuts down. It will
 		   break suspend if we cancel when the frontend shuts down. *)
-		Printf.sprintf "%s/xenops/shutdown" (get_private_path backend)
-	| Vgpu domid -> Printf.sprintf "%s/vgpu/xenops/shutdown" (get_private_path domid)
+		Printf.sprintf "%s/shutdown" (path_of backend)
+	| Vgpu domid -> Printf.sprintf "%s/vgpu/shutdown" (path_of domid)
 	| TestPath x -> x
+
+let cleanup_for_domain ~xs domid =
+	try
+		xs.Xs.rm (path_of domid)
+	with _ ->
+		warn "Failed to clean up xenstore cancellation paths for domain %d" domid
 
 let watches_of ~xs key = [
 	Watch.key_to_disappear (cancel_path_of ~xs key);
@@ -81,7 +92,7 @@ let on_shutdown ~xs domid =
 				let control_path = Printf.sprintf "%s/control/shutdown" (xs.Xs.getdomainpath domid) in
 				let shutdown_in_progress = try t.Xst.read control_path <> "" with _ -> false in
 				if shutdown_in_progress then t.Xst.rm control_path
- 				else t.Xst.write path ""
+				else t.Xst.write path ""
 			end
 			else info "Not cancelling watches associated with domid: %d- domain nolonger exists" domid
 		)
