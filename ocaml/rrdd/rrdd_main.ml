@@ -378,6 +378,10 @@ let update_netdev doms =
 (* disk related code                                 *)
 (*****************************************************)
 
+(* The output is (rd_req, rd_cnt, rd_sum_usecs, wr_req, wr_cnt, wr_sum_usecs) in order.*)
+external get_blktap3_stats:
+	string -> (int64 * int64 * int64 * int64 * int64 * int64) = "stub_get_blktap3_stats"
+
 let update_vbds doms =
 	let read_int_file file =
 		let v = ref 0L in
@@ -393,39 +397,6 @@ let update_vbds doms =
 			) file;
 			!vals
 		with _ -> !vals
-	in
-	(* With blktap3, the IO statistics are maintained in a file 'statistics'
-	 * under the directory '/dev/shm/vbd3-<pid>-<minor>/'
-	 * The file contains the following information:
-	 * ds_req, f_req, oo_req, rd_req, rd_sect, wr_req, wr_sect
-	 * read requests: %Ld, avg usecs: %Ld, max usecs: %Ld
-	 * write requests: %Ld, avg usecs: %Ld, max usecs: %Ld *)
-
-	(* This method reads the first line from the 'statistics' file *)
-	let read_shm_stats_line line =
-		try
-			Scanf.sscanf line "%Ld %Ld %Ld %Ld %Ld %Ld %Ld"
-				(fun a b c d e f g -> (a, b, c, d, e, f, g))
-		with _ -> (0L, 0L, 0L, 0L, 0L, 0L, 0L)
-	in
-	(* This method obtains the latency metrics from the 'statistics' file *)
-	let get_latency_metrics line rdwr =
-		match rdwr with
-		| `Read ->
-			Scanf.sscanf line "read requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
-				(fun a b c -> (a, b, c))
-		| `Write ->
-			Scanf.sscanf line "write requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
-				(fun a b c -> (a, b, c))
-	in
-	let parse_shm_stats file_contents =
-		match file_contents with
-		| [shm_stats; read_latency_stats; write_latency_stats] ->
-				let _,_,_, shm_rd_req,_,shm_wr_req,_ = read_shm_stats_line shm_stats in
-				let _, shm_rd_avg_usecs, _ = get_latency_metrics read_latency_stats `Read in
-				let _, shm_wr_avg_usecs, _ = get_latency_metrics write_latency_stats `Write in
-				Some(shm_rd_req, shm_wr_req, shm_rd_avg_usecs, shm_wr_avg_usecs)
-		| _ -> None
 	in
 	let shm_devices_dir = "/dev/shm" in
 	let sysfs_devices_dir = "/sys/devices/" in
@@ -453,6 +424,18 @@ let update_vbds doms =
 		else
 			None
 	in
+	let read_raw_blktap3_stats vbd =
+		try
+			let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
+			let (rd_req, rd_cnt, rd_sum_usecs, wr_req, wr_cnt, wr_sum_usecs) =
+				get_blktap3_stats stat_file in
+			let rd_avg_usecs =
+				if rd_cnt > 0L then Int64.div rd_sum_usecs rd_cnt else 0L in
+			let wr_avg_usecs =
+				if wr_cnt > 0L then Int64.div wr_sum_usecs wr_cnt else 0L in
+			Some(rd_req, wr_req, rd_avg_usecs, wr_avg_usecs)
+		with _ ->
+			None in
 	let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
 	let shm_vbds =
 		List.filter
@@ -466,8 +449,6 @@ let update_vbds doms =
 		let istap = String.startswith "tap-" vbd in
 		let isvbd3 = String.startswith "vbd3-" vbd in
 		let avg64 a b = Int64.div (Int64.add a b) 2L in
-		let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
-		let stats = Unixext.read_lines stat_file in
 		(* Produce IO RRDs when demanded *)
 		let generate_rrds acc rd_reqs wr_reqs rd_avg_usecs wr_avg_usecs =
 			let blksize = 512L in
@@ -507,7 +488,7 @@ let update_vbds doms =
 				in
 				newacc
 		in
-		match parse_shm_stats stats, read_all_sysfs_stats vbd with
+		match read_raw_blktap3_stats vbd, read_all_sysfs_stats vbd with
 		| Some(a, b, c, d), Some(p, q, r, s) ->
 				let (shm_rd_reqs, shm_wr_reqs, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
 				let (rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
