@@ -2110,15 +2110,19 @@ module VM = struct
 				let domid =
 					match restore_fd with
 					| None ->
-						debug "Calling Xenlight.domain_create_new";
-						(*with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config))*)
-						with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ())
+						debug "Calling Xenlight.Domain.create_new";
+(*						let domid = with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.create_new ctx domain_config)) in*)
+						let domid = with_ctx (fun ctx -> Xenlight.Domain.create_new ctx domain_config ()) in
+						debug "Call Xenlight.Domain.create_new completed";
+						domid
 					| Some fd ->
 						debug "Calling Xenlight.domain_create_restore";
 						with_ctx (fun ctx ->
 							let params = Xenlight.Domain_restore_params.default ctx () in
-						(*	Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config (fd, params))*)
-							Xenlight.Domain.create_restore ctx domain_config (fd, params) ()
+(*							let domid = Xenlight_events.async (Xenlight.Domain.create_restore ctx domain_config (fd, params)) in*)
+							let domid = Xenlight.Domain.create_restore ctx domain_config (fd, params) () in
+							debug "Call Xenlight.Domain.create_restore completed";
+							domid
 						)
 				in
 				debug "Xenlight has created domain %d" domid;
