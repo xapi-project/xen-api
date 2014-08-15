@@ -766,6 +766,8 @@ let on_startup () =
 			(* the following is best-effort *)
 			read_config ();
 			remove_centos_config ();
+			if !Bridge.kind = Openvswitch then
+				Ovs.set_max_idle 5000;
 			Bridge.make_config () dbg ~conservative:true ~config:!config.bridge_config ();
 			Interface.make_config () dbg ~conservative:true ~config:!config.interface_config ();
 			(* If there is still a network.dbcache file, move it out of the way. *)
