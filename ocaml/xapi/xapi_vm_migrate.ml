@@ -67,7 +67,7 @@ let get_ip_from_url url =
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url) 
 
-let rec migrate_with_retries max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops __context=
+let rec migrate_with_retries ~__context max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
         let open Xenops_client in
         let f () =
                 XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops |> Xapi_xenops.sync_with_task __context;
@@ -96,13 +96,13 @@ let rec migrate_with_retries max try_no dbg vm_uuid xenops_vdi_map xenops_vif_ma
                         if (TaskHelper.is_cancelling ~__context) && (!isCancelEx = 1) then
                                 info "Migration is being cancelled by user."
                         else
-                                migrate_with_retries max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops __context
+                                migrate_with_retries ~__context max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
         end
 
 
-let migrate_with_retry dbg vm_uuid xenops_vdi_map xenops_vif_map xenops __context=
-	migrate_with_retries 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops __context
+let migrate_with_retry ~__context dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
+	migrate_with_retries ~__context 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
@@ -116,7 +116,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				migrate_with_retry dbg vm' [] [] xenops_url __context;
+				migrate_with_retry ~__context dbg vm' [] [] xenops_url;
 				(* Delete all record of this VM locally (including caches) *)
 				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
 				(* Flush xenopsd events through: we don't want the pool database to
@@ -586,7 +586,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			try
 				Xapi_xenops.with_events_suppressed ~__context ~self:vm
 					(fun () ->
-						migrate_with_retry dbg vm_uuid xenops_vdi_map xenops_vif_map xenops __context;
+						migrate_with_retry ~__context dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 						Xapi_xenops.Events_from_xenopsd.wait dbg vm_uuid ())
 			with
