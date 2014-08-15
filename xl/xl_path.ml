@@ -15,12 +15,15 @@
 let vif_script = ref "/usr/lib/xcp/scripts/vif"
 let vbd_script = ref "/usr/lib/xcp/scripts/block"
 
-let vncterm = ref "/usr/lib/xcp/lib/vncterm"
-let xenguest = ref "/usr/lib/xcp/lib/xenguest"
-let mount = ref "/bin/mount"
-let umount = ref "/bin/umount"
-let ionice = ref "/usr/bin/ionice"
-let setup_vif_rules = ref "/usr/lib/xcp/lib/setup-vif-rules"
+
+let vncterm = ref "vncterm"
+let xenguest = ref "xenguest"
+let mount = ref "mount"
+let umount = ref "umount"
+let ionice = ref "ionice"
+let setup_vif_rules = ref "setup-vif-rules"
+let vgpu = ref "vgpu"
+
 let vnc_dir = ref ""
 
 open Unix
