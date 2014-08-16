@@ -1,4 +1,7 @@
-trunk (unreleased)
+0.9.7 (16-Aug-2014)
+* update to async version 111.17.00
+
+0.9.6 (1-May-2014)
 * improve async support
 * add an event-based async example
 
