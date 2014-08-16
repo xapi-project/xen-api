@@ -78,7 +78,7 @@ let watch_events rpc session_id =
                 let e = event_from_of_rpc rpc in
                 if e.events = [] then error "Empty list of events";
                 let current = List.fold_left ~init:StringMap.empty ~f:update e.events in
-                List.iter ~f:(fun (key, diff) -> match key, diff with
+                Sequence.iter ~f:(fun (key, diff) -> match key, diff with
                 | key, `Left _ -> error "Replica has extra table: %s" key
                 | key, `Right _ -> error "Replica has missing table: %s" key
                 | _, `Unequal(_,_) -> ()
@@ -89,7 +89,7 @@ let watch_events rpc session_id =
                                 error "Table missing in replica: %s" key
                         | Some root_table ->
                                 let current_table = StringMap.find_exn current key in
-                                List.iter ~f:(fun (key, diff) -> match key, diff with
+                                Sequence.iter ~f:(fun (key, diff) -> match key, diff with
                                 | r, `Left rpc -> error "Replica has extra object: %s: %s" r (Jsonrpc.to_string rpc)
                                 | r, `Right rpc -> error "Replica has missing object: %s: %s" r (Jsonrpc.to_string rpc)
                                 | r, `Unequal(rpc1, rpc2) -> error "Replica has out-of-sync object: %s: %s <> %s" r (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
