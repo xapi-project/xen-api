@@ -160,7 +160,7 @@ let with_conversion_script task name hvm fd f =
 		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
 			"--width"; "32"; "--skip-qemu";
 			"--guest-type"; if hvm then "hvm" else "pv";
-			"--syslog";
+			"--syslog"; "--verbose";
 		]
 	in
 	let (m, c) = Mutex.create (), Condition.create () in
