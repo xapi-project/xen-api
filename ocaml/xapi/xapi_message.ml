@@ -453,7 +453,19 @@ let destroy ~__context ~self =
   let symlinkfname = (ref_symlink ()) ^ "/" ^ (Ref.string_of self) in
   let fullpath =
 	try Unix.readlink symlinkfname
-	with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel._message; Ref.string_of self]))
+	with _ -> begin
+		let allfiles = List.map (fun file -> message_dir ^ "/" ^ file) (Array.to_list (Sys.readdir message_dir)) in
+		let allmsgs = List.filter (fun file -> not (Sys.is_directory file)) allfiles in
+		try
+			List.find (fun msg_fname ->
+				try
+					let ic = open_in msg_fname in
+					let (_,_ref,_) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
+					if _ref = self then true else false
+				with _ -> false
+			) allmsgs
+		with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel._message; Ref.string_of self]))
+	end
   in
   let basefilename = List.hd (List.rev (String.split '/' fullpath)) in
   destroy_real __context basefilename
