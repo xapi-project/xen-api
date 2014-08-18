@@ -6,6 +6,7 @@ DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
 
 VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
 DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
+PRIVATE=/xapi/${DOMUUID}/private/${TYPE}/${DEVID}
 HOTPLUG=/xapi/${DOMUUID}/hotplug/${DOMID}/${TYPE}/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 
@@ -22,7 +23,7 @@ add)
         syslog "${XENBUS_PATH}: add params=\"${params}\""
         # We don't have PV drivers for CDROM devices, so we prevent blkback
         # from opening the physical-device
-		xenstore-exists "${XENBUS_PATH}/no-physical-device"
+        xenstore-exists "${PRIVATE}/no-physical-device"
         if [ $? -ne 0 ]; then
           physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
           syslog "${XENBUS_PATH}: physical-device=${physical_device}"

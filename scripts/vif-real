@@ -165,12 +165,18 @@ add_to_bridge()
         xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
         exit 1
     fi
-    local bridge=$(xenstore-read "${PRIVATE}/bridge")
+
+    local bridge=$(xenstore-read "backend/vif/$DOMID/$DEVID/bridge")
     if [ $? -ne 0 -o -z "${bridge}" ]; then
-        logger -t scripts-vif "Failed to read ${PRIVATE}/bridge from xenstore"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge from xenstore"
-        exit 1
+        logger -t scripts-vif "Failed to read backend/vif/$DOMID/$DEVID/bridge from xenstore. Trying ${PRIVATE}/bridge"
+        local bridge=$(xenstore-read "${PRIVATE}/bridge")
+        if [ $? -ne 0 -o -z "${bridge}" ]; then
+            logger -t scripts-vif "Failed to read ${PRIVATE}/bridge from xenstore"
+            xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge from xenstore"
+            exit 1
+        fi
     fi
+
     logger -t scripts-vif "Adding ${dev} to ${bridge} with address ${address}"
 
     ${IP} link set "${dev}" down                        || logger -t scripts-vif "Failed to ip link set ${dev} down"
@@ -279,7 +285,7 @@ esac
 # has been launched from libxl
 if [ -n "${UDEV_CALL}" ] && \
    xenstore-read "libxl/disable_udev" >/dev/null 2>&1; then
-    logger -t scripts-vif "called from udev and disable_udev set, skipping domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
+    logger -t scripts-vif "called from udev and disable_udev set, skipping domid:$DOMID devid:$DEVID mode:$NETWORK_MODE uuid:$DOMUUID"
     exit 0
 fi
 

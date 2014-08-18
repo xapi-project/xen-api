@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd | Qdisk
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | Qdisk
+val vbd_kind_of_string : string -> kind
+val default_vbd_frontend_kind : kind
 
 type devid = int
 
@@ -50,9 +52,9 @@ val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_state_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
 val get_private_path : Xenctrl.domid -> string
-val get_private_path' : string -> string
+val get_private_path_by_uuid : Uuidm.t -> string
 val get_private_data_path_of_device : device -> string
-val get_private_data_path_of_device' : string -> string -> devid -> string
+val get_private_data_path_of_device_by_uuid : Uuidm.t -> string -> devid -> string
 
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string
@@ -81,3 +83,6 @@ val protocol_of_string : string -> protocol
 
 val qemu_save_path: (int -> 'a, 'b, 'a) format
 val qemu_restore_path: (int -> 'a, 'b, 'a) format
+
+(** Directory in xenstore where qemu writes its state *)
+val device_model_path: qemu_domid:int -> int -> string

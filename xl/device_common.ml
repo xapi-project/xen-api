@@ -15,7 +15,7 @@ open Printf
 open Xenstore
 open Xenops_utils
 
-type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd | Qdisk
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | Qdisk
 with rpc
 
 type devid = int
@@ -43,11 +43,20 @@ open D
 
 open Printf
 
+let supported_vbd_backends = [ "vbd"; "vbd3" ] (* TODO: get from xenopsd config *)
+let default_vbd_frontend_kind = Vbd "vbd"
+let vbd_kind_of_string backend_kind =
+	if List.mem backend_kind supported_vbd_backends then Vbd backend_kind
+	else Vbd "unsupported"
+
 let string_of_kind = function
-  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd" | Qdisk -> "qdisk"
+	| Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+	| Vbd x -> x | Qdisk -> "qdisk"
 let kind_of_string = function
-  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd | "qdisk" -> Qdisk
-  | x -> raise (Unknown_device_type x)
+	| "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
+	| "qdisk" -> Qdisk
+	| b when List.mem b supported_vbd_backends -> Vbd b
+	| x -> raise (Unknown_device_type x)
 
 let string_of_endpoint (x: endpoint) =
   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
@@ -122,27 +131,46 @@ let backend_state_path_of_device ~xs (x: device) =
 let string_of_device (x: device) = 
   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
 
+(* We use this function below to switch from domid- to UUID-based private
+ * paths. It can be made a little more efficient by changing the functions below
+ * to take the UUID as an argument (and change the callers as well...) *)
+let uuid_of_domid domid =
+	try
+		Xenops_helpers.with_xc_and_xs (fun _ xs ->
+			let vm = xs.Xs.getdomainpath domid ^ "/vm" in
+			let vm_dir = xs.Xs.read vm in
+			xs.Xs.read (vm_dir ^ "/uuid")
+		)
+	with _ ->
+		error "uuid_of_domid failed for domid %d" domid;
+		(* Returning a random string on error is not very neat, but we must avoid
+		 * exceptions here. This patch must be followed soon by a patch that changes the
+		 * callers of get_private_path{_of_device} to call by UUID, so that this code
+		 * can go away. *)
+		Printf.sprintf "unknown-domid-%d" domid
+
 (* We store some transient data elsewhere in xenstore to avoid it getting
    deleted by accident when a domain shuts down. We should always zap this
    tree on boot. *)
 let private_path = "/xapi"
 
 (* The private data path is only used by xapi and ignored by frontend and backend *)
-let get_private_path domid = sprintf "%s/%d" private_path domid
+let get_private_path domid =
+	sprintf "%s/%s" private_path (uuid_of_domid domid)
 
-(* The private data path is only used by xapi and ignored by frontend and backend *)
-let get_private_path' vm = sprintf "%s/%s" private_path vm
+let get_private_path_by_uuid uuid =
+	sprintf "%s/%s" private_path (Uuidm.to_string uuid)
 
-let get_private_data_path_of_device (x: device) = 
+let get_private_data_path_of_device (x: device) =
 	sprintf "%s/private/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
-let get_private_data_path_of_device' vm kind devid =
-	sprintf "%s/private/%s/%d" (get_private_path' vm) kind devid
+let get_private_data_path_of_device_by_uuid uuid kind devid =
+	sprintf "%s/private/%s/%d" (get_private_path_by_uuid uuid) kind devid
 
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
-			   | Vbd | Tap | Qdisk -> Vbd
+			   | Tap | Vbd _ | Qdisk -> default_vbd_frontend_kind
 			   | _ -> backend.kind);
 		   devid = backend.devid } in
   { backend = backend; frontend = frontend }
@@ -169,7 +197,7 @@ let parse_frontend_link x =
 		| _ -> None
 
 let parse_backend_link x = 
-	match Xstringext.String.split '/' x with
+	match Xstringext.String.split '/' x with 
 		| [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
@@ -263,4 +291,7 @@ let protocol_of_string = function
 
 let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
 let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
+
+(* Where qemu writes its state and is signalled *)
+let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
