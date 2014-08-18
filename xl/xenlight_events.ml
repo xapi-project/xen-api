@@ -1,10 +1,41 @@
-module Ocaml_event = Event
 open Xenlight
 open Xenops_utils
 open Async
 
 module D = Debug.Make(struct let name = "libxl_events" end)
 open D
+
+module Mailbox = struct
+	(* A single-item mailbox for asynchronous communication between threads *)
+
+	type 'a t = {
+		m: Mutex.t;
+		c: Condition.t;
+		mutable mail: 'a option;
+	}
+
+	(* Create a new mailbox *)
+	let create () =
+		{m = Mutex.create (); c = Condition.create (); mail = None}
+
+	(* Wait for mail, and return when received (blocking) *)
+	let receive box =
+		Mutex.execute box.m (fun () ->
+			while box.mail = None do
+				Condition.wait box.c box.m
+			done;
+			match box.mail with
+			| Some v -> v
+			| None -> failwith "Mailbox.receive: mail disappeared"
+		)
+
+	(* Post mail (non-blocking) *)
+	let post box mail =
+		Mutex.execute box.m (fun () ->
+			box.mail <- Some mail;
+		);
+		Condition.signal box.c
+end
 
 (* event callbacks *)
 
@@ -26,10 +57,10 @@ let event_disaster_callback user event_type msg errnoval =
 
 let async f =
 	debug "ASYNC call";
-	let channel = Ocaml_event.new_channel () in
-	let result = f ?async:(Some channel) () in
+	let box = Mailbox.create () in
+	let result = f ?async:(Some box) () in
 	debug "ASYNC call returned";
-	let ret = Ocaml_event.sync (Ocaml_event.receive channel) in
+	let ret = Mailbox.receive box in
 	debug "ASYNC synced with callback";
 	match ret with
 	| None ->
@@ -40,7 +71,7 @@ let async f =
 
 let async_callback ~result ~user =
 	debug "ASYNC callback";
-	Ocaml_event.sync (Ocaml_event.send user result);
+	Mailbox.post user result;
 	debug "ASYNC sent event notification"
 
 (* event registration and main loop *)
