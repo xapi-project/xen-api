@@ -819,8 +819,6 @@ module VM = struct
 	) Newest task vm
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
-		if di.Xenctrl.hvm_guest then raise (Unimplemented("vcpu hotplug for HVM domains"));
-
 		let domid = di.Xenctrl.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
 		let current =

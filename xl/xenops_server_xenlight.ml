@@ -1812,8 +1812,6 @@ module VM = struct
 
 	let set_vcpus task vm target = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
-		if di.domain_type = Xenlight.DOMAIN_TYPE_HVM then
-			raise (Unimplemented("vcpu hotplug for HVM domains"));
 
 		let set ~xs ~devid domid online =
 			let path = Printf.sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
