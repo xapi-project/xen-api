@@ -742,6 +742,11 @@ let restore_libxc_record (task: Xenops_task.t) ~hvm ~store_port ~console_port ~e
 		raise Domain_restore_failed
 
 let consume_qemu_record fd limit domid uuid =
+	if limit > 1_048_576L then begin (* 1MB *)
+		error "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
+			(Uuid.to_string uuid) domid limit;
+		raise Suspend_image_failure
+	end;
 	let file = sprintf qemu_restore_path domid in
 	let fd2 = Unix.openfile file
 		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
@@ -749,7 +754,15 @@ let consume_qemu_record fd limit domid uuid =
 	finally (fun () ->
 		debug "VM = %s; domid = %d; reading %Ld bytes from %s"
 			(Uuid.to_string uuid) domid limit file;
-		if Unixext.copy_file ~limit fd fd2 <> limit
+		let bytes =
+			try
+				Unixext.copy_file ~limit fd fd2
+			with Unix.Unix_error (e, s1, s2) ->
+				error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid (Unix.error_message e) s1 s2;
+				Unixext.unlink_safe file;
+				raise Suspend_image_failure
+		in
+		if bytes <> limit
 		then begin
 			error "VM = %s; domid = %d; qemu save file was truncated"
 				(Uuid.to_string uuid) domid;
