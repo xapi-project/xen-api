@@ -2169,6 +2169,7 @@ module Actions = struct
 			sprintf "/local/domain/%d/memory/uncooperative" domid;
 			sprintf "/local/domain/%d/console/vnc-port" domid;
 			sprintf "/local/domain/%d/console/tc-port" domid;
+			sprintf "/local/domain/%d/control" domid;
 			sprintf "/local/domain/%d/device" domid;
 			sprintf "/local/domain/%d/rrd" domid;
 			sprintf "/local/domain/%d/vm-data" domid;
