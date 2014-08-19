@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8e4c3ba86cdb89f74f649d353c23f4d7)
+# DO NOT EDIT (digest: 7fdd8e2115b566f8b0a0d1b83c22ddc9)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -23,6 +23,10 @@
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_xcp
 # Executable xcp-rrdd
+<rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_byte
+<rrdd/*.ml{,i}>: oasis_executable_xcp_rrdd_byte
+<rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_native
+<rrdd/*.ml{,i}>: oasis_executable_xcp_rrdd_native
 <rrdd/xcp_rrdd.{native,byte}>: pkg_forkexec
 <rrdd/xcp_rrdd.{native,byte}>: pkg_gzip
 <rrdd/xcp_rrdd.{native,byte}>: pkg_http-svr
