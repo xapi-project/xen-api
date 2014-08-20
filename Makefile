@@ -28,12 +28,16 @@ build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
 
 install:
-	install -D ./dist/build/xenopsd_libvirt/xenopsd_libvirt $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt
-	install -D ./dist/build/xenopsd_qemu/xenopsd_qemu $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
-	install -D ./dist/build/xenopsd/xenopsd $(DESTDIR)/$(SBINDIR)/xenopsd
-	install -D ./dist/build/xenopsd_simulator/xenopsd_simulator $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
-	install -D ./dist/build/xenguest/xenguest $(DESTDIR)/$(LIBEXECDIR)/xenguest
+ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
+	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
+endif
+ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
+	install -D ./xenops_libvirt_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
+endif
+	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
+	install -D ./scripts/block $(DESTDIR)/$(SCRIPTSDIR)/block
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/qemu-vif-script $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
@@ -46,13 +50,13 @@ reinstall: install
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_libvirt
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_qemu
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd_simulator
-	rm -f $(DESTDIR)/$(LIBEXECDIR)/xenguest
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xc
+	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
+	rm -f $(DESTDIR)/$(SCRIPTSDIR)/block
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
