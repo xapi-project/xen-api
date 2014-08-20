@@ -134,10 +134,15 @@ let has_feature ~vmgmr ~feature =
 				List.assoc feature other = "1"
 			with Not_found -> false
 
-(** Return an error iff vmr is an HVM guest and lacks a needed feature *)
+(** Return an error iff vmr is an HVM guest and lacks a needed feature.
+ *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
+ *  on resume (only on startup), so we cannot rely just on that flag. We therefore
+ *  add a cause that enables all features when PV drivers are present using the
+ *  old-style check. *)
 let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref =
 	if power_state <> `Running ||
-		not (Helpers.has_booted_hvm_of_record ~__context vmr)
+		not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
+		has_pv_drivers (of_guest_metrics vmgmr) (* Full PV drivers imply all features *)
 	then None (* PV guests offer support implicitly *)
 	else
 		let some_err e =
