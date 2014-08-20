@@ -143,6 +143,22 @@ let gettimestring () =
 let print_debug = ref false
 let log_to_stdout () = print_debug := true
 
+module type DEBUG = sig
+	val debug : ('a, unit, string, unit) format4 -> 'a
+
+	val warn : ('a, unit, string, unit) format4 -> 'a
+
+	val info : ('a, unit, string, unit) format4 -> 'a
+
+	val error : ('a, unit, string, unit) format4 -> 'a
+
+	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+
+	val log_backtrace : unit -> unit
+
+	val log_and_ignore_exn : (unit -> unit) -> unit
+end
+
 module Make = functor(Brand: BRAND) -> struct
   let _ =
     Mutex.execute dkmutex (fun () -> 

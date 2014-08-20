@@ -60,26 +60,25 @@ val logging_disabled_for : (string * Syslog.level) list ref
 val log_to_stdout : unit -> unit
 (** [log_to_stdout ()] will echo all log output to stdout (not the default) *)
 
-module Make : functor (Brand : BRAND) ->
-sig
-
+module type DEBUG = sig
 	(** Debug function *)
 	val debug : ('a, unit, string, unit) format4 -> 'a
-   
- (** Warn function *)
+
+	(** Warn function *)
 	val warn : ('a, unit, string, unit) format4 -> 'a
 
 	(** Info function *)
-    val info : ('a, unit, string, unit) format4 -> 'a
-    
+	val info : ('a, unit, string, unit) format4 -> 'a
+
 	(** Error function *)
 	val error : ('a, unit, string, unit) format4 -> 'a
 
-    (** Audit function *)
+	(** Audit function *)
 	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
-    
+
 	val log_backtrace : unit -> unit
 
 	val log_and_ignore_exn : (unit -> unit) -> unit
 end
-	
+
+module Make : functor (Brand : BRAND) -> DEBUG
