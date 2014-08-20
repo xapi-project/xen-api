@@ -123,15 +123,6 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	in
 	aux long_copies || aux snapshot || aux boot_record || state_machine ()
 
-(** Special handling is required for RedHat version 3 *)
-let is_rhel3 = function
-	| Some gmr ->
-		let version = gmr.Db_actions.vM_guest_metrics_os_version in
-		assoc_opt "distro" version = Some "rhel"
-		&& assoc_opt "major" version = Some "3"
-	| None ->
-		false
-
 (** True iff the vm guest metrics "other" field includes (feature, "1")
 	as a key-value pair. *)
 let has_feature ~vmgmr ~feature =
