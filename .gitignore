@@ -1,3 +1,10 @@
+lib/version.ml
+xenopsd-xenlight
+xenopsd-libvirt
+xenopsd-simulator
+xenopsd-qemu
+xenopsd-xc
+*.1
 .pc
 *~
 *\#*
