@@ -1,3 +1,9 @@
+0.9.39 (20-Aug-2014):
+* allow vCPU hotplug for HVM if feature-vcpu-hotplug is set
+* by default use the upstream qemu with libxl
+* fix the 'make install' target
+* safeguard against malicious suspend images
+
 0.9.37 (4-Jun-2014):
 * Lots of changes!
 * Update to Cohttp 0.11.2
