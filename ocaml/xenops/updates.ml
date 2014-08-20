@@ -213,7 +213,8 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 				(* assumes recent_b is sorted newest-first *)
 			| [] -> last_event
 			| x::_ -> max last_event x.event_id in
-		(barriers, rest, last)
+		(* Barriers are stored newest-first, reverse to return them in order *)
+		(List.rev barriers, rest, last)
 
 	let last_id t = t.next - 1
 

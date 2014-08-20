@@ -704,6 +704,13 @@ let ionice_output _ =
 			) x' y
 		) equals
 
+let barrier_ordering () =
+	(* Test that barriers come out of Updates in the order they are injected *)
+	let barrier_ids = [1; 2; 3] in
+	List.iter (Client.UPDATES.inject_barrier dbg "barrier") barrier_ids;
+	let (barriers, _, _) = Client.UPDATES.get dbg (Some 1) None in
+	List.map fst barriers
+	|> assert_equal ~msg:"Barriers not in correct order" barrier_ids
 
 let _ =
 	let verbose = ref false in
@@ -746,6 +753,7 @@ let _ =
 			"vm_test_resume" >:: vm_test_resume;
 			"ionice_qos_scheduler" >:: ionice_qos_scheduler;
 			"ionice_output" >:: ionice_output;
+			"barrier_ordering" >:: barrier_ordering;
 		] in
 
 	if !verbose then Debug.log_to_stdout ();
