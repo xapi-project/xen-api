@@ -337,7 +337,7 @@ module VM = struct
 		reraise_libvirterror
 		(fun () ->
 			let c = get_connection () in
-			let d = D.create_linux c xml in
+			let _ = D.create_linux c xml in
 			()
 		);
 		Updates.add (Dynamic.Vm vm.Vm.id) updates
@@ -577,11 +577,11 @@ let init () =
 	Unixext.mkdir_rec (vnc_dir ()) 0o0755;
 	(* Start watching for libvirt events *)
 	let c = get_connection () in
-	E.register_any c (E.Lifecycle (fun dom e ->
+	let _ = E.register_any c (E.Lifecycle (fun dom e ->
 		let uuid = D.get_uuid_string dom in
 		debug "received libvirt Lifecycle event on dom: %s" uuid;
 		Updates.add (Dynamic.Vm uuid) updates;
-	));
+	)) in
 	let (_: Thread.t) = Thread.create (fun () ->
 		C.set_keep_alive c 5 3;
 		while true do
