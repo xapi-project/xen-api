@@ -92,8 +92,13 @@ let handle_received_fd this_connection =
 			end
 		) (fun () -> Unix.close received_fd)
 
+let doc = String.concat "\n" [
+	"This is the xapi toolstack domain management daemon.";
+	"";
+	"Xenopsd looks after a set of Xen domains, performing lifecycle operations including start/shutdown/migrate. A system may run multiple xenopsds, each looking after a different set of VMs. Xenopsd will always ignore domains that it hasn't been asked to manage. There are multiple xenopsd *backends*, including 'xc': which uses libxc directly and 'xenlight': which uses the new Xen libxl library (recommended).";
+]
 
-let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) backend =
+let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) () =
 	Debug.set_facility Syslog.Local5;
 
 	debug "xenopsd version %d.%d starting" major_version minor_version;
@@ -102,7 +107,16 @@ let main ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_noness
 	let resources = Path.make_resources
 		~essentials:(Path.essentials @ specific_essential_paths)
 		~nonessentials:(Path.nonessentials @ specific_nonessential_paths) in
-	Xcp_service.configure ~options ~resources ();
+	match Xcp_service.configure2
+		~name:(Filename.basename Sys.argv.(0))
+		~version:Version.version
+		~doc ~options ~resources () with
+	| `Ok () -> ()
+	| `Error m ->
+		error "%s" m;
+		exit 1
+
+let main backend =
 
 	(* Listen for transferred file descriptors *)
 	let forwarded_server = Xcp_service.make_socket_server (forwarded_path ())

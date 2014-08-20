@@ -52,11 +52,13 @@ let make_var_run_xen () =
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".xenlight";
 	Xenops_utils.set_root "xenopsd/xenlight";
+	Xenopsd.configure
+		~specific_essential_paths:Xl_path.essentials
+		~specific_nonessential_paths:Xl_path.nonessentials
+		();
 	check_domain0_uuid ();
 	make_vnc_dir ();
 	make_var_run_xen ();
 	Xenopsd.main
-		~specific_essential_paths:Xl_path.essentials
-		~specific_nonessential_paths:Xl_path.nonessentials
 		(module Xenops_server_xenlight: Xenops_server_plugin.S)
 
