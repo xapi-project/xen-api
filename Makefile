@@ -29,7 +29,7 @@ build: setup.data setup.bin
 
 install:
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
-	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xl
+	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 endif
 ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
 	install -D ./xenops_libvirt_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
