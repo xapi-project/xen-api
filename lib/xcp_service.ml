@@ -98,7 +98,7 @@ module Config_file = struct
 			then (k,String.sub v 1 (String.length v - 2))
 			else (k,v)
 
-	let parse_line line = 
+	let parse_line line =
 		(* Strip comments *)
 		let stripped = line |> trim_comment |> trim_trailing_ws in
 		let lift f x = Some (f x) in
@@ -108,7 +108,7 @@ module Config_file = struct
 	let process_line data spec =
 		let spec = List.map (fun (a, b, _, _) -> a, b) spec in
 		match parse_line data with
-		| Some (key,v) -> 
+		| Some (key,v) ->
 			if List.mem_assoc key spec then apply v (List.assoc key spec)
 		| None -> ()
 
@@ -133,10 +133,16 @@ module Config_file = struct
 end
 
 let rec split_c c str =
-  try 
+  try
     let i = String.index str c in
     String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
   with Not_found -> [str]
+
+let setify =
+  let rec loop acc = function
+    | [] -> acc
+    | x :: xs -> (if List.mem x acc then loop acc else loop (x :: acc)) xs in
+  loop []
 
 let common_options = [
 	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
@@ -147,14 +153,79 @@ let common_options = [
 	"daemon", Arg.Bool (fun x -> daemon := x), (fun () -> string_of_bool !daemon), "True if we are to daemonise";
 	"disable-logging-for", Arg.String
 		(fun x ->
+      debug "Parsing [%s]" x;
 			try
 				let modules = List.filter (fun x -> x <> "") (split_c ' ' x) in
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-		), (fun () -> String.concat " " (List.map fst !Debug.logging_disabled_for)), "A space-separated list of debug modules to suppress logging from";
+		), (fun () -> String.concat " " (setify (List.map fst !Debug.logging_disabled_for))), "A space-separated list of debug modules to suppress logging from";
 	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
 ]
+
+module Term = Cmdliner.Term
+
+let rec list = function
+  | [] -> Term.pure []
+  | x :: xs -> Term.app (Term.app (Term.pure (fun x y -> x :: y)) x) (list xs)
+
+let command_of ?(name = Sys.argv.(0)) ?(version = "unknown") ?(doc = "Please describe this command.") xs =
+  let term_of_option (key, arg, get_fn, doc) =
+    let default = get_fn () in
+    match arg with
+    | Arg.Unit f ->
+      let t = Cmdliner.Arg.(value & flag & info [ key ] ~doc) in
+      let make = function true -> f () | false -> () in
+      Term.(pure make $ t)
+    | Arg.Bool f ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set b ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      let make v = b := v in
+      Term.(pure make $ t)
+    | Arg.Clear b ->
+      let t = Cmdliner.Arg.(value & opt bool (bool_of_string default) & info [ key ] ~doc) in
+      let make v = b := not v in
+      Term.(pure make $ t)
+    | Arg.String f ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_string s ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | Arg.Int f ->
+      let t = Cmdliner.Arg.(value & opt int (int_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_int s ->
+      let t = Cmdliner.Arg.(value & opt int (int_of_string default) & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | Arg.Float f ->
+      let t = Cmdliner.Arg.(value & opt float (float_of_string default) & info [ key ] ~doc) in
+      Term.(pure f $ t)
+    | Arg.Set_float s ->
+      let t = Cmdliner.Arg.(value & opt float (float_of_string default) & info [ key ] ~doc) in
+      let make v = s := v in
+      Term.(pure make $ t)
+    | _ ->
+      let t = Cmdliner.Arg.(value & opt string default & info [ key ] ~doc) in
+      let make v = Config_file.apply v arg in
+      Term.(pure make $ t) in
+  let terms = List.map term_of_option xs in
+
+  let _common_options = "COMMON OPTIONS" in
+  let man = [
+    `S "DESCRIPTION";
+    `P doc;
+    `S _common_options;
+    `P "These options are common to all services.";
+    `S "BUGS";
+    `P "Check bug reports at http://github.com/xapi-project/xcp-idl";
+  ] in
+  Term.(ret(pure (fun (_: unit list) -> `Ok ()) $ (list terms))),
+  Term.info name ~version ~sdocs:_common_options ~man
 
 let arg_spec = List.map (fun (a, b, _, c) -> "-" ^ a, b, c)
 
@@ -186,8 +257,8 @@ let canonicalise x =
 		match first_hit with
 		| None ->
 			warn "Failed to find %s on $PATH ( = %s) or search_path option ( = %s)" x (Sys.getenv "PATH") (String.concat ":" !extra_search_path);
-			x
-		| Some hit -> 
+      x
+		| Some hit ->
 			info "Found '%s' at '%s'" x hit;
 			hit
 	end
@@ -202,13 +273,27 @@ let read_config_file x =
 		Config_file.parse !config_file x;
 	end
 
-let configure ?(options=[]) ?(resources=[]) () =
+let startswith prefix x =
+        let prefix' = String.length prefix and x' = String.length x in
+        prefix' <= x' && (String.sub x 0 prefix' = prefix)
+
+let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
-	let arg_spec = arg_spec config_spec in
-	Arg.parse (Arg.align arg_spec)
-		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0));
+
+  (* It's very confusing if there are duplicate key names *)
+  let keys = List.map (fun (k, _, _, _) -> k) config_spec in
+  let rec check_for_duplicates seen_already = function
+  | [] -> ()
+  | x :: xs ->
+    if List.mem x seen_already then begin
+      warn "Duplicate configuration keys in Xcp_service.configure: %s in [ %s ]"
+        x (String.concat "; " keys)
+    end;
+    check_for_duplicates (x :: seen_already) xs in
+  check_for_duplicates [] keys;
+
+  arg_parse_fn config_spec;
 	read_config_file config_spec;
 	List.iter (fun r -> r.path := canonicalise !(r.path)) resources;
 	Config_file.dump config_spec;
@@ -219,14 +304,48 @@ let configure ?(options=[]) ?(resources=[]) () =
 				if f.essential
 				then Unix.access !(f.path) f.perms
 			with _ ->
-				error "Cannot access %s: please set %s in %s" !(f.path) f.description !config_file;
-				error "For example:";
-				error "    # %s" f.description;
-				error "    %s=/path/to/%s" f.name f.name;
-				exit 1
+                                let args = List.filter (fun x -> not(startswith ("--" ^ f.name) x)) (Array.to_list Sys.argv) in
+                                let lines = [
+                                        "Cannot access " ^ !(f.path);
+                                        Printf.sprintf "Please either add to %s" !config_file;
+                                        Printf.sprintf "  %s=<%s>" f.name f.description;
+                                        "or add a command-line argument";
+                                        Printf.sprintf "  %s --%s=<%s>" (String.concat " " args) f.name f.description;
+                                ] in
+                                List.iter (fun x -> error "%s" x) lines;
+                                failwith (String.concat "\n" lines)
 		) resources;
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
+
+let configure ?(options=[]) ?(resources=[]) () =
+  try
+    configure_common ~name:"Unknown" ~version:"Unknown" ~doc:"Unknown" ~options ~resources
+      (fun config_spec ->
+        Arg.parse (Arg.align (arg_spec config_spec))
+          (fun _ -> failwith "Invalid argument")
+          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
+      )
+  with Failure _ ->
+    exit 1
+
+type ('a, 'b) error = [
+  | `Ok of 'a
+  | `Error of 'b
+]
+
+let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
+  try
+    configure_common ~name ~version ~doc ~options ~resources
+      (fun config_spec ->
+        match Term.eval (command_of ~name ~version ~doc config_spec) with
+        | `Ok () -> ()
+        | `Error _ -> failwith "Failed to parse command-line arguments"
+        | _ -> exit 0 (* --help *)
+      );
+    `Ok ()
+  with Failure m ->
+    `Error m
 
 type 'a handler =
 	(string -> Rpc.call) ->
@@ -317,7 +436,7 @@ let accept_forever sock f =
 let mkdir_rec dir perm =
 	let rec p_mkdir dir =
 		let p_name = Filename.dirname dir in
-		if p_name <> "/" && p_name <> "." 
+		if p_name <> "/" && p_name <> "."
 		then p_mkdir p_name;
 		(try Unix.mkdir dir perm  with Unix.Unix_error(Unix.EEXIST, _, _) -> ()) in
 	p_mkdir dir
@@ -425,4 +544,3 @@ let wait_forever () =
 		with e ->
 			debug "Thread.delay caught: %s" (Printexc.to_string e)
 	done
-

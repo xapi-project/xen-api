@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ddedf87c49618f91146947e932ef8af2)
+# DO NOT EDIT (digest: 178636613316933cc260cf3491d1dc11)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -16,6 +16,7 @@
 # Library xcp
 "lib/xcp.cmxs": use_xcp
 <lib/xcp.{cma,cmxa}>: use_libxcp_stubs
+"lib/syslog_stubs.c": pkg_cmdliner
 "lib/syslog_stubs.c": pkg_cohttp
 "lib/syslog_stubs.c": pkg_fd-send-recv
 "lib/syslog_stubs.c": pkg_message_switch
@@ -71,6 +72,7 @@
 <storage/*.ml{,i}>: use_xcp_storage
 # Library xcp_network
 "network/xcp_network.cmxs": use_xcp_network
+<network/*.ml{,i}>: pkg_cmdliner
 <network/*.ml{,i}>: pkg_cohttp
 <network/*.ml{,i}>: pkg_fd-send-recv
 <network/*.ml{,i}>: pkg_message_switch
@@ -88,6 +90,7 @@
 <network/*.ml{,i}>: use_xcp
 # Library xcp_rrd
 "rrd/xcp_rrd.cmxs": use_xcp_rrd
+<rrd/*.ml{,i}>: pkg_cmdliner
 <rrd/*.ml{,i}>: pkg_cohttp
 <rrd/*.ml{,i}>: pkg_fd-send-recv
 <rrd/*.ml{,i}>: pkg_message_switch
@@ -106,6 +109,7 @@
 <rrd/*.ml{,i}>: use_xcp
 # Library xcp_xen
 "xen/xcp_xen.cmxs": use_xcp_xen
+<xen/*.ml{,i}>: pkg_cmdliner
 <xen/*.ml{,i}>: pkg_cohttp
 <xen/*.ml{,i}>: pkg_fd-send-recv
 <xen/*.ml{,i}>: pkg_message_switch
@@ -123,6 +127,7 @@
 <xen/*.ml{,i}>: use_xcp
 # Library xcp_memory
 "memory/xcp_memory.cmxs": use_xcp_memory
+<memory/*.ml{,i}>: pkg_cmdliner
 <memory/*.ml{,i}>: pkg_cohttp
 <memory/*.ml{,i}>: pkg_fd-send-recv
 <memory/*.ml{,i}>: pkg_message_switch
@@ -177,6 +182,7 @@
 <lib/*.ml{,i}>: use_xcp
 <lib/channel_helper.{native,byte}>: custom
 # Executable lib_test
+<lib_test/test.{native,byte}>: pkg_cmdliner
 <lib_test/test.{native,byte}>: pkg_cohttp
 <lib_test/test.{native,byte}>: pkg_fd-send-recv
 <lib_test/test.{native,byte}>: pkg_lwt
@@ -195,6 +201,7 @@
 <lib_test/test.{native,byte}>: pkg_uri
 <lib_test/test.{native,byte}>: pkg_xmlm
 <lib_test/test.{native,byte}>: use_xcp
+<lib_test/*.ml{,i}>: pkg_cmdliner
 <lib_test/*.ml{,i}>: pkg_cohttp
 <lib_test/*.ml{,i}>: pkg_fd-send-recv
 <lib_test/*.ml{,i}>: pkg_lwt
@@ -214,6 +221,44 @@
 <lib_test/*.ml{,i}>: pkg_xmlm
 <lib_test/*.ml{,i}>: use_xcp
 <lib_test/test.{native,byte}>: custom
+# Executable example
+<example/example.{native,byte}>: pkg_cmdliner
+<example/example.{native,byte}>: pkg_cohttp
+<example/example.{native,byte}>: pkg_fd-send-recv
+<example/example.{native,byte}>: pkg_lwt
+<example/example.{native,byte}>: pkg_lwt.unix
+<example/example.{native,byte}>: pkg_message_switch
+<example/example.{native,byte}>: pkg_message_switch.unix
+<example/example.{native,byte}>: pkg_re
+<example/example.{native,byte}>: pkg_rpclib
+<example/example.{native,byte}>: pkg_rpclib.syntax
+<example/example.{native,byte}>: pkg_rpclib.xml
+<example/example.{native,byte}>: pkg_sexplib
+<example/example.{native,byte}>: pkg_sexplib.syntax
+<example/example.{native,byte}>: pkg_threads
+<example/example.{native,byte}>: pkg_unix
+<example/example.{native,byte}>: pkg_uri
+<example/example.{native,byte}>: pkg_xmlm
+<example/example.{native,byte}>: use_xcp
+<example/*.ml{,i}>: pkg_cmdliner
+<example/*.ml{,i}>: pkg_cohttp
+<example/*.ml{,i}>: pkg_fd-send-recv
+<example/*.ml{,i}>: pkg_lwt
+<example/*.ml{,i}>: pkg_lwt.unix
+<example/*.ml{,i}>: pkg_message_switch
+<example/*.ml{,i}>: pkg_message_switch.unix
+<example/*.ml{,i}>: pkg_re
+<example/*.ml{,i}>: pkg_rpclib
+<example/*.ml{,i}>: pkg_rpclib.syntax
+<example/*.ml{,i}>: pkg_rpclib.xml
+<example/*.ml{,i}>: pkg_sexplib
+<example/*.ml{,i}>: pkg_sexplib.syntax
+<example/*.ml{,i}>: pkg_threads
+<example/*.ml{,i}>: pkg_unix
+<example/*.ml{,i}>: pkg_uri
+<example/*.ml{,i}>: pkg_xmlm
+<example/*.ml{,i}>: use_xcp
+<example/example.{native,byte}>: custom
 # OASIS_STOP
 <storage/*.ml{,i}>: syntax_camlp4o
 <xen/*.ml{,i}>: syntax_camlp4o
