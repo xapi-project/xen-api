@@ -1,3 +1,8 @@
+0.9.18 20-Aug-2014)
+* Add a cmdliner interface to Xcp_services with an example
+* Add 'with sexp' to Vm.t
+* Debug.DEBUG has an explicit module type
+
 0.9.17 (3-Jun-2014)
 * Allow HVM guests to use up to 16 devices
 * Use cohttp 0.11.2
