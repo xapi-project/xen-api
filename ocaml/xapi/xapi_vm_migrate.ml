@@ -67,16 +67,14 @@ let get_ip_from_url url =
 		| Http.Url.Http { Http.Url.host = host }, _ -> host
 		| _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url) 
 
-let rec migrate_with_retries max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
+let rec migrate_with_retries ~__context max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
 	let open Xenops_client in
 	let progress = ref "(none yet)" in
 	let f () =
 		progress := "XenopsAPI.VM.migrate";
 		let t1 = XenopsAPI.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops in
-		progress := "wait_for_task";
-		let t2 = wait_for_task dbg t1 in
-		progress := "success_task";
-		ignore (success_task dbg t2)
+		progress := "sync_with_task";
+		ignore (Xapi_xenops.sync_with_task __context t1)
 	in
 	if try_no >= max then
 		f ()
@@ -86,19 +84,26 @@ let rec migrate_with_retries max try_no dbg vm_uuid xenops_vdi_map xenops_vif_ma
 		 * Such a reboot causes Xenops_interface.Cancelled the first try, then
 		 * Xenops_interface.Internal_error("End_of_file") the second, then success. *)
 		with 
+		(* User cancelled migration *)
+		| Xenops_interface.Cancelled _ as e when TaskHelper.is_cancelling ~__context ->
+			debug "xenops: Migration cancelled by user.";
+			raise e
+
+		(* VM rebooted during migration - first raises Cancelled, then Internal_error  "End_of_file" *)
 		| Xenops_interface.Cancelled _
 		| Xenops_interface.Internal_error "End_of_file" as e ->
-			debug "xenops: will retry migration: caught %s from %s in attempt %d of %d."
-				(Printexc.to_string e) !progress try_no max;
-			migrate_with_retries max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+			debug "xenops: will retry migration: caught %s from %s in attempt %d of %d." (Printexc.to_string e) !progress try_no max;
+			migrate_with_retries ~__context max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+
+		(* Something else went wrong *)
 		| e -> 
 			debug "xenops: not retrying migration: caught %s from %s in attempt %d of %d."
 				(Printexc.to_string e) !progress try_no max;
 			raise e
 	end
 
-let migrate_with_retry dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
-	migrate_with_retries 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+let migrate_with_retry ~__context dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
+	migrate_with_retries ~__context 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
 let pool_migrate ~__context ~vm ~host ~options =
 	let dbg = Context.string_of_task __context in
@@ -112,7 +117,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				migrate_with_retry dbg vm' [] [] xenops_url;
+				migrate_with_retry ~__context dbg vm' [] [] xenops_url;
 				(* Delete all record of this VM locally (including caches) *)
 				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
 				(* Flush xenopsd events through: we don't want the pool database to
@@ -123,6 +128,8 @@ let pool_migrate ~__context ~vm ~host ~options =
 	with 
 	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
 		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+	| Xenops_interface.Cancelled _ ->
+		raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
 	| e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -582,7 +589,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			try
 				Xapi_xenops.with_events_suppressed ~__context ~self:vm
 					(fun () ->
-						migrate_with_retry dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
+						migrate_with_retry ~__context dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 						Xapi_xenops.Events_from_xenopsd.wait dbg vm_uuid ())
 			with
