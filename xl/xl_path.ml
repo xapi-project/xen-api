@@ -37,8 +37,8 @@ let essentials = [
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
-] @ Path.hvm_guests @ Path.pv_guests @ Path.network_configuration
+] @ Path.network_configuration
 
 let nonessentials = [
-]
+] @ Path.hvm_guests @ Path.pv_guests
 

@@ -39,11 +39,11 @@ let essentials = [
 	X_OK, "umount", umount, "path to the umount binary";
 	X_OK, "ionice", ionice, "path to the ionice binary";
 	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
-] @ Path.hvm_guests @ Path.pv_guests @ Path.network_configuration
+] @ Path.network_configuration
 
 let nonessentials = [
 	X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
 	X_OK, "alternatives", alternatives, "path to the alternative xenguests";
 	X_OK, "vgpu", vgpu, "path to the vgpu binary";
-]
+] @ Path.hvm_guests @ Path.pv_guests
 
