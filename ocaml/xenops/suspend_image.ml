@@ -168,7 +168,7 @@ let with_conversion_script task name hvm fd f =
 		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
 			"--width"; "32"; "--skip-qemu";
 			"--guest-type"; if hvm then "hvm" else "pv";
-			"--syslog";
+			"--syslog"; "--verbose";
 		]
 	in
 	let (m, c) = Mutex.create (), Condition.create () in
@@ -195,6 +195,8 @@ let with_conversion_script task name hvm fd f =
 	in
 	let (conv_th, conv_st) =
 		spawn_thread_and_close_fd "convert-legacy-stream" pipe_w (fun () ->
+			debug "Executing %s with args [ %s ]"
+				conv_script (String.concat "; " args);
 			Cancel_utils.cancellable_subprocess task
 				[ fd_uuid, fd; pipe_w_uuid, pipe_w; ] conv_script args
 		)
