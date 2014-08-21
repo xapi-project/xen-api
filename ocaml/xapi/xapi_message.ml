@@ -453,7 +453,19 @@ let destroy ~__context ~self =
   let symlinkfname = (ref_symlink ()) ^ "/" ^ (Ref.string_of self) in
   let fullpath =
 	try Unix.readlink symlinkfname
-	with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel._message; Ref.string_of self]))
+	with _ -> begin
+		let allfiles = List.map (fun file -> message_dir ^ "/" ^ file) (Array.to_list (Sys.readdir message_dir)) in
+		let allmsgs = List.filter (fun file -> not (Sys.is_directory file)) allfiles in
+		try
+			List.find (fun msg_fname ->
+				try
+					let ic = open_in msg_fname in
+					let (_,_ref,_) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
+					if _ref = self then true else false
+				with _ -> false
+			) allmsgs
+		with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel._message; Ref.string_of self]))
+	end
   in
   let basefilename = List.hd (List.rev (String.split '/' fullpath)) in
   destroy_real __context basefilename
@@ -473,6 +485,7 @@ let gc ~__context =
 	  in
 	  if List.length allmsg > Xapi_globs.message_limit then
 	begin
+	  warn "Messages have reached over the limit %d" Xapi_globs.message_limit;
 	  let sorted = List.sort (fun (t1,_) (t2,_) -> compare t1 t2) allmsg in
 	  let n = List.length sorted in
 	  let to_reap = n - Xapi_globs.message_limit in
@@ -567,7 +580,7 @@ let get_by_uuid ~__context ~uuid =
 	let (_,_ref,_) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
 	_ref
   with
-	  _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ uuid ]))
+	  _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ "message"; uuid ]))
 
 let get_all ~__context =
   try
