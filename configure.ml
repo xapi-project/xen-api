@@ -81,7 +81,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let xenlight = find_ocamlfind false "xenlight" in
   let libvirt = find_ocamlfind false "libvirt" in
 
-  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\tmandir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir mandir etcdir xenctrl xenlight libvirt;
+  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\tmandir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir mandir xenctrl xenlight libvirt;
 
   (* Write config.mk *)
   let lines = 
