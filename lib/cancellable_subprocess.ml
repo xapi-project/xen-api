@@ -53,10 +53,13 @@ let run (task: Xenops_task.t) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd 
 						| Unix.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
 						| Unix.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
 						| Unix.WSIGNALED n ->
-							debug "Subprocess exited with signal %d and cancel requested; raising Cancelled" n;
-							if !cancelled
-							then Xenops_task.raise_cancelled task
-							else raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
+							if !cancelled then begin
+								debug "Subprocess %s exited with signal %d and cancel requested; raising Cancelled" cmd n;
+								Xenops_task.raise_cancelled task
+							end else begin
+								debug "Subprocess %s exited with signal %d" cmd n;
+								raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
+							end
 				end
 			| Success(_,Failure(_,exn))
 			| Failure(_, exn) ->
