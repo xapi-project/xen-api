@@ -23,6 +23,10 @@ let etcdir =
   let doc = "Set the directory for installing configuration files" in
   Arg.(value & opt string "/etc" & info ["etcdir"] ~docv:"ETCDIR" ~doc)
 
+let mandir =
+  let doc = "Set the directory for installing manpages" in
+  Arg.(value & opt string "/usr/share/man" & info ["mandir"] ~docv:"MANDIR" ~doc)
+
 let info =
   let doc = "Configures a package" in
   Term.info "configure" ~version:"0.1" ~doc 
@@ -72,12 +76,12 @@ let expand start finish input output =
     exit 1;
   end
 
-let configure bindir sbindir libexecdir scriptsdir etcdir =
+let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let libvirt = find_ocamlfind false "libvirt" in
 
-  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir xenctrl xenlight libvirt;
+  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\tmandir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir mandir xenctrl xenlight libvirt;
 
   (* Write config.mk *)
   let lines = 
@@ -88,6 +92,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
       Printf.sprintf "LIBEXECDIR=%s" libexecdir;
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
       Printf.sprintf "ETCDIR=%s" etcdir;
+      Printf.sprintf "MANDIR=%s" mandir;
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
@@ -97,7 +102,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir =
   expand "@LIBEXEC@" libexecdir "scripts/vif.in" "scripts/vif";
   expand "@LIBEXEC@" libexecdir "scripts/xen-backend.rules.in" "scripts/xen-backend.rules"
 
-let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir )
+let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir)
 
 let () = 
   match 

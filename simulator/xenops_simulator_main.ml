@@ -16,4 +16,5 @@
 let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator";
 	Xenops_utils.set_root "xenopsd/simulator";
+	Xenopsd.configure ();
 	Xenopsd.main (module Xenops_server_simulator: Xenops_server_plugin.S)

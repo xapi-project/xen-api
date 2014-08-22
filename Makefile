@@ -5,8 +5,11 @@ NAME=xenops
 J=4
 
 clean:
-	@rm -f setup.data setup.log setup.bin config.mk
+	@rm -f setup.data setup.log setup.bin config.mk lib/version.ml
 	@rm -rf _build
+	@rm -f xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt
+	@rm -f xenopsd-xc.1 xenopsd-xenlight.1 xenopsd-simulator.1 xenopsd-libvirt.1
+	@rm -f *.native
 
 -include config.mk
 
@@ -24,18 +27,37 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN)
 
-build: setup.data setup.bin
+build: setup.data setup.bin version.ml
 	@./setup.bin -build -j $(J)
+ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
+	ln -s ./xenops_xl_main.native xenopsd-xenlight || true
+	./xenopsd-xenlight --help=groff > xenopsd-xenlight.1
+endif
+ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
+	ln -s ./xenops_libvirt_main.native xenopsd-libvirt || true
+	./xenopsd-libvirt --help=groff > xenopsd-libvirt.1
+endif
+	ln -s ./xenops_simulator_main.native xenopsd-simulator || true
+	./xenopsd-simulator --help=groff > xenopsd-simulator.1
+	ln -s ./xenops_xc_main.native xenopsd-xc || true
+	./xenopsd-xc --help=groff > xenopsd-xc.1
+
+version.ml: VERSION
+	echo "let version = \"$(shell cat VERSION)\"" > lib/version.ml
 
 install:
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
+	install -D ./xenopsd-xenlight.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
 endif
 ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
 	install -D ./xenops_libvirt_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
+	install -D ./xenopsd-libvirt.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-libvirt.1
 endif
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	install -D ./xenopsd-simulator.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xc
+	install -D ./xenopsd-xc.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
 	install -D ./scripts/block $(DESTDIR)/$(SCRIPTSDIR)/block
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
@@ -54,6 +76,10 @@ uninstall:
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-libvirt.1
+	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
+	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
+	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-simluator.1
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
 	rm -f $(DESTDIR)/$(SCRIPTSDIR)/block
