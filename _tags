@@ -425,6 +425,7 @@
 # OASIS_STOP
 <lib/updates.ml>: syntax_camlp4o, pkg_rpc.syntax
 <lib/scheduler.ml>: syntax_camlp4o, pkg_rpc.syntax
+<lib/suspend_image.ml>: syntax_camlp4o, pkg_sexplib.syntax
 <lib/xenops_migrate.ml>: syntax_camlp4o, pkg_rpc.syntax
 <lib/xenops_hooks.ml>: syntax_camlp4o, pkg_rpc.syntax
 <lib/xenops_server.ml>: syntax_camlp4o, pkg_rpc.syntax
