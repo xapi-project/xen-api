@@ -1,3 +1,9 @@
+0.9.40 (22-Aug-2014):
+* add man pages and more regular command-line interface
+* read the kthread-pid from the right path: needed for VBD QoS
+* eliloader, pygrub, vncterm and hvmloader are now optional dependencies
+* improve the convert-legacy-stream logging
+
 0.9.39 (20-Aug-2014):
 * allow vCPU hotplug for HVM if feature-vcpu-hotplug is set
 * by default use the upstream qemu with libxl
