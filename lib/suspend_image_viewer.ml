@@ -14,6 +14,8 @@
 
 open Suspend_image
 
+let (|>) a b = b a
+
 let opt_debug = ref true
 let msg ~prefix s  = Printf.printf "%s: %s\n%!" prefix s
 let debug fmt = Printf.ksprintf (fun s -> if !opt_debug then msg ~prefix:"debug" s) fmt
