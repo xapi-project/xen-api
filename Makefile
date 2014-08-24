@@ -13,12 +13,9 @@ clean:
 
 -include config.mk
 
-config.mk: configure
-	./configure
-
-configure: configure.ml
-	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o configure configure.ml
-	@rm -f configure.cm*
+config.mk:
+	echo Please re-run configure
+	exit 1
 
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
