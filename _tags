@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 178636613316933cc260cf3491d1dc11)
+# DO NOT EDIT (digest: e55d86381255c6c6c260c96966e366e3)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -30,6 +30,7 @@
 "lib/syslog_stubs.c": pkg_threads
 "lib/syslog_stubs.c": pkg_unix
 "lib/syslog_stubs.c": pkg_uri
+"lib/syslog_stubs.c": pkg_xcp-inventory
 "lib/syslog_stubs.c": pkg_xmlm
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
@@ -49,6 +50,7 @@
 <storage/storage_test.{native,byte}>: pkg_threads
 <storage/storage_test.{native,byte}>: pkg_unix
 <storage/storage_test.{native,byte}>: pkg_uri
+<storage/storage_test.{native,byte}>: pkg_xcp-inventory
 <storage/storage_test.{native,byte}>: pkg_xmlm
 <storage/storage_test.{native,byte}>: use_xcp
 <storage/storage_test.{native,byte}>: use_xcp_storage
@@ -67,6 +69,7 @@
 <storage/*.ml{,i}>: pkg_threads
 <storage/*.ml{,i}>: pkg_unix
 <storage/*.ml{,i}>: pkg_uri
+<storage/*.ml{,i}>: pkg_xcp-inventory
 <storage/*.ml{,i}>: pkg_xmlm
 <storage/*.ml{,i}>: use_xcp
 <storage/*.ml{,i}>: use_xcp_storage
@@ -86,6 +89,7 @@
 <network/*.ml{,i}>: pkg_threads
 <network/*.ml{,i}>: pkg_unix
 <network/*.ml{,i}>: pkg_uri
+<network/*.ml{,i}>: pkg_xcp-inventory
 <network/*.ml{,i}>: pkg_xmlm
 <network/*.ml{,i}>: use_xcp
 # Library xcp_rrd
@@ -104,6 +108,7 @@
 <rrd/*.ml{,i}>: pkg_threads
 <rrd/*.ml{,i}>: pkg_unix
 <rrd/*.ml{,i}>: pkg_uri
+<rrd/*.ml{,i}>: pkg_xcp-inventory
 <rrd/*.ml{,i}>: pkg_xcp-rrd
 <rrd/*.ml{,i}>: pkg_xmlm
 <rrd/*.ml{,i}>: use_xcp
@@ -123,6 +128,7 @@
 <xen/*.ml{,i}>: pkg_threads
 <xen/*.ml{,i}>: pkg_unix
 <xen/*.ml{,i}>: pkg_uri
+<xen/*.ml{,i}>: pkg_xcp-inventory
 <xen/*.ml{,i}>: pkg_xmlm
 <xen/*.ml{,i}>: use_xcp
 # Library xcp_memory
@@ -141,6 +147,7 @@
 <memory/*.ml{,i}>: pkg_threads
 <memory/*.ml{,i}>: pkg_unix
 <memory/*.ml{,i}>: pkg_uri
+<memory/*.ml{,i}>: pkg_xcp-inventory
 <memory/*.ml{,i}>: pkg_xmlm
 <memory/*.ml{,i}>: use_xcp
 # Executable channel_helper
@@ -160,6 +167,7 @@
 <lib/channel_helper.{native,byte}>: pkg_threads
 <lib/channel_helper.{native,byte}>: pkg_unix
 <lib/channel_helper.{native,byte}>: pkg_uri
+<lib/channel_helper.{native,byte}>: pkg_xcp-inventory
 <lib/channel_helper.{native,byte}>: pkg_xmlm
 <lib/channel_helper.{native,byte}>: use_xcp
 <lib/*.ml{,i}>: pkg_cmdliner
@@ -178,6 +186,7 @@
 <lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_unix
 <lib/*.ml{,i}>: pkg_uri
+<lib/*.ml{,i}>: pkg_xcp-inventory
 <lib/*.ml{,i}>: pkg_xmlm
 <lib/*.ml{,i}>: use_xcp
 <lib/channel_helper.{native,byte}>: custom
@@ -199,6 +208,7 @@
 <lib_test/test.{native,byte}>: pkg_threads
 <lib_test/test.{native,byte}>: pkg_unix
 <lib_test/test.{native,byte}>: pkg_uri
+<lib_test/test.{native,byte}>: pkg_xcp-inventory
 <lib_test/test.{native,byte}>: pkg_xmlm
 <lib_test/test.{native,byte}>: use_xcp
 <lib_test/*.ml{,i}>: pkg_cmdliner
@@ -218,6 +228,7 @@
 <lib_test/*.ml{,i}>: pkg_threads
 <lib_test/*.ml{,i}>: pkg_unix
 <lib_test/*.ml{,i}>: pkg_uri
+<lib_test/*.ml{,i}>: pkg_xcp-inventory
 <lib_test/*.ml{,i}>: pkg_xmlm
 <lib_test/*.ml{,i}>: use_xcp
 <lib_test/test.{native,byte}>: custom
@@ -238,6 +249,7 @@
 <example/example.{native,byte}>: pkg_threads
 <example/example.{native,byte}>: pkg_unix
 <example/example.{native,byte}>: pkg_uri
+<example/example.{native,byte}>: pkg_xcp-inventory
 <example/example.{native,byte}>: pkg_xmlm
 <example/example.{native,byte}>: use_xcp
 <example/*.ml{,i}>: pkg_cmdliner
@@ -256,6 +268,7 @@
 <example/*.ml{,i}>: pkg_threads
 <example/*.ml{,i}>: pkg_unix
 <example/*.ml{,i}>: pkg_uri
+<example/*.ml{,i}>: pkg_xcp-inventory
 <example/*.ml{,i}>: pkg_xmlm
 <example/*.ml{,i}>: use_xcp
 <example/example.{native,byte}>: custom

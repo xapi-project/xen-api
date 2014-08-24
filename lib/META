@@ -1,10 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: 26e717094644abb5e4d73efbb0c0c263)
+# DO NOT EDIT (digest: d1d7d13e337deed1a56358ced3cb687a)
 version = "0.9.18"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
 requires =
-"cmdliner uri re cohttp xmlm unix sexplib sexplib.syntax rpclib rpclib.syntax rpclib.xml threads message_switch message_switch.unix fd-send-recv"
+"cmdliner uri re cohttp xmlm unix sexplib sexplib.syntax rpclib rpclib.syntax rpclib.xml threads message_switch message_switch.unix fd-send-recv xcp-inventory"
 archive(byte) = "xcp.cma"
 archive(byte, plugin) = "xcp.cma"
 archive(native) = "xcp.cmxa"
