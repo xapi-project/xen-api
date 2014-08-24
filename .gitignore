@@ -46,7 +46,6 @@ xenopsd-xc
 config.mk
 dist
 _build
-configure
 setup.bin
 setup.data
 scripts/vif
