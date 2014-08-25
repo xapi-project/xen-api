@@ -211,17 +211,31 @@ let show_version () =
       "BUILD_NUMBER", Version.build_number ];
   exit 0
 
+let doc = String.concat "\n" [
+  "xapi: Xen-API server and resource pool manager.";
+  "";
+  "xapi is a management stack that configures and controls Xen-enabled hosts and resource pools, and co-ordinates resources within the pool. Xapi exposes the Xen API interface for many languages and is a component of the XenServer project.";
+]
+
 let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources ();
-  if not !Xcp_client.use_switch
-  then begin
-    debug "Xcp_client.use_switch=false: resetting list of xenopsds";
-    Xapi_globs.xenopsd_queues := [ "xenopsd" ]
-  end
-
+  match Xcp_service.configure2
+    ~name:"xapi"
+    ~version:(Printf.sprintf "%d.%d" Version.xapi_version_major Version.xapi_version_minor)
+    ~doc
+    ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources () with
+  | `Ok () ->
+    if not !Xcp_client.use_switch
+    then begin
+      debug "Xcp_client.use_switch=false: resetting list of xenopsds";
+      Xapi_globs.xenopsd_queues := [ "xenopsd" ]
+    end
+  | `Error msg ->
+    error "%s" msg;
+    Printf.fprintf stderr "%s\n%!" msg;
+    exit 1
 			  
 
 let wait_to_die() =
@@ -1010,18 +1024,17 @@ let watchdog f =
 			if !pid = None then begin
 				let cmd = Sys.argv.(0) in
 
-				let overriden_args = [ "-onsystemboot"; "-daemon" ] in
-				let overriden_args1 = [ "-daemon" ] in
+				let overriden_args = [ "--onsystemboot"; "--daemon" ] in
 				let core_args = 
 					List.rev(fst(List.fold_left (fun (acc, delete_next) x ->
-						let acc = if List.mem x overriden_args || delete_next then acc else x :: acc in
-						let delete_next = List.mem x overriden_args1 in
-						acc, delete_next
+						let this = List.mem x overriden_args in
+						let acc = if this || delete_next then acc else x :: acc in
+						acc, this
 					) ([], false) (List.tl (Array.to_list Sys.argv)))) in
 
 				let args = 
-					"-nowatchdog" :: core_args 
-					@ (if !Xapi_globs.on_system_boot then [ "-onsystemboot" ] else []) in
+					"--nowatchdog" :: "true" :: core_args 
+					@ (if !Xapi_globs.on_system_boot then [ "--onsystemboot"; "true" ] else []) in
 				let newpid = Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None None None [] cmd args in
 				(* parent just reset the sighandler *)
 				Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun i -> restart := false; Unix.kill (Forkhelpers.getpid newpid) Sys.sigterm));
