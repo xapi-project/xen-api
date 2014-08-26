@@ -23,25 +23,48 @@ let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_des
 	Xapi_http.with_context "Exporting raw VDI" req s
 		(fun __context ->
 			let task_id = Context.get_task_id __context in
-			debug "export_raw_vdi task_id = %s vdi = %s;" (Ref.string_of task_id) (Ref.string_of vdi);
-			try
-				Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RO
-					(fun fd ->
-						let headers = Http.http_200_ok ~keep_alive:false () @
-							[ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id); Http.Hdr.content_type ] in
-						Http_svr.headers s headers;
-						try
-							debug "Copying VDI contents...";
-							ignore(Unixext.copy_file fd s);
-							debug "Copying VDI complete.";
-							Unixext.fsync fd;
-						with Unix.Unix_error(Unix.EIO, _, _) ->
-							raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
-					)
-			with e ->
-				log_backtrace ();
-				TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
-				raise e)
+			match Importexport.Format.of_req req with
+			| `Unknown x ->
+				error "export_raw_vdi task_id = %s; vdi = %s; unknown disk format = %s"
+					(Ref.string_of task_id) (Ref.string_of vdi) x;
+				TaskHelper.failed ~__context (Api_errors.internal_error, ["Unknown format " ^ x]);
+				Http_svr.headers s (Http.http_404_missing ~version:"1.0" ())
+			| `Ok format ->
+				(* Suggest this filename to the client: *)
+ 				let filename = Importexport.Format.filename ~__context vdi format in
+				let content_type = Importexport.Format.content_type format in
+				debug "export_raw_vdi task_id = %s; vdi = %s; format = %s; content-type = %s; filename = %s"
+					(Ref.string_of task_id) (Ref.string_of vdi) (Importexport.Format.to_string format) content_type filename;
+				let copy base_path path =
+					let headers = Http.http_200_ok ~keep_alive:false () @ [
+						Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
+						Http.Hdr.content_type ^ ":" ^ content_type;
+						Http.Hdr.content_disposition ^ ": attachment; filename=\"" ^ filename ^ "\""
+					] in
+					Http_svr.headers s headers;
+					try
+						debug "Copying VDI contents...";
+						Vhd_tool_wrapper.send ?relative_to:base_path (Vhd_tool_wrapper.update_task_progress __context)
+							"none" (Importexport.Format.to_string format) s path "";
+						debug "Copying VDI complete.";
+					with Unix.Unix_error(Unix.EIO, _, _) ->
+						raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"])) in
+				begin
+				try
+					Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RO
+						(fun path ->
+							match Importexport.base_vdi_of_req ~__context req with
+							| Some base_vdi ->
+								Sm_fs_ops.with_block_attached_device __context rpc session_id base_vdi `RO
+									(fun base_path -> copy (Some base_path) path)
+							| None -> copy None path
+						)
+				with e ->
+					log_backtrace ();
+					TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
+					raise e
+				end
+		)
 
 let export_raw vdi (req: Http.Request.t) (s: Unix.file_descr) _ =
 	(* Check the SR is reachable (in a fresh task context) *)
