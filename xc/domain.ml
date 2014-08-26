@@ -822,7 +822,7 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 		debug "Detected legacy suspend image! Piping through conversion tool.";
 		let (store_mfn, console_mfn) =
 			begin match
-				with_conversion_script task "xenguest" hvm fd (fun pipe_r ->
+				with_conversion_script task "XenguestHelper" hvm fd (fun pipe_r ->
 					restore_libxc_record task ~hvm ~store_port ~console_port
 						~extras xenguest_path domid uuid pipe_r
 				)

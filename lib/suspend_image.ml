@@ -200,8 +200,20 @@ let with_conversion_script task name hvm fd f =
 	debug "Spawned threads for conversion script and %s" name;
 	let rec handle_threads () = match (!conv_st, !f_st) with
 	| Thread_failure e, _ ->
-		`Error (Failure (Printf.sprintf "Conversion script thread caught exception: %s"
-			(Printexc.to_string e)))
+		begin match e with
+		| Forkhelpers.Spawn_internal_error(_,_,status) ->
+			begin match status with
+			| Unix.WEXITED n ->
+				`Error (Failure (Printf.sprintf "Conversion script exited with code %d" n))
+			| Unix.WSIGNALED n ->
+				`Error (Failure (Printf.sprintf "Conversion script exited with signal %s" (Unixext.string_of_signal n)))
+			| Unix.WSTOPPED n ->
+				`Error (Failure (Printf.sprintf "Conversion script stopped with signal %s" (Unixext.string_of_signal n)))
+			end
+		| _ ->
+			`Error (Failure (Printf.sprintf "Conversion script thread caught exception: %s"
+				(Printexc.to_string e)))
+		end
 	| _, Thread_failure e ->
 		`Error (Failure (Printf.sprintf "Thread executing %s caught exception: %s"
 			name (Printexc.to_string e)))
