@@ -95,10 +95,7 @@ let disconnect_path_of_device ~xs (x: device) =
 
 (** Where linux blkback writes its thread id. NB this won't work in a driver domain *)
 let kthread_pid_path_of_device ~xs (x: device) =
-	sprintf "%s/device/%s/%d/kthread-pid"
-		(xs.Xs.getdomainpath x.backend.domid)
-		(string_of_kind x.backend.kind)
-		x.frontend.devid
+	sprintf "%s/kthread-pid" (backend_path_of_device ~xs x)
 
 (** Location of the backend error path *)
 let backend_error_path_of_device ~xs (x : device) =

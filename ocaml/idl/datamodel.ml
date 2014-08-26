@@ -604,6 +604,12 @@ let _ =
     ~doc:"You attempted an operation on a VM which requires PV drivers to be installed but the drivers were not detected." ();
   error Api_errors.vm_old_pv_drivers [ "vm"; "major"; "minor" ]
     ~doc:"You attempted an operation on a VM which requires a more recent version of the PV drivers. Please upgrade your PV drivers." ();
+  error Api_errors.vm_lacks_feature_shutdown [ "vm" ]
+	  ~doc:"You attempted an operation which needs the cooperative shutdown feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_vcpu_hotplug [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM hotplug-vcpu feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_suspend [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM cooperative suspend feature on a VM which lacks it." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]
@@ -2049,7 +2055,7 @@ let vm_pool_migrate = call
   ~params:[Ref _vm, "vm", "The VM to migrate";
 	   Ref _host, "host", "The target host";
 	   Map(String, String), "options", "Extra configuration operations" ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.vm_is_template; Api_errors.operation_not_allowed; Api_errors.vm_migrate_failed; Api_errors.vm_missing_pv_drivers]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.vm_is_template; Api_errors.operation_not_allowed; Api_errors.vm_migrate_failed; Api_errors.vm_lacks_feature_suspend]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
