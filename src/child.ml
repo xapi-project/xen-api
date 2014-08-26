@@ -102,10 +102,10 @@ let report_child_exit comms_sock args child_pid status =
 	let pr = match status with
 	| Unix.WEXITED n ->
 		(* Unfortunately logging this was causing too much spam *)
-		if n <> 0 then log_failure args child_pid (Printf.sprintf "exitted with code %d" n);
+		if n <> 0 then log_failure args child_pid (Printf.sprintf "exited with code %d" n);
 		Fe.WEXITED n
 	| Unix.WSIGNALED n ->
-		log_failure args child_pid (Printf.sprintf "exitted with signal: %s" (Unixext.string_of_signal n));
+		log_failure args child_pid (Printf.sprintf "exited with signal: %s" (Unixext.string_of_signal n));
 		Fe.WSIGNALED n
 	| Unix.WSTOPPED n ->
 		log_failure args child_pid (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n));
