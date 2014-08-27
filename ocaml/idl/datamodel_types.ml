@@ -48,6 +48,7 @@ let rel_clearwater = "clearwater"
 let rel_vgpu_tech_preview = "vgpu-tech-preview"
 let rel_vgpu_productisation = "vgpu-productisation"
 let rel_clearwater_felton = "clearwater-felton"
+let rel_clearwater_whetstone = "clearwater-whetstone"
 let rel_creedence = "creedence"
 let rel_augusta = "augusta"
 
@@ -66,6 +67,7 @@ let release_order =
 	; rel_vgpu_tech_preview
 	; rel_vgpu_productisation
 	; rel_clearwater_felton
+	; rel_clearwater_whetstone
 	; rel_creedence
 	; rel_augusta
 	]
