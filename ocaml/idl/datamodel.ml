@@ -7730,9 +7730,9 @@ let pci =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_boston, ""] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_vendor_id" "Subsystem vendor ID" ~default_value:(Some (VString "")) ~internal_only:true;
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_creedence, ""] "subsystem_vendor_name" "Subsystem vendor name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_vendor_name" "Subsystem vendor name" ~default_value:(Some (VString ""));
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_device_id" "Subsystem device ID" ~default_value:(Some (VString "")) ~internal_only:true;
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_creedence, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
 			]
 		()
 
