@@ -151,35 +151,14 @@ module Reporter = struct
 		else
 			D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
-	let create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f =
-		let reporter = make () in
-		let path = RRDD.Plugin.get_path ~uid in
-		D.info "Obtained path=%s\n" path;
-		let _ = mkdir_safe (Filename.dirname path) 0o644 in
-		let _, writer =
-			Rrd_writer.FileWriter.create path (choose_protocol protocol)
-		in
-		let cleanup () =
-			RRDD.Plugin.Local.deregister ~uid;
-			writer.Rrd_writer.cleanup ()
-		in
+	let start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
 		let (_: Thread.t) =
 			Thread.create
 				(fun () ->
 					let running = ref true in
 					while !running do
 						try
-							wait_until_next_reading
-								(module D : Debug.DEBUG)
-								~neg_shift
-								~uid
-								~protocol;
-							let payload = Rrd_protocol.({
-								timestamp = Utils.now ();
-								datasources = dss_f ();
-							}) in
-							writer.Rrd_writer.write_payload payload;
-							Thread.delay 0.003;
+							report ();
 							Mutex.execute reporter.lock
 								(fun () ->
 									match reporter.state with
@@ -207,6 +186,34 @@ module Reporter = struct
 					done)
 				()
 		in
+		()
+
+	let create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f =
+		let reporter = make () in
+		let path = RRDD.Plugin.get_path ~uid in
+		D.info "Obtained path=%s\n" path;
+		let _ = mkdir_safe (Filename.dirname path) 0o644 in
+		let _, writer =
+			Rrd_writer.FileWriter.create path (choose_protocol protocol)
+		in
+		let report () =
+			wait_until_next_reading
+				(module D : Debug.DEBUG)
+				~neg_shift
+				~uid
+				~protocol;
+			let payload = Rrd_protocol.({
+				timestamp = Utils.now ();
+				datasources = dss_f ();
+			}) in
+			writer.Rrd_writer.write_payload payload;
+			Thread.delay 0.003
+		in
+		let cleanup () =
+			RRDD.Plugin.Local.deregister ~uid;
+			writer.Rrd_writer.cleanup ()
+		in
+		start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup;
 		reporter
 
 	let create_interdomain
@@ -235,6 +242,14 @@ module Reporter = struct
 			Xs.write xs
 				(Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
 				"true");
+		let report () =
+			let payload = Rrd_protocol.({
+				timestamp = Utils.now ();
+				datasources = dss_f ();
+			}) in
+			writer.Rrd_writer.write_payload payload;
+			Thread.delay 5.0
+		in
 		let cleanup () =
 			Xs.immediate xs_state.Xs.client (fun xs ->
 				Xs.write xs
@@ -242,45 +257,7 @@ module Reporter = struct
 					"true");
 			writer.Rrd_writer.cleanup ()
 		in
-		let (_: Thread.t) =
-			Thread.create
-				(fun () ->
-					let running = ref true in
-					while !running do
-						try
-							let payload = Rrd_protocol.({
-								timestamp = Utils.now ();
-								datasources = dss_f ();
-							}) in
-							writer.Rrd_writer.write_payload payload;
-							Thread.delay 5.0;
-							Mutex.execute reporter.lock
-								(fun () ->
-									match reporter.state with
-									| Running -> ()
-									| Stopped
-									| Cancelled ->
-										reporter.state <- Stopped;
-										cleanup ();
-										Condition.broadcast reporter.condition;
-										running := false);
-						with
-							| Sys.Break ->
-								Mutex.execute reporter.lock
-									(fun () ->
-										reporter.state <- Stopped;
-										cleanup ();
-										Condition.broadcast reporter.condition;
-										running := false)
-							| e ->
-								D.error
-									"Unexpected error %s, sleeping for 10 seconds..."
-									(Printexc.to_string e);
-								D.log_backtrace ();
-								Thread.delay 10.0
-					done)
-				()
-		in
+		start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup;
 		reporter
 
 	let create (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
