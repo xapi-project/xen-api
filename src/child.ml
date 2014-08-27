@@ -91,24 +91,24 @@ let handle_comms comms_sock fd_sock state =
 	| None -> handle_comms_no_fd_sock2 comms_sock fd_sock state
 	| Some x -> handle_comms_with_fd_sock2 comms_sock fd_sock x state
 
-let log_failure args child_pid reason code =
+let log_failure args child_pid reason =
 	(* The commandline might be too long to clip it *)
 	let cmdline = String.concat " " args in
 	let limit = 80 - 3 in
 	let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
-	Fe_debug.error "%d (%s) %s %d" child_pid cmdline' reason code
+	Fe_debug.error "%d (%s) %s" child_pid cmdline' reason
 
 let report_child_exit comms_sock args child_pid status =
 	let pr = match status with
 	| Unix.WEXITED n ->
 		(* Unfortunately logging this was causing too much spam *)
-		if n <> 0 then log_failure args child_pid "exitted with code" n;
+		if n <> 0 then log_failure args child_pid (Printf.sprintf "exited with code %d" n);
 		Fe.WEXITED n
 	| Unix.WSIGNALED n ->
-		log_failure args child_pid (Printf.sprintf "exitted with signal: %s" (Unixext.string_of_signal n)) 0;
+		log_failure args child_pid (Printf.sprintf "exited with signal: %s" (Unixext.string_of_signal n));
 		Fe.WSIGNALED n
 	| Unix.WSTOPPED n ->
-		log_failure args child_pid (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n)) 0;
+		log_failure args child_pid (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n));
 		Fe.WSTOPPED n
 	in
 	let result = Fe.Finished (pr) in
