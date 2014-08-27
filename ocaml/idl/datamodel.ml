@@ -57,6 +57,9 @@ let vgpu_productisation_release_schema_minor_vsn = 69
 let clearwater_felton_release_schema_major_vsn = 5
 let clearwater_felton_release_schema_minor_vsn = 70
 
+let clearwater_whetstone_release_schema_major_vsn = 5
+let clearwater_whetstone_release_schema_minor_vsn = 71
+
 let creedence_release_schema_major_vsn = 5
 let creedence_release_schema_minor_vsn = 72
 
