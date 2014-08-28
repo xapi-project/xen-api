@@ -116,6 +116,8 @@ let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
+exception NoExistingGuestMetrics
+
 (** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
     and 'list' reads a directory from xenstore. Both are relative to the guest's 
     domainpath. *)
@@ -179,8 +181,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  && lookup "data/updated" <> None 
 	  && List.mem_assoc "major" pv_drivers_version 
 	  && List.mem_assoc "minor" pv_drivers_version
-  ) || (other_cached <> other)
-	  (* For HVM Linux without guest agent we need to update "other" even if nothing else has changed. *)
+  )
   then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
@@ -275,7 +276,46 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	      (Db.VM.get_VIFs ~__context ~self);
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
-    end
+  end
+  else if (other_cached <> other) then ( try (
+	(* For HVM Linux without guest agent we need to update "other" even if nothing else has changed. *)
+	(* This is a quick and dirty approach to fix urgent test-case-failure CA-144385
+	 * which was seen when we just included " || (other_cached <> other) " in the condition for
+	 * the code-block before the "else".  Here instead we are putting it in its own section,
+	 * and the code to follow is based on a copy of the block above, but updates only
+	 * the "other" map. *)
+
+	  (* Update only the "other" and "last_updated" fields of the cache *)
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (
+		  pv_drivers_version_cached,
+		  os_version_cached,
+		  networks_cached,
+		  other, (* not the cached version *)
+		  memory_cached,
+		  device_id_cached,
+		  last_updated)); (* not a cached version *)
+
+      let gm =
+		  let existing = Db.VM.get_guest_metrics ~__context ~self in
+		  if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
+		  then existing
+		  else raise NoExistingGuestMetrics
+	  in
+
+	  Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
+	  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+	  
+	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
+	  
+	  (* We base some of our allowed-operations decisions on the feature-flags in the "other" map *)
+	  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+	  List.iter (fun self -> Xapi_vbd_helpers.update_allowed_operations ~__context ~self)
+		  (Db.VM.get_VBDs ~__context ~self);
+	  List.iter (fun self -> Xapi_vif_helpers.update_allowed_operations ~__context ~self)
+		  (Db.VM.get_VIFs ~__context ~self);
+  ) with NoExistingGuestMetrics ->
+	  debug "The domid=%d 'other' map changed but there were no existing guest metrics so doing nothing." domid;
+  )
 
 (* XXX This function was previously called in the monitoring loop of the
  * RRD-related code, but that code has now been moved into rrdd, so there
