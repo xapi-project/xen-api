@@ -66,7 +66,7 @@ let xencenter_max_verstring = "2.2"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
-let packs_dir = Filename.concat Fhs.etcdir "installed-repos"
+let packs_dir = ref (Filename.concat Fhs.etcdir "installed-repos")
 
 let ssl_pid = ref 0
 
@@ -853,6 +853,9 @@ module Resources = struct
 	let nonessential_files = [
 		"pool_secret_path", pool_secret_path, "Pool configuration file";
 	]
+	let nonessential_dirs = [
+		"packs-dir", packs_dir, "Directory containing supplemental pack data"
+	]
 
 	let xcp_resources =
 		let make_resource perms essential (name, path, description) =
@@ -863,5 +866,6 @@ module Resources = struct
 			List.map (make_resource [X_OK] true) essential_executables;
 			List.map (make_resource [R_OK; W_OK] true) essential_files;
 			List.map (make_resource [R_OK; W_OK] false) nonessential_files;
+			List.map (make_resource [R_OK; W_OK] false) nonessential_dirs;
 		]
 end
