@@ -215,7 +215,7 @@ let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources ();
+  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
   if not !Xcp_client.use_switch
   then begin
     debug "Xcp_client.use_switch=false: resetting list of xenopsds";

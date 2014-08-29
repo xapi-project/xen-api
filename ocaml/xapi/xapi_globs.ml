@@ -839,33 +839,29 @@ let other_options = [
     (fun () -> !default_xenopsd), "default xenopsd to use";
 ] 
 
-let resources = [
-  { Xcp_service.name = "xapissl";
-    description = "Script for starting stunnel";
-    essential = true;
-    path = xapissl_path;
-    perms = [ Unix.X_OK ];
-  };
-  { Xcp_service.name = "pool_config_file";
-    description = "Pool configuration file";
-    essential = true;
-    path = pool_config_file;
-    perms = [ Unix.R_OK; Unix.W_OK ];
-  };
-  { Xcp_service.name = "pool_secret_path";
-    description = "Pool configuration file";
-    essential = false;
-    path = pool_secret_path;
-    perms = [ Unix.R_OK; Unix.W_OK ];
-  };
-  { Xcp_service.name = "udhcpd";
-    description = "DHCP server";
-    essential = true;
-    path = udhcpd;
-    perms = [ Unix.X_OK ];
-  };
-]
-
 let all_options = options_of_xapi_globs_spec @ other_options
 
+module Resources = struct
 
+	let essential_executables = [
+		"xapissl", xapissl_path, "Script for starting stunnel";
+		"udhcpd", udhcpd, "DHCP server";
+	]
+	let essential_files = [
+		"pool_config_file", pool_config_file, "Pool configuration file";
+	]
+	let nonessential_files = [
+		"pool_secret_path", pool_secret_path, "Pool configuration file";
+	]
+
+	let xcp_resources =
+		let make_resource perms essential (name, path, description) =
+			{ Xcp_service.essential; name; description; path; perms }
+		in
+		let open Unix in
+		List.fold_left List.rev_append [] [
+			List.map (make_resource [X_OK] true) essential_executables;
+			List.map (make_resource [R_OK; W_OK] true) essential_files;
+			List.map (make_resource [R_OK; W_OK] false) nonessential_files;
+		]
+end
