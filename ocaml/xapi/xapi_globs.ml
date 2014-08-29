@@ -785,7 +785,7 @@ let xapi_globs_spec =
 
 let options_of_xapi_globs_spec = 
   List.map (fun (name,ty) -> 
-    "name", (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x),
+    name, (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x),
     (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
