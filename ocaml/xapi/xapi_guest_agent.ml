@@ -174,14 +174,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
      * copy the xenstore tree in the critical downtime period during a migration
      * chmod RO the xenstore tree pre-migration, copy pre-migration and be prepared to unwind
   *)
-  if (
-	  true
-	  && lookup "data/updated" <> None 
-	  && List.mem_assoc "major" pv_drivers_version 
-	  && List.mem_assoc "minor" pv_drivers_version
-  ) || (other_cached <> other)
-	  (* For HVM Linux without guest agent we need to update "other" even if nothing else has changed. *)
-  then begin
+  if true
+    && lookup "data/updated" <> None 
+    && List.mem_assoc "major" pv_drivers_version 
+    && List.mem_assoc "minor" pv_drivers_version then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
       Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,last_updated));
