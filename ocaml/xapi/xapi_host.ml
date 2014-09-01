@@ -29,9 +29,6 @@ open Workload_balancing
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let host_bugreport_upload = Filename.concat Fhs.libexecdir "host-bugreport-upload"
-let set_hostname = Filename.concat Fhs.libexecdir "set-hostname"
-
 let set_emergency_mode_error code params = Xapi_globs.emergency_mode_error := Api_errors.Server_error(code, params)
 
 let local_assert_healthy ~__context = match Pool_role.get_role () with
@@ -75,9 +72,9 @@ let bugreport_upload ~__context ~host ~url ~options =
 	if List.mem_assoc "http_proxy" options
 	then List.assoc "http_proxy" options
 	else try Unix.getenv "http_proxy" with _ -> "" in
-  let cmd = Printf.sprintf "%s %s %s" host_bugreport_upload url proxy in
+  let cmd = Printf.sprintf "%s %s %s" !Xapi_globs.host_bugreport_upload url proxy in
   try
-	let stdout, stderr = Forkhelpers.execute_command_get_output host_bugreport_upload [ url; proxy ] in
+	let stdout, stderr = Forkhelpers.execute_command_get_output !Xapi_globs.host_bugreport_upload [ url; proxy ] in
 	debug "%s succeeded with stdout=[%s] stderr=[%s]" cmd stdout stderr
   with Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
 	debug "%s failed with stdout=[%s] stderr=[%s]" cmd stdout stderr;
@@ -758,7 +755,7 @@ let syslog_reconfigure ~__context ~host =
 			"--remote="^destination
 	in
 	  
-	let args = [| Filename.concat Fhs.libexecdir "xe-syslog-reconfigure"; flag |] in
+	let args = [| !Xapi_globs.xe_syslog_reconfigure; flag |] in
 	ignore (Unixext.spawnvp args.(0) args)
 
 let get_management_interface ~__context ~host =
@@ -895,7 +892,7 @@ let set_hostname_live ~__context ~host ~hostname =
 	raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname is too long" ]));
   if is_invalid_hostname hostname then
 	raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
-  ignore(Forkhelpers.execute_command_get_output set_hostname [hostname]);
+  ignore(Forkhelpers.execute_command_get_output !Xapi_globs.set_hostname [hostname]);
   Debug.invalidate_hostname_cache ();
   Db.Host.set_hostname ~__context ~self:host ~value:hostname
   )

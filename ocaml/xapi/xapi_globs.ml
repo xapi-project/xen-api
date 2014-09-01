@@ -363,10 +363,10 @@ let default_ha_timeout = "default_ha_timeout"
 
 (* Executed during startup when the API/database is online but before storage or networks
    are fully initialised. *)
-let startup_script_hook = Filename.concat Fhs.libexecdir "xapi-startup-script"
+let startup_script_hook = ref "xapi-startup-script"
 
 (* Executed when a rolling upgrade is detected starting or stopping *)
-let rolling_upgrade_script_hook = Filename.concat Fhs.libexecdir "xapi-rolling-upgrade"
+let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
@@ -404,7 +404,7 @@ let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 
 
 let message_limit=10000
 
-let xapi_message_script = Filename.concat Fhs.libexecdir "mail-alarm"
+let xapi_message_script = ref "mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
 let max_clock_skew = 5. *. 60. (* 5 minutes *)
@@ -733,7 +733,33 @@ let pool_config_file = ref (Filename.concat Fhs.etcdir "pool.conf")
 (* Path to the pool secret file. *)
 let pool_secret_path = ref (Filename.concat Fhs.etcdir "ptoken")
 
-let udhcpd = ref (Filename.concat Fhs.libexecdir "udhcpd")
+let udhcpd = ref "udhcpd"
+
+let lw_force_domain_leave_script = ref "lw-force-domain-leave"
+
+let redo_log_block_device_io = ref "block_device_io"
+
+let sparse_dd = ref "sparse_dd"
+
+let vhd_tool = ref "vhd-tool"
+
+let fence = ref "fence"
+
+let host_bugreport_upload = ref "host-bugreport-upload"
+
+let set_hostname = ref "set-hostname"
+
+let xe_syslog_reconfigure = ref "xe-syslog-reconfigure"
+
+let logs_download = ref "logs-download"
+
+let update_mh_info_script = ref "update-mh-info"
+
+let upload_wrapper = ref "upload-wrapper"
+
+let host_backup = ref "host-backup"
+
+let host_restore = ref "host-restore"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -789,7 +815,7 @@ let options_of_xapi_globs_spec =
     (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
-let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
+let xapissl_path = ref "xapissl"
 
 let xenopsd_queues = ref ([
   "org.xen.xcp.xenops.classic";
@@ -846,6 +872,24 @@ module Resources = struct
 	let essential_executables = [
 		"xapissl", xapissl_path, "Script for starting stunnel";
 		"udhcpd", udhcpd, "DHCP server";
+		"lw-force-domain-leave-script", lw_force_domain_leave_script, "Executed when likewise domain-leave fails";
+		"redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";
+		"sparse_dd", sparse_dd, "Path to sparse_dd";
+		"vhd-tool", vhd_tool, "Path to vhd-tool";
+		"fence", fence, "Path to fence binary, used for HA host fencing";
+		"host-bugreport-upload", host_bugreport_upload, "Path to host-bugreport-upload";
+		"set-hostname", set_hostname, "Path to set-hostname";
+		"xe-syslog-reconfigure", xe_syslog_reconfigure, "Path to xe-syslog-reconfigure";
+		"logs-download", logs_download, "Used by /get_host_logs_download HTTP handler";
+		"update-mh-info", update_mh_info_script, "Executed when changing the management interface";
+		"upload-wrapper", upload_wrapper, "Used by Host_crashdump.upload";
+		"host-backup", host_backup, "Path to host-backup";
+		"host-restore", host_restore, "Path to host-restore";
+	]
+	let nonessential_executables = [
+		"startup-script-hook", startup_script_hook, "Executed during startup";
+		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
+		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
@@ -864,6 +908,7 @@ module Resources = struct
 		let open Unix in
 		List.fold_left List.rev_append [] [
 			List.map (make_resource [X_OK] true) essential_executables;
+			List.map (make_resource [X_OK] false) nonessential_executables;
 			List.map (make_resource [R_OK; W_OK] true) essential_files;
 			List.map (make_resource [R_OK; W_OK] false) nonessential_files;
 			List.map (make_resource [R_OK; W_OK] false) nonessential_dirs;

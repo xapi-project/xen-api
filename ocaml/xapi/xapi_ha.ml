@@ -45,7 +45,6 @@ let ha_query_liveset = Filename.concat Fhs.xhadir "ha_query_liveset"
 let ha_propose_master = Filename.concat Fhs.xhadir "ha_propose_master"
 let ha_disarm_fencing = Filename.concat Fhs.xhadir "ha_disarm_fencing"
 let ha_set_excluded = Filename.concat Fhs.xhadir "ha_set_excluded"
-let fence_path = Filename.concat Fhs.libexecdir "fence"
 (* Unused: let ha_clear_excluded = Filename.concat Fhs.xhadir "ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
@@ -1583,7 +1582,7 @@ let before_clean_shutdown_or_reboot ~__context ~host =
 			error "Error past the commit-point while cleanly shutting down host: %s" (ExnHelper.string_of_exn e);
 			error "Host will self-fence via its own watchdog for safety";
 			(* NB we don't use Xenctrl directly because in the SDK VM this is all fake... *)
-			ignore(Forkhelpers.execute_command_get_output fence_path [ "yesreally" ]);
+			ignore(Forkhelpers.execute_command_get_output !Xapi_globs.fence [ "yesreally" ]);
 			Thread.delay 60.;
 			error "Watchdog has not triggered after 60 seconds";
 			(* Attempt to issue a reboot and kill the control stack *)

@@ -608,7 +608,7 @@ let handle_licensing () =
 		)
 
 let startup_script () =
-	let startup_script_hook = Xapi_globs.startup_script_hook in
+	let startup_script_hook = !Xapi_globs.startup_script_hook in
 	if (try Unix.access startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
 		debug "Executing startup script: %s" startup_script_hook;
 		ignore(Forkhelpers.execute_command_get_output startup_script_hook [])

@@ -30,10 +30,8 @@ let listening_localhost = ref false
 let listening_himn = ref false
 let management_m = Mutex.create ()
 
-let update_mh_info_script = Filename.concat Fhs.libexecdir "update-mh-info"
-
 let update_mh_info interface =
-	let (_: string*string) = Forkhelpers.execute_command_get_output update_mh_info_script [ interface ] in
+	let (_: string*string) = Forkhelpers.execute_command_get_output !Xapi_globs.update_mh_info_script [ interface ] in
 	()
 
 let stunnel_m = Mutex.create ()
