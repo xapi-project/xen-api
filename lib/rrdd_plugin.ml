@@ -17,6 +17,8 @@ open Unixext
 open Threadext
 open Xstringext
 
+let (|>) x f = f x
+
 module Utils = struct
 	let now () = Int64.of_float (Unix.gettimeofday ())
 
