@@ -388,15 +388,15 @@ module SMAPIv1 = struct
 			try
 				for_vdi ~dbg ~sr ~vdi "VDI.deactivate"
 					(fun device_config _type sr self ->
-						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string dbg)
+						Server_helpers.exec_with_new_task "VDI.deactivate" ~subtask_of:(Ref.of_string dbg)
 							(fun __context ->
 								let other_config = Db.VDI.get_other_config ~__context ~self in
 								if not (List.mem_assoc "content_id" other_config)
 								then Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:(Uuid.string_of_uuid (Uuid.make_uuid ())));
 						(* If the backend doesn't advertise the capability then do nothing *)
-						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
+						if List.mem_assoc Smint.Vdi_deactivate (Sm.features_of_driver _type)
 						then Sm.vdi_deactivate device_config _type sr self
-						else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
+						else info "%s sr:%s does not support vdi_deactivate: doing nothing" dp (Ref.string_of sr)
 					)
 			with Api_errors.Server_error(code, params) ->
 				raise (Backend_error(code, params))
