@@ -889,22 +889,6 @@ let on_oem ~__context =
 
 exception File_doesnt_exist of string
 
-let find_partition_path = Filename.concat Fhs.libexecdir "find-partition"
-
-let find_secondary_partition () =
-	try
-		let other_partition,_ = Forkhelpers.execute_command_get_output find_partition_path ["-p"; "alternate"] in
-		(* Sanity check: does it exist? *)
-		let () =
-			if not (Sys.file_exists other_partition)
-			then raise (File_doesnt_exist other_partition)
-		in
-		other_partition
-	with e ->
-		debug "Cannot find secondary system image partition: %s" (Printexc.to_string e);
-		raise (Api_errors.Server_error(Api_errors.cannot_find_oem_backup_partition,
-																	 [Printexc.to_string e]))
-
 let call_script ?(log_successful_output=true) script args =
   try
     Unix.access script [ Unix.X_OK ];
