@@ -19,10 +19,10 @@ open D
 
 (* Only scripts in the Xapi_globs.xapi_plugins_root can be called *)
 let find_plugin name =
-	let all = try Array.to_list (Sys.readdir Xapi_globs.xapi_plugins_root) with _ -> [] in
+	let all = try Array.to_list (Sys.readdir !Xapi_globs.xapi_plugins_root) with _ -> [] in
 	(* Sys.readdir output doesn't include "." or ".." *)
 	if List.mem name all
-	then Filename.concat Xapi_globs.xapi_plugins_root name
+	then Filename.concat !Xapi_globs.xapi_plugins_root name
 	else raise (Api_errors.Server_error(Api_errors.xenapi_missing_plugin, [ name ]))
 
 (* Execute the plugin with XMLRPC-over-cmdline/stdout convention, like the SM plugins.

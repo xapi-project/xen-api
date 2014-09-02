@@ -410,9 +410,7 @@ let xapi_message_script = ref "mail-alarm"
 let max_clock_skew = 5. *. 60. (* 5 minutes *)
 
 (* Optional directory containing XenAPI plugins *)
-let xapi_plugins_root = Fhs.plugindir 
-
-
+let xapi_plugins_root = ref "/etc/xapi.d/plugins"
 
 (** CA-18377: Providing lists of operations that were supported by the Miami release. *)
 (** For now, we check against these lists when sending data across the wire that may  *)
@@ -905,6 +903,7 @@ module Resources = struct
 	let nonessential_dirs = [
 		"packs-dir", packs_dir, "Directory containing supplemental pack data";
 		"xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
+		"xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
 	]
 
 	let xcp_resources =
