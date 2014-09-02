@@ -23,8 +23,6 @@ open D
 let filename = ref ""
 
 let gpg_binary_path = "/usr/bin/gpg"
-let gpg_homedir = Filename.concat Fhs.optdir "gpg/"
-let gpg_pub_keyring = gpg_homedir ^ "pubring.gpg"
 let allowed_gpg_checksum = [
 	(* 32-bit gpg checksums. *)
 	"be00ee82bffad791edfba477508d5d84"; (* centos52 version *)
@@ -71,10 +69,11 @@ let common ty filename signature size f =
     if List.mem fd !fds_to_close 
     then (Unix.close fd; fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close) in
 
+  let gpg_pub_keyring = Filename.concat !Xapi_globs.gpg_homedir "pubring.gpg" in
   let gpg_args = match ty with
     | `signed_cleartext ->
         [
-		  "--homedir"; gpg_homedir;
+		  "--homedir"; !Xapi_globs.gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
 		  "--status-fd"; status_in_uuid;
@@ -83,7 +82,7 @@ let common ty filename signature size f =
     | `detached_signature ->
         [
           filename; Int64.to_string size;
-		  "--homedir"; gpg_homedir;
+		  "--homedir"; !Xapi_globs.gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
 		  "--status-fd"; status_in_uuid;

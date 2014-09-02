@@ -761,6 +761,8 @@ let host_restore = ref "host-restore"
 
 let xha_dir = ref "/opt/xensource/xha"
 
+let gpg_homedir = ref "/opt/xensource/gpg"
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -899,6 +901,7 @@ module Resources = struct
 	]
 	let essential_dirs = [
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
+		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 	]
 	let nonessential_dirs = [
 		"packs-dir", packs_dir, "Directory containing supplemental pack data";
