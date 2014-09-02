@@ -28,25 +28,68 @@ module Utils : sig
 
 	val list_directory_entries_unsafe : string -> string list
 	(** List the contents of a directory, not including . and .. *)
+
+	val exec_cmd : (module Debug.DEBUG) -> cmdstring:string -> f:(string -> 'a option) -> 'a list
+	(** [exec_cmd cmd f] executes [cmd], applies [f] on each of the lines which
+	    [cmd] outputs on stdout, and returns a list of resulting values for which
+	    applying [f] returns [Some value]. *)
 end
 
-type target =
-	| Local
-	(** Specifies that we will be reporting data to an rrdd process in the same
-	    domain as this process. *)
-	| Interdomain of (int * int)
-	(** [Interdomain (domid, pages)] specifies that we will be reporting data to
-	    an rrdd process in domain [domid], and we will be sharing [pages] with
-	    this domain. *)
-(** Specify how the data we are collecting will be reported. *)
+(** Asynchronous interface to create, cancel and query the state of stats
+    reporting threads. *)
+module Reporter : sig
+	type state =
+		| Running
+		(** The reporter is running. *)
+		| Cancelled
+		(** A thread has cancelled the reporter. *)
+		| Stopped
+		(** The reporter has stopped. *)
+	(** The state of a reporter. *)
 
-(** Functions used for communication with rrdd and other processes. *)
-module Common : functor (N : (sig val name : string end)) -> sig
-	val exec_cmd : cmdstring:string -> f:(string -> 'a option) -> 'a list
-	(** Execute the command [~cmd] with args [~args], apply f on each of
-	    the lines that cmd output on stdout, and returns a list of
-	    resulting values if f returns Some v *)
+	type target =
+		| Local
+		(** Specifies that we will be reporting data to an rrdd process in the same
+				domain as this process. *)
+		| Interdomain of (int * int)
+		(** [Interdomain (domid, pages)] specifies that we will be reporting data to
+				an rrdd process in domain [domid], and we will be sharing [pages] with
+				this domain. *)
+	(** Specify how the data we are collecting will be reported. *)
 
+	type t
+	(** Abstract type of stats reporters. *)
+
+	val create : (module Debug.DEBUG) ->
+		uid:string ->
+		neg_shift:float ->
+		target:target ->
+		protocol:Rrd_interface.plugin_protocol ->
+		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
+		t
+	(** Create a stats reporter.
+	    {ul
+	    {- [uid] is the UID which will be registered with rrdd.}
+	    {- [neg_shift] is the amount of time before rrdd collects data that we
+	       should report our data.}
+	    {- [target] specifies the transport via which data will be reported to
+	       rrdd.}
+	    {- [protocol] specifies the protocol used to transmit the data.}
+	    {- [dss_f ()] will generate the list of datasources to be reported.}} *)
+
+	val get_state : reporter:t -> state
+	(** Query the state of a reporter. *)
+
+	val cancel : reporter:t -> unit
+	(** Signal to a reporter that we want it to cancel, and block until it has
+	    cleaned up and marked itself as Stopped. *)
+
+	val wait_until_stopped : reporter:t -> unit
+	(** Block until the reporter has marked itself stopped. *)
+end
+
+(** Functions useful for writing a single-purpose rrdd plugin daemon. *)
+module Process : functor (N : (sig val name : string end)) -> sig
 	val initialise : unit -> unit
 	(** Utility function for daemons whose sole purpose is to report data to rrdd.
 	    This will set up signal handlers, as well as daemonising and writing a pid
@@ -60,7 +103,7 @@ module Common : functor (N : (sig val name : string end)) -> sig
 
 	val main_loop :
 		neg_shift:float ->
-		target:target ->
+		target:Reporter.target ->
 		protocol:Rrd_interface.plugin_protocol ->
 		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
 		unit
@@ -70,6 +113,6 @@ module Common : functor (N : (sig val name : string end)) -> sig
 	       should report our data.}
 	    {- [target] specifies the transport via which data will be reported to
 	       rrdd.}
-	    {- [protocol] specifies the protocol used to tramsit the data.}
-	    {- [dds_f ()] will generate the list of datasources to be reported.}} *)
+	    {- [protocol] specifies the protocol used to transmit the data.}
+	    {- [dss_f ()] will generate the list of datasources to be reported.}} *)
 end

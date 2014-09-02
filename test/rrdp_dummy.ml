@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Common = Rrdd_plugin.Common(struct let name = "xcp-rrdd-dummy" end)
+module Process = Rrdd_plugin.Process(struct let name = "xcp-rrdd-dummy" end)
 
 let make_cnt start =
 	let i = ref (start-1) in
@@ -29,19 +29,19 @@ let generate_dummy_dss () =
 	]
 
 let _ =
-	let mode = ref Rrdd_plugin.Local in
+	let mode = ref Rrdd_plugin.Reporter.Local in
 	Arg.parse
 		[("-mode",
 			Arg.String (function
-				| "local" -> mode := Rrdd_plugin.Local
-				| "interdomain" -> mode := Rrdd_plugin.Interdomain (0, 1)
+				| "local" -> mode := Rrdd_plugin.Reporter.Local
+				| "interdomain" -> mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
 				| x -> invalid_arg x),
 			"Switch between local and interdomain mode")]
 		(fun _ -> ())
 		(Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name);
 
-	Common.initialise ();
-	Common.main_loop
+	Process.initialise ();
+	Process.main_loop
 		~neg_shift:0.5
 		~target:!mode
 		~protocol:Rrd_interface.V2
