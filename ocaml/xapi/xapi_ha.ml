@@ -38,14 +38,14 @@ let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:Non
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
-let ha_set_pool_state = Filename.concat Fhs.xhadir "ha_set_pool_state"
-let ha_start_daemon = Filename.concat Fhs.xhadir "ha_start_daemon"
-let ha_stop_daemon = Filename.concat Fhs.xhadir "ha_stop_daemon"
-let ha_query_liveset = Filename.concat Fhs.xhadir "ha_query_liveset"
-let ha_propose_master = Filename.concat Fhs.xhadir "ha_propose_master"
-let ha_disarm_fencing = Filename.concat Fhs.xhadir "ha_disarm_fencing"
-let ha_set_excluded = Filename.concat Fhs.xhadir "ha_set_excluded"
-(* Unused: let ha_clear_excluded = Filename.concat Fhs.xhadir "ha_clear_excluded" *)
+let ha_set_pool_state = Filename.concat !Xapi_globs.xha_dir "ha_set_pool_state"
+let ha_start_daemon = Filename.concat !Xapi_globs.xha_dir "ha_start_daemon"
+let ha_stop_daemon = Filename.concat !Xapi_globs.xha_dir "ha_stop_daemon"
+let ha_query_liveset = Filename.concat !Xapi_globs.xha_dir "ha_query_liveset"
+let ha_propose_master = Filename.concat !Xapi_globs.xha_dir "ha_propose_master"
+let ha_disarm_fencing = Filename.concat !Xapi_globs.xha_dir "ha_disarm_fencing"
+let ha_set_excluded = Filename.concat !Xapi_globs.xha_dir "ha_set_excluded"
+(* Unused: let ha_clear_excluded = Filename.concat !Xapi_globs.xha_dir "ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
