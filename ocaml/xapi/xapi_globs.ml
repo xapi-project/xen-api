@@ -379,7 +379,7 @@ let listen_backlog = 128
 let artificial_reboot_delay = "artificial-reboot-delay"
 
 (* Xapi script hooks root *)
-let xapi_hooks_root = Fhs.hooksdir 
+let xapi_hooks_root = ref "/etc/xapi.d"
 
 (* RRD storage location *)
 let xapi_rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
@@ -903,7 +903,8 @@ module Resources = struct
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
 	]
 	let nonessential_dirs = [
-		"packs-dir", packs_dir, "Directory containing supplemental pack data"
+		"packs-dir", packs_dir, "Directory containing supplemental pack data";
+		"xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
 	]
 
 	let xcp_resources =
