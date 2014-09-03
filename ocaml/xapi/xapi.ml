@@ -922,6 +922,7 @@ let server_init() =
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
 			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
 			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
+			"Stats reporting thread", [], Xapi_stats.start;
     ];
 						    
     if !debug_dummy_data then (
