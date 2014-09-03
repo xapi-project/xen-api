@@ -59,7 +59,7 @@ let string_of_vsn2 (maj, min) = string_of_vsn [maj; min]
 (* Find the most recent xs tools version from the local filesystem -- avoids having to synchronise
    with the master's SR scanning thread. Called from the startup code only *)
 let get_latest_tools_vsn () =
-	let all = Sys.readdir Xapi_globs.tools_sr_dir in
+	let all = Sys.readdir !Xapi_globs.tools_sr_dir in
 	let none = Xapi_globs.tools_version_none in
 	let vsn_of_filename f =
 		try

@@ -200,7 +200,7 @@ let tools_sr_tag = "xenserver_tools_sr"
 let rio_tools_sr_name = "XenSource Tools"
 let miami_tools_sr_name = "XenServer Tools"
 
-let tools_sr_dir = Filename.concat Fhs.sharedir "packages/iso"
+let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
@@ -928,6 +928,7 @@ module Resources = struct
 		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 	]
 	let essential_dirs = [
+		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
 		"web-dir", web_dir, "Directory to export fileserver";
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
