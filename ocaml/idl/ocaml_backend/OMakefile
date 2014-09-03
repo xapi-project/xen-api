@@ -7,7 +7,7 @@
 AUTOGEN_DIR = ../../autogen
 AUTOGEN_HELPER_DIR = ../../database
 
-OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records ../../util
+OCAMLINCLUDES += ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records ../../util
 
 OCAMLPACKS += sexpr xml-light2 http-svr rpclib stunnel
 
@@ -117,7 +117,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../xapi/xmlrpc_sexpr
 
 XAPI_CLIENT_OBJS = \
-	../../fhs \
 	../../util/version \
 	../../xapi/xapi_inventory \
 	../../xapi/xapi_fist \

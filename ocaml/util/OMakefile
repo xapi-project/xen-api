@@ -1,5 +1,3 @@
-OCAMLINCLUDES = ..
-OCAML_LIBS = ../fhs
 OCAMLPACKS    = http-svr xcp uuid xcp-inventory
 
 #OCamlLibrary(util_globs_inventory, util_globs_inventory)
