@@ -423,7 +423,7 @@ let create_host_cpu ~__context =
 	   pool homogeneity checks fail] *)
 	let get_cpuinfo () =
 		let cpu_info_file =
-			try Unix.access Xapi_globs.cpu_info_file [ Unix.F_OK ]; Xapi_globs.cpu_info_file
+			try Unix.access !Xapi_globs.cpu_info_file [ Unix.F_OK ]; !Xapi_globs.cpu_info_file
 			with _ -> "/proc/cpuinfo" in
 		let in_chan = open_in cpu_info_file in
 		let tbl = Hashtbl.create 32 in

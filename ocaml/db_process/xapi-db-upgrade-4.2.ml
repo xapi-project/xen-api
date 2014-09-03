@@ -36,7 +36,7 @@ let (_:unit) =
 		end else 
 			perform_inside_quotes_fn Xml_spaces.protect_fn inside_quotes
 	in
-	let paths = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
+	let paths = Parse_db_conf.parse_db_conf !Xapi_globs.db_conf_path in
 	List.iter 
 		(fun dbconn ->
 			let path = dbconn.Parse_db_conf.path in

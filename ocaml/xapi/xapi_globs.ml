@@ -66,7 +66,7 @@ let xencenter_max_verstring = "2.2"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
-let packs_dir = ref (Filename.concat Fhs.etcdir "installed-repos")
+let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
 
 let ssl_pid = ref 0
 
@@ -99,11 +99,11 @@ let http_realm = "xapi"
 let xe_path = Filename.concat Fhs.bindir "xe"
 let sm_dir = Filename.concat Fhs.optdir "sm"
 
-let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
-let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
-let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
+let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
+let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
+let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
+let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false
 
@@ -285,7 +285,7 @@ let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
 
 (* Directory containing scripts which are executed when a node becomes master
    and when a node gives up the master role *)
-let master_scripts_dir = Filename.concat Fhs.etcdir "master.d"
+let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
@@ -726,10 +726,16 @@ let redo_log_connect_delay = ref 0.1
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
-let pool_config_file = ref (Filename.concat Fhs.etcdir "pool.conf")
+let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 
 (* Path to the pool secret file. *)
-let pool_secret_path = ref (Filename.concat Fhs.etcdir "ptoken")
+let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
+
+(* Path to server ssl certificate *)
+let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
+
+let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
+let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd = ref "udhcpd"
 
@@ -762,6 +768,8 @@ let host_restore = ref "host-restore"
 let xha_dir = ref "/opt/xensource/xha"
 
 let gpg_homedir = ref "/opt/xensource/gpg"
+
+let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -895,18 +903,27 @@ module Resources = struct
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
+		"server-cert-path", server_cert_path, "Path to server ssl certificate";
+		"db-config-file", db_conf_path, "Database configuration file";
+		"udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
 	]
 	let nonessential_files = [
 		"pool_secret_path", pool_secret_path, "Pool configuration file";
+		"udhcpd-conf", udhcpd_conf, "Optional configuration file for udchp";
+		"remote-db-conf-file", remote_db_conf_fragment_path, "Where to store information about remote databases";
+		"logconfig", log_config_file, "Configure the logging policy";
+		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 	]
 	let essential_dirs = [
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 	]
 	let nonessential_dirs = [
+		"master-scripts-dir", master_scripts_dir, "Scripts to execute when transitioning pool role";
 		"packs-dir", packs_dir, "Directory containing supplemental pack data";
 		"xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
 		"xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
+		"static-vdis-root", static_vdis_dir, "Optional directory for configuring static VDIs";
 	]
 
 	let xcp_resources =

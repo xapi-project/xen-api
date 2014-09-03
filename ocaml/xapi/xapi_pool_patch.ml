@@ -335,9 +335,6 @@ let sync () =
       | Success(output, _) -> ()
 
 let patch_header_length = 8
-let skip_signature_flag = Filename.concat Fhs.etcdir "skipsignature"
-
-let skip_signature_test () = Sys.file_exists skip_signature_flag
 
 let pool_patch_download_handler (req: Request.t) s _ =
   Xapi_http.with_context "Downloading pool patch" req s

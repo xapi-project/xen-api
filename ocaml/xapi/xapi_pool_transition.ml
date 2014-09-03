@@ -27,14 +27,14 @@ open D
 let run_external_scripts becoming_master = 
   let call_scripts () = 
     let arg = if becoming_master then "start" else "stop" in    
-    debug "Calling scripts in %s with argument %s" Xapi_globs.master_scripts_dir arg;
+    debug "Calling scripts in %s with argument %s" !Xapi_globs.master_scripts_dir arg;
 
-    let all = try Array.to_list (Sys.readdir Xapi_globs.master_scripts_dir) with _ -> [] in
+    let all = try Array.to_list (Sys.readdir !Xapi_globs.master_scripts_dir) with _ -> [] in
     let order = List.sort (fun a b -> if becoming_master then compare a b else -(compare a b)) all in
     List.iter
       (fun filename ->
 	 try
-	   let filename = Xapi_globs.master_scripts_dir ^ "/" ^ filename in
+	   let filename = !Xapi_globs.master_scripts_dir ^ "/" ^ filename in
 	   debug "Executing %s %s" filename arg;
 	   ignore(Forkhelpers.execute_command_get_output filename [arg])
 	 with Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED n) ->

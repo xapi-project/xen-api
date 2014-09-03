@@ -82,7 +82,7 @@ let from_block r =
 
 let write_db_conf connections =
   let dbconf = String.concat "\n" (List.map from_block connections) in
-  Unixext.write_string_to_file Xapi_globs.db_conf_path dbconf
+  Unixext.write_string_to_file !Xapi_globs.db_conf_path dbconf
 
 let to_mode s =
   match s with
