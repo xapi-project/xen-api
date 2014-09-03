@@ -1812,6 +1812,8 @@ module VM = struct
 
 	let set_vcpus task vm target = on_domain (fun _ xs _ _ di _ ->
 		let open Xenlight.Dominfo in
+		if di.domain_type = Xenlight.DOMAIN_TYPE_HVM then
+			raise (Unimplemented("vcpu hotplug for HVM domains"));
 
 		let set ~xs ~devid domid online =
 			let path = Printf.sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
@@ -2587,7 +2589,6 @@ let all_domU_watches domid uuid =
 		sprintf "/local/domain/%d/memory/uncooperative" domid;
 		sprintf "/local/domain/%d/console/vnc-port" domid;
 		sprintf "/local/domain/%d/console/tc-port" domid;
-		sprintf "/local/domain/%d/control" domid;
 		sprintf "/local/domain/%d/device" domid;
 		sprintf "/local/domain/%d/vm-data" domid;
 		sprintf "/vm/%s/rtc/timeoffset" uuid;
