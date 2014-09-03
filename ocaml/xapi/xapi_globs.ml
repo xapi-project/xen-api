@@ -772,6 +772,8 @@ let xsh = ref "xsh"
 
 let static_vdis = ref "static-vdis"
 
+let web_dir = ref "/opt/xensource/www"
+
 let xha_dir = ref "/opt/xensource/xha"
 
 let gpg_homedir = ref "/opt/xensource/gpg"
@@ -926,6 +928,7 @@ module Resources = struct
 		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 	]
 	let essential_dirs = [
+		"web-dir", web_dir, "Directory to export fileserver";
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 	]
