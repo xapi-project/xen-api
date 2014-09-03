@@ -1889,6 +1889,10 @@ let set_vcpus ~__context ~self n =
 						"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
 						string_of_int n
 					]))
+				| Unimplemented _ ->
+					error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
+					raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+					["HVM VMs cannot hotplug CPUs"]))
 		)
 
 let set_shadow_multiplier ~__context ~self target =
