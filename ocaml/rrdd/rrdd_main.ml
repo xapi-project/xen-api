@@ -394,39 +394,6 @@ let update_vbds doms =
 			!vals
 		with _ -> !vals
 	in
-	(* With blktap3, the IO statistics are maintained in a file 'statistics'
-	 * under the directory '/dev/shm/vbd3-<pid>-<minor>/'
-	 * The file contains the following information:
-	 * ds_req, f_req, oo_req, rd_req, rd_sect, wr_req, wr_sect
-	 * read requests: %Ld, avg usecs: %Ld, max usecs: %Ld
-	 * write requests: %Ld, avg usecs: %Ld, max usecs: %Ld *)
-
-	(* This method reads the first line from the 'statistics' file *)
-	let read_shm_stats_line line =
-		try
-			Scanf.sscanf line "%Ld %Ld %Ld %Ld %Ld %Ld %Ld"
-				(fun a b c d e f g -> (a, b, c, d, e, f, g))
-		with _ -> (0L, 0L, 0L, 0L, 0L, 0L, 0L)
-	in
-	(* This method obtains the latency metrics from the 'statistics' file *)
-	let get_latency_metrics line rdwr =
-		match rdwr with
-		| `Read ->
-			Scanf.sscanf line "read requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
-				(fun a b c -> (a, b, c))
-		| `Write ->
-			Scanf.sscanf line "write requests: %Ld, avg usecs: %Ld, max usecs: %Ld"
-				(fun a b c -> (a, b, c))
-	in
-	let parse_shm_stats file_contents =
-		match file_contents with
-		| [shm_stats; read_latency_stats; write_latency_stats] ->
-				let _,_,_, shm_rd_req,_,shm_wr_req,_ = read_shm_stats_line shm_stats in
-				let _, shm_rd_avg_usecs, _ = get_latency_metrics read_latency_stats `Read in
-				let _, shm_wr_avg_usecs, _ = get_latency_metrics write_latency_stats `Write in
-				Some(shm_rd_req, shm_wr_req, shm_rd_avg_usecs, shm_wr_avg_usecs)
-		| _ -> None
-	in
 	let shm_devices_dir = "/dev/shm" in
 	let sysfs_devices_dir = "/sys/devices/" in
 	(* Method to read stats from sysfs *)
@@ -453,6 +420,113 @@ let update_vbds doms =
 		else
 			None
 	in
+(* With blktap3, the blkback_stats structure is maintained on a shared page
+ * struct blkback_stats {
+	 * /**
+	 * * BLKIF_OP_DISCARD, not currently supported in blktap3, should always
+	 * * be zero
+	 * */
+	 * unsigned long long st_ds_req;
+	 * /**
+	 * * BLKIF_OP_FLUSH_DISKCACHE, not currently supported in blktap3,
+	 * * should always be zero
+	 * */
+	 * unsigned long long st_f_req;
+	 * /**
+	 * * Increased each time we fail to allocate memory for a internal
+	 * * request descriptor in response to a ring request.
+	 * */
+	 * unsigned long long st_oo_req;
+	 * /**
+	 * * Received BLKIF_OP_READ requests.
+	 * */
+	 * unsigned long long st_rd_req;
+	 * /**
+	 * * Completed BLKIF_OP_READ requests.
+	 * */
+	 * long long st_rd_cnt;
+	 * /**
+	 * * Read sectors, after we've forwarded the request to actual storage.
+	 * */
+	 * unsigned long long st_rd_sect;
+	 * /**
+	 * * Sum of the request response time of all BLKIF_OP_READ, in us.
+	 * */
+	 * long long st_rd_sum_usecs;
+	 * /**
+	 * * Absolute maximum BLKIF_OP_READ response time, in us.
+	 * */
+	 * long long st_rd_max_usecs;
+	 * /**
+	 * * Received BLKIF_OP_WRITE requests.
+	 * */
+	 * unsigned long long st_wr_req;
+	 * /**
+	 * * Completed BLKIF_OP_WRITE requests.
+	 * */
+	 * long long st_wr_cnt;
+	 * /**
+	 * * Write sectors, after we've forwarded the request to actual storage.
+	 * */
+	 * unsigned long long st_wr_sect;
+	 * /**
+	 * * Sum of the request response time of all BLKIF_OP_WRITE, in us.
+	 * */
+	 * long long st_wr_sum_usecs;
+	 * /**
+	 * * Absolute maximum BLKIF_OP_WRITE response time, in us.
+	 * */
+	 * long long st_wr_max_usecs;
+	 * }
+	 *
+	 * The counters are read by seeking to the appropriate location *)
+	let read_raw_blktap3_stats vbd =
+		try
+			let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
+			Unixext.with_input_channel stat_file (fun ic ->
+				let buf = String.create 8 in
+				let reverse str =
+					let len = String.length str in
+					let rev = String.create len in
+					for i = 0 to pred len - 1 do
+						let j = pred len -i in
+						rev.[i] <- str.[j]
+					done;
+					(rev)
+				in
+				let extract_metric_from pos_at =
+					let () = seek_in ic pos_at in
+					let n = input ic buf 0 8 in
+					if n == 8 then
+						Bitstring.extract_int64_be_unsigned (reverse buf) 0 64 64
+					else
+						0L
+				in
+				(* Seek to rd_sect *)
+				let rd_reqs = extract_metric_from 40 in
+				(* average_read_usecs = rd_sum_usecs / rd_cnt *)
+				let rd_avg_usecs =
+					let rd_cnt = extract_metric_from 32 in
+					let rd_sum_usecs = extract_metric_from 48 in
+					if rd_cnt > 0L then
+						Int64.div rd_sum_usecs rd_cnt
+					else 0L
+				in
+				(* Seek to wr_sect *)
+				let wr_reqs = extract_metric_from 80 in
+				(* average_write_usecs = wr_sum_usecs / wr_cnt *)
+				let wr_avg_usecs =
+					let wr_cnt = extract_metric_from 72 in
+					let wr_sum_usecs = extract_metric_from 88 in
+					if wr_cnt > 0L then
+						Int64.div wr_sum_usecs wr_cnt
+					else 0L
+				in
+				Some(rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs)
+			)
+		with _ ->
+			None
+	in
 	let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
 	let shm_vbds =
 		List.filter
@@ -466,8 +540,6 @@ let update_vbds doms =
 		let istap = String.startswith "tap-" vbd in
 		let isvbd3 = String.startswith "vbd3-" vbd in
 		let avg64 a b = Int64.div (Int64.add a b) 2L in
-		let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
-		let stats = Unixext.read_lines stat_file in
 		(* Produce IO RRDs when demanded *)
 		let generate_rrds acc rd_reqs wr_reqs rd_avg_usecs wr_avg_usecs =
 			let blksize = 512L in
@@ -507,7 +579,7 @@ let update_vbds doms =
 				in
 				newacc
 		in
-		match parse_shm_stats stats, read_all_sysfs_stats vbd with
+		match read_raw_blktap3_stats vbd, read_all_sysfs_stats vbd with
 		| Some(a, b, c, d), Some(p, q, r, s) ->
 				let (shm_rd_reqs, shm_wr_reqs, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
 				let (rd_reqs, wr_reqs, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
