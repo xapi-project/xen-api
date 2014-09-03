@@ -95,9 +95,6 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 
 let http_realm = "xapi"
 
-(* Base path and some of its immediate dependencies. *)
-let sm_dir = Filename.concat Fhs.optdir "sm"
-
 let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
 let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
 let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
@@ -772,6 +769,8 @@ let xsh = ref "xsh"
 
 let static_vdis = ref "static-vdis"
 
+let sm_dir = ref "/opt/xensource/sm"
+
 let web_dir = ref "/opt/xensource/www"
 
 let xha_dir = ref "/opt/xensource/xha"
@@ -930,6 +929,7 @@ module Resources = struct
 		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 	]
 	let essential_dirs = [
+		"sm-dir", sm_dir, "Directory containing SM plugins";
 		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
 		"web-dir", web_dir, "Directory to export fileserver";
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";

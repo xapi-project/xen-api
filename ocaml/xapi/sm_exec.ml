@@ -24,7 +24,7 @@ module D=Debug.Make(struct let name="sm_exec" end)
 open D
 module E=Debug.Make(struct let name="mscgen" end)
 
-let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
+let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 
 let sm_username = "__sm__backend"
 
@@ -344,6 +344,6 @@ let get_supported add_fn =
 			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
 		 end else error "Not scanning %s for SM backends: directory does not exist" dir
     ) 
-    [ check_driver, Xapi_globs.sm_dir ]
+    [ check_driver, !Xapi_globs.sm_dir ]
 
 (*********************************************************************)
