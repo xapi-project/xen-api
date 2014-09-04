@@ -423,6 +423,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 			  name_label = a.Db_actions.vDI_name_label;
 			  name_description = a.Db_actions.vDI_name_description;
 			  sm_config = driver_params;
+			  snapshot_time = Date.to_string (Date.of_float (Unix.gettimeofday ()));
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
 	  (* We don't use transform_storage_exn because of the clone/copy fallback below *)
@@ -459,7 +460,6 @@ let snapshot ~__context ~vdi ~driver_params =
 	(* Record the fact this is a snapshot *)
 	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
 	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
-	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
 	update_allowed_operations ~__context ~self:newvdi;
 	newvdi
