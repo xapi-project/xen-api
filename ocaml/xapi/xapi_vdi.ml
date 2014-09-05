@@ -570,6 +570,16 @@ let clone ~__context ~vdi ~driver_params =
        raise e)
 		)
 
+let revert ~__context ~snapshot ~driver_params =
+	let new_vdi = Storage_access.transform_storage_exn
+		(fun () ->
+			let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+			snapshot_and_clone
+				(fun ~dbg ~sr ~vdi_info -> C.VDI.revert ~dbg ~sr ~snapshot_info:vdi_info)
+				~__context ~vdi:snapshot ~driver_params)
+	in
+	update_allowed_operations ~__context ~self:new_vdi;
+	new_vdi
 
 let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
 	Xapi_vdi_helpers.assert_managed ~__context ~vdi;
