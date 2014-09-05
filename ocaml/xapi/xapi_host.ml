@@ -461,9 +461,8 @@ let retrieve_wlb_evacuate_recommendations ~__context ~self =
 	   (vm, plan) :: acc) plans []
 
 let restart_agent ~__context ~host =
-	let cmd = Filename.concat Fhs.bindir "xe-toolstack-restart" in
 	let syslog_stdout = Forkhelpers.Syslog_WithKey ("Host.restart_agent") in
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout cmd [] in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout !Xapi_globs.xe_toolstack_restart [] in
 	debug "Created process with pid: %d to perform xe-toolstack-restart" (Forkhelpers.getpid pid)
 
 let shutdown_agent ~__context =

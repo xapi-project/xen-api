@@ -22,15 +22,13 @@ open Xstringext
 open Pervasiveext
 include Static_vdis_list (* include the vdi type and the list() function *)
 
-let static_vdis = Filename.concat Fhs.bindir "static-vdis"
-
 (** Generate the static configuration and attach the VDI now *)
 let permanent_vdi_attach ~__context ~vdi ~reason =
 	info "permanent_vdi_attach: vdi = %s; sr = %s"
 		(Ref.string_of vdi) (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi));
-	ignore (Helpers.call_script static_vdis [ "add"; Db.VDI.get_uuid ~__context ~self:vdi; reason ]);
+	ignore (Helpers.call_script !Xapi_globs.static_vdis [ "add"; Db.VDI.get_uuid ~__context ~self:vdi; reason ]);
 	(* VDI will be attached on next boot; attach it now too *)
-	String.rtrim (Helpers.call_script static_vdis
+	String.rtrim (Helpers.call_script !Xapi_globs.static_vdis
 		[ "attach"; Db.VDI.get_uuid ~__context ~self:vdi ])
 
 (** Detach the VDI (by reference) now and destroy the static configuration *)
@@ -39,7 +37,7 @@ let permanent_vdi_detach ~__context ~vdi =
 		(Ref.string_of vdi) (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi));
 	Sm.call_sm_vdi_functions ~__context ~vdi
 		(fun srconf srtype sr -> Sm.vdi_detach srconf srtype sr vdi);
-	ignore(Helpers.call_script static_vdis
+	ignore(Helpers.call_script !Xapi_globs.static_vdis
 		[ "del"; Db.VDI.get_uuid ~__context ~self:vdi ])
 
 (** Detach the VDI (by uuid) now and destroy the static configuration *)
@@ -54,7 +52,7 @@ let permanent_vdi_detach_by_uuid ~__context ~uuid =
 		with e ->
 			warn "Ignoring exception calling SM vdi_detach for VDI uuid %s: %s (possibly VDI has been deleted while we were offline" uuid (ExnHelper.string_of_exn e)
 	end;
-	ignore(Helpers.call_script static_vdis [ "del"; uuid ])
+	ignore(Helpers.call_script !Xapi_globs.static_vdis [ "del"; uuid ])
 
 (** Added for CA-48539. Deactivates a vdi. You should probably follow
 	this call with one of the previous vdi_detach functions. *)
@@ -78,7 +76,7 @@ let gc () =
 				if not(exists) then begin
 					warn "static-vdi %s cannot be found in database; removing on-boot configuration" vdi.uuid;
 					(* NB we can't call the SM functions since the record has gone *)
-					ignore(Helpers.call_script static_vdis [ "del"; vdi.uuid ])
+					ignore(Helpers.call_script !Xapi_globs.static_vdis [ "del"; vdi.uuid ])
 				end
 			) (list ()))
 

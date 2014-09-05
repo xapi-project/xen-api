@@ -182,7 +182,7 @@ let find_template session_id startswith =
 let cli_cmd test args = 
   debug test (String.concat " " ("$ xe" :: args));
   try
-    let output = String.rtrim (fst(Forkhelpers.execute_command_get_output Xapi_globs.xe_path args)) in
+    let output = String.rtrim (fst(Forkhelpers.execute_command_get_output !Xapi_globs.xe_path args)) in
     debug test output;
     output
   with 

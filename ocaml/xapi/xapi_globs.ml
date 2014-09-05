@@ -96,7 +96,6 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 let http_realm = "xapi"
 
 (* Base path and some of its immediate dependencies. *)
-let xe_path = Filename.concat Fhs.bindir "xe"
 let sm_dir = Filename.concat Fhs.optdir "sm"
 
 let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
@@ -739,6 +738,8 @@ let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd = ref "udhcpd"
 
+let xe_path = ref "xe"
+
 let lw_force_domain_leave_script = ref "lw-force-domain-leave"
 
 let redo_log_block_device_io = ref "block_device_io"
@@ -764,6 +765,12 @@ let upload_wrapper = ref "upload-wrapper"
 let host_backup = ref "host-backup"
 
 let host_restore = ref "host-restore"
+
+let xe_toolstack_restart = ref "xe-toolstack-restart"
+
+let xsh = ref "xsh"
+
+let static_vdis = ref "static-vdis"
 
 let xha_dir = ref "/opt/xensource/xha"
 
@@ -895,6 +902,10 @@ module Resources = struct
 		"upload-wrapper", upload_wrapper, "Used by Host_crashdump.upload";
 		"host-backup", host_backup, "Path to host-backup";
 		"host-restore", host_restore, "Path to host-restore";
+		"xe", xe_path, "Path to xe CLI binary";
+		"xe-toolstack-restart", xe_toolstack_restart, "Path to xe-toolstack-restart script";
+		"xsh", xsh, "Path to xsh binary";
+		"static-vdis", static_vdis, "Path to static-vdis script";
 	]
 	let nonessential_executables = [
 		"startup-script-hook", startup_script_hook, "Executed during startup";
