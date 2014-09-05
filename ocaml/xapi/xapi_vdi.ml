@@ -177,6 +177,16 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					if not Smint.(has_capability Vdi_clone sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
+				| `revert -> begin
+					match
+						record.Db_actions.vDI_is_a_snapshot,
+						Smint.(has_capability Vdi_clone sm_features)
+					with
+					| true, true -> None
+					| _, false ->
+						Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					| false, true -> Some (Api_errors.only_revert_snapshot, [])
+				end
 				| _ -> None
 			)
 
