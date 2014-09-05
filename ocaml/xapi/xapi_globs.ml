@@ -776,6 +776,8 @@ let web_dir = ref "/opt/xensource/www"
 
 let xha_dir = ref "/opt/xensource/xha"
 
+let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts"
+
 let gpg_homedir = ref "/opt/xensource/gpg"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
@@ -932,6 +934,7 @@ module Resources = struct
 		"web-dir", web_dir, "Directory to export fileserver";
 		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
+		"post-install-scripts-dir", post_install_scripts_dir, "Directory containing trusted guest provisioning scripts";
 	]
 	let nonessential_dirs = [
 		"master-scripts-dir", master_scripts_dir, "Scripts to execute when transitioning pool role";
