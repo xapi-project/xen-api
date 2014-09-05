@@ -916,7 +916,6 @@ module Resources = struct
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
-		"server-cert-path", server_cert_path, "Path to server ssl certificate";
 		"db-config-file", db_conf_path, "Database configuration file";
 		"udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
 	]
@@ -926,6 +925,7 @@ module Resources = struct
 		"remote-db-conf-file", remote_db_conf_fragment_path, "Where to store information about remote databases";
 		"logconfig", log_config_file, "Configure the logging policy";
 		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
+		"server-cert-path", server_cert_path, "Path to server ssl certificate";
 	]
 	let essential_dirs = [
 		"sm-dir", sm_dir, "Directory containing SM plugins";
