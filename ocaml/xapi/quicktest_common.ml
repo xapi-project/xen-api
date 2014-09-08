@@ -63,6 +63,7 @@ let coloured_string_of_status = function
 	set_attribute [ reset ];
 	Data " ]" ]
 
+let xe_path = ref "/opt/xensource/bin/xe"
 let use_colour = ref true
 
 let cols = 80
@@ -182,7 +183,7 @@ let find_template session_id startswith =
 let cli_cmd test args = 
   debug test (String.concat " " ("$ xe" :: args));
   try
-    let output = String.rtrim (fst(Forkhelpers.execute_command_get_output !Xapi_globs.xe_path args)) in
+    let output = String.rtrim (fst(Forkhelpers.execute_command_get_output !xe_path args)) in
     debug test output;
     output
   with 

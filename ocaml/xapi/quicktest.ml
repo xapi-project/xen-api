@@ -831,6 +831,8 @@ let _ =
 
 	let tests_to_run = ref default_tests in (* default is everything *)
 	Arg.parse [
+		"-xe-path", Arg.String (fun x -> Quicktest_common.xe_path := x), "Path to xe command line executable";
+		"-iso-sr-path", Arg.String (fun x -> Quicktest_storage.iso_path := x), "Path to ISO SR";
 		"-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
 		"-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
 		"-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
