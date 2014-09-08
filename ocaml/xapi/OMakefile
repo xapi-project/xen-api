@@ -275,6 +275,9 @@ XAPI_MODULES = $(COMMON) \
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
 OCamlDocProgram(xapi, xapi_main $(XAPI_MODULES))
 
+xapi.1: xapi
+	./xapi --help=groff > xapi.1
+
 OCamlLibrary(xapi, xapi $(XAPI_MODULES))
 
 OCamlProgram(bootloader, bootloader bootloader_test)
@@ -293,6 +296,8 @@ install:
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(MANDIR)/man1
+	cp -f xapi.1 $(DESTDIR)$(MANDIR)/man1/xapi.1
 
 .PHONY: clean
 clean:

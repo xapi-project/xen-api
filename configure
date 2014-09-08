@@ -36,6 +36,7 @@ let xhadir = dir "xhadir" "/opt/xensource/xha" "XHADIR" "HA daemon"
 let bindir = dir "bindir" "/opt/xensource/bin" "BINDIR" "binaries"
 let sbindir = dir "sbindir" "/opt/xensource/bin" "BINDIR" "system binaries"
 let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
+let mandir = dir "mandir" "/usr/share/man" "MANDIR" "man pages"
 
 let info =
   let doc = "Configures a package" in
@@ -47,8 +48,8 @@ let output_file filename lines =
   List.iter (output_string oc) lines;
   close_out oc
 
-let configure disable_tests varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir =
-  Printf.printf "Configuring with the following params:\n\tdisable_tests=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\txhadir=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" disable_tests varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir;
+let configure disable_tests varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir mandir =
+  Printf.printf "Configuring with the following params:\n\tdisable_tests=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\txhadir=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\tmandir=%s\n\n" disable_tests varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir mandir;
 
   (* Write config.mk *)
   let lines = 
@@ -69,7 +70,8 @@ let configure disable_tests varpatchdir etcdir optdir plugindir hooksdir invento
       Printf.sprintf "XHADIR=%s" xhadir;
       Printf.sprintf "BINDIR=%s" bindir;
       Printf.sprintf "SBINDIR=%s" sbindir;
-      Printf.sprintf "UDEVDIR=%s" udevdir
+      Printf.sprintf "UDEVDIR=%s" udevdir;
+      Printf.sprintf "MANDIR=%s" mandir;
     ] in
   output_file config_mk lines;
 
@@ -93,7 +95,7 @@ let configure disable_tests varpatchdir etcdir optdir plugindir hooksdir invento
   in
   output_file fhs_ml fhs_lines
 
-let configure_t = Term.(pure configure $ disable_tests $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ xhadir $ bindir $ sbindir $ udevdir )
+let configure_t = Term.(pure configure $ disable_tests $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ xhadir $ bindir $ sbindir $ udevdir $ mandir)
 
 let () = 
   match 

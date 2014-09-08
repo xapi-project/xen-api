@@ -162,6 +162,7 @@ ocaml/xapi/quicktest_encodings_module.ml
 ocaml/xapi/quicktestbin
 ocaml/xapi/stresstest
 ocaml/xapi/xapi
+ocaml/xapi/xapi.1
 ocaml/xe-cli/rt/geneva/cli_test
 ocaml/xe-cli/rt/geneva/sm_stress
 ocaml/xe-cli/rt/gtclient
