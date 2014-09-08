@@ -21,8 +21,6 @@ open D
 open Pervasiveext
 open Xstringext
 
-let vhd_tool = Filename.concat Fhs.libexecdir "vhd-tool"
-
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."
 
@@ -31,6 +29,7 @@ let ignore_progress _ = ()
 let update_task_progress __context x = TaskHelper.set_progress ~__context (float_of_int x /. 100.)
 
 let run_vhd_tool progress_cb args s s' path =
+  let vhd_tool = !Xapi_globs.vhd_tool in
   info "Executing %s %s" vhd_tool (String.concat " " args);
   let open Forkhelpers in
   let pipe_read, pipe_write = Unix.pipe () in

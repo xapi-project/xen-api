@@ -26,8 +26,6 @@ let ip_begin_key = "ip_begin"
 let ip_end_key = "ip_end"
 let ip_disable_gw_key = "ip_disable_gw"
 
-let udhcpd_conf = Filename.concat Fhs.etcdir "udhcpd.conf"
-let udhcpd_skel = Filename.concat Fhs.etcdir "udhcpd.skel"
 let leases_db = Filename.concat "/var/lib/xcp" "dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 
@@ -129,7 +127,7 @@ module Udhcpd_conf = struct
 	  }
 	
 	let to_string ~__context t =
-		let skel = Unixext.string_of_file udhcpd_skel in
+		let skel = Unixext.string_of_file !Xapi_globs.udhcpd_skel in
 		let interface = Printf.sprintf "interface\t%s" t.interface in
 		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
 		let router = Printf.sprintf "option\trouter\t%s" (Ip.string_of t.router) in
@@ -149,13 +147,13 @@ end
 
 let write_config_nolock ~__context ip_router =
 	let config = Udhcpd_conf.make ~__context (!assigned) ip_router in
-	Unixext.unlink_safe udhcpd_conf;
-	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string ~__context config)
+	Unixext.unlink_safe !Xapi_globs.udhcpd_conf;
+	Unixext.write_string_to_file !Xapi_globs.udhcpd_conf (Udhcpd_conf.to_string ~__context config)
 
 let restart_nolock () =
 	let pid = try Unixext.pidfile_read pidfile with _ -> None in
 	Opt.iter Unixext.kill_and_wait pid;
-	let (_: string * string) = execute_command_get_output !Xapi_globs.udhcpd [ udhcpd_conf ] in
+	let (_: string * string) = execute_command_get_output !Xapi_globs.udhcpd [ !Xapi_globs.udhcpd_conf ] in
 	()
 
 let find_lease_nolock vif =

@@ -44,7 +44,7 @@ let parse_operation s =
 
 let initialise_db_connections() =
   let dbs = Parse_db_conf.parse_db_conf 
-    (if !config="" then Xapi_globs.db_conf_path else !config) in
+    (if !config="" then !Xapi_globs.db_conf_path else !config) in
   Db_conn_store.initialise_db_connections dbs;
   dbs
 

@@ -14,7 +14,7 @@
 let oldnotify = ref false
 
 let disc_inserted name =
-	let args = [| Xapi_globs.xe_path; "host-notify"; "type=cdrom"; "params=inserted:" ^ name |] in
+	let args = [| !Xapi_globs.xe_path; "host-notify"; "type=cdrom"; "params=inserted:" ^ name |] in
 	let ret = Unixext.spawnvp args.(0) args in
 	(* check if we got an error, and record the fact *)
 	begin match ret with

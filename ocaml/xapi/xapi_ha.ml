@@ -38,15 +38,14 @@ let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:Non
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
-let ha_set_pool_state = Filename.concat Fhs.xhadir "ha_set_pool_state"
-let ha_start_daemon = Filename.concat Fhs.xhadir "ha_start_daemon"
-let ha_stop_daemon = Filename.concat Fhs.xhadir "ha_stop_daemon"
-let ha_query_liveset = Filename.concat Fhs.xhadir "ha_query_liveset"
-let ha_propose_master = Filename.concat Fhs.xhadir "ha_propose_master"
-let ha_disarm_fencing = Filename.concat Fhs.xhadir "ha_disarm_fencing"
-let ha_set_excluded = Filename.concat Fhs.xhadir "ha_set_excluded"
-let fence_path = Filename.concat Fhs.libexecdir "fence"
-(* Unused: let ha_clear_excluded = Filename.concat Fhs.xhadir "ha_clear_excluded" *)
+let ha_set_pool_state = Filename.concat !Xapi_globs.xha_dir "ha_set_pool_state"
+let ha_start_daemon = Filename.concat !Xapi_globs.xha_dir "ha_start_daemon"
+let ha_stop_daemon = Filename.concat !Xapi_globs.xha_dir "ha_stop_daemon"
+let ha_query_liveset = Filename.concat !Xapi_globs.xha_dir "ha_query_liveset"
+let ha_propose_master = Filename.concat !Xapi_globs.xha_dir "ha_propose_master"
+let ha_disarm_fencing = Filename.concat !Xapi_globs.xha_dir "ha_disarm_fencing"
+let ha_set_excluded = Filename.concat !Xapi_globs.xha_dir "ha_set_excluded"
+(* Unused: let ha_clear_excluded = Filename.concat !Xapi_globs.xha_dir "ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
@@ -1583,7 +1582,7 @@ let before_clean_shutdown_or_reboot ~__context ~host =
 			error "Error past the commit-point while cleanly shutting down host: %s" (ExnHelper.string_of_exn e);
 			error "Host will self-fence via its own watchdog for safety";
 			(* NB we don't use Xenctrl directly because in the SDK VM this is all fake... *)
-			ignore(Forkhelpers.execute_command_get_output fence_path [ "yesreally" ]);
+			ignore(Forkhelpers.execute_command_get_output !Xapi_globs.fence [ "yesreally" ]);
 			Thread.delay 60.;
 			error "Watchdog has not triggered after 60 seconds";
 			(* Attempt to issue a reboot and kill the control stack *)

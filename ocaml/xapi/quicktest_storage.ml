@@ -29,6 +29,8 @@ let vdi_generate_config = "VDI_GENERATE_CONFIG"
 let sr_probe     = "SR_PROBE"
 let sr_update    = "SR_UPDATE"
 
+let iso_path = ref "/opt/xensource/packages/iso"
+
 (** Return a list of all SRs which have at least one plugged-in PBD ie those
     which we can use for stuff *)
 let list_srs session_id = 
@@ -467,10 +469,8 @@ let sr_scan_test caps session_id sr =
   Client.SR.scan !rpc session_id sr;
   success test
 
-let iso_path = Filename.concat Fhs.sharedir "packages/iso"
-
 let packages_iso_test session_id =
-  let test = make_test ("ISO SR should be able to create VDIs for " ^ iso_path) 2 in
+  let test = make_test ("ISO SR should be able to create VDIs for " ^ !iso_path) 2 in
   start test;
   let host = List.hd (Client.Host.get_all !rpc session_id) in
   debug test (Printf.sprintf "Will plug into host %s" (Client.Host.get_name_label !rpc session_id host));
@@ -479,7 +479,7 @@ let packages_iso_test session_id =
 		~shared:true ~sm_config:[] in
   finally
     (fun () ->
-       let device_config = [ "location", iso_path;
+       let device_config = [ "location", !iso_path;
 			     "legacy_mode", "true" ] in
        let pbd = Client.PBD.create ~rpc:!rpc ~session_id ~sR:sr ~host ~device_config ~other_config:[] in
        finally
@@ -488,11 +488,11 @@ let packages_iso_test session_id =
 	    Client.PBD.plug !rpc session_id pbd;
 	    Client.SR.scan !rpc session_id sr;
 	    let is_iso x = String.endswith ".iso" (String.lowercase x) in
-	    let files = List.filter is_iso (Array.to_list (Sys.readdir iso_path)) in
+	    let files = List.filter is_iso (Array.to_list (Sys.readdir !iso_path)) in
 	    let vdis = Client.SR.get_VDIs !rpc session_id sr in
 	    debug test (Printf.sprintf "SR.scan found %d files (directory has %d .isos)" (List.length vdis) (List.length files));
 	    if List.length files <> List.length vdis then begin
-	      failed test (Printf.sprintf "%s has %d files; SR has %d VDIs" iso_path (List.length files) (List.length vdis));
+	      failed test (Printf.sprintf "%s has %d files; SR has %d VDIs" !iso_path (List.length files) (List.length vdis));
 	      failwith "packages_iso_test"
 	    end;
 	    let locations = List.map (fun vdi -> Client.VDI.get_location !rpc session_id vdi) vdis in

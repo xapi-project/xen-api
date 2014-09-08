@@ -27,7 +27,7 @@ type vdi = {
 (** Returns a list of vdi records, one for each VDI statically configured on this host *)
 let list () = 
   (* Read the filesystem structure directly *)
-  let main_dir = Filename.concat Fhs.etcdir "static-vdis" in
+  let main_dir = !Xapi_globs.static_vdis_dir in
   let all = try Array.to_list (Sys.readdir main_dir) with Sys_error _ -> [] in
   List.map (fun x ->
 	      let path = Filename.concat main_dir x in

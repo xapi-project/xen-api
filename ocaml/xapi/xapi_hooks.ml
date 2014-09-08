@@ -54,7 +54,7 @@ let exitcode_log_and_continue = 1
 (* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED api exception *)
 
 let list_individual_hooks ~script_name =
-  let script_dir = Filename.concat Xapi_globs.xapi_hooks_root script_name in
+  let script_dir = Filename.concat !Xapi_globs.xapi_hooks_root script_name in
   if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false) 
   then
     let scripts = Sys.readdir script_dir in
@@ -66,7 +66,7 @@ let execute_hook ~__context ~script_name ~args ~reason =
   let args = args @ [ "-reason"; reason ] in
   let scripts = list_individual_hooks ~script_name in
 
-  let script_dir = Filename.concat Xapi_globs.xapi_hooks_root script_name in
+  let script_dir = Filename.concat !Xapi_globs.xapi_hooks_root script_name in
     Array.iter
       (fun script->
 	 try

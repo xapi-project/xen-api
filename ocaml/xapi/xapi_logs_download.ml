@@ -18,8 +18,6 @@ open Forkhelpers
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let logs_download = Filename.concat Fhs.libexecdir "logs-download"
-
 let logs_download_handler (req: Request.t) s _ =
   debug "running logs-download handler";
   Xapi_http.with_context "Downloading host logs" req s
@@ -27,5 +25,5 @@ let logs_download_handler (req: Request.t) s _ =
       Http_svr.headers s (Http.http_200_ok ());
       
       debug "send the http headers";
-      let pid = safe_close_and_exec None (Some s) None [] logs_download [] in
+      let pid = safe_close_and_exec None (Some s) None [] !Xapi_globs.logs_download [] in
       waitpid_fail_if_bad_exit pid)

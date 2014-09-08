@@ -21,8 +21,6 @@ open Threadext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let sparse_dd_path = Filename.concat Fhs.libexecdir "sparse_dd"
-
 type progress =
 		| Started of Forkhelpers.pidty
 		| Continuing of float
@@ -39,6 +37,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 	(fun () ->
 		try match Forkhelpers.with_logfile_fd "sparse_dd"
 			(fun log_fd ->
+				let sparse_dd_path = !Xapi_globs.sparse_dd in
 				let args = [
 					"-machine";
 					"-src"; infile;

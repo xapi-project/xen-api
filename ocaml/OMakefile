@@ -1,10 +1,8 @@
 # You must set your XEN_ROOT env var before building
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
-OCAML_LIBS    = $(ROOT)/ocaml/fhs $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
+OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
 OCAMLPACKS    = stdext uuid gzip
-
-OCamlLibrary(fhs, fhs)
 
 .SUBDIRS: \
 	ptoken \
@@ -36,4 +34,4 @@ OCamlLibrary(fhs, fhs)
 	test
 
 clean:
-	rm -f $(CLEAN_OBJS) fhs.*
+	rm -f $(CLEAN_OBJS)

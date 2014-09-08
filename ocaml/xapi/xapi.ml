@@ -42,7 +42,7 @@ let startup_check () =
 *)
 let setup_db_conf() =
   debug "parsing db config file";
-  let dbs = Parse_db_conf.get_db_conf Xapi_globs.db_conf_path in
+  let dbs = Parse_db_conf.get_db_conf !Xapi_globs.db_conf_path in
   (* initialise our internal record of db conections from db.conf *)
   Db_conn_store.initialise_db_connections dbs
 
@@ -215,7 +215,7 @@ let init_args() =
   Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
-  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.resources ();
+  Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
   if not !Xcp_client.use_switch
   then begin
     debug "Xcp_client.use_switch=false: resetting list of xenopsds";
@@ -608,7 +608,7 @@ let handle_licensing () =
 		)
 
 let startup_script () =
-	let startup_script_hook = Xapi_globs.startup_script_hook in
+	let startup_script_hook = !Xapi_globs.startup_script_hook in
 	if (try Unix.access startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
 		debug "Executing startup script: %s" startup_script_hook;
 		ignore(Forkhelpers.execute_command_get_output startup_script_hook [])
@@ -638,14 +638,13 @@ let common_http_handlers = [
   ("get_export_raw_vdi", (Http_svr.FdIO Export_raw_vdi.handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
   ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy));
-  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" Fhs.webdir));
+  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" !Xapi_globs.web_dir));
   ("post_cli", (Http_svr.BufIO Xapi_cli.handler));
   ("get_host_backup", (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
   ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
   ("get_host_logs_download", (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
   ("put_pool_patch_upload", (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
   ("get_pool_patch_download", (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
-  ("put_oem_patch_stream", (Http_svr.FdIO Xapi_pool_patch.oem_patch_stream_handler));
   ("get_vncsnapshot", (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
   ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
