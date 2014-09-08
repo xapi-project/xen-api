@@ -211,8 +211,6 @@ let get_latest_response_time block_time =
 
 (* Returns the PID of the process *)
 let start_io_process block_dev ctrlsockpath datasockpath =
-  (* Check that the process exists and is executable *)
-  Unix.access !Xapi_globs.redo_log_block_device_io [Unix.F_OK; Unix.X_OK]; (* raises Unix.Unix_error if the file does not exist or is not executable *)
   (* Execute the process *)
   let args = ["-device"; block_dev; "-ctrlsock"; ctrlsockpath; "-datasock"; datasockpath] in
   Forkhelpers.safe_close_and_exec None None None [] !Xapi_globs.redo_log_block_device_io args
