@@ -299,6 +299,10 @@ let vdi_operation_to_string : API.vdi_operations -> string = function
       "set_on_boot"
   | `blocked ->
       "blocked"
+  | `revert_to ->
+      "revert_to"
+  | `revert_from ->
+      "revert_from"
 
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
