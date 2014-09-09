@@ -423,6 +423,11 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 			  name_label = a.Db_actions.vDI_name_label;
 			  name_description = a.Db_actions.vDI_name_description;
 			  sm_config = driver_params;
+				is_a_snapshot = a.Db_actions.vDI_is_a_snapshot;
+				snapshot_of =
+					if Db.is_valid_ref __context a.Db_actions.vDI_snapshot_of
+					then Db.VDI.get_uuid ~__context ~self:a.Db_actions.vDI_snapshot_of
+					else "";
 			  snapshot_time = Date.to_string (Date.of_float (Unix.gettimeofday ()));
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
