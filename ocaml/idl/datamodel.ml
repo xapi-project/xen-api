@@ -5479,6 +5479,7 @@ let vdi_operations =
 	  "generate_config", "Generating static configuration";
 	  "blocked", "Operations on this VDI are temporarily blocked";
 	  "revert", "Reverting a VDI to a clone of this snapshot";
+	  "reverting", "Reverting this VDI to a clone of one of its snapshots";
 	])
 
 let vdi_set_missing = call
