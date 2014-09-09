@@ -731,8 +731,10 @@ let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
+let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
+let udhcpd_pidfile = ref "/var/run/udhcpd.pid"
 
-let udhcpd = ref "udhcpd"
+let busybox = ref "busybox"
 
 let xe_path = ref "xe"
 
@@ -890,7 +892,7 @@ module Resources = struct
 
 	let essential_executables = [
 		"xapissl", xapissl_path, "Script for starting stunnel";
-		"udhcpd", udhcpd, "DHCP server";
+		"busybox", busybox, "Swiss army knife executable - used as DHCP server";
 		"lw-force-domain-leave-script", lw_force_domain_leave_script, "Executed when likewise domain-leave fails";
 		"redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";
 		"sparse_dd", sparse_dd, "Path to sparse_dd";
