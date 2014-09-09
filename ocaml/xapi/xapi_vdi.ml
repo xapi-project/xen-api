@@ -130,7 +130,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else None
-				| `destroy ->
+				| `destroy | `reverting ->
 					if sr_type = "udev"
 					then Some (Api_errors.vdi_is_a_physical_device, [_ref])
 					else

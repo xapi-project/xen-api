@@ -106,6 +106,7 @@ let vdi_operation_to_string = function
   | `generate_config -> "generate_config"
   | `blocked -> "blocked"
   | `revert -> "revert"
+  | `reverting -> "reverting"
 
 let sr_operation_to_string = function
   | `scan -> "scan"

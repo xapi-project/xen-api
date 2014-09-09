@@ -3319,14 +3319,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let revert ~__context ~snapshot ~driver_params =
 			info "VDI.revert: snapshot = '%s'" (vdi_uuid ~__context snapshot);
+			let vdi = Db.VDI.get_snapshot_of ~__context ~self:snapshot in
 			let local_fn = Local.VDI.revert ~snapshot ~driver_params in
 			let sR = Db.VDI.get_SR ~__context ~self:snapshot in
 			with_sr_andor_vdi ~__context
 				~sr:(sR, `vdi_revert) ~vdi:(snapshot, `revert) ~doc:"VDI.revert"
 				(fun () ->
-					forward_vdi_op ~local_fn ~__context ~self:snapshot
-						(fun session_id rpc ->
-							Client.VDI.revert rpc session_id snapshot driver_params))
+					with_sr_andor_vdi ~__context
+						~vdi:(vdi, `reverting) ~doc:"VDI.reverting"
+						(fun () ->
+							forward_vdi_op ~local_fn ~__context ~self:snapshot
+								(fun session_id rpc ->
+									Client.VDI.revert rpc session_id snapshot driver_params)))
 
 		let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
 			info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vdi_uuid ~__context base_vdi) (vdi_uuid ~__context into_vdi);
