@@ -5693,6 +5693,8 @@ module VDI = struct
           )
         ; ("set_on_boot", "Setting the on_boot field of the VDI")
         ; ("blocked", "Operations on this VDI are temporarily blocked")
+        ; ("revert_to", "Reverting a VDI to a clone of this snapshot")
+        ; ("revert_from", "Reverting this VDI to a clone of a snapshot")
         ]
       )
 
