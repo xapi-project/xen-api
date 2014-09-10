@@ -45,7 +45,7 @@ type message_event = MCreate of (API.ref_message * API.message_t) | MDel of API.
 let message_get_since_for_events : (__context:Context.t -> int64 -> (int64 * message_event list)) ref = ref ( fun ~__context _ -> ignore __context; (0L, []))
 
 (** Limit the event queue to this many events: *)
-let max_stored_events = 500
+let max_stored_events = 5
 
 (** Ordered list of events, newest first *)
 let queue = ref []
@@ -117,6 +117,11 @@ let subscriptions = Hashtbl.create 10
 let event_lock = Mutex.create ()
 let newevents = Condition.create ()
 
+let event_size ev = 
+  let xmlrpc = xmlrpc_of_event ev in
+  let string = Xml.to_string xmlrpc in
+  String.length string
+
 let event_add ?snapshot ty op reference  =
 
   let gen_events_for tbl =
@@ -142,7 +147,8 @@ let event_add ?snapshot ty op reference  =
 				 then (s.cur_id <- get_current_event_number (); true)
 				 else acc) subscriptions false in
 		if matches_anything then begin
-			queue := ev :: !queue;
+			let size = event_size ev in
+			queue := (size,ev) :: !queue;
 			(* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
 			id := Int64.add !id Int64.one;
 			Condition.broadcast newevents;
@@ -155,11 +161,11 @@ let event_add ?snapshot ty op reference  =
 		let to_keep, to_drop = if too_many <= 0 then !queue, []
 		  else
 		    (* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-		    List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) !queue) in
+		    List.chop max_stored_events (List.sort (fun (_,a) (_,b) -> compare b.id a.id) !queue) in
 		queue := to_keep;
 		(* Remember the highest ID of the list of events to drop *)
 		if to_drop <> [] then
-		highest_forgotten_id := (List.hd to_drop).id;
+		highest_forgotten_id := (snd (List.hd to_drop)).id;
 		(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
 		  (List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
 	)
@@ -255,13 +261,13 @@ let events_read id_start id_end =
 	let selected_events = Mutex.execute event_lock
 	  (fun () ->
 	     some_events_lost := !highest_forgotten_id >= id_start;
-	     List.find_all (fun ev -> check_ev ev) !queue) in
+	     List.find_all (fun (_,ev) -> check_ev ev) !queue) in
 	(* Note we may actually retrieve fewer events than we expect because the
 	   queue may have been coalesced. *)
 	if !some_events_lost (* is true *) then events_lost ();
 
 	(* NB queue is kept in reverse order *)
-	List.rev selected_events
+	List.map snd (List.rev selected_events)
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
