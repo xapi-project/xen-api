@@ -375,7 +375,7 @@ let make_software_version ~__context =
 		with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
 			[]
 	in
-	Xapi_globs.software_version @
+	Xapi_globs.software_version () @
 	v6_version @
 	[
 		"xapi", get_xapi_verstring ();

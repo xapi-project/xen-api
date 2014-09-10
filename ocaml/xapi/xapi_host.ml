@@ -599,7 +599,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 
   Db.Host.create ~__context ~ref:host
 	~current_operations:[] ~allowed_operations:[]
-	~software_version:Xapi_globs.software_version
+	~software_version:(Xapi_globs.software_version ())
 	~enabled:true
 	~aPI_version_major:Xapi_globs.api_version_major
 	~aPI_version_minor:Xapi_globs.api_version_minor
