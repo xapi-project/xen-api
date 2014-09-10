@@ -1179,7 +1179,7 @@ module VBD = struct
 				try
 					let kind = device_kind_of vbd in
 					let (device: Device_common.device) = device_by_id xs vm kind Newest (id_of vbd) in
-					if Hotplug.device_is_online ~xs device
+					if Hotplug.device_is_online ~xs vm device
 					then begin
 						let qos_target = get_qos xc xs vm vbd device in
 						if qos_target <> vbd.Vbd.qos then begin
@@ -1486,7 +1486,7 @@ module VIF = struct
 			(fun xs ->
 				try
 					let (device: Device_common.device) = device_by_id xs vm Device_common.Vif Newest (id_of vif) in
-					if Hotplug.device_is_online ~xs device
+					if Hotplug.device_is_online ~xs vm device
 					then None
 					else Some Needs_unplug
 				with Device_not_connected ->
