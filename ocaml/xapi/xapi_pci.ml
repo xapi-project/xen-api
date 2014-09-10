@@ -154,9 +154,12 @@ let update_pcis ~__context ~host =
 
 let get_system_display_device () =
 	try
-		let device = Unix.openfile "/dev/vga_arbiter" [Unix.O_RDONLY] 0o000 in
-		let data = Unixext.try_read_string ~limit:1024 device in
-		let line = List.hd (String.split ~limit:2 '\n' data) in
+		let line =
+			Unixext.with_file "/dev/vga_arbiter" [Unix.O_RDONLY] 0o000 (fun fd ->
+				let data = Unixext.try_read_string ~limit:1024 fd in
+				List.hd (String.split ~limit:2 '\n' data)
+			)
+		in
 		(* Example contents of line:
 		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
 		let items = String.split ',' line in
