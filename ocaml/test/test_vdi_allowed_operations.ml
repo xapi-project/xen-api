@@ -194,6 +194,40 @@ let test_ca126097 () =
 				~value:["mytask", `copy])
 		`snapshot None
 
+let test_can_revert_to_snapshot () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	run_assert_equal_with_vdi ~__context
+		~vdi_fun:(fun vdi_ref ->
+			Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true)
+		`revert None
+
+(* VBDs of checkpoints are marked with currently_attached = true, but we still
+   need to be able to revert to them. *)
+let test_can_revert_to_checkpoint () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	run_assert_equal_with_vdi ~__context
+		~vdi_fun:(fun vdi_ref ->
+			Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true;
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
+		`revert None
+
+let test_cannot_revert_to_leaf () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	run_assert_equal_with_vdi ~__context
+		~vdi_fun:(fun vdi_ref -> ())
+		`revert (Some (Api_errors.only_revert_snapshot, []))
+
+let test_cannot_revert_live () =
+	let __context = Mock.make_context_with_new_db "Mock context" in
+
+	run_assert_equal_with_vdi ~__context
+		~vdi_fun:(fun vdi_ref ->
+			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
+		`reverting (Some (Api_errors.vdi_in_use, []))
+
 let test =
 	"test_vdi_allowed_operations" >:::
 		[
@@ -201,4 +235,8 @@ let test =
 			"test_ca101669" >:: test_ca101669;
 			"test_ca125187" >:: test_ca125187;
 			"test_ca126097" >:: test_ca126097;
+			"test_can_revert_to_snapshot" >:: test_can_revert_to_snapshot;
+			"test_can_revert_to_checkpoint" >:: test_can_revert_to_checkpoint;
+			"test_cannot_revert_to_leaf" >:: test_cannot_revert_to_leaf;
+			"test_cannot_revert_live" >:: test_cannot_revert_live;
 		]
