@@ -124,20 +124,51 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	in
 	aux long_copies || aux snapshot || aux boot_record || state_machine ()
 
-(** Return an error if we are an HVM guest and we don't have PV drivers *)
-let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
-	let has_booted_hvm = Helpers.has_booted_hvm_of_record ~__context vmr in
-	let has_pv_drivers = has_pv_drivers (of_guest_metrics vmgmr) in
+(** True iff the vm guest metrics "other" field includes (feature, "1")
+	as a key-value pair. *)
+let has_feature ~vmgmr ~feature =
+	match vmgmr with
+		| None -> false
+		| Some gmr ->
+			let other = gmr.Db_actions.vM_guest_metrics_other in
+			try
+				List.assoc feature other = "1"
+			with Not_found -> false
 
-	if has_booted_hvm && not has_pv_drivers
-	then Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
-	else None
-
-let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
-	let need_pv_drivers = [ `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
-	power_state = `Running
-	&& Helpers.has_booted_hvm_of_record ~__context vmr
-	&& List.mem op need_pv_drivers
+(** Return an error iff vmr is an HVM guest and lacks a needed feature.
+ *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
+ *  on resume (only on startup), so we cannot rely just on that flag. We therefore
+ *  add a clause that enables all features when PV drivers are present using the
+ *  old-style check.
+ *  The "strict" param should be true for determining the allowed_operations list
+ *  (which is advisory only) and false (more permissive) when we are potentially about
+ *  to perform an operation. This makes a difference for ops that require the guest to
+ *  react helpfully. *)
+let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
+	if power_state <> `Running ||
+		not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
+		has_pv_drivers (of_guest_metrics vmgmr) (* Full PV drivers imply all features *)
+	then None (* PV guests offer support implicitly *)
+	else
+		let some_err e =
+			Some (e, [ Ref.string_of ref ])
+		in
+		let lack_feature feature =
+			not (has_feature ~vmgmr ~feature)
+		in
+		match op with
+			| `clean_shutdown | `clean_reboot
+					when strict && lack_feature "feature-shutdown"
+						-> some_err Api_errors.vm_lacks_feature_shutdown
+			| `changing_VCPUs_live
+					when lack_feature "feature-vcpu-hotplug"
+						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
+			| `suspend | `checkpoint | `pool_migrate | `migrate_send
+					when strict && (not (bool_of_assoc
+						"unrestricted_save" vmr.Db_actions.vM_platform)
+					) && lack_feature "feature-suspend"
+						-> some_err Api_errors.vm_lacks_feature_suspend
+			| _ -> None
 
 (* templates support clone operations, destroy (if not default),
    export, provision and memory settings change *)
@@ -209,9 +240,12 @@ let check_protection_policy ~vmr ~op ~ref_str =
 		[ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy])
 	| _ -> None
 
-(** Take an internal VM record and a proposed operation, return true if the operation
-    would be acceptable *)
-let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
+(** Take an internal VM record and a proposed operation. Return None iff the operation
+    would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
+    corresponding to the first error found. Checking stops at the first error.
+    The "strict" param sets whether we require feature-flags for ops that need guest
+    support: ops in the suspend-like and shutdown-like categories. *)
+let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~vdis_reset_and_caching ~op ~strict =
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
@@ -227,13 +261,13 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v]) 
 			(assoc_opt op vmr.Db_actions.vM_blocked_operations)) in
 
-	(* Always check the power state constrain of the operation first *)
+	(* Always check the power state constraint of the operation first *)
 	let current_error = check current_error (fun () -> 
 		if not (is_allowed_sequentially ~__context ~vmr ~power_state ~op)
 		then report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str
 		else None) in
 
-	(* if other operations are in progress, check that the new operation concurrently to these ones. *)
+	(* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
 	let current_error = check current_error (fun () -> 
 		if List.length current_ops <> 0 && not (is_allowed_concurrently ~op ~current_ops)
 		then report_concurrent_operations_error ~current_ops ~ref_str 
@@ -276,11 +310,10 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
 		else None) in
 
-	(* check PV drivers constraints if needed *)
-	let current_error = check current_error (fun () -> 
-		if need_pv_drivers_check ~__context ~vmr ~power_state ~op
-		then check_drivers ~__context ~vmr ~vmgmr ~op ~ref
-		else None) in
+	(* check for any HVM guest feature needed by the op *)
+	let current_error = check current_error (fun () ->
+		check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict
+	) in
 
 	(* check if the dynamic changeable operations are still valid *)
 	let current_error = check current_error (fun () -> 
@@ -357,20 +390,20 @@ let get_info ~__context ~self =
 
 let is_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
 	let check accu op =
-		match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+		match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
 		| None -> op :: accu
 		| _    -> accu
 	in
@@ -461,4 +494,4 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 let get_operation_error ~__context ~self ~op=
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op
+	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false
