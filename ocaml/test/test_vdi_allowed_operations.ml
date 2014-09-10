@@ -51,8 +51,8 @@ let setup_test ~__context ~vdi_fun =
 		});
 	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
 	let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
-	let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
 	vdi_fun vdi_ref;
+	let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
 	vdi_ref, vdi_record
 
 let my_cmp a b = match a,b with
