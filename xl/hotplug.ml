@@ -52,9 +52,14 @@ let get_hotplug_base_by_uuid uuid domid =
 	sprintf "%s/hotplug/%d" (get_private_path_by_uuid uuid) domid
 let get_hotplug_path (x: device) =
 	sprintf "%s/%s/%d" (get_hotplug_base x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
+let get_hotplug_path_by_uuid uuid (x: device) =
+	sprintf "%s/%s/%d" (get_hotplug_base_by_uuid uuid x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
-let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
-	| Vif -> get_hotplug_path x ^ "/hotplug"
+let path_written_by_hotplug_scripts ?vm (x: device) = match x.backend.kind with
+	| Vif ->
+		(match vm with
+		| None -> get_hotplug_path x ^ "/hotplug"
+		| Some vm -> get_hotplug_path_by_uuid vm x ^ "/hotplug")
 	| Vbd _ | Qdisk ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
@@ -63,7 +68,7 @@ let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 let vif_disconnect_path (x: device) =
 	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
 
-let hotplugged ~xs (x: device) =
+let hotplugged ~xs vm (x: device) =
 	let path = path_written_by_hotplug_scripts x in
 	debug "Checking to see whether %s" path;
 	try ignore(xs.Xs.read path); true with Xs_protocol.Enoent _ -> false
@@ -89,17 +94,17 @@ let blkback_error_node ~xs (x: device) =
    expect the shutdown-done event to come later. If no shutdown-request node exists
    (ie not an API-initiated hotunplug; this is start of day) then we check the state 
    of the backend hotplug scripts. *)
-let device_is_online ~xs (x: device) = 
+let device_is_online ~xs vm (x: device) = 
   let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false 
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false in
 
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
-  | Vif -> hotplugged ~xs x
+  | Vif -> hotplugged ~xs vm x
   | ( Vbd _ | Tap | Qdisk ) -> 
       if backend_request () 
       then not(backend_shutdown ())
-      else hotplugged ~xs x
+      else hotplugged ~xs vm x
 
 let wait_for_plug (task: Xenops_task.t) ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
