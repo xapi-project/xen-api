@@ -98,7 +98,7 @@ let to_linux_device =
 	function
 		| Xen,  disk, part -> Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
 		| Scsi, disk, part -> Printf.sprintf "sd%s%s"  (string_of_int26 disk) (p part)
-		| Ide,  disk, part -> Printf.sprintf "hd%s%s"  (string_of_int26 disk) (p part)
+		| Ide,  disk, part -> Printf.sprintf "xvd%s%s"  (string_of_int26 disk) (p part)
 
 let of_linux_device x =
 	let letter c = 'a' <= c && (c <= 'z') in
