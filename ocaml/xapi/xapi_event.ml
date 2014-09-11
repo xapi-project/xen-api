@@ -97,7 +97,8 @@ module Next = struct
 	(* Infrastructure for the deprecated Event.next *)
 
 	(** Limit the event queue to this many events: *)
-	let max_stored_events = 500
+	let max_queue_size = 10000000
+	let old_max_queue_length = 500
 
 	(** Ordered list of events, newest first *)
 	let queue = ref []
@@ -124,8 +125,8 @@ module Next = struct
 	let c = Condition.create ()
 
 	let event_size ev = 
-	  let xmlrpc = xmlrpc_of_event ev in
-	  let string = Xml.to_string xmlrpc in
+	  let rpc = rpc_of_event ev in
+	  let string = Jsonrpc.to_string rpc in
 	  String.length string
 
 	(* Add an event to the queue if it matches any active subscriptions *)
@@ -149,13 +150,26 @@ module Next = struct
 			end;
 		
 			(* GC the events in the queue *)
-			let too_many = List.length !queue - max_stored_events in
-			let to_keep, to_drop =
-				if too_many <= 0
-				then !queue, []
-				else
-					(* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-					List.chop max_stored_events (List.sort (fun (_,a) (_,b) -> compare (Int64.of_string b.id) (Int64.of_string a.id)) !queue) in
+			let total_size = List.fold_left (fun acc (sz,_) -> acc + sz) 0 !queue in
+
+			let too_many = total_size > max_queue_size in
+			let to_keep, to_drop = if not too_many then !queue, []
+			  else
+			    (* Reverse-sort by ID and preserve only enough events such that the total
+			       size does not exceed 'max_queue_size' *)
+			    let sorted = (List.sort (fun (_,a) (_,b) -> compare (Int64.of_string b.id) (Int64.of_string a.id)) !queue) in
+			    let total_size_after, rev_to_keep, rev_to_drop = List.fold_left
+			      (fun (tot_size,keep,drop) (size,elt) ->
+				if tot_size + size < max_queue_size
+				then (tot_size + size, (size,elt)::keep, drop)
+				else (tot_size + size, keep, (size,elt)::drop)) (0,[],[]) sorted in
+			    let to_keep = List.rev rev_to_keep in
+			    let to_drop = List.rev rev_to_drop in
+			    if List.length to_keep < old_max_queue_length then
+			      warn "Event queue length degraded. Number of events kept: %d (less than old_max_queue_length=%d)" (List.length to_keep) old_max_queue_length;
+			    to_keep, to_drop
+			in
+
 			queue := to_keep;
 			(* Remember the highest ID of the list of events to drop *)
 			if to_drop <> [] then
