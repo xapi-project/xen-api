@@ -25,17 +25,6 @@ let filename = ref ""
 let gpg_binary_path = "/usr/bin/gpg"
 let gpg_homedir = Filename.concat Fhs.optdir "gpg/"
 let gpg_pub_keyring = gpg_homedir ^ "pubring.gpg"
-let allowed_gpg_checksum = [
-	(* 32-bit gpg checksums. *)
-	"be00ee82bffad791edfba477508d5d84"; (* centos52 version *)
-	"a267af68c53f5d998b982235bbccb01e"; (* centos53/54 version *)
-	(* 64-bit gpg checksums. *)
-	"8c3909232167720c55d50c2e270fe35a"; (* centos54 version *)
-	"bb6fdc0d7c1d8879b7be8fa830089c2b"; (* centos64 version *)
-	(* Ancient gpg checksums. *)
-	"f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
-	"aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
-]
 
 exception InvalidSignature
 
@@ -89,12 +78,6 @@ let common ty filename signature size f =
 		  "--verify"; signature
 		]
   in
-  (* Let's check the checksums of gpg and its helper script for oem *)
-  let gpg_binary_sum = simple_checksum gpg_binary_path in
-  if not (List.mem gpg_binary_sum allowed_gpg_checksum) then
-    raise InvalidSignature;
-
-  let gpg_path = gpg_binary_path in
 
   finally  (* make sure I close all my open fds in the end *)
     (fun () ->
@@ -102,7 +85,7 @@ let common ty filename signature size f =
 	    match Forkhelpers.with_logfile_fd "gpg"
 	      (fun log_fd ->
 		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)] 
-		   gpg_path gpg_args in
+		   gpg_binary_path gpg_args in
 		 (* parent *)
 		 List.iter close' [ result_in; status_in ];
 		 finally (* always waitpid eventually *)
