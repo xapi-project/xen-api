@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8883cc1661b95e2ab22a3f115fbe9641)
+# DO NOT EDIT (digest: 40feb8df44df7a8862a1c3429bd46028)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -24,7 +24,6 @@
 <lib/*.ml{,i}>: pkg_xcp
 # Executable forkexecd
 <src/fe_main.{native,byte}>: pkg_fd-send-recv
-<src/fe_main.{native,byte}>: pkg_re.str
 <src/fe_main.{native,byte}>: pkg_rpclib
 <src/fe_main.{native,byte}>: pkg_rpclib.syntax
 <src/fe_main.{native,byte}>: pkg_stdext
@@ -33,7 +32,6 @@
 <src/fe_main.{native,byte}>: pkg_xcp
 <src/fe_main.{native,byte}>: use_forkexec
 <src/*.ml{,i}>: pkg_fd-send-recv
-<src/*.ml{,i}>: pkg_re.str
 <src/*.ml{,i}>: pkg_rpclib
 <src/*.ml{,i}>: pkg_rpclib.syntax
 <src/*.ml{,i}>: pkg_stdext
