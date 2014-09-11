@@ -26,11 +26,11 @@ let log_if_not_empty format_string value =
 
 let dump_config () =
 	debug "Server configuration:";
-	log_if_not_empty "product_version: %s" Version.product_version;
-	log_if_not_empty "product_brand: %s" Version.product_brand;
+	log_if_not_empty "product_version: %s" (Version.product_version ());
+	log_if_not_empty "product_brand: %s" (Version.product_brand ());
 	debug "platform_version: %s" Version.platform_version;
 	debug "platform_name: %s" Version.platform_name;
-	debug "build_number: %s" Version.build_number;
+	debug "build_number: %s" (Version.build_number ());
 	debug "git changeset: %s" Version.git_id;
 	debug "version: %d.%d" version_major version_minor;
 	(* debug "License filename: %s" !License_file.filename *)

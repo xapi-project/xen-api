@@ -100,12 +100,12 @@ let string_of = function
 	| Unknown -> "Unknown"
 
 let get_product_vsn () =
-	match (Xstringext.String.split '.' Version.product_version) with
+	match (Xstringext.String.split '.' (Version.product_version ())) with
 		| [maj; min; mic] ->
 			Some (int_of_string maj, int_of_string min, int_of_string mic)
 		| _ ->
 			(* This can happen if you're running a dev build *)
-			warn "PRODUCT_VERSION is wrong format: \"%s\": is this a development build?" Version.product_version;
+			warn "PRODUCT_VERSION is wrong format: \"%s\": is this a development build?" (Version.product_version ());
 			None
 
 (** Compares the given version tuple with the product version on this host.

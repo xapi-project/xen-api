@@ -206,9 +206,9 @@ let show_version () =
     [ "git_id", Version.git_id;
       "hostname", Version.hostname;
       "date", Version.date;
-      "PRODUCT_VERSION", Version.product_version;
-      "PRODUCT_BRAND", Version.product_brand;
-      "BUILD_NUMBER", Version.build_number ];
+      "PRODUCT_VERSION", Version.product_version ();
+      "PRODUCT_BRAND", Version.product_brand ();
+      "BUILD_NUMBER", Version.build_number ()];
   exit 0
 
 let init_args() =

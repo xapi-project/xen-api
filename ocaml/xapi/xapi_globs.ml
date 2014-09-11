@@ -140,16 +140,16 @@ let default_platform_version = "0.0.0"
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
-let software_version =
+let software_version () =
 	(* In the case of XCP, all product_* fields will be blank. *)
 	List.filter (fun (_, value) -> value <> "")
-		[_product_version, Version.product_version;
-			_product_version_text,       Version.product_version_text;
-			_product_version_text_short, Version.product_version_text_short;
+		[_product_version, Version.product_version ();
+			_product_version_text,       Version.product_version_text ();
+			_product_version_text_short, Version.product_version_text_short ();
 			_platform_name, Version.platform_name;
 			_platform_version, Version.platform_version;
-			 _product_brand,   Version.product_brand;
-			 _build_number,    Version.build_number;
+			 _product_brand,   Version.product_brand ();
+			 _build_number,    Version.build_number ();
 			 _git_id,           Version.git_id;
 			 _hostname,        Version.hostname;
 			 _date,            Version.date]
