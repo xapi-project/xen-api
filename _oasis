@@ -18,13 +18,13 @@ Library forkexec
   Modules:            Forkhelpers, Fecomms, Fe
   BuildDepends:       stdext, threads, uuidm, rpclib, rpclib.syntax, fd-send-recv, xcp
 
-Executable forexecd
+Executable forkexecd
   CompiledObject:     best
   Path:               src
   MainIs:             fe_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext, forkexec, uuidm, re.str
+  BuildDepends:       stdext, forkexec, uuidm
 
 Executable fe_test
   CompiledObject:     best
