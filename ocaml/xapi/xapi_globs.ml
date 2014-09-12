@@ -848,7 +848,17 @@ let xenopsd_queues = ref ([
 
 let default_xenopsd = ref "org.xen.xcp.xenops.xenlight"
 
+(* Fingerprint of default patch key *)
+let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
+(* Used only for testing hotfixes *)
+let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
+
+let trusted_patch_key = ref citrix_patch_key
+
 let other_options = [
+  "hotfix-fingerprint", Arg.Set_string trusted_patch_key,
+    (fun () -> !trusted_patch_key), "Fingerprint of the key used for signed hotfixes";
+
   "logconfig", Arg.Set_string log_config_file, 
     (fun () -> !log_config_file), "Log config file to use";
 

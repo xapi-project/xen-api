@@ -47,15 +47,6 @@ let rm = "/bin/rm"
 (* Host patches are directories are placed here: *)
 let patch_dir = "/var/patch"
 
-let xensource_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
-let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
-
-let oem_patch_keys = [
-	xensource_patch_key; (* normal public key *)
-	"NDExQUZBNzQwMDJFMDg1QjM3RDZGRkY1QTY1OTlCNDdENDBFMUY4Qw=="; (* pub=D40E1F8C public key *)
-	"NEJDMzFFN0Q3M0EwRjdBNzY3QzM3NEMyQTk3NjkwNTYzMERBQTkxNA=="; (* pub=30DAA914 public key *)
-]
-
 let check_unsigned_patch_fist path =
 	match Xapi_fist.allowed_unsigned_patches () with
 	| None -> false
@@ -85,7 +76,7 @@ let extract_patch path =
 		  let enc = Base64.encode f in
 		  let acceptable_keys = 
 			  if Xapi_fist.allow_test_patches () then
-				  [ xensource_patch_key; test_patch_key ] else [ xensource_patch_key ]
+				  [ !Xapi_globs.trusted_patch_key; Xapi_globs.test_patch_key ] else [ !Xapi_globs.trusted_patch_key ]
 		  in
 		  if not (List.mem enc acceptable_keys)
 		  then 
