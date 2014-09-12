@@ -55,11 +55,11 @@ let get_hotplug_path (x: device) =
 let get_hotplug_path_by_uuid uuid (x: device) =
 	sprintf "%s/%s/%d" (get_hotplug_base_by_uuid uuid x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
-let path_written_by_hotplug_scripts ?vm (x: device) = match x.backend.kind with
+let path_written_by_hotplug_scripts ?uuid (x: device) = match x.backend.kind with
 	| Vif ->
-		(match vm with
+		(match uuid with
 		| None -> get_hotplug_path x ^ "/hotplug"
-		| Some vm -> get_hotplug_path_by_uuid vm x ^ "/hotplug")
+		| Some uuid' -> get_hotplug_path_by_uuid uuid' x ^ "/hotplug")
 	| Vbd _ | Qdisk ->
 		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
 			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
@@ -69,7 +69,7 @@ let vif_disconnect_path (x: device) =
 	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
 
 let hotplugged ~xs vm (x: device) =
-	let path = path_written_by_hotplug_scripts x in
+	let path = path_written_by_hotplug_scripts ?uuid:(Uuidm.of_string vm) x in
 	debug "Checking to see whether %s" path;
 	try ignore(xs.Xs.read path); true with Xs_protocol.Enoent _ -> false
 
