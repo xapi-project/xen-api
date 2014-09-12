@@ -938,7 +938,7 @@ module VBD = struct
 			(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
 
 		let backend_domid = vdi.domid in
-		let pdev_path = if vbd.backend = None then None else Some (vdi.attach_info.Storage_interface.params) in
+		let pdev_path = if vbd.backend = None then Some "" else Some (vdi.attach_info.Storage_interface.params) in
 		let devid, vdev = devid_and_vdev_of_vbd vm vbd in
 
 		let backend, format, script =
