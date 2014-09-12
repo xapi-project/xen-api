@@ -379,10 +379,12 @@ module FileFS = struct
 		List.iter
 			(fun path ->
 				if Sys.is_directory path then begin
-					if Array.length (Sys.readdir path) = 0 then begin
+					try
 						debug "DB.delete %s" path;
 						Unix.rmdir path
-					end
+					with Unix.Unix_error(Unix.ENOTEMPTY, _, _) as e->
+						error "Failed to DB.delete %s : %s" path (Printexc.to_string e);
+						()
 				end else begin
 					debug "DB.delete %s" path;
 					Unix.unlink path;
