@@ -46,14 +46,6 @@ let rm = "/bin/rm"
 (* Host patches are directories are placed here: *)
 let patch_dir = "/var/patch"
 
-let xensource_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
-
-let oem_patch_keys = [
-	xensource_patch_key; (* normal public key *)
-	"NDExQUZBNzQwMDJFMDg1QjM3RDZGRkY1QTY1OTlCNDdENDBFMUY4Qw=="; (* pub=D40E1F8C public key *)
-	"NEJDMzFFN0Q3M0EwRjdBNzY3QzM3NEMyQTk3NjkwNTYzMERBQTkxNA=="; (* pub=30DAA914 public key *)
-]
-
 let check_unsigned_patch_fist path =
 	match Xapi_fist.allowed_unsigned_patches () with
 	| None -> false
@@ -81,7 +73,7 @@ let extract_patch path =
 	    (match fingerprint with 
 	      | Some f ->
 		  let enc = Base64.encode f in
-		  if enc <> xensource_patch_key
+		  if enc <> !Xapi_globs.trusted_patch_key
 		  then 
 		    (
                       debug "Got fingerprint: %s" f;

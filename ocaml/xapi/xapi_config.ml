@@ -26,6 +26,7 @@ let read_config filename =
 		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
 		Config_shared.disable_logging_for;
 		"relax-xsm-sr-check", Config.Set_bool Xapi_globs.relax_xsm_sr_check;
+		"hotfix-fingerprint", Config.Set_string Xapi_globs.trusted_patch_key;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ())
