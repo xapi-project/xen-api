@@ -15,6 +15,9 @@ OCAML_LIBS = $(ROOT)/ocaml/fhs ../idl/ocaml_backend/xapi_client ../xenops/xensto
 
 UseCamlp4(rpc-light.syntax, rrdd_server)
 
+OCAML_CLIBS = blktap3_stats_stubs
+StaticCLibrary(blktap3_stats_stubs, blktap3_stats_stubs)
+
 RRDD = xcp-rrdd
 RRDD_FILES = \
 	../pool_role_shared \
@@ -38,6 +41,7 @@ RRDD_FILES = \
 	rrdd_server \
 	rrdd_monitor \
 	rrdd_stats \
+	blktap3_stats\
 	rrdd_main
 RRDD_TEST = rrdd_test
 RRDD_TEST_FILES = \
