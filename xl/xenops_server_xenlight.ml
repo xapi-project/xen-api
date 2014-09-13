@@ -35,6 +35,8 @@ let console_domid = 0
 let suspend_save_signature = "XenSavedDomain\n"
 exception Restore_signature_mismatch
 
+exception Domain_stuck_in_dying_state of domid
+
 (* libxl logging and context *)
 
 let vmessage min_level level errno ctx msg =
@@ -1790,7 +1792,26 @@ module VM = struct
 			try
 				Storage.dp_destroy task dp
 			with e ->
-		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
+		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps;
+		(* The domain may still exist in the dying state. If someone calls 'get_state'
+		   then they may see the dying domain and think it's still running.
+		   If the domain persists in the dying state then this indicates a bug in a backend --
+		   we want to catch this failure early and not wait until the host is out of
+		   resources. *)
+		begin
+			try
+				let still_exists () = try let (_: Xenctrl.domaininfo) = Xenctrl.domain_getinfo xc domid in true with _ -> false in
+				let start = Unix.gettimeofday () in
+				let timeout = 60. in
+				while still_exists () && (Unix.gettimeofday () -. start < timeout) do
+					Thread.delay 5.
+				done;
+				if still_exists () then begin
+					error "VM = %s; domid = %d; Domain stuck in dying state after %.0f seconds. This probably indicates a backend driver bug." vm.Vm.id domid timeout;
+					raise (Domain_stuck_in_dying_state domid)
+ 				end
+			with _ -> ()
+		end
 	) Oldest
 
 	let pause = on_domain (fun _ xs _ _ di _ ->
