@@ -19,12 +19,15 @@ install:
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
 	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCDIR)/bugtool
 	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xapi
+	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCDIR)/bugtool
+	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)

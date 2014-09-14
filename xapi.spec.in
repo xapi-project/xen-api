@@ -180,8 +180,11 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xsh
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
+/etc/xensource/bugtool/xenopsd.xml
+/etc/xensource/bugtool/xenopsd/stuff.xml
 @OPTDIR@/libexec/list_plugins
 @OPTDIR@/libexec/sm_diagnostics
+@OPTDIR@/libexec/xn_diagnostics
 @OPTDIR@/libexec/thread_diagnostics
 @OPTDIR@/libexec/InterfaceReconfigure.py
 @OPTDIR@/libexec/InterfaceReconfigure.pyo
