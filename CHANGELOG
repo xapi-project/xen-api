@@ -1,3 +1,9 @@
+1.9.54 (2014-09-14)
+ * re-add xenopsd plugin for xen-bugtool
+ * don't break when system gpg binary is upgraded
+ * set the right month for host crashdump records
+ * allow the location of the inventory file to read from xapi.conf
+
 1.9.53 (2014-09-10):
  * revamped configuration handling and support of config file overrides
  * prevent timeouts when collecting bugtools
