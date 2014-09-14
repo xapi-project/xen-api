@@ -1,4 +1,4 @@
-1.9.54 (2014-09-14)
+1.9.55 (2014-09-14)
  * re-add xenopsd plugin for xen-bugtool
  * don't break when system gpg binary is upgraded
  * set the right month for host crashdump records
