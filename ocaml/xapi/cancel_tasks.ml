@@ -103,13 +103,17 @@ let cancel_tasks_on_host ~__context ~host_opt =
 	     tasks, true
 	 | (Some host) ->
 	     debug "cancel_tasks_on_host: host = %s" (Ref.string_of host);
-	     let should_cancel = 
+	     let should_cancel =
 	       if List.mem host !hosts_already_cancelled then true else begin
 		 hosts_already_cancelled := host :: !hosts_already_cancelled;
 		 false
 	       end  in
 	     List.filter (fun t -> Db.Task.get_resident_on ~__context ~self:t = host) tasks, should_cancel in
-       let incomplete_tasks = List.filter (fun t -> let s = Db.Task.get_status ~__context ~self:t in s=`pending || s=`cancelling) this_host_tasks in
+       let mytask = Context.get_task_id __context in
+       let incomplete_tasks = List.filter (fun t ->
+	 let s = Db.Task.get_status ~__context ~self:t in
+	 t<>mytask && (s=`pending || s=`cancelling)) this_host_tasks in
+
        (* Need to remove any current_operations associated with these tasks *)
        let all_vms = Db.VM.get_all ~__context
        and all_vbds = Db.VBD.get_all ~__context
@@ -119,7 +123,7 @@ let cancel_tasks_on_host ~__context ~host_opt =
        and all_hosts = Db.Host.get_all ~__context
        in
        let task_ids = List.map Ref.string_of incomplete_tasks in
-       
+
        List.iter (safe_wrapper "vm_lifecycle" (fun self -> Xapi_vm_lifecycle.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vms;
        List.iter (safe_wrapper "vbd_helpers" (fun self -> Xapi_vbd_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vbds;
        List.iter (safe_wrapper "vif_helpers" (fun self -> Xapi_vif_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vifs;
