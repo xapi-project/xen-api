@@ -1915,29 +1915,34 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 	let module B = (val get_backend () : S) in
 	let id = ref None in
 	while true do
-		let _, updates, next_id = B.UPDATES.get !id None in
-		assert (updates <> []); (* Note, backend updates don't use barriers, so we should
-					   always be getting updates *)
-		List.iter
-			(function
-				| Dynamic.Vm id ->
-					debug "Received an event on managed VM %s" id;
-					queue_operation dbg id (VM_check_state id) |> TASK.destroy'
-				| Dynamic.Vbd id ->
-					debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
-					queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) |> TASK.destroy'
-				| Dynamic.Vif id ->
-					debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
-					queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) |> TASK.destroy'
-				| Dynamic.Pci id ->
-					debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
-					queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> TASK.destroy'
-				| x ->
-					debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
-			) updates;
-		id := Some next_id
-	done;
-	debug "Shutting down internal event thread"
+		try
+			while true do
+				let _, updates, next_id = B.UPDATES.get !id None in
+				assert (updates <> []); (* Note, backend updates don't use barriers, so we should
+						   always be getting updates *)
+				List.iter
+					(function
+						| Dynamic.Vm id ->
+							debug "Received an event on managed VM %s" id;
+							queue_operation dbg id (VM_check_state id) |> TASK.destroy'
+						| Dynamic.Vbd id ->
+							debug "Received an event on managed VBD %s.%s" (fst id) (snd id);
+							queue_operation dbg (VBD_DB.vm_of id) (VBD_check_state id) |> TASK.destroy'
+						| Dynamic.Vif id ->
+							debug "Received an event on managed VIF %s.%s" (fst id) (snd id);
+							queue_operation dbg (VIF_DB.vm_of id) (VIF_check_state id) |> TASK.destroy'
+						| Dynamic.Pci id ->
+							debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
+							queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> TASK.destroy'
+						| x ->
+							debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
+					) updates;
+				id := Some next_id
+			done
+		with e ->
+			error "Event thread caught: %s; restarting after 5s" (Printexc.to_string e);
+			Thread.delay 5.
+	done
 )
 
 let set_backend m =
