@@ -1,6 +1,6 @@
 #!/bin/bash
 
-D=$(mktemp -d)
+D=$(mktemp -d /tmp/configure.XXXXX)
 function cleanup {
   cd /
   rm -rf $D
