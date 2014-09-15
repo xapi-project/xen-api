@@ -1,3 +1,10 @@
+1.9.56 (2014-09-15)
+ * configure: allow -warn-error to be disabled
+ * use SMAPIv2 VDI.stat for XenAPI VDI.update
+ * annotate startup tasks with extra debug information
+ * examples: add a streaming export/import example
+ * prevent the event queue from taking up too much memory
+
 1.9.55 (2014-09-14)
  * re-add xenopsd plugin for xen-bugtool
  * don't break when system gpg binary is upgraded
