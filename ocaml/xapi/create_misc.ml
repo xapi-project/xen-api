@@ -319,10 +319,10 @@ let get_xapi_verstring () =
  *  The [package-linux] key is now deprecated and will be removed in the next version. *)
 let make_packs_info () =
 	try
-		let packs = Sys.readdir Xapi_globs.packs_dir in
+		let packs = Sys.readdir !Xapi_globs.packs_dir in
 		let get_pack_details fname =
 			try
-				let xml = Xml.parse_file (Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY") in
+				let xml = Xml.parse_file (!Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY") in
 				match xml with
 				| Xml.Element (name, attr, children) -> 
 					let originator = List.assoc "originator" attr in
@@ -423,7 +423,7 @@ let create_host_cpu ~__context =
 	   pool homogeneity checks fail] *)
 	let get_cpuinfo () =
 		let cpu_info_file =
-			try Unix.access Xapi_globs.cpu_info_file [ Unix.F_OK ]; Xapi_globs.cpu_info_file
+			try Unix.access !Xapi_globs.cpu_info_file [ Unix.F_OK ]; !Xapi_globs.cpu_info_file
 			with _ -> "/proc/cpuinfo" in
 		let in_chan = open_in cpu_info_file in
 		let tbl = Hashtbl.create 32 in

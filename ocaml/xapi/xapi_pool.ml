@@ -902,7 +902,7 @@ let eject ~__context ~host =
 		Mutex.lock Pool_db_backup.slave_backup_m;
 		finally
 		(fun () ->
-			let dbs = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
+			let dbs = Parse_db_conf.parse_db_conf !Xapi_globs.db_conf_path in
 			(* We need to delete all local dbs but leave remote ones alone *)
 			let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
 			List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);
@@ -914,11 +914,11 @@ let eject ~__context ~host =
 			any initscript reminding us about them after reboot *)
 			Helpers.log_exn_continue
 			(Printf.sprintf "Moving remote database file to backup: %s"
-			Xapi_globs.remote_db_conf_fragment_path)
+			!Xapi_globs.remote_db_conf_fragment_path)
 			(fun () ->
 				Unix.rename 
-				Xapi_globs.remote_db_conf_fragment_path
-				(Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ();
+				!Xapi_globs.remote_db_conf_fragment_path
+				(!Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ();
 			(* Reset the domain 0 network interface naming configuration
 			 * back to a fresh-install state for the currently-installed
 			 * hardware.

@@ -88,7 +88,7 @@ let valid_operations ~__context record _ref' =
   end;
   (* The power-on-host plugin must be available before power_on is possible *)
   begin 
-    try Unix.access (Filename.concat Xapi_globs.xapi_plugins_root Constants.power_on_plugin) [ Unix.X_OK ]
+    try Unix.access (Filename.concat !Xapi_globs.xapi_plugins_root Constants.power_on_plugin) [ Unix.X_OK ]
     with _ -> set_errors Api_errors.xenapi_missing_plugin [ Constants.power_on_plugin ] [ `power_on ]
   end;
 

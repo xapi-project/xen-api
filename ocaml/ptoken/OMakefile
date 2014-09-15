@@ -1,9 +1,8 @@
 OCAMLPACKS = uuid
-OCAMLINCLUDES = ..
 GENSECRET_SRC_FILES = genptoken.ml
 
 section
-	OCamlProgram(genptoken, genptoken ../fhs)
+	OCamlProgram(genptoken, genptoken)
 
 .PHONY: clean
 clean:

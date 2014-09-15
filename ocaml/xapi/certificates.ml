@@ -23,7 +23,6 @@ open Client
 module D=Debug.Make(struct let name="certificates" end)
 open D
 
-let server_cert = Filename.concat Fhs.etcdir "xapi-ssl.pem"
 let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
 let pem_certificate_footer = "-----END CERTIFICATE-----"
@@ -283,7 +282,7 @@ and trim_cert' acc = function
 let get_server_certificate () =
   try
     String.concat "\n"
-      (trim_cert (String.split '\n' (string_of_file server_cert)))
+      (trim_cert (String.split '\n' (string_of_file !Xapi_globs.server_cert_path)))
   with
     | e ->
         warn "Exception reading server certificate: %s"

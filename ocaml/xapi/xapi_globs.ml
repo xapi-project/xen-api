@@ -66,7 +66,7 @@ let xencenter_max_verstring = "2.2"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
-let packs_dir = Filename.concat Fhs.etcdir "installed-repos"
+let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
 
 let ssl_pid = ref 0
 
@@ -95,15 +95,10 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 
 let http_realm = "xapi"
 
-(* Base path and some of its immediate dependencies. *)
-let xe_path = Filename.concat Fhs.bindir "xe"
-let sm_dir = Filename.concat Fhs.optdir "sm"
-
-let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
-let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
-let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
-let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
+let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
+let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
+let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
+let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let using_rrds = ref false
 
@@ -201,7 +196,7 @@ let tools_sr_tag = "xenserver_tools_sr"
 let rio_tools_sr_name = "XenSource Tools"
 let miami_tools_sr_name = "XenServer Tools"
 
-let tools_sr_dir = Filename.concat Fhs.sharedir "packages/iso"
+let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
@@ -285,7 +280,7 @@ let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
 
 (* Directory containing scripts which are executed when a node becomes master
    and when a node gives up the master role *)
-let master_scripts_dir = Filename.concat Fhs.etcdir "master.d"
+let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
@@ -363,10 +358,10 @@ let default_ha_timeout = "default_ha_timeout"
 
 (* Executed during startup when the API/database is online but before storage or networks
    are fully initialised. *)
-let startup_script_hook = Filename.concat Fhs.libexecdir "xapi-startup-script"
+let startup_script_hook = ref "xapi-startup-script"
 
 (* Executed when a rolling upgrade is detected starting or stopping *)
-let rolling_upgrade_script_hook = Filename.concat Fhs.libexecdir "xapi-rolling-upgrade"
+let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
@@ -379,7 +374,7 @@ let listen_backlog = 128
 let artificial_reboot_delay = "artificial-reboot-delay"
 
 (* Xapi script hooks root *)
-let xapi_hooks_root = Fhs.hooksdir 
+let xapi_hooks_root = ref "/etc/xapi.d"
 
 (* RRD storage location *)
 let xapi_rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
@@ -404,15 +399,13 @@ let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 
 
 let message_limit=10000
 
-let xapi_message_script = Filename.concat Fhs.libexecdir "mail-alarm"
+let xapi_message_script = ref "mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
 let max_clock_skew = 5. *. 60. (* 5 minutes *)
 
 (* Optional directory containing XenAPI plugins *)
-let xapi_plugins_root = Fhs.plugindir 
-
-
+let xapi_plugins_root = ref "/etc/xapi.d/plugins"
 
 (** CA-18377: Providing lists of operations that were supported by the Miami release. *)
 (** For now, we check against these lists when sending data across the wire that may  *)
@@ -728,12 +721,66 @@ let redo_log_connect_delay = ref 0.1
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
-let pool_config_file = ref (Filename.concat Fhs.etcdir "pool.conf")
+let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 
 (* Path to the pool secret file. *)
-let pool_secret_path = ref (Filename.concat Fhs.etcdir "ptoken")
+let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 
-let udhcpd = ref (Filename.concat Fhs.libexecdir "udhcpd")
+(* Path to server ssl certificate *)
+let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
+
+let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
+let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
+let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
+let udhcpd_pidfile = ref "/var/run/udhcpd.pid"
+
+let busybox = ref "busybox"
+
+let xe_path = ref "xe"
+
+let lw_force_domain_leave_script = ref "lw-force-domain-leave"
+
+let redo_log_block_device_io = ref "block_device_io"
+
+let sparse_dd = ref "sparse_dd"
+
+let vhd_tool = ref "vhd-tool"
+
+let fence = ref "fence"
+
+let host_bugreport_upload = ref "host-bugreport-upload"
+
+let set_hostname = ref "set-hostname"
+
+let xe_syslog_reconfigure = ref "xe-syslog-reconfigure"
+
+let logs_download = ref "logs-download"
+
+let update_mh_info_script = ref "update-mh-info"
+
+let upload_wrapper = ref "upload-wrapper"
+
+let host_backup = ref "host-backup"
+
+let host_restore = ref "host-restore"
+
+let xe_toolstack_restart = ref "xe-toolstack-restart"
+
+let xsh = ref "xsh"
+
+let static_vdis = ref "static-vdis"
+
+let sm_dir = ref "/opt/xensource/sm"
+
+let web_dir = ref "/opt/xensource/www"
+
+let xha_dir = ref "/opt/xensource/xha"
+
+let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts"
+
+let gpg_homedir = ref "/opt/xensource/gpg"
+
+let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -789,7 +836,7 @@ let options_of_xapi_globs_spec =
     (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
-let xapissl_path = ref (Filename.concat Fhs.libexecdir "xapissl")
+let xapissl_path = ref "xapissl"
 
 let xenopsd_queues = ref ([
   "org.xen.xcp.xenops.classic";
@@ -839,33 +886,75 @@ let other_options = [
     (fun () -> !default_xenopsd), "default xenopsd to use";
 ] 
 
-let resources = [
-  { Xcp_service.name = "xapissl";
-    description = "Script for starting stunnel";
-    essential = true;
-    path = xapissl_path;
-    perms = [ Unix.X_OK ];
-  };
-  { Xcp_service.name = "pool_config_file";
-    description = "Pool configuration file";
-    essential = true;
-    path = pool_config_file;
-    perms = [ Unix.R_OK; Unix.W_OK ];
-  };
-  { Xcp_service.name = "pool_secret_path";
-    description = "Pool configuration file";
-    essential = false;
-    path = pool_secret_path;
-    perms = [ Unix.R_OK; Unix.W_OK ];
-  };
-  { Xcp_service.name = "udhcpd";
-    description = "DHCP server";
-    essential = true;
-    path = udhcpd;
-    perms = [ Unix.X_OK ];
-  };
-]
-
 let all_options = options_of_xapi_globs_spec @ other_options
 
+module Resources = struct
 
+	let essential_executables = [
+		"xapissl", xapissl_path, "Script for starting stunnel";
+		"busybox", busybox, "Swiss army knife executable - used as DHCP server";
+		"lw-force-domain-leave-script", lw_force_domain_leave_script, "Executed when likewise domain-leave fails";
+		"redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";
+		"sparse_dd", sparse_dd, "Path to sparse_dd";
+		"vhd-tool", vhd_tool, "Path to vhd-tool";
+		"fence", fence, "Path to fence binary, used for HA host fencing";
+		"host-bugreport-upload", host_bugreport_upload, "Path to host-bugreport-upload";
+		"set-hostname", set_hostname, "Path to set-hostname";
+		"xe-syslog-reconfigure", xe_syslog_reconfigure, "Path to xe-syslog-reconfigure";
+		"logs-download", logs_download, "Used by /get_host_logs_download HTTP handler";
+		"update-mh-info", update_mh_info_script, "Executed when changing the management interface";
+		"upload-wrapper", upload_wrapper, "Used by Host_crashdump.upload";
+		"host-backup", host_backup, "Path to host-backup";
+		"host-restore", host_restore, "Path to host-restore";
+		"xe", xe_path, "Path to xe CLI binary";
+		"xe-toolstack-restart", xe_toolstack_restart, "Path to xe-toolstack-restart script";
+		"xsh", xsh, "Path to xsh binary";
+		"static-vdis", static_vdis, "Path to static-vdis script";
+	]
+	let nonessential_executables = [
+		"startup-script-hook", startup_script_hook, "Executed during startup";
+		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
+		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
+	]
+	let essential_files = [
+		"pool_config_file", pool_config_file, "Pool configuration file";
+		"db-config-file", db_conf_path, "Database configuration file";
+		"udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
+	]
+	let nonessential_files = [
+		"pool_secret_path", pool_secret_path, "Pool configuration file";
+		"udhcpd-conf", udhcpd_conf, "Optional configuration file for udchp";
+		"remote-db-conf-file", remote_db_conf_fragment_path, "Where to store information about remote databases";
+		"logconfig", log_config_file, "Configure the logging policy";
+		"cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
+		"server-cert-path", server_cert_path, "Path to server ssl certificate";
+	]
+	let essential_dirs = [
+		"sm-dir", sm_dir, "Directory containing SM plugins";
+		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
+		"web-dir", web_dir, "Directory to export fileserver";
+		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
+		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
+		"post-install-scripts-dir", post_install_scripts_dir, "Directory containing trusted guest provisioning scripts";
+	]
+	let nonessential_dirs = [
+		"master-scripts-dir", master_scripts_dir, "Scripts to execute when transitioning pool role";
+		"packs-dir", packs_dir, "Directory containing supplemental pack data";
+		"xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
+		"xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
+		"static-vdis-root", static_vdis_dir, "Optional directory for configuring static VDIs";
+	]
+
+	let xcp_resources =
+		let make_resource perms essential (name, path, description) =
+			{ Xcp_service.essential; name; description; path; perms }
+		in
+		let open Unix in
+		List.fold_left List.rev_append [] [
+			List.map (make_resource [X_OK] true) essential_executables;
+			List.map (make_resource [X_OK] false) nonessential_executables;
+			List.map (make_resource [R_OK; W_OK] true) essential_files;
+			List.map (make_resource [R_OK; W_OK] false) nonessential_files;
+			List.map (make_resource [R_OK; W_OK] false) nonessential_dirs;
+		]
+end

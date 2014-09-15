@@ -20,6 +20,7 @@ XCP toolstack.
 %package core
 Summary: The xapi toolstack
 Group: System/Hypervisor
+Requires: busybox
 
 %description core
 This package contains the xapi toolstack.

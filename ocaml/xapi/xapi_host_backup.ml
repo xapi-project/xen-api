@@ -23,14 +23,11 @@ open Helpers
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let host_backup = Filename.concat Fhs.libexecdir "host-backup"
-let host_restore = Filename.concat Fhs.libexecdir "host-restore"
-
 let host_backup_handler_core ~__context s =
 	match
 		(with_logfile_fd "host-backup"
 			(fun log_fd ->
-				let pid = safe_close_and_exec None (Some s) (Some log_fd) [] host_backup [] in
+				let pid = safe_close_and_exec None (Some s) (Some log_fd) [] !Xapi_globs.host_backup [] in
 
 				let waitpid () =
 					match Forkhelpers.waitpid_nohang pid with
@@ -91,7 +88,7 @@ let host_restore_handler (req: Request.t) s _ =
 					(* XXX: ideally need to log this stuff *)
 					let result =  with_logfile_fd "host-restore-log"
 						(fun log_fd ->
-							let pid = safe_close_and_exec (Some out_pipe) (Some log_fd) (Some log_fd) [] host_restore [] in
+							let pid = safe_close_and_exec (Some out_pipe) (Some log_fd) (Some log_fd) [] !Xapi_globs.host_restore [] in
 
 							close out_pipe;
 

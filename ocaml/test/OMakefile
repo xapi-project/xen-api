@@ -5,7 +5,6 @@ OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid	\
              rrdd-plugin
 
 OCAMLINCLUDES = \
-	../ \
 	../database \
 	../xapi \
 	../idl \
@@ -14,7 +13,6 @@ OCAMLINCLUDES = \
 	../license \
 
 OCAML_LIBS = \
-	../fhs \
 	../util/version \
 	../idl/ocaml_backend/common \
 	../idl/ocaml_backend/client \
