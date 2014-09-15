@@ -500,6 +500,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 	let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
 	Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
-let get_operation_error ~__context ~self ~op=
+let get_operation_error ~__context ~self ~op ~strict =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false
+	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
