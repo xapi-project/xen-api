@@ -1918,8 +1918,9 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 		try
 			while true do
 				let _, updates, next_id = B.UPDATES.get !id None in
-				assert (updates <> []); (* Note, backend updates don't use barriers, so we should
-						   always be getting updates *)
+				(* Note, backend updates don't use barriers so we should always get updates. *)
+				if updates = []
+				then error "Event thread received an empty list of events: this should never happen";
 				List.iter
 					(function
 						| Dynamic.Vm id ->
