@@ -398,13 +398,13 @@ let get_info ~__context ~self =
 
 let is_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op false with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
