@@ -858,8 +858,6 @@ module VM = struct
 	) Newest task vm
 
 	let set_vcpus task vm target = on_domain (fun xc xs _ _ di ->
-		if di.hvm_guest then raise (Unimplemented("vcpu hotplug for HVM domains"));
-
 		let domid = di.domid in
 		(* Returns the instantaneous CPU number from xenstore *)
 		let current =
@@ -2191,6 +2189,7 @@ module Actions = struct
 			sprintf "/local/domain/%d/memory/uncooperative" domid;
 			sprintf "/local/domain/%d/console/vnc-port" domid;
 			sprintf "/local/domain/%d/console/tc-port" domid;
+			sprintf "/local/domain/%d/control" domid;
 			sprintf "/local/domain/%d/device" domid;
 			sprintf "/local/domain/%d/vm-data" domid;
 			sprintf "/vm/%s/rtc/timeoffset" uuid;
