@@ -480,12 +480,18 @@ exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon e
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
 
 let change_host_free_memory ?fistpoints io required_mem_kib success_condition = 
-  (* XXX: debugging *)
+  (* For performance concern, do not call squeezer if host memory is enough and other VMs target has reached. *)
+  let host = snd(io.make_host ()) in
   if io.verbose 
-  then debug "change_host_free_memory required_mem = %Ld KiB" required_mem_kib;
+  then debug "change_host_free_memory required_mem = %Ld KiB target_mem = %Ld KiB free_mem = %Ld KiB" required_mem_kib io.target_host_free_mem_kib host.free_mem_kib;
 
+  let active_domains = List.filter (fun domain -> domain.can_balloon) host.domains in
+  let hit_target domain = has_hit_target domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
+  let all_targets_reached = List.for_all hit_target active_domains in
+  if io.verbose 
+  then debug "change_host_free_memory all VM target meet %B" all_targets_reached;
+  let finished = ref ((not (required_mem_kib = io.target_host_free_mem_kib)) && (required_mem_kib <= host.free_mem_kib) && all_targets_reached) in
   let acc = ref (Squeezer.make ()) in
-  let finished = ref false in
   while not (!finished) do
     let t = io.gettimeofday () in
     let host_debug_string, host = io.make_host () in
