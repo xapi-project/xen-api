@@ -38,8 +38,8 @@ let readfile filename =
 	String.sub buffer 0 length
 
 let expect_ok = function
-	| Xcp.Result.Ok _ -> ()
-	| Xcp.Result.Error e -> raise e
+	| `Ok _ -> ()
+	| `Error e -> raise e
 
 let check_request_parser f relative_path =
 	(base_path ^ relative_path) |> readfile |> Xmlrpc.call_of_string |> f |> expect_ok
@@ -65,30 +65,30 @@ let sr_attach_response _ =
 	let xml = readfile (base_path ^ "sr.attach/response") in
 	let resp = Xmlrpc.response_of_string xml in
 	match Storage.result_of_response resp with
-	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Attach.Out.t) = Storage.Types.SR.Attach.Out.t_of_rpc x in ()
-	| Xcp.Result.Error e -> raise e
+	| `Ok x -> let (_: Storage.Types.SR.Attach.Out.t) = Storage.Types.SR.Attach.Out.t_of_rpc x in ()
+	| `Error e -> raise e
 
 let sr_detach_response _ =
 	let xml = readfile (base_path ^ "sr.detach/response") in
 	let resp = Xmlrpc.response_of_string xml in
 	match Storage.result_of_response resp with
-	| Xcp.Result.Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
-	| Xcp.Result.Error e -> raise e
+	| `Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
+	| `Error e -> raise e
 
 let sr_detach_failure _ =
 	let xml = readfile (base_path ^ "sr.detach/failure") in
 	let resp = Xmlrpc.response_of_string xml in
 	match Storage.result_of_response resp with
-	| Xcp.Result.Ok x -> failwith "unexpected success"
-	| Xcp.Result.Error (Storage.Backend_error(_, _)) -> ()
-	| Xcp.Result.Error e -> raise e
+	| `Ok x -> failwith "unexpected success"
+	| `Error (Storage.Backend_error(_, _)) -> ()
+	| `Error e -> raise e
 
 let exception_marshal_unmarshal e _ =
 	let e = Storage.Backend_error("foo", ["a"; "b"]) in
 	match Storage.result_of_response (Storage.response_of_exn e) with
-	| Xcp.Result.Error e' when e = e' -> ()
-	| Xcp.Result.Ok x -> failwith "unexpected success"
-	| Xcp.Result.Error e -> raise e
+	| `Error e' when e = e' -> ()
+	| `Ok x -> failwith "unexpected success"
+	| `Error e -> raise e
 
 let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Storage.Cancelled "bad luck")
 let exception_marshal_unmarshal2 = exception_marshal_unmarshal (Storage.Backend_error("foo", ["a"; "b"]))

@@ -131,7 +131,7 @@ let result_of_response env es =
 			Line "| { Rpc.success = true; contents = t } -> Result.return t";
 		] @ (List.concat (List.map result_of_exn es)
 		) @ [
-			Line "| { Rpc.success = false; contents = t } -> Result.fail (Xcp.Internal_error (Rpc.to_string t))";
+			Line "| { Rpc.success = false; contents = t } -> Result.fail (S.Internal_error (Rpc.to_string t))";
 		])
 	]
 
@@ -176,7 +176,7 @@ let rpc_of_interfaces env is =
 		] in
 	let response_of_method i m =
 		[
-			Line (sprintf "| Result.Ok (%s x) ->" (String.capitalize m.Method.name));
+			Line (sprintf "| `Ok (%s x) ->" (String.capitalize m.Method.name));
 			Block [
 				Line (sprintf "Rpc.success (%s.Out.rpc_of_t x)" (String.capitalize m.Method.name))
 			]
@@ -205,7 +205,7 @@ let rpc_of_interfaces env is =
 				] else [
 					Line "let response_of = function";
 					Block ([
-						Line "| Result.Error exn ->";
+						Line "| `Error exn ->";
 						Block [
 							Line "Rpc.failure (Rpc.String (Printf.sprintf \"Internal_error: %s\" (Printexc.to_string exn)))";
 						];
@@ -240,11 +240,11 @@ let rpc_of_interfaces env is =
 let skeleton_method unimplemented env i m =
 	let example_outputs =
 		if m.Method.outputs = []
-		then "return (Result.Ok ())"
-		else sprintf "return (Result.Ok (Out.(%s)))"
+		then "return (`Ok ())"
+		else sprintf "return (`Ok (Out.(%s)))"
 		(String.concat "; " (List.map (fun a -> sprintf "%s" (example_value_of env a.Arg.ty)) m.Method.outputs)) in
 	let unimplemented_error =
-		sprintf "return (Result.Error (Unimplemented \"%s.%s\"))" i.Interface.name m.Method.name in
+		sprintf "return (`Error (Unimplemented \"%s.%s\"))" i.Interface.name m.Method.name in
 	[
 		Line (sprintf "let %s x =" m.Method.name);
 		Block [
@@ -260,7 +260,7 @@ let example_skeleton_user env is i m =
 		Line "(* this line only needed in a toplevel: *)";
 		Line "#require \"xcp-api-client\";;";
 		Line "";
-		Line "open Xcp";
+		Line "open S";
 		Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
 		Line "open Types";
 		Line "";
@@ -285,7 +285,7 @@ let example_stub env is i m =
 		Line "#require \"lwt.syntax\";;";
 		Line "#require \"rpc.unix\";;";
 		Line "";
-		Line "open Xcp";
+		Line "open S";
 		Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
 		Line "open Types";
 		Line "";
@@ -301,7 +301,7 @@ let example_stub env is i m =
 
 let skeleton_of_interface unimplemented suffix env i =
 	[
-		Line (sprintf "module %s_%s = functor(M: Xcp.M) -> struct" i.Interface.name suffix);
+		Line (sprintf "module %s_%s = functor(M: S.M) -> struct" i.Interface.name suffix);
 		Block ([
 			Line "include M";
 			Line "open Types";
@@ -320,7 +320,7 @@ let signature_of_interface env i =
 	[
 		Line (sprintf "module type %s = sig" i.Interface.name);
 		Block ([
-			Line "include Xcp.M";
+			Line "include S.M";
 		] @ (List.map signature_of_method i.Interface.methods
 		));
 		Line "end";
@@ -355,12 +355,12 @@ let server_of_interface env i =
 			Block [
 				Line (sprintf "match Types.%s.In.of_call call with" i.Interface.name);
 				Block [
-					Line "| Result.Ok x ->";
+					Line "| `Ok x ->";
 					Block [
 						Line "dispatch x >>= fun result ->";
 						Line (sprintf "return (Types.%s.Out.response_of result)" i.Interface.name);
 					];
-					Line "| Result.Error e ->";
+					Line "| `Error e ->";
 					Block [
 						Line "return (response_of_exn e)";
 					];
@@ -402,7 +402,7 @@ let of_interfaces env i =
 	[
 		Line "(* Automatically generated code - DO NOT MODIFY *)";
 		Line "";
-		Line "open Xcp";
+		Line "open S";
 		Line "";
 	] @ (
 		List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)

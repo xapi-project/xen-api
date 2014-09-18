@@ -15,12 +15,13 @@ Flag async
   Description: build the Core/Async library
   Default: false
 
-Library "xcp-api-client"
+Library xapi
   CompiledObject:     best
   Path: lib
-  Findlibname: xcp-api-client
-  Modules: Xcp, Storage, Clock
-  BuildDepends:	rpc
+  Pack: true
+  Findlibname: xapi-idl
+  Modules: S, Storage, Channel
+  BuildDepends:	rpclib
 
 Executable proxy
   Path:               proxy
@@ -28,7 +29,7 @@ Executable proxy
   Custom:             true
   CompiledObject:     best
   Install:            true
-  BuildDepends:       xcp-api-client, lwt, lwt.unix, oUnit
+  BuildDepends:       xapi-idl, lwt, lwt.unix, oUnit
 
 Executable xcp_api_test
   Path:               lib_test
@@ -37,7 +38,7 @@ Executable xcp_api_test
   Custom:             true
   CompiledObject:     best
   Install:            false
-  BuildDepends:       xcp-api-client, lwt, lwt.unix, oUnit
+  BuildDepends:       xapi-idl, lwt, lwt.unix, oUnit
 
 Test xcp_api_test_test
   Run$:               flag(tests)

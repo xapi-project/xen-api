@@ -1,4 +1,5 @@
 open Lwt
+open Xapi
 
 exception Short_write of int * int
 exception End_of_file
@@ -53,11 +54,10 @@ let main () =
 		| _ -> assert false in
 
 	let protocols =
-		let open Xcp.Channel in
 		[
-			TCP_proxy(!ip, port);
+			Channel.TCP_proxy(!ip, port);
 		] in
-	Printf.fprintf stdout "%s\n%!" (Jsonrpc.to_string (Xcp.Channel.rpc_of_protocols protocols));
+	Printf.fprintf stdout "%s\n%!" (Jsonrpc.to_string (Channel.rpc_of_protocols protocols));
 
 	lwt fd, peer = Lwt_unix.accept s in
 	lwt () = Lwt_unix.close s in

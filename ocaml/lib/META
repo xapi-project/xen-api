@@ -1,12 +1,12 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4116b777e399efa2c783e47985502439)
+# DO NOT EDIT (digest: cd7ed6cdb313a1d727a5de5ddb1468b8)
 version = "0.1.0"
 description = "XCP API client"
-requires = "rpc"
-archive(byte) = "xcp-api-client.cma"
-archive(byte, plugin) = "xcp-api-client.cma"
-archive(native) = "xcp-api-client.cmxa"
-archive(native, plugin) = "xcp-api-client.cmxs"
-exists_if = "xcp-api-client.cma"
+requires = "rpclib"
+archive(byte) = "xapi.cma"
+archive(byte, plugin) = "xapi.cma"
+archive(native) = "xapi.cmxa"
+archive(native, plugin) = "xapi.cmxs"
+exists_if = "xapi.cma"
 # OASIS_STOP
 
