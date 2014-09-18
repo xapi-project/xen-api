@@ -1,18 +1,18 @@
 module Result = struct
-	type ('a, 'b) t = [
-		| `Ok of 'a
-		| `Error of 'b
-        ]
+  type ('a, 'b) t = [
+    | `Ok of 'a
+    | `Error of 'b
+  ]
 
-	let bind t f = match t with
-		| `Error e -> `Error e
-		| `Ok x -> f x
+  let bind t f = match t with
+    | `Error e -> `Error e
+    | `Ok x -> f x
 
-	let (>>=) = bind
+  let (>>=) = bind
 
-	let return x = `Ok x
+  let return x = `Ok x
 
-	let fail e = `Error e
+  let fail e = `Error e
 
 end
 
@@ -27,9 +27,9 @@ module type M = sig
 end
 
 module type RPC = sig
-	include M
+  include M
 
-	val rpc : Rpc.call -> Rpc.response t
+  val rpc : Rpc.call -> Rpc.response t
 end
 
 exception Unknown_method of string

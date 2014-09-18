@@ -3,17 +3,17 @@ let ( |> ) f g = g f
 
 (* Avoid linking in a whole other stdlib just for one function *)
 let rec split ?limit:(limit=(-1)) c s =
-    let i = try String.index s c with Not_found -> -1 in
-    let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
-    if i = -1 || nlimit = 0 then
-        [ s ]
-    else
-        let a = String.sub s 0 i
-        and b = String.sub s (i + 1) (String.length s - i - 1) in
-        a :: (split ~limit: nlimit c b)
+  let i = try String.index s c with Not_found -> -1 in
+  let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
+  if i = -1 || nlimit = 0 then
+    [ s ]
+  else
+    let a = String.sub s 0 i
+    and b = String.sub s (i + 1) (String.length s - i - 1) in
+    a :: (split ~limit: nlimit c b)
 
 module Type = struct
-    (** Subset of dbus types which we'll use *)
+  (** Subset of dbus types which we'll use *)
 
   type basic =
     | Int64
@@ -48,7 +48,7 @@ module Type = struct
     | Unit
     | Option of t
     | Pair of t * t
-	| Custom of string
+    | Custom of string
 
   type env = (string * t) list
 
@@ -69,7 +69,7 @@ module Type = struct
       else dbus_of_t env (List.assoc x env)
     | Unit -> ""
     | Pair (a, b) -> dbus_of_t env a ^ (dbus_of_t env b)
-	| Custom _ -> dbus_of_t env (Dict (String, Basic String))
+    | Custom _ -> dbus_of_t env (Dict (String, Basic String))
 
   let rec string_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -81,7 +81,7 @@ module Type = struct
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
     | Pair(a, b) -> string_of_t a ^ " * " ^ (string_of_t b)
-	| Custom x -> x
+    | Custom x -> x
 
   let rec ocaml_of_t = function
     | Basic b -> ocaml_of_basic b
@@ -89,7 +89,7 @@ module Type = struct
       "{ " ^ (String.concat ";" (List.map (fun (name, ty, descr) -> Printf.sprintf "%s: %s (** %s *)" name (ocaml_of_t ty) descr) (hd :: tl))) ^ " }"
     | Variant (hd, tl) ->
       let member (name, ty, descr) =
-	Printf.sprintf "| %s (%s) (** %s *)" name (ocaml_of_t ty) descr in
+        Printf.sprintf "| %s (%s) (** %s *)" name (ocaml_of_t ty) descr in
       String.concat "\n" (List.map member (hd :: tl))
     | Array t -> ocaml_of_t t ^ " list"
     | Dict (key, v) -> Printf.sprintf "(%s * %s) list" (ocaml_of_basic key) (ocaml_of_t v)
@@ -97,7 +97,7 @@ module Type = struct
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
     | Pair(a, b) -> ocaml_of_t a ^ " * " ^ (ocaml_of_t b)
-	| Custom x -> (String.capitalize x) ^ ".t"
+    | Custom x -> (String.capitalize x) ^ ".t"
 
   type ts = t list
 
@@ -136,48 +136,48 @@ module Ident = struct
       string_of_int result in
     fun scope name description ty original_ty ->
       { id = next_id ();
-	name = name :: scope;
-	description = description;
-	ty = ty;
-	original_ty = original_ty }
+        name = name :: scope;
+        description = description;
+        ty = ty;
+        original_ty = original_ty }
 
   let resolve_type idents scope =
     let open Type in
-	let table = List.map (fun (_, i) -> i.name, i) idents in
-	let rec aux = function
-    | Basic x -> Basic x
-    | Struct (hd, tl) ->
-      let member (a, t, b) = a, aux t, b in
-      Struct(member hd, List.map member tl)
-    | Variant (hd, tl) ->
-      let member (a, t, b) = a, aux t, b in
-      Variant(member hd, List.map member tl)
-    | Array x -> Array (aux x)
-    | Dict (b, t) -> Dict (b, aux t)
-    | Name x ->
-      let lookhere scope =
-	let x' = split '/' x in
-	let name = x' @ scope in
-	if List.mem_assoc name table
-	then
-	  let ident = List.assoc name table in
-	  Some (ident.id)
-	else
-	  None in
-      (* XXX: this is a bit of a hack *)
-      begin match lookhere scope with
-	| Some x -> Type.Name x
-	| None -> begin match lookhere [] with
-	    | Some x -> Type.Name x
-	    | None ->
-	      failwith (Printf.sprintf "Failed to resolve type: %s" (String.concat "/" (x :: scope)))
-	end
-      end
-    | Unit -> Unit
-    | Option x -> Option (aux x)
-    | Pair(a, b) -> Pair (aux a, aux b)
-	| Custom x -> Custom x in
-	aux
+    let table = List.map (fun (_, i) -> i.name, i) idents in
+    let rec aux = function
+      | Basic x -> Basic x
+      | Struct (hd, tl) ->
+        let member (a, t, b) = a, aux t, b in
+        Struct(member hd, List.map member tl)
+      | Variant (hd, tl) ->
+        let member (a, t, b) = a, aux t, b in
+        Variant(member hd, List.map member tl)
+      | Array x -> Array (aux x)
+      | Dict (b, t) -> Dict (b, aux t)
+      | Name x ->
+        let lookhere scope =
+          let x' = split '/' x in
+          let name = x' @ scope in
+          if List.mem_assoc name table
+          then
+            let ident = List.assoc name table in
+            Some (ident.id)
+          else
+            None in
+        (* XXX: this is a bit of a hack *)
+        begin match lookhere scope with
+          | Some x -> Type.Name x
+          | None -> begin match lookhere [] with
+              | Some x -> Type.Name x
+              | None ->
+                failwith (Printf.sprintf "Failed to resolve type: %s" (String.concat "/" (x :: scope)))
+            end
+        end
+      | Unit -> Unit
+      | Option x -> Option (aux x)
+      | Pair(a, b) -> Pair (aux a, aux b)
+      | Custom x -> Custom x in
+    aux
 
 
 end
@@ -214,24 +214,24 @@ module Interfaces = struct
 end
 
 let prepend_dbg i =
-	let debug_info = {
-		TyDecl.name = "debug_info";
-		description = "Debug context from the caller";
-		ty = Type.(Basic String)
-	} in
-	let dbg = {
-		Arg.name = "dbg";
-		description = "Debug context from the caller";
-		ty = Type.(Name "debug_info")
-	} in
-	let of_interface i =
-		let of_method m =
-			{m with Method.inputs = dbg :: m.Method.inputs } in
-		{i with Interface.methods = List.map of_method i.Interface.methods} in
-	{i with 
-		Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces;
-		type_decls = debug_info :: i.Interfaces.type_decls
-	}
+  let debug_info = {
+    TyDecl.name = "debug_info";
+    description = "Debug context from the caller";
+    ty = Type.(Basic String)
+  } in
+  let dbg = {
+    Arg.name = "dbg";
+    description = "Debug context from the caller";
+    ty = Type.(Name "debug_info")
+  } in
+  let of_interface i =
+    let of_method m =
+      {m with Method.inputs = dbg :: m.Method.inputs } in
+    {i with Interface.methods = List.map of_method i.Interface.methods} in
+  {i with 
+   Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces;
+   type_decls = debug_info :: i.Interfaces.type_decls
+  }
 
 (* Construct a global list of Ident.t, and convert all type_decls into
    Name <ident>. Once we have a global view of all types, we can resolve
@@ -241,11 +241,11 @@ let lift_type_decls i =
   let of_type_decls scope idents type_decls =
     let idents, type_decls =
       List.fold_left
-	(fun (idents, type_decls) type_decl ->
-	  let ident = TyDecl.to_ident idents scope type_decl in
-	  let type_decl = { type_decl with TyDecl.ty = Type.Name ident.Ident.id } in
-	  (ident.Ident.id, ident) :: idents, type_decl :: type_decls
-	) (idents, []) type_decls in
+        (fun (idents, type_decls) type_decl ->
+           let ident = TyDecl.to_ident idents scope type_decl in
+           let type_decl = { type_decl with TyDecl.ty = Type.Name ident.Ident.id } in
+           (ident.Ident.id, ident) :: idents, type_decl :: type_decls
+        ) (idents, []) type_decls in
     idents, List.rev type_decls in
   (* Global scope *)
   let idents, type_decls = of_type_decls [] [] i.Interfaces.type_decls in
@@ -256,15 +256,15 @@ let lift_type_decls i =
   let idents, interfaces =
     List.fold_left
       (fun (idents, interfaces) i ->
-	let idents, i' = of_interface idents i in
-	(idents, i' :: interfaces)
+         let idents, i' = of_interface idents i in
+         (idents, i' :: interfaces)
       ) (idents, []) i.Interfaces.interfaces in
   idents, { i with Interfaces.type_decls = type_decls; exn_decls = exn_decls; interfaces = List.rev interfaces }
 
 let dump_ident_mappings idents =
   List.iter
     (fun (_, i) ->
-      Printf.printf "%10s %20s %s\n" i.Ident.id (String.concat "/" i.Ident.name) (Type.string_of_t i.Ident.ty)) idents
+       Printf.printf "%10s %20s %s\n" i.Ident.id (String.concat "/" i.Ident.name) (Type.string_of_t i.Ident.ty)) idents
 
 let resolve_references (idents: (string * Ident.t) list) i =
   let open Type in
@@ -274,15 +274,15 @@ let resolve_references (idents: (string * Ident.t) list) i =
     let of_method m =
       let of_arg arg = { arg with Arg.ty = Ident.resolve_type idents scope arg.Arg.ty } in
       { m with Method.inputs = List.map of_arg m.Method.inputs;
-	Method.outputs = List.map of_arg m.Method.outputs } in
+               Method.outputs = List.map of_arg m.Method.outputs } in
     { i with Interface.methods = List.map of_method i.Interface.methods } in
 
   { i with Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces }
 
 let resolve_refs_in_api api =
-	let idents, api = lift_type_decls api in
-	dump_ident_mappings idents;
-	idents, (resolve_references idents api)
+  let idents, api = lift_type_decls api in
+  dump_ident_mappings idents;
+  idents, (resolve_references idents api)
 
 
 let with_buffer f =
@@ -296,9 +296,9 @@ module To_rpclight = struct
     let of_args name args =
       add (sprintf "@[type %s = {@." name);
       List.iter
-	(fun { Arg.name = name; ty = ty } ->
-	  add (sprintf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty))
-	) args;
+        (fun { Arg.name = name; ty = ty } ->
+           add (sprintf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty))
+        ) args;
       add (sprintf "@.}@.@]") in
     of_args (m.Method.name ^ "_inputs") m.Method.inputs;
     of_args (m.Method.name ^ "_outputs") m.Method.outputs;
@@ -363,11 +363,11 @@ module To_dbus = struct
     add (`El_end);
     List.iter
       (fun arg ->
-	of_arg env true arg add
+         of_arg env true arg add
       ) m.Method.inputs;
     List.iter
       (fun arg ->
-	of_arg env false arg add
+         of_arg env false arg add
       ) m.Method.outputs;
     add (`El_end)
 
@@ -378,20 +378,20 @@ module To_dbus = struct
     add (`El_end);
     List.iter
       (fun m ->
-	of_method env m add
+         of_method env m add
       ) i.Interface.methods;
     add (`El_end)
 
   let of_interfaces env x add =
-      add (`El_start (("", "node"), [ ("", "name"), "/org/xen/xcp/" ^ x.Interfaces.name ]));
-      add (`El_start (("", "tp:docstring"), []));
-      add (`Data x.Interfaces.description);
-      add (`El_end);
-      List.iter
-	(fun i ->
-	  of_interface env i add
-	) x.Interfaces.interfaces;
-      add (`El_end)
+    add (`El_start (("", "node"), [ ("", "name"), "/org/xen/xcp/" ^ x.Interfaces.name ]));
+    add (`El_start (("", "tp:docstring"), []));
+    add (`Data x.Interfaces.description);
+    add (`El_end);
+    List.iter
+      (fun i ->
+         of_interface env i add
+      ) x.Interfaces.interfaces;
+    add (`El_end)
 
 end
 
@@ -408,11 +408,11 @@ let to_dbus_xml env x = with_xmlm (To_dbus.of_interfaces env x)
 let ident_of_type_decl env t =
   (* These should have all been lifted into Idents *)
   match t.TyDecl.ty with
-    | Type.Name x ->
-      if not(List.mem_assoc x env)
-      then failwith (Printf.sprintf "Unable to find ident: %s" x)
-      else List.assoc x env
-    | x ->
-      failwith (Printf.sprintf "Type declaration wasn't converted into an ident: %s" (Type.string_of_t x))
+  | Type.Name x ->
+    if not(List.mem_assoc x env)
+    then failwith (Printf.sprintf "Unable to find ident: %s" x)
+    else List.assoc x env
+  | x ->
+    failwith (Printf.sprintf "Type declaration wasn't converted into an ident: %s" (Type.string_of_t x))
 
 
