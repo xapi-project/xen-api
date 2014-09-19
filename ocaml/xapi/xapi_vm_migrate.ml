@@ -159,10 +159,7 @@ let pool_migrate_complete ~__context ~vm ~host =
 	let dbg = Context.string_of_task __context in
 	let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 	if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then begin
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id ->
-				XenAPI.VM.atomic_set_resident_on rpc session_id vm host
-			);
+		Xapi_xenops.set_resident_on ~__context ~self:vm;
 		Xapi_xenops.add_caches id;
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 		Monitor_dbcalls.clear_cache_for_vm ~vm_uuid:id
