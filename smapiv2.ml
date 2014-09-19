@@ -3,37 +3,41 @@ open Types
 let api =
   let vdi_info_decl =
     Type.(Struct(
-        ( "vdi", Name "vdi", "The unique id of this VDI" ),
-        [ "content_id", Name "content_id", "The unique id of the VDI contents. If two VDIs have the same content_id then they must have the same data inside";
+        ( "vdi", Name "vdi", "The unique id of this VDI. This must be unique with a Storage Repository, but may not be unique between Storage Respositories." ),
+        [ "content_id", Name "content_id", "A repersentation of the VDI contents such that if two VDIs have the same content_id then they must have the same data inside";
           "name_label", Basic String, "Human-readable name of the VDI";
           "name_description", Basic String, "Human-readable description of the VDI";
-          "ty", Basic String, "Used by a toolstack to remember why a VDI was created";
-          "metadata_of_pool", Basic String, "In the special case of a pool metadata containing VDI, this is the pool reference";
           "is_a_snapshot", Basic Boolean, "True if the VDI is a snapshot of another VDI";
           "snapshot_time", Basic String, "If is_a_snapshot is true then this is the time the snapshot was created";
           "snapshot_of", Basic String, "If is_a_snapshot is true then this is the VDI which was snapshotted";
           "read_only", Basic Boolean, "If true then this VDI is stored on read-only media";
           "virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
-          "physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage media";
-          "persistent", Basic Boolean, "If true then disk modifications are preserved over VM reboot and shutdown";
-          "sm_config", Dict(String, Basic String), "Backend-specific parameters";
+          "physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage medium";
         ]
       )) in
   let vdi_info = Type.Name "vdi_info" in
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
-    description = "The Storage Repository to operate within";
+    description = "The Storage Repository";
   } in
   let vdi = {
     Arg.name = "vdi";
     ty = Type.(Basic String);
-    description = "The Virtual Disk Image to operate on";
+    description = "The Virtual Disk Image";
   } in
   let attach_info_decl =
     Type.(Struct(
-        ( "params", Basic String, "The xenstore backend params key"),
-        [ "xenstore_data", Dict(String, Basic String), "Additional xenstore backend device keys" ]
+        ( "uri", Basic String, String.concat "" [
+          "A URI which can be opened and used for I/O. For example this could ";
+          "reference a local block device, a remote NFS share, iSCSI LUN or ";
+          "RBD volume.";
+        ]),
+        [ "extra_headers", Dict(String, Basic String), String.concat "" [
+          "Additional HTTP headers which will be provided when opening the URI. ";
+          "For example these could be used to pass along an authorization token."
+          ]
+        ]
       )) in
   let attach_info = Type.Name "attach_info" in
   let vdi_info' = {
@@ -45,12 +49,20 @@ let api =
   let params = {
     Arg.name = "params";
     ty = Type.(Dict(String, Basic String));
-    description = "Additional key/value pairs";
+    description = "Additional key/value pairs with an implementation-specific meaning. Consult the documentation provided by your vendor.";
   } in
   {
     Interfaces.name = "storage";
     title = "Storage Manager";
-    description = "The Storage Manager (SM) is responsible for all storage operations on an XCP host. It organises Virtual Disk Images (VDIs) into homogenous collections known as Storage Repositories (SRs) where each collection is stored in a specific format (e.g. .vhd files on NFS, raw LUN on a iSCSI/FC storage array). The Storage Manager API (SMAPI) provides a simple abstract interface which allows the toolstack to create, destroy, snapshot, clone, resize etc VDIs within SRs";
+    description =
+      String.concat "" [
+        "The xapi toolstack delegates all storage control-plane functions to ";
+        "the Storage Manager (SM). The SM organises Virtual Disk Images (VDIs) ";
+        "into collections known as Storage Repositories (SRs). The Storage ";
+        "Manager API (SMAPI) provides a simple abstract interface which allows ";
+        "the toolstack to create, destroy, snapshot, clone, resize etc VDIs ";
+        "within SRs";
+      ];
     exn_decls = [
       {
         TyDecl.name = "Sr_not_attached";
@@ -93,19 +105,36 @@ let api =
     type_decls = [
       {
         TyDecl.name = "vdi";
-        description = "Primary key for a Virtual Disk Image (e.g. path on a storage system)";
+        description = String.concat "" [
+          "Primary key for a Virtual Disk Image. This can be any string which ";
+          "is meaningful to the implementation. For example this could be an ";
+          "NFS filename, an LVM LV name or even a URI.";
+          ];
         ty = Type.(Basic String);
       }; {
         TyDecl.name = "sr";
-        description = "Primary key for a Storage Repository (e.g. a UUID)";
+        description = String.concat "" [
+          "Primary key for a specific Storage Repository. This can be any ";
+          "string which is meaningful to the implementation. For example this ";
+          "could be an NFS directory name, an LVM VG name or even a URI.";
+        ];
         ty = Type.(Basic String);
       }; {
         TyDecl.name = "content_id";
-        description = "Identifies the contents (i.e. bytes with) a VDI. Two VDIs with the same content_id must have the same content.";
+        description = String.concat "" [
+          "Identifies the data contained within a VDI. This can be any string ";
+          "provided that, if two VDIs have the same content_id, they definitely ";
+          "have the same contents. This implication is one-way: if two VDIs ";
+          "have different content_ids then this does not imply they have ";
+          "different contents.";
+        ];
         ty = Type.(Basic String);
       }; {
         TyDecl.name = "vdi_info";
-        description = "All per-VDI properties";
+        description = String.concat "" [
+          "A set of properties associated with a VDI. These properties can ";
+          "change dynamically and can be queried by the VDI.stat call.";
+        ];
         ty = vdi_info_decl
       }; {
         TyDecl.name = "attach_info";
@@ -117,7 +146,7 @@ let api =
         ty = Type.(Struct( ("driver", Basic String, "driver, used in the XenAPI as SR.type"), [
             "name", Basic String, "short name";
             "description", Basic String, "description";
-            "vendor", Basic String, "entity which produced this implementation";
+            "vendor", Basic String, "entity (e.g. company, project, group) which produced this implementation";
             "copyright", Basic String, "copyright";
             "version", Basic String, "version";
             "required_api_version", Basic String, "minimum required API version";
@@ -131,13 +160,21 @@ let api =
       [
         {
           Interface.name = "Query";
-          description = "Discover properties of this implementation";
+          description = String.concat "" [
+            "Discover properties of this implementation. Every implementation ";
+            "must support the query interface or it will not be recognised as ";
+            "a storage manager by xapi.";
+          ];
           type_decls = [
           ];
           methods = [
             {
               Method.name = "query";
-              description = "Query the implementation and return its properties";
+              description = String.concat "" [
+                "Query this implementation and return its properties. This is ";
+                "called by xapi to determine whether it is compatible with xapi ";
+                "and to discover the supported features."
+              ];
               inputs = [];
               outputs = [
                 {
@@ -148,7 +185,13 @@ let api =
               ]
             }; {
               Method.name = "diagnostics";
-              description = "[diagnostics ()]: returns a printable set of backend diagnostic information.";
+              description = String.concat "" [
+                "Returns a printable set of backend diagnostic information.";
+                "Implementations are encouraged to include any data which will ";
+                "be useful to diagnose problems. Note this data should not ";
+                "include personally-identifiable data as it is intended to be ";
+                "automatically included in bug reports.";
+              ];
               inputs = [
               ];
               outputs = [
@@ -227,38 +270,8 @@ let api =
                   description = "VDI metadata";
                 }
               ];
-            }; {
-              Method.name = "set_persistent";
-              description = "[set_persistent task sr vdi persistent] configures whether a VDI's contents should be persisted across epochs";
-              inputs = [
-                sr;
-                vdi;
-                { Arg.name = "persistent";
-                  ty = Type.(Basic Boolean);
-                  description = "New value of the VDI persistent field";
-                }
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "epoch_begin";
-              description = "[epoch_begin task sr vdi] signals that VDI is about to be connected to a fresh (started, rebooted) VM.";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "epoch_end";
-              description = "[epoch_end task sr vdi] signals that VDI is about to be disconnected from a shutting-down/rebooting VM.";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-              ];
-            }; {
+            };
+             {
               Method.name = "attach";
               description = "[attach task dp sr vdi read_write] returns the [params] for a given [vdi] in [sr] which can be written to if (but not necessarily only if) [read_write] is true";
               inputs = [
@@ -333,69 +346,7 @@ let api =
               outputs = [
                 { vdi with Arg.name = "new_vdi" }
               ];
-            }; {
-              Method.name = "get_url";
-              description = "[get_url task sr vdi] returns a URL suitable for accessing disk data directly.";
-              inputs = [
-                sr;
-                vdi
-              ];
-              outputs = [
-                { Arg.name = "url";
-                  ty = Type.(Basic String);
-                  description = "URL which represents this VDI";
-                }
-              ];
-            }; {
-              Method.name = "get_by_name";
-              description = "[get_by_name task sr name] returns the vdi within [sr] with [name]";
-              inputs = [
-                sr;
-                { Arg.name = "name";
-                  ty = Type.(Basic String);
-                  description = "Name of the VDI to return";
-                };
-              ];
-              outputs = [
-                vdi_info'
-              ];
-            }; {
-              Method.name = "set_content_id";
-              description = "[set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id]";
-              inputs = [
-                sr;
-                vdi;
-                { Arg.name = "content_id";
-                  ty = Type.(Basic String);
-                  description = "New value of the VDI content_id field";
-                }
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "compose";
-              description = "[compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2]";
-              inputs = [
-                sr;
-                { vdi with Arg.name = "vdi1" };
-                { vdi with Arg.name = "vdi2" };
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "similar_content";
-              description = "[similar_content sr vdi] returns a list, most similar first, of disks with recognizably similar content";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-                { Arg.name = "vdi_infos";
-                  ty = Type.(Array (Name "vdi_info"));
-                  description = "VDIs with recognizably similar content, most similar first"
-                }
-              ]
-            }
+            };
           ]
         }; {
           Interface.name = "SR";
@@ -458,15 +409,8 @@ let api =
               ];
               outputs = [
               ];
-            }; {
-              Method.name = "reset";
-              description = "[reset task sr]: declares that the SR has been completely reset, e.g. by rebooting the VM hosting the SR backend.";
-              inputs = [
-                sr;
-              ];
-              outputs = [
-              ];
-            }; {
+            };
+             {
               Method.name = "scan";
               description = "[scan task sr] returns a list of VDIs contained within an attached SR";
               inputs = [

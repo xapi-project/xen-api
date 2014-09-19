@@ -67,7 +67,7 @@ class Sr_attached(Rpc_light_failure):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
 class Query_server_dispatcher:
-    """Discover properties of this implementation"""
+    """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self, impl):
         """impl is a proxy object whose methods contain the implementation"""
         self._impl = impl
@@ -130,26 +130,26 @@ class Query_server_dispatcher:
         elif method == "Query.diagnostics":
             return success(self.diagnostics(args))
 class Query_skeleton:
-    """Discover properties of this implementation"""
+    """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self):
         pass
     def query(self, dbg):
-        """Discover properties of this implementation"""
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         raise Unimplemented("Query.query")
     def diagnostics(self, dbg):
-        """Discover properties of this implementation"""
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         raise Unimplemented("Query.diagnostics")
 class Query_test:
-    """Discover properties of this implementation"""
+    """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self):
         pass
     def query(self, dbg):
-        """Discover properties of this implementation"""
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         result = {}
         result["query_result"] = { "driver": "string", "name": "string", "description": "string", "vendor": "string", "copyright": "string", "version": "string", "required_api_version": "string", "features": [ "string", "string" ], "configuration": { "string": "string" } }
         return result
     def diagnostics(self, dbg):
-        """Discover properties of this implementation"""
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         result = {}
         result["diagnostics"] = "string"
         return result
@@ -183,10 +183,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(vdi_info['name_label'])))
         if type(vdi_info['name_description']) <> type(""):
             raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['ty']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['ty'])))
-        if type(vdi_info['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['metadata_of_pool'])))
         if type(vdi_info['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
         if type(vdi_info['snapshot_time']) <> type(""):
@@ -199,16 +195,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(vdi_info['virtual_size'])))
         if not(is_long(vdi_info['physical_utilisation'])):
             raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        if type(vdi_info['persistent']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['persistent'])))
-        if type(vdi_info['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(vdi_info['sm_config'])))
-        for x in vdi_info['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in vdi_info['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         results = self._impl.create(dbg, sr, vdi_info)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
@@ -218,10 +204,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(results['name_label'])))
         if type(results['name_description']) <> type(""):
             raise (TypeError("string", repr(results['name_description'])))
-        if type(results['ty']) <> type(""):
-            raise (TypeError("string", repr(results['ty'])))
-        if type(results['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(results['metadata_of_pool'])))
         if type(results['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(results['is_a_snapshot'])))
         if type(results['snapshot_time']) <> type(""):
@@ -234,16 +216,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['persistent']) <> type(True):
-            raise (TypeError("bool", repr(results['persistent'])))
-        if type(results['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['sm_config'])))
-        for x in results['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         return results
     def snapshot(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -270,10 +242,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(vdi_info['name_label'])))
         if type(vdi_info['name_description']) <> type(""):
             raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['ty']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['ty'])))
-        if type(vdi_info['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['metadata_of_pool'])))
         if type(vdi_info['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
         if type(vdi_info['snapshot_time']) <> type(""):
@@ -286,16 +254,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(vdi_info['virtual_size'])))
         if not(is_long(vdi_info['physical_utilisation'])):
             raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        if type(vdi_info['persistent']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['persistent'])))
-        if type(vdi_info['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(vdi_info['sm_config'])))
-        for x in vdi_info['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in vdi_info['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         results = self._impl.snapshot(dbg, sr, vdi_info)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
@@ -305,10 +263,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(results['name_label'])))
         if type(results['name_description']) <> type(""):
             raise (TypeError("string", repr(results['name_description'])))
-        if type(results['ty']) <> type(""):
-            raise (TypeError("string", repr(results['ty'])))
-        if type(results['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(results['metadata_of_pool'])))
         if type(results['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(results['is_a_snapshot'])))
         if type(results['snapshot_time']) <> type(""):
@@ -321,16 +275,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['persistent']) <> type(True):
-            raise (TypeError("bool", repr(results['persistent'])))
-        if type(results['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['sm_config'])))
-        for x in results['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         return results
     def clone(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -357,10 +301,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(vdi_info['name_label'])))
         if type(vdi_info['name_description']) <> type(""):
             raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['ty']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['ty'])))
-        if type(vdi_info['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['metadata_of_pool'])))
         if type(vdi_info['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
         if type(vdi_info['snapshot_time']) <> type(""):
@@ -373,16 +313,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(vdi_info['virtual_size'])))
         if not(is_long(vdi_info['physical_utilisation'])):
             raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        if type(vdi_info['persistent']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['persistent'])))
-        if type(vdi_info['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(vdi_info['sm_config'])))
-        for x in vdi_info['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in vdi_info['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         results = self._impl.clone(dbg, sr, vdi_info)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
@@ -392,10 +322,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(results['name_label'])))
         if type(results['name_description']) <> type(""):
             raise (TypeError("string", repr(results['name_description'])))
-        if type(results['ty']) <> type(""):
-            raise (TypeError("string", repr(results['ty'])))
-        if type(results['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(results['metadata_of_pool'])))
         if type(results['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(results['is_a_snapshot'])))
         if type(results['snapshot_time']) <> type(""):
@@ -408,16 +334,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['persistent']) <> type(True):
-            raise (TypeError("bool", repr(results['persistent'])))
-        if type(results['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['sm_config'])))
-        for x in results['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         return results
     def destroy(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -468,10 +384,6 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(results['name_label'])))
         if type(results['name_description']) <> type(""):
             raise (TypeError("string", repr(results['name_description'])))
-        if type(results['ty']) <> type(""):
-            raise (TypeError("string", repr(results['ty'])))
-        if type(results['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(results['metadata_of_pool'])))
         if type(results['is_a_snapshot']) <> type(True):
             raise (TypeError("bool", repr(results['is_a_snapshot'])))
         if type(results['snapshot_time']) <> type(""):
@@ -484,84 +396,6 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['persistent']) <> type(True):
-            raise (TypeError("bool", repr(results['persistent'])))
-        if type(results['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['sm_config'])))
-        for x in results['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        return results
-    def set_persistent(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        if not(args.has_key('persistent')):
-            raise UnmarshalException('argument missing', 'persistent', '')
-        persistent = args["persistent"]
-        if type(persistent) <> type(True):
-            raise (TypeError("bool", repr(persistent)))
-        results = self._impl.set_persistent(dbg, sr, vdi, persistent)
-        return results
-    def epoch_begin(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        results = self._impl.epoch_begin(dbg, sr, vdi)
-        return results
-    def epoch_end(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        results = self._impl.epoch_end(dbg, sr, vdi)
         return results
     def attach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -593,14 +427,14 @@ class VDI_server_dispatcher:
         if type(read_write) <> type(True):
             raise (TypeError("bool", repr(read_write)))
         results = self._impl.attach(dbg, dp, sr, vdi, read_write)
-        if type(results['params']) <> type(""):
-            raise (TypeError("string", repr(results['params'])))
-        if type(results['xenstore_data']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['xenstore_data'])))
-        for x in results['xenstore_data'].keys():
+        if type(results['uri']) <> type(""):
+            raise (TypeError("string", repr(results['uri'])))
+        if type(results['extra_headers']) <> type({}):
+            raise (TypeError("(string * string) list", repr(results['extra_headers'])))
+        for x in results['extra_headers'].keys():
             if type(x) <> type(""):
                 raise (TypeError("string", repr(x)))
-        for x in results['xenstore_data'].values():
+        for x in results['extra_headers'].values():
             if type(x) <> type(""):
                 raise (TypeError("string", repr(x)))
         return results
@@ -715,194 +549,6 @@ class VDI_server_dispatcher:
         if type(results) <> type(""):
             raise (TypeError("string", repr(results)))
         return results
-    def get_url(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        results = self._impl.get_url(dbg, sr, vdi)
-        if type(results) <> type(""):
-            raise (TypeError("string", repr(results)))
-        return results
-    def get_by_name(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('name')):
-            raise UnmarshalException('argument missing', 'name', '')
-        name = args["name"]
-        if type(name) <> type(""):
-            raise (TypeError("string", repr(name)))
-        results = self._impl.get_by_name(dbg, sr, name)
-        if type(results['vdi']) <> type(""):
-            raise (TypeError("string", repr(results['vdi'])))
-        if type(results['content_id']) <> type(""):
-            raise (TypeError("string", repr(results['content_id'])))
-        if type(results['name_label']) <> type(""):
-            raise (TypeError("string", repr(results['name_label'])))
-        if type(results['name_description']) <> type(""):
-            raise (TypeError("string", repr(results['name_description'])))
-        if type(results['ty']) <> type(""):
-            raise (TypeError("string", repr(results['ty'])))
-        if type(results['metadata_of_pool']) <> type(""):
-            raise (TypeError("string", repr(results['metadata_of_pool'])))
-        if type(results['is_a_snapshot']) <> type(True):
-            raise (TypeError("bool", repr(results['is_a_snapshot'])))
-        if type(results['snapshot_time']) <> type(""):
-            raise (TypeError("string", repr(results['snapshot_time'])))
-        if type(results['snapshot_of']) <> type(""):
-            raise (TypeError("string", repr(results['snapshot_of'])))
-        if type(results['read_only']) <> type(True):
-            raise (TypeError("bool", repr(results['read_only'])))
-        if not(is_long(results['virtual_size'])):
-            raise (TypeError("int64", repr(results['virtual_size'])))
-        if not(is_long(results['physical_utilisation'])):
-            raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['persistent']) <> type(True):
-            raise (TypeError("bool", repr(results['persistent'])))
-        if type(results['sm_config']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['sm_config'])))
-        for x in results['sm_config'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['sm_config'].values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        return results
-    def set_content_id(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        if not(args.has_key('content_id')):
-            raise UnmarshalException('argument missing', 'content_id', '')
-        content_id = args["content_id"]
-        if type(content_id) <> type(""):
-            raise (TypeError("string", repr(content_id)))
-        results = self._impl.set_content_id(dbg, sr, vdi, content_id)
-        return results
-    def compose(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi1')):
-            raise UnmarshalException('argument missing', 'vdi1', '')
-        vdi1 = args["vdi1"]
-        if type(vdi1) <> type(""):
-            raise (TypeError("string", repr(vdi1)))
-        if not(args.has_key('vdi2')):
-            raise UnmarshalException('argument missing', 'vdi2', '')
-        vdi2 = args["vdi2"]
-        if type(vdi2) <> type(""):
-            raise (TypeError("string", repr(vdi2)))
-        results = self._impl.compose(dbg, sr, vdi1, vdi2)
-        return results
-    def similar_content(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        results = self._impl.similar_content(dbg, sr, vdi)
-        if type(results) <> type([]):
-            raise (TypeError("92 list", repr(results)))
-        for x in results:
-            if type(x['vdi']) <> type(""):
-                raise (TypeError("string", repr(x['vdi'])))
-            if type(x['content_id']) <> type(""):
-                raise (TypeError("string", repr(x['content_id'])))
-            if type(x['name_label']) <> type(""):
-                raise (TypeError("string", repr(x['name_label'])))
-            if type(x['name_description']) <> type(""):
-                raise (TypeError("string", repr(x['name_description'])))
-            if type(x['ty']) <> type(""):
-                raise (TypeError("string", repr(x['ty'])))
-            if type(x['metadata_of_pool']) <> type(""):
-                raise (TypeError("string", repr(x['metadata_of_pool'])))
-            if type(x['is_a_snapshot']) <> type(True):
-                raise (TypeError("bool", repr(x['is_a_snapshot'])))
-            if type(x['snapshot_time']) <> type(""):
-                raise (TypeError("string", repr(x['snapshot_time'])))
-            if type(x['snapshot_of']) <> type(""):
-                raise (TypeError("string", repr(x['snapshot_of'])))
-            if type(x['read_only']) <> type(True):
-                raise (TypeError("bool", repr(x['read_only'])))
-            if not(is_long(x['virtual_size'])):
-                raise (TypeError("int64", repr(x['virtual_size'])))
-            if not(is_long(x['physical_utilisation'])):
-                raise (TypeError("int64", repr(x['physical_utilisation'])))
-            if type(x['persistent']) <> type(True):
-                raise (TypeError("bool", repr(x['persistent'])))
-            if type(x['sm_config']) <> type({}):
-                raise (TypeError("(string * string) list", repr(x['sm_config'])))
-            for x in x['sm_config'].keys():
-                if type(x) <> type(""):
-                    raise (TypeError("string", repr(x)))
-            for x in x['sm_config'].values():
-                if type(x) <> type(""):
-                    raise (TypeError("string", repr(x)))
-        return results
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""
         args = params[0]
@@ -916,12 +562,6 @@ class VDI_server_dispatcher:
             return success(self.destroy(args))
         elif method == "VDI.stat":
             return success(self.stat(args))
-        elif method == "VDI.set_persistent":
-            return success(self.set_persistent(args))
-        elif method == "VDI.epoch_begin":
-            return success(self.epoch_begin(args))
-        elif method == "VDI.epoch_end":
-            return success(self.epoch_end(args))
         elif method == "VDI.attach":
             return success(self.attach(args))
         elif method == "VDI.activate":
@@ -932,16 +572,6 @@ class VDI_server_dispatcher:
             return success(self.detach(args))
         elif method == "VDI.copy":
             return success(self.copy(args))
-        elif method == "VDI.get_url":
-            return success(self.get_url(args))
-        elif method == "VDI.get_by_name":
-            return success(self.get_by_name(args))
-        elif method == "VDI.set_content_id":
-            return success(self.set_content_id(args))
-        elif method == "VDI.compose":
-            return success(self.compose(args))
-        elif method == "VDI.similar_content":
-            return success(self.similar_content(args))
 class VDI_skeleton:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
@@ -961,15 +591,6 @@ class VDI_skeleton:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.stat")
-    def set_persistent(self, dbg, sr, vdi, persistent):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.set_persistent")
-    def epoch_begin(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.epoch_begin")
-    def epoch_end(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.epoch_end")
     def attach(self, dbg, dp, sr, vdi, read_write):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.attach")
@@ -985,21 +606,6 @@ class VDI_skeleton:
     def copy(self, dbg, sr, vdi, url, dest):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.copy")
-    def get_url(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.get_url")
-    def get_by_name(self, dbg, sr, name):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.get_by_name")
-    def set_content_id(self, dbg, sr, vdi, content_id):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.set_content_id")
-    def compose(self, dbg, sr, vdi1, vdi2):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.compose")
-    def similar_content(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.similar_content")
 class VDI_test:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
@@ -1007,17 +613,17 @@ class VDI_test:
     def create(self, dbg, sr, vdi_info):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }
+        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
     def snapshot(self, dbg, sr, vdi_info):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }
+        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
     def clone(self, dbg, sr, vdi_info):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }
+        result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
     def destroy(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
@@ -1026,24 +632,12 @@ class VDI_test:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["vdi_info"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }
-        return result
-    def set_persistent(self, dbg, sr, vdi, persistent):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        return result
-    def epoch_begin(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        return result
-    def epoch_end(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
+        result["vdi_info"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
     def attach(self, dbg, dp, sr, vdi, read_write):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["device"] = { "params": "string", "xenstore_data": { "string": "string" } }
+        result["device"] = { "uri": "string", "extra_headers": { "string": "string" } }
         return result
     def activate(self, dbg, dp, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
@@ -1061,29 +655,6 @@ class VDI_test:
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["new_vdi"] = "string"
-        return result
-    def get_url(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        result["url"] = "string"
-        return result
-    def get_by_name(self, dbg, sr, name):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        result["vdi_info"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }
-        return result
-    def set_content_id(self, dbg, sr, vdi, content_id):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        return result
-    def compose(self, dbg, sr, vdi1, vdi2):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        return result
-    def similar_content(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        result["vdi_infos"] = [ { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }, { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } } ]
         return result
 class SR_server_dispatcher:
     """Operations which act on Storage Repositories"""
@@ -1197,22 +768,6 @@ class SR_server_dispatcher:
             raise (TypeError("string", repr(sr)))
         results = self._impl.destroy(dbg, sr)
         return results
-    def reset(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        results = self._impl.reset(dbg, sr)
-        return results
     def scan(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if type(args) <> type({}):
@@ -1239,10 +794,6 @@ class SR_server_dispatcher:
                 raise (TypeError("string", repr(x['name_label'])))
             if type(x['name_description']) <> type(""):
                 raise (TypeError("string", repr(x['name_description'])))
-            if type(x['ty']) <> type(""):
-                raise (TypeError("string", repr(x['ty'])))
-            if type(x['metadata_of_pool']) <> type(""):
-                raise (TypeError("string", repr(x['metadata_of_pool'])))
             if type(x['is_a_snapshot']) <> type(True):
                 raise (TypeError("bool", repr(x['is_a_snapshot'])))
             if type(x['snapshot_time']) <> type(""):
@@ -1255,16 +806,6 @@ class SR_server_dispatcher:
                 raise (TypeError("int64", repr(x['virtual_size'])))
             if not(is_long(x['physical_utilisation'])):
                 raise (TypeError("int64", repr(x['physical_utilisation'])))
-            if type(x['persistent']) <> type(True):
-                raise (TypeError("bool", repr(x['persistent'])))
-            if type(x['sm_config']) <> type({}):
-                raise (TypeError("(string * string) list", repr(x['sm_config'])))
-            for x in x['sm_config'].keys():
-                if type(x) <> type(""):
-                    raise (TypeError("string", repr(x)))
-            for x in x['sm_config'].values():
-                if type(x) <> type(""):
-                    raise (TypeError("string", repr(x)))
         return results
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""
@@ -1279,8 +820,6 @@ class SR_server_dispatcher:
             return success(self.detach(args))
         elif method == "SR.destroy":
             return success(self.destroy(args))
-        elif method == "SR.reset":
-            return success(self.reset(args))
         elif method == "SR.scan":
             return success(self.scan(args))
 class SR_skeleton:
@@ -1302,9 +841,6 @@ class SR_skeleton:
     def destroy(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.destroy")
-    def reset(self, dbg, sr):
-        """Operations which act on Storage Repositories"""
-        raise Unimplemented("SR.reset")
     def scan(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.scan")
@@ -1333,14 +869,10 @@ class SR_test:
         """Operations which act on Storage Repositories"""
         result = {}
         return result
-    def reset(self, dbg, sr):
-        """Operations which act on Storage Repositories"""
-        result = {}
-        return result
     def scan(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["vdis"] = [ { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } }, { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "ty": "string", "metadata_of_pool": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "persistent": True, "sm_config": { "string": "string" } } ]
+        result["vdis"] = [ { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }, { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L } ]
         return result
 class storage_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""
