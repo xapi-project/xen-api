@@ -229,15 +229,21 @@ let update_env __context sync_keys =
   *)
 
   (* Helper function to allow us to switch off particular types of syncing *)
-  let switched_sync key f = 
+  let switched_sync key f =
+    let task_id = Context.get_task_id __context in
+    Db.Task.remove_from_other_config ~__context ~self:task_id ~key:"sync_operation";
+    Db.Task.add_to_other_config ~__context ~self:task_id ~key:"sync_operation" ~value:key;
     let skip_sync = 
       try
 	List.assoc key sync_keys = Xapi_globs.sync_switch_off
       with _ -> false
     in 
-    if (not skip_sync)
-    then (debug "Sync: %s" key; f ())
-    else debug "Skipping sync keyed: %s" key
+    begin 
+      if (not skip_sync)
+      then (debug "Sync: %s" key; f ())
+      else debug "Skipping sync keyed: %s" key
+    end;
+    Db.Task.remove_from_other_config ~__context ~self:task_id ~key:"sync_operation"
   in
 
   (* Ensure basic records exist: *)
@@ -253,19 +259,20 @@ let update_env __context sync_keys =
   (* record who we are in xapi_globs *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 
-  (* Set the cache_sr *)
-  begin 
-	  try
-		  let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
-		  let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
-		  Db.SR.set_local_cache_enabled ~__context ~self:cache_sr ~value:true;
-		  log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:cache_sr_uuid)
-	  with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
-  end;
+  switched_sync Xapi_globs.sync_set_cache_sr (fun () -> 
+    try
+      let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
+      let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
+      Db.SR.set_local_cache_enabled ~__context ~self:cache_sr ~value:true;
+      log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:cache_sr_uuid)
+    with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
+  );
 
-	(* Load the host rrd *)
-	Rrdd_proxy.Deprecated.load_rrd ~__context
-		~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true;
+  switched_sync Xapi_globs.sync_load_rrd (fun () -> 
+    (* Load the host rrd *)
+    Rrdd_proxy.Deprecated.load_rrd ~__context
+      ~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true
+  );
 
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->

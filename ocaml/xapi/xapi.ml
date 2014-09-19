@@ -206,9 +206,9 @@ let show_version () =
     [ "git_id", Version.git_id;
       "hostname", Version.hostname;
       "date", Version.date;
-      "PRODUCT_VERSION", Version.product_version;
-      "PRODUCT_BRAND", Version.product_brand;
-      "BUILD_NUMBER", Version.build_number ];
+      "PRODUCT_VERSION", Version.product_version ();
+      "PRODUCT_BRAND", Version.product_brand ();
+      "BUILD_NUMBER", Version.build_number ()];
   exit 0
 
 let init_args() =
@@ -882,8 +882,9 @@ let server_init() =
         Master_connection.connection_timeout := !Xapi_globs.master_connection_retry_timeout;
         Master_connection.restart_on_connection_timeout := true;
         Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
-    end;
- 
+    end);
+
+    Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context -> 
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;

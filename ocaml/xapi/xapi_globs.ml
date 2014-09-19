@@ -140,16 +140,16 @@ let default_platform_version = "0.0.0"
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
-let software_version =
+let software_version () =
 	(* In the case of XCP, all product_* fields will be blank. *)
 	List.filter (fun (_, value) -> value <> "")
-		[_product_version, Version.product_version;
-			_product_version_text,       Version.product_version_text;
-			_product_version_text_short, Version.product_version_text_short;
+		[_product_version, Version.product_version ();
+			_product_version_text,       Version.product_version_text ();
+			_product_version_text_short, Version.product_version_text_short ();
 			_platform_name, Version.platform_name;
 			_platform_version, Version.platform_version;
-			 _product_brand,   Version.product_brand;
-			 _build_number,    Version.build_number;
+			 _product_brand,   Version.product_brand ();
+			 _build_number,    Version.build_number ();
 			 _git_id,           Version.git_id;
 			 _hostname,        Version.hostname;
 			 _date,            Version.date]
@@ -325,6 +325,8 @@ let sync_switch_off = "nosync" (* Set the following keys to this value to disabl
 (* dbsync_slave *)
 let sync_local_vdi_activations = "sync_local_vdi_activations"
 let sync_create_localhost = "sync_create_localhost"
+let sync_set_cache_sr = "sync_set_cache_sr"
+let sync_load_rrd = "sync_load_rrd"
 let sync_enable_localhost = "sync_enable_localhost"
 let sync_refresh_localhost_info = "sync_refresh_localhost_info"
 let sync_record_host_memory_properties = "sync_record_host_memory_properties"

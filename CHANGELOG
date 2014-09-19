@@ -1,3 +1,23 @@
+1.9.56 (2014-09-15)
+ * configure: allow -warn-error to be disabled
+ * use SMAPIv2 VDI.stat for XenAPI VDI.update
+ * annotate startup tasks with extra debug information
+ * examples: add a streaming export/import example
+ * prevent the event queue from taking up too much memory
+
+1.9.55 (2014-09-14)
+ * re-add xenopsd plugin for xen-bugtool
+ * don't break when system gpg binary is upgraded
+ * set the right month for host crashdump records
+ * allow the location of the inventory file to read from xapi.conf
+
+1.9.53 (2014-09-10):
+ * revamped configuration handling and support of config file overrides
+ * prevent timeouts when collecting bugtools
+ * allow vCPU hotplug for HVM guests if feature-vcpu-hotplug is set
+ * improve cancellation of VM migration
+ * use busybox for DHCP on the host internal management network
+
 1.11.0 (2013-07-11):
  * CP-5113: Queue VM.unpause immediately after VM.start
  * CA-109295: Allow other_config:hvm_serial to set values other than "pty"

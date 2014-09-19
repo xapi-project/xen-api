@@ -29,7 +29,12 @@ OCAMLDEP_MODULES_ENABLED = false
 
 USE_OCAMLFIND = true
 
-OCAMLFLAGS = -g -dtypes -bin-annot -thread -warn-error +a-4-6-9-27-28-29
+if $(equal $(DISABLE_WARN_ERROR), true)
+  WARN = -w
+else
+  WARN = -warn-error
+
+OCAMLFLAGS = -g -dtypes -bin-annot -thread $(WARN) +a-4-6-9-27-28-29
 
 # c compiling stuff
 OCAMLCFLAGS += -g

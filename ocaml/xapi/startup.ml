@@ -36,6 +36,8 @@ let thread_exn_wrapper thread_name f =
  * the possibility to specify to run only on master or slave, and that the exception should
  * not be raised *)
 let run ~__context tasks =
+  let task_id = Context.get_task_id __context in
+  let dummy_task = Ref.is_dummy task_id in
 
   let get_flags_of_list flags =
     let only_master = ref false and only_slave = ref false
@@ -63,6 +65,10 @@ let run ~__context tasks =
       if (only_master && is_master)
       || (only_slave && (not is_master))
       || ((not only_slave) && (not only_master)) then (
+	if not dummy_task then begin
+	   Db.Task.remove_from_other_config ~__context ~self:task_id ~key:"startup_operation";
+	   Db.Task.add_to_other_config ~__context ~self:task_id ~key:"startup_operation" ~value:tsk_name
+	end;
 	if onthread then (
 	  debug "task [starting thread %s]" tsk_name;
 	  ignore (Thread.create (fun tsk_fct ->
