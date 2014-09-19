@@ -123,11 +123,6 @@ module Next = struct
 	let m = Mutex.create ()
 	let c = Condition.create ()
 
-	let event_size ev = 
-	  let xmlrpc = xmlrpc_of_event ev in
-	  let string = Xml.to_string xmlrpc in
-	  String.length string
-
 	(* Add an event to the queue if it matches any active subscriptions *)
 	let add ev =
 		Mutex.execute m
@@ -139,8 +134,7 @@ module Next = struct
 					else acc
 				) subscriptions false in
 			if matches then begin
-				let size = event_size ev in
-				queue := (size,ev) :: !queue;
+				queue := ev :: !queue;
 				(* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
 				id := Int64.add !id Int64.one;
 				Condition.broadcast c;
@@ -155,11 +149,11 @@ module Next = struct
 				then !queue, []
 				else
 					(* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-					List.chop max_stored_events (List.sort (fun (_,a) (_,b) -> compare b.id a.id) !queue) in
+					List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) !queue) in
 			queue := to_keep;
 			(* Remember the highest ID of the list of events to drop *)
 			if to_drop <> [] then
-			highest_forgotten_id := (snd (List.hd to_drop)).id;
+			highest_forgotten_id := (List.hd to_drop).id;
 			(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
 			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
 		)
@@ -232,14 +226,14 @@ module Next = struct
 			Mutex.execute m
 			(fun () ->
 				some_events_lost := !highest_forgotten_id >= id_start;
-				List.find_all (fun (_,ev) -> check_ev ev) !queue
+				List.find_all (fun ev -> check_ev ev) !queue
 			) in
 		(* Note we may actually retrieve fewer events than we expect because the
 		   queue may have been coalesced. *)
 		if !some_events_lost (* is true *) then events_lost ();
 
 		(* NB queue is kept in reverse order *)
-		List.map snd (List.rev selected_events)
+		List.rev selected_events
 
 end
 
