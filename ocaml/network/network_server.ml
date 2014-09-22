@@ -363,6 +363,17 @@ module Interface = struct
 				end else
 					config
 			in
+			let config =
+				if need_enic_workaround () then
+					List.fold_left (fun accu (name, interface) ->
+						if (Sysfs.is_physical name && Linux_bonding.get_bond_master_of name = None) || Linux_bonding.is_bond_device name then
+							(name, interface) :: (Ip.vlan_name name 0, interface) :: accu
+						else
+							(name, interface) :: accu
+					) [] config
+				else
+					config
+			in
 			debug "** Configuring the following interfaces: %s" (String.concat ", " (List.map (fun (name, _) -> name) config));
 			let exec f = if conservative then (try f () with _ -> ()) else f () in
 			List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
@@ -536,8 +547,14 @@ module Bridge = struct
 						Interface.bring_down () dbg ~name:dev;
 						if Linux_bonding.is_bond_device dev then
 							Linux_bonding.remove_bond_master dev;
-						if String.startswith "eth" dev && String.contains dev '.' then
-							ignore (Ip.destroy_vlan dev)
+						if (String.startswith "eth" dev || String.startswith "bond" dev) && String.contains dev '.' then begin
+							ignore (Ip.destroy_vlan dev);
+							let n = String.length dev in
+							if String.sub dev (n - 2) 2 = ".0" && need_enic_workaround () then
+								let vlan_base = String.sub dev 0 (n - 2) in
+								if Linux_bonding.is_bond_device vlan_base then
+									Linux_bonding.remove_bond_master (String.sub dev 0 (n - 2))
+						end;
 					) ifs;
 					Interface.set_ipv4_conf () dbg ~name ~conf:None4;
 					ignore (Brctl.destroy_bridge name)
@@ -640,10 +657,9 @@ module Bridge = struct
 							name bridge
 				end
 			| Bridge ->
-				if List.length interfaces = 1 then begin
-					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
-					ignore (Brctl.create_port bridge name)
-				end else begin
+				if List.length interfaces = 1 then
+					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
+				else begin
 					if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
 						Linux_bonding.add_bond_master name;
 						let bond_properties =
@@ -659,9 +675,16 @@ module Bridge = struct
 							| None -> warn "No MAC address specified for the bond"
 						end
 					end;
-					Interface.bring_up () dbg ~name;
+					Interface.bring_up () dbg ~name
+				end;
+				if need_enic_workaround () then begin
+					debug "Applying enic workaround: adding VLAN0 device to bridge";
+					Ip.create_vlan name 0;
+					let vlan0 = Ip.vlan_name name 0 in
+					Interface.bring_up () dbg ~name:vlan0;
+					ignore (Brctl.create_port bridge vlan0)
+				end else
 					ignore (Brctl.create_port bridge name)
-				end
 		) ()
 
 	let remove_port _ dbg ~bridge ~name =
