@@ -25,6 +25,7 @@ open D
 type context = unit
 
 let config : config_t ref = ref empty_config
+let backend_kind = ref Openvswitch
 
 let legacy_management_interface_start () =
 	try
@@ -82,6 +83,13 @@ let set_gateway_interface _ dbg ~name =
 let set_dns_interface _ dbg ~name =
 	debug "Setting DNS interface to %s" name;
 	config := {!config with dns_interface = Some name}
+
+(* The enic driver is for Cisco UCS devices. The current driver adds VLAN0 headers
+ * to all incoming packets, which confuses certain guests OSes. The workaround
+ * constitutes adding a VLAN0 Linux device to strip those headers again.
+ *)
+let need_enic_workaround () =
+	!backend_kind = Bridge && List.mem "enic" (Sysfs.list_drivers ())
 
 module Interface = struct
 	let get_config name =
@@ -377,7 +385,6 @@ module Interface = struct
 end
 
 module Bridge = struct
-	let kind = ref Openvswitch
 	let add_default = ref []
 
 	let get_config name =
@@ -393,8 +400,8 @@ module Bridge = struct
 		let backend = String.strip String.isspace
 			(Unixext.string_of_file (Fhs.etcdir ^ "/network.conf")) in
 		match backend with
-		| "openvswitch" | "vswitch" -> kind := Openvswitch
-		| "bridge" -> kind := Bridge
+		| "openvswitch" | "vswitch" -> backend_kind := Openvswitch
+		| "bridge" -> backend_kind := Bridge
 		| backend ->
 			let error = Printf.sprintf "ERROR: network backend unknown (%s)" backend in
 			debug "%s" error;
@@ -402,14 +409,14 @@ module Bridge = struct
 
 	let get_bond_links_up _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.get_bond_links_up name
 			| Bridge -> Proc.get_bond_links_up name
 		) ()
 
 	let get_all _ dbg () =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.list_bridges ()
 			| Bridge -> Sysfs.get_all_bridges ()
 		) ()
@@ -421,7 +428,7 @@ module Bridge = struct
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
 			update_config name {get_config name with vlan; bridge_mac=mac; other_config};
-			begin match !kind with
+			begin match !backend_kind with
 			| Openvswitch ->
 				let fail_mode =
 					if not (List.mem_assoc "vswitch-controller-fail-mode" other_config) then
@@ -496,7 +503,7 @@ module Bridge = struct
 	let destroy _ dbg ?(force=false) ~name () =
 		Debug.with_thread_associated dbg (fun () ->
 			Interface.bring_down () dbg ~name;
-			match !kind with
+			match !backend_kind with
 			| Openvswitch ->
 				if Ovs.get_vlans name = [] || force then begin
 					debug "Destroying bridge %s" name;
@@ -540,12 +547,12 @@ module Bridge = struct
 
 	let get_kind _ dbg () =
 		Debug.with_thread_associated dbg (fun () ->
-			!kind
+			!backend_kind
 		) ()
 
 	let get_ports _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.bridge_to_ports name
 			| Bridge -> raise Not_implemented
 		) ()
@@ -556,14 +563,14 @@ module Bridge = struct
 				let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
 				List.map (fun (port, {interfaces}) -> port, interfaces) ports
 			else
-				match !kind with
+				match !backend_kind with
 				| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
 				| Bridge -> raise Not_implemented
 		) ()
 
 	let get_bonds _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.bridge_to_ports name
 			| Bridge -> raise Not_implemented
 		) ()
@@ -575,21 +582,21 @@ module Bridge = struct
 				let names = List.map (fun (port, {interfaces}) -> port, interfaces) ports in
 				List.filter (fun (_, ifs) -> List.length ifs > 1) names
 			else
-				match !kind with
+				match !backend_kind with
 				| Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
 				| Bridge -> raise Not_implemented
 		) ()
 
 	let get_vlan _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.bridge_to_vlan name
 			| Bridge -> raise Not_implemented
 		) ()
 
 	let add_default_flows _ dbg bridge mac interfaces =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch -> Ovs.add_default_flows bridge mac interfaces
 			| Bridge -> ()
 		) ()
@@ -608,7 +615,7 @@ module Bridge = struct
 			debug "Adding port %s to bridge %s with interfaces %s%s" name bridge
 				(String.concat ", " interfaces)
 				(match bond_mac with Some mac -> " and MAC " ^ mac | None -> "");
-			match !kind with
+			match !backend_kind with
 			| Openvswitch ->
 				if List.length interfaces = 1 then begin
 					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
@@ -665,7 +672,7 @@ module Bridge = struct
 				let ports = List.remove_assoc name config.ports in
 				update_config bridge {config with ports}
 			end;
-			match !kind with
+			match !backend_kind with
 			| Openvswitch ->
 				ignore (Ovs.destroy_port name)
 			| Bridge ->
@@ -674,7 +681,7 @@ module Bridge = struct
 
 	let get_interfaces _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch ->
 				Ovs.bridge_to_interfaces name
 			| Bridge ->
@@ -683,7 +690,7 @@ module Bridge = struct
 
 	let get_fail_mode _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			match !kind with
+			match !backend_kind with
 			| Openvswitch ->
 				begin match Ovs.get_fail_mode name with
 				| "standalone" -> Some Standalone
@@ -766,7 +773,7 @@ let on_startup () =
 			(* the following is best-effort *)
 			read_config ();
 			remove_centos_config ();
-			if !Bridge.kind = Openvswitch then
+			if !backend_kind = Openvswitch then
 				Ovs.set_max_idle 5000;
 			Bridge.make_config () dbg ~conservative:true ~config:!config.bridge_config ();
 			Interface.make_config () dbg ~conservative:true ~config:!config.interface_config ();
