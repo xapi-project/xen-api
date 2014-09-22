@@ -1,3 +1,8 @@
+0.9.44 (22-Sep-2014):
+* better libxl support
+* improved robustness should the event thread throw an exception
+* Improve logging around cancellation
+
 0.9.40 (22-Aug-2014):
 * add man pages and more regular command-line interface
 * read the kthread-pid from the right path: needed for VBD QoS
