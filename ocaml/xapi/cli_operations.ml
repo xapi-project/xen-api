@@ -2872,6 +2872,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
 			if false
 				|| msg.API.message_name = (fst Api_messages.v6_rejected)
 				|| msg.API.message_name = (fst Api_messages.v6_comm_error)
+				|| msg.API.message_name = (fst Api_messages.v6_license_server_version_obsolete)
 			then begin
 				Client.Message.destroy rpc session_id ref;
 				printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
