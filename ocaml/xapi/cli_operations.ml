@@ -2849,13 +2849,16 @@ let with_license_server_changes printer rpc session_id params hosts f =
 			(fun (host, license_server) ->
 				Client.Host.set_license_server rpc session_id host license_server)
 			current_license_servers;
-		let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
+		let alerts = Client.Message.get_since rpc session_id (Date.of_float (now -. 1.)) in
 		let print_if_checkout_error (ref, msg) =
 			if false
 				|| msg.API.message_name = (fst Api_messages.v6_rejected)
 				|| msg.API.message_name = (fst Api_messages.v6_comm_error)
-			then
+				|| msg.API.message_name = (fst Api_messages.v6_license_server_version_obsolete)
+			then begin
+				Client.Message.destroy rpc session_id ref;
 				printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
+			end
 		in
 		if alerts = []
 		then raise e
