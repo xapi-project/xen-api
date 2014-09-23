@@ -66,6 +66,13 @@ module Sysfs = struct
 		let all = Array.to_list (Sys.readdir "/sys/class/net") in
 		List.filter (fun name -> Sys.is_directory ("/sys/class/net/" ^ name)) all
 
+	let list_drivers () =
+		try
+			Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
+		with _ ->
+			warn "Failed to obtain list of drivers from sysfs";
+			[]
+
 	let getpath dev attr =
 		Printf.sprintf "/sys/class/net/%s/%s" dev attr
 
