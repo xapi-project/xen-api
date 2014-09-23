@@ -13,11 +13,11 @@
  *)
 
 open Listext
-open Stringext
+open Xstringext
 open Fun
 open Network_interface
 
-module D = Debug.Debugger(struct let name = "network_utils" end)
+module D = Debug.Make(struct let name = "network_utils" end)
 open D
 
 let iproute2 = "/sbin/ip"
@@ -86,9 +86,10 @@ module Sysfs = struct
 
 	let is_physical name =
 		try
-			let link = Unix.readlink (getpath name "device") in
-			(* filter out device symlinks which look like /../../../devices/xen-backend/vif- *)
-			not(List.mem "xen-backend" (String.split '/' link))
+			let devpath = getpath name "device" in
+			let driver_link = Unix.readlink (devpath ^ "/driver") in
+			(* filter out symlinks under device/driver which look like /../../../devices/xen-backend/vif- *)
+			not(List.mem "xen-backend" (String.split '/' driver_link))
 		with _ -> false
 
 	let get_carrier name =
@@ -445,6 +446,12 @@ module Linux_bonding = struct
 				error "Failed to remove slave %s from bond %s" slave master
 		else
 			error "Bond %s does not exist; cannot remove slave" master
+
+	let get_bond_master_of slave =
+		try
+			let path = Unix.readlink (Sysfs.getpath slave "master") in
+			Some (List.hd (List.rev (String.split '/' path)))
+		with _ -> None
 end
 
 module Dhclient = struct
@@ -463,7 +470,11 @@ module Dhclient = struct
 	let generate_conf ?(ipv6=false) interface options =
 		let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
 			"nis-servers"; "ntp-servers"; "interface-mtu"] in
-		let set_gateway = if List.mem `set_gateway options then ["routers"] else [] in
+		let set_gateway = 
+			if List.mem (`gateway interface) options 
+			then (debug "%s is the default gateway interface" interface; ["routers"])
+			else (debug "%s is NOT the default gateway interface" interface; [])
+		in
 		let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
 		let request = minimal @ set_gateway @ set_dns in
 		Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
@@ -477,9 +488,19 @@ module Dhclient = struct
 		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
 	let start ?(ipv6=false) interface options =
+		(* If we have a gateway interface, pass it to dhclient-script via -e *)
+		(* This prevents the default route being set erroneously on CentOS *)
+		(* Normally this wouldn't happen as we're not requesting routers, *)
+		(* but some buggy DHCP servers ignore this *)
+		(* See CA-137892 *)
+		let gw_opt = List.fold_left
+			(fun l x -> 
+				match x with 
+				| `gateway y -> ["-e"; "GATEWAYDEV="^y] 
+				| _ -> l) [] options in
 		write_conf_file ~ipv6 interface options;
 		let ipv6' = if ipv6 then ["-6"] else [] in
-		call_script ~log_successful_output:true dhclient (ipv6' @ ["-q";
+		call_script ~log_successful_output:true dhclient (ipv6' @ gw_opt @ ["-q";
 			"-pf"; pid_file ~ipv6 interface;
 			"-lf"; lease_file ~ipv6 interface;
 			"-cf"; conf_file ~ipv6 interface;
@@ -533,28 +554,46 @@ module Sysctl = struct
 end
 
 module Proc = struct
-	let get_bond_links_up name = 
+	let get_bond_slave_info name key =
 		try
 			let raw = Unixext.string_of_file (bonding_dir ^ name) in
 			let lines = String.split '\n' raw in
 			let check_lines lines =
-			let rec loop acc = function
-				| [] -> acc
-				| line1 :: line2 :: tail ->
-					if (String.startswith "Slave Interface:" line1)
-						&& (String.startswith "MII Status:" line2)
-						&& (String.endswith "up" line2)
-					then
-						loop (acc + 1) tail
-					else
-						loop acc (line2 :: tail)
-			  | _ :: [] -> acc in
-			loop 0 lines in
+				let rec loop current acc = function
+					| [] -> acc
+					| line :: tail ->
+						try
+							Scanf.sscanf line "%s@: %s@\n" (fun k v ->
+								if k = "Slave Interface" then begin
+									let interface = Some (String.strip String.isspace v) in
+									loop interface acc tail
+								end else if k = key then
+									match current with
+									| Some interface -> loop current ((interface, String.strip String.isspace v) :: acc) tail
+									| None -> loop current acc tail
+								else
+									loop current acc tail
+							)
+						with _ ->
+							loop current acc tail
+				in
+				loop None [] lines
+			in
 			check_lines lines
 		with e ->
 			error "Error: could not read %s." (bonding_dir ^ name);
-			0
+			[]
 
+	let get_bond_slave_mac name slave =
+		let macs = get_bond_slave_info name "Permanent HW addr" in
+		if List.mem_assoc slave macs then
+			List.assoc slave macs
+		else
+			raise Not_found
+
+	let get_bond_links_up name =
+		let statusses = get_bond_slave_info name "MII Status" in
+		List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
 end
 
 module Ovs = struct
@@ -623,6 +662,12 @@ module Ovs = struct
 			let nb_links = List.fold_left (fun acc line -> acc + (check_line line)) 0 lines in
 			nb_links
 		with _ -> 0
+
+	let set_max_idle t =
+		try
+			ignore (vsctl ["set"; "Open_vSwitch"; "."; Printf.sprintf "other_config:max-idle=%d" t])
+		with _ ->
+			warn "Failed to set max-idle=%d on OVS" t
 
 	let handle_vlan_bug_workaround override bridge =
 		(* This is a list of drivers that do support VLAN tx or rx acceleration, but
@@ -751,7 +796,7 @@ module Ovs = struct
 	let make_bond_properties name properties =
 		let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";
 		                   "miimon"; "use_carrier"; "rebalance-interval";
-		                   "lacp-time"; "lacp-aggregation-key"] in
+		                   "lacp-time"; "lacp-aggregation-key"; "lacp-fallback-ab"] in
 		let mode_args =
 			let mode = if List.mem_assoc "mode" properties
 				then List.assoc "mode" properties else "balance-slb" in
@@ -795,7 +840,8 @@ module Ovs = struct
 			 "use_carrier", "other-config:bond-detect-mode";
 			 "rebalance-interval", "other-config:bond-rebalance-interval";])
 		and extra_args = List.flatten (List.map get_prop
-			["lacp-time", "other-config:lacp-time";])
+			["lacp-time", "other-config:lacp-time";
+			 "lacp-fallback-ab", "other-config:lacp-fallback-ab";])
 		and per_iface_args = List.flatten (List.map get_prop
 			["lacp-aggregation-key", "other-config:lacp-aggregation-key";
 			 "lacp-actor-key", "other-config:lacp-actor-key";])

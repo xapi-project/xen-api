@@ -20,6 +20,7 @@ let name = "networkd_db"
 let _ =
 	let bridge = ref "" in
 	let iface = ref "" in
+	let rc = ref 0 in
 	Arg.parse (Arg.align [
 			"-bridge", Arg.Set_string bridge, "Bridge name";
 			"-iface", Arg.Set_string iface, "Interface name";
@@ -34,9 +35,10 @@ let _ =
 				let bridge_config = List.assoc !bridge config.bridge_config in
 				let ifaces = List.flatten (List.map (fun (_, port) -> port.interfaces) bridge_config.ports) in
 				Printf.printf "interfaces=%s\n" (String.concat "," ifaces)
-			end else
-				print_endline ("Could not find bridge " ^ !bridge);
-
+			end else begin
+				rc := 1;
+				Printf.fprintf stderr "Could not find bridge %s\n" !bridge;
+			end;
 		if !iface <> "" then
 			if List.mem_assoc !iface config.interface_config then begin
 				let interface_config = List.assoc !iface config.interface_config in
@@ -92,8 +94,10 @@ let _ =
 				in
 				let data = datav4 @ datav6 in
 				List.iter (fun (k, v) -> Printf.printf "%s=%s\n" k v) data
-			end else
-				print_endline ("Could not find interface " ^ !iface);
+			end else begin
+				rc := 1;
+				Printf.fprintf stderr "Could not find interface %s\n" !iface;
+			end;
 	with Network_config.Read_error ->
-		print_endline ("Failed to read " ^ name)
-
+		Printf.fprintf stderr "Failed to read %s\n" name;
+	exit !rc;

@@ -15,11 +15,11 @@
 open Network_utils
 
 open Fun
-open Stringext
+open Xstringext
 open Listext
 open Threadext
 
-module D = Debug.Debugger(struct let name = "network_monitor_thread" end)
+module D = Debug.Make(struct let name = "network_monitor_thread" end)
 open D
 
 (** Table for bonds status. *)
@@ -115,7 +115,8 @@ let get_link_stats () =
 		not(String.startswith "dummy" name) &&
 			not(String.startswith "xenbr" name) &&
 			not(String.startswith "xapi" name) &&
-			not(String.startswith "eth" name && String.contains name '.')
+			not(String.startswith "eth" name && String.contains name '.') &&
+			name <> "ovs-system"
 	) devs in
 
 	Cache.free cache;

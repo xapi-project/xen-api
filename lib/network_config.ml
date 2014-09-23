@@ -15,9 +15,9 @@
 open Network_interface
 
 open Fun
-open Stringext
+open Xstringext
 
-module D = Debug.Debugger(struct let name = "network_config" end)
+module D = Debug.Make(struct let name = "network_config" end)
 open D
 
 exception Read_error
@@ -35,6 +35,7 @@ let read_management_conf () =
 		Inventory.reread_inventory ();
 		let bridge_name = Inventory.lookup Inventory._management_interface in
 		debug "Management bridge in inventory file: %s" bridge_name;
+		let mac = Network_utils.Ip.get_mac device in
 		let ipv4_conf, ipv4_gateway, dns =
 			match List.assoc "MODE" args with
 			| "static" ->
@@ -63,6 +64,7 @@ let read_management_conf () =
 		let phy_interface = {default_interface with persistent_i = true} in
 		let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true} in
 		let bridge = {default_bridge with
+			bridge_mac = Some mac;
 			ports = [device, {default_port with interfaces = [device]}];
 			persistent_b = true
 		} in

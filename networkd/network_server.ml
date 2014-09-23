@@ -16,14 +16,15 @@ open Network_utils
 open Network_interface
 
 open Fun
-open Stringext
+open Xstringext
 open Listext
 
-module D = Debug.Debugger(struct let name = "network_server" end)
+module D = Debug.Make(struct let name = "network_server" end)
 open D
 
 type context = unit
 
+let network_conf = ref "/etc/xcp/network.conf"
 let config : config_t ref = ref empty_config
 
 let legacy_management_interface_start () =
@@ -102,7 +103,9 @@ module Interface = struct
 
 	let get_mac _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			Ip.get_mac name
+			match Linux_bonding.get_bond_master_of name with
+			| Some master -> Proc.get_bond_slave_mac master name
+			| None -> Ip.get_mac name
 		) ()
 
 	let is_up _ dbg ~name =
@@ -130,15 +133,7 @@ module Interface = struct
 					Ip.flush_ip_addr name
 				end
 			| DHCP4 ->
-				let gateway =
-					if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
-						debug "%s is the default gateway interface" name;
-						[`set_gateway]
-					end else begin
-						debug "%s is NOT the default gateway interface" name;
-						[]
-					end
-				in
+				let gateway = Opt.default [] (Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
 				let dns =
 					if !config.dns_interface = None || !config.dns_interface = Some name then begin
 						debug "%s is the DNS interface" name;
@@ -396,15 +391,17 @@ module Bridge = struct
 		config := {!config with bridge_config = update_config !config.bridge_config name data}
 
 	let determine_backend () =
-		let backend = String.strip String.isspace
-			(Unixext.string_of_file ("/etc/xcp/network.conf")) in
-		match backend with
-		| "openvswitch" | "vswitch" -> kind := Openvswitch
-		| "bridge" -> kind := Bridge
-		| backend ->
-			let error = Printf.sprintf "ERROR: network backend unknown (%s)" backend in
-			debug "%s" error;
-			failwith error
+		try
+			let backend = String.strip String.isspace (Unixext.string_of_file !network_conf) in
+			match backend with
+			| "openvswitch" | "vswitch" -> kind := Openvswitch
+			| "bridge" -> kind := Bridge
+			| backend ->
+				warn "Network backend unknown (%s). Falling back to Open vSwitch." backend;
+				kind := Openvswitch
+		with _ ->
+			warn "Network-conf file not found. Falling back to Open vSwitch.";
+			kind := Openvswitch
 
 	let get_bond_links_up _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
@@ -426,7 +423,7 @@ module Bridge = struct
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
-			update_config name {get_config name with vlan; bridge_mac=mac; other_config};
+			update_config name {(get_config name) with vlan; bridge_mac=mac; other_config};
 			begin match !kind with
 			| Openvswitch ->
 				let fail_mode =
@@ -476,11 +473,23 @@ module Bridge = struct
 				match vlan with
 				| None -> ()
 				| Some (parent, vlan) ->
-					let interface = List.hd (List.filter (fun n ->
+					(* Robustness enhancement: ensure there are no other VLANs in the bridge *)
+					let current_interfaces = List.filter (fun n ->
+						String.startswith "eth" n || String.startswith "bond" n
+					) (Sysfs.bridge_to_interfaces name) in
+					debug "Removing these non-VIF interfaces found on the bridge: %s"
+						(String.concat ", " current_interfaces);
+					List.iter (fun interface ->
+						Brctl.destroy_port name interface;
+						Interface.bring_down () dbg ~name:interface
+					) current_interfaces;
+
+					(* Now create the new VLAN device and add it to the bridge *)
+					let parent_interface = List.hd (List.filter (fun n ->
 						String.startswith "eth" n || String.startswith "bond" n
 					) (Sysfs.bridge_to_interfaces parent)) in
-					Ip.create_vlan interface vlan;
-					let vlan_name = Ip.vlan_name interface vlan in
+					Ip.create_vlan parent_interface vlan;
+					let vlan_name = Ip.vlan_name parent_interface vlan in
 					Interface.bring_up () dbg ~name:vlan_name;
 					Brctl.create_port name vlan_name
 			end;
@@ -519,6 +528,7 @@ module Bridge = struct
 					remove_config name;
 					List.iter (fun dev ->
 						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
+						Brctl.destroy_port name dev;
 						Interface.bring_down () dbg ~name:dev;
 						if Linux_bonding.is_bond_device dev then
 							Linux_bonding.remove_bond_master dev;
@@ -632,18 +642,18 @@ module Bridge = struct
 				end else begin
 					if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then begin
 						Linux_bonding.add_bond_master name;
-						begin match bond_mac with
-							| Some mac -> Ip.set_mac name mac
-							| None -> warn "No MAC address specified for the bond"
-						end;
-						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
-						List.iter (Linux_bonding.add_bond_slave name) interfaces;
 						let bond_properties =
 							if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
 								List.replace_assoc "mode" "802.3ad" bond_properties
 							else bond_properties
 						in
-						Linux_bonding.set_bond_properties name bond_properties
+						Linux_bonding.set_bond_properties name bond_properties;
+						List.iter (fun name -> Interface.bring_down () dbg ~name) interfaces;
+						List.iter (Linux_bonding.add_bond_slave name) interfaces;
+						begin match bond_mac with
+							| Some mac -> Ip.set_mac name mac
+							| None -> warn "No MAC address specified for the bond"
+						end
 					end;
 					Interface.bring_up () dbg ~name;
 					ignore (Brctl.create_port bridge name)
@@ -759,6 +769,8 @@ let on_startup () =
 			(* the following is best-effort *)
 			read_config ();
 			remove_centos_config ();
+			if !Bridge.kind = Openvswitch then
+				Ovs.set_max_idle 5000;
 			Bridge.make_config () dbg ~conservative:true ~config:!config.bridge_config ();
 			Interface.make_config () dbg ~conservative:true ~config:!config.interface_config ();
 			(* If there is still a network.dbcache file, move it out of the way. *)
