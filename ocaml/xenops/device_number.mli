@@ -35,6 +35,10 @@ val to_linux_device: t -> string
 (** [of_linux_device x] returns the interface corresponding to string [x] *)
 val of_linux_device: string -> t
 
+(** [upgrade_linux_device x] upgrades hd* style device names to xvd*
+    and leaves all other device names unchanged. *)
+val upgrade_linux_device: string -> string
+
 type xenstore_key = int
 
 (** [to_xenstore_key i] returns the xenstore key from interface [i] *)
