@@ -1,3 +1,6 @@
+0.12.0 (26-Sep-2014):
+* Build on OS X
+
 0.11.0 (30-May-2013):
 * Change Stringext module to Xstringext to avoid conflict with other packages
 
