@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 10d53985c4344a03d83fd38e1a65d6d2)
-version = "0.11.0"
+# DO NOT EDIT (digest: aeed1c526e0bfd4c0e4829294ebbc5b8)
+version = "0.12.0"
 description = "Standard extension library"
 requires = "threads uuidm unix fd-send-recv bigarray"
 archive(byte) = "stdext.cma"

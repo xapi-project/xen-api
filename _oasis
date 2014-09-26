@@ -1,10 +1,10 @@
 OASISFormat:  0.3
 Name:         stdext
-Version:      0.11.0
+Version:      0.12.0
 Synopsis:     Standard extension library
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
-Copyrights:   (C) 2012 Citrix
+Copyrights:   (C) 2006-2014 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
