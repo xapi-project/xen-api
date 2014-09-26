@@ -20,19 +20,12 @@ distclean: clean
 
 -include config.mk
 
-config.mk: configure
-	./configure
-
-configure: configure.ml
-	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o configure configure.ml
-	@rm -f configure.cm*
-
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure $(TESTS)
+	./setup.bin -configure $(TESTS) $(ASYNC) $(LWT)
 
 build: setup.data setup.bin
 	@./setup.bin -build -j $(J)
