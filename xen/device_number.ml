@@ -156,7 +156,12 @@ let of_linux_device x =
 			let disk, partition = parse_int_p_int rest in
 			Xen, disk, partition
 		| _ -> failwith (Printf.sprintf "Failed to parse device name: %s" x)
-	
+
+let upgrade_linux_device x =
+	match String.explode x with
+	| 'h' :: 'd' :: rest -> "xvd" ^ (String.implode rest)
+	| _ -> x
+
 type disk_number = int
 
 let to_disk_number = function
