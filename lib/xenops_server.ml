@@ -1815,7 +1815,16 @@ module VM = struct
 				if DB.exists id
 				then debug "Overwriting VM metadata for VM: %s" id;
 				let vm = add' md.Metadata.vm in
-				let vbds = List.map (fun x -> { x with Vbd.id = (vm, snd x.Vbd.id) }) md.Metadata.vbds in
+				let vbds = List.map
+					(fun x ->
+						(* If receiving an HVM migration from XS 6.2 or earlier, the hd*
+						   device names need to be upgraded to xvd*. *)
+						let new_device_name =
+							Device_number.upgrade_linux_device (snd x.Vbd.id)
+						in
+						{ x with Vbd.id = (vm, new_device_name) })
+					md.Metadata.vbds
+				in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
 
