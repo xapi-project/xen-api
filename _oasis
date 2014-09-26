@@ -7,6 +7,14 @@ License:     ISC
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
 
+Flag async
+  Description:        build async protocol library
+  Default:            true
+
+Flag lwt
+  Description:        build lwt protocol library
+  Default:            true
+
 Library message_switch
   CompiledObject:     best
   Path:               core
@@ -15,6 +23,7 @@ Library message_switch
   BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str
 
 Library message_switch_lwt
+  Build$:             flag(lwt)
   CompiledObject:     best
   Path:               core
   Findlibparent:      message_switch
@@ -23,6 +32,7 @@ Library message_switch_lwt
   BuildDepends:       lwt,lwt.unix,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_async
+  Build$:             flag(async)
   CompiledObject:     best
   Path:               core
   Findlibparent:      message_switch
@@ -39,6 +49,7 @@ Library message_switch_unix
   BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_server
+  Build$:             flag(lwt)
   CompiledObject:     best
   Pack:               true
   Install:            false
@@ -57,28 +68,28 @@ Executable m_cli
   BuildDepends:       message_switch, message_switch.unix, cmdliner
 
 Executable link_test
+  Build$:             flag(lwt)&&flag(tests)
   CompiledObject:     best
   Path:               core_test
   MainIs:             link_test_main.ml
-  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable client
+  Build$:             flag(lwt)&&flag(tests)
   CompiledObject:     best
   Path:               core_test
   MainIs:             client_main.ml
-  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable client_async
+  Build$:             flag(async)&&flag(tests)
   CompiledObject:     best
   Path:               core_test
   MainIs:             client_async_main.ml
-  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
@@ -93,19 +104,19 @@ Executable client_unix
   BuildDepends:       message_switch, message_switch.unix, cohttp
 
 Executable server
+  Build$:             flag(lwt)&&flag(tests)
   CompiledObject:     best
   Path:               core_test
   MainIs:             server_main.ml
-  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
 
 Executable server_async
+  Build$:             flag(async)&&flag(tests)
   CompiledObject:     best
   Path:               core_test
   MainIs:             server_async_main.ml
-  Build$:             flag(tests)
   Custom:             true
   Install:            false
   BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
@@ -120,6 +131,7 @@ Executable server_unix
   BuildDepends:       message_switch, message_switch.unix
 
 Executable switch
+  Build$:             flag(lwt)
   CompiledObject:     best
   Path:               switch
   MainIs:             switch_main.ml
