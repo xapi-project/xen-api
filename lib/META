@@ -1,6 +1,6 @@
 version = "0.9.1"
 description = "RRD library"
-requires = "stdext rpclib rpclib.syntax"
+requires = "rpclib rpclib.syntax"
 archive(byte) = "xcp-rrd.cma"
 archive(byte, plugin) = "xcp-rrd.cma"
 archive(native) = "xcp-rrd.cmxa"
