@@ -1,6 +1,7 @@
-trunk (unreleased)
+0.10.4 (26-Sep-2014):
 * Add Async support via protocol.async package
 * Change license to the Mirage license (ISC)
+* Remove use of oclock, allows builds on OS X
 
 0.10.3 (19-Jun-2014)
 * Critical bugfix after cohttp upgrade
