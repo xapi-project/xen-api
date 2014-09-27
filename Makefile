@@ -15,8 +15,11 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure --enable-tests
 
-build: setup.data setup.bin
+build: setup.data setup.bin networkd/version.ml
 	@./setup.bin -build -j $(J)
+
+networkd/version.ml: VERSION
+	echo "let version = \"$(shell cat VERSION)\"" > networkd/version.ml
 
 doc: setup.data setup.bin
 	@./setup.bin -doc -j $(J)
@@ -35,3 +38,4 @@ uninstall:
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
+	rm networkd/version.ml
