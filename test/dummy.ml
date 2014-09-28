@@ -19,4 +19,4 @@ let _ =
     let v4 = VT_Float (6.5 +. 0.5 *. cos ( t /. 5000.0 )) in
     ds_update rrd t [|v1; v2; v3; v4|] [| id; id; id; id |] false
    done;
-   to_file rrd "output.xml"
+   Rrd_unix.to_file rrd "output.xml"

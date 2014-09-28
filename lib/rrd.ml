@@ -40,18 +40,6 @@ type sampling_frequency = Five_Seconds with rpc
 (* utility *)
 let isnan x = match classify_float x with | FP_nan -> true | _ -> false
 
-let finally fct clean_f =
-  let result =
-    try
-      fct ()
-    with
-      exn ->
-      clean_f (); 
-      raise exn
-  in
-  clean_f ();
-  result
-
 let array_index e a =
   let len = Array.length a in
   let rec check i =
@@ -76,63 +64,6 @@ let filter_map f list =
 let rec setify = function
   | [] -> []
   | (x::xs) -> if List.mem x xs then setify xs else x::(setify xs)
-
-let temp_file_in_dir otherfile =
-  let base_dir = Filename.dirname otherfile in
-  let rec keep_trying () = 
-    try 
-      let uuid = Uuidm.to_string (Uuidm.create `V4) in
-      let newfile = base_dir ^ "/" ^ uuid in
-      Unix.close (Unix.openfile newfile [Unix.O_CREAT; Unix.O_TRUNC; Unix.O_EXCL] 0o600);
-      newfile
-    with
-      Unix.Unix_error (Unix.EEXIST, _, _)  -> keep_trying ()
-  in
-  keep_trying ()
-
-let unlink_safe file =
-  try Unix.unlink file with (* Unix.Unix_error (Unix.ENOENT, _ , _)*) _ -> ()
-
-let atomic_write_to_file fname perms f =
-  let tmp = temp_file_in_dir fname in
-  Unix.chmod tmp perms;
-  finally
-    (fun () ->
-       let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
-       let result = finally
-           (fun () -> f fd)
-           (fun () -> Unix.close fd) in
-       Unix.rename tmp fname; (* Nb this only happens if an exception wasn't raised in the application of f *)
-       result)
-    (fun () -> unlink_safe tmp)
-
-let fd_blocks_fold block_size f start fd = 
-  let block = String.create block_size in
-  let rec fold acc = 
-    let n = Unix.read fd block 0 block_size in
-    (* Consider making the interface explicitly use Substrings *)
-    let s = if n = block_size then block else String.sub block 0 n in
-    if n = 0 then acc else fold (f acc s) in
-  fold start
-
-let buffer_of_fd fd = 
-  fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
-
-let with_file file mode perms f =
-  let fd = Unix.openfile file mode perms in
-  let r =
-    try f fd
-    with exn -> Unix.close fd; raise exn
-  in
-  Unix.close fd;
-  r
-
-let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd
-
-let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
-
-
-
 
 let cf_type_of_string s =
   match s with
@@ -508,10 +439,13 @@ let rrd_create dss rras timestep inittime =
 
 (** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives 
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
-    correctly at the moment! *)
-let rrd_add_ds rrd newds =
+    correctly at the moment!
+
+    now = Unix.gettimeofday ()
+ *)
+
+let rrd_add_ds rrd now newds =
   if List.mem newds.ds_name (ds_names rrd) then rrd else 
-    let now = Unix.gettimeofday () in
     let npdps = Int64.div (Int64.of_float now) rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
@@ -563,12 +497,13 @@ let find_best_rras rrd pdp_interval cf start =
     let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
     List.filter (contains_time newstarttime) rras
 
-let query_named_ds rrd ds_name cf =
+(* now = Unix.gettimeofday () *)
+let query_named_ds rrd now ds_name cf =
   let n = array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
   if n = -1 then
     raise (Invalid_data_source ds_name)
   else
-    let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float (Unix.gettimeofday())) in
+    let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float now) in
     Fring.peek (List.hd rras).rra_data.(n) 0
 
 (******************************************************************************)
@@ -860,22 +795,9 @@ let from_xml input =
           inner rrd n) rrd removals_required) input
 
 
-let of_file filename =
-  let body = string_of_file filename in
-  let input = Xmlm.make_input (`String (0,body)) in
-  from_xml input
-
-let xml_to_fd rrd fd =
+let xml_to_output rrd output =
   (* We use an output channel for Xmlm-compat buffered output. Provided we flush
      	   at the end we should be safe. *)  
-  let with_out_channel_output fd f = 
-    let oc = Unix.out_channel_of_descr fd in
-    finally
-      (fun () ->
-         let output = Xmlm.make_output (`Channel oc) in
-         f output)
-      (fun () -> flush oc)
-  in
 
   let tag n fn output = 
     Xmlm.output output (`El_start (("",n),[])); 
@@ -941,20 +863,17 @@ let xml_to_fd rrd fd =
     Array.iter (fun rra -> do_rra rra output) rras
   in
 
-  with_out_channel_output fd
-    (fun output ->
-       Xmlm.output output (`Dtd None);
-       tag "rrd" (fun output ->
-           tag "version" (data "0003") output;
-           tag "step" (data (Int64.to_string rrd.timestep)) output;
-           tag "lastupdate" (data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))) output;
-           do_dss rrd.rrd_dss output;
-           do_rras rrd.rrd_rras output)
-         output)
+  Xmlm.output output (`Dtd None);
+  tag "rrd" (fun output ->
+      tag "version" (data "0003") output;
+      tag "step" (data (Int64.to_string rrd.timestep)) output;
+      tag "lastupdate" (data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))) output;
+      do_dss rrd.rrd_dss output;
+      do_rras rrd.rrd_rras output)
+    output
 
-let json_to_fd rrd fd =
-  let write x = if Unix.write fd x 0 (String.length x) <> String.length x then failwith "json_to_fd: short write" in
 
+let json_to_string rrd =
   let do_dss ds_list =
     "ds:["^(String.concat "," (List.map (fun ds -> 
         "{name:\""^ds.ds_name^"\",type:\""^(match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")^
@@ -991,14 +910,17 @@ let json_to_fd rrd fd =
         "},database:"^(do_database rra.rra_data)) rra_list))^"}]"
   in
 
-  write "{version: \"0003\",step:";
-  write (Int64.to_string rrd.timestep);
-  write ",lastupdate:";
-  write (f_to_s rrd.last_updated);
-  write ",";
-  write (do_dss (Array.to_list rrd.rrd_dss));
-  write ",";
-  write (do_rras (Array.to_list rrd.rrd_rras)^"}") (* XXX need to split this *)
+  let b = Buffer.create 4096 in
+
+  Buffer.add_string b "{version: \"0003\",step:";
+  Buffer.add_string b (Int64.to_string rrd.timestep);
+  Buffer.add_string b ",lastupdate:";
+  Buffer.add_string b (f_to_s rrd.last_updated);
+  Buffer.add_string b ",";
+  Buffer.add_string b (do_dss (Array.to_list rrd.rrd_dss));
+  Buffer.add_string b ",";
+  Buffer.add_string b (do_rras (Array.to_list rrd.rrd_rras)^"}"); (* XXX need to split this *)
+  Buffer.contents b
 
 (*
 (* XXX: we copy and return to avoid holding locks: this is why we aren't exposing
@@ -1013,37 +935,6 @@ let to_bigbuffer ?(json=false) rrd =
   end;
   b
 *)
-
-let to_fd ?(json=false) rrd fd = (if json then json_to_fd else xml_to_fd) rrd fd
-
-let to_file ?(json=false) rrd filename = 
-  atomic_write_to_file filename 0o644 (to_fd ~json rrd)
-
-(** WARNING WARNING: Do not call the following function from within xapi! *)
-let text_export rrd grouping =
-  for rra_i=0 to Array.length rrd.rrd_rras - 1 do
-    let rra = rrd.rrd_rras.(rra_i) in
-    let start = rrd.last_updated -. (Int64.to_float (Int64.mul (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt)) rrd.timestep)) in
-    Printf.printf "start=%f\n" start;
-    let rra_timestep = (Int64.mul rrd.timestep (Int64.of_int rra.rra_pdp_cnt)) in
-
-    (* Get the last and first times of the CDPs to be returned *)
-    let (last_cdp_time,age) = get_times rrd.last_updated rra_timestep in
-
-    let time i = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
-
-    for j=0 to Array.length rrd.rrd_dss - 1 do
-      Printf.printf "Doing ds: %s\n" rrd.rrd_dss.(j).ds_name;
-      let oc = open_out (Printf.sprintf "rrd_data_%s_%s_%Ld.dat" rrd.rrd_dss.(j).ds_name (cf_type_to_string rra.rra_cf) (Int64.mul (Int64.of_int (rra.rra_pdp_cnt* rra.rra_row_cnt)) rrd.timestep)) in
-      let rec do_data i accum =
-        if (time i < Int64.of_float start) || (i >= rra.rra_row_cnt) then (List.rev accum) else
-          do_data (i+1) ((time i, Fring.peek rra.rra_data.(j)  i)::accum)
-      in
-      let data = do_data 0 [] in
-      List.iter (fun (t,d) -> if not (isnan d) then Printf.fprintf oc "%Ld %f\n" t d) data;
-      close_out oc
-    done
-  done
 
 module Statefile_latency = struct
   type t = {id: string; latency: float option} with rpc
