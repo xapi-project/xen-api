@@ -1,0 +1,3 @@
+S lib
+B dist/build/lib
+PKG rpclib uuidm unix bigarray
