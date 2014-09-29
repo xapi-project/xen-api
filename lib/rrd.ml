@@ -510,9 +510,6 @@ let query_named_ds rrd now ds_name cf =
 (* Marshalling/Unmarshalling functions                                        *)
 (******************************************************************************)
 
-(** This is for making an in-memory representation of the xml tree *)
-type t = El of string * t list | D of string 
-
 (** C# and JS representation of special floats are 'NaN' and 'Infinity' which
     are different from ocaml's native representation. Caml is fortunately more
     forgiving when doing a float_of_string, and can cope with these forms, so
