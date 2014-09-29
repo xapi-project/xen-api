@@ -1,3 +1,9 @@
 *.swp
-
+setup.bin
+networkd/version.ml
+xcp-networkd
+xcp-networkd.1
+*.native
+setup.data
+setup.log
 dist/

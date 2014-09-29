@@ -60,8 +60,22 @@ let handle_shutdown () =
 	Sys.set_signal Sys.sigint (Sys.Signal_handle stop);
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
+let doc = String.concat "\n" [
+	"This is the xapi toolstack network management daemon.";
+	"";
+	"This service looks after host network configuration, including setting up bridges and/or openvswitch instances, configuring IP addresses etc.";
+]
+
 let _ =
-	Xcp_service.configure ~resources ();
+	begin match Xcp_service.configure2
+		~name:Sys.argv.(0)
+		~version:Version.version
+		~doc ~resources () with
+	| `Ok () -> ()
+	| `Error m ->
+		Printf.fprintf stderr "%s\n" m;
+		exit 1
+	end;
 
 	let server = Xcp_service.make
 		~path:!Network_interface.default_path

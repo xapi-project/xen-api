@@ -1,6 +1,7 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 ETCDIR ?= /etc
+MANDIR ?= /usr/share/man/man1
 all: build doc
 
 .PHONY: test install uninstall clean
@@ -15,8 +16,13 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure --enable-tests
 
-build: setup.data setup.bin
+build: setup.data setup.bin networkd/version.ml
 	@./setup.bin -build -j $(J)
+	mv networkd.native xcp-networkd
+	./xcp-networkd --help=groff > xcp-networkd.1
+
+networkd/version.ml: VERSION
+	echo "let version = \"$(shell cat VERSION)\"" > networkd/version.ml
 
 doc: setup.data setup.bin
 	@./setup.bin -doc -j $(J)
@@ -25,13 +31,20 @@ test: setup.bin build
 	@./setup.bin -test
 
 install:
-	install -D networkd.native $(DESTDIR)$(SBINDIR)/xcp-networkd
-	install -D networkd_db.native $(DESTDIR)$(BINDIR)/networkd_db
+	mkdir -p $(DESTDIR)$(SBINDIR)
+	install xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd
+	mkdir -p $(DESTDIR)$(MANDIR)
+	install xcp-networkd.1 $(DESTDIR)$(MANDIR)/xcp-networkd.1
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install networkd_db.native $(DESTDIR)$(BINDIR)/networkd_db
 
 uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/xcp-networkd
+	rm -f $(DESTDIR)$(MANDIR)/xcp-networkd.1
 	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
+	rm networkd/version.ml
+	rm xcp-networkd xcp-networkd.1
