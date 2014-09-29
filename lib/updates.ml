@@ -34,7 +34,6 @@ type t = {
   data       : row array;
 }
 
-
 (** Find the RRA with a particular CF that contains a particular start
     time, and also has a minimum pdp_cnt. If it can't find an
     appropriate one, either return the RRA with the correct CF that
