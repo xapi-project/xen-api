@@ -104,19 +104,20 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	and snapshot    = [`snapshot; `checkpoint]
 	and allowed_operations = (* a list of valid state -> operation *)
 		[ [`snapshot_with_quiesce], `snapshot;
-		  [`reverting],             `hard_shutdown;
 		  [`migrate_send],          `metadata_export;
-		  [`migrate_send],          `hard_shutdown;
 		  [`migrate_send],          `clean_shutdown;
-        	  [`migrate_send],          `hard_reboot;
 		  [`migrate_send],          `clean_reboot;
-        	  [`migrate_send],          `start;
-        	  [`migrate_send],          `start_on;
-		  [`clean_shutdown],        `hard_shutdown;
-		  [`clean_reboot],          `hard_reboot;] in
+		  [`migrate_send],          `start;
+		  [`migrate_send],          `start_on;
+		] in
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
-		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
+		match op with
+			| `hard_shutdown -> not (List.mem `hard_shutdown current_state)
+			| `hard_reboot -> not (List.exists
+				(fun o -> List.mem o [`hard_shutdown; `hard_reboot]) current_state)
+			| _ -> List.exists (fun (state, transition) -> 
+				state = current_state && transition = op) allowed_operations
 	in
 	let aux ops =
 		List.mem op ops && List.for_all (fun (_,o) -> List.mem o ops) current_ops
