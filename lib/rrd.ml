@@ -21,7 +21,6 @@
 *)
 
 exception No_RRA_Available
-exception Parse_error
 exception Invalid_data_source of string
 
 type ds_owner = VM of string | Host | SR of string
@@ -443,6 +442,34 @@ let rrd_remove_ds rrd ds_name =
             rra_data = Utils.array_remove n rra.rra_data;
             rra_cdps = Utils.array_remove n rra.rra_cdps }) rrd.rrd_rras; }
 
+(** Find the RRA with a particular CF that contains a particular start
+    time, and also has a minimum pdp_cnt. If it can't find an
+    appropriate one, either return the RRA with the correct CF that
+    has the most ancient data, or raise No_RRA_Available if there's
+    not archive with the correct CF. Assumes the RRAs are stored in
+    increasing time-length *)
+let find_best_rras rrd pdp_interval cf start =
+  let rras = 
+    match cf with 
+    | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras) 
+    | None -> Array.to_list rrd.rrd_rras in
+  (if List.length rras = 0 then raise No_RRA_Available);
+  let (last_pdp_time,age) = get_times rrd.last_updated rrd.timestep in
+  let contains_time t rra =
+    let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
+    (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime) 
+  in
+  try
+    let first_ok_rra = List.find (contains_time start) rras in
+    let pdp_cnt = first_ok_rra.rra_pdp_cnt in
+    let row_cnt = first_ok_rra.rra_row_cnt in
+    let ok_rras = List.filter (fun rra -> rra.rra_row_cnt = row_cnt && rra.rra_pdp_cnt=pdp_cnt) rras in
+    ok_rras
+  with _ -> 
+    let rra = List.hd (List.rev rras) in
+    let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
+    List.filter (contains_time newstarttime) rras
+
 
 (* now = Unix.gettimeofday () *)
 let query_named_ds rrd now ds_name cf =
@@ -458,41 +485,7 @@ let query_named_ds rrd now ds_name cf =
 (******************************************************************************)
 
 let from_xml input =
-  let tag n = ("", n), [] in
-  let start_tag n = (`El_start (tag n)) in
-  let accept s i = if Xmlm.input i = s then () else raise Parse_error in
-
-  let rec iter_seq el acc i = match Xmlm.peek i with
-    | `El_start _ -> iter_seq el ((el i) :: acc) i
-    | `El_end -> List.rev acc
-    | _ -> raise Parse_error
-  in
-
-  let get_el n i =
-    if Xmlm.input i = (start_tag n) then
-      let d = match Xmlm.peek i with
-        | `Data d -> ignore (Xmlm.input i); d
-        | `El_end -> ""
-        | _ -> raise Parse_error
-      in
-      accept (`El_end) i;
-      d
-    else raise Parse_error
-  in
-
-  let rec read_all t read_f i acc =
-    if (Xmlm.peek i) = (start_tag t) then
-      read_all t read_f i ((read_f i) :: acc)
-    else
-      List.rev acc
-  in
-
-  let read_block t f i =
-    accept (start_tag t) i ;
-    let res = f i in
-    accept (`El_end) i;
-    res
-  in
+  let open Utils.Xmlm_utils in
 
   let read_header i =
     ignore (get_el "version" i);
@@ -576,7 +569,7 @@ let from_xml input =
                 | "MIN" -> CF_Min
                 | "MAX" -> CF_Max
                 | "LAST" -> CF_Last
-                | _ -> raise Parse_error);
+                | _ -> raise Utils.Parse_error);
             rra_row_cnt = Fring.length database.(0);
             rra_pdp_cnt = int_of_string pdp_cnt;
             rra_xff = float_of_string xff;
