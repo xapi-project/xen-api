@@ -1,6 +1,6 @@
 open Rrd
 
-let _ =
+let create_dummy_data () =
    let rra = rra_create CF_Average 100 1 0.5 in
    let rra2 = rra_create CF_Average 100 10 0.5 in
    let rra3 = rra_create CF_Average 100 100 0.5 in
@@ -19,4 +19,26 @@ let _ =
     let v4 = VT_Float (6.5 +. 0.5 *. cos ( t /. 5000.0 )) in
     ds_update rrd t [|v1; v2; v3; v4|] [| id; id; id; id |] false
    done;
-   Rrd_unix.to_file rrd "output.xml"
+   rrd
+
+let read filename =
+  let body = Rrd_unix.string_of_file filename in
+  let input = Xmlm.make_input (`String (0,body)) in
+  Updates.of_xml input
+
+let _ = 
+  let rrd = create_dummy_data () in
+  Rrd_unix.to_file rrd "output.xml";
+  let update = Updates.export [("foo_",rrd)] 1000069000L 10L (Some CF_Average) in
+  let oc = open_out "output_update.xml" in
+  Printf.fprintf oc "%s" update;
+  close_out oc;
+  let update2 = Updates.export_test [("foo_",rrd)] 1000069000L 10L (Some CF_Average) in
+  let oc = open_out "output_update2.xml" in
+  Printf.fprintf oc "%s" update2;
+  close_out oc;
+  let update = read "output_update2.xml" in
+  Printf.printf "%s\n" (Updates.string_of update)
+
+
+     
