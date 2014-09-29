@@ -44,3 +44,15 @@ let filter_map f list =
 let rec setify = function
   | [] -> []
   | (x::xs) -> if List.mem x xs then setify xs else x::(setify xs)
+
+(** C# and JS representation of special floats are 'NaN' and 'Infinity' which
+    are different from ocaml's native representation. Caml is fortunately more
+    forgiving when doing a float_of_string, and can cope with these forms, so
+    we make a generic float_to_string function here *)
+let f_to_s f = 
+  match classify_float f with 
+  | FP_normal | FP_subnormal -> Printf.sprintf "%0.4f" f
+  | FP_nan -> "NaN"
+  | FP_infinite -> if f>0.0 then "Infinity" else "-Infinity"
+  | FP_zero -> "0.0"
+

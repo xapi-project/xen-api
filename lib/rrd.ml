@@ -443,33 +443,6 @@ let rrd_remove_ds rrd ds_name =
             rra_data = Utils.array_remove n rra.rra_data;
             rra_cdps = Utils.array_remove n rra.rra_cdps }) rrd.rrd_rras; }
 
-(** Find the RRA with a particular CF that contains a particular start
-    time, and also has a minimum pdp_cnt. If it can't find an
-    appropriate one, either return the RRA with the correct CF that
-    has the most ancient data, or raise No_RRA_Available if there's
-    not archive with the correct CF. Assumes the RRAs are stored in
-    increasing time-length *)
-let find_best_rras rrd pdp_interval cf start =
-  let rras = 
-    match cf with 
-    | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras) 
-    | None -> Array.to_list rrd.rrd_rras in
-  (if List.length rras = 0 then raise No_RRA_Available);
-  let (last_pdp_time,age) = get_times rrd.last_updated rrd.timestep in
-  let contains_time t rra =
-    let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
-    (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime) 
-  in
-  try
-    let first_ok_rra = List.find (contains_time start) rras in
-    let pdp_cnt = first_ok_rra.rra_pdp_cnt in
-    let row_cnt = first_ok_rra.rra_row_cnt in
-    let ok_rras = List.filter (fun rra -> rra.rra_row_cnt = row_cnt && rra.rra_pdp_cnt=pdp_cnt) rras in
-    ok_rras
-  with _ -> 
-    let rra = List.hd (List.rev rras) in
-    let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
-    List.filter (contains_time newstarttime) rras
 
 (* now = Unix.gettimeofday () *)
 let query_named_ds rrd now ds_name cf =
@@ -483,125 +456,6 @@ let query_named_ds rrd now ds_name cf =
 (******************************************************************************)
 (* Marshalling/Unmarshalling functions                                        *)
 (******************************************************************************)
-
-(** C# and JS representation of special floats are 'NaN' and 'Infinity' which
-    are different from ocaml's native representation. Caml is fortunately more
-    forgiving when doing a float_of_string, and can cope with these forms, so
-    we make a generic float_to_string function here *)
-let f_to_s f = 
-  match classify_float f with 
-  | FP_normal | FP_subnormal -> Printf.sprintf "%0.4f" f
-  | FP_nan -> "NaN"
-  | FP_infinite -> if f>0.0 then "Infinity" else "-Infinity"
-  | FP_zero -> "0.0"
-
-(** Export data from a bunch of rrds. Specify a prefix per rrd to be
-    put onto legend. Note that each rrd *must* have the same timestep
-    and have been updated at the same time, and *must* have
-    homogeneous rras too. If not, those that dont look like the 1st
-    one will be silently dropped. The export format is the rrdtool
-    'xport' format. *)
-let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =   
-  let tag tag next () = 
-    Xmlm.output output (`El_start (("",tag),[])); 
-    List.iter (fun x -> x ()) next; 
-    Xmlm.output output (`El_end) 
-  in
-
-  let data dat () = Xmlm.output output (`Data dat) in  
-
-  let rec do_data i accum =
-    let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
-    if (time < start) || (i >= first_rra.rra_row_cnt) then (List.rev accum) else
-      let values = 
-        List.concat 
-          (List.map (fun rra -> 
-               List.map (fun ring -> tag "v" [data (f_to_s (Fring.peek ring i))]) (Array.to_list rra.rra_data)) 
-              rras) in
-      do_data (i+1) ((tag "row" ((tag "t" [data (Printf.sprintf "%Ld" time)])::values))::accum)
-  in
-
-  let rows = do_data 0 [] in
-  let mydata = tag "data" rows in
-
-  let meta = tag "meta" [
-      tag "start" [data (Printf.sprintf "%Ld" first_cdp_time)];
-      tag "step" [data (Printf.sprintf "%Ld" rra_timestep)];
-      tag "end" [data (Printf.sprintf "%Ld" last_cdp_time)];
-      tag "rows" [data (Printf.sprintf "%d" (List.length rows))];
-      tag "columns" [data (Printf.sprintf "%d" (Array.length legends))];
-      tag "legend" (List.map (fun x -> tag "entry" [data x]) (Array.to_list legends))] in
-
-  Xmlm.output output (`Dtd None);
-  tag "xport" [meta; mydata] ()
-
-let to_json rra_timestep rras first_rra last_cdp_time first_cdp_time start legends = 
-  let rec do_data i accum =
-    let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
-    if (time < start) || (i >= first_rra.rra_row_cnt) then (List.rev accum) else
-      let values = "[" ^ 
-                   (String.concat "," 
-                      (List.concat (List.map (fun rra -> 
-                           List.map (fun ring -> f_to_s (Fring.peek ring i)) (Array.to_list rra.rra_data))
-                           rras))) ^ "]" in
-      do_data (i+1) (("{t:"^(Printf.sprintf "%Ld" time)^",values:"^values^"}")::accum)
-  in
-
-  let rows = do_data 0 [] in
-  let data = "["^(String.concat "," rows)^"]" in
-
-  "{meta: {start:"^(Printf.sprintf "%Ld" first_cdp_time)^
-  ",step:"^(Printf.sprintf "%Ld" rra_timestep)^
-  ",end:"^(Printf.sprintf "%Ld" last_cdp_time)^
-  ",rows:"^(Printf.sprintf "%d" (List.length rows))^
-  ",columns:"^(Printf.sprintf "%d" (Array.length legends))^
-  ",legend:["^(String.concat "," (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list legends)))^"]},"^
-  "data:"^data^"}"
-
-let real_export marshaller prefixandrrds start interval cfopt =
-  let first_rrd = snd (List.hd prefixandrrds) in
-
-  let pdp_interval = Int64.to_int (Int64.div interval first_rrd.timestep) in
-
-  (* Sanity - make sure the RRDs are homogeneous *)
-  let prefixandrrds = List.filter (fun (prefix,rrd) -> rrd.timestep = first_rrd.timestep) prefixandrrds in
-
-  let rras = 
-    (List.map
-       (fun (prefix,rrd) ->
-          (* Find the rrds that satisfy the requirements *)
-          find_best_rras rrd pdp_interval cfopt start) prefixandrrds) in
-
-  let legends = Array.concat (List.map2 (fun (prefix,rrd) rras ->
-      let ds_legends = Array.map (fun ds -> prefix^ds.ds_name) rrd.rrd_dss in
-      let ds_legends_with_cf_prefix = Array.concat
-          (List.map (fun rra -> Array.map (fun name -> (cf_type_to_string rra.rra_cf)^":"^name) ds_legends) rras)
-      in
-      ds_legends_with_cf_prefix) prefixandrrds rras)
-  in
-
-  let rras = List.flatten rras in
-  let first_rra = List.hd rras in
-
-  let rras = List.filter (fun rra -> rra.rra_pdp_cnt=first_rra.rra_pdp_cnt && rra.rra_row_cnt = first_rra.rra_row_cnt) rras in
-  (* The following timestep is that of the archive *)
-  let rra_timestep = (Int64.mul first_rrd.timestep (Int64.of_int first_rra.rra_pdp_cnt)) in
-
-  (* Get the last and first times of the CDPs to be returned *)
-  let (last_cdp_time,age) = get_times first_rrd.last_updated rra_timestep in
-  let (first_cdp_time_minus_one,age) = get_times (Int64.to_float start) rra_timestep in
-  let first_cdp_time = Int64.add first_cdp_time_minus_one rra_timestep in
-
-  marshaller rra_timestep rras first_rra last_cdp_time first_cdp_time start legends
-
-let export ?(json=false) prefixandrrds start interval cfopt =
-  if json then
-    real_export to_json prefixandrrds start interval cfopt
-  else
-    let buffer = Buffer.create 10 in
-    let output = Xmlm.make_output (`Buffer buffer) in
-    real_export (to_xml output) prefixandrrds start interval cfopt;
-    Buffer.contents buffer
 
 let from_xml input =
   let tag n = ("", n), [] in
@@ -781,11 +635,11 @@ let xml_to_output rrd output =
     tag "ds" (fun output ->
         tag "name" (data ds.ds_name) output;
         tag "type" (data (match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")) output;
-        tag "minimal_heartbeat" (data (f_to_s ds.ds_mrhb)) output;
-        tag "min" (data (f_to_s ds.ds_min)) output;
-        tag "max" (data (f_to_s ds.ds_max)) output;
-        tag "last_ds" (data (match ds.ds_last with VT_Float x -> f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")) output;
-        tag "value" (data (f_to_s ds.ds_value)) output;
+        tag "minimal_heartbeat" (data (Utils.f_to_s ds.ds_mrhb)) output;
+        tag "min" (data (Utils.f_to_s ds.ds_min)) output;
+        tag "max" (data (Utils.f_to_s ds.ds_max)) output;
+        tag "last_ds" (data (match ds.ds_last with VT_Float x -> Utils.f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")) output;
+        tag "value" (data (Utils.f_to_s ds.ds_value)) output;
         tag "unknown_sec" (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))) output) 
       output
   in
@@ -798,7 +652,7 @@ let xml_to_output rrd output =
     tag "ds" (fun output ->
         tag "primary_value" (data "0.0") output;
         tag "secondary_value" (data "0.0") output;
-        tag "value" (data (f_to_s cdp.cdp_value)) output;
+        tag "value" (data (Utils.f_to_s cdp.cdp_value)) output;
         tag "unknown_datapoints" (data (Printf.sprintf "%d" cdp.cdp_unknown_pdps)) output)
       output
   in
@@ -814,7 +668,7 @@ let xml_to_output rrd output =
       for row=0 to rows-1 do
         tag "row" (fun output ->
             for col=0 to cols-1 do
-              tag "v" (data (f_to_s (Fring.peek rings.(col) (rows-row-1)))) output
+              tag "v" (data (Utils.f_to_s (Fring.peek rings.(col) (rows-row-1)))) output
             done) output
       done
   in
@@ -823,7 +677,7 @@ let xml_to_output rrd output =
     tag "rra" (fun output ->
         tag "cf" (data (match rra.rra_cf with CF_Average -> "AVERAGE" | CF_Max -> "MAX" | CF_Min -> "MIN" | CF_Last -> "LAST")) output;
         tag "pdp_per_row" (data (string_of_int rra.rra_pdp_cnt)) output;
-        tag "params" (tag "xff" (data (f_to_s rra.rra_xff))) output;
+        tag "params" (tag "xff" (data (Utils.f_to_s rra.rra_xff))) output;
         tag "cdp_prep" (fun output ->
             do_rra_cdps rra.rra_cdps output) output;
         tag "database" (fun output -> 
@@ -848,13 +702,13 @@ let json_to_string rrd =
   let do_dss ds_list =
     "ds:["^(String.concat "," (List.map (fun ds -> 
         "{name:\""^ds.ds_name^"\",type:\""^(match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")^
-        "\",minimal_heartbeat:" ^(f_to_s ds.ds_mrhb)^",min:"^(f_to_s ds.ds_min)^
-        ",max:"^(f_to_s ds.ds_max)^",last_ds:0.0,value:0.0,unknown_sec:0}") ds_list))^"]"
+        "\",minimal_heartbeat:" ^(Utils.f_to_s ds.ds_mrhb)^",min:"^(Utils.f_to_s ds.ds_min)^
+        ",max:"^(Utils.f_to_s ds.ds_max)^",last_ds:0.0,value:0.0,unknown_sec:0}") ds_list))^"]"
   in
 
   let do_rra_cdps cdp_list =
     "ds:["^(String.concat "," (List.map (fun cdp -> 
-        "{primary_value:0.0,secondary_value:0.0,value:"^(f_to_s cdp.cdp_value)^
+        "{primary_value:0.0,secondary_value:0.0,value:"^(Utils.f_to_s cdp.cdp_value)^
         ",unknown_datapoints:"^(Printf.sprintf "%d" cdp.cdp_unknown_pdps)^"}") cdp_list))^"]"
   in
 
@@ -869,7 +723,7 @@ let json_to_string rrd =
                             (Array.to_list 
                                (Array.init cols 
                                   (fun col ->
-                                     f_to_s 
+                                     Utils.f_to_s 
                                        (Fring.peek rings.(col)
                                           (rows-row-1))))))^"]"))))^"]"
   in
@@ -877,7 +731,7 @@ let json_to_string rrd =
   let do_rras rra_list =
     "rra:[{" ^ (String.concat "},{" (List.map (fun rra -> 
         "cf:\""^(cf_type_to_string rra.rra_cf)^
-        "\",pdp_per_row:"^(string_of_int rra.rra_pdp_cnt)^",params:{xff:"^(f_to_s rra.rra_xff)^"},cdp_prep:{"^(do_rra_cdps (Array.to_list rra.rra_cdps))^
+        "\",pdp_per_row:"^(string_of_int rra.rra_pdp_cnt)^",params:{xff:"^(Utils.f_to_s rra.rra_xff)^"},cdp_prep:{"^(do_rra_cdps (Array.to_list rra.rra_cdps))^
         "},database:"^(do_database rra.rra_data)) rra_list))^"}]"
   in
 
@@ -886,7 +740,7 @@ let json_to_string rrd =
   Buffer.add_string b "{version: \"0003\",step:";
   Buffer.add_string b (Int64.to_string rrd.timestep);
   Buffer.add_string b ",lastupdate:";
-  Buffer.add_string b (f_to_s rrd.last_updated);
+  Buffer.add_string b (Utils.f_to_s rrd.last_updated);
   Buffer.add_string b ",";
   Buffer.add_string b (do_dss (Array.to_list rrd.rrd_dss));
   Buffer.add_string b ",";
