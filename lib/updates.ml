@@ -34,15 +34,31 @@ type t = {
   data       : row array;
 }
 
+
+(** Debugging only *)
 let string_of t =
-  let leg_string = Printf.sprintf "[%s]" (String.concat ";" (List.map (fun l -> Printf.sprintf "\"%s\"" l) (Array.to_list t.legend))) in
+  let leg_string = 
+    Printf.sprintf "[%s]" 
+      (String.concat ";" 
+         (List.map (fun l -> Printf.sprintf "\"%s\"" l) (Array.to_list t.legend)))
+  in
+
   let data_string =
-    Printf.sprintf "[|%s|]" (String.concat ";\n" (List.map (fun row -> 
-        Printf.sprintf "{time=%Ld; row_data=[|%s|]}" row.time 
-          (String.concat "; " (List.map (fun f -> Printf.sprintf "%0.4f" f) (Array.to_list row.row_data)))) (Array.to_list t.data))) in
-  Printf.sprintf "start_time:\t%Ld\nstep:\t\t%Ld\nend_time:\t%Ld\nlegend:\t\t%s\ndata:\n%s\n" t.start_time t.step t.end_time leg_string data_string
+    Printf.sprintf "[|%s|]" 
+      (String.concat ";\n" 
+         (List.map (fun row -> 
+              Printf.sprintf "{time=%Ld; row_data=[|%s|]}" row.time 
+                (String.concat "; " 
+                   (List.map (fun f -> Printf.sprintf "%0.4f" f) 
+                      (Array.to_list row.row_data)))) 
+             (Array.to_list t.data))) 
+  in
 
+  Printf.sprintf 
+    "start_time:\t%Ld\nstep:\t\t%Ld\nend_time:\t%Ld\nlegend:\t\t%s\ndata:\n%s\n"
+    t.start_time t.step t.end_time leg_string data_string
 
+(* Helper utility - use create_multi instead *)
 let create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =
   let rec do_data i accum =
     let time = Int64.(sub (last_cdp_time) (mul (of_int i) rra_timestep)) in
@@ -57,10 +73,10 @@ let create rra_timestep rras first_rra last_cdp_time first_cdp_time start legend
   let data = Array.of_list (do_data 0 []) in
   
   { start_time = first_cdp_time;
-    step = rra_timestep;
-    end_time = last_cdp_time;
-    legend = legends;
-    data = data;
+    step       = rra_timestep;
+    end_time   = last_cdp_time;
+    legend     = legends;
+    data       = data;
   }
 
 let xml_of t output =
@@ -110,14 +126,15 @@ let of_xml input =
 
   let read_meta i =
     read_block "meta" (fun i ->
-        let start_time = get_el "start" i |> Int64.of_string in
-        let step = get_el "step" i |> Int64.of_string in
-        let end_time = get_el "end" i |> Int64.of_string in
-        let rows = get_el "rows" i |> int_of_string in
-        let columns = get_el "columns" i |> int_of_string in
-        let legend = read_block "legend" (fun i -> read_all "entry" (get_el "entry") i []) i |> Array.of_list in
-        let data = [| |] in
-        let meta = { start_time; step; end_time; legend; data } in 
+        let start_time = get_el "start" i   |> Int64.of_string in
+        let step       = get_el "step" i    |> Int64.of_string in
+        let end_time   = get_el "end" i     |> Int64.of_string in
+        let rows       = get_el "rows" i    |> int_of_string in
+        let columns    = get_el "columns" i |> int_of_string in
+        let legend     = read_block "legend" 
+            (fun i -> read_all "entry" (get_el "entry") i []) i |> Array.of_list in
+        let data       = [| |] in
+        let meta       = { start_time; step; end_time; legend; data } in 
         (meta, rows, columns)
       ) i
   in
@@ -128,6 +145,25 @@ let of_xml input =
       let data = read_block "data" read_data i in
       { meta with data = data }
     ) input
+
+
+let json_of_t t =
+  let buffer = Buffer.create 4096 in
+
+  let do_data row =
+    Printf.bprintf buffer "{t:%Ld,values:[%s]}" row.time (String.concat "," (List.map Utils.f_to_s (Array.to_list row.row_data)))
+  in
+
+  Printf.bprintf buffer "{meta: {start:%Ld,step:%Ld,end:%Ld,rows:%d,columns:%d," t.start_time t.step t.end_time (Array.length t.data) (Array.length t.legend);
+  Printf.bprintf buffer "legend:[%s]}," (String.concat "," (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list t.legend)));
+  Printf.bprintf buffer "data:[";
+  for i=0 to Array.length t.data - 2 do
+    do_data t.data.(i);
+    Printf.bprintf buffer "%s" ",";
+  done;
+  do_data t.data.(Array.length t.data - 1);
+  Printf.bprintf buffer "]}";
+  Buffer.contents buffer
   
   
 (** Export data from a bunch of rrds. Specify a prefix per rrd to be
@@ -136,64 +172,8 @@ let of_xml input =
     homogeneous rras too. If not, those that dont look like the 1st
     one will be silently dropped. The export format is the rrdtool
     'xport' format. *)
-let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =   
-  let tag tag next () = 
-    Xmlm.output output (`El_start (("",tag),[])); 
-    List.iter (fun x -> x ()) next; 
-    Xmlm.output output (`El_end) 
-  in
 
-  let data dat () = Xmlm.output output (`Data dat) in  
-
-  let rec do_data i accum =
-    let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
-    if (time < start) || (i >= first_rra.rra_row_cnt) then (List.rev accum) else
-      let values = 
-        List.concat 
-          (List.map (fun rra -> 
-               List.map (fun ring -> tag "v" [data (Utils.f_to_s (Fring.peek ring i))]) (Array.to_list rra.rra_data)) 
-              rras) in
-      do_data (i+1) ((tag "row" ((tag "t" [data (Printf.sprintf "%Ld" time)])::values))::accum)
-  in
-
-  let rows = do_data 0 [] in
-  let mydata = tag "data" rows in
-
-  let meta = tag "meta" [
-      tag "start" [data (Printf.sprintf "%Ld" first_cdp_time)];
-      tag "step" [data (Printf.sprintf "%Ld" rra_timestep)];
-      tag "end" [data (Printf.sprintf "%Ld" last_cdp_time)];
-      tag "rows" [data (Printf.sprintf "%d" (List.length rows))];
-      tag "columns" [data (Printf.sprintf "%d" (Array.length legends))];
-      tag "legend" (List.map (fun x -> tag "entry" [data x]) (Array.to_list legends))] in
-
-  Xmlm.output output (`Dtd None);
-  tag "xport" [meta; mydata] ()
-
-let to_json rra_timestep rras first_rra last_cdp_time first_cdp_time start legends = 
-  let rec do_data i accum =
-    let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
-    if (time < start) || (i >= first_rra.rra_row_cnt) then (List.rev accum) else
-      let values = "[" ^ 
-                   (String.concat "," 
-                      (List.concat (List.map (fun rra -> 
-                           List.map (fun ring -> Utils.f_to_s (Fring.peek ring i)) (Array.to_list rra.rra_data))
-                           rras))) ^ "]" in
-      do_data (i+1) (("{t:"^(Printf.sprintf "%Ld" time)^",values:"^values^"}")::accum)
-  in
-
-  let rows = do_data 0 [] in
-  let data = "["^(String.concat "," rows)^"]" in
-
-  "{meta: {start:"^(Printf.sprintf "%Ld" first_cdp_time)^
-  ",step:"^(Printf.sprintf "%Ld" rra_timestep)^
-  ",end:"^(Printf.sprintf "%Ld" last_cdp_time)^
-  ",rows:"^(Printf.sprintf "%d" (List.length rows))^
-  ",columns:"^(Printf.sprintf "%d" (Array.length legends))^
-  ",legend:["^(String.concat "," (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list legends)))^"]},"^
-  "data:"^data^"}"
-
-let real_export marshaller prefixandrrds start interval cfopt =
+let create_multi prefixandrrds start interval cfopt =
   let first_rrd = snd (List.hd prefixandrrds) in
 
   let pdp_interval = Int64.to_int (Int64.div interval first_rrd.timestep) in
@@ -227,22 +207,14 @@ let real_export marshaller prefixandrrds start interval cfopt =
   let (first_cdp_time_minus_one,age) = get_times (Int64.to_float start) rra_timestep in
   let first_cdp_time = Int64.add first_cdp_time_minus_one rra_timestep in
 
-  marshaller rra_timestep rras first_rra last_cdp_time first_cdp_time start legends
+  create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends
 
 let export ?(json=false) prefixandrrds start interval cfopt =
-  if json then
-    real_export to_json prefixandrrds start interval cfopt
+  let t = create_multi prefixandrrds start interval cfopt in
+  if json then json_of_t t
   else
     let buffer = Buffer.create 10 in
     let output = Xmlm.make_output (`Buffer buffer) in
-    real_export (to_xml output) prefixandrrds start interval cfopt;
+    xml_of t output;
     Buffer.contents buffer
-
-let export_test prefixandrrds start interval cfopt =
-  let buffer = Buffer.create 10 in
-  let output = Xmlm.make_output (`Buffer buffer) in
-  let t = real_export create prefixandrrds start interval cfopt in
-  xml_of t output;
-  Buffer.contents buffer
-
 

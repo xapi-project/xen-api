@@ -33,7 +33,7 @@ let _ =
   let oc = open_out "output_update.xml" in
   Printf.fprintf oc "%s" update;
   close_out oc;
-  let update2 = Updates.export_test [("foo_",rrd)] 1000069000L 10L (Some CF_Average) in
+  let update2 = Updates.export [("foo_",rrd)] 1000069000L 10L (Some CF_Average) in
   let oc = open_out "output_update2.xml" in
   Printf.fprintf oc "%s" update2;
   close_out oc;
