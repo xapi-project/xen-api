@@ -38,32 +38,6 @@ type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown with rpc
 type sampling_frequency = Five_Seconds with rpc
 
 (* utility *)
-let isnan x = match classify_float x with | FP_nan -> true | _ -> false
-
-let array_index e a =
-  let len = Array.length a in
-  let rec check i =
-    if len <= i then -1
-    else if Array.get a i = e then i
-    else check (i + 1)
-  in check 0   
-
-let array_remove n a =
-  Array.append (Array.sub a 0 n) (Array.sub a (n+1) (Array.length a - n - 1))
-
-let filter_map f list =
-  let rec inner acc l =
-    match l with
-    | [] -> List.rev acc
-    | x::xs -> 
-      let acc = match f x with | Some res -> res::acc | None -> acc in
-      inner acc xs
-  in
-  inner [] list
-
-let rec setify = function
-  | [] -> []
-  | (x::xs) -> if List.mem x xs then setify xs else x::(setify xs)
 
 let cf_type_of_string s =
   match s with
@@ -193,7 +167,7 @@ let get_times time timestep =
 let do_cfs rra start_pdp_offset pdps =
   for i=0 to Array.length pdps - 1 do
     let cdp = rra.rra_cdps.(i) in
-    if isnan pdps.(i)
+    if Utils.isnan pdps.(i)
     then begin 
       (* CDP is an accumulator for the average. If we've got some unknowns, we need to
          			   renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
@@ -335,7 +309,7 @@ let ds_update rrd timestamp values transforms new_domid =
   Array.iteri
     (fun i value -> 
        let ds=rrd.rrd_dss.(i) in
-       if isnan value 
+       if Utils.isnan value 
        then ds.ds_unknown_sec <- pre_int 
        else ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval))
     v2s;
@@ -366,7 +340,7 @@ let ds_update rrd timestamp values transforms new_domid =
       Array.iteri
         (fun i value ->
            let ds = rrd.rrd_dss.(i) in
-           if isnan value 
+           if Utils.isnan value 
            then (ds.ds_value <- 0.0; ds.ds_unknown_sec <- post_int)
            else (ds.ds_value <- post_int *. value /. interval; ds.ds_unknown_sec <- 0.0))
         v2s;
@@ -458,16 +432,16 @@ let rrd_add_ds rrd now newds =
 
 (** Remove the named DS from an RRD. Removes all of the data associated with it, too *)
 let rrd_remove_ds rrd ds_name =
-  let n = array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
+  let n = Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
   if n = -1 then
     raise (Invalid_data_source ds_name)
   else
     { rrd with
-      rrd_dss = array_remove n rrd.rrd_dss;
+      rrd_dss = Utils.array_remove n rrd.rrd_dss;
       rrd_rras = Array.map (fun rra ->
           { rra with
-            rra_data = array_remove n rra.rra_data;
-            rra_cdps = array_remove n rra.rra_cdps }) rrd.rrd_rras; }
+            rra_data = Utils.array_remove n rra.rra_data;
+            rra_cdps = Utils.array_remove n rra.rra_cdps }) rrd.rrd_rras; }
 
 (** Find the RRA with a particular CF that contains a particular start
     time, and also has a minimum pdp_cnt. If it can't find an
@@ -499,7 +473,7 @@ let find_best_rras rrd pdp_interval cf start =
 
 (* now = Unix.gettimeofday () *)
 let query_named_ds rrd now ds_name cf =
-  let n = array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
+  let n = Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
   if n = -1 then
     raise (Invalid_data_source ds_name)
   else
@@ -776,7 +750,7 @@ let from_xml input =
 
       (* Purge any repeated data sources from the RRD *)
       let ds_names = ds_names rrd in
-      let ds_names_set = setify ds_names in
+      let ds_names_set = Utils.setify ds_names in
       let ds_name_counts = List.map (fun name ->
           let (x,y) = List.partition ((=) name) ds_names in
           (name,List.length x)) ds_names_set

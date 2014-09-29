@@ -147,7 +147,7 @@ let text_export rrd grouping =
           do_data (i+1) ((time i, Fring.peek rra.rra_data.(j)  i)::accum)
       in
       let data = do_data 0 [] in
-      List.iter (fun (t,d) -> if not (isnan d) then Printf.fprintf oc "%Ld %f\n" t d) data;
+      List.iter (fun (t,d) -> if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d) data;
       close_out oc
     done
   done
