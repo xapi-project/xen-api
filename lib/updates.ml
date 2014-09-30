@@ -218,3 +218,6 @@ let export ?(json=false) prefixandrrds start interval cfopt =
     xml_of t output;
     Buffer.contents buffer
 
+let of_string s =
+  let input = Xmlm.make_input (`String (0,s)) in
+  of_xml input
