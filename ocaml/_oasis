@@ -21,7 +21,7 @@ Library xapi
   Pack: true
   Findlibname: xapi-idl
   Modules: S, Storage, Channel
-  BuildDepends:	rpclib
+  BuildDepends:	rpclib, cmdliner
 
 Executable proxy
   Path:               proxy
