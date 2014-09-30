@@ -135,6 +135,59 @@ let result_of_response env es =
         ])
   ]
 
+let cmdliner_of_interfaces env is =
+  let converter_of_ty =
+    let open Type in function
+    | Basic Int64 -> "int64"
+    | Basic String -> "string"
+    | Basic Double -> "float"
+    | Basic Boolean -> "bool"
+    | _ -> "string" in
+  let default_of_ty =
+    let open Type in function
+    | Basic Int64 -> "0L"
+    | Basic String -> "\"\""
+    | Basic Double -> "0."
+    | Basic Boolean -> "false"
+    | _ -> "\"\"" in
+
+  let of_arg a = [
+    Line (Printf.sprintf "let %s =" a.Arg.name);
+    Block [
+      Line (Printf.sprintf "let doc = \"%s\" in" a.Arg.description);
+      Line (Printf.sprintf "Arg.(value & opt %s %s & info [\"%s\"] ~doc) in"
+        (converter_of_ty a.Arg.ty) (default_of_ty a.Arg.ty) a.Arg.name);
+    ]
+  ] in
+  let of_method i m =
+    [
+      Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
+      Block [
+        Line "let t =";
+        Block ([
+          ] @ (List.concat (List.map of_arg m.Method.inputs)
+          ) @ [
+            Line (Printf.sprintf "Term.(pure Types.%s.%s.In.make $ %s) in"
+              (String.capitalize i.Interface.name) (String.capitalize m.Method.name)
+              (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
+          ]);
+        Line "assert false";
+      ];
+      Line "end";
+    ] in
+  let rpc_of_interface env i =
+    [
+      Line (sprintf "module %s = struct" i.Interface.name);
+      Block (List.concat (List.map (of_method i) i.Interface.methods));
+      Line "end"
+    ] in
+  [
+    Line "module Cmdline = struct";
+    Block [ Line "open Cmdliner" ];
+    Block (List.concat (List.map (rpc_of_interface env) is.Interfaces.interfaces));
+    Line "end";
+  ]
+
 let rpc_of_interfaces env is =
   let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name (typeof env a.Arg.ty)) in
   let of_method i m =
@@ -146,6 +199,10 @@ let rpc_of_interfaces env is =
             Line "type t = {";
             Block (List.map field_of_arg m.Method.inputs);
             Line "} with rpc";
+            Line (Printf.sprintf "let make %s = { %s }"
+              (String.concat " " (List.map (fun a -> a.Arg.name) m.Method.inputs))
+              (String.concat "; " (List.map (fun a -> a.Arg.name ^ " = " ^ a.Arg.name) m.Method.inputs))
+            );
           ];
           Line "end";
         ]);
@@ -413,6 +470,8 @@ let of_interfaces env i =
   ) @ (
     rpc_of_interfaces env i
   ) @ (
+    cmdliner_of_interfaces env i
+  ) @ (
     List.concat (List.map (signature_of_interface env) i.Interfaces.interfaces)
   ) @ (
     List.fold_left (fun acc i -> acc @
@@ -452,4 +511,3 @@ let caml2html str =
   Unix.close fd;
   Sys.remove out_filename;
   String.sub buffer 0 n
-
