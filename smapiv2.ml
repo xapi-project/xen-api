@@ -214,7 +214,6 @@ let api =
               description = "[create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
               inputs = [
                 sr;
-                vdi_info';
               ];
               outputs = [
                 { Arg.name = "new_vdi";
@@ -227,7 +226,6 @@ let api =
               description = "[snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
               inputs = [
                 sr;
-                vdi_info';
               ];
               outputs = [
                 { Arg.name = "new_vdi";
@@ -240,7 +238,6 @@ let api =
               description = "[clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
               inputs = [
                 sr;
-                vdi_info';
               ];
               outputs = [
                 { Arg.name = "new_vdi";
