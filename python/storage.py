@@ -172,30 +172,7 @@ class VDI_server_dispatcher:
         sr = args["sr"]
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi_info')):
-            raise UnmarshalException('argument missing', 'vdi_info', '')
-        vdi_info = args["vdi_info"]
-        if type(vdi_info['vdi']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['vdi'])))
-        if type(vdi_info['content_id']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['content_id'])))
-        if type(vdi_info['name_label']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_label'])))
-        if type(vdi_info['name_description']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['is_a_snapshot']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
-        if type(vdi_info['snapshot_time']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_time'])))
-        if type(vdi_info['snapshot_of']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_of'])))
-        if type(vdi_info['read_only']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['read_only'])))
-        if not(is_long(vdi_info['virtual_size'])):
-            raise (TypeError("int64", repr(vdi_info['virtual_size'])))
-        if not(is_long(vdi_info['physical_utilisation'])):
-            raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        results = self._impl.create(dbg, sr, vdi_info)
+        results = self._impl.create(dbg, sr)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
         if type(results['content_id']) <> type(""):
@@ -231,30 +208,7 @@ class VDI_server_dispatcher:
         sr = args["sr"]
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi_info')):
-            raise UnmarshalException('argument missing', 'vdi_info', '')
-        vdi_info = args["vdi_info"]
-        if type(vdi_info['vdi']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['vdi'])))
-        if type(vdi_info['content_id']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['content_id'])))
-        if type(vdi_info['name_label']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_label'])))
-        if type(vdi_info['name_description']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['is_a_snapshot']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
-        if type(vdi_info['snapshot_time']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_time'])))
-        if type(vdi_info['snapshot_of']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_of'])))
-        if type(vdi_info['read_only']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['read_only'])))
-        if not(is_long(vdi_info['virtual_size'])):
-            raise (TypeError("int64", repr(vdi_info['virtual_size'])))
-        if not(is_long(vdi_info['physical_utilisation'])):
-            raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        results = self._impl.snapshot(dbg, sr, vdi_info)
+        results = self._impl.snapshot(dbg, sr)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
         if type(results['content_id']) <> type(""):
@@ -290,30 +244,7 @@ class VDI_server_dispatcher:
         sr = args["sr"]
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi_info')):
-            raise UnmarshalException('argument missing', 'vdi_info', '')
-        vdi_info = args["vdi_info"]
-        if type(vdi_info['vdi']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['vdi'])))
-        if type(vdi_info['content_id']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['content_id'])))
-        if type(vdi_info['name_label']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_label'])))
-        if type(vdi_info['name_description']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['name_description'])))
-        if type(vdi_info['is_a_snapshot']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['is_a_snapshot'])))
-        if type(vdi_info['snapshot_time']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_time'])))
-        if type(vdi_info['snapshot_of']) <> type(""):
-            raise (TypeError("string", repr(vdi_info['snapshot_of'])))
-        if type(vdi_info['read_only']) <> type(True):
-            raise (TypeError("bool", repr(vdi_info['read_only'])))
-        if not(is_long(vdi_info['virtual_size'])):
-            raise (TypeError("int64", repr(vdi_info['virtual_size'])))
-        if not(is_long(vdi_info['physical_utilisation'])):
-            raise (TypeError("int64", repr(vdi_info['physical_utilisation'])))
-        results = self._impl.clone(dbg, sr, vdi_info)
+        results = self._impl.clone(dbg, sr)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
         if type(results['content_id']) <> type(""):
@@ -576,13 +507,13 @@ class VDI_skeleton:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
         pass
-    def create(self, dbg, sr, vdi_info):
+    def create(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.create")
-    def snapshot(self, dbg, sr, vdi_info):
+    def snapshot(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.snapshot")
-    def clone(self, dbg, sr, vdi_info):
+    def clone(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.clone")
     def destroy(self, dbg, sr, vdi):
@@ -610,17 +541,17 @@ class VDI_test:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
         pass
-    def create(self, dbg, sr, vdi_info):
+    def create(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
-    def snapshot(self, dbg, sr, vdi_info):
+    def snapshot(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
-    def clone(self, dbg, sr, vdi_info):
+    def clone(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
@@ -691,23 +622,12 @@ class SR_server_dispatcher:
         sr = args["sr"]
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
-        if not(args.has_key('device_config')):
-            raise UnmarshalException('argument missing', 'device_config', '')
-        device_config = args["device_config"]
-        if type(device_config) <> type({}):
-            raise (TypeError("(string * string) list", repr(device_config)))
-        for x in device_config.keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in device_config.values():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
         if not(args.has_key('physical_size')):
             raise UnmarshalException('argument missing', 'physical_size', '')
         physical_size = args["physical_size"]
         if not(is_long(physical_size)):
             raise (TypeError("int64", repr(physical_size)))
-        results = self._impl.create(dbg, sr, device_config, physical_size)
+        results = self._impl.create(dbg, sr, physical_size)
         return results
     def attach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -829,7 +749,7 @@ class SR_skeleton:
     def ls(self, dbg):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.ls")
-    def create(self, dbg, sr, device_config, physical_size):
+    def create(self, dbg, sr, physical_size):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.create")
     def attach(self, dbg, sr, device_config):
@@ -853,7 +773,7 @@ class SR_test:
         result = {}
         result["srs"] = [ "string", "string" ]
         return result
-    def create(self, dbg, sr, device_config, physical_size):
+    def create(self, dbg, sr, physical_size):
         """Operations which act on Storage Repositories"""
         result = {}
         return result
