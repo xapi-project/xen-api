@@ -270,6 +270,19 @@ let api =
               outputs = [
               ];
             }; {
+              Method.name = "resize";
+              description = "[resize task sr vdi new_size] enlarges [vdi] to be at least [new_size].";
+              inputs = [
+                sr;
+                vdi;
+                { Arg.name = "new_size";
+                  ty = Basic Int64;
+                  description = "New disk size"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
               Method.name = "stat";
               description = "[stat task sr vdi] returns metadata associated with VDI [vdi] in SR [sr].";
               inputs = [
