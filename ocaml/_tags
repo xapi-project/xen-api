@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: db89be6e1ec233b47f549073156b3b1d)
+# DO NOT EDIT (digest: 294699026561fa2a6d465cf6b419de0a)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -18,19 +18,23 @@
 "lib/s.cmx": for-pack(Xapi)
 "lib/storage.cmx": for-pack(Xapi)
 "lib/channel.cmx": for-pack(Xapi)
+"lib/cmdliner_helpers.cmx": for-pack(Xapi)
 <lib/*.ml{,i}>: pkg_cmdliner
+<lib/*.ml{,i}>: pkg_re.str
 <lib/*.ml{,i}>: pkg_rpclib
 # Executable proxy
 <proxy/proxy.{native,byte}>: pkg_cmdliner
 <proxy/proxy.{native,byte}>: pkg_lwt
 <proxy/proxy.{native,byte}>: pkg_lwt.unix
 <proxy/proxy.{native,byte}>: pkg_oUnit
+<proxy/proxy.{native,byte}>: pkg_re.str
 <proxy/proxy.{native,byte}>: pkg_rpclib
 <proxy/proxy.{native,byte}>: use_xapi
 <proxy/*.ml{,i}>: pkg_cmdliner
 <proxy/*.ml{,i}>: pkg_lwt
 <proxy/*.ml{,i}>: pkg_lwt.unix
 <proxy/*.ml{,i}>: pkg_oUnit
+<proxy/*.ml{,i}>: pkg_re.str
 <proxy/*.ml{,i}>: pkg_rpclib
 <proxy/*.ml{,i}>: use_xapi
 <proxy/proxy.{native,byte}>: custom
@@ -39,12 +43,14 @@
 <lib_test/xcp_api_test.{native,byte}>: pkg_lwt
 <lib_test/xcp_api_test.{native,byte}>: pkg_lwt.unix
 <lib_test/xcp_api_test.{native,byte}>: pkg_oUnit
+<lib_test/xcp_api_test.{native,byte}>: pkg_re.str
 <lib_test/xcp_api_test.{native,byte}>: pkg_rpclib
 <lib_test/xcp_api_test.{native,byte}>: use_xapi
 <lib_test/*.ml{,i}>: pkg_cmdliner
 <lib_test/*.ml{,i}>: pkg_lwt
 <lib_test/*.ml{,i}>: pkg_lwt.unix
 <lib_test/*.ml{,i}>: pkg_oUnit
+<lib_test/*.ml{,i}>: pkg_re.str
 <lib_test/*.ml{,i}>: pkg_rpclib
 <lib_test/*.ml{,i}>: use_xapi
 <lib_test/xcp_api_test.{native,byte}>: custom

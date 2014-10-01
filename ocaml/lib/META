@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 27060ab2013c08944593baf2e914602d)
+# DO NOT EDIT (digest: b313b97cc5f37e9af945ead377db77c0)
 version = "0.1.0"
 description = "XCP API client"
-requires = "rpclib cmdliner"
+requires = "rpclib cmdliner re.str"
 archive(byte) = "xapi.cma"
 archive(byte, plugin) = "xapi.cma"
 archive(native) = "xapi.cmxa"

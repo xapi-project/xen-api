@@ -142,6 +142,7 @@ let cmdliner_of_interfaces env is =
     | Basic String -> "string"
     | Basic Double -> "float"
     | Basic Boolean -> "bool"
+    | Dict(String, Basic String) -> "Cmdliner_helpers.string_string_list"
     | _ -> "string" in
   let default_of_ty =
     let open Type in function
@@ -149,6 +150,7 @@ let cmdliner_of_interfaces env is =
     | Basic String -> "\"\""
     | Basic Double -> "0."
     | Basic Boolean -> "false"
+    | Dict _ -> "[]"
     | _ -> "\"\"" in
 
   let of_arg a = [
@@ -167,11 +169,10 @@ let cmdliner_of_interfaces env is =
         Block ([
           ] @ (List.concat (List.map of_arg m.Method.inputs)
           ) @ [
-            Line (Printf.sprintf "Term.(pure Types.%s.%s.In.make $ %s) in"
+            Line (Printf.sprintf "Term.(pure Types.%s.%s.In.make $ %s)"
               (String.capitalize i.Interface.name) (String.capitalize m.Method.name)
               (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
           ]);
-        Line "assert false";
       ];
       Line "end";
     ] in
