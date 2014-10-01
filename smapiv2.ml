@@ -214,6 +214,21 @@ let api =
               description = "[create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
               inputs = [
                 sr;
+                {
+                  Arg.name = "name_label";
+                  ty = Basic String;
+                  description = "A human-readable name to associate with the new disk. This name is intended to be short, to be a good summary of the disk."
+                };
+                {
+                  Arg.name = "name_description";
+                  ty = Basic String;
+                  description = "A human-readable description to associate with the new disk. This can be arbitrarily long, up to the general string size limit."
+                };
+                {
+                  Arg.name = "size";
+                  ty = Basic Int64;
+                  description = "A minimum size (in bytes) for the disk. Depending on the characteristics of the implementation this may be rounded up to (for example) the nearest convenient block size. The created disk will not be smaller than this size.";
+                };
               ];
               outputs = [
                 { Arg.name = "new_vdi";

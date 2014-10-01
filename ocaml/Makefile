@@ -1,7 +1,7 @@
 .PHONY: all clean install build
 all: build test doc
 
-NAME=xcp-api-client
+NAME=xapi-idl
 
 LWT ?= $(shell if ocamlfind query lwt.ssl >/dev/null 2>&1; then echo --enable-lwt; fi)
 ASYNC ?= $(shell if ocamlfind query async_core >/dev/null 2>&1; then echo --enable-async; fi)
