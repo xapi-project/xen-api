@@ -450,6 +450,7 @@ let update_vbds doms =
 	List.fold_left (fun acc vbd ->
 		let generate_stats acc blktap3_stat_rec sysfs_stat_rec =
 			let blksize = 512L in
+			let avgqu_normalizer = 1000000L in
 			let istap = String.startswith "tap-" vbd in
 			let isvbd3 = String.startswith "vbd3-" vbd in
 			let domid, devid =
@@ -481,6 +482,9 @@ let update_vbds doms =
 					 * directly from LVs to blkback. *)
 					let inflight = Int64.add (Int64.sub b.st_rd_req b.st_rd_cnt) (Int64.sub b.st_wr_req b.st_wr_cnt) in
 					let iowait = Int64.to_float (Int64.div (Int64.add b.st_rd_cnt b.st_wr_cnt) (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs))  /. 1000. in
+					(* Average Queue Size is computed as the sum of the
+					 * read and write queues' averaged over 5 seconds *)
+					let avgqu_sz = Int64.div (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs) avgqu_normalizer in
 					let newacc =
 						try
 							let uuid = uuid_of_domid doms domid in
@@ -524,6 +528,10 @@ let update_vbds doms =
 								~description:("All " ^ device_name ^ " I/O")
 								~value:(Rrd.VT_Int64 (Int64.add rd_bytes wr_bytes)) ~ty:Rrd.Derive ~min:0.0 ~default:true
 								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_avgqu_sz")
+								~description:("Average I/O queue size for "^ device_name)
+								~value:(Rrd.VT_Int64 avgqu_sz) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests" ())::
 							acc
 						with _ -> acc
 					in
@@ -542,6 +550,9 @@ let update_vbds doms =
 					(* Create variables to hold new statistics *)
 					let inflight = Int64.add (Int64.sub b.st_rd_req b.st_rd_cnt) (Int64.sub b.st_wr_req b.st_wr_cnt) in
 					let iowait = Int64.to_float (Int64.div (Int64.add b.st_rd_cnt b.st_wr_cnt) (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs))  /. 1000. in
+					(* Average Queue Size is computed as the sum of the
+					 * read and write queues' averaged over 5 seconds *)
+					let avgqu_sz = Int64.div (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs) avgqu_normalizer in
 					let newacc =
 						try
 							let uuid = uuid_of_domid doms domid in
@@ -585,6 +596,10 @@ let update_vbds doms =
 								~description:("All " ^ device_name ^ " I/O")
 								~value:(Rrd.VT_Int64 (Int64.add rd_bytes wr_bytes)) ~ty:Rrd.Derive ~min:0.0 ~default:true
 								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_avgqu_sz")
+								~description:("Average I/O queue size for "^ device_name)
+								~value:(Rrd.VT_Int64 avgqu_sz) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests" ())::
 							acc
 						with _ -> acc
 					in
