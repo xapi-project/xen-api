@@ -172,7 +172,22 @@ class VDI_server_dispatcher:
         sr = args["sr"]
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
-        results = self._impl.create(dbg, sr)
+        if not(args.has_key('name_label')):
+            raise UnmarshalException('argument missing', 'name_label', '')
+        name_label = args["name_label"]
+        if type(name_label) <> type(""):
+            raise (TypeError("string", repr(name_label)))
+        if not(args.has_key('name_description')):
+            raise UnmarshalException('argument missing', 'name_description', '')
+        name_description = args["name_description"]
+        if type(name_description) <> type(""):
+            raise (TypeError("string", repr(name_description)))
+        if not(args.has_key('size')):
+            raise UnmarshalException('argument missing', 'size', '')
+        size = args["size"]
+        if not(is_long(size)):
+            raise (TypeError("int64", repr(size)))
+        results = self._impl.create(dbg, sr, name_label, name_description, size)
         if type(results['vdi']) <> type(""):
             raise (TypeError("string", repr(results['vdi'])))
         if type(results['content_id']) <> type(""):
@@ -507,7 +522,7 @@ class VDI_skeleton:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
         pass
-    def create(self, dbg, sr):
+    def create(self, dbg, sr, name_label, name_description, size):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.create")
     def snapshot(self, dbg, sr):
@@ -541,7 +556,7 @@ class VDI_test:
     """Operations which operate on Virtual Disk Images"""
     def __init__(self):
         pass
-    def create(self, dbg, sr):
+    def create(self, dbg, sr, name_label, name_description, size):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["new_vdi"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }

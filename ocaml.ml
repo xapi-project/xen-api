@@ -135,7 +135,7 @@ let result_of_response env es =
         ])
   ]
 
-let cmdliner_of_interfaces env is =
+let cmdliner_of_method env i m =
   let converter_of_ty =
     let open Type in function
     | Basic Int64 -> "int64"
@@ -163,29 +163,21 @@ let cmdliner_of_interfaces env is =
   ] in
   let of_method i m =
     [
-      Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
-      Block [
-        Line "let t =";
-        Block ([
-          ] @ (List.concat (List.map of_arg m.Method.inputs)
-          ) @ [
-            Line (Printf.sprintf "Term.(pure Types.%s.%s.In.make $ %s)"
-              (String.capitalize i.Interface.name) (String.capitalize m.Method.name)
-              (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
-          ]);
-      ];
-      Line "end";
-    ] in
-  let rpc_of_interface env i =
-    [
-      Line (sprintf "module %s = struct" i.Interface.name);
-      Block (List.concat (List.map (of_method i) i.Interface.methods));
-      Line "end"
+      Line "let t =";
+      Block ([
+        ] @ (List.concat (List.map of_arg m.Method.inputs)
+        ) @ [
+          Line (Printf.sprintf "Term.(pure In.make $ %s)"
+            (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
+        ]);
     ] in
   [
-    Line "module Cmdline = struct";
-    Block [ Line "open Cmdliner" ];
-    Block (List.concat (List.map (rpc_of_interface env) is.Interfaces.interfaces));
+    Line "module CommandLine = struct";
+    Block [
+      Line "open Cmdliner";
+      Line (Printf.sprintf "let doc = \"%s\"" m.Method.description);
+    ];
+    Block (of_method i m);
     Line "end";
   ]
 
@@ -219,6 +211,7 @@ let rpc_of_interfaces env is =
         ];
         Line "end";
       ];
+      Block (cmdliner_of_method env i m);
       Line "end";
     ] in
   let of_call_method i m =
@@ -470,8 +463,6 @@ let of_interfaces env i =
     result_of_response env i.Interfaces.exn_decls
   ) @ (
     rpc_of_interfaces env i
-  ) @ (
-    cmdliner_of_interfaces env i
   ) @ (
     List.concat (List.map (signature_of_interface env) i.Interfaces.interfaces)
   ) @ (
