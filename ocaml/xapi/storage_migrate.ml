@@ -551,7 +551,8 @@ let reqs_outstanding_timeout = 150.0 (* Tapdisk should time out after 2 mins. We
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 	let open State.Send_state in
 	let id = State.id_of (sr,vdi) in
-	let start_time = Unix.time () in
+	let start_time = Oclock.gettime Oclock.monotonic in
+ 	let get_delta () = (Int64.to_float (Int64.sub (Oclock.gettime Oclock.monotonic) start_time)) /. 1.0e9 in
 	State.find_active_local_mirror id |> 
 			Opt.iter (fun s ->
 				try
@@ -561,14 +562,14 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 					let open Tapctl in
 					let ctx = create () in
 					let rec wait () =
-					  if Unix.time () -. start_time > reqs_outstanding_timeout then raise Timeout;
+					  if get_delta () > reqs_outstanding_timeout then raise Timeout;
 					  let st = stats ctx s.tapdev in
 					  if st.Stats.reqs_outstanding > 0 
 					  then (Thread.delay 1.0; wait ())
 					  else st
 					in
 					let st = wait () in
-					debug "Got final stats after waiting %f seconds" (Unix.time () -. start_time);
+					debug "Got final stats after waiting %f seconds" (get_delta ());
 					if st.Stats.nbd_mirror_failed = 1
 					then begin
 					  error "tapdisk reports mirroring failed";
@@ -576,7 +577,7 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 					end;
 				with 
 				| Timeout ->
-					error "Timeout out after %f seconds waiting for tapdisk to complete all outstanding requests" (Unix.time () -. start_time);
+					error "Timeout out after %f seconds waiting for tapdisk to complete all outstanding requests" (get_delta ());
 					s.failed <- true
 				| e ->
 					error "Caught exception while finally checking mirror state: %s"
