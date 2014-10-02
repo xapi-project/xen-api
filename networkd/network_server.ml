@@ -503,9 +503,19 @@ module Bridge = struct
 					) current_interfaces;
 
 					(* Now create the new VLAN device and add it to the bridge *)
-					let parent_interface = List.hd (List.filter (fun n ->
+					let parent_bridge_interface = List.hd (List.filter (fun n ->
 						String.startswith "eth" n || String.startswith "bond" n
 					) (Sysfs.bridge_to_interfaces parent)) in
+					let parent_interface =
+						if need_enic_workaround () then begin
+							let n = String.length parent_bridge_interface in
+							let m = String.sub parent_bridge_interface 0 (n - 2) in
+							if vlan = 0 then
+								error "The enic workaround is in effect. Bridge %s is used for VLAN 0 on %s." parent m;
+							m
+						end else
+							parent_bridge_interface
+					in
 					Ip.create_vlan parent_interface vlan;
 					let vlan_name = Ip.vlan_name parent_interface vlan in
 					Interface.bring_up () dbg ~name:vlan_name;
