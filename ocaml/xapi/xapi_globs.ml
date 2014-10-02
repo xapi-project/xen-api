@@ -252,10 +252,10 @@ let max_tasks = 200
 let max_sessions = max_tasks * 2
 
 (* For sessions with specified originator, their session limits are counted independently. *)
-let max_sessions_per_originator = 50
+let max_sessions_per_originator = 500
 
 (* For sessions with specifiied user name (non-root), their session limit are counted independently *)
-let max_sessions_per_user_name = 50
+let max_sessions_per_user_name = 500
 
 (* The Unix.time that represents the maximum time in the future that a 32 bit time can cope with *)
 let the_future = 2147483647.0
