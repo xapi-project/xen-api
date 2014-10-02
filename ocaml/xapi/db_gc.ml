@@ -304,12 +304,15 @@ let timeout_sessions_common ~__context sessions limit session_group =
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) limit;
-  cancel "Timed out session because of its age" old;
-  cancel "Timed out session because max number of sessions was exceeded" unlucky
+  then debug "Number of disposable sessions in group '%s' in database (%d/%d) exceeds limit (%d): will delete the oldest" session_group (List.length disposable_sessions) (List.length sessions) limit;
+  cancel (Printf.sprintf "Timed out session in group '%s' because of its age" session_group) old;
+  cancel (Printf.sprintf "Timed out session in group '%s' because max number of sessions was exceeded" session_group) unlucky
+
+let last_session_log_time = ref None
 
 let timeout_sessions ~__context =
 	let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+
 	let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
 	let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
 	let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
@@ -321,6 +324,19 @@ let timeout_sessions ~__context =
 			with Not_found -> [] in
 		Hashtbl.replace session_groups key (rs :: current_sessions)
 	) named_sessions;
+
+	let should_log = match !last_session_log_time with
+	  | None -> true
+	  | Some t -> Unix.time () -. t > 600.0 (* Every 10 mins, dump session stats *)
+	in
+
+        if should_log then begin
+		last_session_log_time := Some (Unix.time ());
+		let nbindings = Hashtbl.fold (fun _ _ acc -> 1+acc) session_groups 0 in
+		debug "session_log: active_sessions=%d (%d pool, %d anon, %d named - %d groups)"
+			(List.length all_sessions) (List.length pool_sessions) (List.length anon_sessions) (List.length named_sessions) nbindings
+	end;
+ 
 	begin
 		Hashtbl.iter
 			(fun key ss -> match key with

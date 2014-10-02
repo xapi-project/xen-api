@@ -535,15 +535,19 @@ module MD = struct
 					try
 						let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
 						int_of_string weight
-					with e -> error "%s" (Printexc.to_string e);
-										debug "Could not parse weight value. Setting it to default value %d." default; default in
+					with 
+					| Not_found -> default 
+					| e ->  error "%s" (Printexc.to_string e);
+						debug "Could not parse weight value. Setting it to default value %d." default; default in
 				let cap =
 					let default=0 in
 					try
 						let cap = List.assoc "cap" vm.API.vM_VCPUs_params in
 						int_of_string cap
-					with e -> error "%s" (Printexc.to_string e);
-										debug "Could not parse cap value. Setting it to default value %d." default; default in
+					with
+					| Not_found -> default
+					| e ->  error "%s" (Printexc.to_string e);
+						debug "Could not parse cap value. Setting it to default value %d." default; default in
 				Some ( weight , cap ) in
 			{ priority = priority; affinity = affinity } in
 
