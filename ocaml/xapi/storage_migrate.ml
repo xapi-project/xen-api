@@ -545,16 +545,41 @@ let receive_cancel ~dbg ~id =
 	) record;
 	State.remove id State.active_recv
 
+exception Timeout
+let reqs_outstanding_timeout = 150.0 (* Tapdisk should time out after 2 mins. We can wait a little longer *)
+
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 	let open State.Send_state in
 	let id = State.id_of (sr,vdi) in
+	let start_time = Oclock.gettime Oclock.monotonic in
+ 	let get_delta () = (Int64.to_float (Int64.sub (Oclock.gettime Oclock.monotonic) start_time)) /. 1.0e9 in
 	State.find_active_local_mirror id |> 
 			Opt.iter (fun s ->
 				try
-					Tapctl.pause (Tapctl.create ()) s.tapdev;
-					let stats = Tapctl.stats (Tapctl.create ()) s.tapdev in
-					s.failed <- stats.Tapctl.Stats.nbd_mirror_failed = 1
-				with e ->
+					(* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
+					   until the number of outstanding requests has gone to zero, then check the 
+					   status. This avoids confusing the backend (CA-128460) *)
+					let open Tapctl in
+					let ctx = create () in
+					let rec wait () =
+					  if get_delta () > reqs_outstanding_timeout then raise Timeout;
+					  let st = stats ctx s.tapdev in
+					  if st.Stats.reqs_outstanding > 0 
+					  then (Thread.delay 1.0; wait ())
+					  else st
+					in
+					let st = wait () in
+					debug "Got final stats after waiting %f seconds" (get_delta ());
+					if st.Stats.nbd_mirror_failed = 1
+					then begin
+					  error "tapdisk reports mirroring failed";
+					  s.failed <- true
+					end;
+				with 
+				| Timeout ->
+					error "Timeout out after %f seconds waiting for tapdisk to complete all outstanding requests" (get_delta ());
+					s.failed <- true
+				| e ->
 					error "Caught exception while finally checking mirror state: %s"
 						(Printexc.to_string e);
 					s.failed <- true
