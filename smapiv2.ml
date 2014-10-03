@@ -3,14 +3,10 @@ open Types
 let api =
   let vdi_info_decl =
     Type.(Struct(
-        ( "vdi", Name "vdi", "The unique id of this VDI. This must be unique with a Storage Repository, but may not be unique between Storage Respositories." ),
-        [ "content_id", Name "content_id", "A repersentation of the VDI contents such that if two VDIs have the same content_id then they must have the same data inside";
-          "name_label", Basic String, "Human-readable name of the VDI";
-          "name_description", Basic String, "Human-readable description of the VDI";
-          "is_a_snapshot", Basic Boolean, "True if the VDI is a snapshot of another VDI";
-          "snapshot_time", Basic String, "If is_a_snapshot is true then this is the time the snapshot was created";
-          "snapshot_of", Basic String, "If is_a_snapshot is true then this is the VDI which was snapshotted";
-          "read_only", Basic Boolean, "If true then this VDI is stored on read-only media";
+        ( "vdi", Name "vdi", "A primary key for this VDI. This must be unique within a Storage Repository, but may not be unique between Storage Respositories." ),
+        [ "name", Basic String, "Short, human-readable label for the VDI";
+          "description", Basic String, "Longer, human-readable description of the VDI";
+          "read_only", Basic Boolean, "If true then this VDI may not be written to (e.g. it may be a snapshot of another VDI)";
           "virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
           "physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage medium";
         ]
@@ -26,7 +22,7 @@ let api =
     ty = Type.(Basic String);
     description = "The Virtual Disk Image";
   } in
-  let attach_info_decl =
+  let data_decl =
     Type.(Struct(
         ( "uri", Basic String, String.concat "" [
           "A URI which can be opened and used for I/O. For example this could ";
@@ -39,7 +35,7 @@ let api =
           ]
         ]
       )) in
-  let attach_info = Type.Name "attach_info" in
+  let data = Type.Name "data" in
   let vdi_info' = {
     Arg.name = "vdi_info";
     (*    ty = vdi_info; *)
@@ -120,16 +116,6 @@ let api =
         ];
         ty = Type.(Basic String);
       }; {
-        TyDecl.name = "content_id";
-        description = String.concat "" [
-          "Identifies the data contained within a VDI. This can be any string ";
-          "provided that, if two VDIs have the same content_id, they definitely ";
-          "have the same contents. This implication is one-way: if two VDIs ";
-          "have different content_ids then this does not imply they have ";
-          "different contents.";
-        ];
-        ty = Type.(Basic String);
-      }; {
         TyDecl.name = "vdi_info";
         description = String.concat "" [
           "A set of properties associated with a VDI. These properties can ";
@@ -137,9 +123,9 @@ let api =
         ];
         ty = vdi_info_decl
       }; {
-        TyDecl.name = "attach_info";
-        description = "Configuration for blkback";
-        ty = attach_info_decl
+        TyDecl.name = "data";
+        description = "Methods/protocols for accessing the disk data.";
+        ty = data_decl
       }; {
         TyDecl.name = "query_result";
         description = "properties of this implementation";
@@ -308,37 +294,10 @@ let api =
                 }
               ];
               outputs = [
-                { Arg.name = "device";
-                  ty = attach_info;
-                  description = "backend device configuration";
+                { Arg.name = "data";
+                  ty = data;
+                  description = "Methods/protocols for accessing the disk data";
                 }
-              ];
-            }; {
-              Method.name = "activate";
-              description = "[activate task sr vdi] signals the desire to immediately use [vdi]. This client must have called [attach] on the [vdi] first.";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "deactivate";
-              description = "[deactivate task sr vdi] signals that this client has stopped reading (and writing) [vdi].";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-              ];
-            }; {
-              Method.name = "detach";
-              description = "[detach task sr vdi] signals that this client no-longer needs the [params] to be valid.";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
               ];
             }; {
               Method.name = "copy";
