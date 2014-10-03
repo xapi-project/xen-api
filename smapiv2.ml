@@ -72,10 +72,6 @@ let api =
         description = "The specified VDI could not be found in the SR";
         ty = Type.(Basic String)
       }; {
-        TyDecl.name = "Illegal_transition";
-        description = "The requested VDI state transition is invalid";
-        ty = Type.(Pair(Basic String, Basic String))
-      }; {
         TyDecl.name = "Backend_error";
         description = "A backend-specific error occurred";
         ty = Type.(Pair(Basic String, Array (Basic String)));

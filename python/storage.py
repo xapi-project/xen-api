@@ -12,15 +12,6 @@ class Vdi_does_not_exist(Rpc_light_failure):
         if type(arg_0) <> type(""):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
-class Illegal_transition(Rpc_light_failure):
-    def __init__(self, arg_0, arg_1):
-        Rpc_light_failure.__init__(self, "Illegal_transition", [ arg_0, arg_1 ])
-        if type(arg_0) <> type(""):
-            raise (TypeError("string", repr(arg_0)))
-        if type(arg_1) <> type(""):
-            raise (TypeError("string", repr(arg_1)))
-        self.arg_0 = arg_0
-        self.arg_1 = arg_1
 class Backend_error(Rpc_light_failure):
     def __init__(self, arg_0, arg_1):
         Rpc_light_failure.__init__(self, "Backend_error", [ arg_0, arg_1 ])
@@ -615,7 +606,7 @@ class SR_server_dispatcher:
             raise (TypeError("string", repr(sr)))
         results = self._impl.scan(dbg, sr)
         if type(results) <> type([]):
-            raise (TypeError("90 list", repr(results)))
+            raise (TypeError("89 list", repr(results)))
         for x in results:
             if type(x['vdi']) <> type(""):
                 raise (TypeError("string", repr(x['vdi'])))
