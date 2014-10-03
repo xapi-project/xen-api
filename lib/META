@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1c79811cc8dd9ea01a505ead32a71432)
-version = "0.9.5"
+# DO NOT EDIT (digest: 91b748c7a2332c0932eed83315151278)
+version = "0.9.4"
 description = "XCP Network Daemon"
 requires = "forkexec stdext threads rpclib stdext xcp-inventory xcp.network"
 archive(byte) = "networklibs.cma"
