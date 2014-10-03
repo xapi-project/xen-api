@@ -279,14 +279,10 @@ let api =
             };
              {
               Method.name = "attach";
-              description = "[attach task sr vdi read_write] returns the [params] for a given [vdi] in [sr] which can be written to if (but not necessarily only if) [read_write] is true";
+              description = "[attach task sr vdi] returns the [params] for a given [vdi] in [sr]";
               inputs = [
                 sr;
                 vdi;
-                { Arg.name = "read_write";
-                  ty = Type.(Basic Boolean);
-                  description = "If true then the DataPath will be used read/write, false otherwise";
-                }
               ];
               outputs = [
                 { Arg.name = "data";

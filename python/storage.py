@@ -341,12 +341,7 @@ class VDI_server_dispatcher:
         vdi = args["vdi"]
         if type(vdi) <> type(""):
             raise (TypeError("string", repr(vdi)))
-        if not(args.has_key('read_write')):
-            raise UnmarshalException('argument missing', 'read_write', '')
-        read_write = args["read_write"]
-        if type(read_write) <> type(True):
-            raise (TypeError("bool", repr(read_write)))
-        results = self._impl.attach(dbg, sr, vdi, read_write)
+        results = self._impl.attach(dbg, sr, vdi)
         if type(results['uri']) <> type([]):
             raise (TypeError("string list", repr(results['uri'])))
         for x in results['uri']:
@@ -435,7 +430,7 @@ class VDI_skeleton:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.stat")
-    def attach(self, dbg, sr, vdi, read_write):
+    def attach(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.attach")
     def copy(self, dbg, sr, vdi, url, dest):
@@ -473,7 +468,7 @@ class VDI_test:
         result = {}
         result["vdi_info"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
-    def attach(self, dbg, sr, vdi, read_write):
+    def attach(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["data"] = { "uri": [ "string", "string" ], "extra_headers": { "string": "string" } }
