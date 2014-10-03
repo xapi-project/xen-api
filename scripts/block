@@ -15,6 +15,10 @@ syslog ()
 case "$1" in
 add)
         params=$(xenstore-read "${XENBUS_PATH}/params")
+        if [ $? -ne 0 ]; then
+            syslog "${XENBUS_PATH}: failed to read params (may be missing?)"
+            exit 1
+        fi
         frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
         syslog "${XENBUS_PATH}: add params=\"${params}\""
         # We don't have PV drivers for CDROM devices, so we prevent blkback
