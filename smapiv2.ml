@@ -152,6 +152,17 @@ let api =
                 }
               ]
             }; {
+                Method.name = "ls";
+                description = "[ls dbg]: returns a list of attached SRs";
+                inputs = [];
+                outputs = [
+                  {
+                    Arg.name = "srs";
+                    ty = Type.(Array (Basic String));
+                    description = "The attached SRs"
+                  }
+                ]
+            }; {
               Method.name = "diagnostics";
               description = String.concat "" [
                 "Returns a printable set of backend diagnostic information.";
@@ -285,18 +296,6 @@ let api =
           description = "Operations which act on Storage Repositories";
           type_decls = [];
           methods = [
-            {
-              Method.name = "ls";
-              description = "[ls dbg]: returns a list of attached SRs";
-              inputs = [];
-              outputs = [
-                {
-                  Arg.name = "srs";
-                  ty = Type.(Array (Basic String));
-                  description = "The attached SRs"
-                }
-              ]
-            };
             {
               Method.name = "create";
               description = "[create task sr device_config physical_size]: creates a fresh SR";

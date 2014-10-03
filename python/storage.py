@@ -94,6 +94,22 @@ class Driver_server_dispatcher:
             if type(x) <> type(""):
                 raise (TypeError("string", repr(x)))
         return results
+    def ls(self, args):
+        """type-check inputs, call implementation, type-check outputs and return"""
+        if type(args) <> type({}):
+            raise (UnmarshalException('arguments', 'dict', repr(args)))
+        if not(args.has_key('dbg')):
+            raise UnmarshalException('argument missing', 'dbg', '')
+        dbg = args["dbg"]
+        if type(dbg) <> type(""):
+            raise (TypeError("string", repr(dbg)))
+        results = self._impl.ls(dbg)
+        if type(results) <> type([]):
+            raise (TypeError("string list", repr(results)))
+        for x in results:
+            if type(x) <> type(""):
+                raise (TypeError("string", repr(x)))
+        return results
     def diagnostics(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if type(args) <> type({}):
@@ -112,6 +128,8 @@ class Driver_server_dispatcher:
         args = params[0]
         if method == "Driver.query":
             return success(self.query(args))
+        elif method == "Driver.ls":
+            return success(self.ls(args))
         elif method == "Driver.diagnostics":
             return success(self.diagnostics(args))
 class Driver_skeleton:
@@ -121,6 +139,9 @@ class Driver_skeleton:
     def query(self, dbg):
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         raise Unimplemented("Driver.query")
+    def ls(self, dbg):
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
+        raise Unimplemented("Driver.ls")
     def diagnostics(self, dbg):
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         raise Unimplemented("Driver.diagnostics")
@@ -132,6 +153,11 @@ class Driver_test:
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
         result = {}
         result["query_result"] = { "driver": "string", "name": "string", "description": "string", "vendor": "string", "copyright": "string", "version": "string", "required_api_version": "string", "features": [ "string", "string" ], "configuration": { "string": "string" } }
+        return result
+    def ls(self, dbg):
+        """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
+        result = {}
+        result["srs"] = [ "string", "string" ]
         return result
     def diagnostics(self, dbg):
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
@@ -459,22 +485,6 @@ class SR_server_dispatcher:
     def __init__(self, impl):
         """impl is a proxy object whose methods contain the implementation"""
         self._impl = impl
-    def ls(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        results = self._impl.ls(dbg)
-        if type(results) <> type([]):
-            raise (TypeError("string list", repr(results)))
-        for x in results:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        return results
     def create(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if type(args) <> type({}):
@@ -594,9 +604,7 @@ class SR_server_dispatcher:
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""
         args = params[0]
-        if method == "SR.ls":
-            return success(self.ls(args))
-        elif method == "SR.create":
+        if method == "SR.create":
             return success(self.create(args))
         elif method == "SR.attach":
             return success(self.attach(args))
@@ -610,9 +618,6 @@ class SR_skeleton:
     """Operations which act on Storage Repositories"""
     def __init__(self):
         pass
-    def ls(self, dbg):
-        """Operations which act on Storage Repositories"""
-        raise Unimplemented("SR.ls")
     def create(self, dbg, sr, physical_size):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.create")
@@ -632,11 +637,6 @@ class SR_test:
     """Operations which act on Storage Repositories"""
     def __init__(self):
         pass
-    def ls(self, dbg):
-        """Operations which act on Storage Repositories"""
-        result = {}
-        result["srs"] = [ "string", "string" ]
-        return result
     def create(self, dbg, sr, physical_size):
         """Operations which act on Storage Repositories"""
         result = {}
