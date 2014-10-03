@@ -110,8 +110,8 @@ let _ =
                 "exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
                 "exception_marshal_unmarshal2" >:: exception_marshal_unmarshal2;
                 "sr_scan_request" >:: sr_scan_request;
-                "vdi_attach_request" >:: vdi_attach_request;
                 (*
+                "vdi_attach_request" >:: vdi_attach_request;
                 "vdi_activate_request" >:: vdi_activate_request;
                 *)
                 "vdi_clone_request" >:: vdi_clone_request;

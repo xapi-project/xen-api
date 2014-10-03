@@ -185,6 +185,11 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
+        if type(results['uri']) <> type([]):
+            raise (TypeError("string list", repr(results['uri'])))
+        for x in results['uri']:
+            if type(x) <> type(""):
+                raise (TypeError("string", repr(x)))
         return results
     def snapshot(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -213,6 +218,11 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
+        if type(results['uri']) <> type([]):
+            raise (TypeError("string list", repr(results['uri'])))
+        for x in results['uri']:
+            if type(x) <> type(""):
+                raise (TypeError("string", repr(x)))
         return results
     def clone(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -241,6 +251,11 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
+        if type(results['uri']) <> type([]):
+            raise (TypeError("string list", repr(results['uri'])))
+        for x in results['uri']:
+            if type(x) <> type(""):
+                raise (TypeError("string", repr(x)))
         return results
     def destroy(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -321,38 +336,9 @@ class VDI_server_dispatcher:
             raise (TypeError("int64", repr(results['virtual_size'])))
         if not(is_long(results['physical_utilisation'])):
             raise (TypeError("int64", repr(results['physical_utilisation'])))
-        return results
-    def attach(self, args):
-        """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
-            raise UnmarshalException('argument missing', 'dbg', '')
-        dbg = args["dbg"]
-        if type(dbg) <> type(""):
-            raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('sr')):
-            raise UnmarshalException('argument missing', 'sr', '')
-        sr = args["sr"]
-        if type(sr) <> type(""):
-            raise (TypeError("string", repr(sr)))
-        if not(args.has_key('vdi')):
-            raise UnmarshalException('argument missing', 'vdi', '')
-        vdi = args["vdi"]
-        if type(vdi) <> type(""):
-            raise (TypeError("string", repr(vdi)))
-        results = self._impl.attach(dbg, sr, vdi)
         if type(results['uri']) <> type([]):
             raise (TypeError("string list", repr(results['uri'])))
         for x in results['uri']:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        if type(results['extra_headers']) <> type({}):
-            raise (TypeError("(string * string) list", repr(results['extra_headers'])))
-        for x in results['extra_headers'].keys():
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
-        for x in results['extra_headers'].values():
             if type(x) <> type(""):
                 raise (TypeError("string", repr(x)))
         return results
@@ -404,8 +390,6 @@ class VDI_server_dispatcher:
             return success(self.resize(args))
         elif method == "VDI.stat":
             return success(self.stat(args))
-        elif method == "VDI.attach":
-            return success(self.attach(args))
         elif method == "VDI.copy":
             return success(self.copy(args))
 class VDI_skeleton:
@@ -430,9 +414,6 @@ class VDI_skeleton:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.stat")
-    def attach(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        raise Unimplemented("VDI.attach")
     def copy(self, dbg, sr, vdi, url, dest):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.copy")
@@ -443,17 +424,17 @@ class VDI_test:
     def create(self, dbg, sr, name_label, name_description, size):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
+        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
         return result
     def snapshot(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
+        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
         return result
     def clone(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
+        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
         return result
     def destroy(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
@@ -466,12 +447,7 @@ class VDI_test:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["vdi_info"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
-        return result
-    def attach(self, dbg, sr, vdi):
-        """Operations which operate on Virtual Disk Images"""
-        result = {}
-        result["data"] = { "uri": [ "string", "string" ], "extra_headers": { "string": "string" } }
+        result["vdi_info"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
         return result
     def copy(self, dbg, sr, vdi, url, dest):
         """Operations which operate on Virtual Disk Images"""
@@ -595,7 +571,7 @@ class SR_server_dispatcher:
             raise (TypeError("string", repr(sr)))
         results = self._impl.scan(dbg, sr)
         if type(results) <> type([]):
-            raise (TypeError("88 list", repr(results)))
+            raise (TypeError("87 list", repr(results)))
         for x in results:
             if type(x['vdi']) <> type(""):
                 raise (TypeError("string", repr(x['vdi'])))
@@ -609,6 +585,11 @@ class SR_server_dispatcher:
                 raise (TypeError("int64", repr(x['virtual_size'])))
             if not(is_long(x['physical_utilisation'])):
                 raise (TypeError("int64", repr(x['physical_utilisation'])))
+            if type(x['uri']) <> type([]):
+                raise (TypeError("string list", repr(x['uri'])))
+            for x in x['uri']:
+                if type(x) <> type(""):
+                    raise (TypeError("string", repr(x)))
         return results
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""
@@ -675,7 +656,7 @@ class SR_test:
     def scan(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["vdis"] = [ { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }, { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L } ]
+        result["vdis"] = [ { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }, { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] } ]
         return result
 class storage_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""

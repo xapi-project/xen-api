@@ -9,6 +9,14 @@ let api =
           "read_only", Basic Boolean, "If true then this VDI may not be written to (e.g. it may be a snapshot of another VDI)";
           "virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
           "physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage medium";
+          "uri", Array (Basic String), String.concat "" [
+            "A list of URIs which can be opened and used for I/O. A URI could ";
+            "reference a local block device, a remote NFS share, iSCSI LUN or ";
+            "RBD volume. In cases where the data may be accessed over several ";
+            "protocols, he list should be sorted into descending order of ";
+            "desirability. Xapi will open the most desirable URI for which it has ";
+            "an available datapath driver.";
+          ]
         ]
       )) in
   let vdi_info = Type.Name "vdi_info" in
@@ -22,23 +30,6 @@ let api =
     ty = Type.(Basic String);
     description = "The Virtual Disk Image";
   } in
-  let data_decl =
-    Type.(Struct(
-        ( "uri", Array (Basic String), String.concat "" [
-          "A list of URIs which can be opened and used for I/O. A URI could ";
-          "reference a local block device, a remote NFS share, iSCSI LUN or ";
-          "RBD volume. In cases where the data may be accessed over several ";
-          "protocols, he list should be sorted into descending order of ";
-          "desirability. Xapi will open the most desirable URI for which it has ";
-          "an available datapath driver.";
-        ]),
-        [ "extra_headers", Dict(String, Basic String), String.concat "" [
-          "Additional HTTP headers which will be provided when opening the URI. ";
-          "For example these could be used to pass along an authorization token."
-          ]
-        ]
-      )) in
-  let data = Type.Name "data" in
   let vdi_info' = {
     Arg.name = "vdi_info";
     (*    ty = vdi_info; *)
@@ -117,10 +108,6 @@ let api =
           "change dynamically and can be queried by the VDI.stat call.";
         ];
         ty = vdi_info_decl
-      }; {
-        TyDecl.name = "data";
-        description = "Methods/protocols for accessing the disk data.";
-        ty = data_decl
       }; {
         TyDecl.name = "query_result";
         description = "properties of this implementation";
@@ -274,20 +261,6 @@ let api =
                 { Arg.name = "vdi_info";
                   ty = vdi_info;
                   description = "VDI metadata";
-                }
-              ];
-            };
-             {
-              Method.name = "attach";
-              description = "[attach task sr vdi] returns the [params] for a given [vdi] in [sr]";
-              inputs = [
-                sr;
-                vdi;
-              ];
-              outputs = [
-                { Arg.name = "data";
-                  ty = data;
-                  description = "Methods/protocols for accessing the disk data";
                 }
               ];
             }; {
