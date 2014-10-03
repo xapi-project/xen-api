@@ -302,6 +302,32 @@ class VDI_server_dispatcher:
             raise (TypeError("string", repr(vdi)))
         results = self._impl.destroy(dbg, sr, vdi)
         return results
+    def resize(self, args):
+        """type-check inputs, call implementation, type-check outputs and return"""
+        if type(args) <> type({}):
+            raise (UnmarshalException('arguments', 'dict', repr(args)))
+        if not(args.has_key('dbg')):
+            raise UnmarshalException('argument missing', 'dbg', '')
+        dbg = args["dbg"]
+        if type(dbg) <> type(""):
+            raise (TypeError("string", repr(dbg)))
+        if not(args.has_key('sr')):
+            raise UnmarshalException('argument missing', 'sr', '')
+        sr = args["sr"]
+        if type(sr) <> type(""):
+            raise (TypeError("string", repr(sr)))
+        if not(args.has_key('vdi')):
+            raise UnmarshalException('argument missing', 'vdi', '')
+        vdi = args["vdi"]
+        if type(vdi) <> type(""):
+            raise (TypeError("string", repr(vdi)))
+        if not(args.has_key('new_size')):
+            raise UnmarshalException('argument missing', 'new_size', '')
+        new_size = args["new_size"]
+        if not(is_long(new_size)):
+            raise (TypeError("int64", repr(new_size)))
+        results = self._impl.resize(dbg, sr, vdi, new_size)
+        return results
     def stat(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if type(args) <> type({}):
@@ -352,11 +378,6 @@ class VDI_server_dispatcher:
         dbg = args["dbg"]
         if type(dbg) <> type(""):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('dp')):
-            raise UnmarshalException('argument missing', 'dp', '')
-        dp = args["dp"]
-        if type(dp) <> type(""):
-            raise (TypeError("string", repr(dp)))
         if not(args.has_key('sr')):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
@@ -372,7 +393,7 @@ class VDI_server_dispatcher:
         read_write = args["read_write"]
         if type(read_write) <> type(True):
             raise (TypeError("bool", repr(read_write)))
-        results = self._impl.attach(dbg, dp, sr, vdi, read_write)
+        results = self._impl.attach(dbg, sr, vdi, read_write)
         if type(results['uri']) <> type(""):
             raise (TypeError("string", repr(results['uri'])))
         if type(results['extra_headers']) <> type({}):
@@ -393,11 +414,6 @@ class VDI_server_dispatcher:
         dbg = args["dbg"]
         if type(dbg) <> type(""):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('dp')):
-            raise UnmarshalException('argument missing', 'dp', '')
-        dp = args["dp"]
-        if type(dp) <> type(""):
-            raise (TypeError("string", repr(dp)))
         if not(args.has_key('sr')):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
@@ -408,7 +424,7 @@ class VDI_server_dispatcher:
         vdi = args["vdi"]
         if type(vdi) <> type(""):
             raise (TypeError("string", repr(vdi)))
-        results = self._impl.activate(dbg, dp, sr, vdi)
+        results = self._impl.activate(dbg, sr, vdi)
         return results
     def deactivate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -419,11 +435,6 @@ class VDI_server_dispatcher:
         dbg = args["dbg"]
         if type(dbg) <> type(""):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('dp')):
-            raise UnmarshalException('argument missing', 'dp', '')
-        dp = args["dp"]
-        if type(dp) <> type(""):
-            raise (TypeError("string", repr(dp)))
         if not(args.has_key('sr')):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
@@ -434,7 +445,7 @@ class VDI_server_dispatcher:
         vdi = args["vdi"]
         if type(vdi) <> type(""):
             raise (TypeError("string", repr(vdi)))
-        results = self._impl.deactivate(dbg, dp, sr, vdi)
+        results = self._impl.deactivate(dbg, sr, vdi)
         return results
     def detach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -445,11 +456,6 @@ class VDI_server_dispatcher:
         dbg = args["dbg"]
         if type(dbg) <> type(""):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('dp')):
-            raise UnmarshalException('argument missing', 'dp', '')
-        dp = args["dp"]
-        if type(dp) <> type(""):
-            raise (TypeError("string", repr(dp)))
         if not(args.has_key('sr')):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
@@ -460,7 +466,7 @@ class VDI_server_dispatcher:
         vdi = args["vdi"]
         if type(vdi) <> type(""):
             raise (TypeError("string", repr(vdi)))
-        results = self._impl.detach(dbg, dp, sr, vdi)
+        results = self._impl.detach(dbg, sr, vdi)
         return results
     def copy(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -506,6 +512,8 @@ class VDI_server_dispatcher:
             return success(self.clone(args))
         elif method == "VDI.destroy":
             return success(self.destroy(args))
+        elif method == "VDI.resize":
+            return success(self.resize(args))
         elif method == "VDI.stat":
             return success(self.stat(args))
         elif method == "VDI.attach":
@@ -534,19 +542,22 @@ class VDI_skeleton:
     def destroy(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.destroy")
+    def resize(self, dbg, sr, vdi, new_size):
+        """Operations which operate on Virtual Disk Images"""
+        raise Unimplemented("VDI.resize")
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.stat")
-    def attach(self, dbg, dp, sr, vdi, read_write):
+    def attach(self, dbg, sr, vdi, read_write):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.attach")
-    def activate(self, dbg, dp, sr, vdi):
+    def activate(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.activate")
-    def deactivate(self, dbg, dp, sr, vdi):
+    def deactivate(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.deactivate")
-    def detach(self, dbg, dp, sr, vdi):
+    def detach(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         raise Unimplemented("VDI.detach")
     def copy(self, dbg, sr, vdi, url, dest):
@@ -575,25 +586,29 @@ class VDI_test:
         """Operations which operate on Virtual Disk Images"""
         result = {}
         return result
+    def resize(self, dbg, sr, vdi, new_size):
+        """Operations which operate on Virtual Disk Images"""
+        result = {}
+        return result
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["vdi_info"] = { "vdi": "string", "content_id": "string", "name_label": "string", "name_description": "string", "is_a_snapshot": True, "snapshot_time": "string", "snapshot_of": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L }
         return result
-    def attach(self, dbg, dp, sr, vdi, read_write):
+    def attach(self, dbg, sr, vdi, read_write):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         result["device"] = { "uri": "string", "extra_headers": { "string": "string" } }
         return result
-    def activate(self, dbg, dp, sr, vdi):
+    def activate(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         return result
-    def deactivate(self, dbg, dp, sr, vdi):
+    def deactivate(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         return result
-    def detach(self, dbg, dp, sr, vdi):
+    def detach(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
         return result

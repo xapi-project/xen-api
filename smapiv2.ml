@@ -298,12 +298,8 @@ let api =
             };
              {
               Method.name = "attach";
-              description = "[attach task dp sr vdi read_write] returns the [params] for a given [vdi] in [sr] which can be written to if (but not necessarily only if) [read_write] is true";
+              description = "[attach task sr vdi read_write] returns the [params] for a given [vdi] in [sr] which can be written to if (but not necessarily only if) [read_write] is true";
               inputs = [
-                { Arg.name = "dp";
-                  ty = Type.(Basic String);
-                  description = "DataPath to attach this VDI for";
-                };
                 sr;
                 vdi;
                 { Arg.name = "read_write";
@@ -319,12 +315,8 @@ let api =
               ];
             }; {
               Method.name = "activate";
-              description = "[activate task dp sr vdi] signals the desire to immediately use [vdi]. This client must have called [attach] on the [vdi] first.";
+              description = "[activate task sr vdi] signals the desire to immediately use [vdi]. This client must have called [attach] on the [vdi] first.";
               inputs = [
-                { Arg.name = "dp";
-                  ty = Type.(Basic String);
-                  description = "DataPath to attach this VDI for";
-                };
                 sr;
                 vdi;
               ];
@@ -332,12 +324,8 @@ let api =
               ];
             }; {
               Method.name = "deactivate";
-              description = "[deactivate task dp sr vdi] signals that this client has stopped reading (and writing) [vdi].";
+              description = "[deactivate task sr vdi] signals that this client has stopped reading (and writing) [vdi].";
               inputs = [
-                { Arg.name = "dp";
-                  ty = Type.(Basic String);
-                  description = "DataPath to deactivate";
-                };
                 sr;
                 vdi;
               ];
@@ -345,12 +333,8 @@ let api =
               ];
             }; {
               Method.name = "detach";
-              description = "[detach task dp sr vdi] signals that this client no-longer needs the [params] to be valid.";
+              description = "[detach task sr vdi] signals that this client no-longer needs the [params] to be valid.";
               inputs = [
-                { Arg.name = "dp";
-                  ty = Type.(Basic String);
-                  description = "DataPath to detach";
-                };
                 sr;
                 vdi;
               ];
