@@ -51,7 +51,7 @@ class Sr_attached(Rpc_light_failure):
         if type(arg_0) <> type(""):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
-class Query_server_dispatcher:
+class Driver_server_dispatcher:
     """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self, impl):
         """impl is a proxy object whose methods contain the implementation"""
@@ -110,21 +110,21 @@ class Query_server_dispatcher:
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""
         args = params[0]
-        if method == "Query.query":
+        if method == "Driver.query":
             return success(self.query(args))
-        elif method == "Query.diagnostics":
+        elif method == "Driver.diagnostics":
             return success(self.diagnostics(args))
-class Query_skeleton:
+class Driver_skeleton:
     """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self):
         pass
     def query(self, dbg):
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
-        raise Unimplemented("Query.query")
+        raise Unimplemented("Driver.query")
     def diagnostics(self, dbg):
         """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
-        raise Unimplemented("Query.diagnostics")
-class Query_test:
+        raise Unimplemented("Driver.diagnostics")
+class Driver_test:
     """Discover properties of this implementation. Every implementation must support the query interface or it will not be recognised as a storage manager by xapi."""
     def __init__(self):
         pass
@@ -684,15 +684,15 @@ class SR_test:
         return result
 class storage_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""
-    def __init__(self, Query = None, VDI = None, SR = None):
-        self.Query = Query
+    def __init__(self, Driver = None, VDI = None, SR = None):
+        self.Driver = Driver
         self.VDI = VDI
         self.SR = SR
     def _dispatch(self, method, params):
         try:
             log("method = %s params = %s" % (method, repr(params)))
-            if method.startswith("Query") and self.Query:
-                return self.Query._dispatch(method, params)
+            if method.startswith("Driver") and self.Driver:
+                return self.Driver._dispatch(method, params)
             elif method.startswith("VDI") and self.VDI:
                 return self.VDI._dispatch(method, params)
             elif method.startswith("SR") and self.SR:
@@ -711,4 +711,4 @@ class storage_server_dispatcher:
 class storage_server_test(storage_server_dispatcher):
     """Create a server which will respond to all calls, returning arbitrary values. This is intended as a marshal/unmarshal test."""
     def __init__(self):
-        storage_server_dispatcher.__init__(self, Query_server_dispatcher(Query_test()), VDI_server_dispatcher(VDI_test()), SR_server_dispatcher(SR_test()))
+        storage_server_dispatcher.__init__(self, Driver_server_dispatcher(Driver_test()), VDI_server_dispatcher(VDI_test()), SR_server_dispatcher(SR_test()))

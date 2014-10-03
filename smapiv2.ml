@@ -140,7 +140,7 @@ let api =
     interfaces =
       [
         {
-          Interface.name = "Query";
+          Interface.name = "Driver";
           description = String.concat "" [
             "Discover properties of this implementation. Every implementation ";
             "must support the query interface or it will not be recognised as ";
