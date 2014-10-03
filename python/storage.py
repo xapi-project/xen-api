@@ -199,23 +199,8 @@ class VDI_server_dispatcher:
         if not(is_long(size)):
             raise (TypeError("int64", repr(size)))
         results = self._impl.create(dbg, sr, name_label, name_description, size)
-        if type(results['vdi']) <> type(""):
-            raise (TypeError("string", repr(results['vdi'])))
-        if type(results['name']) <> type(""):
-            raise (TypeError("string", repr(results['name'])))
-        if type(results['description']) <> type(""):
-            raise (TypeError("string", repr(results['description'])))
-        if type(results['read_only']) <> type(True):
-            raise (TypeError("bool", repr(results['read_only'])))
-        if not(is_long(results['virtual_size'])):
-            raise (TypeError("int64", repr(results['virtual_size'])))
-        if not(is_long(results['physical_utilisation'])):
-            raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['uri']) <> type([]):
-            raise (TypeError("string list", repr(results['uri'])))
-        for x in results['uri']:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
+        if type(results) <> type(""):
+            raise (TypeError("string", repr(results)))
         return results
     def snapshot(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -232,23 +217,8 @@ class VDI_server_dispatcher:
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
         results = self._impl.snapshot(dbg, sr)
-        if type(results['vdi']) <> type(""):
-            raise (TypeError("string", repr(results['vdi'])))
-        if type(results['name']) <> type(""):
-            raise (TypeError("string", repr(results['name'])))
-        if type(results['description']) <> type(""):
-            raise (TypeError("string", repr(results['description'])))
-        if type(results['read_only']) <> type(True):
-            raise (TypeError("bool", repr(results['read_only'])))
-        if not(is_long(results['virtual_size'])):
-            raise (TypeError("int64", repr(results['virtual_size'])))
-        if not(is_long(results['physical_utilisation'])):
-            raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['uri']) <> type([]):
-            raise (TypeError("string list", repr(results['uri'])))
-        for x in results['uri']:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
+        if type(results) <> type(""):
+            raise (TypeError("string", repr(results)))
         return results
     def clone(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -265,23 +235,8 @@ class VDI_server_dispatcher:
         if type(sr) <> type(""):
             raise (TypeError("string", repr(sr)))
         results = self._impl.clone(dbg, sr)
-        if type(results['vdi']) <> type(""):
-            raise (TypeError("string", repr(results['vdi'])))
-        if type(results['name']) <> type(""):
-            raise (TypeError("string", repr(results['name'])))
-        if type(results['description']) <> type(""):
-            raise (TypeError("string", repr(results['description'])))
-        if type(results['read_only']) <> type(True):
-            raise (TypeError("bool", repr(results['read_only'])))
-        if not(is_long(results['virtual_size'])):
-            raise (TypeError("int64", repr(results['virtual_size'])))
-        if not(is_long(results['physical_utilisation'])):
-            raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['uri']) <> type([]):
-            raise (TypeError("string list", repr(results['uri'])))
-        for x in results['uri']:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
+        if type(results) <> type(""):
+            raise (TypeError("string", repr(results)))
         return results
     def destroy(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -350,23 +305,8 @@ class VDI_server_dispatcher:
         if type(vdi) <> type(""):
             raise (TypeError("string", repr(vdi)))
         results = self._impl.stat(dbg, sr, vdi)
-        if type(results['vdi']) <> type(""):
-            raise (TypeError("string", repr(results['vdi'])))
-        if type(results['name']) <> type(""):
-            raise (TypeError("string", repr(results['name'])))
-        if type(results['description']) <> type(""):
-            raise (TypeError("string", repr(results['description'])))
-        if type(results['read_only']) <> type(True):
-            raise (TypeError("bool", repr(results['read_only'])))
-        if not(is_long(results['virtual_size'])):
-            raise (TypeError("int64", repr(results['virtual_size'])))
-        if not(is_long(results['physical_utilisation'])):
-            raise (TypeError("int64", repr(results['physical_utilisation'])))
-        if type(results['uri']) <> type([]):
-            raise (TypeError("string list", repr(results['uri'])))
-        for x in results['uri']:
-            if type(x) <> type(""):
-                raise (TypeError("string", repr(x)))
+        if type(results) <> type(""):
+            raise (TypeError("string", repr(results)))
         return results
     def copy(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
@@ -450,17 +390,17 @@ class VDI_test:
     def create(self, dbg, sr, name_label, name_description, size):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
+        result["new_vdi"] = "string"
         return result
     def snapshot(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
+        result["new_vdi"] = "string"
         return result
     def clone(self, dbg, sr):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["new_vdi"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
+        result["new_vdi"] = "string"
         return result
     def destroy(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
@@ -473,7 +413,7 @@ class VDI_test:
     def stat(self, dbg, sr, vdi):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["vdi_info"] = { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }
+        result["vdi_info"] = "string"
         return result
     def copy(self, dbg, sr, vdi, url, dest):
         """Operations which operate on Virtual Disk Images"""

@@ -19,7 +19,7 @@ let api =
           ]
         ]
       )) in
-  let vdi_info = Type.Name "vdi_info" in
+  let vdi_info = Type.Name "vdi" in
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
@@ -29,12 +29,6 @@ let api =
     Arg.name = "vdi";
     ty = Type.(Basic String);
     description = "The Virtual Disk Image";
-  } in
-  let vdi_info' = {
-    Arg.name = "vdi_info";
-    (*    ty = vdi_info; *)
-    ty = Type.Name "vdi_info";
-    description = "The Virtual Disk Image properties";
   } in
   let params = {
     Arg.name = "params";
@@ -345,7 +339,10 @@ let api =
             };
              {
               Method.name = "scan";
-              description = "[scan task sr] returns a list of VDIs contained within an attached SR";
+              description = String.concat " " [
+                "[scan sr] returns a paginated list of VDIs";
+                "contained within an attached SR.";
+              ];
               inputs = [
                 sr;
               ];
