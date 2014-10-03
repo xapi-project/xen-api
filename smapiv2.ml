@@ -88,10 +88,6 @@ let api =
         description = "The task has been asynchronously cancelled";
         ty = Type.(Basic String);
       }; {
-        TyDecl.name = "Redirect";
-        description = "The request should be resent to this address";
-        ty = Type.(Basic String);
-      }; {
         TyDecl.name = "Sr_attached";
         description = "The operation cannot be performed because the SR is still attached";
         ty = Type.(Basic String)

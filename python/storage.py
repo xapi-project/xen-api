@@ -45,12 +45,6 @@ class Cancelled(Rpc_light_failure):
         if type(arg_0) <> type(""):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
-class Redirect(Rpc_light_failure):
-    def __init__(self, arg_0):
-        Rpc_light_failure.__init__(self, "Redirect", [ arg_0 ])
-        if type(arg_0) <> type(""):
-            raise (TypeError("string", repr(arg_0)))
-        self.arg_0 = arg_0
 class Sr_attached(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Sr_attached", [ arg_0 ])
@@ -606,7 +600,7 @@ class SR_server_dispatcher:
             raise (TypeError("string", repr(sr)))
         results = self._impl.scan(dbg, sr)
         if type(results) <> type([]):
-            raise (TypeError("89 list", repr(results)))
+            raise (TypeError("88 list", repr(results)))
         for x in results:
             if type(x['vdi']) <> type(""):
                 raise (TypeError("string", repr(x['vdi'])))
