@@ -362,8 +362,11 @@ class VDI_server_dispatcher:
         if type(read_write) <> type(True):
             raise (TypeError("bool", repr(read_write)))
         results = self._impl.attach(dbg, sr, vdi, read_write)
-        if type(results['uri']) <> type(""):
-            raise (TypeError("string", repr(results['uri'])))
+        if type(results['uri']) <> type([]):
+            raise (TypeError("string list", repr(results['uri'])))
+        for x in results['uri']:
+            if type(x) <> type(""):
+                raise (TypeError("string", repr(x)))
         if type(results['extra_headers']) <> type({}):
             raise (TypeError("(string * string) list", repr(results['extra_headers'])))
         for x in results['extra_headers'].keys():
@@ -488,7 +491,7 @@ class VDI_test:
     def attach(self, dbg, sr, vdi, read_write):
         """Operations which operate on Virtual Disk Images"""
         result = {}
-        result["data"] = { "uri": "string", "extra_headers": { "string": "string" } }
+        result["data"] = { "uri": [ "string", "string" ], "extra_headers": { "string": "string" } }
         return result
     def copy(self, dbg, sr, vdi, url, dest):
         """Operations which operate on Virtual Disk Images"""

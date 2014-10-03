@@ -24,10 +24,13 @@ let api =
   } in
   let data_decl =
     Type.(Struct(
-        ( "uri", Basic String, String.concat "" [
-          "A URI which can be opened and used for I/O. For example this could ";
+        ( "uri", Array (Basic String), String.concat "" [
+          "A list of URIs which can be opened and used for I/O. A URI could ";
           "reference a local block device, a remote NFS share, iSCSI LUN or ";
-          "RBD volume.";
+          "RBD volume. In cases where the data may be accessed over several ";
+          "protocols, he list should be sorted into descending order of ";
+          "desirability. Xapi will open the most desirable URI for which it has ";
+          "an available datapath driver.";
         ]),
         [ "extra_headers", Dict(String, Basic String), String.concat "" [
           "Additional HTTP headers which will be provided when opening the URI. ";
