@@ -1,3 +1,12 @@
+0.9.5 (27-Sep-2014):
+* Add man page and standard command-line options
+* Use libnl to read stats from interfaces
+* CA-137227: Checking xen-backend in link of /sys/class/net/*/device/...
+* Don't let naughty dhcp servers trick us into setting default routes
+* Don't record RRDs for the "ovs-system" interface
+* CA-137591: Removing all the interfaces before bringing the bridge down
+* CA-140402: set max-idle to 5000ms on OVS
+
 0.9.4 (3-Jun-2014):
 * Use oasis for building
 * Update to new stdext interface
