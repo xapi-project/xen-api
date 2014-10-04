@@ -529,12 +529,10 @@ class SR_server_dispatcher:
                 raise (TypeError("string", repr(x['name'])))
             if type(x['description']) <> type(""):
                 raise (TypeError("string", repr(x['description'])))
-            if type(x['read_only']) <> type(True):
-                raise (TypeError("bool", repr(x['read_only'])))
+            if type(x['read_write']) <> type(True):
+                raise (TypeError("bool", repr(x['read_write'])))
             if not(is_long(x['virtual_size'])):
                 raise (TypeError("int64", repr(x['virtual_size'])))
-            if not(is_long(x['physical_utilisation'])):
-                raise (TypeError("int64", repr(x['physical_utilisation'])))
             if type(x['uri']) <> type([]):
                 raise (TypeError("string list", repr(x['uri'])))
             for x in x['uri']:
@@ -596,7 +594,7 @@ class SR_test:
     def scan(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["vdis"] = [ { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] }, { "vdi": "string", "name": "string", "description": "string", "read_only": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ] } ]
+        result["vdis"] = [ { "vdi": "string", "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "uri": [ "string", "string" ] }, { "vdi": "string", "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "uri": [ "string", "string" ] } ]
         return result
 class storage_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""

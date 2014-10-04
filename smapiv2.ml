@@ -3,12 +3,30 @@ open Types
 let api =
   let vdi_info_decl =
     Type.(Struct(
-        ( "vdi", Name "vdi", "A primary key for this VDI. This must be unique within a Storage Repository, but may not be unique between Storage Respositories." ),
-        [ "name", Basic String, "Short, human-readable label for the VDI";
-          "description", Basic String, "Longer, human-readable description of the VDI";
-          "read_only", Basic Boolean, "If true then this VDI may not be written to (e.g. it may be a snapshot of another VDI)";
-          "virtual_size", Basic Int64, "Size of the VDI from the perspective of a VM (in bytes)";
-          "physical_utilisation", Basic Int64, "Amount of space currently being consumed on the physical storage medium";
+        ( "vdi", Name "vdi", String.concat " " [
+          "A primary key for this Virtual Disk Image (VDI). This must be unique";
+          "within the enclosing Storage Repository (SR). A typical value would";
+          "be a filename or an LVM volume name."
+          ]),
+        [ "name", Basic String, String.concat " " [
+          "Short, human-readable label for the VDI. Names are commonly used by";
+          "when displaying short lists of VDIs.";
+          ];
+          "description", Basic String, String.concat " " [
+            "Longer, human-readable description of the VDI. Descriptions are";
+            "generally only displayed by clients when the user is examining";
+            "VDIs individually.";
+          ];
+          "read_write", Basic Boolean, String.concat " " [
+            "True means the VDI may be written to, false means the VDI is";
+            "read-only. Some storage media is read-only so all volumes are";
+            "read-only; for example .iso disk images on an NFS share. Some";
+            "VDIs are created read-only; for example because they are snapshots";
+            "of some other VDI.";
+          ];
+          "virtual_size", Basic Int64, String.concat " " [
+            "Size of the VDI from the perspective of a VM (in bytes)";
+          ];
           "uri", Array (Basic String), String.concat "" [
             "A list of URIs which can be opened and used for I/O. A URI could ";
             "reference a local block device, a remote NFS share, iSCSI LUN or ";
