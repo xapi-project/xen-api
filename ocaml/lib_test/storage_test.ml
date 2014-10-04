@@ -48,9 +48,8 @@ let check_request_parser f relative_path =
 
 let check_sr_request_parser = check_request_parser Control.Types.SR.In.of_call
 
-let sr_attach_request _ = check_sr_request_parser "sr.attach/request"
 let sr_detach_request _ = check_sr_request_parser "sr.detach/request"
-let sr_scan_request   _ = check_sr_request_parser "sr.scan/request"
+let sr_ls_request   _ = check_sr_request_parser "sr.ls/request"
 
 let check_volume_request_parser = check_request_parser Control.Types.Volume.In.of_call
 
@@ -58,13 +57,6 @@ let volume_clone_request      _ = check_volume_request_parser "volume.clone/requ
 let volume_create_request     _ = check_volume_request_parser "volume.create/request"
 let volume_destroy_request    _ = check_volume_request_parser "volume.destroy/request"
 let volume_snapshot_request   _ = check_volume_request_parser "volume.snapshot/request"
-
-let sr_attach_response _ =
-  let xml = readfile (base_path ^ "sr.attach/response") in
-  let resp = Xmlrpc.response_of_string xml in
-  match Control.result_of_response resp with
-  | `Ok x -> let (_: Control.Types.SR.Attach.Out.t) = Control.Types.SR.Attach.Out.t_of_rpc x in ()
-  | `Error e -> raise e
 
 let sr_detach_response _ =
   let xml = readfile (base_path ^ "sr.detach/response") in
@@ -91,12 +83,10 @@ let _ =
 
   let suite = "xen-api" >:::
               [
-                "sr_attach_request" >:: sr_attach_request;
-                "sr_attach_response" >:: sr_attach_response;
                 "sr_detach_request" >:: sr_detach_request;
                 "sr_detach_response" >:: sr_detach_request;
                 "exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
-                "sr_scan_request" >:: sr_scan_request;
+                "sr_ls_request" >:: sr_ls_request;
                 "volume_clone_request" >:: volume_clone_request;
                 "volume_create_request" >:: volume_create_request;
                 "volume_destroy_request" >:: volume_destroy_request;

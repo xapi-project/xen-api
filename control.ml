@@ -48,6 +48,11 @@ let api =
     ty = Type.(Basic String);
     description = "The volume key";
   } in
+  let uri = {
+    Arg.name = "uri";
+    ty = Type.(Basic String);
+    description = "The Storage Repository URI";
+  } in
   {
     Interfaces.name = "control";
     title = "The storage control-plane";
@@ -316,37 +321,40 @@ let api =
           methods = [
             {
               Method.name = "create";
-              description = "[create task sr device_config physical_size]: creates a fresh SR";
+              description = "[create uri configuration]: creates a fresh SR";
               inputs = [
-                sr;
-                (*
-                { Arg.name = "device_config";
+                uri;
+                { Arg.name = "configuration";
                   ty = Type.(Dict(String, Basic String));
-                  description = "Host-local SR configuration (e.g. address information)";
+                  description = String.concat " " [
+                    "Driver-specific configuration which describes where and";
+                    "how to create the storage repository. This may include";
+                    "the physical block device name, a remote NFS server and";
+                    "path or an RBD storage pool.";
+                  ];
                 };
-                *)
-                { Arg.name = "physical_size";
-                  ty = Type.(Basic Int64);
-                  description = "Requested maximum size of the SR (bytes)"
-                }
               ];
               outputs = []
             };
             {
               Method.name = "attach";
-              description = "[attach task sr]: attaches the SR";
+              description = String.concat " "[
+                "[attach uri]: attaches the SR to the local host. Once an SR";
+                "is attached then volumes may be manipulated.";
+              ];
               inputs = [
-                sr;
-                { Arg.name = "device_config";
-                  ty = Type.(Dict(String, Basic String));
-                  description = "Host-local SR configuration (e.g. address information)";
-                };
+                uri;
               ];
               outputs = [
+                sr;
               ];
             }; {
               Method.name = "detach";
-              description = "[detach task sr]: detaches the SR, first detaching and/or deactivating any active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach or VDI.deactivate.";
+              description = String.concat " " [
+                "[detach sr]: detaches the SR, clearing up any associated";
+                "resources. Once the SR is detached then volumes may not be";
+                "manipulated.";
+              ];
               inputs = [
                 sr;
               ];
@@ -354,7 +362,11 @@ let api =
               ];
             }; {
               Method.name = "destroy";
-              description = "[destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr], first detaching and/or deactivating any active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach or VDI.deactivate.";
+              description = String.concat " "[
+                "[destroy sr]: destroys the [sr] and deletes any volumes";
+                "associated with it. Note that an SR must be attached to be";
+                "destroyed; otherwise Sr_not_attached is thrown.";
+              ];
               inputs = [
                 sr;
               ];
@@ -362,9 +374,9 @@ let api =
               ];
             };
              {
-              Method.name = "scan";
+              Method.name = "ls";
               description = String.concat " " [
-                "[scan sr] returns a paginated list of volumes";
+                "[ls sr] returns a list of volumes";
                 "contained within an attached SR.";
               ];
               inputs = [
