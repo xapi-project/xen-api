@@ -167,7 +167,8 @@ let cmdliner_of_method env i m =
       Block ([
         ] @ (List.concat (List.map of_arg m.Method.inputs)
         ) @ [
-          Line (Printf.sprintf "Term.(pure In.make $ %s)"
+          Line "let ($) = Term.($) in";
+          Line (Printf.sprintf "Term.pure In.make $ %s"
             (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
         ]);
     ] in

@@ -132,7 +132,7 @@ let api =
           description = String.concat "" [
             "Discover properties of this implementation. Every implementation ";
             "must support the query interface or it will not be recognised as ";
-            "a storage manager by xapi.";
+            "a storage driver by xapi.";
           ];
           type_decls = [
           ];
@@ -191,58 +191,85 @@ let api =
           methods = [
             {
               Method.name = "create";
-              description = "[create task sr volume params] creates a new volume in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
+              description = String.concat " " [
+                "[create sr name description size] creates a new volume in [sr]";
+                "with [name] and [description]. The volume will have size";
+                ">= [size] i.e. it is always permissable for an implementation";
+                "to round-up the volume to the nearest convenient block size";
+              ];
               inputs = [
                 sr;
                 {
-                  Arg.name = "name_label";
+                  Arg.name = "name";
                   ty = Basic String;
-                  description = "A human-readable name to associate with the new disk. This name is intended to be short, to be a good summary of the disk."
+                  description = String.concat " " [
+                    "A human-readable name to associate with the new disk. This";
+                    "name is intended to be short, to be a good summary of the";
+                    "disk."
+                  ]
                 };
                 {
-                  Arg.name = "name_description";
+                  Arg.name = "description";
                   ty = Basic String;
-                  description = "A human-readable description to associate with the new disk. This can be arbitrarily long, up to the general string size limit."
+                  description = String.concat " " [
+                    "A human-readable description to associate with the new";
+                    "disk. This can be arbitrarily long, up to the general";
+                    "string size limit."
+                  ]
                 };
                 {
                   Arg.name = "size";
                   ty = Basic Int64;
-                  description = "A minimum size (in bytes) for the disk. Depending on the characteristics of the implementation this may be rounded up to (for example) the nearest convenient block size. The created disk will not be smaller than this size.";
+                  description = String.concat " " [
+                    "A minimum size (in bytes) for the disk. Depending on the";
+                    "characteristics of the implementation this may be rounded";
+                    "up to (for example) the nearest convenient block size. The";
+                    "created disk will not be smaller than this size.";
+                  ]
                 };
               ];
               outputs = [
-                { Arg.name = "new_volume";
+                { Arg.name = "volume";
                   ty = volume;
-                  description = "The created Virtual Disk Image";
+                  description = "Properties of the created volume";
                 }
               ];
             }; {
               Method.name = "snapshot";
-              description = "[snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
+              description = String.concat " " [
+                "[snapshot sr volume] creates a new volue which is a ";
+                "snapshot of [volume] in [sr]. Snapshots should never be";
+                "written to; they are intended for backup/restore only.";
+              ];
               inputs = [
                 sr;
+                key;
               ];
               outputs = [
-                { Arg.name = "new_volume";
+                { Arg.name = "volume";
                   ty = volume;
-                  description = "[snapshot task sr vdi_info params] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
+                  description = "Properties of the created volume";
                 }
               ];
             }; {
               Method.name = "clone";
-              description = "[clone task sr vdi_info] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
+              description = String.concat " " [
+                "[clone sr volume] creates a new volume which is a writable";
+                "clone of [volume] in [sr].";
+              ];
               inputs = [
                 sr;
+                key;
               ];
               outputs = [
-                { Arg.name = "new_volume";
+                { Arg.name = "volume";
                   ty = volume;
-                  description = "[clone task sr vdi_info params] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
+                  description = "Properties of the created volume";
                 }
               ];
             }; {
               Method.name = "destroy";
-              description = "[destroy task sr vdi] removes [vdi] from [sr]";
+              description = "[destroy sr volume] removes [volume] from [sr]";
               inputs = [
                 sr;
                 key;
@@ -251,7 +278,10 @@ let api =
               ];
             }; {
               Method.name = "resize";
-              description = "[resize task sr vdi new_size] enlarges [vdi] to be at least [new_size].";
+              description = String.concat " " [
+                "[resize sr volume new_size] enlarges [volume] to be at least";
+                "[new_size].";
+              ];
               inputs = [
                 sr;
                 key;
@@ -264,7 +294,9 @@ let api =
               ];
             }; {
               Method.name = "stat";
-              description = "[stat task sr vdi] returns metadata associated with VDI [vdi] in SR [sr].";
+              description = String.concat " " [
+                "[stat sr volume] returns metadata associated with [volume].";
+              ];
               inputs = [
                 sr;
                 key;
@@ -274,21 +306,6 @@ let api =
                   ty = volume;
                   description = "Volume metadata";
                 }
-              ];
-            }; {
-              Method.name = "copy";
-              description = "[copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2]";
-              inputs = [
-                sr;
-                key;
-                { Arg.name = "url";
-                  ty = Type.(Basic String);
-                  description = "URL which identifies a remote system";
-                };
-                { sr with Arg.name = "dest" };
-              ];
-              outputs = [
-                { key with Arg.name = "new_volume" }
               ];
             };
           ]
