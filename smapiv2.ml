@@ -49,16 +49,16 @@ let api =
     description = "The volume key";
   } in
   {
-    Interfaces.name = "storage";
-    title = "Storage Manager";
+    Interfaces.name = "control";
+    title = "The storage control-plane";
     description =
       String.concat "" [
         "The xapi toolstack delegates all storage control-plane functions to ";
-        "the Storage Manager (SM). The SM organises volumes (also known as Virtual Disk Images)";
-        "into collections known as Storage Repositories (SRs). The Storage ";
-        "Manager API (SMAPI) provides a simple abstract interface which allows ";
-        "the toolstack to create, destroy, snapshot, clone, resize etc volumes ";
-        "within SRs";
+        "\"drivers\", also known as \"Storage Manager plugins\". These drivers";
+        "allow the toolstack to create/destroy/snapshot/clone volumes which";
+        "are organised into groups called Storage Repositories (SR). Volumes";
+        "have a set of URIs which can be used by the storage data-plane to";
+        "read and write the disk data.";
       ];
     exn_decls = [
       {
@@ -66,38 +66,31 @@ let api =
         description = "An SR must be attached in order to access volumes";
         ty = Type.(Basic String)
       }; {
+        TyDecl.name = "SR_does_not_exist";
+        description = "The specified SR could not be found";
+        ty = Type.(Basic String)
+      }; {
         TyDecl.name = "Volume_does_not_exist";
         description = "The specified volume could not be found in the SR";
         ty = Type.(Basic String)
-      }; {
-        TyDecl.name = "Backend_error";
-        description = "A backend-specific error occurred";
-        ty = Type.(Pair(Basic String, Array (Basic String)));
       }; {
         TyDecl.name = "Unimplemented";
         description = "The operation has not been implemented";
         ty = Type.(Basic String);
       }; {
-        TyDecl.name = "Does_not_exist";
-        description = "The object does not exist";
-        ty = Type.(Pair(Basic String, Basic String));
-      }; {
         TyDecl.name = "Cancelled";
         description = "The task has been asynchronously cancelled";
         ty = Type.(Basic String);
-      }; {
-        TyDecl.name = "Sr_attached";
-        description = "The operation cannot be performed because the SR is still attached";
-        ty = Type.(Basic String)
-      }
+      };
     ];
     type_decls = [
       {
         TyDecl.name = "key";
-        description = String.concat "" [
-          "Primary key for a volume. This can be any string which ";
-          "is meaningful to the implementation. For example this could be an ";
-          "NFS filename, an LVM LV name or even a URI.";
+        description = String.concat " " [
+          "Primary key for a volume. This can be any string which";
+          "is meaningful to the implementation. For example this could be an";
+          "NFS filename, an LVM LV name or even a URI. This string is";
+          "abstract."
           ];
         ty = Type.(Basic String);
       }; {
@@ -106,6 +99,7 @@ let api =
           "Primary key for a specific Storage Repository. This can be any ";
           "string which is meaningful to the implementation. For example this ";
           "could be an NFS directory name, an LVM VG name or even a URI.";
+          "This string is abstract.";
         ];
         ty = Type.(Basic String);
       }; {
