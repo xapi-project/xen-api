@@ -17,6 +17,8 @@ open OUnit
 let ( |> ) a b = b a
 let id x = x
 
+open Storage
+
 open Control
 
 module S = (SR_test(Lwt): SR with type 'a t = 'a Lwt.t)

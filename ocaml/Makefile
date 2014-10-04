@@ -1,23 +1,14 @@
 .PHONY: all clean install build
 all: build test doc
 
-NAME=xapi-idl
-
-LWT ?= $(shell if ocamlfind query lwt.ssl >/dev/null 2>&1; then echo --enable-lwt; fi)
-ASYNC ?= $(shell if ocamlfind query async_core >/dev/null 2>&1; then echo --enable-async; fi)
-MIRAGE ?= $(shell if ocamlfind query mirage-net >/dev/null 2>&1; then echo --enable-mirage; fi)
-ifneq ($(MIRAGE_OS),xen)
-TESTS ?= --enable-tests
-endif
-# disabled by default as they hang at the moment for Async
-# NETTESTS ?= --enable-nettests
+NAME=xapi-storage
 
 setup.bin: setup.ml
 	ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
 	rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	./setup.bin -configure $(LWT) $(TESTS) $(ASYNC) #$(MIRAGE) $(NETTESTS)
+	./setup.bin -configure --enable-tests
 
 build: setup.data setup.bin
 	./setup.bin -build

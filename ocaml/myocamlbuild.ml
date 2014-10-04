@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 6866da2c921d7f2cd7cf3783cd3c3da3) *)
+(* DO NOT EDIT (digest: b7ee55711f7ec272a607ae23b77feba0) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -595,10 +595,10 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [("xapi", ["lib"], [])];
+     MyOCamlbuildBase.lib_ocaml = [("storage", ["lib"], [])];
      lib_c = [];
      flags = [];
-     includes = [("proxy", ["lib"]); ("lib_test", ["lib"])]
+     includes = [("lib_test", ["lib"])]
   }
   ;;
 

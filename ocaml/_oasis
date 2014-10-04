@@ -1,46 +1,30 @@
 OASISFormat: 0.3
-Name:        xcp-api-client
+Name:        xapi-storage
 Version:     0.1.0
-Synopsis:    XCP API client
+Synopsis:    Xapi storage interfaces
 Authors:     David Scott
 License:     LGPL-2.0 with OCaml linking exception
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
-Flag lwt
-  Description: build the Lwt library
-  Default: false
-
-Flag async
-  Description: build the Core/Async library
-  Default: false
-
-Library xapi
+Library storage
   CompiledObject:     best
   Path: lib
   Pack: true
-  Findlibname: xapi-idl
+  Findlibname: xapi-storage
   Modules: S, Control, Channel, Cmdliner_helpers
   BuildDepends:	rpclib, cmdliner, re.str
 
-Executable proxy
-  Path:               proxy
-  MainIs:             proxy.ml
-  Custom:             true
-  CompiledObject:     best
-  Install:            true
-  BuildDepends:       xapi-idl, lwt, lwt.unix, oUnit
-
-Executable xcp_api_test
+Executable storage_test
   Path:               lib_test
-  MainIs:             xcp_api_test.ml
+  MainIs:             storage_test.ml
   Build$:             flag(tests)
   Custom:             true
   CompiledObject:     best
   Install:            false
-  BuildDepends:       xapi-idl, lwt, lwt.unix, oUnit
+  BuildDepends:       xapi-storage, lwt, lwt.unix, oUnit
 
-Test xcp_api_test_test
+Test storage_test
   Run$:               flag(tests)
-  Command:            $xcp_api_test
+  Command:            $storage_test
   WorkingDirectory:   lib_test
