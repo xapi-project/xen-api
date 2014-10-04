@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 294699026561fa2a6d465cf6b419de0a)
+# DO NOT EDIT (digest: 31a1269066e9b9f6bb683c0239ec9ff7)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -16,7 +16,7 @@
 # Library xapi
 "lib/xapi.cmxs": use_xapi
 "lib/s.cmx": for-pack(Xapi)
-"lib/storage.cmx": for-pack(Xapi)
+"lib/control.cmx": for-pack(Xapi)
 "lib/channel.cmx": for-pack(Xapi)
 "lib/cmdliner_helpers.cmx": for-pack(Xapi)
 <lib/*.ml{,i}>: pkg_cmdliner

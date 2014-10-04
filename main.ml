@@ -3,7 +3,7 @@ open Files
 
 let _ =
   let apis = [
-    Smapiv2.api;
+    Control.api;
     Xenops.api;
     Memory.api;
   ] in
@@ -30,4 +30,3 @@ let _ =
             output_string oc (Ocaml.of_interfaces idents api |> Ocaml.string_of_ts)
          )
     ) apis
-

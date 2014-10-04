@@ -17,7 +17,7 @@ open OUnit
 let ( |> ) a b = b a
 let id x = x
 
-open Storage
+open Control
 
 module S = (SR_test(Lwt): SR with type 'a t = 'a Lwt.t)
 module S_d = SR_server_dispatcher(S)
@@ -44,13 +44,13 @@ let expect_ok = function
 let check_request_parser f relative_path =
   (base_path ^ relative_path) |> readfile |> Xmlrpc.call_of_string |> f |> expect_ok
 
-let check_sr_request_parser = check_request_parser Storage.Types.SR.In.of_call
+let check_sr_request_parser = check_request_parser Control.Types.SR.In.of_call
 
 let sr_attach_request _ = check_sr_request_parser "sr.attach/request"
 let sr_detach_request _ = check_sr_request_parser "sr.detach/request"
 let sr_scan_request   _ = check_sr_request_parser "sr.scan/request"
 
-let check_volume_request_parser = check_request_parser Storage.Types.Volume.In.of_call
+let check_volume_request_parser = check_request_parser Control.Types.Volume.In.of_call
 
 let volume_clone_request      _ = check_volume_request_parser "volume.clone/request"
 let volume_create_request     _ = check_volume_request_parser "volume.create/request"
@@ -60,34 +60,25 @@ let volume_snapshot_request   _ = check_volume_request_parser "volume.snapshot/r
 let sr_attach_response _ =
   let xml = readfile (base_path ^ "sr.attach/response") in
   let resp = Xmlrpc.response_of_string xml in
-  match Storage.result_of_response resp with
-  | `Ok x -> let (_: Storage.Types.SR.Attach.Out.t) = Storage.Types.SR.Attach.Out.t_of_rpc x in ()
+  match Control.result_of_response resp with
+  | `Ok x -> let (_: Control.Types.SR.Attach.Out.t) = Control.Types.SR.Attach.Out.t_of_rpc x in ()
   | `Error e -> raise e
 
 let sr_detach_response _ =
   let xml = readfile (base_path ^ "sr.detach/response") in
   let resp = Xmlrpc.response_of_string xml in
-  match Storage.result_of_response resp with
-  | `Ok x -> let (_: Storage.Types.SR.Detach.Out.t) = Storage.Types.SR.Detach.Out.t_of_rpc x in ()
-  | `Error e -> raise e
-
-let sr_detach_failure _ =
-  let xml = readfile (base_path ^ "sr.detach/failure") in
-  let resp = Xmlrpc.response_of_string xml in
-  match Storage.result_of_response resp with
-  | `Ok x -> failwith "unexpected success"
-  | `Error (Storage.Backend_error(_, _)) -> ()
+  match Control.result_of_response resp with
+  | `Ok x -> let (_: Control.Types.SR.Detach.Out.t) = Control.Types.SR.Detach.Out.t_of_rpc x in ()
   | `Error e -> raise e
 
 let exception_marshal_unmarshal e _ =
-  let e = Storage.Backend_error("foo", ["a"; "b"]) in
-  match Storage.result_of_response (Storage.response_of_exn e) with
+  let e = Control.Cancelled "foo" in
+  match Control.result_of_response (Control.response_of_exn e) with
   | `Error e' when e = e' -> ()
   | `Ok x -> failwith "unexpected success"
   | `Error e -> raise e
 
-let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Storage.Cancelled "bad luck")
-let exception_marshal_unmarshal2 = exception_marshal_unmarshal (Storage.Backend_error("foo", ["a"; "b"]))
+let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Control.Cancelled "bad luck")
 
 let _ =
   let verbose = ref false in
@@ -102,9 +93,7 @@ let _ =
                 "sr_attach_response" >:: sr_attach_response;
                 "sr_detach_request" >:: sr_detach_request;
                 "sr_detach_response" >:: sr_detach_request;
-                "sr_detach_failure" >:: sr_detach_failure;
                 "exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
-                "exception_marshal_unmarshal2" >:: exception_marshal_unmarshal2;
                 "sr_scan_request" >:: sr_scan_request;
                 "volume_clone_request" >:: volume_clone_request;
                 "volume_create_request" >:: volume_create_request;
