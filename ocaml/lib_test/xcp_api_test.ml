@@ -24,9 +24,9 @@ module S_d = SR_server_dispatcher(S)
 module SR = SR_client(S_d)
 
 
-module V = (VDI_test(Lwt): VDI with type 'a t = 'a Lwt.t)
-module V_d = VDI_server_dispatcher(V)
-module VDI = VDI_client(V_d)
+module V = (Volume_test(Lwt): Volume with type 'a t = 'a Lwt.t)
+module V_d = Volume_server_dispatcher(V)
+module Volume = Volume_client(V_d)
 
 let base_path = "../../rpc-light/"
 
@@ -50,16 +50,12 @@ let sr_attach_request _ = check_sr_request_parser "sr.attach/request"
 let sr_detach_request _ = check_sr_request_parser "sr.detach/request"
 let sr_scan_request   _ = check_sr_request_parser "sr.scan/request"
 
-let check_vdi_request_parser = check_request_parser Storage.Types.VDI.In.of_call
+let check_volume_request_parser = check_request_parser Storage.Types.Volume.In.of_call
 
-let vdi_activate_request   _ = check_vdi_request_parser "vdi.activate/request"
-let vdi_attach_request     _ = check_vdi_request_parser "vdi.attach/request"
-let vdi_clone_request      _ = check_vdi_request_parser "vdi.clone/request"
-let vdi_create_request     _ = check_vdi_request_parser "vdi.create/request"
-let vdi_deactivate_request _ = check_vdi_request_parser "vdi.deactivate/request"
-let vdi_destroy_request    _ = check_vdi_request_parser "vdi.destroy/request"
-let vdi_detach_request     _ = check_vdi_request_parser "vdi.detach/request"
-let vdi_snapshot_request   _ = check_vdi_request_parser "vdi.snapshot/request"
+let volume_clone_request      _ = check_volume_request_parser "volume.clone/request"
+let volume_create_request     _ = check_volume_request_parser "volume.create/request"
+let volume_destroy_request    _ = check_volume_request_parser "volume.destroy/request"
+let volume_snapshot_request   _ = check_volume_request_parser "volume.snapshot/request"
 
 let sr_attach_response _ =
   let xml = readfile (base_path ^ "sr.attach/response") in
@@ -110,19 +106,9 @@ let _ =
                 "exception_marshal_unmarshal1" >:: exception_marshal_unmarshal1;
                 "exception_marshal_unmarshal2" >:: exception_marshal_unmarshal2;
                 "sr_scan_request" >:: sr_scan_request;
-                (*
-                "vdi_attach_request" >:: vdi_attach_request;
-                "vdi_activate_request" >:: vdi_activate_request;
-                *)
-                "vdi_clone_request" >:: vdi_clone_request;
-                "vdi_create_request" >:: vdi_create_request;
-                (*
-                "vdi_deactivate_request" >:: vdi_deactivate_request;
-                *)
-                "vdi_destroy_request" >:: vdi_destroy_request;
-                (*
-                "vdi_detach_request" >:: vdi_detach_request;
-                *)
-                "vdi_snapshot_request" >:: vdi_snapshot_request;
+                "volume_clone_request" >:: volume_clone_request;
+                "volume_create_request" >:: volume_create_request;
+                "volume_destroy_request" >:: volume_destroy_request;
+                "volume_snapshot_request" >:: volume_snapshot_request;
               ] in
   run_test_tt ~verbose:!verbose suite

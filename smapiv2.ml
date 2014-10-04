@@ -1,31 +1,31 @@
 open Types
 
 let api =
-  let vdi_info_decl =
+  let volume_decl =
     Type.(Struct(
-        ( "vdi", Name "vdi", String.concat " " [
-          "A primary key for this Virtual Disk Image (VDI). This must be unique";
+        ( "key", Name "key", String.concat " " [
+          "A primary key for this volume. The key must be unique";
           "within the enclosing Storage Repository (SR). A typical value would";
           "be a filename or an LVM volume name."
           ]),
         [ "name", Basic String, String.concat " " [
-          "Short, human-readable label for the VDI. Names are commonly used by";
-          "when displaying short lists of VDIs.";
+          "Short, human-readable label for the volume. Names are commonly used by";
+          "when displaying short lists of volumes.";
           ];
           "description", Basic String, String.concat " " [
-            "Longer, human-readable description of the VDI. Descriptions are";
+            "Longer, human-readable description of the volume. Descriptions are";
             "generally only displayed by clients when the user is examining";
-            "VDIs individually.";
+            "volumes individually.";
           ];
           "read_write", Basic Boolean, String.concat " " [
-            "True means the VDI may be written to, false means the VDI is";
+            "True means the VDI may be written to, false means the volume is";
             "read-only. Some storage media is read-only so all volumes are";
             "read-only; for example .iso disk images on an NFS share. Some";
-            "VDIs are created read-only; for example because they are snapshots";
+            "volume are created read-only; for example because they are snapshots";
             "of some other VDI.";
           ];
           "virtual_size", Basic Int64, String.concat " " [
-            "Size of the VDI from the perspective of a VM (in bytes)";
+            "Size of the volume from the perspective of a VM (in bytes)";
           ];
           "uri", Array (Basic String), String.concat "" [
             "A list of URIs which can be opened and used for I/O. A URI could ";
@@ -37,21 +37,16 @@ let api =
           ]
         ]
       )) in
-  let vdi_info = Type.Name "vdi" in
+  let volume = Type.Name "volume" in
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
     description = "The Storage Repository";
   } in
-  let vdi = {
-    Arg.name = "vdi";
+  let key = {
+    Arg.name = "key";
     ty = Type.(Basic String);
-    description = "The Virtual Disk Image";
-  } in
-  let params = {
-    Arg.name = "params";
-    ty = Type.(Dict(String, Basic String));
-    description = "Additional key/value pairs with an implementation-specific meaning. Consult the documentation provided by your vendor.";
+    description = "The volume key";
   } in
   {
     Interfaces.name = "storage";
@@ -59,20 +54,20 @@ let api =
     description =
       String.concat "" [
         "The xapi toolstack delegates all storage control-plane functions to ";
-        "the Storage Manager (SM). The SM organises Virtual Disk Images (VDIs) ";
+        "the Storage Manager (SM). The SM organises volumes (also known as Virtual Disk Images)";
         "into collections known as Storage Repositories (SRs). The Storage ";
         "Manager API (SMAPI) provides a simple abstract interface which allows ";
-        "the toolstack to create, destroy, snapshot, clone, resize etc VDIs ";
+        "the toolstack to create, destroy, snapshot, clone, resize etc volumes ";
         "within SRs";
       ];
     exn_decls = [
       {
         TyDecl.name = "Sr_not_attached";
-        description = "An SR must be attached in order to access VDIs";
+        description = "An SR must be attached in order to access volumes";
         ty = Type.(Basic String)
       }; {
-        TyDecl.name = "Vdi_does_not_exist";
-        description = "The specified VDI could not be found in the SR";
+        TyDecl.name = "Volume_does_not_exist";
+        description = "The specified volume could not be found in the SR";
         ty = Type.(Basic String)
       }; {
         TyDecl.name = "Backend_error";
@@ -98,9 +93,9 @@ let api =
     ];
     type_decls = [
       {
-        TyDecl.name = "vdi";
+        TyDecl.name = "key";
         description = String.concat "" [
-          "Primary key for a Virtual Disk Image. This can be any string which ";
+          "Primary key for a volume. This can be any string which ";
           "is meaningful to the implementation. For example this could be an ";
           "NFS filename, an LVM LV name or even a URI.";
           ];
@@ -114,12 +109,12 @@ let api =
         ];
         ty = Type.(Basic String);
       }; {
-        TyDecl.name = "vdi_info";
+        TyDecl.name = "volume";
         description = String.concat "" [
-          "A set of properties associated with a VDI. These properties can ";
-          "change dynamically and can be queried by the VDI.stat call.";
+          "A set of properties associated with a volume. These properties can ";
+          "change dynamically and can be queried by the Volume.stat call.";
         ];
-        ty = vdi_info_decl
+        ty = volume_decl
       }; {
         TyDecl.name = "query_result";
         description = "properties of this implementation";
@@ -196,13 +191,13 @@ let api =
         };
 
         {
-          Interface.name = "VDI";
-          description = "Operations which operate on Virtual Disk Images";
+          Interface.name = "Volume";
+          description = "Operations which operate on volumes (also known as Virtual Disk Images)";
           type_decls = [];
           methods = [
             {
               Method.name = "create";
-              description = "[create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
+              description = "[create task sr volume params] creates a new volume in [sr] using [vdi_info]. Some fields in the [vdi_info] may be modified (e.g. rounded up), so the function returns the vdi_info which was used.";
               inputs = [
                 sr;
                 {
@@ -222,8 +217,8 @@ let api =
                 };
               ];
               outputs = [
-                { Arg.name = "new_vdi";
-                  ty = vdi_info;
+                { Arg.name = "new_volume";
+                  ty = volume;
                   description = "The created Virtual Disk Image";
                 }
               ];
@@ -234,8 +229,8 @@ let api =
                 sr;
               ];
               outputs = [
-                { Arg.name = "new_vdi";
-                  ty = vdi_info;
+                { Arg.name = "new_volume";
+                  ty = volume;
                   description = "[snapshot task sr vdi_info params] creates a new VDI which is a snapshot of [vdi_info.vdi] in [sr]";
                 }
               ];
@@ -246,8 +241,8 @@ let api =
                 sr;
               ];
               outputs = [
-                { Arg.name = "new_vdi";
-                  ty = vdi_info;
+                { Arg.name = "new_volume";
+                  ty = volume;
                   description = "[clone task sr vdi_info params] creates a new VDI which is a clone of [vdi_info.vdi] in [sr]";
                 }
               ];
@@ -256,7 +251,7 @@ let api =
               description = "[destroy task sr vdi] removes [vdi] from [sr]";
               inputs = [
                 sr;
-                vdi;
+                key;
               ];
               outputs = [
               ];
@@ -265,7 +260,7 @@ let api =
               description = "[resize task sr vdi new_size] enlarges [vdi] to be at least [new_size].";
               inputs = [
                 sr;
-                vdi;
+                key;
                 { Arg.name = "new_size";
                   ty = Basic Int64;
                   description = "New disk size"
@@ -278,12 +273,12 @@ let api =
               description = "[stat task sr vdi] returns metadata associated with VDI [vdi] in SR [sr].";
               inputs = [
                 sr;
-                vdi;
+                key;
               ];
               outputs = [
-                { Arg.name = "vdi_info";
-                  ty = vdi_info;
-                  description = "VDI metadata";
+                { Arg.name = "volume";
+                  ty = volume;
+                  description = "Volume metadata";
                 }
               ];
             }; {
@@ -291,7 +286,7 @@ let api =
               description = "[copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2]";
               inputs = [
                 sr;
-                vdi;
+                key;
                 { Arg.name = "url";
                   ty = Type.(Basic String);
                   description = "URL which identifies a remote system";
@@ -299,7 +294,7 @@ let api =
                 { sr with Arg.name = "dest" };
               ];
               outputs = [
-                { vdi with Arg.name = "new_vdi" }
+                { key with Arg.name = "new_volume" }
               ];
             };
           ]
@@ -358,7 +353,7 @@ let api =
              {
               Method.name = "scan";
               description = String.concat " " [
-                "[scan sr] returns a paginated list of VDIs";
+                "[scan sr] returns a paginated list of volumes";
                 "contained within an attached SR.";
               ];
               inputs = [
@@ -366,9 +361,9 @@ let api =
               ];
               outputs = [
                 {
-                  Arg.name = "vdis";
-                  ty = Type.(Array (Name "vdi_info"));
-                  description = "List of all the visible VDIs in the SR";
+                  Arg.name = "volumes";
+                  ty = Type.(Array (Name "volume"));
+                  description = "List of all the visible volumes in the SR";
                 }
               ];
             }
