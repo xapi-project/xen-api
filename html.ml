@@ -47,6 +47,7 @@ let to_string env x =
   let tr = wrapf "tr" in
   let ul ?cls = wrapf ?cls "ul" in
   let li ?cls = wrapf ?cls "li" in
+  let label name = wrapf "li" (fun () -> wrap "label" name) in
   let p = wrap "p" in
   let a_href ?toggle ?icon link txt =
     let toggle = match toggle with
@@ -103,13 +104,24 @@ let to_string env x =
     Xmlm.output output (`El_end);
     Xmlm.output output (`El_end) in
 
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "container-fluid" ]));
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row-fluid" ]));
-
+  (* Main content *)
+  (*
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row" ]));
+  Xmlm.output output `El_end;
+  *)
+  (*
+  wrapf "div" ~cls:"row" (fun () ->
+    wrapf "div" ~cls:"large-12 columns" (fun () ->
+      h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
+      p x.Interfaces.description;
+    )
+  );
+  *)
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row" ]));
   (* Side bar *)
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span3" ]));
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "well sidebar-nav" ]));
-  ul ~cls:"nav nav-list" (fun () ->
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-4 medium-4 columns" ]));
+  ul ~cls:"side-nav" (fun () ->
+      label "types";
       List.iter (fun t ->
           let ident = ident_of_type_decl env t in
           li (fun () ->
@@ -117,9 +129,7 @@ let to_string env x =
             )
         ) x.Interfaces.type_decls;
       List.iter (fun i ->
-          li ~cls:"nav-header" (fun () ->
-              a_href (* ~toggle:"tab" *) ~icon:"icon-book" (Printf.sprintf "#a-%s" i.Interface.name) i.Interface.name
-            );
+          label i.Interface.name;
           List.iter (fun t ->
               let ident = ident_of_type_decl env t in
               li (fun () ->
@@ -132,6 +142,7 @@ let to_string env x =
                 )
             ) i.Interface.methods
         ) x.Interfaces.interfaces;
+      label "exceptions";
       li ~cls:"nav-header" (fun () ->
           a_href "#a-exceptions" "Exceptions";
         );
@@ -144,7 +155,6 @@ let to_string env x =
 	) x.Interfaces.exn_decls;
 *)
     );
-  Xmlm.output output (`El_end);
   Xmlm.output output (`El_end);
 
   let of_struct_variant_fields all =
@@ -172,10 +182,8 @@ let to_string env x =
       of_struct_variant_fields (hd :: tl)
     | _ -> () in
 
-  (* Main content *)
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "span9" ]));
-  h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
-  p x.Interfaces.description;
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-8 medium-8 columns" ]));
+
   List.iter of_type_decl x.Interfaces.type_decls;
   List.iter
     (fun i ->
@@ -255,7 +263,6 @@ let to_string env x =
 
   Xmlm.output output (`El_end);
   Xmlm.output output (`El_end);
-  Xmlm.output output (`El_end);
   Buffer.contents buffer
 
 
@@ -305,8 +312,78 @@ let html_navbar oc pages this_page =
       ) in
   output_string oc txt
 
+let topbar pages =
+  let link_of_page page =
+    let html = [ `Data (page.name ^ ".html") ] in
+    let name = [ `Data page.name ] in
+    <:html<
+      <li><a href="$html$">$name$</a></li>
+    >> in
+<:html<
+<nav class="top-bar" data-topbar="" role="navigation">
+  <ul class="title-area">
+    <li class="name">
+      <h1><a href="#">Xapi storage interface</a></h1>
+    </li>
+    <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
+  </ul>
+  <section class="top-bar-section">
+    <ul class="right">
+      <li class="has-dropdown">
+        <a href="#">Learn</a>
+        <ul class="dropdown">
+          <li><a href="#">Features</a></li>
+          <li><a href="#">FAQ</a></li>
+        </ul>
+      </li>
+      <li class="has-dropdown">
+        <a href="#">Develop</a>
+        <ul class="dropdown">
+          <li><a href="#">Concepts</a></li>
+          $List.concat (List.map link_of_page pages)$
+          <li><a href="#">Storage Repositories</a></li>
+          <li><a href="#">Datapath</a></li>
+        </ul>
+      </li>
+      <li class="has-dropdown">
+        <a href="#">Support</a>
+        <ul class="dropdown">
+          <li><a href="#">Mailing list</a></li>
+          <li><a href="#">Issue tracker</a></li>
+          <li><a href="#">IRC</a></li>
+        </ul>
+      </li>
+      <li class="active"><a href="#">Get Started</a></li>
+    </ul>
+  </section>
+</nav>
+>>
+
+
 let index_html oc pages =
   let open Html in
+  let header = <:html<
+  <header>
+    <div class="row">
+      <div class="large-12 columns">
+        <h1>Xapi storage interface</h1>
+        <p>An easy way to connect Xapi to any storage type.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="large-12 columns panel callout">
+        <h2>Status of this documentation</h2>
+        <p>This documentation is a draft intended for discussion only.
+           Please:</p>
+        <ul>
+          <li>view the issues on github</li> or
+          <li>join the mailing list</li>
+        </ul>
+      </div>
+    </div>
+  </header>
+  >> in
+(*
   let txt = Types.with_xmlm
       (fun xmlm ->
          xmlm (div "container");
@@ -353,9 +430,13 @@ let index_html oc pages =
            ) (make_rows pages);
          xmlm endtag (* container *)
       ) in
+      *)
   print_file_to oc ("doc/header.html");
+  (*
   html_navbar oc pages None;
-  output_string oc txt;
+  *)
+  output_string oc (Cow.Html.to_string (topbar pages));
+  output_string oc (Cow.Html.to_string header);
   print_file_to oc ("doc/footer.html")
 
 let page_of_api api = {

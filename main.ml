@@ -4,8 +4,7 @@ open Files
 let _ =
   let apis = [
     Control.api;
-    Xenops.api;
-    Memory.api;
+    Data.api;
   ] in
   (* Prepend the debug_info argument *)
   let apis = List.map Types.prepend_dbg apis in
