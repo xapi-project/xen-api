@@ -65,29 +65,31 @@ let to_string env x =
 
   let rec html_of_t =
     let open Type in
-    let print txt = Xmlm.output output (`Data txt) in
+    let print txt = [ `Data txt ] in
     function
     | Basic b -> print (ocaml_of_basic b)
     | Struct (_, _) -> print ("struct  { ... }")
     | Variant (_, _) -> print ("variant { ... }")
-    | Array t -> html_of_t t; print " list"
-    | Dict (key, v) -> print (Printf.sprintf "(%s * " (ocaml_of_basic key)); html_of_t v; print ") list";
+    | Array t -> html_of_t t @ (print " list")
+    | Dict (key, v) -> print (Printf.sprintf "(%s * " (ocaml_of_basic key)) @ (html_of_t v) @ (print ") list");
     | Name x ->
       let ident =
         if not(List.mem_assoc x env)
         then failwith (Printf.sprintf "Unable to find ident: %s" x)
         else List.assoc x env in
-      a_href (Printf.sprintf "#a-%s" x) (String.concat "/" ident.Ident.name)
+      let target = [ `Data ("#a-" ^ x) ] in
+      let name = [ `Data (String.concat "/" ident.Ident.name) ] in
+      <:html< <a href="$target$">$name$</a> >>
     | Unit -> print "unit"
-    | Option x -> html_of_t x; print " option"
-    | Pair(a, b) -> html_of_t a; print " * "; html_of_t b
+    | Option x -> html_of_t x @ (print " option")
+    | Pair(a, b) -> html_of_t a @ (print " * ") @ (html_of_t b)
     | Custom c -> print c in
 
   let of_args args =
     let row_of_arg (is_in, arg) =
       let name = [ `Data arg.Arg.name ] in
       let direction = [ `Data (if is_in then "in" else "out") ] in
-      let ty = [ `Data "umm" ] in
+      let ty = html_of_t arg.Arg.ty in
       let description = [ `Data arg.Arg.description ] in
     <:html<
       <tr>
