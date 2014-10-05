@@ -339,7 +339,7 @@ let index_html oc pages =
   output_string oc (Cow.Html.to_string header);
   print_file_to oc ("doc/footer.html")
 
-let placeholder_html oc pages =
+let placeholder_html oc pages body =
   let header = <:html<
     <div class="row">
       <div class="large-12 columns panel callout">
@@ -349,7 +349,9 @@ let placeholder_html oc pages =
   >> in
   print_file_to oc ("doc/header.html");
   output_string oc (Cow.Html.to_string (topbar pages));
-  output_string oc (Cow.Html.to_string header);
+  if Sys.file_exists body
+  then print_file_to oc body
+  else output_string oc (Cow.Html.to_string header);
   print_file_to oc ("doc/footer.html")
 
 let page_of_api api = {
@@ -381,9 +383,10 @@ let write apis =
     );
   List.iter
     (fun placeholder ->
-      with_output_file (Filename.concat "doc" placeholder)
+      let filename = Filename.concat "doc" placeholder in
+      with_output_file filename
         (fun oc ->
-          placeholder_html oc pages
+          placeholder_html oc pages (filename ^ ".body")
         )
     ) [
     "contact.html"; "concepts.html"; "getstarted.html"; "features.html"; "faq.html"; "learn.html";
