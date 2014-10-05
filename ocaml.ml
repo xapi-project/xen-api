@@ -167,7 +167,8 @@ let cmdliner_of_method env i m =
       Block ([
         ] @ (List.concat (List.map of_arg m.Method.inputs)
         ) @ [
-          Line (Printf.sprintf "Term.(pure In.make $ %s)"
+          Line "let ($) = Term.($) in";
+          Line (Printf.sprintf "Term.pure In.make $ %s"
             (String.concat " $ " (List.map (fun a -> a.Arg.name) m.Method.inputs)))
         ]);
     ] in
@@ -497,9 +498,17 @@ let caml2html str =
   close_out oc;
   let (_:int) = Sys.command (Printf.sprintf "caml2html -nf -inline -body %s -o %s" filename out_filename) in
   Sys.remove filename;
-  let buffer = String.make 16384 '\000' in
-  let fd = Unix.openfile out_filename [ Unix.O_RDONLY ] 0o0 in
-  let n = Unix.read fd buffer 0 (String.length buffer) in
-  Unix.close fd;
-  Sys.remove out_filename;
-  String.sub buffer 0 n
+  let ic = open_in out_filename in
+  (* drop lines up to and including <body> *)
+  while input_line ic <> "<body>" do () done;
+  (* include everything up to and excluding </body> *)
+  let buffer = Buffer.create 100 in
+  let finished = ref false in
+  while not !finished do
+    let line = input_line ic in
+    finished := line = "</body>";
+    if not !finished then Buffer.add_string buffer line;
+    Buffer.add_string buffer "\n"
+  done;
+  close_in ic;
+  Buffer.contents buffer

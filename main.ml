@@ -3,14 +3,13 @@ open Files
 
 let _ =
   let apis = [
-    Smapiv2.api;
-    Xenops.api;
-    Memory.api;
+    Control.api;
+    Data.api;
   ] in
   (* Prepend the debug_info argument *)
   let apis = List.map Types.prepend_dbg apis in
 
-  Html.write apis;
+  Www.write apis;
 
   List.iter
     (fun api ->
@@ -30,4 +29,3 @@ let _ =
             output_string oc (Ocaml.of_interfaces idents api |> Ocaml.string_of_ts)
          )
     ) apis
-

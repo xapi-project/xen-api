@@ -1,12 +1,12 @@
 # OASIS_START
-# DO NOT EDIT (digest: b313b97cc5f37e9af945ead377db77c0)
+# DO NOT EDIT (digest: 1299361dd737d0a3caa8fab53da99d83)
 version = "0.1.0"
-description = "XCP API client"
+description = "Xapi storage interfaces"
 requires = "rpclib cmdliner re.str"
-archive(byte) = "xapi.cma"
-archive(byte, plugin) = "xapi.cma"
-archive(native) = "xapi.cmxa"
-archive(native, plugin) = "xapi.cmxs"
-exists_if = "xapi.cma"
+archive(byte) = "storage.cma"
+archive(byte, plugin) = "storage.cma"
+archive(native) = "storage.cmxa"
+archive(native, plugin) = "storage.cmxs"
+exists_if = "storage.cma"
 # OASIS_STOP
 
