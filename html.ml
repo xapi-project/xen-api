@@ -105,27 +105,16 @@ let to_string env x =
     Xmlm.output output (`El_end) in
 
   (* Main content *)
-  (*
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row" ]));
-  Xmlm.output output `El_end;
-  *)
-  (*
-  wrapf "div" ~cls:"row" (fun () ->
-    wrapf "div" ~cls:"large-12 columns" (fun () ->
-      h1 ~id:(Printf.sprintf "a-%s" x.Interfaces.name) (Printf.sprintf "%s: %s" x.Interfaces.name x.Interfaces.title);
-      p x.Interfaces.description;
-    )
-  );
-  *)
+
   Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "row" ]));
   (* Side bar *)
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-4 medium-4 columns" ]));
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-3 medium-3 columns" ]));
   ul ~cls:"side-nav" (fun () ->
       label "types";
       List.iter (fun t ->
           let ident = ident_of_type_decl env t in
           li (fun () ->
-              a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+              a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
             )
         ) x.Interfaces.type_decls;
       List.iter (fun i ->
@@ -133,12 +122,12 @@ let to_string env x =
           List.iter (fun t ->
               let ident = ident_of_type_decl env t in
               li (fun () ->
-                  a_href (* ~toggle:"tab" *) ~icon:"icon-pencil" (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
+                  a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" ident.Ident.id) t.TyDecl.name
                 )
             ) i.Interface.type_decls;
           List.iter (fun m ->
               li (fun () ->
-                  a_href (* ~toggle:"tab" *) ~icon:"icon-cogs" (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
+                  a_href (* ~toggle:"tab" *) (Printf.sprintf "#a-%s" m.Method.name) m.Method.name
                 )
             ) i.Interface.methods
         ) x.Interfaces.interfaces;
@@ -182,7 +171,7 @@ let to_string env x =
       of_struct_variant_fields (hd :: tl)
     | _ -> () in
 
-  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-8 medium-8 columns" ]));
+  Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "large-9 medium-9 columns" ]));
 
   List.iter of_type_decl x.Interfaces.type_decls;
   List.iter
@@ -194,55 +183,43 @@ let to_string env x =
          (fun m ->
             h3 ~id:(Printf.sprintf "a-%s" m.Method.name) m.Method.name;
             p m.Method.description;
-            Buffer.add_string buffer
-              (Printf.sprintf "
-          <ul id=\"tab\" class=\"nav nav-tabs\">
-            <li><a href=\"#defn-%s\" data-toggle=\"tab\">Definition</a></li>
-            <li class=\"active\"><a href=\"#ocaml-%s\" data-toggle=\"tab\">ocaml client</a></li>
-            <li><a href=\"#ocaml-server-%s\" data-toggle=\"tab\">ocaml server</a></li>
-            <li><a href=\"#python-client-%s\" data-toggle=\"tab\">python client</a></li>
-            <li><a href=\"#python-server-%s\" data-toggle=\"tab\">python server</a></li>
-            <li><a href=\"#dbus-%s\" data-toggle=\"tab\">DBUS XML</a></li>
-          </ul>
-          <div id=\"myTabContent\" class=\"tab-content\">
-            <div class=\"tab-pane fade\" id=\"defn-%s\">
-" m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name m.Method.name);
-            of_args (List.map (fun m -> true, m) m.Method.inputs @ (List.map (fun m -> false, m) m.Method.outputs));
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-            <div class=\"tab-pane fade\" id=\"dbus-%s\">
-" m.Method.name);
-            pre (with_xmlm (To_dbus.of_method env m));
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-            <div class=\"tab-pane fade in active\" id=\"ocaml-%s\">
-" m.Method.name);
-            Buffer.add_string buffer (Ocaml.caml2html (Ocaml.example_stub env x i m |> Ocaml.string_of_ts));
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-            <div class=\"tab-pane fade\" id=\"ocaml-server-%s\">
-" m.Method.name);
-            Buffer.add_string buffer (Ocaml.caml2html (Ocaml.example_skeleton_user env x i m |> Ocaml.string_of_ts));
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-            <div class=\"tab-pane fade\" id=\"python-client-%s\">
-" m.Method.name);
-            pre ~lang:"python" (Python.example_stub_user env i m |> Python.string_of_ts);
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-            <div class=\"tab-pane fade\" id=\"python-server-%s\">
-" m.Method.name);
-            pre ~lang:"python" (Python.example_skeleton_user env i m |> Python.string_of_ts);
-            Buffer.add_string buffer
-              (Printf.sprintf "
-            </div>
-          </div>
-");
+            let mname = [ `Data m.Method.name ] in
+            let hash_defn = [ `Data ("#defn-" ^ m.Method.name) ] in
+            let hash_ocaml = [ `Data ("#ocaml-" ^ m.Method.name) ] in
+            let hash_python = [ `Data ("#python-" ^ m.Method.name) ] in
+            let id_defn = [ `Data ("defn-" ^ m.Method.name) ] in
+            let id_ocaml = [ `Data ("ocaml-" ^ m.Method.name) ] in
+            let id_python = [ `Data ("python-" ^ m.Method.name) ] in
+            let tabs = <:html<
+              <dl class="tabs" data-tab="">
+                <dd class="active"><a href="$hash_defn$">Definition</a></dd>
+                <dd><a href="$hash_ocaml$">OCaml example</a></dd>
+                <dd><a href="$hash_python$">Python example</a></dd>
+              </dl>
+              <div class="tabs-content">
+                <div class="content active" id="$id_defn$">
+                  <p>stuff</p>
+                </div>
+                <div class="content" id="$id_ocaml$">
+                  <h4>Client</h4>
+                  $ Cow.Html.of_string (Ocaml.caml2html (Ocaml.example_stub env x i m |> Ocaml.string_of_ts)) $
+                  <h4>Server</h4>
+                  $ Cow.Html.of_string (Ocaml.caml2html (Ocaml.example_skeleton_user env x i m |> Ocaml.string_of_ts)) $
+                </div>
+                <div class="content" id="$id_python$">
+                  <h4>Client</h4>
+                  <pre class="prettyprint lang-py">
+                  $[ `Data (Python.example_stub_user env i m |> Python.string_of_ts) ]$
+                  </pre>
+                  <h4>Server</h4>
+                  <pre class="prettyprint lang-py">
+                  $[ `Data (Python.example_skeleton_user env i m |> Python.string_of_ts) ]$
+                  </pre>
+                </div>
+              </div>
+            >> in
+            (* of_args (List.map (fun m -> true, m) m.Method.inputs @ (List.map (fun m -> false, m) m.Method.outputs)); *)
+            Buffer.add_string buffer (Cow.Html.to_string tabs)
          ) i.Interface.methods;
     ) x.Interfaces.interfaces;
 
@@ -279,39 +256,6 @@ module Html = struct
   let endtag = `El_end
 end
 
-let html_navbar oc pages this_page =
-  let open Html in
-  let txt = Types.with_xmlm
-      (fun xmlm ->
-         xmlm (div "navbar navbar-fixed-top");
-         xmlm (div "navbar-inner");
-         xmlm (div "container");
-         xmlm (a "btn btn-navbar" "collapse" ".nav-collapse");
-         xmlm (span "icon-bar"); xmlm endtag;
-         xmlm (span "icon-bar"); xmlm endtag;
-         xmlm (span "icon-bar"); xmlm endtag;
-         xmlm endtag;
-         xmlm (`El_start (("", "a"), [ ("", "class"), "brand"; ("", "href"), "index.html"]));
-         xmlm (`Data "XCP Host APIs");
-         xmlm endtag;
-         xmlm (div "nav-collapse");
-         xmlm (ul "nav");
-         List.iter
-           (fun page ->
-              xmlm (li (if Some page = this_page then Some "active" else None));
-              xmlm (`El_start (("", "a"), [ ("", "href"), page.filename ]));
-              xmlm (`Data page.name);
-              xmlm endtag;
-              xmlm endtag
-           ) pages;
-         xmlm endtag;
-         xmlm endtag;
-         xmlm endtag;
-         xmlm endtag;
-         xmlm endtag
-      ) in
-  output_string oc txt
-
 let topbar pages =
   let link_of_page page =
     let html = [ `Data (page.name ^ ".html") ] in
@@ -323,7 +267,7 @@ let topbar pages =
 <nav class="top-bar" data-topbar="" role="navigation">
   <ul class="title-area">
     <li class="name">
-      <h1><a href="#">Xapi storage interface</a></h1>
+      <h1><a href="index.html">Xapi storage interface</a></h1>
     </li>
     <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
   </ul>
@@ -341,8 +285,6 @@ let topbar pages =
         <ul class="dropdown">
           <li><a href="#">Concepts</a></li>
           $List.concat (List.map link_of_page pages)$
-          <li><a href="#">Storage Repositories</a></li>
-          <li><a href="#">Datapath</a></li>
         </ul>
       </li>
       <li class="has-dropdown">
@@ -367,7 +309,16 @@ let index_html oc pages =
     <div class="row">
       <div class="large-12 columns">
         <h1>Xapi storage interface</h1>
-        <p>An easy way to connect Xapi to any storage type.</p>
+        <p>An easy way to connect <a href="http://www.xenproject.org/developers/teams/xapi.html">Xapi</a> to any storage type.</p>
+        <h4>Who is this for?</h4>
+        <p>This is for anyone who has a storage system which is not supported
+           by xapi out-of-the-box, or for anyone who wants to manage their
+           storage in a customized way. If you can make your volumes appear
+           as Linux block devices <i>or</i> you can refer to the volumes via
+           URIs of the form <tt>iscsi://</tt> <tt>nfs://</tt> or <tt>rbd://</tt>then
+           this documentation is for you.</p>
+        <p>No Xapi or Xen specific knowledge
+           is required.</p>
       </div>
     </div>
     <div class="row">
@@ -376,65 +327,14 @@ let index_html oc pages =
         <p>This documentation is a draft intended for discussion only.
            Please:</p>
         <ul>
-          <li>view the issues on github</li> or
-          <li>join the mailing list</li>
+          <li>view the <a href="https://github.com/djs55/xapi-storage/issues">issues on github</a></li> or
+          <li>join the <a href="http://lists.xenproject.org/mailman/listinfo/xen-api">mailing list</a></li>
         </ul>
       </div>
     </div>
   </header>
   >> in
-(*
-  let txt = Types.with_xmlm
-      (fun xmlm ->
-         xmlm (div "container");
-         xmlm (div "hero-unit");
-         xmlm h1;
-         xmlm (`Data "XCP Host APIs");
-         xmlm endtag;
-         xmlm p;
-         xmlm (`Data "This site contains prototype API definitions and example code fragments for interoperating with services running on an XCP host.");
-         xmlm endtag; (* p *)
-         xmlm (`El_start (("", "a"), [("", "class"), "btn btn-primary btn-large"; ("", "href"), "https://github.com/xen-org"]));
-         xmlm (`El_start (("", "i"), [("", "class"), "icon-github-sign icon-large"]));
-         xmlm (`Data "");
-         xmlm endtag; (* i *)
-         xmlm (`Data "View Project on GitHub");
-         xmlm endtag; (* a *)
-         xmlm endtag; (* hero-unit *)
-         (* Make rows of 3 elements each *)
-         let rec make_rows = function
-           | a :: b :: c :: rest -> [a; b; c] :: (make_rows rest)
-           | a :: b :: [] -> [[a; b]]
-           | a :: [] -> [[a]]
-           | [] -> [] in
-         List.iter
-           (fun row ->
-              xmlm (div "row");
-              List.iter
-                (fun page ->
-                   xmlm (div "span4");
-                   xmlm h2;
-                   xmlm (`Data page.title);
-                   xmlm endtag;
-                   xmlm p;
-                   xmlm (`Data page.description);
-                   xmlm endtag;
-                   xmlm p;
-                   xmlm (`El_start (("", "a"), [("", "class"), "btn btn-info"; ("", "href"), page.filename]));
-                   xmlm (`Data "View details");
-                   xmlm endtag;
-                   xmlm endtag;
-                   xmlm endtag;
-                ) row;
-              xmlm endtag;
-           ) (make_rows pages);
-         xmlm endtag (* container *)
-      ) in
-      *)
   print_file_to oc ("doc/header.html");
-  (*
-  html_navbar oc pages None;
-  *)
   output_string oc (Cow.Html.to_string (topbar pages));
   output_string oc (Cow.Html.to_string header);
   print_file_to oc ("doc/footer.html")
@@ -456,7 +356,7 @@ let write apis =
        with_output_file page.path
          (fun oc ->
             print_file_to oc ("doc/header.html");
-            (*					html_navbar oc pages (Some page); *)
+            output_string oc (Cow.Html.to_string (topbar pages));
             let idents, api = Types.resolve_refs_in_api page.api in
             output_string oc (to_string idents api);
             print_file_to oc ("doc/footer.html")
