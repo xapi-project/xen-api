@@ -9,7 +9,7 @@ let _ =
   (* Prepend the debug_info argument *)
   let apis = List.map Types.prepend_dbg apis in
 
-  Html.write apis;
+  Www.write apis;
 
   List.iter
     (fun api ->
