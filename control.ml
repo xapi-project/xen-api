@@ -27,7 +27,7 @@ let api =
           "virtual_size", Basic Int64, String.concat " " [
             "Size of the volume from the perspective of a VM (in bytes)";
           ];
-          "uri", Array (Basic String), String.concat "" [
+          "uri", Array (Basic String), String.concat " " [
             "A list of URIs which can be opened and used for I/O. A URI could ";
             "reference a local block device, a remote NFS share, iSCSI LUN or ";
             "RBD volume. In cases where the data may be accessed over several ";
@@ -54,16 +54,16 @@ let api =
     description = "The Storage Repository URI";
   } in
   {
-    Interfaces.name = "control";
-    title = "The storage control-plane";
+    Interfaces.name = "Storage Driver plugin";
+    title = "The Storage Driver plugin interface";
     description =
-      String.concat "" [
+      String.concat " " [
         "The xapi toolstack delegates all storage control-plane functions to ";
-        "\"drivers\", also known as \"Storage Manager plugins\". These drivers";
+        "\"drivers\", also known as \"Storage Driver plugins\". These plugins";
         "allow the toolstack to create/destroy/snapshot/clone volumes which";
         "are organised into groups called Storage Repositories (SR). Volumes";
-        "have a set of URIs which can be used by the storage data-plane to";
-        "read and write the disk data.";
+        "have a set of URIs which can be used by the \"Datapath plugins\"";
+        "to connect the disk data to VMs.";
       ];
     exn_decls = [
       {
@@ -100,7 +100,7 @@ let api =
         ty = Type.(Basic String);
       }; {
         TyDecl.name = "sr";
-        description = String.concat "" [
+        description = String.concat " " [
           "Primary key for a specific Storage Repository. This can be any ";
           "string which is meaningful to the implementation. For example this ";
           "could be an NFS directory name, an LVM VG name or even a URI.";
@@ -109,7 +109,7 @@ let api =
         ty = Type.(Basic String);
       }; {
         TyDecl.name = "volume";
-        description = String.concat "" [
+        description = String.concat " " [
           "A set of properties associated with a volume. These properties can ";
           "change dynamically and can be queried by the Volume.stat call.";
         ];
@@ -134,7 +134,7 @@ let api =
       [
         {
           Interface.name = "Driver";
-          description = String.concat "" [
+          description = String.concat " " [
             "Discover properties of this implementation. Every implementation ";
             "must support the query interface or it will not be recognised as ";
             "a storage driver by xapi.";
@@ -144,7 +144,7 @@ let api =
           methods = [
             {
               Method.name = "query";
-              description = String.concat "" [
+              description = String.concat " " [
                 "Query this implementation and return its properties. This is ";
                 "called by xapi to determine whether it is compatible with xapi ";
                 "and to discover the supported features."
@@ -170,7 +170,7 @@ let api =
                 ]
             }; {
               Method.name = "diagnostics";
-              description = String.concat "" [
+              description = String.concat " " [
                 "Returns a printable set of backend diagnostic information.";
                 "Implementations are encouraged to include any data which will ";
                 "be useful to diagnose problems. Note this data should not ";
