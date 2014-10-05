@@ -84,25 +84,35 @@ let to_string env x =
     | Custom c -> print c in
 
   let of_args args =
-    Xmlm.output output (`El_start (("", "div"), [ ("", "class"), "alert alert-info" ]));
-    Xmlm.output output (`El_start (("", "table"), [ ("", "class"), "table table-striped" ]));
-    th (fun () -> td "Direction"; td "Type"; td "Description");
-    List.iter
-      (fun (is_in, arg) ->
-         tr (fun () ->
-             tdcode arg.Arg.name;
-             td (if is_in then "in" else "out");
-             wrapf "td"
-               (fun () ->
-                  wrapf "code"
-                    (fun () ->
-                       html_of_t arg.Arg.ty;
-                    )
-               );
-             td arg.Arg.description);
-      ) args;
-    Xmlm.output output (`El_end);
-    Xmlm.output output (`El_end) in
+    let row_of_arg (is_in, arg) =
+      let name = [ `Data arg.Arg.name ] in
+      let direction = [ `Data (if is_in then "in" else "out") ] in
+      let ty = [ `Data "umm" ] in
+      let description = [ `Data arg.Arg.description ] in
+    <:html<
+      <tr>
+        <td><code>$name$</code></td>
+        <td>$direction$</td>
+        <td><code>$ty$</code></td>
+        <td>$description$</td>
+      </tr>
+    >> in
+
+  <:html<
+  <table width="100%">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Direction</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    $List.concat (List.map row_of_arg args)$
+  </tbody>
+  </table>
+  >> in
 
   (* Main content *)
 
@@ -198,7 +208,8 @@ let to_string env x =
               </dl>
               <div class="tabs-content">
                 <div class="content active" id="$id_defn$">
-                  <p>stuff</p>
+                  $ of_args ((List.map (fun m -> true, m) m.Method.inputs) @
+                             (List.map (fun m -> false, m) m.Method.outputs)) $
                 </div>
                 <div class="content" id="$id_ocaml$">
                   <h4>Client</h4>
