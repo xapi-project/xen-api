@@ -275,28 +275,28 @@ let topbar pages =
   <section class="top-bar-section">
     <ul class="right">
       <li class="has-dropdown">
-        <a href="#">Learn</a>
+        <a href="learn.html">Learn</a>
         <ul class="dropdown">
-          <li><a href="#">Features</a></li>
-          <li><a href="#">FAQ</a></li>
+          <li><a href="features.html">Features</a></li>
+          <li><a href="faq.html">FAQ</a></li>
         </ul>
       </li>
       <li class="has-dropdown">
         <a href="#">Develop</a>
         <ul class="dropdown">
-          <li><a href="#">Concepts</a></li>
+          <li><a href="concepts.html">Concepts</a></li>
           $List.concat (List.map link_of_page pages)$
         </ul>
       </li>
       <li class="has-dropdown">
         <a href="#">Support</a>
         <ul class="dropdown">
-          <li><a href="#">Mailing list</a></li>
-          <li><a href="#">Issue tracker</a></li>
-          <li><a href="#">IRC</a></li>
+          <li><a href="contact.html">Mailing list</a></li>
+          <li><a href="contact.html">Issue tracker</a></li>
+          <li><a href="contact.html">IRC</a></li>
         </ul>
       </li>
-      <li class="active"><a href="#">Get Started</a></li>
+      <li class="active"><a href="getstarted.html">Get Started</a></li>
     </ul>
   </section>
 </nav>
@@ -339,6 +339,19 @@ let index_html oc pages =
   output_string oc (Cow.Html.to_string header);
   print_file_to oc ("doc/footer.html")
 
+let placeholder_html oc pages =
+  let header = <:html<
+    <div class="row">
+      <div class="large-12 columns panel callout">
+        <p>This is a placeholder</p>
+      </div>
+    </div>
+  >> in
+  print_file_to oc ("doc/header.html");
+  output_string oc (Cow.Html.to_string (topbar pages));
+  output_string oc (Cow.Html.to_string header);
+  print_file_to oc ("doc/footer.html")
+
 let page_of_api api = {
   name = api.Interfaces.name;
   title = api.Interfaces.title;
@@ -365,4 +378,13 @@ let write apis =
   with_output_file "doc/index.html"
     (fun oc ->
        index_html oc pages
-    )
+    );
+  List.iter
+    (fun placeholder ->
+      with_output_file (Filename.concat "doc" placeholder)
+        (fun oc ->
+          placeholder_html oc pages
+        )
+    ) [
+    "contact.html"; "concepts.html"; "getstarted.html"; "features.html"; "faq.html"; "learn.html";
+    ]
