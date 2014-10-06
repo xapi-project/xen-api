@@ -33,7 +33,7 @@ let api =
             "RBD volume. In cases where the data may be accessed over several ";
             "protocols, he list should be sorted into descending order of ";
             "desirability. Xapi will open the most desirable URI for which it has ";
-            "an available datapath driver.";
+            "an available datapath plugin.";
           ]
         ]
       )) in
@@ -54,12 +54,12 @@ let api =
     description = "The Storage Repository URI";
   } in
   {
-    Interfaces.name = "Storage Driver plugin";
-    title = "The Storage Driver plugin interface";
+    Interfaces.name = "Volume plugin";
+    title = "The Volume plugin interface";
     description =
       String.concat " " [
         "The xapi toolstack delegates all storage control-plane functions to ";
-        "\"drivers\", also known as \"Storage Driver plugins\". These plugins";
+        "\"Volume plugins\".These plugins";
         "allow the toolstack to create/destroy/snapshot/clone volumes which";
         "are organised into groups called Storage Repositories (SR). Volumes";
         "have a set of URIs which can be used by the \"Datapath plugins\"";
@@ -117,7 +117,7 @@ let api =
       }; {
         TyDecl.name = "query_result";
         description = "properties of this implementation";
-        ty = Type.(Struct( ("driver", Basic String, "driver, used in the XenAPI as SR.type"), [
+        ty = Type.(Struct( ("plugin", Basic String, "plugin name, used in the XenAPI as SR.type"), [
             "name", Basic String, "short name";
             "description", Basic String, "description";
             "vendor", Basic String, "entity (e.g. company, project, group) which produced this implementation";
@@ -133,11 +133,11 @@ let api =
     interfaces =
       [
         {
-          Interface.name = "Driver";
+          Interface.name = "Plugin";
           description = String.concat " " [
             "Discover properties of this implementation. Every implementation ";
             "must support the query interface or it will not be recognised as ";
-            "a storage driver by xapi.";
+            "a storage plugin by xapi.";
           ];
           type_decls = [
           ];
@@ -327,7 +327,7 @@ let api =
                 { Arg.name = "configuration";
                   ty = Type.(Dict(String, Basic String));
                   description = String.concat " " [
-                    "Driver-specific configuration which describes where and";
+                    "Plugin-specific configuration which describes where and";
                     "how to create the storage repository. This may include";
                     "the physical block device name, a remote NFS server and";
                     "path or an RBD storage pool.";

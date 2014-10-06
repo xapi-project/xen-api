@@ -173,7 +173,7 @@
          sodipodi:role="line"
          id="tspan3803"
          x="41.319336"
-         y="603.36218">Volume Driver</tspan></text>
+         y="603.36218">Volume Plugin</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:14px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -184,7 +184,7 @@
          sodipodi:role="line"
          id="tspan3819"
          x="249.5"
-         y="672.86218">rbd Data Driver</tspan></text>
+         y="672.86218">rbd Datapath plugin</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:14px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -294,8 +294,8 @@
     <rect
        style="fill:none;stroke:#000000;stroke-width:1;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
        id="rect4658"
-       width="140"
-       height="30"
+       width="180"
+       height="29.999998"
        x="230.81934"
        y="653.86218" />
     <rect

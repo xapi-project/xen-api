@@ -21,15 +21,15 @@ We call the virtual disks within the SR <b>volumes</b>.
 When a VM is installed, a volume will be created. Typically this volume will
 be deleted when the VM is uninstalled. The Xapi toolstack doesn't know how
 to manipulate volumes on your storage system directly; instead it delegates
-to &quot;Storage drivers&quot;: implementation-specific plugins which know
-how to talk the storage-specific APIs. These storage drivers can be anything
+to &quot;Volume plugins&quot;: implementation-specific plugins which know
+how to talk the storage-specific APIs. These volume plugins can be anything
 from simple scripts in domain 0 to sophisticated services running somewhere
 on the network.
  </p>
 
 <p>
 Consider for example a system using Linux LVM, where individual LVs are
-mapped to VMs as virtual disks. The storage driver for LVM could implement
+mapped to VMs as virtual disks. The volume plugin for LVM could implement
 the <b>Volume.create</b> API by simply calling
 </p>
 <pre>
@@ -37,7 +37,7 @@ the <b>Volume.create</b> API by simply calling
  </pre>
 <p>
 Consider another example where volumes are simple sparse files stored on an
-NFS share. The storage driver could implement the <b>Volume.create</b> API
+NFS share. The volume plugin could implement the <b>Volume.create</b> API
 by simply calling:
 </p>
 <pre>
@@ -66,7 +66,7 @@ protocols including:
 <p>
 With so many implementations to choose from, which one should we use for a given
 volume? This decision - and how to configure the implementation for
-maximum performance - is the job of the Datapath driver.
+maximum performance - is the job of the Datapath plugin.
 </p>
 
 <h2>Disks as URIs</h2>
@@ -83,7 +83,7 @@ the volume. Examples include:
 <li>iscsi://target/lun - a LUN on an iSCSI array</li>
 </ul>
 <p>
-The Xapi toolstack takes the list of URIs provided by the Storage driver and
+The Xapi toolstack takes the list of URIs provided by the Volume plugin and
 creates a connection between the VM and the disk. Xapi chooses a
 &quot;Datapath plugin&quot; based on the URI scheme. The Datapath plugin returns
 Xen-specific connection details, including choice of backend (kernel blkback

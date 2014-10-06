@@ -31,8 +31,8 @@ let backend_decl = Type.Struct (
 
 let api =
   {
-    Interfaces.name = "Storage Datapath plugin";
-    title = "The Storage Datapath plugin interface";
+    Interfaces.name = "Datapath plugin";
+    title = "The Datapath plugin interface";
     description = String.concat " " [
       "The Datapath plugin takes a URI which points to virtual disk data and";
       "chooses a Xen datapath implementation: driver domain, blkback implementation";
