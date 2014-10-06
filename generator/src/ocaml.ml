@@ -370,7 +370,7 @@ let signature_of_interface env i =
             i.Interface.name (String.capitalize m.Method.name)
          ) in
   [
-    Line (sprintf "module type %s = sig" i.Interface.name);
+    Line (sprintf "module type %s = sig" (String.uppercase i.Interface.name));
     Block ([
         Line "include S.M";
       ] @ (List.map signature_of_method i.Interface.methods
@@ -396,7 +396,7 @@ let server_of_interface env i =
       ]
     ] in
   [
-    Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name i.Interface.name);
+    Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name (String.uppercase i.Interface.name));
     Block [
       Line "type 'a t = 'a Impl.t";
       Line "let (>>=) = Impl.(>>=)";
