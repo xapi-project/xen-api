@@ -278,13 +278,14 @@ let topbar pages =
         <a href="learn.html">Learn</a>
         <ul class="dropdown">
           <li><a href="features.html">Features</a></li>
+          <li><a href="concepts.html">Concepts</a></li>
+          <li><a href="architecture.html">Architecture</a></li>
           <li><a href="faq.html">FAQ</a></li>
         </ul>
       </li>
       <li class="has-dropdown">
         <a href="#">Develop</a>
         <ul class="dropdown">
-          <li><a href="concepts.html">Concepts</a></li>
           $List.concat (List.map link_of_page pages)$
         </ul>
       </li>
@@ -389,5 +390,11 @@ let write apis =
           placeholder_html oc pages (filename ^ ".body")
         )
     ) [
-    "contact.html"; "concepts.html"; "getstarted.html"; "features.html"; "faq.html"; "learn.html";
+      "contact.html";
+      "concepts.html";
+      "getstarted.html";
+      "features.html";
+      "faq.html";
+      "learn.html";
+      "architecture.html";
     ]
