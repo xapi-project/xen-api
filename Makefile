@@ -16,11 +16,11 @@ RPMBUILD?=rpmbuild
 
 default: build
 
-idl: files.cmx types.cmx control.cmx data.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx www.cmx main.cmx
-	${OCAMLFIND} ocamlopt -package cow -package xmlm -package unix -linkpkg -g -o idl files.cmx types.cmx control.cmx data.cmx xenops.cmx memory.cmx python.cmx ocaml.cmx www.cmx main.cmx
+idl: files.cmx types.cmx control.cmx data.cmx python.cmx ocaml.cmx www.cmx main.cmx
+	${OCAMLFIND} ocamlopt -package cow -package xmlm -package unix -linkpkg -g -o idl files.cmx types.cmx control.cmx data.cmx python.cmx ocaml.cmx www.cmx main.cmx
 
-toplevel: files.cmo types.cmo control.cmo data.cmo xenops.cmo memory.cmo python.cmo ocaml.cmo www.cmo
-	${OCAMLFIND} ocamlmktop -thread -package cow -package xmlm -linkpkg -g -o toplevel files.cmo types.cmo control.cmo data.cmo xenops.cmo memory.cmo python.cmo ocaml.cmo www.cmo
+toplevel: files.cmo types.cmo control.cmo data.cmo python.cmo ocaml.cmo www.cmo
+	${OCAMLFIND} ocamlmktop -thread -package cow -package xmlm -linkpkg -g -o toplevel files.cmo types.cmo control.cmo data.cmo python.cmo ocaml.cmo www.cmo
 
 %.cmx: %.ml
 	${OCAMLFIND} ocamlopt -package cow -package cow.syntax -syntax camlp4o -package xmlm -package unix -c -g -I . $<
