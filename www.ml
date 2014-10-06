@@ -310,16 +310,25 @@ let index_html oc pages =
     <div class="row">
       <div class="large-12 columns">
         <h1>Xapi storage interface</h1>
-        <p>An easy way to connect <a href="http://www.xenproject.org/developers/teams/xapi.html">Xapi</a> to any storage type.</p>
-        <h4>Who is this for?</h4>
+        <h3 class="subheader">An easy way to connect <a href="http://www.xenproject.org/developers/teams/xapi.html">Xapi</a> to any storage type.</h3>
+        <hr/>
+        <h2>Who is this for?</h2>
         <p>This is for anyone who has a storage system which is not supported
-           by xapi out-of-the-box, or for anyone who wants to manage their
+           by xapi out-of-the-box.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="large-6 columns">
+        <img src="img/your-bit-here.svg" alt="Your bit here"/>
+      </div>
+      <div class="large-6 columns">
+        <p>This is also for anyone who wants to manage their
            storage in a customized way. If you can make your volumes appear
            as Linux block devices <i>or</i> you can refer to the volumes via
            URIs of the form <tt>iscsi://</tt> <tt>nfs://</tt> or <tt>rbd://</tt>then
            this documentation is for you.</p>
-        <p>No Xapi or Xen specific knowledge
-           is required.</p>
+        <p><b>No Xapi or Xen specific knowledge
+           is required.</b></p>
       </div>
     </div>
     <div class="row">
