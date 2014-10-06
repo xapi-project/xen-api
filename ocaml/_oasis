@@ -12,19 +12,19 @@ Library storage
   Path: lib
   Pack: true
   Findlibname: xapi-storage
-  Modules: S, Control, Channel, Cmdliner_helpers
+  Modules: S, V, D, Channel, Cmdliner_helpers
   BuildDepends:	rpclib, cmdliner, re.str
 
-Executable storage_test
-  Path:               lib_test
-  MainIs:             storage_test.ml
-  Build$:             flag(tests)
-  Custom:             true
-  CompiledObject:     best
-  Install:            false
-  BuildDepends:       xapi-storage, lwt, lwt.unix, oUnit
+#Executable storage_test
+#  Path:               lib_test
+#  MainIs:             storage_test.ml
+#  Build$:             flag(tests)
+#  Custom:             true
+#  CompiledObject:     best
+#  Install:            false
+#  BuildDepends:       xapi-storage, lwt, lwt.unix, oUnit
 
-Test storage_test
-  Run$:               flag(tests)
-  Command:            $storage_test
-  WorkingDirectory:   lib_test
+#Test storage_test
+#  Run$:               flag(tests)
+#  Command:            $storage_test
+#  WorkingDirectory:   lib_test

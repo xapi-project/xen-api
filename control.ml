@@ -54,7 +54,7 @@ let api =
     description = "The Storage Repository URI";
   } in
   {
-    Interfaces.name = "Volume plugin";
+    Interfaces.name = "v";
     title = "The Volume plugin interface";
     description =
       String.concat " " [

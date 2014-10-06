@@ -19,19 +19,19 @@ let backend = {
 }
 
 let implementation = Type.Variant (
-  ("blkback", Type.(Basic String), "use kernel blkback with the given 'params' key"), [
-   "tapdisk3", Type.(Basic String), "use userspace tapdisk3 with the given 'params' key";
-   "qdisk", Type.(Basic String), "use userspace qemu qdisk with the given 'params' key"
+  ("Blkback", Type.(Basic String), "use kernel blkback with the given 'params' key"), [
+   "Tapdisk3", Type.(Basic String), "use userspace tapdisk3 with the given 'params' key";
+   "Qdisk", Type.(Basic String), "use userspace qemu qdisk with the given 'params' key"
   ])
 
 let backend_decl = Type.Struct (
   ("domain_uuid", Type.(Basic String), "UUID of the domain hosting the backend"), [
-  "implementation", implementation, "choice of implementation technology";
+  "implementation", Type.Name "implementation", "choice of implementation technology";
   ])
 
 let api =
   {
-    Interfaces.name = "Datapath plugin";
+    Interfaces.name = "d";
     title = "The Datapath plugin interface";
     description = String.concat " " [
       "The Datapath plugin takes a URI which points to virtual disk data and";
@@ -39,6 +39,11 @@ let api =
       "and caching strategy."
     ];
     exn_decls = [
+      {
+        TyDecl.name = "Unimplemented";
+        description = "The operation has not been implemented";
+        ty = Type.(Basic String);
+      }
     ];
     type_decls = [
       {
@@ -59,6 +64,12 @@ let api =
           "The interpretation of the URI is specific to the implementation.";
           "Xapi will choose which implementation to use based on the URI";
           "scheme.";
+        ];
+        ty = Type.(Basic String);
+      }; {
+        TyDecl.name = "implementation";
+        description = String.concat " " [
+          "The choice of blkback to use.";
         ];
         ty = Type.(Basic String);
       }; {
