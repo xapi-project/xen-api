@@ -12,6 +12,10 @@ build:
 install:
 	make -C ocaml install
 
+.PHONY: reinstall
+reinstall:
+	make -C ocaml reinstall
+
 .PHONY: clean
 clean:
 	make -C generator clean
