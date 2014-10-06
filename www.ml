@@ -250,7 +250,7 @@ let of_interfaces env x =
       <p>$description$</p>
       $List.concat (List.map (of_type_decl env) x.Interfaces.type_decls)$
       $List.concat (List.map (of_interface env x) x.Interfaces.interfaces)$
-      of_exception env x.Interfaces.exn_decls)$
+      $of_exception env x.Interfaces.exn_decls$
     </div>
     </div>
   >>
