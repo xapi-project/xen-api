@@ -405,46 +405,6 @@ in
     success test
   end
 
-(** After reverting a VDI to one of its snapshots, all snapshots should be
-    marked as snapshot_of the new VDI. *)
-let vdi_revert_test caps session_id sr vdi =
-	if (List.mem vdi_clone caps) && (List.mem vdi_delete caps) then begin
-		let test = make_test "VDI.revert should keep snapshot links up to date" 2 in
-		start test;
-		(* Clone the original VDI, since we're going to destroy the working VDI. *)
-		let cloned =
-			Client.VDI.clone ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
-		(* Create two snapshots. *)
-		let snap1 =
-			Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi:cloned ~driver_params:[] in
-		let snap2 =
-			Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi:cloned ~driver_params:[] in
-		(* Revert to the second snapshot. *)
-		let reverted =
-			Client.VDI.revert ~rpc:!rpc ~session_id ~snapshot:snap2 ~driver_params:[]
-		in
-		(* Check the snapshots' snapshot_of fields. *)
-		let snap1_snapshot_of =
-			Client.VDI.get_snapshot_of ~rpc:!rpc ~session_id ~self:snap1 in
-		let snap2_snapshot_of =
-			Client.VDI.get_snapshot_of ~rpc:!rpc ~session_id ~self:snap2 in
-		finally
-			(fun () ->
-				if snap1_snapshot_of <> reverted then begin
-					failed test "snap1 was not marked as a snapshot of the new VDI";
-					failwith "vdi_revert"
-				end;
-				if snap2_snapshot_of <> reverted then begin
-					failed test "snap2 was not marked as a snapshot of the new VDI";
-					failwith "vdi_revert"
-				end)
-			(fun () ->
-				List.iter
-					(fun vdi -> Client.VDI.destroy ~rpc:!rpc ~session_id ~self:vdi)
-					[snap1; snap2; reverted]);
-		success test
-	end
-
 
 
 (** Basic support for parsing the SR probe result *)
@@ -617,7 +577,6 @@ let foreach_sr session_id sr =
       with_arbitrary_vdi caps session_id sr vdi_resize_test;
       with_arbitrary_vdi caps session_id sr vdi_update_test;
       with_arbitrary_vdi caps session_id sr vdi_generate_config_test;
-      with_arbitrary_vdi caps session_id sr vdi_revert_test;
   | _ ->
       failed test "Multiple plugins with the same type detected"
 

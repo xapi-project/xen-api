@@ -2971,29 +2971,6 @@ let vdi_clone = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
-let vdi_revert = call
-	~name:"revert"
-	~in_oss_since:None
-	~in_product_since:rel_creedence
-	~versioned_params:[{
-		param_type=Ref _vdi;
-		param_name="snapshot";
-		param_doc="The snapshot to which we want to revert";
-		param_release=creedence_release;
-		param_default=None
-	};
-	{
-		param_type=Map (String, String);
-		param_name="driver_params";
-		param_doc="Optional parameters that are passed through to the backend driver in order to specify storage-type-specific clone options";
-		param_release=creedence_release;
-		param_default=Some (VMap []);
-	}]
-	~doc:"Clone a new VDI from the specified snapshot; mark all snapshots in the tree of snapshots of this new VDI; delete the original VDI these snapshots were pointing at; return the new VDI."
-	~result:(Ref _vdi, "The ID of the newly created VDI.")
-	~allowed_roles:_R_VM_POWER_ADMIN
-	()
-
 let vdi_resize = call
   ~name:"resize"
   ~in_product_since:rel_rio
@@ -5188,8 +5165,7 @@ let storage_operations =
 	  "vdi_clone", "Cloneing a VDI"; 
 	  "vdi_snapshot", "Snapshotting a VDI";
 	  "pbd_create", "Creating a PBD for this SR";
-	  "pbd_destroy", "Destroying one of this SR's PBDs";
-	  "vdi_revert", "Reverting a VDI to a clone of this snapshot"; ])
+	  "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
 let sr_set_virtual_allocation = call
    ~name:"set_virtual_allocation"
@@ -5468,8 +5444,6 @@ let vdi_operations =
 	  "force_unlock", "Forcibly unlocking the VDI";
 	  "generate_config", "Generating static configuration";
 	  "blocked", "Operations on this VDI are temporarily blocked";
-	  "revert", "Reverting a VDI to a clone of this snapshot";
-	  "reverting", "Reverting this VDI to a clone of one of its snapshots";
 	])
 
 let vdi_set_missing = call
@@ -5680,11 +5654,7 @@ let vdi =
       ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[
-		 vdi_snapshot;
-		 vdi_clone;
-		 vdi_revert;
-		 vdi_resize;
+      ~messages:[vdi_snapshot; vdi_clone; vdi_resize; 
 		 vdi_resize_online;
 		 vdi_introduce; vdi_pool_introduce;
 		 vdi_db_introduce; vdi_db_forget;

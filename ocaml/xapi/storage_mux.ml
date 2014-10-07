@@ -186,9 +186,6 @@ module Mux = struct
 		let destroy context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.destroy ~dbg ~sr ~vdi
-		let revert context ~dbg ~sr ~snapshot_info =
-			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.revert ~dbg ~sr ~snapshot_info
 		let stat context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.stat ~dbg ~sr ~vdi

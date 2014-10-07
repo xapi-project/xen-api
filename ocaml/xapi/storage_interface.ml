@@ -268,14 +268,6 @@ module VDI = struct
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
-	(** [revert task sr vdi_info snapshot_info] creates a new VDI which is a clone
-	    of [snapshot_info] in [sr]. [vdi_info] will be destroyed, and all its
-	    snapshots will be marked as [snapshot_of] the new VDI. *)
-	external revert : dbg:debug_info
-		-> sr:sr
-		-> snapshot_info:vdi_info
-		-> vdi_info = ""
-
 	(** [stat dbg sr vdi] returns information about VDI [vdi] in SR [sr] *)
 	external stat : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info = ""
 

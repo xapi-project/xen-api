@@ -498,13 +498,6 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                         )
                 )
 
-		let revert context ~dbg ~sr ~snapshot_info =
-			info "VDI.revert dbg:%s sr:%s snapshot:%s"
-				dbg sr
-				(string_of_vdi_info snapshot_info);
-			with_vdi sr snapshot_info.snapshot_of
-				(fun () -> Impl.VDI.revert context ~dbg ~sr ~snapshot_info)
-
 		let stat context ~dbg ~sr ~vdi =
 			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			Impl.VDI.stat context ~dbg ~sr ~vdi

@@ -36,7 +36,7 @@ open Record_util
 
 let all_ops : API.storage_operations_set = 
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot;
-    `vdi_introduce; `update; `pbd_create; `pbd_destroy; `vdi_revert ]
+    `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
 let sm_cap_table = 
   [ `vdi_create, Smint.Vdi_create;
