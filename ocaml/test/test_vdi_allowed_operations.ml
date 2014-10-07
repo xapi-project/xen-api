@@ -17,7 +17,7 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
-let setup_test ~__context ~vdi_fun =
+let setup_test ~__context vbd_fun =
 	let sr_ref = make_sr ~__context () in
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
 	(* Register the SR with a dummy processor which has a sensible
@@ -51,8 +51,8 @@ let setup_test ~__context ~vdi_fun =
 		});
 	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
 	let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
-	vdi_fun vdi_ref;
 	let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
+	vbd_fun vdi_ref;
 	vdi_ref, vdi_record
 
 let my_cmp a b = match a,b with
@@ -65,8 +65,8 @@ let string_of_api_exn_opt = function
 	| Some (code, args) ->
 		Printf.sprintf "Some (%s, [%s])" code (String.concat "; " args)
 
-let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) ~vdi_fun op exc =
-	let vdi_ref, vdi_record = setup_test ~__context ~vdi_fun in
+let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) vbd_list op exc =
+	let vdi_ref, vdi_record = setup_test ~__context vbd_list in
 	assert_equal
 		~cmp
 		~printer:string_of_api_exn_opt
@@ -78,33 +78,33 @@ let test_ca98944 () =
 	let __context = Mock.make_context_with_new_db "Mock context" in
 	(* Should raise vdi_in_use *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			make_vbd ~vDI:vdi_ref ~__context
 				~reserved:true ~currently_attached:false ~current_operations:["", `attach] ())
 		`update (Some (Api_errors.vdi_in_use, []));
 
 	(* Should raise vdi_in_use *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			make_vbd ~vDI:vdi_ref
 				~__context ~reserved:false ~currently_attached:true ~current_operations:["", `attach] ())
 		`update (Some (Api_errors.vdi_in_use, []));
 
 	(* Should raise vdi_in_use *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+		(fun vdi_ref -> make_vbd ~vDI:vdi_ref
 			~__context ~reserved:true ~currently_attached:true ~current_operations:["", `attach] ())
 		`update (Some (Api_errors.vdi_in_use, []));
 
 	(* Should raise other_operation_in_progress *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+		(fun vdi_ref -> make_vbd ~vDI:vdi_ref
 			~__context ~reserved:false ~currently_attached:false ~current_operations:["", `attach] ())
 		`update (Some (Api_errors.other_operation_in_progress, []));
 
 	(* Should pass *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+		(fun vdi_ref -> make_vbd ~vDI:vdi_ref
 			~__context ~reserved:false ~currently_attached:false ~current_operations:[] ())
 		`forget None
 
@@ -114,24 +114,24 @@ let test_ca101669 () =
 
 	(* Attempting to copy a RW-attached VDI should fail with VDI_IN_USE. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
 		`copy (Some (Api_errors.vdi_in_use, []));
 
 	(* Attempting to copy a RO-attached VDI should pass. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
 		`copy None;
 
 	(* Attempting to copy an unattached VDI should pass. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref -> ())
+		(fun vdi_ref -> ())
 		`copy None;
 
 	(* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW () in
 			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
 		`copy (Some (Api_errors.vdi_in_use, []))
@@ -141,7 +141,7 @@ let test_ca125187 () =
 
 	(* A VDI being copied can be copied again concurrently. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
@@ -151,7 +151,7 @@ let test_ca125187 () =
 	(* A VBD can be plugged to a VDI which is being copied. This is required as
 	 * the VBD is plugged after the VDI is marked with the copy operation. *)
 	let _, _ = setup_test ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			let vm_ref = make_vm ~__context () in
 			Db.VM.set_is_control_domain ~__context ~self:vm_ref ~value:true;
 			Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
@@ -178,7 +178,7 @@ let test_ca126097 () =
 
 	(* Attempting to clone a VDI being copied should fail with VDI_IN_USE. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
@@ -187,46 +187,12 @@ let test_ca126097 () =
 
 	(* Attempting to snapshot a VDI being copied should be allowed. *)
 	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
+		(fun vdi_ref ->
 			let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO () in
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
 				~value:["mytask", `copy])
 		`snapshot None
-
-let test_can_revert_to_snapshot () =
-	let __context = Mock.make_context_with_new_db "Mock context" in
-
-	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
-			Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true)
-		`revert None
-
-(* VBDs of checkpoints are marked with currently_attached = true, but we still
-   need to be able to revert to them. *)
-let test_can_revert_to_checkpoint () =
-	let __context = Mock.make_context_with_new_db "Mock context" in
-
-	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
-			Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true;
-			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
-		`revert None
-
-let test_cannot_revert_to_leaf () =
-	let __context = Mock.make_context_with_new_db "Mock context" in
-
-	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref -> ())
-		`revert (Some (Api_errors.only_revert_snapshot, []))
-
-let test_cannot_revert_live () =
-	let __context = Mock.make_context_with_new_db "Mock context" in
-
-	run_assert_equal_with_vdi ~__context
-		~vdi_fun:(fun vdi_ref ->
-			make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
-		`reverting (Some (Api_errors.vdi_in_use, []))
 
 let test =
 	"test_vdi_allowed_operations" >:::
@@ -235,8 +201,4 @@ let test =
 			"test_ca101669" >:: test_ca101669;
 			"test_ca125187" >:: test_ca125187;
 			"test_ca126097" >:: test_ca126097;
-			"test_can_revert_to_snapshot" >:: test_can_revert_to_snapshot;
-			"test_can_revert_to_checkpoint" >:: test_can_revert_to_checkpoint;
-			"test_cannot_revert_to_leaf" >:: test_cannot_revert_to_leaf;
-			"test_cannot_revert_live" >:: test_cannot_revert_live;
 		]

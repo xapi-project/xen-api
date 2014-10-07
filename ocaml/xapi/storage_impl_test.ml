@@ -86,8 +86,6 @@ module Debug_print_impl = struct
                     end
                 )
 
-		let revert context ~dbg ~sr ~snapshot_info = assert false
-
 		let epoch_begin context ~dbg ~sr ~vdi = ()
 
 		let stat context ~dbg ~sr ~vdi = assert false

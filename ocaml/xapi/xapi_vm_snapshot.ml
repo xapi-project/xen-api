@@ -284,16 +284,14 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	(* clone all the disks of the snapshot *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 
-		debug "Cleaning up the old VBDs and suspend VDI (if any) to have more free space";
+		debug "Cleaning up the old VBDs and VDIs to have more free space";
 		List.iter (safe_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs;
-		safe_destroy_vdi ~__context ~rpc ~session_id vm_suspend_VDI;
+		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_VDIs);
 		TaskHelper.set_progress ~__context 0.2;
 
 		debug "Cloning the snapshoted disks";
 		let driver_params = Xapi_vm_clone.make_driver_params () in
-		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_revert ~__context snap_vbds driver_params in
-		debug "Cleaning up any VDIs not destroyed by the reversions";
-		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vm_VDIs;
+		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds driver_params in
 		TaskHelper.set_progress ~__context 0.5;
 
 		debug "Cloning the suspend VDI if needed";

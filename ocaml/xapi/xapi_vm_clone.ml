@@ -105,7 +105,6 @@ type disk_op_t =
 	| Disk_op_copy of API.ref_SR option
 	| Disk_op_snapshot
 	| Disk_op_checkpoint
-	| Disk_op_revert
 
 let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_params = 
 	let task = 
@@ -119,8 +118,6 @@ let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_pa
 			Client.Async.VDI.copy rpc session_id vdi other_sr Ref.null Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint ->
 			Client.Async.VDI.snapshot rpc session_id vdi driver_params
-		| Disk_op_revert ->
-			Client.Async.VDI.revert rpc session_id vdi driver_params
 	in
 	(* This particular clone takes overall progress from startprogress to endprogress *)
 	let progress_minmax = may 
@@ -194,7 +191,6 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		| Disk_op_copy _-> `copy
 		| Disk_op_snapshot -> `snapshot
 		| Disk_op_checkpoint -> `checkpoint
-		| Disk_op_revert -> `reverting
 	in
 	(* replace VM mac seed on clone *)
 	let rec replace_seed l =
@@ -255,7 +251,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 	let parent =
 		match disk_op with
 		(* CA-52668: clone or copy result in new top-level VMs *)
-		| Disk_op_clone | Disk_op_copy _ | Disk_op_revert -> Ref.null
+		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
 	(* We always reset an existing generation ID on VM.clone *)
@@ -339,7 +335,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"
 	   has been created, so that its "children" field can be updated by the database layer *)
 	begin match disk_op with
-		| Disk_op_clone | Disk_op_copy _ | Disk_op_revert -> ()
+		| Disk_op_clone | Disk_op_copy _-> ()
 		| Disk_op_snapshot | Disk_op_checkpoint -> Db.VM.set_parent ~__context ~self:vm ~value:ref
 	end;
 

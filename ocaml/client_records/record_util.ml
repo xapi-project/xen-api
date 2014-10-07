@@ -105,8 +105,6 @@ let vdi_operation_to_string = function
   | `update -> "update"
   | `generate_config -> "generate_config"
   | `blocked -> "blocked"
-  | `revert -> "revert"
-  | `reverting -> "reverting"
 
 let sr_operation_to_string = function
   | `scan -> "scan"
@@ -123,7 +121,6 @@ let sr_operation_to_string = function
   | `vdi_snapshot -> "VDI.snapshot"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
-  | `vdi_revert -> "VDI.revert"
 
 let vbd_operation_to_string = function
   | `attach -> "attach"
