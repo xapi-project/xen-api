@@ -24,8 +24,8 @@ let process root_dir name x =
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
     (* convert to new storage interface *)
-    let args = Storage.V.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
-    let args = Storage.V.Types.Plugin.Query.In.rpc_of_t args in
+    let args = Storage.P.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
+    let args = Storage.P.Types.Plugin.Query.In.rpc_of_t args in
     let prog = Filename.(concat (concat root_dir name) "Query.query") in
     let open Deferred.Result.Monad_infix in
     Process.create ~prog ~args:["--json"] ~working_dir:root_dir ()
@@ -48,17 +48,17 @@ let process root_dir name x =
     |> Deferred.return
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
-    let response = Storage.V.Types.Plugin.Query.Out.t_of_rpc response in
+    let response = Storage.P.Types.Plugin.Query.Out.t_of_rpc response in
     let response = {
-      driver = response.Storage.V.Types.plugin;
-      name = response.Storage.V.Types.name;
-      description = response.Storage.V.Types.description;
-      vendor = response.Storage.V.Types.vendor;
-      copyright = response.Storage.V.Types.copyright;
-      version = response.Storage.V.Types.version;
-      required_api_version = response.Storage.V.Types.required_api_version;
-      features = response.Storage.V.Types.features;
-      configuration = response.Storage.V.Types.configuration} in
+      driver = response.Storage.P.Types.plugin;
+      name = response.Storage.P.Types.name;
+      description = response.Storage.P.Types.description;
+      vendor = response.Storage.P.Types.vendor;
+      copyright = response.Storage.P.Types.copyright;
+      version = response.Storage.P.Types.version;
+      required_api_version = response.Storage.P.Types.required_api_version;
+      features = response.Storage.P.Types.features;
+      configuration = response.Storage.P.Types.configuration} in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
