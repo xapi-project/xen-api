@@ -1,3 +1,8 @@
+0.9.8 (8-Oct-2014)
+* Don't install rrdd-libs, it's an internal library
+* Create I/O metrics from /dev/shm and sysfs
+* Add dependency on oclock
+
 0.9.7 (6-Jun-2014)
 * Installation fix
 
