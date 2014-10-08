@@ -13,4 +13,4 @@ Executable xapi_script_storage
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       xcp, xcp.storage, async_inotify, threads, message_switch.async, rpclib
+  BuildDepends:       xcp, xcp.storage, async_inotify, threads, message_switch.async, rpclib, xapi-storage

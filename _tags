@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4ffc04b2b0bb893ed19806c0356a5986)
+# DO NOT EDIT (digest: 7c0996ac9ce2363431af4daae4cbaead)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -18,12 +18,14 @@
 <main.{native,byte}>: pkg_message_switch.async
 <main.{native,byte}>: pkg_rpclib
 <main.{native,byte}>: pkg_threads
+<main.{native,byte}>: pkg_xapi-storage
 <main.{native,byte}>: pkg_xcp
 <main.{native,byte}>: pkg_xcp.storage
 <*.ml{,i}>: pkg_async_inotify
 <*.ml{,i}>: pkg_message_switch.async
 <*.ml{,i}>: pkg_rpclib
 <*.ml{,i}>: pkg_threads
+<*.ml{,i}>: pkg_xapi-storage
 <*.ml{,i}>: pkg_xcp
 <*.ml{,i}>: pkg_xcp.storage
 <main.{native,byte}>: custom

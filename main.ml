@@ -18,31 +18,66 @@ open Core.Std
 open Async.Std
 
 (* Process a message *)
-let process x =
+let process root_dir name x =
   let open Storage_interface in
-  let response = match Jsonrpc.call_of_string x with
+  (match Jsonrpc.call_of_string x with
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
+    (* convert to new storage interface *)
+    let args = Storage.V.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
+    let args = Storage.V.Types.Plugin.Query.In.rpc_of_t args in
+    let prog = Filename.(concat (concat root_dir name) "Query.query") in
+    let open Deferred.Result.Monad_infix in
+    Process.create ~prog ~args:["--json"] ~working_dir:root_dir ()
+    >>= fun p ->
+    (* Send the request as json on stdin *)
+    let w = Process.stdin p in
+    Writer.write w (Jsonrpc.to_string args);
+    let open Deferred.Monad_infix in
+    Writer.close w
+    >>= fun () ->
+    Process.wait p
+    >>= fun output ->
+    let open Deferred.Result.Monad_infix in
+    (* Check we got a zero exit code *)
+    Deferred.return (Unix.Exit_or_signal.or_error output.Process.Output.exit_status)
+    >>= fun () ->
+    (* Parse the json on stdout *)
+    (fun () -> Jsonrpc.of_string output.Process.Output.stdout)
+    |> Or_error.try_with
+    |> Deferred.return
+    >>= fun response ->
+    (* Convert between the xapi-storage interface and the SMAPI *)
+    let response = Storage.V.Types.Plugin.Query.Out.t_of_rpc response in
     let response = {
-      driver = "driver"; name = "name"; description = "description";
-      vendor = "vendor"; copyright = "copyright"; version = "version";
-      required_api_version = "required_api_version"; features = [];
-      configuration = []} in
-    R.success (Args.Query.Query.rpc_of_response response)
+      driver = response.Storage.V.Types.plugin;
+      name = response.Storage.V.Types.name;
+      description = response.Storage.V.Types.description;
+      vendor = response.Storage.V.Types.vendor;
+      copyright = response.Storage.V.Types.copyright;
+      version = response.Storage.V.Types.version;
+      required_api_version = response.Storage.V.Types.required_api_version;
+      features = response.Storage.V.Types.features;
+      configuration = response.Storage.V.Types.configuration} in
+    Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | _ ->
-    R.failure (R.String "hello") in
-  return (Jsonrpc.string_of_response response)
+    Deferred.Result.return (R.failure (R.String "hello")))
+  >>= function
+  | Result.Error _ ->
+    return (Jsonrpc.string_of_response (R.failure (R.String "hello")))
+  | Result.Ok rpc ->
+    return (Jsonrpc.string_of_response rpc)
 
 (* Active servers, one per sub-directory of the root_dir *)
 let servers = String.Table.create () ~size:4
 
-let create switch_port name =
+let create switch_port root_dir name =
   if Hashtbl.mem servers name
   then return ()
   else begin
     Printf.fprintf stderr "Adding %s\n%!" name;
     Protocol_async.M.connect switch_port >>= fun c ->
-    let server = Protocol_async.Server.listen process c (Filename.basename name) in
+    let server = Protocol_async.Server.listen (process root_dir name) c (Filename.basename name) in
     Hashtbl.add_exn servers name server;
     return ()
   end
@@ -64,7 +99,7 @@ let sync ~root_dir ~switch_port =
   >>= fun names ->
   let needed : string list = Array.to_list names in
   let got_already : string list = Hashtbl.keys servers in
-  Deferred.all_ignore (List.map ~f:(create switch_port) (diff needed got_already))
+  Deferred.all_ignore (List.map ~f:(create switch_port root_dir) (diff needed got_already))
   >>= fun () ->
   Deferred.all_ignore (List.map ~f:(destroy switch_port) (diff got_already needed))
 
@@ -82,7 +117,7 @@ let main ~root_dir ~switch_port =
       Shutdown.exit 1
     | `Ok (Created name)
     | `Ok (Moved (Into name)) ->
-      create switch_port name
+      create switch_port root_dir name
     | `Ok (Unlinked name)
     | `Ok (Moved (Away name)) ->
       destroy switch_port name
@@ -91,7 +126,7 @@ let main ~root_dir ~switch_port =
     | `Ok (Moved (Move (a, b))) ->
       destroy switch_port a
       >>= fun () ->
-      create switch_port b
+      create switch_port root_dir b
     | `Ok Queue_overflow ->
       sync ~root_dir ~switch_port
     ) >>= fun () ->
