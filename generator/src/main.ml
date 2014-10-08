@@ -3,6 +3,7 @@ open Files
 
 let _ =
   let apis = [
+    Plugin.api;
     Control.api;
     Data.api;
   ] in
