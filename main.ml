@@ -12,11 +12,26 @@
  * GNU Lesser General Public License for more details.
  *)
 module U = Unix
+module R = Rpc
+
 open Core.Std
 open Async.Std
 
 (* Process a message *)
-let process x = return x
+let process x =
+  let open Storage_interface in
+  let response = match Jsonrpc.call_of_string x with
+  | { R.name = "Query.query"; R.params = [ args ] } ->
+    let args = Args.Query.Query.request_of_rpc args in
+    let response = {
+      driver = "driver"; name = "name"; description = "description";
+      vendor = "vendor"; copyright = "copyright"; version = "version";
+      required_api_version = "required_api_version"; features = [];
+      configuration = []} in
+    R.success (Args.Query.Query.rpc_of_response response)
+  | _ ->
+    R.failure (R.String "hello") in
+  return (Jsonrpc.string_of_response response)
 
 (* Active servers, one per sub-directory of the root_dir *)
 let servers = String.Table.create () ~size:4
@@ -32,8 +47,9 @@ let create switch_port name =
     return ()
   end
 
-let destroy name =
+let destroy switch_port name =
   Printf.fprintf stderr "Removing %s\n%!" name;
+  Protocol_async.M.connect switch_port >>= fun c ->
   Hashtbl.remove servers name;
   return ()
 
@@ -46,11 +62,11 @@ let rec diff a b = match a with
 let sync ~root_dir ~switch_port =
   Sys.readdir root_dir
   >>= fun names ->
-  let needed = Array.to_list names in
-  let got_already = Hashtbl.keys servers in
+  let needed : string list = Array.to_list names in
+  let got_already : string list = Hashtbl.keys servers in
   Deferred.all_ignore (List.map ~f:(create switch_port) (diff needed got_already))
   >>= fun () ->
-  Deferred.all_ignore (List.map ~f:destroy (diff got_already needed))
+  Deferred.all_ignore (List.map ~f:(destroy switch_port) (diff got_already needed))
 
 let main ~root_dir ~switch_port =
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
@@ -69,11 +85,11 @@ let main ~root_dir ~switch_port =
       create switch_port name
     | `Ok (Unlinked name)
     | `Ok (Moved (Away name)) ->
-      destroy name
+      destroy switch_port name
     | `Ok (Modified _) ->
       return ()
     | `Ok (Moved (Move (a, b))) ->
-      destroy a
+      destroy switch_port a
       >>= fun () ->
       create switch_port b
     | `Ok Queue_overflow ->
