@@ -38,6 +38,31 @@ let backend_error script_name e =
       marshal "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]
     end
 
+let fork_exec_rpc root_dir script_name args response_of_rpc =
+  let open Deferred.Result.Monad_infix in
+  Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
+  >>= fun p ->
+  (* Send the request as json on stdin *)
+  let w = Process.stdin p in
+  Writer.write w (Jsonrpc.to_string args);
+  let open Deferred.Monad_infix in
+  Writer.close w
+  >>= fun () ->
+  Process.wait p
+  >>= fun output ->
+  let open Deferred.Result.Monad_infix in
+  (* Check we got a zero exit code *)
+  Deferred.return (Unix.Exit_or_signal.or_error output.Process.Output.exit_status)
+  >>= fun () ->
+  (* Parse the json on stdout *)
+  (fun () -> Jsonrpc.of_string output.Process.Output.stdout)
+  |> Or_error.try_with
+  |> Deferred.return
+  >>= fun response ->
+  (fun () -> response_of_rpc response)
+  |> Or_error.try_with
+  |> Deferred.return
+
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
@@ -50,29 +75,7 @@ let process root_dir name x =
     let args = Storage.P.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
     let args = Storage.P.Types.Plugin.Query.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
-    >>= fun p ->
-    (* Send the request as json on stdin *)
-    let w = Process.stdin p in
-    Writer.write w (Jsonrpc.to_string args);
-    let open Deferred.Monad_infix in
-    Writer.close w
-    >>= fun () ->
-    Process.wait p
-    >>= fun output ->
-    let open Deferred.Result.Monad_infix in
-    (* Check we got a zero exit code *)
-    Deferred.return (Unix.Exit_or_signal.or_error output.Process.Output.exit_status)
-    >>= fun () ->
-    (* Parse the json on stdout *)
-    (fun () -> Jsonrpc.of_string output.Process.Output.stdout)
-    |> Or_error.try_with
-    |> Deferred.return
-    >>= fun response ->
-    (* Parse the json on stdin *)
-    (fun () -> Storage.P.Types.Plugin.Query.Out.t_of_rpc response)
-    |> Or_error.try_with
-    |> Deferred.return
+    fork_exec_rpc root_dir script_name args Storage.P.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let response = {
