@@ -69,8 +69,12 @@ let process root_dir name x =
     |> Or_error.try_with
     |> Deferred.return
     >>= fun response ->
+    (* Parse the json on stdin *)
+    (fun () -> Storage.P.Types.Plugin.Query.Out.t_of_rpc response)
+    |> Or_error.try_with
+    |> Deferred.return
+    >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
-    let response = Storage.P.Types.Plugin.Query.Out.t_of_rpc response in
     let response = {
       driver = response.Storage.P.Types.plugin;
       name = response.Storage.P.Types.name;
