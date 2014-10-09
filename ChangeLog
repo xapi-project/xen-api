@@ -1,3 +1,7 @@
+0.10.7 (9-Oct-2014):
+* Create a fast-path when there is plenty of memory
+* Use a more robust method for discovering domain 0 memory
+
 0.10.6 (30-May-2014):
 * Update to stdext 0.11.0
 
