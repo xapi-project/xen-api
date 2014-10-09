@@ -382,6 +382,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							(dest_sr_ref, dest_sr)
 					| false, false ->
 							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
 							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
 				in
 
