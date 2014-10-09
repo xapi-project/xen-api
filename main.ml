@@ -90,7 +90,9 @@ let process root_dir name x =
       version = response.Storage.P.Types.version;
       required_api_version = response.Storage.P.Types.required_api_version;
       features = response.Storage.P.Types.features;
-      configuration = response.Storage.P.Types.configuration} in
+      configuration =
+       ("uri", "URI of the storage medium") ::
+       response.Storage.P.Types.configuration} in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
