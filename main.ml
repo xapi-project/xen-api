@@ -108,6 +108,16 @@ let process root_dir name x =
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
     end
+  | { R.name = "SR.detach"; R.params = [ args ] } ->
+    let args = Args.SR.Detach.request_of_rpc args in
+    let args = Storage.V.Types.SR.Detach.In.make
+      args.Args.SR.Detach.dbg
+      args.Args.SR.Detach.sr in
+    let args = Storage.V.Types.SR.Detach.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Detach.Out.t_of_rpc
+    >>= fun response ->
+    Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
   | _ ->
     (* NB we don't call backend_error to perform diagnosis because we don't
        want to look up paths with user-supplied elements. *)
