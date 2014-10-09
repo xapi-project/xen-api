@@ -63,8 +63,10 @@ let process root_dir name x =
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
-  | Result.Error _ ->
-    return (Jsonrpc.string_of_response (R.failure (R.String "hello")))
+  | Result.Error e ->
+    let exnty = Exception.Backend_error ("SCRIPT_FAILURE", [ Error.to_string_hum e ]) in
+    let rpc = Exception.rpc_of_exnty exnty in
+    return (Jsonrpc.string_of_response (R.failure rpc))
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
 
