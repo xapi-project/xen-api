@@ -17,18 +17,40 @@ module R = Rpc
 open Core.Std
 open Async.Std
 
+(* If we get a general Error.t then perform some diagnosis to report
+   the most 'actionable' error we can. *)
+let backend_error script_name e =
+  let marshal name args =
+    let open Storage_interface in
+    let exnty = Exception.Backend_error (name, args) in
+    let rpc = Exception.rpc_of_exnty exnty in
+    return (Jsonrpc.string_of_response (R.failure rpc)) in
+  Sys.is_file ~follow_symlinks:true script_name
+  >>= function
+  | `No | `Unknown ->
+    marshal "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]
+  | `Yes ->
+    begin Unix.access script_name [ `Exec ]
+    >>= function
+    | Error exn ->
+      marshal "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]
+    | Ok () ->
+      marshal "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]
+    end
+
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
-  (match Jsonrpc.call_of_string x with
+  let call = Jsonrpc.call_of_string x in
+  let script_name = Filename.(concat (concat root_dir name) call.R.name) in
+  (match call with
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
     (* convert to new storage interface *)
     let args = Storage.P.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
     let args = Storage.P.Types.Plugin.Query.In.rpc_of_t args in
-    let prog = Filename.(concat (concat root_dir name) "Query.query") in
     let open Deferred.Result.Monad_infix in
-    Process.create ~prog ~args:["--json"] ~working_dir:root_dir ()
+    Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
     >>= fun p ->
     (* Send the request as json on stdin *)
     let w = Process.stdin p in
@@ -61,12 +83,12 @@ let process root_dir name x =
       configuration = response.Storage.P.Types.configuration} in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | _ ->
+    (* NB we don't call backend_error to perform diagnosis because we don't
+       want to look up paths with user-supplied elements. *)
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
   | Result.Error e ->
-    let exnty = Exception.Backend_error ("SCRIPT_FAILURE", [ Error.to_string_hum e ]) in
-    let rpc = Exception.rpc_of_exnty exnty in
-    return (Jsonrpc.string_of_response (R.failure rpc))
+    backend_error script_name e
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
 
