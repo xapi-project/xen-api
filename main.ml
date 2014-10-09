@@ -17,25 +17,28 @@ module R = Rpc
 open Core.Std
 open Async.Std
 
+let backend_error name args =
+  let open Storage_interface in
+  let exnty = Exception.Backend_error (name, args) in
+  Exception.rpc_of_exnty exnty
+
+let missing_uri () =
+  backend_error "MISSING_URI" [ "Please include a URI in the device-config" ]
+
 (* If we get a general Error.t then perform some diagnosis to report
    the most 'actionable' error we can. *)
-let backend_error script_name e =
-  let marshal name args =
-    let open Storage_interface in
-    let exnty = Exception.Backend_error (name, args) in
-    let rpc = Exception.rpc_of_exnty exnty in
-    return (Jsonrpc.string_of_response (R.failure rpc)) in
+let diagnose script_name e =
   Sys.is_file ~follow_symlinks:true script_name
   >>= function
   | `No | `Unknown ->
-    marshal "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]
+    return (backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ])
   | `Yes ->
     begin Unix.access script_name [ `Exec ]
     >>= function
     | Error exn ->
-      marshal "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]
+      return (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ])
     | Ok () ->
-      marshal "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]
+      return (backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ])
     end
 
 let fork_exec_rpc root_dir script_name args response_of_rpc =
@@ -89,13 +92,29 @@ let process root_dir name x =
       features = response.Storage.P.Types.features;
       configuration = response.Storage.P.Types.configuration} in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
+  | { R.name = "SR.attach"; R.params = [ args ] } ->
+    let args = Args.SR.Attach.request_of_rpc args in
+    let device_config = args.Args.SR.Attach.device_config in
+    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
+    | None ->
+      Deferred.Result.return (R.failure (missing_uri ()))
+    | Some (_, uri) ->
+      let args = Storage.V.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
+      let args = Storage.V.Types.SR.Attach.In.rpc_of_t args in
+      let open Deferred.Result.Monad_infix in
+      fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Attach.Out.t_of_rpc
+      >>= fun response ->
+      Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
+    end
   | _ ->
     (* NB we don't call backend_error to perform diagnosis because we don't
        want to look up paths with user-supplied elements. *)
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
   | Result.Error e ->
-    backend_error script_name e
+    diagnose script_name e
+    >>= fun rpc ->
+    return (Jsonrpc.string_of_response (R.failure rpc))
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
 
