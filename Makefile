@@ -1,6 +1,3 @@
-include $(B_BASE)/common.mk
-include $(B_BASE)/rpmbuild.mk
-
 TARGETS = rrdp_iostat \
 	 rrdp_squeezed \
 	 rrdp_xenpm
