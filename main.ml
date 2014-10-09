@@ -118,6 +118,23 @@ let process root_dir name x =
     fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
+  | { R.name = "SR.create"; R.params = [ args ] } ->
+    let args = Args.SR.Create.request_of_rpc args in
+    let device_config = args.Args.SR.Create.device_config in
+    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
+    | None ->
+      Deferred.Result.return (R.failure (missing_uri ()))
+    | Some (_, uri) ->
+      let args = Storage.V.Types.SR.Create.In.make
+        args.Args.SR.Create.dbg
+        uri
+        device_config in
+      let args = Storage.V.Types.SR.Create.In.rpc_of_t args in
+      let open Deferred.Result.Monad_infix in
+      fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Create.Out.t_of_rpc
+      >>= fun response ->
+      Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
+    end
   | _ ->
     (* NB we don't call backend_error to perform diagnosis because we don't
        want to look up paths with user-supplied elements. *)
