@@ -135,6 +135,32 @@ let process root_dir name x =
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
+  | { R.name = "SR.scan"; R.params = [ args ] } ->
+    let args = Args.SR.Scan.request_of_rpc args in
+    let args = Storage.V.Types.SR.Ls.In.make
+      args.Args.SR.Scan.dbg
+      args.Args.SR.Scan.sr in
+    let args = Storage.V.Types.SR.Ls.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Ls.Out.t_of_rpc
+    >>= fun response ->
+    let response = List.map ~f:(fun x -> {
+      vdi = x.Storage.V.Types.key;
+      content_id = "";
+      name_label = x.Storage.V.Types.name;
+      name_description = x.Storage.V.Types.description;
+      ty = "";
+      metadata_of_pool = "";
+      is_a_snapshot = false;
+      snapshot_time = "";
+      snapshot_of = "";
+      read_only = not x.Storage.V.Types.read_write;
+      virtual_size = x.Storage.V.Types.virtual_size;
+      physical_utilisation = 0L;
+      sm_config = [];
+      persistent = true;
+    }) response in
+    Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
   | _ ->
     (* NB we don't call backend_error to perform diagnosis because we don't
        want to look up paths with user-supplied elements. *)
