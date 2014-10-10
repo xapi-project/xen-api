@@ -77,6 +77,24 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
       end
     end
 
+let vdi_of_volume x =
+  let open Storage_interface in {
+  vdi = x.Storage.V.Types.key;
+  content_id = "";
+  name_label = x.Storage.V.Types.name;
+  name_description = x.Storage.V.Types.description;
+  ty = "";
+  metadata_of_pool = "";
+  is_a_snapshot = false;
+  snapshot_time = "";
+  snapshot_of = "";
+  read_only = not x.Storage.V.Types.read_write;
+  virtual_size = x.Storage.V.Types.virtual_size;
+  physical_utilisation = 0L;
+  sm_config = [];
+  persistent = true;
+}
+
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
@@ -155,23 +173,23 @@ let process root_dir name x =
     let open Deferred.Result.Monad_infix in
     fork_exec_rpc root_dir (script "SR.ls") args Storage.V.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
-    let response = List.map ~f:(fun x -> {
-      vdi = x.Storage.V.Types.key;
-      content_id = "";
-      name_label = x.Storage.V.Types.name;
-      name_description = x.Storage.V.Types.description;
-      ty = "";
-      metadata_of_pool = "";
-      is_a_snapshot = false;
-      snapshot_time = "";
-      snapshot_of = "";
-      read_only = not x.Storage.V.Types.read_write;
-      virtual_size = x.Storage.V.Types.virtual_size;
-      physical_utilisation = 0L;
-      sm_config = [];
-      persistent = true;
-    }) response in
+    let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
+  | { R.name = "VDI.create"; R.params = [ args ] } ->
+    let args = Args.VDI.Create.request_of_rpc args in
+    let vdi_info = args.Args.VDI.Create.vdi_info in
+    let args = Storage.V.Types.Volume.Create.In.make
+      args.Args.VDI.Create.dbg
+      args.Args.VDI.Create.sr
+      vdi_info.name_label
+      vdi_info.name_description
+      vdi_info.virtual_size in
+    let args = Storage.V.Types.Volume.Create.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir (script "Volume.create") args Storage.V.Types.Volume.Create.Out.t_of_rpc
+    >>= fun response ->
+    let response = vdi_of_volume response in
+    Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
