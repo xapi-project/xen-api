@@ -17,35 +17,34 @@ let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 open Printf
 
 let rec typeof ?(expand_aliases=false) env t =
-  let typeof env t = typeof ~expand_aliases env t in
   let open Type in match t with
     | Basic Int64 -> [ "int64" ]
     | Basic String -> [ "string" ]
     | Basic Double -> [ "float" ]
     | Basic Boolean -> [ "bool" ]
     | Struct (fst, rest) ->
-      let member (name, ty, descr) = sprintf "%s: %s; (** %s *)" name (String.concat " " (typeof env ty)) descr in
+      let member (name, ty, descr) = sprintf "%s: %s; (** %s *)" name (String.concat " " (typeof ~expand_aliases:false env ty)) descr in
       "{" :: (member fst) :: (List.map member rest) @ [ "}" ]
     | Variant (fst, rest) ->
-      let member (name, ty, descr) = sprintf "| %s of %s (** %s *)" name (String.concat " " (typeof env ty)) descr in
+      let member (name, ty, descr) = sprintf "| %s of %s (** %s *)" name (String.concat " " (typeof ~expand_aliases:false env ty)) descr in
       member fst :: (List.map member rest)
     | Array t ->
-      "(" :: (typeof env t) @ [ "list"; ")" ]
+      "(" :: (typeof ~expand_aliases env t) @ [ "list"; ")" ]
     | Dict (basic, t) ->
-      "((" :: (typeof env (Basic basic)) @ [ "*" ] @ (typeof env t) @ [ ") list)" ]
+      "((" :: (typeof ~expand_aliases env (Basic basic)) @ [ "*" ] @ (typeof ~expand_aliases env t) @ [ ") list)" ]
     | Name x ->
       let ident =
         if not(List.mem_assoc x env)
         then failwith (Printf.sprintf "Unable to find ident: %s" x)
         else List.assoc x env in
       if expand_aliases
-      then typeof env ident.Ident.ty
+      then typeof ~expand_aliases env ident.Ident.ty
       else [ List.hd ident.Ident.name ] (* we assume names are all in scope *)
     | Unit -> [ "()" ]
     | Option t ->
-      "(" :: (typeof env t) @ [ "option )" ]
+      "(" :: (typeof ~expand_aliases env t) @ [ "option )" ]
     | Pair (a, b) ->
-      "(" :: (typeof env a) @ [ "*" ] @ (typeof env b)
+      "(" :: (typeof ~expand_aliases env a) @ [ "*" ] @ (typeof ~expand_aliases env b)
     | Custom x -> [ (String.capitalize x) ^ ".t" ]
 
 let typeof ?expand_aliases env (t: Types.Type.t) =
