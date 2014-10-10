@@ -18,6 +18,7 @@ open Core.Std
 open Async.Std
 
 let backend_error name args =
+  Printf.fprintf stderr "backend_error %s [ %s ]\n%!" name (String.concat ~sep:"; " args);
   let open Storage_interface in
   let exnty = Exception.Backend_error (name, args) in
   Exception.rpc_of_exnty exnty
@@ -42,35 +43,45 @@ let diagnose script_name e =
     end
 
 let fork_exec_rpc root_dir script_name args response_of_rpc =
-  let open Deferred.Result.Monad_infix in
   Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
-  >>= fun p ->
-  (* Send the request as json on stdin *)
-  let w = Process.stdin p in
-  Writer.write w (Jsonrpc.to_string args);
-  let open Deferred.Monad_infix in
-  Writer.close w
-  >>= fun () ->
-  Process.wait p
-  >>= fun output ->
-  let open Deferred.Result.Monad_infix in
-  (* Check we got a zero exit code *)
-  Deferred.return (Unix.Exit_or_signal.or_error output.Process.Output.exit_status)
-  >>= fun () ->
-  (* Parse the json on stdout *)
-  (fun () -> Jsonrpc.of_string output.Process.Output.stdout)
-  |> Or_error.try_with
-  |> Deferred.return
-  >>= fun response ->
-  (fun () -> response_of_rpc response)
-  |> Or_error.try_with
-  |> Deferred.return
+  >>= function
+  | Error e ->
+    diagnose script_name e
+    >>= fun response ->
+    return (Error response)
+  | Ok p ->
+    (* Send the request as json on stdin *)
+    let w = Process.stdin p in
+    Writer.write w (Jsonrpc.to_string args);
+    Writer.close w
+    >>= fun () ->
+    Process.wait p
+    >>= fun output ->
+    begin match output.Process.Output.exit_status with
+    | Error (`Exit_non_zero code) ->
+      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code ]))
+    | Error (`Signal signal) ->
+      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal ]))
+    | Ok () ->
+
+      (* Parse the json on stdout *)
+      begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
+      | Error _ ->
+        return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
+      | Ok response ->
+        begin match Or_error.try_with (fun () -> response_of_rpc response) with
+        | Error _ ->
+          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "json did not match schema"; output.Process.Output.stdout ]))
+        | Ok x -> return (Ok x)
+        end
+      end
+    end
 
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
   let call = Jsonrpc.call_of_string x in
-  let script_name = Filename.(concat (concat root_dir name) call.R.name) in
+  let script script = Filename.(concat (concat root_dir name) script) in
   (match call with
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
@@ -78,7 +89,7 @@ let process root_dir name x =
     let args = Storage.P.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
     let args = Storage.P.Types.Plugin.Query.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir script_name args Storage.P.Types.Plugin.Query.Out.t_of_rpc
+    fork_exec_rpc root_dir (script "Plugin.Query") args Storage.P.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let response = {
@@ -104,7 +115,7 @@ let process root_dir name x =
       let args = Storage.V.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
       let args = Storage.V.Types.SR.Attach.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Attach.Out.t_of_rpc
+      fork_exec_rpc root_dir (script "SR.attach") args Storage.V.Types.SR.Attach.Out.t_of_rpc
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
     end
@@ -115,7 +126,7 @@ let process root_dir name x =
       args.Args.SR.Detach.sr in
     let args = Storage.V.Types.SR.Detach.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Detach.Out.t_of_rpc
+    fork_exec_rpc root_dir (script "SR.detach") args Storage.V.Types.SR.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
   | { R.name = "SR.create"; R.params = [ args ] } ->
@@ -131,7 +142,7 @@ let process root_dir name x =
         device_config in
       let args = Storage.V.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Create.Out.t_of_rpc
+      fork_exec_rpc root_dir (script "SR.create") args Storage.V.Types.SR.Create.Out.t_of_rpc
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
@@ -142,7 +153,7 @@ let process root_dir name x =
       args.Args.SR.Scan.sr in
     let args = Storage.V.Types.SR.Ls.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir script_name args Storage.V.Types.SR.Ls.Out.t_of_rpc
+    fork_exec_rpc root_dir (script "SR.ls") args Storage.V.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
     let response = List.map ~f:(fun x -> {
       vdi = x.Storage.V.Types.key;
@@ -162,14 +173,11 @@ let process root_dir name x =
     }) response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
   | _ ->
-    (* NB we don't call backend_error to perform diagnosis because we don't
-       want to look up paths with user-supplied elements. *)
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
-  | Result.Error e ->
-    diagnose script_name e
-    >>= fun rpc ->
-    return (Jsonrpc.string_of_response (R.failure rpc))
+  | Result.Error error ->
+    Printf.fprintf stderr "returning %s\n%!" (Jsonrpc.string_of_response (R.failure error));
+    return (Jsonrpc.string_of_response (R.failure error))
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
 
