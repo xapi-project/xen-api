@@ -228,8 +228,12 @@ let process root_dir name x =
     let args' = Storage.D.Types.Datapath.Attach.In.rpc_of_t args' in
     fork_exec_rpc root_dir (script (`Datapath datapath) "Datapath.attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
     >>= fun response ->
+    let params = match response.Storage.D.Types.implementation with
+    | Storage.D.Types.Blkback p -> p
+    | Storage.D.Types.Qdisk p -> p
+    | Storage.D.Types.Tapdisk3 p -> p in
     let attach_info = {
-      params = "params";
+      params;
       xenstore_data = [ "xenstore", "data" ]
     } in
     Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
