@@ -325,7 +325,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		then
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
-			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ vdi_uuid ]))) vdis) ;
+			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
 	
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
@@ -374,7 +374,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							(dest_sr_ref, dest_sr)
 					| false, false ->
 							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-							failwith ("No SR specified in VDI map for VDI " ^ vdi_uuid)
+							error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
+							raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
 				in
 
 			(* Plug the destination shared SR into destination host and pool master if unplugged.
