@@ -71,7 +71,7 @@ let api =
         description = String.concat " " [
           "The choice of blkback to use.";
         ];
-        ty = Type.(Basic String);
+        ty = implementation;
       }; {
         TyDecl.name = "backend";
         description = String.concat " " [
