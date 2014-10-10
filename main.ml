@@ -201,6 +201,22 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Destroy.rpc_of_response response))
+  | { R.name = "VDI.attach"; R.params = [ args ] } ->
+    let args = Args.VDI.Attach.request_of_rpc args in
+    (* Discover the URIs using Volume.stat *)
+    let args = Storage.V.Types.Volume.Stat.In.make
+      args.Args.VDI.Attach.dbg
+      args.Args.VDI.Attach.sr
+      args.Args.VDI.Attach.vdi in
+    let args = Storage.V.Types.Volume.Stat.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir (script "Volume.stat") args Storage.V.Types.Volume.Stat.Out.t_of_rpc
+    >>= fun response ->
+    let attach_info = {
+      params = "params";
+      xenstore_data = [ "xenstore", "data" ]
+    } in
+    Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
