@@ -26,29 +26,25 @@ let backend_error name args =
 let missing_uri () =
   backend_error "MISSING_URI" [ "Please include a URI in the device-config" ]
 
-(* If we get a general Error.t then perform some diagnosis to report
-   the most 'actionable' error we can. *)
-let diagnose script_name e =
-  Sys.is_file ~follow_symlinks:true script_name
-  >>= function
-  | `No | `Unknown ->
-    return (backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ])
-  | `Yes ->
-    begin Unix.access script_name [ `Exec ]
-    >>= function
-    | Error exn ->
-      return (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ])
-    | Ok () ->
-      return (backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ])
-    end
+let (>>>=) = Deferred.Result.(>>=)
 
 let fork_exec_rpc root_dir script_name args response_of_rpc =
+  ( Sys.is_file ~follow_symlinks:true script_name
+    >>= function
+    | `No | `Unknown ->
+      return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
+    | `Yes -> return (Ok ())
+  ) >>>= fun () ->
+  ( Unix.access script_name [ `Exec ]
+    >>= function
+    | Error exn ->
+      return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]))
+    | Ok () -> return (Ok ())
+  ) >>>= fun () ->
   Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
   >>= function
   | Error e ->
-    diagnose script_name e
-    >>= fun response ->
-    return (Error response)
+    return (Error(backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]))
   | Ok p ->
     (* Send the request as json on stdin *)
     let w = Process.stdin p in
@@ -98,22 +94,20 @@ let vdi_of_volume x =
 let choose_datapath = function
   | [] -> return (Error (missing_uri ()))
   | uri :: _ ->
-    let uri = Uri.of_string uri in
+    let uri' = Uri.of_string uri in
     let domain = "0" in
-    begin match Uri.scheme uri with
+    begin match Uri.scheme uri' with
     | None -> return (Error (missing_uri ()))
-    | Some scheme -> return (Ok (scheme, domain))
+    | Some scheme -> return (Ok (scheme, uri, domain))
     end
 
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
   let call = Jsonrpc.call_of_string x in
-  let script kind script =
-    let subdir = match kind with
-    | `Volume -> "."
-    | `Datapath -> "../datapath" in
-    Filename.(concat (concat (concat root_dir subdir) name) script) in
+  let script kind script = match kind with
+  | `Volume -> Filename.(concat (concat root_dir name) script)
+  | `Datapath datapath -> Filename.(concat (concat (concat (dirname root_dir) "datapath") datapath) script) in
   (match call with
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
@@ -227,12 +221,12 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script `Volume "Volume.stat") args' Storage.V.Types.Volume.Stat.Out.t_of_rpc
     >>= fun response ->
     choose_datapath response.Storage.V.Types.uri
-    >>= fun (uri, domain) ->
+    >>= fun (datapath, uri, domain) ->
     let args' = Storage.D.Types.Datapath.Attach.In.make
       args.Args.VDI.Attach.dbg
       uri domain in
     let args' = Storage.D.Types.Datapath.Attach.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script `Datapath "Datapath.Attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
+    fork_exec_rpc root_dir (script (`Datapath datapath) "Datapath.Attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
     >>= fun response ->
     let attach_info = {
       params = "params";
