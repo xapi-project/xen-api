@@ -226,7 +226,7 @@ let process root_dir name x =
       args.Args.VDI.Attach.dbg
       uri domain in
     let args' = Storage.D.Types.Datapath.Attach.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script (`Datapath datapath) "Datapath.Attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
+    fork_exec_rpc root_dir (script (`Datapath datapath) "Datapath.attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
     >>= fun response ->
     let attach_info = {
       params = "params";
