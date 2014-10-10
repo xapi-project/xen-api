@@ -190,6 +190,17 @@ let process root_dir name x =
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
+  | { R.name = "VDI.destroy"; R.params = [ args ] } ->
+    let args = Args.VDI.Destroy.request_of_rpc args in
+    let args = Storage.V.Types.Volume.Destroy.In.make
+      args.Args.VDI.Destroy.dbg
+      args.Args.VDI.Destroy.sr
+      args.Args.VDI.Destroy.vdi in
+    let args = Storage.V.Types.Volume.Destroy.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir (script "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
+    >>= fun response ->
+    Deferred.Result.return (R.success (Args.VDI.Destroy.rpc_of_response response))
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
   >>= function
