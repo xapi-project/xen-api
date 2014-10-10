@@ -16,21 +16,23 @@ let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 
 open Printf
 
-let rec typeof ?(expand_aliases=false) env =
-  let typeof env = typeof ~expand_aliases env in
-  let open Type in function
-    | Basic Int64 -> "int64"
-    | Basic String -> "string"
-    | Basic Double -> "float"
-    | Basic Boolean -> "bool"
+let rec typeof ?(expand_aliases=false) env t =
+  let typeof env t = typeof ~expand_aliases env t in
+  let open Type in match t with
+    | Basic Int64 -> [ "int64" ]
+    | Basic String -> [ "string" ]
+    | Basic Double -> [ "float" ]
+    | Basic Boolean -> [ "bool" ]
     | Struct (fst, rest) ->
-      let member (name, ty, descr) = sprintf "%s: %s; (** %s *)" name (typeof env ty) descr in
-      "{ " ^ (member fst) ^ (String.concat " " (List.map member rest)) ^ " }"
+      let member (name, ty, descr) = sprintf "%s: %s; (** %s *)" name (String.concat " " (typeof env ty)) descr in
+      "{" :: (member fst) :: (List.map member rest) @ [ "}" ]
     | Variant (fst, rest) ->
-      let member (name, ty, descr) = sprintf "| %s of %s (** %s *)" name (typeof env ty) descr in
-      member fst ^ (String.concat " " (List.map member rest))
-    | Array t -> "(" ^ (typeof env t) ^ " list" ^ ")"
-    | Dict (basic, t) -> sprintf "((%s * %s) list)" (typeof env (Basic basic)) (typeof env t)
+      let member (name, ty, descr) = sprintf "| %s of %s (** %s *)" name (String.concat " " (typeof env ty)) descr in
+      member fst :: (List.map member rest)
+    | Array t ->
+      "(" :: (typeof env t) @ [ "list"; ")" ]
+    | Dict (basic, t) ->
+      "((" :: (typeof env (Basic basic)) @ [ "*" ] @ (typeof env t) @ [ ") list)" ]
     | Name x ->
       let ident =
         if not(List.mem_assoc x env)
@@ -38,15 +40,23 @@ let rec typeof ?(expand_aliases=false) env =
         else List.assoc x env in
       if expand_aliases
       then typeof env ident.Ident.ty
-      else List.hd ident.Ident.name (* we assume names are all in scope *)
-    | Unit -> "()"
-    | Option t -> sprintf "(%s option)" (typeof env t)
-    | Pair (a, b) -> sprintf "(%s * %s)" (typeof env a) (typeof env b)
-    | Custom x -> (String.capitalize x) ^ ".t"
+      else [ List.hd ident.Ident.name ] (* we assume names are all in scope *)
+    | Unit -> [ "()" ]
+    | Option t ->
+      "(" :: (typeof env t) @ [ "option )" ]
+    | Pair (a, b) ->
+      "(" :: (typeof env a) @ [ "*" ] @ (typeof env b)
+    | Custom x -> [ (String.capitalize x) ^ ".t" ]
+
+let typeof ?expand_aliases env (t: Types.Type.t) =
+  let lines = typeof ?expand_aliases env t in
+  Block (List.map (fun x -> Line x) lines)
 
 let type_decl env t =
   [
-    Line (sprintf "type %s = %s with rpc" t.TyDecl.name (typeof ~expand_aliases:true env t.TyDecl.ty));
+    Line (sprintf "type %s =" t.TyDecl.name);
+    Block [ typeof ~expand_aliases:true env t.TyDecl.ty ];
+    Line "with rpc";
     Line (sprintf "(** %s *)" t.TyDecl.description);
   ]
 
@@ -92,7 +102,9 @@ let exn_decl env e =
   let open Printf in
   let args = args_of_exn env e in
   [
-    Line (sprintf "type %s = %s with rpc" (String.lowercase e.TyDecl.name) (typeof ~expand_aliases:true env e.TyDecl.ty));
+    Line (sprintf "type %s =" (String.lowercase e.TyDecl.name));
+    Block [ typeof ~expand_aliases:true env e.TyDecl.ty ];
+    Line "with rpc";
     Line (sprintf "exception %s of %s" e.TyDecl.name (String.concat " * " (List.map Type.ocaml_of_t args)));
     Line (sprintf "(** %s *)" e.TyDecl.description);
   ]
@@ -183,7 +195,11 @@ let cmdliner_of_method env i m =
   ]
 
 let rpc_of_interfaces env is =
-  let field_of_arg a = Line (sprintf "%s: %s;" a.Arg.name (typeof env a.Arg.ty)) in
+  let field_of_arg a = [
+    Line (sprintf "%s: " a.Arg.name);
+    Block [ typeof env a.Arg.ty ];
+    Line ";"
+  ] in
   let of_method i m =
     [
       Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
@@ -191,7 +207,7 @@ let rpc_of_interfaces env is =
           Line "module In = struct";
           Block [
             Line "type t = {";
-            Block (List.map field_of_arg m.Method.inputs);
+            Block (List.concat (List.map field_of_arg m.Method.inputs));
             Line "} with rpc";
             Line (Printf.sprintf "let make %s = { %s }"
               (String.concat " " (List.map (fun a -> a.Arg.name) m.Method.inputs))
@@ -202,14 +218,16 @@ let rpc_of_interfaces env is =
         ]);
       Block [
         Line "module Out = struct";
-        Block [
-          match m.Method.outputs with
-          | [ x ] ->
-            Line (sprintf "type t = %s with rpc" (typeof env x.Arg.ty))
+        (match m.Method.outputs with
+          | [ x ] -> Block [
+            Line "type t = ";
+            Block [ typeof env x.Arg.ty ];
+            Line "with rpc";
+            ]
           | [] ->
             Line "type t = unit with rpc"
           | _ -> failwith (Printf.sprintf "%s.%s has output arity <> 0, 1: rpc-light can't cope" i.Interface.name m.Method.name)
-        ];
+        );
         Line "end";
       ];
       Block (cmdliner_of_method env i m);
