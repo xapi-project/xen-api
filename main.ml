@@ -99,7 +99,11 @@ let vdi_of_volume x =
 let process root_dir name x =
   let open Storage_interface in
   let call = Jsonrpc.call_of_string x in
-  let script script = Filename.(concat (concat root_dir name) script) in
+  let script kind script =
+    let subdir = match kind with
+    | `Volume -> "volume"
+    | `Datapath -> "datapath" in
+    Filename.(concat (concat (concat root_dir subdir) name) script) in
   (match call with
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
@@ -107,7 +111,7 @@ let process root_dir name x =
     let args = Storage.P.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
     let args = Storage.P.Types.Plugin.Query.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "Plugin.Query") args Storage.P.Types.Plugin.Query.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "Plugin.Query") args Storage.P.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let response = {
@@ -133,7 +137,7 @@ let process root_dir name x =
       let args = Storage.V.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
       let args = Storage.V.Types.SR.Attach.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script "SR.attach") args Storage.V.Types.SR.Attach.Out.t_of_rpc
+      fork_exec_rpc root_dir (script `Volume "SR.attach") args Storage.V.Types.SR.Attach.Out.t_of_rpc
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
     end
@@ -144,7 +148,7 @@ let process root_dir name x =
       args.Args.SR.Detach.sr in
     let args = Storage.V.Types.SR.Detach.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "SR.detach") args Storage.V.Types.SR.Detach.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "SR.detach") args Storage.V.Types.SR.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
   | { R.name = "SR.create"; R.params = [ args ] } ->
@@ -160,7 +164,7 @@ let process root_dir name x =
         device_config in
       let args = Storage.V.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script "SR.create") args Storage.V.Types.SR.Create.Out.t_of_rpc
+      fork_exec_rpc root_dir (script `Volume "SR.create") args Storage.V.Types.SR.Create.Out.t_of_rpc
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
@@ -171,7 +175,7 @@ let process root_dir name x =
       args.Args.SR.Scan.sr in
     let args = Storage.V.Types.SR.Ls.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "SR.ls") args Storage.V.Types.SR.Ls.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "SR.ls") args Storage.V.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
     let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
@@ -186,7 +190,7 @@ let process root_dir name x =
       vdi_info.virtual_size in
     let args = Storage.V.Types.Volume.Create.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "Volume.create") args Storage.V.Types.Volume.Create.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "Volume.create") args Storage.V.Types.Volume.Create.Out.t_of_rpc
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
@@ -198,7 +202,7 @@ let process root_dir name x =
       args.Args.VDI.Destroy.vdi in
     let args = Storage.V.Types.Volume.Destroy.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Destroy.rpc_of_response response))
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
@@ -210,7 +214,7 @@ let process root_dir name x =
       args.Args.VDI.Attach.vdi in
     let args = Storage.V.Types.Volume.Stat.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script "Volume.stat") args Storage.V.Types.Volume.Stat.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "Volume.stat") args Storage.V.Types.Volume.Stat.Out.t_of_rpc
     >>= fun response ->
     let attach_info = {
       params = "params";
@@ -262,6 +266,8 @@ let sync ~root_dir ~switch_port =
   Deferred.all_ignore (List.map ~f:(destroy switch_port) (diff got_already needed))
 
 let main ~root_dir ~switch_port =
+  (* We watch and create queues for the Volume plugins only *)
+  let root_dir = Filename.concat root_dir "volume" in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
   >>= fun (watch, _) ->
   sync ~root_dir ~switch_port
