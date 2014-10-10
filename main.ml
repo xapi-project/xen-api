@@ -258,6 +258,22 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.activate") args' Storage.D.Types.Datapath.Activate.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Activate.rpc_of_response ()))
+  | { R.name = "VDI.deactivate"; R.params = [ args ] } ->
+    let args = Args.VDI.Deactivate.request_of_rpc args in
+    (* Discover the URIs using Volume.stat *)
+    let open Deferred.Result.Monad_infix in
+    stat root_dir name
+      args.Args.VDI.Deactivate.dbg
+      args.Args.VDI.Deactivate.sr
+      args.Args.VDI.Deactivate.vdi
+    >>= fun (datapath, uri, domain) ->
+    let args' = Storage.D.Types.Datapath.Deactivate.In.make
+      args.Args.VDI.Deactivate.dbg
+      uri domain in
+    let args' = Storage.D.Types.Datapath.Deactivate.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.deactivate") args' Storage.D.Types.Datapath.Deactivate.Out.t_of_rpc
+    >>= fun response ->
+    Deferred.Result.return (R.success (Args.VDI.Deactivate.rpc_of_response ()))
 
   | _ ->
     Deferred.Result.return (R.failure (R.String "hello")))
