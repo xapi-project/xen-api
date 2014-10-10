@@ -101,8 +101,8 @@ let process root_dir name x =
   let call = Jsonrpc.call_of_string x in
   let script kind script =
     let subdir = match kind with
-    | `Volume -> "volume"
-    | `Datapath -> "datapath" in
+    | `Volume -> "."
+    | `Datapath -> "../datapath" in
     Filename.(concat (concat (concat root_dir subdir) name) script) in
   (match call with
   | { R.name = "Query.query"; R.params = [ args ] } ->
@@ -216,6 +216,7 @@ let process root_dir name x =
     let open Deferred.Result.Monad_infix in
     fork_exec_rpc root_dir (script `Volume "Volume.stat") args Storage.V.Types.Volume.Stat.Out.t_of_rpc
     >>= fun response ->
+
     let attach_info = {
       params = "params";
       xenstore_data = [ "xenstore", "data" ]
