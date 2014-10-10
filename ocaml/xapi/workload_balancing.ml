@@ -406,11 +406,7 @@ let retrieve_vm_recommendations ~__context ~vm =
             val_num (data_from_leaf (descend_and_match
               ["Stars"] place_recommendation));
             val_num (data_from_leaf (descend_and_match
-              ["RecommendationId"] place_recommendation));
-            if (is_parent_to place_recommendation "ZeroScoreReason")
-              then data_from_leaf (descend_and_match
-                  ["ZeroScoreReason"] place_recommendation)
-              else ""])
+              ["RecommendationId"] place_recommendation))])
         else
             (h, ["WLB"; "0.0";
               val_num (data_from_leaf (descend_and_match
