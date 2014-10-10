@@ -95,6 +95,16 @@ let vdi_of_volume x =
   persistent = true;
 }
 
+let choose_datapath = function
+  | [] -> return (Error (missing_uri ()))
+  | uri :: _ ->
+    let uri = Uri.of_string uri in
+    let domain = "0" in
+    begin match Uri.scheme uri with
+    | None -> return (Error (missing_uri ()))
+    | Some scheme -> return (Ok (scheme, domain))
+    end
+
 (* Process a message *)
 let process root_dir name x =
   let open Storage_interface in
@@ -208,15 +218,22 @@ let process root_dir name x =
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
     let args = Args.VDI.Attach.request_of_rpc args in
     (* Discover the URIs using Volume.stat *)
-    let args = Storage.V.Types.Volume.Stat.In.make
+    let args' = Storage.V.Types.Volume.Stat.In.make
       args.Args.VDI.Attach.dbg
       args.Args.VDI.Attach.sr
       args.Args.VDI.Attach.vdi in
-    let args = Storage.V.Types.Volume.Stat.In.rpc_of_t args in
+    let args' = Storage.V.Types.Volume.Stat.In.rpc_of_t args' in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script `Volume "Volume.stat") args Storage.V.Types.Volume.Stat.Out.t_of_rpc
+    fork_exec_rpc root_dir (script `Volume "Volume.stat") args' Storage.V.Types.Volume.Stat.Out.t_of_rpc
     >>= fun response ->
-
+    choose_datapath response.Storage.V.Types.uri
+    >>= fun (uri, domain) ->
+    let args' = Storage.D.Types.Datapath.Attach.In.make
+      args.Args.VDI.Attach.dbg
+      uri domain in
+    let args' = Storage.D.Types.Datapath.Attach.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script `Datapath "Datapath.Attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
+    >>= fun response ->
     let attach_info = {
       params = "params";
       xenstore_data = [ "xenstore", "data" ]
