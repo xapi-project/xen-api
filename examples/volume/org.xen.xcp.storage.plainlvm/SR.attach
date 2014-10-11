@@ -1,6 +1,6 @@
 #!/usr/bin/env ocamlscript
 Ocaml.sources := ["common.ml"; "lvm.ml"];
-Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"];
+Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"; "uri"];
 Ocaml.ocamlflags := ["-thread"]
 --
 (*
@@ -23,13 +23,41 @@ module Command = struct
   include SR.Attach
 
   let command common { SR.Attach.In.dbg; uri } =
-    uri
+    let uri' = Uri.of_string uri in
+    match Uri.scheme uri' with
+    | Some "vg" ->
+      let vg = Uri.path uri' in
+      let vg = if vg <> "" && vg.[0] = '/' then String.sub vg 1 (String.length vg - 1) else vg in
+      let vgs = Lvm.vgs () in
+      if not(List.mem vg vgs)
+      then raise (Storage.V.SR_does_not_exist vg);
+      vg
+    | _ ->
+      raise (Storage.V.SR_does_not_exist uri)
 end
 
 module Test = struct
   open OUnit
 
-  let test common = ()
+  let test_vgs () =
+    let vol = Lvm.make_temp_volume () in
+    let vg_name = "hello" in
+    finally
+      (fun () ->
+        Lvm.vgcreate vg_name [ vol ];
+        let vgs = Lvm.vgs () in
+        if not(List.mem vg_name vgs)
+        then failwith (Printf.sprintf "%s not in vgs list: [%s]" vg_name (String.concat "; " vgs))
+      ) (fun () ->
+        Lvm.remove_temp_volume vol
+      )
+
+  let test common =
+    let suite = "attach" >::: [
+      "vgs" >:: test_vgs;
+    ] in
+    ignore(run_test_tt ~verbose:common.Common.verbose suite)
+
 end
 
 module M = Make(Command)(Test)
