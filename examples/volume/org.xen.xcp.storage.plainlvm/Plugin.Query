@@ -1,6 +1,6 @@
 #!/usr/bin/env ocamlscript
 Ocaml.sources := ["common.ml"; "lvm.ml"];
-Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"];
+Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"; "uri"];
 Ocaml.ocamlflags := ["-thread"]
 --
 (*
@@ -23,14 +23,14 @@ module Command = struct
   include Plugin.Query
 
   let command common { Plugin.Query.In.dbg } = {
-    plugin = "plugin";
-    name = "name";
-    description = "description";
-    vendor = "vendor";
-    copyright = "copyright";
-    version = "version";
-    required_api_version = "required_api_version";
-    features = [];
+    plugin = "plainlvm";
+    name = "Plain LVM Volume plugin";
+    description = "This plugin uses an existing LVM volume group and represents Volumes as LVs";
+    vendor = "None";
+    copyright = "(C) 2014 Citrix Inc";
+    version = "0.1";
+    required_api_version = "0.1";
+    features = [ "SR_ATTACH"; "SR_DETACH"; "SR_CREATE"; "VDI_CREATE"; "VDI_DESTROY"; "VDI_ATTACH"; "VDI_DETACH"; "VDI_ACTIVATE"; "VDI_DEACTIVATE"];
     configuration = []
   }
 end
