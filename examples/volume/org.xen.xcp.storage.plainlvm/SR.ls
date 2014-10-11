@@ -30,7 +30,7 @@ module Command = struct
         description = "";
         read_write = true;
         uri = ["block://" ^ (Lvm.path_of sr lv.Lvm.name) ];
-        virtual_size = 0L;
+        virtual_size = lv.Lvm.size;
       } ) (Lvm.lvs sr)
 end
 
@@ -47,7 +47,7 @@ module Test = struct
         finally
           (fun () ->
             match Lvm.lvs vg_name with
-            | [ { Lvm.name = "testvol"; tags = [] } ] -> ()
+            | [ { Lvm.name = "testvol" } ] -> ()
             | [ ] -> failwith "I created 'testvol' but it didnt show in 'lvs'"
             | _ -> failwith "I created 'testvol' but multiple volumes showed up in 'lvs'"
           ) (fun () ->

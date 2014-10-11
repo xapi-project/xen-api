@@ -58,7 +58,7 @@ let lvremove vg_name lv_name =
 
 type lv = {
   name: string;
-  tags: string list;
+  size: int64;
 }
 
 let newline = Re_str.regexp_string "\n"
@@ -68,16 +68,17 @@ let comma = Re_str.regexp_string ","
 let to_lines output = List.filter (fun x -> x <> "") (Re_str.split_delim newline output)
 
 let lvs vg_name =
-  Common.run "lvs" [ "-o"; "lv_name,tags"; "--noheadings"; vg_name ]
+  Common.run "lvs" [ "-o"; "lv_name,lv_size"; "--units"; "b"; "--noheadings"; vg_name ]
   |> to_lines
   |> List.map
     (fun line ->
       match List.filter (fun x -> x <> "") (Re_str.split_delim whitespace line) with
-      | [ x; y ] -> { name = x; tags = Re_str.split_delim comma y }
-      | [ x ] -> { name = x; tags = [] }
+      | [ x; y ] ->
+        let size = Int64.of_string (String.sub y 0 (String.length y - 1)) in
+        { name = x; size }
       | _ ->
-        debug "Couldn't parse the LV name/ list of tags: [%s]" line;
-        failwith (Printf.sprintf "Couldn't parse the LV name/ list of tags: [%s]" line)
+        debug "Couldn't parse the LV name/ size: [%s]" line;
+        failwith (Printf.sprintf "Couldn't parse the LV name/ size: [%s]" line)
     )
 
 let device vg_name lv_name = Printf.sprintf "/dev/%s/%s" vg_name lv_name
