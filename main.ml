@@ -55,9 +55,9 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
     >>= fun output ->
     begin match output.Process.Output.exit_status with
     | Error (`Exit_non_zero code) ->
-      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code ]))
+      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
     | Error (`Signal signal) ->
-      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal ]))
+      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stderr ]))
     | Ok () ->
 
       (* Parse the json on stdout *)
