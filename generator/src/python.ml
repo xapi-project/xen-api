@@ -42,8 +42,8 @@ let rec typecheck env ty v =
     List.concat (List.map member (hd :: tl))
   | Variant (hd, tl) ->
     let member first (name, ty, descr) =
-      [ Line (sprintf "%sif isinstance(%s, %s):" (if first then "" else "el") v name);
-        Block (typecheck env ty (sprintf "%s.value" v))
+      [ Line (sprintf "%sif %s[0] == '%s':" (if first then "" else "el") v name);
+        Block (typecheck env ty (sprintf "%s[1]" v))
       ] in
     (member true hd) @ (List.concat (List.map (member false) tl))
   | Array t ->
