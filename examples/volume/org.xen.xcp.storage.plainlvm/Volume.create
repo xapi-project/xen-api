@@ -40,7 +40,23 @@ end
 module Test = struct
   open OUnit
 
-  let test common = ()
+  let test_lvcreate () =
+    let vol = Lvm.make_temp_volume () in
+    let vg_name = "hello" in
+    finally
+      (fun () ->
+        Lvm.vgcreate vg_name [ vol ];
+        Lvm.lvcreate vg_name "testvol" 1L;
+        Lvm.lvremove vg_name "testvol"
+      ) (fun () ->
+        Lvm.remove_temp_volume vol
+      )
+
+  let test common =
+    let suite = "create" >::: [
+      "lvcreate" >:: test_lvcreate;
+    ] in
+    ignore(run_test_tt ~verbose:common.Common.verbose suite)
 end
 
 module M = Make(Command)(Test)
