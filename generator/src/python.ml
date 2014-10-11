@@ -31,6 +31,7 @@ let rec typecheck env ty v =
     [
       Line (match b with
           | Int64 -> sprintf "if not(is_long(%s)):" v
+          | String -> sprintf "if type(%s) <> type(\"\") and type(%s) <> type(u\"\"):" v v
           | b     -> sprintf "if type(%s) <> type(%s):"       v (python_of_basic b)
         );
       Block [ raise_type_error ]
