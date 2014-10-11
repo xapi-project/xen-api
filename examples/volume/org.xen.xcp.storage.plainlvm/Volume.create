@@ -1,6 +1,6 @@
 #!/usr/bin/env ocamlscript
 Ocaml.sources := ["common.ml"; "lvm.ml"];
-Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"];
+Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"; "uri"];
 Ocaml.ocamlflags := ["-thread"]
 --
 (*
@@ -22,14 +22,19 @@ module Command = struct
   open Storage.V.Types
   include Volume.Create
 
-  let command common { Volume.Create.In.dbg; sr; name; description; size } = {
-    key = name;
-    name = name;
-    description = description;
-    read_write = true;
-    uri = [ "scheme://" ^ name ];
-    virtual_size = size;
-  }
+  let command common { Volume.Create.In.dbg; sr; name; description; size } =
+    let rounded = Int64.( (size + mib - 1L) / mib ) in
+    (* LVM refuses to create a disk with 0 extents *)
+    let size = max rounded mib in
+    Lvm.lvcreate sr name size;
+    {
+      key = name;
+      name = name;
+      description = description;
+      read_write = true;
+      uri = [ Printf.sprintf "block:///dev/mapper/%s/%s" sr name ];
+      virtual_size = size;
+    }
 end
 
 module Test = struct
