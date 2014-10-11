@@ -32,7 +32,7 @@ module Command = struct
       name = name;
       description = description;
       read_write = true;
-      uri = [ Printf.sprintf "block:///dev/mapper/%s/%s" sr name ];
+      uri = ["block://" ^ (Lvm.path_of sr name) ];
       virtual_size = size;
     }
 end

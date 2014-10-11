@@ -111,3 +111,9 @@ let vgs () =
     (fun line ->
       List.hd (List.filter (fun x -> x <> "") (Re_str.split_delim whitespace line))
     )
+
+let dash = Re_str.regexp_string "-"
+let path_of vg lv =
+  let lv' = Re_str.split_delim dash lv in
+  "/dev/mapper/" ^ vg ^ "-" ^ (String.concat "--" lv')
+
