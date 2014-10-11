@@ -118,3 +118,11 @@ let path_of vg lv =
   let lv' = Re_str.split_delim dash lv in
   "/dev/mapper/" ^ vg ^ "-" ^ (String.concat "--" lv')
 
+let volume_of_lv sr lv = {
+  Storage.V.Types.key = lv.name;
+  name = lv.name;
+  description = "";
+  read_write = true;
+  uri = ["block://" ^ (path_of sr lv.name) ];
+  virtual_size = lv.size;
+}

@@ -23,15 +23,7 @@ module Command = struct
   include SR.Ls
 
   let command common { SR.Ls.In.dbg; sr } =
-    List.map
-      (fun lv -> {
-        key = lv.Lvm.name;
-        name = lv.Lvm.name;
-        description = "";
-        read_write = true;
-        uri = ["block://" ^ (Lvm.path_of sr lv.Lvm.name) ];
-        virtual_size = lv.Lvm.size;
-      } ) (Lvm.lvs sr)
+    List.map (Lvm.volume_of_lv sr) (Lvm.lvs sr)
 end
 
 module Test = struct
