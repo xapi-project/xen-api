@@ -300,3 +300,11 @@ let main () =
   | _ -> exit 0
 
 end
+
+let vg_of_uri uri =
+  let uri' = Uri.of_string uri in
+  match Uri.scheme uri' with
+  | Some "vg" ->
+    let vg = Uri.path uri' in
+    if vg <> "" && vg.[0] = '/' then String.sub vg 1 (String.length vg - 1) else vg
+  | _ -> raise (Storage.V.SR_does_not_exist uri)
