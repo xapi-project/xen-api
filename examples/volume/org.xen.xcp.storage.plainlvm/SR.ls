@@ -1,6 +1,6 @@
 #!/usr/bin/env ocamlscript
 Ocaml.sources := ["common.ml"; "lvm.ml"];
-Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"];
+Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"; "uri"];
 Ocaml.ocamlflags := ["-thread"]
 --
 (*
@@ -23,13 +23,46 @@ module Command = struct
   include SR.Ls
 
   let command common { SR.Ls.In.dbg; sr } =
-    []
+    List.map
+      (fun lv -> {
+        key = lv.Lvm.name;
+        name = lv.Lvm.name;
+        description = "";
+        read_write = true;
+        uri = ["block://" ^ (Lvm.path_of sr lv.Lvm.name) ];
+        virtual_size = 0L;
+      } ) (Lvm.lvs sr)
 end
 
 module Test = struct
   open OUnit
 
-  let test common = ()
+  let test_lvs () =
+    let vol = Lvm.make_temp_volume () in
+    let vg_name = "hello" in
+    finally
+      (fun () ->
+        Lvm.vgcreate vg_name [ vol ];
+        Lvm.lvcreate vg_name "testvol" 1L;
+        finally
+          (fun () ->
+            match Lvm.lvs vg_name with
+            | [ { Lvm.name = "testvol"; tags = [] } ] -> ()
+            | [ ] -> failwith "I created 'testvol' but it didnt show in 'lvs'"
+            | _ -> failwith "I created 'testvol' but multiple volumes showed up in 'lvs'"
+          ) (fun () ->
+            Lvm.lvremove vg_name "testvol"
+          )
+      ) (fun () ->
+        Lvm.remove_temp_volume vol
+      )
+
+  let test common =
+    let suite = "create" >::: [
+      "lvs" >:: test_lvs;
+    ] in
+    ignore(run_test_tt ~verbose:common.Common.verbose suite)
+
 end
 
 module M = Make(Command)(Test)
