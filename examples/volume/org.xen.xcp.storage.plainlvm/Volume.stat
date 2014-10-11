@@ -1,6 +1,6 @@
 #!/usr/bin/env ocamlscript
 Ocaml.sources := ["common.ml"; "lvm.ml"];
-Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"];
+Ocaml.packs := ["xapi-storage"; "cmdliner"; "re.str"; "oUnit"; "uri"];
 Ocaml.ocamlflags := ["-thread"]
 --
 (*
@@ -22,14 +22,12 @@ module Command = struct
   open Storage.V.Types
   include Volume.Stat
 
-  let command common { Volume.Stat.In.dbg; sr; key } = {
-    key = key;
-    name = "name";
-    description = "description";
-    read_write = true;
-    uri = [ "nfs+vhd://" ^ key ];
-    virtual_size = 1L;
-  }
+  let command common { Volume.Stat.In.dbg; sr; key } =
+    let all = Lvm.lvs sr in
+    try
+      Lvm.volume_of_lv sr (List.find (fun x -> x.Lvm.name = key) all)
+    with Not_found ->
+      raise (Storage.V.Volume_does_not_exist key)
 end
 
 module Test = struct
