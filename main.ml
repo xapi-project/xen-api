@@ -147,6 +147,9 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.Query") args Storage.P.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
+    let features = List.map ~f:(function
+      | "VDI_DESTROY" -> "VDI_DELETE"
+      | x -> x) response.Storage.P.Types.features in
     let response = {
       driver = response.Storage.P.Types.plugin;
       name = response.Storage.P.Types.name;
@@ -155,7 +158,7 @@ let process root_dir name x =
       copyright = response.Storage.P.Types.copyright;
       version = response.Storage.P.Types.version;
       required_api_version = response.Storage.P.Types.required_api_version;
-      features = response.Storage.P.Types.features;
+      features;
       configuration =
        ("uri", "URI of the storage medium") ::
        response.Storage.P.Types.configuration} in
