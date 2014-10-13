@@ -23,9 +23,8 @@ module Command = struct
   include Volume.Create
 
   let command common { Volume.Create.In.dbg; sr; name; description; size } =
-    let rounded = Int64.( (size + mib - 1L) / mib ) in
     (* LVM refuses to create a disk with 0 extents *)
-    let size = max rounded mib in
+    let size = max size 1L in
     Lvm.lvcreate sr name size;
     {
       key = name;
