@@ -22,5 +22,5 @@ if __name__ == "__main__":
 
     dispatcher = d.Datapath_server_dispatcher(Implementation())
     request = json.loads(sys.stdin.readline(),)
-    results = dispatcher.attach(request)
+    results = dispatcher.activate(request)
     print json.dumps(results)

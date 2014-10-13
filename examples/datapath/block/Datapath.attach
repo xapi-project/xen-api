@@ -5,17 +5,14 @@ sys.path.append("/home/vagrant/djs55/dbus-test/python")
 
 import xcp, d
 
-import argparse, json
-
-class Blkback:
-    def __init__(self, params):
-        self.value = params
+import argparse, json, urlparse
 
 class Implementation(d.Datapath_skeleton):
     def attach(self, dbg, uri, domain):
+        u = urlparse.urlparse(uri)
         return {
             'domain_uuid': '0',
-            'implementation': Blkback('/some/path'),
+            'implementation': [ 'Blkback', u.path ],
         }
 
 if __name__ == "__main__":
