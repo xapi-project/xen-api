@@ -36,7 +36,7 @@ fi
 
 sed -e '/^\*\.\*.*[@~]/ d' $conf_file >/etc/syslog.$$
 if [ $remote -eq 1 ]; then
-  echo "*.* @$host" >>/etc/syslog.$$
+  echo -e "*.* @$host\n*.* ~" >>/etc/syslog.$$
 else
   echo "*.* ~" >>/etc/syslog.$$
 fi
