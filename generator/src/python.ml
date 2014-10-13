@@ -163,12 +163,12 @@ let example_stub_user env i m =
   [
     Line "";
     Line "import xmlrpclib";
-    Line "import xcp";
+    Line "import xapi";
     Line "from storage import *";
     Line "";
     Line "if __name__ == \"__main__\":";
     Block [
-      Line "c = xcp.connect()";
+      Line "c = xapi.connect()";
       Line (Printf.sprintf "results = c.%s.%s({ %s })" i.Interface.name m.Method.name
               (String.concat ", " (List.map (fun a -> sprintf "%s: %s" a.Arg.name (value_of env a.Arg.ty)) m.Method.inputs)));
       Line "print (repr(results))"
@@ -180,7 +180,7 @@ let example_skeleton_user env i m =
   [
     Line "";
     Line "import xmlrpclib";
-    Line "import xcp";
+    Line "import xapi";
     Line "from storage import *";
     Line "";
     Line (sprintf "class %s_myimplementation(%s_skeleton):" i.Interface.name i.Interface.name);
@@ -284,7 +284,7 @@ let test_impl_of_interfaces env i =
 let of_interfaces env i =
   let open Printf in
   [
-    Line "from xcp import *";
+    Line "from xapi import *";
     Line "import traceback";
   ] @ (
     List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
