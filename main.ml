@@ -140,6 +140,14 @@ let process root_dir name x =
        ("uri", "URI of the storage medium") ::
        response.Storage.P.Types.configuration} in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
+  | { R.name = "Query.diagnostics"; R.params = [ args ] } ->
+    let args = Args.Query.Diagnostics.request_of_rpc args in
+    let args = Storage.P.Types.Plugin.Diagnostics.In.make args.Args.Query.Diagnostics.dbg in
+    let args = Storage.P.Types.Plugin.Diagnostics.In.rpc_of_t args in
+    let open Deferred.Result.Monad_infix in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.diagnostics") args Storage.P.Types.Plugin.Diagnostics.Out.t_of_rpc
+    >>= fun response ->
+    Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
     let device_config = args.Args.SR.Attach.device_config in
