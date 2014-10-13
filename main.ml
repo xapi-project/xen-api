@@ -337,8 +337,8 @@ let process root_dir name x =
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Detach.rpc_of_response ()))
 
-  | _ ->
-    Deferred.Result.return (R.failure (R.String "hello")))
+  | { R.name = name } ->
+    Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
     Printf.fprintf stderr "returning %s\n%!" (Jsonrpc.string_of_response (R.failure error));
