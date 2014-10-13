@@ -336,6 +336,14 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.detach") args' Storage.D.Types.Datapath.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Detach.rpc_of_response ()))
+  | { R.name = "SR.stat"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.SR.Stat.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Stat.sr
+    >>= fun sr ->
+    (* FIXME: query the datasources xapi-storage#13 *)
+    let response = { total_space = 0L; free_space = 0L } in
+    Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
 
   | { R.name = name } ->
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
