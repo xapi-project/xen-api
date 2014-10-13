@@ -73,6 +73,26 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
       end
     end
 
+module Attached_SRs = struct
+  let sr_table = String.Table.create ()
+
+  let add smapiv2 plugin =
+    Hashtbl.replace sr_table smapiv2 plugin;
+    return (Ok ())
+
+  let find smapiv2 =
+    match Hashtbl.find sr_table smapiv2 with
+    | None ->
+      let open Storage_interface in
+      let exnty = Exception.Sr_not_attached smapiv2 in
+      return (Error (Exception.rpc_of_exnty exnty))
+    | Some sr -> return (Ok sr)
+
+  let remove smapiv2 =
+    Hashtbl.remove sr_table smapiv2;
+    return (Ok ())
+end
+
 let vdi_of_volume x =
   let open Storage_interface in {
   vdi = x.Storage.V.Types.key;
@@ -82,7 +102,7 @@ let vdi_of_volume x =
   ty = "";
   metadata_of_pool = "";
   is_a_snapshot = false;
-  snapshot_time = "";
+  snapshot_time = "19700101T00:00:00Z";
   snapshot_of = "";
   read_only = not x.Storage.V.Types.read_write;
   virtual_size = x.Storage.V.Types.virtual_size;
@@ -127,6 +147,9 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.Query") args Storage.P.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
+    let features = List.map ~f:(function
+      | "VDI_DESTROY" -> "VDI_DELETE"
+      | x -> x) response.Storage.P.Types.features in
     let response = {
       driver = response.Storage.P.Types.plugin;
       name = response.Storage.P.Types.name;
@@ -135,7 +158,7 @@ let process root_dir name x =
       copyright = response.Storage.P.Types.copyright;
       version = response.Storage.P.Types.version;
       required_api_version = response.Storage.P.Types.required_api_version;
-      features = response.Storage.P.Types.features;
+      features;
       configuration =
        ("uri", "URI of the storage medium") ::
        response.Storage.P.Types.configuration} in
@@ -155,23 +178,35 @@ let process root_dir name x =
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args = Storage.V.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
-      let args = Storage.V.Types.SR.Attach.In.rpc_of_t args in
+      let args' = Storage.V.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
+      let args' = Storage.V.Types.SR.Attach.In.rpc_of_t args' in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args Storage.V.Types.SR.Attach.Out.t_of_rpc
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Storage.V.Types.SR.Attach.Out.t_of_rpc
       >>= fun response ->
+      (* associate the 'sr' from the plugin with the SR reference passed in *)
+      Attached_SRs.add args.Args.SR.Attach.sr response
+      >>= fun () ->
       Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
     end
   | { R.name = "SR.detach"; R.params = [ args ] } ->
     let args = Args.SR.Detach.request_of_rpc args in
-    let args = Storage.V.Types.SR.Detach.In.make
-      args.Args.SR.Detach.dbg
-      args.Args.SR.Detach.sr in
-    let args = Storage.V.Types.SR.Detach.In.rpc_of_t args in
-    let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.detach") args Storage.V.Types.SR.Detach.Out.t_of_rpc
-    >>= fun response ->
-    Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
+    begin Attached_SRs.find args.Args.SR.Detach.sr
+    >>= function
+    | Error _ ->
+      (* ensure SR.detach is idempotent *)
+      Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response ()))
+    | Ok sr ->
+      let open Deferred.Result.Monad_infix in
+      let args' = Storage.V.Types.SR.Detach.In.make
+        args.Args.SR.Detach.dbg
+        sr in
+      let args' = Storage.V.Types.SR.Detach.In.rpc_of_t args' in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.detach") args' Storage.V.Types.SR.Detach.Out.t_of_rpc
+      >>= fun response ->
+      Attached_SRs.remove args.Args.SR.Detach.sr
+      >>= fun () ->
+      Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
+    end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
     let device_config = args.Args.SR.Create.device_config in
@@ -190,49 +225,57 @@ let process root_dir name x =
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
   | { R.name = "SR.scan"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
     let args = Args.SR.Scan.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Scan.sr
+    >>= fun sr ->
     let args = Storage.V.Types.SR.Ls.In.make
       args.Args.SR.Scan.dbg
-      args.Args.SR.Scan.sr in
+      sr in
     let args = Storage.V.Types.SR.Ls.In.rpc_of_t args in
-    let open Deferred.Result.Monad_infix in
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args Storage.V.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
     let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
   | { R.name = "VDI.create"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Create.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Create.sr
+    >>= fun sr ->
     let vdi_info = args.Args.VDI.Create.vdi_info in
     let args = Storage.V.Types.Volume.Create.In.make
       args.Args.VDI.Create.dbg
-      args.Args.VDI.Create.sr
+      sr
       vdi_info.name_label
       vdi_info.name_description
       vdi_info.virtual_size in
     let args = Storage.V.Types.Volume.Create.In.rpc_of_t args in
-    let open Deferred.Result.Monad_infix in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Storage.V.Types.Volume.Create.Out.t_of_rpc
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
   | { R.name = "VDI.destroy"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Destroy.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Destroy.sr
+    >>= fun sr ->
     let args = Storage.V.Types.Volume.Destroy.In.make
       args.Args.VDI.Destroy.dbg
-      args.Args.VDI.Destroy.sr
+      sr
       args.Args.VDI.Destroy.vdi in
     let args = Storage.V.Types.Volume.Destroy.In.rpc_of_t args in
-    let open Deferred.Result.Monad_infix in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Destroy.rpc_of_response response))
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
-    let args = Args.VDI.Attach.request_of_rpc args in
-    (* Discover the URIs using Volume.stat *)
     let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Attach.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Attach.sr
+    >>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
     stat root_dir name
       args.Args.VDI.Attach.dbg
-      args.Args.VDI.Attach.sr
+      sr
       args.Args.VDI.Attach.vdi
     >>= fun (datapath, uri, domain) ->
     let args' = Storage.D.Types.Datapath.Attach.In.make
@@ -241,22 +284,24 @@ let process root_dir name x =
     let args' = Storage.D.Types.Datapath.Attach.In.rpc_of_t args' in
     fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.attach") args' Storage.D.Types.Datapath.Attach.Out.t_of_rpc
     >>= fun response ->
-    let params = match response.Storage.D.Types.implementation with
-    | Storage.D.Types.Blkback p -> p
-    | Storage.D.Types.Qdisk p -> p
-    | Storage.D.Types.Tapdisk3 p -> p in
+    let backend, params = match response.Storage.D.Types.implementation with
+    | Storage.D.Types.Blkback p -> "vbd", p
+    | Storage.D.Types.Qdisk p -> "qdisk", p
+    | Storage.D.Types.Tapdisk3 p -> "vbd3", p in
     let attach_info = {
       params;
-      xenstore_data = [ "xenstore", "data" ]
+      xenstore_data = [ "backend-kind", backend ]
     } in
     Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
   | { R.name = "VDI.activate"; R.params = [ args ] } ->
-    let args = Args.VDI.Activate.request_of_rpc args in
-    (* Discover the URIs using Volume.stat *)
     let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Activate.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Activate.sr
+    >>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
     stat root_dir name
       args.Args.VDI.Activate.dbg
-      args.Args.VDI.Activate.sr
+      sr
       args.Args.VDI.Activate.vdi
     >>= fun (datapath, uri, domain) ->
     let args' = Storage.D.Types.Datapath.Activate.In.make
@@ -267,12 +312,14 @@ let process root_dir name x =
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Activate.rpc_of_response ()))
   | { R.name = "VDI.deactivate"; R.params = [ args ] } ->
-    let args = Args.VDI.Deactivate.request_of_rpc args in
-    (* Discover the URIs using Volume.stat *)
     let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Deactivate.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Deactivate.sr
+    >>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
     stat root_dir name
       args.Args.VDI.Deactivate.dbg
-      args.Args.VDI.Deactivate.sr
+      sr
       args.Args.VDI.Deactivate.vdi
     >>= fun (datapath, uri, domain) ->
     let args' = Storage.D.Types.Datapath.Deactivate.In.make
@@ -283,12 +330,14 @@ let process root_dir name x =
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Deactivate.rpc_of_response ()))
   | { R.name = "VDI.detach"; R.params = [ args ] } ->
-    let args = Args.VDI.Detach.request_of_rpc args in
-    (* Discover the URIs using Volume.stat *)
     let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Detach.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Detach.sr
+    >>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
     stat root_dir name
       args.Args.VDI.Detach.dbg
-      args.Args.VDI.Detach.sr
+      sr
       args.Args.VDI.Detach.vdi
     >>= fun (datapath, uri, domain) ->
     let args' = Storage.D.Types.Datapath.Detach.In.make
@@ -298,9 +347,17 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.detach") args' Storage.D.Types.Datapath.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Detach.rpc_of_response ()))
+  | { R.name = "SR.stat"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.SR.Stat.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Stat.sr
+    >>= fun sr ->
+    (* FIXME: query the datasources xapi-storage#13 *)
+    let response = { total_space = 0L; free_space = 0L } in
+    Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
 
-  | _ ->
-    Deferred.Result.return (R.failure (R.String "hello")))
+  | { R.name = name } ->
+    Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
     Printf.fprintf stderr "returning %s\n%!" (Jsonrpc.string_of_response (R.failure error));

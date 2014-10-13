@@ -3,7 +3,7 @@
 import sys
 sys.path.append("/home/vagrant/djs55/dbus-test/python")
 
-import xcp, d
+import xapi, d
 
 import argparse, json, urlparse
 
