@@ -71,6 +71,12 @@ let xenapi_of_xenops_power_state = function
 	| Some Paused -> `Paused
 	| None -> `Halted
 
+let xenops_of_xenapi_power_state = function
+	| `Running -> Running
+	| `Halted -> Halted
+	| `Suspended -> Suspended
+	| `Paused -> Paused
+
 module Platform = struct
 	(* Keys we push through to xenstore. *)
 	let acpi = "acpi"
@@ -1846,7 +1852,10 @@ let pause ~__context ~self =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.pause dbg id |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Paused)
+			let ps = Db.VM.get_power_state ~__context ~self in
+			if ps <> `Paused then begin
+				let f = xenops_of_xenapi_power_state in
+				raise (Bad_power_state(f ps, f `Paused)) end
 		)
 
 let unpause ~__context ~self =
@@ -1859,7 +1868,10 @@ let unpause ~__context ~self =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.unpause dbg id |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Running)
+			let ps = Db.VM.get_power_state ~__context ~self in
+			if ps <> `Running then begin
+				let f = xenops_of_xenapi_power_state in
+				raise (Bad_power_state(f ps, f `Running)) end
 		)
 
 let set_xenstore_data ~__context ~self xsdata =
@@ -2000,7 +2012,11 @@ let start ~__context ~self paused =
 				raise e
 		);
 	(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
-	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
+	let ps = Db.VM.get_power_state ~__context ~self in
+	let expected_ps = if paused then `Paused else `Running in 
+	if ps <> expected_ps then begin
+		let f = xenops_of_xenapi_power_state in
+		raise (Bad_power_state(f ps, f expected_ps)) end
 
 let start ~__context ~self paused =
 	let queue_name = queue_of_vm ~__context ~self in
@@ -2030,7 +2046,10 @@ let reboot ~__context ~self timeout =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Running)
+			let ps = Db.VM.get_power_state ~__context ~self in
+			if ps <> `Running then begin
+				let f = xenops_of_xenapi_power_state in
+				raise (Bad_power_state(f ps, f `Running)) end
 		)
 
 let shutdown ~__context ~self timeout =
@@ -2045,7 +2064,10 @@ let shutdown ~__context ~self timeout =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Halted);
+			let ps = Db.VM.get_power_state ~__context ~self in
+			if ps <> `Halted then begin
+				let f = xenops_of_xenapi_power_state in
+				raise (Bad_power_state(f ps, f `Halted)) end;
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 			List.iter
@@ -2083,7 +2105,10 @@ let suspend ~__context ~self =
 						info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
 						Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
 						Events_from_xenopsd.wait queue_name dbg id ();
-						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
+						let ps = Db.VM.get_power_state ~__context ~self in
+						if ps <> `Suspended then begin
+							let f = xenops_of_xenapi_power_state in
+							raise (Bad_power_state(f ps, f `Suspended)) end;
 						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 					with e ->
 						error "Caught exception suspending VM: %s" (string_of_exn e);
@@ -2139,7 +2164,11 @@ let resume ~__context ~self ~start_paused ~force =
 				(fun rpc session_id ->
 					XenAPI.VDI.destroy rpc session_id vdi
 				);
-			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
+			let ps = Db.VM.get_power_state ~__context ~self in
+			let expected_ps = if start_paused then `Paused else `Running in 
+			if ps <> expected_ps then begin
+				let f = xenops_of_xenapi_power_state in
+				raise (Bad_power_state(f ps, f expected_ps)) end
 		)
 
 let s3suspend ~__context ~self =
