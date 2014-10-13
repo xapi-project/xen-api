@@ -163,11 +163,6 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 			| `changing_VCPUs_live
 					when lack_feature "feature-vcpu-hotplug"
 						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
-			| `suspend | `checkpoint | `pool_migrate | `migrate_send
-					when strict && (not (bool_of_assoc
-						"unrestricted_save" vmr.Db_actions.vM_platform)
-					) && lack_feature "feature-suspend"
-						-> some_err Api_errors.vm_lacks_feature_suspend
 			| _ -> None
 
 (* templates support clone operations, destroy (if not default),
