@@ -1,3 +1,6 @@
+0.9.20 14-Oct-2014
+* Map all HVM device names to /dev/xvd*
+
 0.9.18 20-Aug-2014)
 * Add a cmdliner interface to Xcp_services with an example
 * Add 'with sexp' to Vm.t
