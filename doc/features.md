@@ -53,7 +53,7 @@ VMs
 - configurable VM videoram
 - programmable action-after-crash behaviour including: shutting down
   the VM, taking a crash dump or leaving the domain paused for inspection
-- ability to move nics between bridges and switches
+- ability to move nics between bridges/switches
 - advertises the VM memory footprints
 - PCI passthrough
 - support for discrete emulators (e.g. 'demu')
@@ -68,7 +68,7 @@ VMs
 Hosts
 -----
 - CPUid masking for heterogenous pools: reports true features and current
-  features)
+  features
 - Host console reading
 - Hypervisor version and capabilities reporting
 - Host CPU querying
