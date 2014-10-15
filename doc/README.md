@@ -33,3 +33,10 @@ Principles
    this state.
 5. be debuggable: Xenopsd will expose diagnostic APIs and tools to allow
    its internal state to be inspected and modified.
+
+Contents
+--------
+
+- [Architecture](architecture/README.md)
+- [Features](features.md)
+

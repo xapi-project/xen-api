@@ -31,6 +31,7 @@ VMs
   - pre-destroy
   - post-destroy
   - pre-reboot
+- per-VM xenguest replacement
 - suppression of VM reboot loops
 - live vCPU hotplug and unplug
 - vCPU to pCPU affinity setting
