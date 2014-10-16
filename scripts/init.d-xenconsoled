@@ -1,0 +1,74 @@
+#! /bin/bash
+#
+# xapi          Start/Stop xenconsoled
+#
+# chkconfig: 2345 22 78
+# description: Xenconsoled
+# processname: xenconsoled
+# config: @ETCDIR@/rio.conf
+# pidfile: /var/run/xenconsoled.pid
+
+[ -e /proc/xen ] || exit 0
+
+# Source function library.
+. /etc/init.d/functions
+
+start() {
+    echo -n $"Starting xenconsoled: "
+    if [ -e /var/lock/subsys/xen ]; then
+        if [ -e /var/run/xenconsoled.pid ] && [ -e /proc/`cat /var/run/xenconsoled.pid` ]; then
+            echo -n $"cannot start xenconsoled: xenconsoled is already running.";
+            failure $"cannot start xenconsoled: xenconsoled already running.";
+            echo
+            return 1
+        fi
+    fi
+
+    OLD_ULIMIT_N=$(ulimit -n)
+    ulimit -n 4096
+    /usr/sbin/xenconsoled --log=hv --timestamp=hv --log-dir=/var/log/xen --pid-file=/var/run/xenconsoled.pid
+    ulimit -n $OLD_ULIMIT_N
+
+    echo
+    touch /var/lock/subsys/xen;
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Action not supported"
+    failure $"Action not supported"
+    echo
+    return 1;
+}
+
+rhstatus() {
+    status xapi
+}
+
+restart() {
+    echo -n $"Action not supported"
+    failure $"Action not supported"
+    echo
+    return 1;
+}
+
+case "$1" in
+  start)
+      start
+      ;;
+  stop)
+      stop
+      ;;
+  restart)
+      restart
+      ;;
+  status)
+      rhstatus
+      ;;
+  condrestart)
+      [ -f /var/lock/subsys/xapi ] && restart || :
+      ;;
+  *)
+      echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+      exit 1
+esac
