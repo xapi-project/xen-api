@@ -20,7 +20,10 @@ generator/_build
 generator/main.native
 ocaml/lib/v.ml
 ocaml/lib/d.ml
-python/V.py
-python/D.py
+ocaml/lib/p.ml
 doc
 ocaml/examples
+python/build
+python/d.py
+python/v.py
+python/p.py
