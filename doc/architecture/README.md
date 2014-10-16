@@ -5,7 +5,7 @@ Xenopsd instances run on a host and manage VMs on behalf of clients. This
 picture shows 3 different Xenopsd instances: 2 named "xenopsd-xc" and 1 named
 "xenopsd-xenlight".
 
-![Where xenopsd fits on a host](http://djs55.github.io/xenopsd/architecture/host.svg)
+![Where xenopsd fits on a host](http://djs55.github.io/xenopsd/doc/architecture/host.svg)
 
 Each instance is responsible for managing a disjoint set of VMs. Clients should
 never ask more than one Xenopsd to manage the same VM.
@@ -51,4 +51,4 @@ contain all the hypervisor-specific code including
 - opening the libxc /proc/xen/privcmd interface
 - initialising libxl contexts
 
-![Inside xenopsd](http://djs55.github.io/xenopsd/architecture/xenopsd.svg)
+![Inside xenopsd](http://djs55.github.io/xenopsd/doc/architecture/xenopsd.svg)
