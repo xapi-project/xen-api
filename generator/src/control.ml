@@ -1,4 +1,5 @@
 open Types
+open Type
 
 let api =
   let volume_decl =
