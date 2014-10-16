@@ -1,7 +1,13 @@
-open Types
-open Files
 
 let _ =
+  let generate_html = ref false in
+  Arg.parse [
+    "-html", Arg.Set generate_html, "Output HTML docs";
+  ] (fun x -> Printf.fprintf stderr "Unknown argument: %s\n%!" x; exit 1)
+  "Generate OCaml/Python/HTML documentation";
+
+  let open Types in
+  let open Files in
   let apis = [
     Plugin.api;
     Control.api;
@@ -10,7 +16,8 @@ let _ =
   (* Prepend the debug_info argument *)
   let apis = List.map Types.prepend_dbg apis in
 
-  Www.write apis;
+  if !generate_html
+  then Www.write apis;
 
   List.iter
     (fun api ->
