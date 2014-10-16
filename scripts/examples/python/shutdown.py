@@ -109,7 +109,12 @@ def host_evacuate(session, host):
                         print "Failed to cancel task: %s" % t,
                         sys.stdout.flush()
     finally:
-        session.xenapi.task.destroy(task)
+        try:
+            session.xenapi.task.destroy(task)
+        except Exception, e:
+            # db gc thread in xapi may delete task from tasks table
+            print "\n Task %s has been destroyed" % task
+            sys.stdout.flush()
         return rc
 
 def parallel_clean_shutdown(session, vms):
@@ -149,7 +154,12 @@ def parallel_clean_shutdown(session, vms):
 
     finally:
         for (task,_,_) in tasks:
-            session.xenapi.task.destroy(task)
+            try:
+                session.xenapi.task.destroy(task)
+            except Exception, e:
+                # db gc thread in xapi may delete task from tasks table
+                print "\n Task %s has been destroyed" % task
+                sys.stdout.flush()
         return rc
 
 def serial_hard_shutdown(session, vms):
