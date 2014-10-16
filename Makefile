@@ -8,6 +8,10 @@ build:
 	./generator/main.native
 	make -C ocaml
 
+.PHONY: html
+html: build
+	./generator/main.native -html
+
 .PHONY: install
 install:
 	make -C ocaml install
