@@ -17,8 +17,23 @@ module R = Rpc
 open Core.Std
 open Async.Std
 
+let use_syslog = ref false
+
+let info fmt =
+  Printf.ksprintf (fun s ->
+    if !use_syslog then begin
+      (* FIXME: this is synchronous and will block other I/O *)
+      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO ~add_stderr:true s;
+      return ()
+    end else begin
+      let w = Lazy.force Writer.stderr in
+      Writer.write w s;
+      Writer.newline w;
+      Writer.flushed w;
+    end
+  ) fmt
+
 let backend_error name args =
-  Printf.fprintf stderr "backend_error %s [ %s ]\n%!" name (String.concat ~sep:"; " args);
   let open Storage_interface in
   let exnty = Exception.Backend_error (name, args) in
   Exception.rpc_of_exnty exnty
@@ -360,7 +375,8 @@ let process root_dir name x =
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
-    Printf.fprintf stderr "returning %s\n%!" (Jsonrpc.string_of_response (R.failure error));
+    info "returning error %s" (Jsonrpc.string_of_response (R.failure error))
+    >>= fun () ->
     return (Jsonrpc.string_of_response (R.failure error))
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
@@ -372,7 +388,8 @@ let create switch_port root_dir name =
   if Hashtbl.mem servers name
   then return ()
   else begin
-    Printf.fprintf stderr "Adding %s\n%!" name;
+    info "Adding %s" name
+    >>= fun () ->
     Protocol_async.M.connect switch_port >>= fun c ->
     let server = Protocol_async.Server.listen (process root_dir name) c (Filename.basename name) in
     Hashtbl.add_exn servers name server;
@@ -380,7 +397,8 @@ let create switch_port root_dir name =
   end
 
 let destroy switch_port name =
-  Printf.fprintf stderr "Removing %s\n%!" name;
+  info "Removing %s" name
+  >>= fun () ->
   Protocol_async.M.connect switch_port >>= fun c ->
   Hashtbl.remove servers name;
   return ()
@@ -412,7 +430,8 @@ let main ~root_dir ~switch_port =
   let rec loop () =
     ( Pipe.read pipe >>= function
     | `Eof ->
-      Printf.fprintf stderr "Received EOF from inotify event pipe\n%!";
+      info "Received EOF from inotify event pipe"
+      >>= fun () ->
       Shutdown.exit 1
     | `Ok (Created name)
     | `Ok (Moved (Into name)) ->
@@ -457,13 +476,21 @@ let _ =
     }
   ] in
 
-  match configure2
+  (match configure2
     ~name:"xapi-script-storage"
     ~version:Version.version
     ~doc:description
     ~resources
     () with
-  | `Ok () -> main ~root_dir:!root_dir ~switch_port:!Xcp_client.switch_port
+  | `Ok () -> ()
   | `Error x ->
     Printf.fprintf stderr "Error: %s\n%!" x;
-    Pervasives.exit 1
+    Pervasives.exit 1);
+
+  if !Xcp_service.daemon then begin
+    Daemon.daemonize ();
+    use_syslog := true;
+    Core.Syslog.openlog ~id:"xapi-storage-script" ~facility:Core.Syslog.Facility.DAEMON ();
+  end;
+  main ~root_dir:!root_dir ~switch_port:!Xcp_client.switch_port
+
