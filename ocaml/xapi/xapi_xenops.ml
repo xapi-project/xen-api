@@ -309,7 +309,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			timeoffset = timeoffset;
 			video_mib = begin
 				(* For vGPU, make sure videoram is at least 16MiB. *)
-				let requested_videoram = int vm.API.vM_platform 4 "videoram" in
+				let requested_videoram = int vm.API.vM_platform 8 "videoram" in
 				if video_mode = Vgpu
 				then max requested_videoram 16
 				else requested_videoram
