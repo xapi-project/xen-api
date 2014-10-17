@@ -1,2 +1,6 @@
-trunk (unreleased)
+0.1.1 (17-Oct-2014)
+- Now daemonizes properly
+- Logs to syslog
 
+0.1 (16-Oct-2014)
+- Initial version
