@@ -1,7 +1,7 @@
 BINDIR?=/tmp/
 MANDIR?=/tmp/
 
-.PHONY: install uninstall clean
+.PHONY: install uninstall clean test
 
 all: main.native main.1
 
@@ -25,6 +25,9 @@ install: main.native main.1
 uninstall:
 	rm -f ${BINDIR}/xapi-script-storage
 	rm -f ${MANDIR}/man1/xapi-script-storage.1
+
+test:
+	@echo No tests implemented yet
 
 clean:
 	rm -rf _build setup.data main.1 version.ml
