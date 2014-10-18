@@ -203,55 +203,87 @@ no if/then/else. Some of the "micro-ops" may be a no-op depending on the VM
 configuration (for example a PV domain may not need a qemu). In the case of
 ```VM_start vm``` this decomposes into the sequence:
 
-1. ```VM_hook_script```: run the "VM_pre_start" scripts
-2. ```VM_create```: create a Xen domain
-3. ```VM_build```: build the domain i.e. load the memory
-4. for each VBD, ```VBD_set_active``` to mark them as in-use
-5. for each VBD in "plug order", ```VBD_epoch_begin``` to perform any initial
-   disk truncation required by non-persistent disks
-6. for each VBD in "plug order", ```VBD_plug``` to attach the VDI and create
-   the frontend/backend configuration in Xenstore
-7. for each VIF, ```VIF_set_active``` to mark them as in-use
-8. for each VIF in "plug order", ```VIF_plug``` to create the frontend/backend
-   configuration in Xenstore, wait for the backend vif interfaces to appear in
-   dom0 and configure their MTU, offload settings, switch port, locking rules
-   etc
-9. ```VM_create_device_model``` to spawn a qemu (if required)
-10. for each PCI in "plug order", ```PCI_plug``` to "hotplug" the PCI devices
-    into the running qemu
-11. ```VM_set_domain_action_request``` to mark the domain as survivable
+1. run the "VM_pre_start" scripts
+---------------------------------
 
-The "plug order" is important for all types of devices. For VBDs, we must
-work around the deficiency in the storage interface where a VDI, once attached
-read/only, cannot be attached read/write. Since it is legal to attach the same
-VDI with multiple VBDs, we must plug them in such that the read/write VBDs
-come first. From the guest's point of view the order we plug them doesn't
-matter because they are indexed by the Xenstore device id (e.g. 51712 = xvda).
+The ```VM_hook_script``` micro-op runs the corresponding "hook" scripts. The
+code is all in the
+[Xenops_hooks](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/lib/xenops_hooks.ml)
+module and looks for scripts in the hardcoded path ```/etc/xapi.d```.
 
-In the case of vifs, there is no read/write read/only constraint and the devices
-have unique indices (0, 1, 2, ...) *but* Linux kernels have often (always?)
-ignored the actual index and instead relied on the order of results from the
-```xenstore-ls``` listing. The order that xenstored returns the items happens
-to be the order the nodes were created so this means that (i) xenstored must
-continue to store directories as ordered lists rather than maps (which would
-be more efficient); and (ii) Xenopsd must make sure to plug the vifs in
-the same order. Note that relying on ethX device numbering has always been a
-bad idea but is still common. I bet if you change this lots of tests will
-suddenly start to fail!
+2. create a Xen domain
+----------------------
 
-PCI devices are slightly different again; if we are attaching the device to an
-HVM guest then instead of relying on the traditional Xenstore frontend/backend
-state machine we instead send RPCs to qemu requesting they be hotplugged. Note
-the domain is paused at this point, but qemu still supports PCI hotplug/unplug.
-The reasons why this doesn't follow the standard Xenstore model are known only
-to the people who contributed this support to qemu.
-Again the order matters because it determines the position of the virtual device
-in the VM.
+The ```VM_create``` micro-op calls the ```VM.create``` function in the backend.
+In the classic Xenopsd backend the
+[VM.create_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L633)
+function must
+
+1. check if we're creating a domain for a fresh VM or resuming an existing one:
+   if it's a resume then the domain configuration stored in the VmExtra database
+   table must be used
+2. ask *squeezed* to create a memory "reservation" big enough to hold the VM
+   memory. Unfortunately the domain cannot be created until the memory is free
+   because domain create often fails in low-memory conditions. This means the
+   "reservation" is associated with our "session" with squeezed; if Xenopsd
+   crashes and restarts the reservation will be freed automatically.
+3. create the Domain via the libxc hypercall
+4. "transfer" the squeezed reservation to the domain such that squeezed will
+   free the memory if the domain is destroyed later
+5. compute and set an initial balloon target depending on the amount of memory
+   reserved (recall we ask for a range between *dynamic_min* and *dynamic_max*)
+6. apply the "suppress spurious page faults" workaround if requested
+7. set the "machine address size"
+8. "hotplug" the vCPUs. This operates a lot like memory ballooning -- Xen creates
+   lots of vCPUs and then the guest is asked to only use some of them. Every VM
+   therefore starts with the "VCPUs_max" setting and co-operative hotplug is
+   used to reduce the number. Note there is no enforcement mechanism: a VM which
+   cheats and uses too many vCPUs would have to be caught by looking at the
+   performance statistics.
+
+3. build the domain
+-------------------
+
+On a Xen system a domain is created empty, and memory is actually allocated
+from the host in the "build" phase via functions in *libxenguest*. The
+[VM.build_domain_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L994)
+function must
+
+1. run pygrub (or eliloader) to extract the kernel and initrd, if necessary
+2. invoke the *xenguest* binary to interact with libxenguest.
+3. apply the ```cpuid``` configuration
+4. store the current domain configuration on disk -- it's important to know
+   the difference between the configuration you started with and the configuration
+   you would use after a reboot because some properties (such as maximum memory
+   and vCPUs) as fixed on create.
+
+The xenguest binary was originally
+a separate binary for two reasons: (i) the libxenguest functions weren't
+threadsafe since they used lots of global variables; and (ii) the libxenguest
+functions used to have a different, incompatible license, which prevent us
+linking. Both these problems have been resolved but we still shell out to
+the xenguest binary.
+
+The xenguest binary has also evolved to configure more of the initial domain
+state. It also [reads Xenstore](https://github.com/xapi-project/ocaml-xen-lowlevel-libs/blob/master/xenguest-4.4/xenguest_stubs.c#L42)
+and configures
+
+- the vCPU affinity
+- the vCPU credit2 weight/cap parameters
+- whether the NX bit is exposed
+- whether the viridian CPUID leaf is exposed
+- whether the system has PAE or not
+- whether the system has ACPI or not
+- whether the system has nested HVM or not
+- whether the system has an HPET or not
+
+4. mark each VBD as "active"
+----------------------------
 
 VBDs and VIFs are said to be "active" when they are intended to be used by a
 particular VM, even if the backend/frontend connection hasn't been established,
 or has been closed. If someone calls ```VBD.stat``` or ```VIF.stat``` then
-they the result includes both "active" and "plugged", where "plugged" is true if
+the result includes both "active" and "plugged", where "plugged" is true if
 the frontend/backend connection is established.
 For example xapi will
 set [VBD.currently_attached](https://github.com/xapi-project/xen-api/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/ocaml/xapi/xapi_xenops.ml#L1300)
@@ -266,6 +298,113 @@ would see the VBD as completely dissociated from the VM -- this would be mislead
 because Xenopsd will not have had time to use the storage API to release locks
 on the disks. By doing all the cleanup before setting "active" to false, clients
 can be assured that the disks are now free to be reassigned.
+
+5. handle non-persistent disks
+------------------------------
+
+A non-persistent disk is one which is reset to a known-good state on every
+VM start. The ```VBD_epoch_begin``` is the signal to perform any necessary reset.
+
+6. plug VBDs
+------------
+
+The ```VBD_plug``` micro-op will plug the VBD into the VM. Every VBD is plugged
+in a carefully-chosen order.
+Generally, plug order is important for all types of devices. For VBDs, we must
+work around the deficiency in the storage interface where a VDI, once attached
+read/only, cannot be attached read/write. Since it is legal to attach the same
+VDI with multiple VBDs, we must plug them in such that the read/write VBDs
+come first. From the guest's point of view the order we plug them doesn't
+matter because they are indexed by the Xenstore device id (e.g. 51712 = xvda).
+
+The function
+[VBD.plug](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1631)
+will
+
+- call ```VDI.attach``` and ```VDI.activate``` in the storage API to make the
+  devices ready (start the tapdisk processes etc)
+- add the Xenstore frontend/backend directories containing the block device
+  info
+- add the extra xenstore keys returned by the ```VDI.attach``` call that are
+  needed for SCSIid passthrough which is needed to support VSS
+- write the VBD information to the Xenopsd database so that future calls to
+  *VBD.stat* can be told about the associated disk (this is needed so clients
+  like xapi can cope with CD insert/eject etc)
+- if the qemu is going to be in a different domain to the storage, a frontend
+  device in the qemu domain is created.
+
+The Xenstore keys are written by the functions
+[Device.Vbd.add_async](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/device.ml#L486)
+and
+[Device.Vbd.add_wait](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/device.ml#L550).
+In a Linux domain (such as dom0) when the backend directory is created, the kernel
+creates a "backend device". Creating any device will cause a kernel UEVENT to fire
+which is picked up by udev. The udev rules run a script whose only job is to
+stat(2) the device (from the "params" key in the backend) and write the major
+and minor number to Xenstore for blkback to pick up. (Aside: FreeBSD doesn't do
+any of this, instead the FreeBSD kernel module simply opens the device in the
+"params" key). The script also writes the backend key "hotplug-status=connected".
+We currently wait for this key to be written so that later calls to *VBD.stat*
+will return with "plugged=true". If the call returns before this key is written
+then sometimes we receive an event, call *VBD.stat* and conclude erroneously
+that a spontaneous VBD unplug occurred.
+
+7. mark each VIF as "active"
+----------------------------
+
+This is for the same reason as VBDs are marked "active".
+
+8. plug VIFs
+------------
+
+Again, the order matters. Unlike VBDs,
+there is no read/write read/only constraint and the devices
+have unique indices (0, 1, 2, ...) *but* Linux kernels have often (always?)
+ignored the actual index and instead relied on the order of results from the
+```xenstore-ls``` listing. The order that xenstored returns the items happens
+to be the order the nodes were created so this means that (i) xenstored must
+continue to store directories as ordered lists rather than maps (which would
+be more efficient); and (ii) Xenopsd must make sure to plug the vifs in
+the same order. Note that relying on ethX device numbering has always been a
+bad idea but is still common. I bet if you change this lots of tests will
+suddenly start to fail!
+
+The function
+[VIF.plug_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1945)
+will
+
+- compute the port locking configuration required and write this to a well-known
+  location in the filesystem where it can be read from the udev scripts. This
+  really should be written to Xenstore instead, since this scheme doesn't work
+  with driver domains.
+- add the Xenstore frontend/backend directories containing the network device
+  info
+- write the VIF information to the Xenopsd database so that future calls to
+  *VIF.stat* can be told about the associated network
+- if the qemu is going to be in a different domain to the storage, a frontend
+  device in the qemu domain is created.
+
+Similarly to the VBD case, the function
+[Device.Vif.add](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/device.ml#L642)
+will write the Xenstore keys and wait for the "hotplug-status=connected" key.
+We do this because we cannot apply the port locking rules until the backend
+device has been created, and we cannot know the rules have been applied
+until after the udev script has written the key. If we didn't wait for it then
+the VM might execute without all the port locking properly configured.
+
+9. create the device model
+--------------------------
+
+The ```VM_create_device_model``` micro-op will create a qemu device model if
+- the VM is HVM; or
+- the VM uses a PV keyboard or mouse (since only qemu currently has backend
+  support for these devices).
+
+The function
+[VM.create_device_model_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1090)
+will
+- (if using a qemu stubdom) it will create and build the qemu domain
+- compute the necessary qemu arguments and launch it.
 
 Note that qemu (aka the "device model") is created after the VIFs and VBDs have
 been plugged but before the PCI devices have been plugged. Unfortunately qemu
@@ -282,6 +421,25 @@ on the qemu command-line. If we switch to this by default then we ought to be
 able to start up qemu early, as soon as the domain has been created (qemu will
 need ot know the domain id so it can map the I/O request ring).
 
+10. plug PCI devices
+--------------------
+
+PCI devices are treated differently to VBDs and VIFs.
+If we are attaching the device to an
+HVM guest then instead of relying on the traditional Xenstore frontend/backend
+state machine we instead send RPCs to qemu requesting they be hotplugged. Note
+the domain is paused at this point, but qemu still supports PCI hotplug/unplug.
+The reasons why this doesn't follow the standard Xenstore model are known only
+to the people who contributed this support to qemu.
+Again the order matters because it determines the position of the virtual device
+in the VM.
+
+Note that Xenopsd doesn't know anything about the PCI devices; concepts such
+as "GPU groups" belong to higher layers, such as xapi.
+
+11. mark the domain as alive
+----------------------------
+
 A design principle of Xenopsd is that it should tolerate failures such as being
 suddenly restarted. It guarantees to always leave the system in a valid state,
 in particular there should never be any "half-created VMs". We achieve this for
@@ -297,3 +455,20 @@ key to "reboot" (meaning "please reboot me if you see me") and when Xenopsd
 finishes starting the VM it clears this key. This means that if Xenopsd crashes
 while starting a VM, the new Xenopsd will conclude that the VM needs to be rebooted
 and will clean up the current domain and create a fresh one.
+
+12. unpause the domain
+----------------------
+
+A Xenopsd VM.start will always leave the domain paused, so strictly speaking
+this is a separate "operation" queued by the client (such as xapi) after the
+VM.start has completed. The function
+[VM.unpause](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L808)
+is reassuringly simple:
+```
+		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
+		Domain.unpause ~xc di.Xenctrl.domid;
+		Opt.iter
+			(fun stubdom_domid ->
+				Domain.unpause ~xc stubdom_domid
+			) (get_stubdom ~xs di.Xenctrl.domid)
+```
