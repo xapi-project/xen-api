@@ -19,3 +19,4 @@ Before reading these, first familiarise yourself with the
 - Suspend/resume/migrate
   - Discussion of the [needs of the suspend image format](suspend-image-considerations.md)
   - The [suspend image framing format](suspend-image-framing-format.md)
+- Storage driver domains
