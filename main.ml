@@ -370,6 +370,22 @@ let process root_dir name x =
     (* FIXME: query the datasources xapi-storage#13 *)
     let response = { total_space = 0L; free_space = 0L } in
     Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
+  | { R.name = "VDI.epoch_begin"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Epoch_begin.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Epoch_begin.sr
+    >>= fun sr ->
+    (* FIXME: will some backends do this in special ways?
+       See [djs55/xapi-storage#19] *)
+    Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
+  | { R.name = "VDI.epoch_end"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Epoch_end.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Epoch_end.sr
+    >>= fun sr ->
+    (* FIXME: will some backends do this in special ways?
+       See [djs55/xapi-storage#19] *)
+    Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
 
   | { R.name = name } ->
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
