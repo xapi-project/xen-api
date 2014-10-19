@@ -1,4 +1,4 @@
-trunk (unreleased)
+0.1.2 (19-Oct-2014)
 - Treat VDI.epoch_{begin,end} as no-ops
 - Write the pidfile when daemonizing
 
