@@ -745,10 +745,15 @@ module VBD = struct
 		(* If no device number is provided then autodetect a free one *)
 		let device_number =
 			match vbd.position with
-			| Some x -> x
+			| Some x ->
+				(* If the 'position' is on the Ide bus, we "upgrade" to
+				   to the Xen bus instead *)
+				make (match spec x with
+					| Ide, disk, partition -> Xen, disk, partition
+					| x -> x)
 			| None ->
 				on_frontend (fun _ xs domid hvm ->
-					make (free_device ~xs (if hvm then Ide else Xen) domid)
+					make (free_device ~xs Xen domid)
 				) Newest vm
 		in
 		let devid = to_xenstore_key device_number in
