@@ -504,7 +504,7 @@ let _ =
     Pervasives.exit 1);
 
   if !Xcp_service.daemon then begin
-    Daemon.daemonize ();
+    Xcp_service.maybe_daemonize ();
     use_syslog := true;
     Core.Syslog.openlog ~id:"xapi-storage-script" ~facility:Core.Syslog.Facility.DAEMON ();
   end;
