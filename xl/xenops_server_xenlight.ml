@@ -37,6 +37,12 @@ exception Restore_signature_mismatch
 
 exception Domain_stuck_in_dying_state of domid
 
+let minimum_videoram mib =
+	let minimum = if !Xenopsd.use_upstream_qemu then 8 else 4 in
+	if mib < minimum
+	then warn "VM configuration has illegal videoram value: %d (minimum is %d) MiB. Using the minimum value instead." mib minimum;
+	max minimum mib
+
 (* libxl logging and context *)
 
 let vmessage min_level level errno ctx msg =
@@ -1598,7 +1604,7 @@ module VM = struct
 				| HVM hvm_info ->
 					Domain.BuildHVM {
 						Domain.shadow_multiplier = hvm_info.shadow_multiplier;
-						video_mib = hvm_info.video_mib;
+						video_mib = minimum_videoram hvm_info.video_mib;
 					}
 				| PV { boot = Direct direct } ->
 					Domain.BuildPV {
@@ -1963,7 +1969,7 @@ module VM = struct
 				let video_memkb, shadow_memkb =
 					match vm.ty with
 						| HVM hvm_info ->
-							Int64.mul (Int64.of_int hvm_info.video_mib) 1024L,
+							Int64.mul (Int64.of_int (minimum_videoram hvm_info.video_mib)) 1024L,
 							Int64.mul
 								(Memory.HVM.shadow_mib (max_memkb /// 1024L) max_vcpus hvm_info.shadow_multiplier)
 								1024L
