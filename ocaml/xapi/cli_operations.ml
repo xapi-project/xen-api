@@ -2561,11 +2561,15 @@ let vm_migrate printer rpc session_id params =
 								  not (Client.VBD.get_empty rpc session_id vbd)) vbds in
 							  let vdis = List.map
 								  (fun vbd -> Client.VBD.get_VDI rpc session_id vbd) vbds in
-							  List.map (fun vdi ->
+							  let overrides = List.map (fun vdi ->
 								  if List.mem_assoc vdi vdi_map
 								  then (vdi, List.assoc vdi vdi_map)
 								  else (vdi, default_sr)
 							  ) vdis in
+                                                          let filtered_orig_list = List.filter (fun (vdi,_) ->
+                                                              not (List.mem_assoc vdi overrides)) vdi_map in
+                                                          overrides @ filtered_orig_list
+                                        in
 
 					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
 						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
