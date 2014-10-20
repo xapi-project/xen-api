@@ -72,11 +72,17 @@ let backend_of_network net =
 		Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
-	try f (List.assoc feature map)
-	with _ -> default
+	try
+		let v = List.assoc feature map in
+		try f v
+		with e ->
+			warn "Failed to parse %s as value for %s: %s; Using default value."
+				v feature (Printexc.to_string e);
+			default
+	with Not_found -> default
 let string = find (fun x -> x)
 let int = find int_of_string
-let bool = find bool_of_string
+let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
 
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 	let timeoffset = string vm_t.API.vM_platform "0" "timeoffset" in
