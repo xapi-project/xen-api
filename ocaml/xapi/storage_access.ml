@@ -455,7 +455,7 @@ module SMAPIv1 = struct
 			"base_mirror"
 		]
 
-		let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi_info =
+		let snapshot_and_clone call_name call_f is_a_snapshot context ~dbg ~sr ~vdi_info =
 			try
 				Server_helpers.exec_with_new_task call_name ~subtask_of:(Ref.of_string dbg)
 					(fun __context ->
@@ -476,6 +476,7 @@ module SMAPIv1 = struct
 						Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
 						Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
 						Db.VDI.set_snapshot_time ~__context ~self ~value:(Date.of_string vdi_info.snapshot_time);
+						Db.VDI.set_is_a_snapshot ~__context ~self ~value:is_a_snapshot;
 						Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
 						Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
 						debug "copying sm-config";
@@ -502,8 +503,8 @@ module SMAPIv1 = struct
 				| Sm.MasterOnly -> redirect sr
 
 
-		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot
-		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone
+		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot true
+		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone false
 
         let resize context ~dbg ~sr ~vdi ~new_size =
             try
