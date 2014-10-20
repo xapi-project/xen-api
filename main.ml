@@ -282,6 +282,36 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.destroy") args Storage.V.Types.Volume.Destroy.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Destroy.rpc_of_response response))
+  | { R.name = "VDI.snapshot"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Snapshot.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Snapshot.sr
+    >>= fun sr ->
+    let vdi_info = args.Args.VDI.Snapshot.vdi_info in
+    let args = Storage.V.Types.Volume.Snapshot.In.make
+      args.Args.VDI.Snapshot.dbg
+      sr
+      vdi_info.vdi in
+    let args = Storage.V.Types.Volume.Snapshot.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.snapshot") args Storage.V.Types.Volume.Snapshot.Out.t_of_rpc
+    >>= fun response ->
+    let response = vdi_of_volume response in
+    Deferred.Result.return (R.success (Args.VDI.Snapshot.rpc_of_response response))
+  | { R.name = "VDI.clone"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Clone.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Clone.sr
+    >>= fun sr ->
+    let vdi_info = args.Args.VDI.Clone.vdi_info in
+    let args = Storage.V.Types.Volume.Clone.In.make
+      args.Args.VDI.Clone.dbg
+      sr
+      vdi_info.vdi in
+    let args = Storage.V.Types.Volume.Clone.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.clone") args Storage.V.Types.Volume.Clone.Out.t_of_rpc
+    >>= fun response ->
+    let response = vdi_of_volume response in
+    Deferred.Result.return (R.success (Args.VDI.Clone.rpc_of_response response))
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Attach.request_of_rpc args in
