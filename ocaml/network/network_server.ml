@@ -462,6 +462,7 @@ module Bridge = struct
 					vlan vlan_bug_workaround name)
 			| Bridge ->
 				ignore (Brctl.create_bridge name);
+				Brctl.set_forwarding_delay name 0;
 				Opt.iter (Ip.set_mac name) mac;
 				match vlan with
 				| None -> ()
