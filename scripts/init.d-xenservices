@@ -14,31 +14,6 @@
 . /etc/init.d/functions
 
 start() {
-    # If this domain hasn't got sufficient privileges then assume it is a domU
-    # and start the hypercall simulator
-    "@BINDIR@/list_domains" 2>/dev/null 1>/dev/null
-    if [ $? -ne 0 ]; then
-	echo -n $"Starting simulator: "
-	rm -f /var/xapi/xiu-xc /var/xapi/xiu-xs
-	"@LIBEXECDIR@/xiu" /var/xapi/xiu 2>/dev/null 1>/dev/null &
-
-        # wait for unix domain socket to appear 
-        RETRIES=180
-        while [ ${RETRIES} -ne 0 ]; do
-		[ -e /var/xapi/xiu-xc ] && break
-		RETRIES=$(( ${RETRIES} - 1 ))
-		sleep 1
-		echo -n .
-	done
-	if [ -e /var/xapi/xiu-xc ]; then
-	    echo "[   OK   ]"
-	else
-	    failure $"xiu"
-	    exit 1
-	fi
-	export XENCTRL_OSDEP="@OPTDIR@/lib/libxenctrl_xiu.so"
-	export XIU=/var/xapi/xiu
-    fi
 	echo -n $"Starting xenstored: "	
         if [ -e /var/lock/subsys/xen ]; then
 	    if [ -e /var/run/xenstored.pid ] && [ -e /proc/`cat /var/run/xenstored.pid` ]; then
