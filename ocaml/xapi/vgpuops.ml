@@ -137,6 +137,8 @@ let create_virtual_vgpu ~__context vm vgpu =
 	)
 
 let add_vgpus_to_vm ~__context vm vgpus =
+	if not (Pool_features.is_enabled ~__context Features.VGPU)
+	then raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
 	(* Update VM platform for xenops to use *)
 	List.iter
 		(fun key ->
