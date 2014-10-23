@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="oasis cmdliner rrd-transport forkexecd xenstore xenstore_transport"
+OPAM_PACKAGES="oasis cmdliner xapi-rrd-transport xapi-forkexecd xenstore xenstore_transport"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
