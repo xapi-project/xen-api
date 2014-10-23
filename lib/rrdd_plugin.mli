@@ -95,7 +95,7 @@ module Process : functor (N : (sig val name : string end)) -> sig
 	    This will set up signal handlers, as well as daemonising and writing a pid
 	    file if specified on the CLI.
 
-	    Processes which need to use initialise should call it  before spawning any
+	    Processes which need to use initialise should call it before spawning any
 	    threads.
 
 	    Processes which have tasks beyond reporting data to rrdd should probably
