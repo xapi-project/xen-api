@@ -60,14 +60,35 @@ module Reporter : sig
 	type t
 	(** Abstract type of stats reporters. *)
 
-	val create : (module Debug.DEBUG) ->
+	val start : (module Debug.DEBUG) ->
+		uid:string ->
+		neg_shift:float ->
+		target:target ->
+		protocol:Rrd_interface.plugin_protocol ->
+		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
+		unit
+	(** Create a synchronous stats reporter. This function will block forever
+	    unless it catches a Sys.Break. It will usually be simpler to call
+	    Process.initialise followed by Process.main_loop rather than calling this
+	    function directly.
+	    {ul
+	    {- [uid] is the UID which will be registered with rrdd.}
+	    {- [neg_shift] is the amount of time before rrdd collects data that we
+	       should report our data.}
+	    {- [target] specifies the transport via which data will be reported to
+	       rrdd.}
+	    {- [protocol] specifies the protocol used to transmit the data.}
+	    {- [dss_f ()] will generate the list of datasources to be reported.}} *)
+
+	val start_async : (module Debug.DEBUG) ->
 		uid:string ->
 		neg_shift:float ->
 		target:target ->
 		protocol:Rrd_interface.plugin_protocol ->
 		dss_f:(unit -> (Rrd.ds_owner * Ds.ds) list) ->
 		t
-	(** Create a stats reporter.
+	(** Create an asynchronous stats reporter. Return a Reporter.t, which can be
+	    used to query the state of the reporter, or to cancel it.
 	    {ul
 	    {- [uid] is the UID which will be registered with rrdd.}
 	    {- [neg_shift] is the amount of time before rrdd collects data that we

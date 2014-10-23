@@ -19,6 +19,10 @@ open Xstringext
 
 let (|>) x f = f x
 
+(* This exception is setup to be raised on sigint by Process.initialise, and is
+   used to cancel the synchronous function Reporter.start. *)
+exception Killed
+
 module Utils = struct
 	let now () = Int64.of_float (Unix.gettimeofday ())
 
@@ -153,45 +157,40 @@ module Reporter = struct
 		else
 			D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
 
-	let start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
-		let (_: Thread.t) =
-			Thread.create
-				(fun () ->
-					let running = ref true in
-					while !running do
-						try
-							report ();
-							Mutex.execute reporter.lock
-								(fun () ->
-									match reporter.state with
-									| Running -> ()
-									| Stopped
-									| Cancelled ->
-										reporter.state <- Stopped;
-										cleanup ();
-										Condition.broadcast reporter.condition;
-										running := false)
-						with
-							| Sys.Break ->
-								Mutex.execute reporter.lock
-									(fun () ->
-										reporter.state <- Stopped;
-										cleanup ();
-										Condition.broadcast reporter.condition;
-										running := false)
-							| e ->
-								D.error
-									"Unexpected error %s, sleeping for 10 seconds..."
-									(Printexc.to_string e);
-								D.log_backtrace ();
-								Thread.delay 10.0
-					done)
-				()
-		in
-		()
+	let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
+		let running = ref true in
+		while !running do
+			try
+				report ();
+				match reporter with
+				| Some reporter -> begin
+					(* Handle asynchronous cancellation. *)
+					Mutex.execute reporter.lock
+						(fun () ->
+							match reporter.state with
+							| Running -> ()
+							| Stopped
+							| Cancelled ->
+								reporter.state <- Stopped;
+								cleanup ();
+								Condition.broadcast reporter.condition;
+								running := false)
+				end
+				| None -> ()
+			with
+				| Sys.Break | Killed ->
+					(* Handle cancellation via signal handler. *)
+					cleanup ();
+					running := false
+				| e ->
+					D.error
+						"Unexpected error %s, sleeping for 10 seconds..."
+						(Printexc.to_string e);
+					D.log_backtrace ();
+					Thread.delay 10.0
+		done
 
-	let create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f =
-		let reporter = make () in
+	let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~protocol ~dss_f =
 		let path = RRDD.Plugin.get_path ~uid in
 		D.info "Obtained path=%s\n" path;
 		let _ = mkdir_safe (Filename.dirname path) 0o644 in
@@ -215,17 +214,16 @@ module Reporter = struct
 			RRDD.Plugin.Local.deregister ~uid;
 			writer.Rrd_writer.cleanup ()
 		in
-		start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup;
-		reporter
+		loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
 
-	let create_interdomain
+	let start_interdomain
 			(module D : Debug.DEBUG)
+			~reporter
 			~uid
 			~backend_domid
 			~page_count
 			~protocol
 			~dss_f =
-		let reporter = make () in
 		let id = Rrd_writer.({
 			backend_domid = backend_domid;
 			shared_page_count = page_count;
@@ -259,20 +257,49 @@ module Reporter = struct
 					"true");
 			writer.Rrd_writer.cleanup ()
 		in
-		start_loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup;
-		reporter
+		loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
 
-	let create (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
+	let start (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
 		match target with
 		| Local ->
-			create_local (module D : Debug.DEBUG) ~uid ~neg_shift ~protocol ~dss_f
+			start_local (module D : Debug.DEBUG)
+				~reporter:None
+				~uid
+				~neg_shift
+				~protocol
+				~dss_f
 		| Interdomain (backend_domid, page_count) ->
-			create_interdomain (module D : Debug.DEBUG)
+			start_interdomain (module D : Debug.DEBUG)
+				~reporter:None
 				~uid
 				~backend_domid
 				~page_count
 				~protocol
 				~dss_f
+
+	let start_async (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
+		let reporter = make () in
+		let (_ : Thread.t) =
+			Thread.create (fun () ->
+				match target with
+				| Local ->
+					start_local (module D : Debug.DEBUG)
+						~reporter:(Some reporter)
+						~uid
+						~neg_shift
+						~protocol
+						~dss_f
+				| Interdomain (backend_domid, page_count) ->
+					start_interdomain (module D : Debug.DEBUG)
+						~reporter:(Some reporter)
+						~uid
+						~backend_domid
+						~page_count
+						~protocol
+						~dss_f)
+			()
+		in
+		reporter
 
 	let get_state ~reporter =
 		Mutex.execute reporter.lock (fun () -> reporter.state)
@@ -298,19 +325,12 @@ module Process = functor (N : (sig val name : string end)) -> struct
 module D = Debug.Make(struct let name=N.name end)
 open D
 
-let reporter_cache : Reporter.t option ref = ref None
-
-let cleanup signum =
+let on_sigterm signum =
 	info "Received signal %d: deregistering plugin %s..." signum N.name;
-	Opt.iter
-		(fun reporter -> Reporter.cancel reporter)
-		!reporter_cache;
-	exit 0
+	raise Killed
 
 let initialise () =
-	let signals_to_catch = [Sys.sigint; Sys.sigterm] in
-	List.iter (fun s -> Sys.set_signal s (Sys.Signal_handle cleanup))
-		signals_to_catch;
+	Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm);
 
 	(* CA-92551, CA-97938: Use syslog's local0 facility *)
 	Debug.set_facility Syslog.Local0;
@@ -340,15 +360,11 @@ let initialise () =
 		 Unixext.pidfile_write !pidfile)
 
 let main_loop ~neg_shift ~target ~protocol ~dss_f =
-	let reporter =
-		Reporter.create
-			(module D : Debug.DEBUG)
-			~uid:N.name
-			~neg_shift
-			~target
-			~protocol
-			~dss_f
-	in
-	reporter_cache := Some reporter;
-	Reporter.wait_until_stopped reporter
+	Reporter.start
+		(module D : Debug.DEBUG)
+		~uid:N.name
+		~neg_shift
+		~target
+		~protocol
+		~dss_f
 end
