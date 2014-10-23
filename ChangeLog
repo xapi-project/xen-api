@@ -1,3 +1,7 @@
+0.6.1 (23-Oct-2014)
+ * Refactor signal handling logic
+ * Rename Reporter.create to Reporter.start_async
+
 0.6.0 (10-Sep-2014)
  * add new asynchronous Reporter interface
  * add travis integration
