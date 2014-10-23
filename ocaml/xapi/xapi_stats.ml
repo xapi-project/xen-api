@@ -89,7 +89,7 @@ let start () =
 			| Some _ -> ()
 			| None ->
 				let reporter =
-					Reporter.create
+					Reporter.start_async
 						(module D : Debug.DEBUG)
 						~uid:"xapi-stats"
 						~neg_shift:0.5
