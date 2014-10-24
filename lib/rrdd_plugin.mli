@@ -111,6 +111,8 @@ end
 
 (** Functions useful for writing a single-purpose rrdd plugin daemon. *)
 module Process : functor (N : (sig val name : string end)) -> sig
+	module D : Debug.DEBUG
+
 	val initialise : unit -> unit
 	(** Utility function for daemons whose sole purpose is to report data to rrdd.
 	    This will set up signal handlers, as well as daemonising and writing a pid
