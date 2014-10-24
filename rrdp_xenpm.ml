@@ -21,10 +21,10 @@
 open Fun
 open Listext
 open Arrayext
-open Rrdp_common
+open Rrdd_plugin
 
-module Common = Common(struct let name = "xcp-rrdd-xenpm" end)
-open Common
+module Process = Process(struct let name = "xcp-rrdd-xenpm" end)
+open Process
 
 type cpu_state = Cstate | Pstate
 
@@ -36,20 +36,20 @@ let gen_pm_ds state cpu_id state_id (derive_value:int64) =
 	 * Hence, with ty = Derive, RRD values are the rate of change in these values.
 	 * So the units are resident-seconds per second. This can be thought of as the
 	 * proportion of time spent in the state, and it can never exceed 1. *)
-	Ds.ds_make 
+	Rrd.Host, Ds.ds_make
 		~name:(Printf.sprintf "cpu%d-%c%d" cpu_id state_letter state_id)
 		~description:(Printf.sprintf "Proportion of time CPU %d spent in %c-state %d" 
 						  cpu_id state_letter state_id)
 		~value:(Rrd.VT_Float ((Int64.to_float derive_value) /. 1000.)) 
 		~ty:Rrd.Derive ~default:true
-		~units:"(fraction)" ~min:0. ~max:1. (), Rrd.Host
+		~units:"(fraction)" ~min:0. ~max:1. ()
 
 let get_states cpu_state : int64 list =
 	let pattern = Str.regexp "[ \t]*residency[ \t]+\\[[ \t]*\\([0-9]+\\) ms\\][ \t]*" in
 	let match_fun s = 
 		if Str.string_match pattern s 0
 		then Some (Int64.of_string (Str.matched_group 1 s)) else None in
-	exec_cmd 
+	Utils.exec_cmd (module Process.D)
 		~cmdstring:(Printf.sprintf "%s %s" xenpm_bin (match cpu_state with 
 			| Cstate -> "get-cpuidle-states"
 			| Pstate -> "get-cpufreq-states"))
@@ -80,11 +80,15 @@ let generate_state_dss state_kind =
 
 let generate_dss () =
 	generate_state_dss Cstate @ generate_state_dss Pstate
-				 
+
 let _ =
 	let open Xenctrl in
 	nr_cpu := with_intf (fun xc -> (physinfo xc).nr_cpus);
 	initialise ();
 	D.warn "Found %d pCPUs" !nr_cpu;
 	if !nr_cpu = 0 then exit 1;
-	main_loop ~neg_shift:0.5 ~dss_f:generate_dss
+	main_loop
+		~neg_shift:0.5
+		~target:Reporter.Local
+		~protocol:Rrd_interface.V2
+		~dss_f:generate_dss

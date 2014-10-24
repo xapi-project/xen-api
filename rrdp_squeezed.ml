@@ -17,10 +17,10 @@ open Pervasiveext
 open Xenstore
 open Xstringext
 
-open Rrdp_common
+open Rrdd_plugin
 
-module Common = Common(struct let name="xcp-rrdd-squeezed" end)
-open Common
+module Process = Process(struct let name="xcp-rrdd-squeezed" end)
+open Process
 
 let with_xc f = Xenctrl.with_intf f
 
@@ -123,17 +123,22 @@ let generate_squeezed_dss () =
 				 (Int64.zero, Int64.zero)
 	in
 	(* Build corresponding Ds.ds values *)
-	[Ds.ds_make ~name:"memory_reclaimed"
+	[
+		Rrd.Host, Ds.ds_make ~name:"memory_reclaimed"
 			~description:"Host memory reclaimed by squeezed"
 			~value:(Rrd.VT_Int64 memory_reclaimed) ~ty:(Rrd.Gauge)
-			~default:true ~units:"B" (), Rrd.Host
-	; Ds.ds_make ~name:"memory_reclaimed_max"
+			~default:true ~units:"B" ();
+		Rrd.Host, Ds.ds_make ~name:"memory_reclaimed_max"
 		~description:"Host memory that could be reclaimed by squeezed"
 		~value:(Rrd.VT_Int64 memory_possibly_reclaimed) ~ty:(Rrd.Gauge)
-		~default:true ~units:"B" (), Rrd.Host
+		~default:true ~units:"B" ();
 	]
 
 let _ =
 	initialise ();
-        let () = Watcher.create_watcher_thread (Xs.get_client ()) in
-	main_loop ~neg_shift:0.5 ~dss_f:generate_squeezed_dss
+	Watcher.create_watcher_thread (Xs.get_client ());
+	main_loop
+		~neg_shift:0.5
+		~target:Reporter.Local
+		~protocol:Rrd_interface.V2
+		~dss_f:generate_squeezed_dss
