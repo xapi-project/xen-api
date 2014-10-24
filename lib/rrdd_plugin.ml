@@ -321,49 +321,48 @@ module Reporter = struct
 end
 
 module Process = functor (N : (sig val name : string end)) -> struct
+	module D = Debug.Make(struct let name=N.name end)
 
-module D = Debug.Make(struct let name=N.name end)
+	let on_sigterm signum =
+		D.info "Received signal %d: deregistering plugin %s..." signum N.name;
+		raise Killed
 
-let on_sigterm signum =
-	D.info "Received signal %d: deregistering plugin %s..." signum N.name;
-	raise Killed
+	let initialise () =
+		Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm);
 
-let initialise () =
-	Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm);
+		(* CA-92551, CA-97938: Use syslog's local0 facility *)
+		Debug.set_facility Syslog.Local0;
 
-	(* CA-92551, CA-97938: Use syslog's local0 facility *)
-	Debug.set_facility Syslog.Local0;
+		let pidfile = ref "" in
+		let daemonize = ref false in
+		Arg.parse (Arg.align [
+			"-daemon", Arg.Set daemonize, "Create a daemon";
+			"-pidfile", Arg.Set_string pidfile,
+			Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
+		])
+			(fun _ -> failwith "Invalid argument")
+			(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name);
+			
+		if !daemonize then (
+			D.debug "Daemonizing ..";
+			Unixext.daemonize ()
+		) else (
+			D.debug "Not daemonizing ..";
+			Sys.catch_break true;
+			Debug.log_to_stdout ()
+		);
 
-	let pidfile = ref "" in
-	let daemonize = ref false in
-	Arg.parse (Arg.align [
-		"-daemon", Arg.Set daemonize, "Create a daemon";
-		"-pidfile", Arg.Set_string pidfile,
-		Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
-	])
-		(fun _ -> failwith "Invalid argument")
-		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name);
-		
-	if !daemonize then (
-		D.debug "Daemonizing ..";
-		Unixext.daemonize ()
-	) else (
-		D.debug "Not daemonizing ..";
-		Sys.catch_break true;
-		Debug.log_to_stdout ()
-	);
+		if !pidfile <> "" then
+			(D.debug "Storing process id into specified file ..";
+			 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
+			 Unixext.pidfile_write !pidfile)
 
-	if !pidfile <> "" then
-		(D.debug "Storing process id into specified file ..";
-		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
-		 Unixext.pidfile_write !pidfile)
-
-let main_loop ~neg_shift ~target ~protocol ~dss_f =
-	Reporter.start
-		(module D : Debug.DEBUG)
-		~uid:N.name
-		~neg_shift
-		~target
-		~protocol
-		~dss_f
+	let main_loop ~neg_shift ~target ~protocol ~dss_f =
+		Reporter.start
+			(module D : Debug.DEBUG)
+			~uid:N.name
+			~neg_shift
+			~target
+			~protocol
+			~dss_f
 end
