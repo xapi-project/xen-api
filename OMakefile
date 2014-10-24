@@ -42,10 +42,6 @@ export
 
 OCAMLPACKS = str xenctrl uuid xenstore.unix xenstore-compat xenops xcp.rrd forkexec
 
-RRDP_DUMMY = rrdp_dummy
-RRDP_DUMMY_FILES = \
-	rrdp_common \
-	rrdp_dummy
 RRDP_IOSTAT = rrdp_iostat
 RRDP_IOSTAT_FILES = \
 	rrdp_common \
@@ -59,7 +55,6 @@ RRDP_SQUEEZED_FILES = \
 	rrdp_common \
 	rrdp_squeezed
 
-# OCamlProgram($(RRDP_DUMMY), $(RRDP_DUMMY_FILES))
 OCamlProgram($(RRDP_IOSTAT), $(RRDP_IOSTAT_FILES))
 OCamlProgram($(RRDP_SQUEEZED), $(RRDP_SQUEEZED_FILES))
 OCamlProgram($(RRDP_XENPM), $(RRDP_XENPM_FILES))
@@ -67,7 +62,6 @@ OCamlProgram($(RRDP_XENPM), $(RRDP_XENPM_FILES))
 .PHONY: install
 install: $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/
-	# $(IPROG) $(RRDP_DUMMY) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/
 	$(IPROG) $(RRDP_IOSTAT) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	$(IPROG) $(RRDP_SQUEEZED) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
 	$(IPROG) $(RRDP_XENPM) $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
@@ -83,4 +77,4 @@ install: $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
 .PHONY: clean
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.run *.opt *.annot *.o *.orig *.spit *.spot *.omc
-	rm -f $(RRDP_DUMMY) $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
+	rm -f $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
