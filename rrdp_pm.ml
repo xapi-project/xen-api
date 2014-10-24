@@ -18,7 +18,6 @@
 open Listext
 open Arrayext
 open Xenctrl
-open Rrdp_common
 
 let uid = "pm"
 

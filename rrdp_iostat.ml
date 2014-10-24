@@ -19,10 +19,10 @@ open Listext
 open Unixext
 open Threadext
 
-open Rrdp_common
+open Rrdd_plugin
 
-module Common = Common(struct let name="xcp-rrdd-iostat" end)
-open Common
+module Process = Process(struct let name="xcp-rrdd-iostat" end)
+open Process
 
 open Xenstore
 
@@ -102,7 +102,7 @@ module Iostat = struct
 		(* Keep track of how many results headers we've seen so far *)
 		let parsing_section = ref 0 in
 		let process_line str =
-			let res = cut str in
+			let res = Utils.cut str in
 			(* Keep values from the second set of outputs *)
 			if !parsing_section = 2 then begin
 				match res with
@@ -126,7 +126,7 @@ module Iostat = struct
 		let cmdstring = Printf.sprintf "/usr/bin/iostat -x %s 1 2" dev_str in (* 2 iterations; 1 second between them *)
 
 		(* Iterate through each line and populate dev_values_map *)
-		let _ = exec_cmd ~cmdstring ~f:process_line in
+		let _ = Utils.exec_cmd ~cmdstring ~f:process_line in
 
 		(* Now read the values out of dev_values_map for devices for which we have data *)
 		List.filter_map (fun dev ->
@@ -165,8 +165,8 @@ module Stat = struct
 			
 	let get_unsafe_dev (dev : string) : t =
 		let hw_sector_size = Int64.of_string (file_lines_fold (fun acc line -> acc ^ line) "" ("/sys/block/" ^ dev ^ "/queue/hw_sector_size")) in
-		let stats = List.map Int64.of_string (List.hd (file_lines_fold (fun acc line -> (cut line)::acc) [] ("/sys/block/" ^ dev ^ "/stat"))) in
-		let inflight_stats = List.hd (file_lines_fold (fun acc line -> List.map Int64.of_string (cut line)::acc) [] ("/sys/block/" ^ dev ^ "/inflight")) in
+		let stats = List.map Int64.of_string (List.hd (file_lines_fold (fun acc line -> (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/stat"))) in
+		let inflight_stats = List.hd (file_lines_fold (fun acc line -> List.map Int64.of_string (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/inflight")) in
 		let sectors_to_bytes = Int64.mul hw_sector_size in
 		let read_bytes = sectors_to_bytes (List.nth stats 2) in
 		let write_bytes = sectors_to_bytes (List.nth stats 6) in
@@ -193,10 +193,10 @@ let refresh_phypath_to_sr_vdi () =
 	Hashtbl.clear phypath_to_sr_vdi;
 	let phy_base = "/dev/sm/phy" in
 	try
-		let srs = list_directory_entries_unsafe phy_base in
+		let srs = Utils.list_directory_entries_unsafe phy_base in
 		List.iter (fun sruuid ->
 			let sr_dir = Printf.sprintf "%s/%s" phy_base sruuid in
-			let vdis = list_directory_entries_unsafe sr_dir in
+			let vdis = Utils.list_directory_entries_unsafe sr_dir in
 			List.iter (fun vdiuuid ->
 				let vdi_file = Printf.sprintf "%s/%s" sr_dir vdiuuid in
 				let phy_link = Unix.readlink vdi_file in
@@ -241,7 +241,7 @@ let exec_tap_ctl () =
                         end
                 else extract_groups str
 	in
-	let pid_and_minor_to_sr_and_vdi = exec_cmd ~cmdstring:tap_ctl ~f:process_line in
+	let pid_and_minor_to_sr_and_vdi = Utils.exec_cmd (module Process.D) ~cmdstring:tap_ctl ~f:process_line in
 	let minor_to_sr_and_vdi = List.map snd pid_and_minor_to_sr_and_vdi in
 	begin
 		if !vdi_to_vm_map = [] then begin
@@ -276,7 +276,7 @@ let minor_of_tdX_unsafe tdX =
 let get_tdXs vdi_info_list = 
     let tdXs = List.fold_left
 		(fun acc entry -> if entry.[0] = 't' && entry.[1] = 'd' then entry::acc else acc) []
-		(list_directory_unsafe "/sys/block") in
+		(Utils.list_directory_unsafe "/sys/block") in
     List.filter (fun tdx -> let minor = minor_of_tdX_unsafe tdx in
     List.mem_assoc minor vdi_info_list) tdXs
 
@@ -326,38 +326,38 @@ let gen_metric_stat ~owner ~name ~key_format (stats, _) =
 	let iowait = Int64.to_float (stats_get 10) /. 1000.
 	and inflight = stats_get 8 in
 	[
-		ds_make ~name:(key_format "io_throughput_read")
+		owner, ds_make ~name:(key_format "io_throughput_read")
 			~description:("Data read from the " ^ name ^ ", in MiB/s")
-			~value:(Rrd.VT_Float io_throughput_read_mb) 
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "io_throughput_write")
+			~value:(Rrd.VT_Float io_throughput_read_mb)
+			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "io_throughput_write")
 			~description:("Data written to the " ^ name ^ ", in MiB/s")
-			~value:(Rrd.VT_Float io_throughput_write_mb) 
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "io_throughput_total")
+			~value:(Rrd.VT_Float io_throughput_write_mb)
+			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "io_throughput_total")
 			~description:("All " ^ name ^ " I/O, in MiB/s")
 			~value:(Rrd.VT_Float io_throughput_total_mb) 
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "iops_read")
-			~description:"Read requests per second" 
-			~value:(Rrd.VT_Int64 iops_read) 
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "iops_write")
-			~description:"Write requests per second" 
-			~value:(Rrd.VT_Int64 iops_write) 
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "iops_total")
-			~description:"I/O Requests per second" 
-			~value:(Rrd.VT_Int64 iops_total) 
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "iowait")
+			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "iops_read")
+			~description:"Read requests per second"
+			~value:(Rrd.VT_Int64 iops_read)
+			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "iops_write")
+			~description:"Write requests per second"
+			~value:(Rrd.VT_Int64 iops_write)
+			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "iops_total")
+			~description:"I/O Requests per second"
+			~value:(Rrd.VT_Int64 iops_total)
+			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "iowait")
 			~description:"Total I/O wait time (all requests) per second"
-			~value:(Rrd.VT_Float iowait) 
-			~ty:Rrd.Derive ~units:"s/s" ~min:0. (), owner;
-		ds_make ~name:(key_format "inflight")
+			~value:(Rrd.VT_Float iowait)
+			~ty:Rrd.Derive ~units:"s/s" ~min:0. ();
+		owner, ds_make ~name:(key_format "inflight")
 			~description:"Number of I/O requests currently in flight" 
 			~value:(Rrd.VT_Int64 inflight) 
-			~ty:Rrd.Gauge ~units:"requests" ~min:0. (), owner
+			~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
 	]
 		
 let gen_metric_iostat ~owner ~name ~key_format (stats, nb_vdi) =
@@ -366,14 +366,14 @@ let gen_metric_iostat ~owner ~name ~key_format (stats, nb_vdi) =
 	let avgqu_sz = stats_get 7
 	and svctm    = (stats_get 9) /. (float_of_int nb_vdi) in
 	[
-		ds_make ~name:(key_format "latency")
+		owner, ds_make ~name:(key_format "latency")
 			~description:"Average I/O latency"
 			~value:(Rrd.VT_Float svctm)
-			~ty:Rrd.Gauge ~units:"milliseconds" ~min:0. (), owner;
-		ds_make ~name:(key_format "avgqu_sz")
+			~ty:Rrd.Gauge ~units:"milliseconds" ~min:0. ();
+		owner, ds_make ~name:(key_format "avgqu_sz")
 			~description:"Average I/O queue size"
 			~value:(Rrd.VT_Float avgqu_sz)
-			~ty:Rrd.Gauge ~units:"requests" ~min:0. (), owner
+			~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
 	]
 
 let list_all_assocs key xs = List.map snd (List.filter (fun (k,_) -> k = key) xs)
@@ -427,4 +427,8 @@ let gen_metrics () =
 let _ =
 	initialise ();
 	(* It takes (at least) 1 second to get the iostat data, so start reading the data early enough *)
-	main_loop ~neg_shift:1.5 ~dss_f:gen_metrics
+	main_loop
+		~neg_shift:1.5
+		~target:Reporter.Local
+		~protocol:Rrd_interface.V2
+		~dss_f:gen_metrics
