@@ -323,10 +323,9 @@ end
 module Process = functor (N : (sig val name : string end)) -> struct
 
 module D = Debug.Make(struct let name=N.name end)
-open D
 
 let on_sigterm signum =
-	info "Received signal %d: deregistering plugin %s..." signum N.name;
+	D.info "Received signal %d: deregistering plugin %s..." signum N.name;
 	raise Killed
 
 let initialise () =
@@ -346,16 +345,16 @@ let initialise () =
 		(Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name);
 		
 	if !daemonize then (
-		debug "Daemonizing ..";
+		D.debug "Daemonizing ..";
 		Unixext.daemonize ()
 	) else (
-		debug "Not daemonizing ..";
+		D.debug "Not daemonizing ..";
 		Sys.catch_break true;
 		Debug.log_to_stdout ()
 	);
 
 	if !pidfile <> "" then
-		(debug "Storing process id into specified file ..";
+		(D.debug "Storing process id into specified file ..";
 		 Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 		 Unixext.pidfile_write !pidfile)
 
