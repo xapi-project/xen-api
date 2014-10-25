@@ -29,6 +29,21 @@ def log(txt):
 def success(result):
     return { "Status": "Success", "Value": result }
 
+def handle_exception(e):
+    s = sys.exc_info()
+    files = []
+    lines = []
+    for slot in traceback.extract_tb(s[2]):
+        files.append(slot[0])
+        lines.append(slot[1])
+    results = {
+      "error": str(s[1]),
+      "files": files,
+      "lines": lines,
+    }
+    print >>sys.stderr, json.dumps(results)
+    sys.exit(1)
+
 class MissingDependency(Exception):
     def __init__(self, missing):
         self.missing = missing
