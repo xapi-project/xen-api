@@ -199,7 +199,7 @@ module Reporter = struct
 		in
 		let report () =
 			wait_until_next_reading
-				(module D : Debug.DEBUG)
+				(module D)
 				~neg_shift
 				~uid
 				~protocol;
@@ -257,19 +257,19 @@ module Reporter = struct
 					"true");
 			writer.Rrd_writer.cleanup ()
 		in
-		loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
+		loop (module D) ~reporter ~report ~cleanup
 
 	let start (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
 		match target with
 		| Local ->
-			start_local (module D : Debug.DEBUG)
+			start_local (module D)
 				~reporter:None
 				~uid
 				~neg_shift
 				~protocol
 				~dss_f
 		| Interdomain (backend_domid, page_count) ->
-			start_interdomain (module D : Debug.DEBUG)
+			start_interdomain (module D)
 				~reporter:None
 				~uid
 				~backend_domid
@@ -283,14 +283,14 @@ module Reporter = struct
 			Thread.create (fun () ->
 				match target with
 				| Local ->
-					start_local (module D : Debug.DEBUG)
+					start_local (module D)
 						~reporter:(Some reporter)
 						~uid
 						~neg_shift
 						~protocol
 						~dss_f
 				| Interdomain (backend_domid, page_count) ->
-					start_interdomain (module D : Debug.DEBUG)
+					start_interdomain (module D)
 						~reporter:(Some reporter)
 						~uid
 						~backend_domid
@@ -359,7 +359,7 @@ module Process = functor (N : (sig val name : string end)) -> struct
 
 	let main_loop ~neg_shift ~target ~protocol ~dss_f =
 		Reporter.start
-			(module D : Debug.DEBUG)
+			(module D)
 			~uid:N.name
 			~neg_shift
 			~target
