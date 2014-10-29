@@ -709,7 +709,7 @@ module VBD = struct
 		| _ -> ()
 
 	let device_kind_of_backend_keys backend_keys =
-		try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
+		try Device_common.kind_of_string (List.assoc "backend-kind" backend_keys)
 		with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 	let device_kind_of vbd = device_kind_of_backend_keys vbd.extra_backend_keys
@@ -801,7 +801,7 @@ module VBD = struct
 						backend_domid;
 						pdev_path = Some (vdi.attach_info.Storage_interface.params);
 						vdev = Some vdev;
-						backend = if !Xenopsd.use_qdisk then Xenlight.DISK_BACKEND_QDISK else Xenlight.DISK_BACKEND_PHY;
+						backend = Xenlight.DISK_BACKEND_PHY;
 						format = Xenlight.DISK_FORMAT_RAW;
 						script = Some !Xl_path.vbd_script;
 						removable = 1;
@@ -957,21 +957,24 @@ module VBD = struct
 		let backend, format, script =
 			if vbd.backend = None then
 				(* empty CDROM *)
-				if !Xenopsd.use_qdisk then
-					Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
-				else
-					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
+				Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
 			else
-				if !Xenopsd.use_qdisk then
-					(* FIXME: "regular" block devices *)
-					if vdi.attach_info.Storage_interface.xenstore_data = []
-					then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
-					(* FIXME: "magic" block devices via qemu *)
-					else if List.mem_assoc "format" vdi.attach_info.Storage_interface.xenstore_data
-					then Xenlight.DISK_BACKEND_QDISK, format_of_string (List.assoc "format" vdi.attach_info.Storage_interface.xenstore_data), None
-					else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None
-				else
-					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+				let xd = vdi.attach_info.Storage_interface.xenstore_data in
+				if xd = [] || not(List.mem_assoc "backend-kind" xd)
+				then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+				else begin
+					match List.assoc "backend-kind" xd with
+					| "qdisk" ->
+						let format =
+							if List.mem_assoc "format" xd
+							then format_of_string (List.assoc "format" xd)
+							else Xenlight.DISK_FORMAT_QCOW2 in (* FIXME *)
+						Xenlight.DISK_BACKEND_QDISK, format, None
+					| "blkback" ->
+						Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+					| x ->
+						failwith (Printf.sprintf "libxl doesn't support backend-kind=%s" x)
+				end
 			in
 
 		let removable = if vbd.unpluggable then 1 else 0 in

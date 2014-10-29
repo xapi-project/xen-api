@@ -45,9 +45,6 @@ open Printf
 
 let supported_vbd_backends = [ "vbd"; "vbd3" ] (* TODO: get from xenopsd config *)
 let default_vbd_frontend_kind = Vbd "vbd"
-let vbd_kind_of_string backend_kind =
-	if List.mem backend_kind supported_vbd_backends then Vbd backend_kind
-	else Vbd "unsupported"
 
 let string_of_kind = function
 	| Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"

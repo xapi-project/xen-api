@@ -13,7 +13,6 @@
  *)
 
 type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | Qdisk
-val vbd_kind_of_string : string -> kind
 val default_vbd_frontend_kind : kind
 
 type devid = int
