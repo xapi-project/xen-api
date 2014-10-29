@@ -267,11 +267,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
 	  (* We base some of our allowed-operations decisions on the PV driver version *)
 	  if pv_drivers_version_cached <> pv_drivers_version then begin
-	    Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
-	    List.iter (fun self -> Xapi_vbd_helpers.update_allowed_operations ~__context ~self)
-	      (Db.VM.get_VBDs ~__context ~self);
-	    List.iter (fun self -> Xapi_vif_helpers.update_allowed_operations ~__context ~self)
-	      (Db.VM.get_VIFs ~__context ~self);
+	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
   end
@@ -326,16 +322,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  in
 
 	  Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
+	  (* We base some of our allowed-operations decisions on the feature-flags in the "other" map *)
 	  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
-
-	  (* We base some of our allowed-operations decisions on the feature-flags in the "other" map *)
-	  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
-	  List.iter (fun self -> Xapi_vbd_helpers.update_allowed_operations ~__context ~self)
-		  (Db.VM.get_VBDs ~__context ~self);
-	  List.iter (fun self -> Xapi_vif_helpers.update_allowed_operations ~__context ~self)
-		  (Db.VM.get_VIFs ~__context ~self);
 	  ()
   )
 
