@@ -46,4 +46,6 @@ module Tests = struct
     with_xs (fun xs -> all ~timeout:5. xs)
 end
 
-let _ = Tests.go ()
+let _ =
+  Scheduler.start();
+  Tests.go ()
