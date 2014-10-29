@@ -529,52 +529,15 @@ let lock = Mutex.create ()
 (** Rebooting VMs - lock out the sending back of the RRDs *)
 let rebooting_vms = ref StringSet.empty
 
-let previous_oldness = ref 0
-let previous_free_words = ref 0
-let previous_live_words = ref 0
-
 let read_mem_metrics xc =
 	let physinfo = Xenctrl.physinfo xc in
 	let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
 	and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
-	let gcstat =
-		if !Rrdd_shared.gc_debug then (
-			if !previous_oldness > 5 then (
-				let stat = Gc.stat () in
-				previous_free_words := stat.Gc.free_words;
-				previous_live_words := stat.Gc.live_words;
-				previous_oldness := 0;
-				stat
-			) else (
-				incr previous_oldness;
-				{(Gc.quick_stat ()) with
-					Gc.free_words = !previous_free_words;
-					Gc.live_words = !previous_live_words;}
-			)
-		) else Gc.quick_stat ()
-	in
-	let xapigrad_kib =
-		(gcstat.Gc.minor_words +. gcstat.Gc.major_words -. gcstat.Gc.promoted_words) /. 256. in
-	let xapitotal_kib = Int64.of_int (gcstat.Gc.heap_words / 256) in
-	let xapiactualfree_kib = Int64.of_int (gcstat.Gc.free_words / 256) in
-	let xapiactuallive_kib = Int64.of_int (gcstat.Gc.live_words / 256) in
 	[
 		(Host, ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in the host"
 		~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
 		(Host, ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
 		 ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
-		(Host, ds_make ~name:"xapi_memory_usage_kib" ~units:"KiB"
-			~description:"Total memory allocated used by xapi daemon"
-			~value:(Rrd.VT_Int64 xapitotal_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-		(Host, ds_make ~name:"xapi_free_memory_kib" ~units:"KiB"
-			~description:"Free memory available to the xapi daemon"
-			~value:(Rrd.VT_Int64 xapiactualfree_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-		(Host, ds_make ~name:"xapi_live_memory_kib" ~units:"KiB"
-			~description:"Live memory used by xapi daemon"
-			~value:(Rrd.VT_Int64 xapiactuallive_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-		(Host, ds_make ~name:"xapi_allocation_kib" ~units:"KiB"
-			~description:"Memory allocation done by the xapi daemon"
-			~value:(Rrd.VT_Float xapigrad_kib) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
 	]
 
 (**** Local cache SR stuff *)
