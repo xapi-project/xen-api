@@ -73,9 +73,16 @@ let generate_other_stats () =
 	[open_fds_ds]
 
 let generate_stats ~__context ~master =
-	if master
-	then (generate_master_stats ~__context) @ (generate_other_stats ())
-	else (generate_other_stats ())
+	let master_only_stats =
+		if master
+		then generate_master_stats ~__context
+		else []
+	in
+	let other_stats = generate_other_stats () in
+	List.fold_left
+		(fun acc stats -> List.rev_append acc stats)
+		[]
+		[master_only_stats; other_stats]
 
 let reporter_cache : Reporter.t option ref = ref None
 let reporter_m = Mutex.create ()
