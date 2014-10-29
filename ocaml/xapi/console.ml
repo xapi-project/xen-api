@@ -25,11 +25,17 @@ open D
 
 exception Failure
 
-(** [port_of_proxy __context console] returns [Some port] or [None], if a suitable
-    proxy could not be found. *)
-let port_of_proxy __context console =
+type address =
+| Port of int (* console is listening on localhost:port *)
+| Path of string (* console is listening on a Unix domain socket *)
+
+let string_of_address = function
+| Port x -> "localhost:" ^ (string_of_int x)
+| Path x -> "unix:" ^ x
+
+let address_of_console __context console : address option =
 	let vm = Db.Console.get_VM __context console in
-	let vnc_port_option =
+	let address_option =
 		try
 			let open Xenops_interface in
 			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
@@ -42,25 +48,27 @@ let port_of_proxy __context console =
 				| `vt100 -> Vm.Vt100
 				| `rdp -> failwith "No support for tunnelling RDP" in
 			let console = List.find (fun x -> x.Vm.protocol = proto) s.Vm.consoles in
-			Some console.Vm.port
+			Some (if console.Vm.path = "" then Port console.Vm.port else Path console.Vm.path)
 		with e ->
 			debug "%s" (Printexc.to_string e);
 			None in
-	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_int x)) vnc_port_option));
-	vnc_port_option
+	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_address x)) address_option));
+	address_option
 
 let real_proxy __context _ _ vnc_port s = 
 	try
-	  Http_svr.headers s (Http.http_200_ok ());
-    let vnc_sock = Unixext.open_connection_fd "127.0.0.1" vnc_port in
-    (* Unixext.proxy closes fds itself so we must dup here *)
-    let s' = Unix.dup s in
-    debug "Connected; running proxy (between fds: %d and %d)" 
-		(Unixext.int_of_file_descr vnc_sock) (Unixext.int_of_file_descr s');
-    Unixext.proxy vnc_sock s';
-    debug "Proxy exited"
-  with
-    exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
+		Http_svr.headers s (Http.http_200_ok ());
+		let vnc_sock = match vnc_port with
+		| Port x -> Unixext.open_connection_fd "127.0.0.1" x
+		| Path x -> Unixext.open_connection_unix_fd x in
+
+		(* Unixext.proxy closes fds itself so we must dup here *)
+		let s' = Unix.dup s in
+		debug "Connected; running proxy (between fds: %d and %d)" (Unixext.int_of_file_descr vnc_sock) (Unixext.int_of_file_descr s');
+		Unixext.proxy vnc_sock s';
+		debug "Proxy exited"
+	with
+		exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 		
 let fake_proxy __context _ _ console s = 
   Rfb_randomtest.server s
@@ -78,7 +86,14 @@ let ensure_proxy_running () =
 		Thread.delay 1.0;
 	end
 
-let ws_proxy __context req protocol port s =
+let ws_proxy __context req protocol address s =
+  let port = match address with
+  | Port p -> p
+  | Path _ ->
+    error "No implementation for web-sockets console proxy to a Unix domain socket";
+    Http_svr.headers s (Http.http_501_method_not_implemented ());
+    failwith "ws_proxy: not implemented" in
+
   ensure_proxy_running ();
   let protocol = match protocol with 
     | `rfb -> "rfb"
@@ -202,7 +217,7 @@ let handler proxy_fn (req: Request.t) s _ =
 	  (* Check VM is actually running locally *)
 	  check_vm_is_running_here __context console;
 
-	  match port_of_proxy __context console with
+	  match address_of_console __context console with
 		  | Some vnc_port ->
 			  proxy_fn __context req protocol vnc_port s
 		  | None ->
