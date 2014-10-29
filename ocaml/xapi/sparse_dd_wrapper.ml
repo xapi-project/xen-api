@@ -60,7 +60,10 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 								(fun progress ->
 									progress_cb (Continuing (float_of_int progress /. 100.))
 								)
-						with _ -> ()
+						with e -> begin
+							Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
+							raise e
+						end
 					) () pipe_read;
 				match Forkhelpers.waitpid pid with
 				| (_, Unix.WEXITED 0) -> progress_cb (Finished None)
