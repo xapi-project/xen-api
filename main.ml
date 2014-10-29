@@ -13,9 +13,12 @@
  *)
 module U = Unix
 module R = Rpc
+module B = Backtrace
 
 open Core.Std
 open Async.Std
+
+open Types
 
 let use_syslog = ref false
 
@@ -23,7 +26,7 @@ let info fmt =
   Printf.ksprintf (fun s ->
     if !use_syslog then begin
       (* FIXME: this is synchronous and will block other I/O *)
-      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO ~add_stderr:true s;
+      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO s;
       return ()
     end else begin
       let w = Lazy.force Writer.stderr in
@@ -37,6 +40,20 @@ let backend_error name args =
   let open Storage_interface in
   let exnty = Exception.Backend_error (name, args) in
   Exception.rpc_of_exnty exnty
+
+let backend_backtrace_error name args error =
+  match List.zip error.files error.lines with
+  | None -> backend_error "SCRIPT_FAILED" [ "malformed backtrace in error output" ]
+  | Some pairs ->
+    let backtrace =
+      pairs
+      |> List.map ~f:(fun (filename, line) -> { B.Interop.filename; line })
+      |> B.Interop.to_backtrace
+      |> B.sexp_of_t
+      |> Sexplib.Sexp.to_string in
+    let open Storage_interface in
+    let exnty = Exception.Backend_error_with_backtrace(name, backtrace :: args) in
+    Exception.rpc_of_exnty exnty
 
 let missing_uri () =
   backend_error "MISSING_URI" [ "Please include a URI in the device-config" ]
@@ -70,7 +87,16 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
     >>= fun output ->
     begin match output.Process.Output.exit_status with
     | Error (`Exit_non_zero code) ->
-      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
+      (* Expect an exception and backtrace on stderr *)
+      begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stderr) with
+      | Error _ ->
+        return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
+      | Ok response ->
+        begin match Or_error.try_with (fun () -> error_of_rpc response) with
+        | Error _ -> return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
+        | Ok x -> return (Error(backend_backtrace_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code; output.Process.Output.stdout ] x))
+        end
+      end
     | Error (`Signal signal) ->
       return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stderr ]))
     | Ok () ->
