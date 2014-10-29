@@ -355,7 +355,7 @@
     <value>The device name {0} is invalid</value>
   </data>
   <data name="INVALID_EDITION" xml:space="preserve">
-    <value>The edition you supplied is invalid. Valid editions are 'free', 'enterprise' and 'platinum'.</value>
+    <value>The edition you supplied is invalid.</value>
   </data>
   <data name="INVALID_PATCH" xml:space="preserve">
     <value>The uploaded update file is invalid</value>
