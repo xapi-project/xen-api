@@ -1,0 +1,23 @@
+# OASIS_START
+# DO NOT EDIT (digest: 3c8b385caf8ea88f856efc5fee19ee06)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Executable rrd2csv
+<src/rrd2csv.{native,byte}>: pkg_threads
+<src/rrd2csv.{native,byte}>: pkg_xapi-client
+<src/rrd2csv.{native,byte}>: pkg_xcp.rrd
+<src/*.ml{,i}>: pkg_threads
+<src/*.ml{,i}>: pkg_xapi-client
+<src/*.ml{,i}>: pkg_xcp.rrd
+# OASIS_STOP

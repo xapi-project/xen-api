@@ -1,15 +1,31 @@
-TARGET = rrd2csv
+DESTDIR ?= 
+BINDIR ?= /opt/xensource/bin
+MANDIR ?= /opt/xensource/man/man1
 
-.PHONY: build
-build: $(TARGET)
+SETUP = ocaml setup.ml
 
-$(TARGET):
-	omake $@
+all: build
 
-.PHONY: clean
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
+
+test: build
+	$(SETUP) -test $(TESTFLAGS)
+
+install: build
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install -m 755 rrd2csv.native $(DESTDIR)$(BINDIR)/rrd2csv
+	mkdir -p $(DESTDIR)$(MANDIR)
+	install -m 644 man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1.man
+
+uninstall: setup.data
+	rm -f $(DESTDIR)$(BINDIR)/rrd2csv
+	rm -f $(DESTDIR)$(MANDIR)/rrd2csv.1.man
+
 clean:
-	omake clean
+	$(SETUP) -clean $(CLEANFLAGS)
 
-.PHONY: install
-install: $(TARGET)
-	omake install
+.PHONY: all build test install uninstall clean
