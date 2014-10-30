@@ -900,6 +900,8 @@ module Brctl = struct
 		if List.mem name (Sysfs.bridge_to_interfaces bridge) then
 			ignore (call ~log:true ["delif"; bridge; name])
 
+	let set_forwarding_delay bridge time =
+		ignore (call ~log:true ["setfd"; bridge; string_of_int time])
 end
 
 module Ethtool = struct
