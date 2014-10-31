@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, time, socket, traceback, syslog
+import os, sys, time, socket, traceback, syslog, json
 
 log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
 pid = None
