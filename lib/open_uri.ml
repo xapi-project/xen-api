@@ -21,6 +21,7 @@ let handle_socket f s =
     Unix.close s;
     result
   with e ->
+    Backtrace.is_important e;
     Unix.close s;
     raise e
 
