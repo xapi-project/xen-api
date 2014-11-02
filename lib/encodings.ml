@@ -95,9 +95,9 @@ end
 
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
 	let width_required_for_ucs_value value =
-		if value < 0x000080l (* 1 <<  7 *) then 1 else
-		if value < 0x000800l (* 1 << 11 *) then 2 else
-		if value < 0x010000l (* 1 << 16 *) then 3 else 4
+		if value < 0x000080l (* 1 lsl  7 *) then 1 else
+		if value < 0x000800l (* 1 lsl 11 *) then 2 else
+		if value < 0x010000l (* 1 lsl 16 *) then 3 else 4
 
 	(* === Decoding === *)
 
