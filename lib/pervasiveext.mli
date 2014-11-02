@@ -11,8 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-val exnhook : (exn -> unit) option ref
+
 val finally : (unit -> 'a) -> (unit -> 'b) -> 'a
+(** [finally f g] returns [f ()] guaranteeing to run clean-up actions
+    [g ()] even if [f ()] throws an exception. *)
+
 val maybe_with_default : 'b -> ('a -> 'b) -> 'a option -> 'b
 val may : ('a -> 'b) -> 'a option -> 'b option
 val default : 'a -> 'a option -> 'a

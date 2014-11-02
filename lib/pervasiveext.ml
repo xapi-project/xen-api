@@ -15,15 +15,15 @@
  * Even if fct raises an exception, clean_f is applied
  *)
 
-let exnhook = ref None 
 
 let finally fct clean_f =
-	let result = try
-		fct ();
-	with
-		exn ->
-		  (match !exnhook with None -> () | Some f -> f exn);
-		  clean_f (); raise exn in
+	let result =
+		try
+			fct ();
+		with exn ->
+			Backtrace.is_important exn;
+			clean_f ();
+			raise exn in
 	clean_f ();
 	result
 
