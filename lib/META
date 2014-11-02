@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: aeed1c526e0bfd4c0e4829294ebbc5b8)
-version = "0.12.0"
+# DO NOT EDIT (digest: 21fd61b70457600a802589019bd01d38)
+version = "0.11.0"
 description = "Standard extension library"
-requires = "threads uuidm unix fd-send-recv bigarray"
+requires =
+"threads uuidm unix fd-send-recv bigarray sexplib sexplib.syntax xapi-backtrace"
 archive(byte) = "stdext.cma"
 archive(byte, plugin) = "stdext.cma"
 archive(native) = "stdext.cmxa"
