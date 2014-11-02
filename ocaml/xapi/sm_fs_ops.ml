@@ -265,11 +265,11 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 								)
 					)
 			with
-			| Unix.Unix_error(Unix.EIO, _, _) ->
-				raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
+			| Unix.Unix_error(Unix.EIO, _, _) as e ->
+				let e' = Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]) in
+				Backtrace.reraise e e'
 			| e ->
-				debug "Caught exception %s" (ExnHelper.string_of_exn e);
-				log_backtrace ();
+				Backtrace.is_important e;
 				raise e in
 		match base with
 		| None -> copy None

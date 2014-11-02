@@ -31,7 +31,10 @@ val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool
 val exn_if_cancelling : __context:Context.t -> unit
 val cancel : __context:Context.t -> unit
-val failed : __context:Context.t -> string * string list -> unit
+
+val failed : __context:Context.t -> exn -> unit
+(** Call this when a task fails with [exn] *)
+
 val init : unit -> unit
 val rbac_assert_permission_fn : (__context:Context.t -> permission:Db_actions.role_t -> unit) option ref
 val assert_can_destroy :  ?ok_if_no_session_in_context:bool -> __context:Context.t ->  [ `task ] Ref.t -> unit

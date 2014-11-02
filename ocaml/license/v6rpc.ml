@@ -85,12 +85,12 @@ module V6process = functor(V: V6api) -> struct
 			with 
 			| V6errors.Error e as exn ->
 				error "%s" (V6errors.to_string exn);
-				log_backtrace ();
+				Debug.log_backtrace exn (Backtrace.get exn);
 				Rpc.failure (V6errors.rpc_of_error e)
 			| e ->
+				Debug.log_backtrace e (Backtrace.get e);
 				let e = Printexc.to_string e in
 				error "Error: %s" e;
-				log_backtrace ();
 				Rpc.failure (V6errors.rpc_of_error (V6errors.v6d_failure, [e]))
 		in
 		response

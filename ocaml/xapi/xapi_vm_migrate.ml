@@ -877,10 +877,10 @@ let handler req fd _ =
 
 			TaskHelper.set_progress ~__context 1.
 		with
-		| Api_errors.Server_error(code, params) ->
-			TaskHelper.failed ~__context(code, params)
+		| Api_errors.Server_error(code, params) as e ->
+			TaskHelper.failed ~__context e
 		| e ->
-			TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
+			TaskHelper.failed ~__context e
     )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =

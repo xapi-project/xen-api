@@ -192,7 +192,8 @@ let cancel ~__context =
 				(Ref.really_pretty_and_small self)
 				(status_to_string status))
 
-let failed ~__context (code, params) =
+let failed ~__context exn =
+  let code, params = ExnHelper.error_of_exn exn in
   operate_on_db_task ~__context
     (fun self ->
 		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
