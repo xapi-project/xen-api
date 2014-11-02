@@ -50,7 +50,11 @@ let assume_task_succeeded queue_name dbg id =
         Client.TASK.destroy dbg id;
         match t.Task.state with
         | Task.Completed _ -> t
-        | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+        | Task.Failed x ->
+		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+		let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
+		Backtrace.add exn bt;
+		raise exn
         | Task.Pending _ -> failwith "task pending"
 
 let wait_for_task queue_name dbg id =
