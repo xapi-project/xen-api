@@ -354,6 +354,7 @@ module Task = struct
 		state: state;
 		subtasks: (string * state) list;
 		debug_info: (string * string) list;
+		backtrace: string; (* An s-expression encoded Backtrace.t *)
 	}
 end
 
