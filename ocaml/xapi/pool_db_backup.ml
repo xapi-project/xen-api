@@ -250,8 +250,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
     debug "Not requesting backup from master, no candidate db connections to backup to"
 
 (* Master sync thread *)
-let pool_db_backup_thread () =
-  Debug.name_thread "pool_db_sync";
+let pool_db_backup_thread () = Debug.with_thread_named "pool_db_backup_thread" (fun () ->
   Server_helpers.exec_with_new_task "Pool DB sync" (fun __context ->
   while (true) do
     try
@@ -267,9 +266,8 @@ let pool_db_backup_thread () =
 	      (fun rpc session_id -> Client.Host.request_backup rpc session_id host generation false);
 	    debug "Finished DB synchronise";
 	  with
-	    e -> 
-	      debug "Exception %s caught" (ExnHelper.string_of_exn e);
-	      log_backtrace () in
+	    e ->
+              error "Failed to synchronise DB with host %s: %s" (Ref.string_of host) (Printexc.to_string e) in
 
 	(* since thread.delay is inside dohost fn make sure we don't spin if hosts=[]: *)
 	if hosts=[] then Thread.delay !Xapi_globs.pool_db_sync_interval
@@ -277,3 +275,4 @@ let pool_db_backup_thread () =
       end
     with e -> debug "Exception in DB synchronise thread: %s" (ExnHelper.string_of_exn e)
   done)
+  ) ()

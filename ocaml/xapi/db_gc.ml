@@ -550,14 +550,15 @@ let single_pass () =
 let start_db_gc_thread() =
   Thread.create
     (fun ()->
-      Debug.name_thread "db_gc";
-      
+      Debug.with_thread_named "db_gc"
+      (fun () ->
 	  while (true) do
 	    try
 	      Thread.delay db_GC_TIMER;
 	      single_pass ()
 	    with e -> debug "Exception in DB GC thread: %s" (ExnHelper.string_of_exn e)
 	  done
+      ) ()
     ) ()
 
 let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
@@ -571,8 +572,7 @@ let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id =
 	()
 	(* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
 
-let start_heartbeat_thread() =
-	Debug.name_thread "heartbeat";
+let start_heartbeat_thread() = Debug.with_thread_named "heartbeat" (fun () ->
 
 	Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
 		let localhost = Helpers.get_localhost __context in
@@ -607,3 +607,4 @@ let start_heartbeat_thread() =
 					Thread.delay !Xapi_globs.host_heartbeat_interval;
 			done
 		end)
+	) ()

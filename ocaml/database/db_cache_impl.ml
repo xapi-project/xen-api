@@ -296,11 +296,12 @@ let spawn_db_flush_threads() =
     (* Spawn threads that flush cache to db connections at regular intervals *)
     List.iter
 		(fun dbconn ->
+			let db_path = dbconn.Parse_db_conf.path in
 			ignore (Thread.create 
 				(fun ()->
+				Debug.with_thread_named ("dbflush [" ^ db_path ^ "]")
+				(fun () ->
 					Db_connections.inc_db_flush_thread_refcount();
-					let db_path = dbconn.Parse_db_conf.path in
-					Debug.name_thread ("dbflush ["^db_path^"]");
 					let my_writes_this_period = ref 0 in
 					
 					(* the collesce_period_start records the time of the last write *)
@@ -361,7 +362,7 @@ let spawn_db_flush_threads() =
 							end
 						with
 								e -> debug "Exception in DB flushing thread: %s" (Printexc.to_string e)
-					done) ())
+					done) ()) ())
 		) (Db_conn_store.read_db_connections())
 		
 		
