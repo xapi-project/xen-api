@@ -25,12 +25,14 @@ module Client = Storage_client.Client
 let transform_exception f x =
 	try f x
 	with
-		| Backend_error(code, params) ->
+		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
+			let backtrace = Backtrace.t_of_sexp (Sexplib.Sexp.of_string backtrace) in
+			let exn = Storage_backend_error(code, params) in
+			Backtrace.add exn backtrace;
+			Backtrace.reraise e exn
+		| Backend_error(code, params) as e ->
 			error "Re-raising exception %s: %s" code (String.concat "; " params);
-			raise (Storage_backend_error(code, params))
-		| e ->
-			error "Re-raising exception %s" (Printexc.to_string e);
-			raise e
+			Backtrace.reraise e (Storage_backend_error(code, params))
 
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)

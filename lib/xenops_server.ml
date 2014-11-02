@@ -133,7 +133,8 @@ module TASK = struct
 		subtasks = x.subtasks;
 		debug_info = [
 			"cancel_points_seen", string_of_int x.cancel_points_seen
-		]
+		];
+		backtrace = Sexplib.Sexp.to_string (Backtrace.sexp_of_t x.backtrace);
 	}
 	let cancel _ dbg id =
 		Xenops_task.cancel tasks id
@@ -561,7 +562,9 @@ module Worker = struct
 					begin match item.Xenops_task.state with
 						| Task.Pending _ ->
 							error "Task %s has been left in a Pending state" item.Xenops_task.id;
-							item.Xenops_task.state <- Task.Failed (Internal_error "Task left in Pending state" |> exnty_of_exn |> Exception.rpc_of_exnty)
+							let e = Internal_error "Task left in Pending state" in
+							let e = e |> exnty_of_exn |> Exception.rpc_of_exnty in
+							item.Xenops_task.state <- Task.Failed e
 						| _ -> ()
 					end;
 					TASK.signal item.Xenops_task.id
@@ -1115,7 +1118,8 @@ let rec immediate_operation dbg id op =
 		| Task.Pending _ -> assert false
 		| Task.Completed _ -> ()
 		| Task.Failed e ->
-			raise (exn_of_exnty (Exception.exnty_of_rpc e))
+			let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+			raise e
 
 (* At all times we ensure that an operation which partially fails
    leaves the system in a recoverable state. All that should be
@@ -1436,11 +1440,13 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		try
 			one op
 		with e ->
+			Backtrace.is_important e;
 			info "Caught %s executing %s: triggering cleanup actions" (Printexc.to_string e) (string_of_operation op);
 			begin
 				try
 					trigger_cleanup_after_failure op t
 				with e ->
+					Backtrace.is_important e;
 					error "Triggering cleanup actions failed: %s" (Printexc.to_string e)
 			end;
 			raise e in
@@ -1685,9 +1691,10 @@ module VM = struct
 		match task.Xenops_task.state with
 		| Task.Completed _ ->
 			TASK.destroy' task.Xenops_task.id;
-		| Task.Failed rpcty ->
+		| Task.Failed e ->
 			TASK.destroy' task.Xenops_task.id;
-			raise (exn_of_exnty (Xenops_interface.Exception.exnty_of_rpc rpcty))
+			let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+			raise e
 		| Task.Pending _ -> 
 			error "VM.remove: queue_operation_and_wait returned a pending task";
 			Xenops_task.cancel tasks task.Xenops_task.id;

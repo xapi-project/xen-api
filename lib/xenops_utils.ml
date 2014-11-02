@@ -81,6 +81,7 @@ let finally f g =
 		g ();
 		result
 	with e ->
+		Backtrace.is_important e;
 		g ();
 		raise e
 
