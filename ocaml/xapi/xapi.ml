@@ -194,7 +194,6 @@ let register_callback_fns() =
 		Locking_helpers.Thread_state.released (Locking_helpers.Process("stunnel", pid)) in
 	Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid;
 	Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid;
-    Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
     TaskHelper.init ()
 
 
