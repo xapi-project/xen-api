@@ -14,6 +14,7 @@
 (** 
  * @group Command-Line Interface (CLI)
  *)
+open Sexplib.Std
  
 module D = Debug.Make(struct let name = "cli" end)
 open D
@@ -69,12 +70,12 @@ let result_from_task rpc session_id remote_task =
 			()
 		| `failure ->
 			let error_info = Client.Task.get_error_info rpc session_id remote_task in
-			begin match error_info with
-				| code :: params ->
-					raise (Api_errors.Server_error(code, params))
-				| [] ->
-					failwith (Printf.sprintf "Task failed but no error recorded: %s" (Ref.string_of remote_task))
-			end
+			let trace = Client.Task.get_backtrace rpc session_id remote_task in
+			let exn = match error_info with
+				| code :: params -> Api_errors.Server_error(code, params)
+				| [] -> Failure (Printf.sprintf "Task failed but no error recorded: %s" (Ref.string_of remote_task)) in
+			Backtrace.(add exn (t_of_sexp (Sexplib.Sexp.of_string trace)));
+			raise exn
 
 (** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
 let wait_for_task_completion = track (fun _ -> ())
@@ -207,8 +208,7 @@ let server_error (code: string) (params: string list) sock =
   | Some (e, l) ->
     marshal sock (Command (PrintStderr (e ^ "\n")));
     List.iter (fun pv -> marshal sock (Command (PrintStderr (pv ^ "\n")))) l;
-  end;
-  marshal sock (Command (Exit 1))
+  end
 
 let user_says_yes fd = 
   marshal fd (Command (Print "Type 'yes' to continue"));

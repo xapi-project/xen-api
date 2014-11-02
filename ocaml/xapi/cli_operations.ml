@@ -508,7 +508,7 @@ let filter_records_on_fields records (k,v) =
 	end
 
 
-let stdparams = ["server";"password";"port";"username"; "minimal"; "force"; "multiple"; "all"; "message-priority"]
+let stdparams = ["server";"password";"port";"username"; "minimal"; "force"; "multiple"; "all"; "message-priority"; "trace"]
 
 (* This goes through the list of parameters, extracting any of the form map-name-key=value   *)
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
