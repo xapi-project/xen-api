@@ -28,9 +28,7 @@ type handler = {
 let handler_by_thread (h: handler) (s: Unix.file_descr) (caller: Unix.sockaddr) = 
   Thread.create
     (fun ()->
-      Debug.name_thread h.name;
-      Pervasiveext.finally (fun () -> h.body caller s)
-	(Debug.remove_thread_name)       
+      Debug.with_thread_named h.name (fun () -> h.body caller s) ()
     ) ()  
 
 let handler_inline (h: handler) (s: Unix.file_descr) (caller: Unix.sockaddr) =
@@ -105,11 +103,13 @@ let server handler sock =
     end else warn "Attempt to double-shutdown Server_io.server detected; ignoring" in
   let thread = Thread.create 
     (fun () ->
-       Debug.name_thread handler.name;
-       try
-	 establish_server ~signal_fds:[status_out] (handler_by_thread handler) (Server_fd sock)
-       with PleaseClose ->
-	 debug "Server thread exiting") () in
+       Debug.with_thread_named handler.name
+         (fun () ->
+           try
+	     establish_server ~signal_fds:[status_out] (handler_by_thread handler) (Server_fd sock)
+           with PleaseClose ->
+	     debug "Server thread exiting") ()
+    ) () in
   let shutdown () = 
     finally 
       (fun () ->
