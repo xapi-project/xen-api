@@ -197,13 +197,15 @@ re-run with a
 The test then waits for the system to stabilise and verifies that it appears to be
 in a valid state.
 
-Avoiding restart leaks
-----------------------
+Preventing Tasks leaking
+------------------------
 
+The client who creates a Task must destroy it when the Task is finished, and
+they have processed the result. What if a client like xapi is restarted while
+a Task is running?
 
-```
+We assume that, if xapi is talking to a xenopsd, then xapi completely owns it.
+Therefore xapi should destroy any completed tasks that it doesn't recognise.
 
-
-```
-- state observability
-- responsibility for destruction. What does xapi do on restart?
+If a user wishes to manage VMs with xenopsd in parallel with xapi, the user
+should run a separate xenopsd.
