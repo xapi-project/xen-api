@@ -33,6 +33,7 @@ module Fake_IO = struct
 
 	type ic = string Queue.t
 	type oc = string Queue.t
+	type conn = unit
 
 	let read_line ic =
 		if Queue.is_empty ic then begin

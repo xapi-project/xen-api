@@ -37,7 +37,7 @@ type ('a, 'b) result =
 	| Error of 'b
 
 module type IO = sig
-	include Cohttp.IO.S
+	include Cohttp.S.IO
 
 	val close : (ic * oc) -> unit t
 

@@ -24,6 +24,7 @@ module Lwt_unix_IO = struct
 
 	type ic = (unit -> unit Lwt.t) * Lwt_io.input_channel
 	type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
+        type conn = Lwt_unix.file_descr
 
 	let iter fn x = Lwt_list.iter_s fn x
 

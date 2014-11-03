@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xen-api-client
-Version:     0.9.7
+Version:     0.9.8
 Synopsis:    Xen API client
 Authors:     Jonathan Ludlam, Anil Madhavapeddy, David Scott
 License:     LGPL-2.0 with OCaml linking exception

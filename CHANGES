@@ -1,3 +1,6 @@
+0.9.8 (04-Nov-2014)
+* update to cohttp 0.12.0 API
+
 0.9.7 (16-Aug-2014)
 * update to async version 111.17.00
 
