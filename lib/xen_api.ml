@@ -107,12 +107,20 @@ let counter = ref 0
 				Printf.fprintf stderr "malformed response: %s\n%!" error;
 				return (Error No_response)
 			| `Ok response ->
-				Response.read_body_chunk response ic
-				>>= fun result ->
-			  let body = match result with 
-			      Cohttp.Transfer.Chunk body 
-			    | Cohttp.Transfer.Final_chunk body  -> body 
-			    | _ -> "" in
+				let body = Buffer.create 16 in
+				let reader = Response.read_body_chunk response in
+				let rec loop () =
+					reader ic
+					>>= function
+					| Cohttp.Transfer.Chunk x ->
+						Buffer.add_string body x;
+						loop ()
+					| Cohttp.Transfer.Final_chunk x  ->
+						Buffer.add_string body x;
+						return (Buffer.contents body)
+					| Cohttp.Transfer.Done ->
+						return (Buffer.contents body) in
+				loop () >>= fun body ->
 (* for debugging --
 incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
