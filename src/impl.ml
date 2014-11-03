@@ -689,7 +689,7 @@ let write_stream common s destination source_protocol destination_protocol preze
         | Some x ->
           begin match Re_str.bounded_split_delim (Re_str.regexp_string ":") x 2 with
           | [ user; pass ] ->
-            let b = Cohttp.Auth.(to_string (Basic (user, pass))) in
+            let b = Cohttp.Auth.string_of_resp (`Basic (user, pass)) in
             Header.add headers "authorization" b
           | _ ->
             Printf.fprintf stderr "I don't know how to handle authentication for this URI.\n Try scheme://user:password@host/path\n";
