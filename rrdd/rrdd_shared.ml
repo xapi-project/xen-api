@@ -31,8 +31,6 @@ let memory_targets_m = Mutex.create ()
 let cache_sr_uuid : string option ref = ref None
 let cache_sr_lock = Mutex.create ()
 
-let gc_debug = ref true
-
 let default_ssl_port = 443
 let https_port = ref default_ssl_port
 
