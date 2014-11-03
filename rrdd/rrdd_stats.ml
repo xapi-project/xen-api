@@ -177,7 +177,7 @@ let print_stats_for ~program =
 
 let last_log = ref 0.
 let log_interval = 60.
-let programs_to_monitor = ["xcp-rrdd"; "xapi"; "xenopsd"]
+let programs_to_monitor = ["xcp-rrdd"; "xapi"; "xenopsd-xc"; "xenopsd-xenlight"]
 
 let print_stats () =
 	print_system_stats ();
