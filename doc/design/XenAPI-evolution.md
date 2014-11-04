@@ -85,7 +85,7 @@ Documentation
 
 The XenAPI documentation will contain its complete lifecycle history for each
 XenAPI element. Only the elements described in the documentation are
-``official'' and supported.
+"official" and supported.
 
 Each object, message and field in ```datamodel.ml``` will have lifecycle
 metadata attached to it, which is a list of transitions (transition type *
