@@ -666,7 +666,7 @@ let do_monitor xc =
 		)
 
 let monitor_loop () =
-	Debug.name_thread "monitor";
+	Debug.with_thread_named "monitor" (fun () ->
 	Xenctrl.with_intf (fun xc ->
 		while true
 		do
@@ -682,6 +682,7 @@ let monitor_loop () =
 				Thread.delay 10.
 		done
 	)
+	) ()
 (* Monitoring code --- END. *)
 
 let options = [
