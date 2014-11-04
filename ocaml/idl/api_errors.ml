@@ -18,6 +18,11 @@ let to_string = function
       Printf.sprintf "Server_error(%s, [ %a ])" name (fun () -> String.concat "; ") args
   | e -> Printexc.to_string e
 
+let _ =
+  Printexc.register_printer (function
+  | Server_error(code, params) as e -> Some (to_string e)
+  | _ -> None)
+
 let message_deprecated = "MESSAGE_DEPRECATED"
 let message_removed = "MESSAGE_REMOVED"
 

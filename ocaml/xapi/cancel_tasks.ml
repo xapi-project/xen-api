@@ -21,7 +21,7 @@ let safe_wrapper n f x =
     f x
   with e -> 
     debug "Caught exception while cancelling tasks (%s): %s" n (ExnHelper.string_of_exn e);
-    log_backtrace ()
+    Debug.log_backtrace e (Backtrace.get e)
 
 let update_all_allowed_operations ~__context =
 	let open Stats in

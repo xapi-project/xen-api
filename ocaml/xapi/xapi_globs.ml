@@ -876,8 +876,7 @@ let other_options = [
           Debug.disable x
         ) modules
       with e ->
-        D.error "Processing disabled-logging-for = %s" x;
-        D.log_backtrace ()
+        D.error "Unable to parse disable-logging-for=%s (expected space-separated list)" x
     ), (fun () -> "<default>"), (* no API to query the current list *)
     "comma-separated list of modules to suppress logging from";
 

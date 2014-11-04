@@ -123,10 +123,8 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 				~value:(Date.of_float (Unix.gettimeofday ()));
 		) vm_vbds
 	with e ->
-		begin
-			debug "Caught exception updating stats for vm (uuid: %s) -- %s" uuid (Printexc.to_string e);
-			log_backtrace ()
-		end
+		error "Caught exception updating stats for vm (uuid: %s) -- %s" uuid (Printexc.to_string e);
+		Debug.log_backtrace e (Backtrace.get e)
 
 let update_host_cpu ~__context host cpus' =
 	let cpus = cpus'.pcpus_usage in

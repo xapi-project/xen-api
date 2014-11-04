@@ -50,7 +50,11 @@ let assume_task_succeeded queue_name dbg id =
         Client.TASK.destroy dbg id;
         match t.Task.state with
         | Task.Completed _ -> t
-        | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+        | Task.Failed x ->
+		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+		let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
+		Backtrace.add exn bt;
+		raise exn
         | Task.Pending _ -> failwith "task pending"
 
 let wait_for_task queue_name dbg id =
@@ -1710,29 +1714,27 @@ let success_task queue_name f dbg id =
 				| Task.Completed _ -> f t
 				| Task.Failed x -> 
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
-					begin match exn with 
-						| Failed_to_contact_remote_service x ->
-							failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
-						| e -> 
-							debug "%s: caught xenops exception: %s" dbg (Jsonrpc.to_string x);
-							raise e
-					end
+					let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
+					Backtrace.add exn bt;
+					raise exn
 				| Task.Pending _ -> failwith "task pending"
 		) (fun () -> Client.TASK.destroy dbg id)
 
 (* Catch any uncaught xenops exceptions and transform into the most relevant XenAPI error.
    We do not want a XenAPI client to see a raw xenopsd error. *)
 let transform_xenops_exn ~__context queue_name f =
-	let reraise code params =
-		error "Re-raising as %s [ %s ]" code (String.concat "; " params);
-		raise (Api_errors.Server_error(code, params)) in
-	let internal fmt = Printf.kprintf
-		(fun x ->
-			reraise Api_errors.internal_error [ x ]
-		) fmt in
 	try
 		f ()
-	with
+	with e ->
+		let reraise code params =
+			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
+			let e' = Api_errors.Server_error(code, params) in
+			Backtrace.reraise e e' in
+		let internal fmt = Printf.kprintf
+			(fun x ->
+				reraise Api_errors.internal_error [ x ]
+			) fmt in
+		begin match e with
 		| Internal_error msg -> internal "xenopsd internal error: %s" msg
 		| Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
 		| Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
@@ -1780,6 +1782,8 @@ let transform_xenops_exn ~__context queue_name f =
 			reraise Api_errors.task_cancelled [ Ref.string_of task ]
 		| Storage_backend_error(code, params) -> reraise code params
 		| PCIBack_not_loaded -> internal "pciback has not loaded"
+		| e -> raise e
+		end
 
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
@@ -2020,13 +2024,15 @@ let start ~__context ~self paused =
 		(fun () ->
 			try
 				start ~__context ~self paused
-			with Bad_power_state(a, b) ->
+			with Bad_power_state(a, b) as e ->
+				Backtrace.is_important e;
 				let power_state = function
 					| Running -> "Running"
 					| Halted -> "Halted"
 					| Suspended -> "Suspended"
 					| Paused -> "Paused" in
-				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]))
+				let exn = Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]) in
+				Backtrace.reraise e exn
 		)
 
 let reboot ~__context ~self timeout =

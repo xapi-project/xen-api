@@ -48,7 +48,8 @@ let make ~__context ~http_other_config ?(description="") ?session_id ?subtask_of
     ~stunnelpid:(-1L) ~forwarded:false ~forwarded_to:Ref.null
     ~uuid:uuid_str ~externalpid:(-1L)
     ~subtask_of:subtaskid_of
-    ~other_config:(List.map (fun (k, v) -> "http:" ^ k, v) http_other_config)  in
+    ~other_config:(List.map (fun (k, v) -> "http:" ^ k, v) http_other_config)
+    ~backtrace:(Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty)))  in
   ref, uuid
 
 let rbac_assert_permission_fn = ref None (* required to break dep-cycle with rbac.ml *)
@@ -192,13 +193,15 @@ let cancel ~__context =
 				(Ref.really_pretty_and_small self)
 				(status_to_string status))
 
-let failed ~__context (code, params) =
+let failed ~__context exn =
+  let code, params = ExnHelper.error_of_exn exn in
   operate_on_db_task ~__context
     (fun self ->
 		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
 		if status = `pending then begin
 			Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
 			Db_actions.DB_Action.Task.set_error_info ~__context ~self ~value:(code::params);
+			Db_actions.DB_Action.Task.set_backtrace ~__context ~self ~value:(Sexplib.Sexp.to_string (Backtrace.(sexp_of_t (get exn))));
 			Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
 			Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[];
 			if code=Api_errors.task_cancelled 

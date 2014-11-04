@@ -37,7 +37,7 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 			| `Unknown x ->
 				error "import_raw_vdi task_id = %s; vdi = %s; unknown disk format = %s"
 					(Ref.string_of task_id) (Ref.string_of vdi) x;
-				TaskHelper.failed ~__context (Api_errors.internal_error, ["Unknown format " ^ x]);
+				TaskHelper.failed ~__context (Api_errors.Server_error(Api_errors.internal_error, ["Unknown format " ^ x]));
 				Http_svr.headers s (Http.http_404_missing ~version:"1.0" ())
 			| `Ok format when format <> Importexport.Format.Raw && chunked ->
 				error "import_raw_vdi task_id = %s; vdi = %s; unable to import a .vhd using chunked encoding"
@@ -64,9 +64,9 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 								);
 						TaskHelper.complete ~__context None;
 				with e ->
+					Backtrace.is_important e;
 					error "Caught exception: %s" (ExnHelper.string_of_exn e);
-					log_backtrace ();
-					TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
+					TaskHelper.failed ~__context e;
 					raise e)
 
 let import vdi (req: Request.t) (s: Unix.file_descr) _ =

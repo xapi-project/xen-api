@@ -41,7 +41,7 @@ let run_from_within_quicktest (test : test) =
 			success test;
 			(1, 0)
 		with failure ->
-			debug test (Backtrace.get_backtrace ());
+			debug test (Backtrace.(to_string_hum (get failure)));
 			failed test (sprintf "Failed with %s" (Printexc.to_string failure));
 			(0, 1)
 

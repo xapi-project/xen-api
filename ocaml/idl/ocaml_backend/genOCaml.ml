@@ -102,7 +102,7 @@ let gen_to_xmlrpc api tys = block
 (** Generate code to marshal from the given datamodel type to XML-RPC. *)
 let ty_of_xmlrpc api ty =
   let alias_of_ty_param t = "("^(alias_of_ty t)^" param)" in
-  let wrap var_binding b = "fun " ^ var_binding ^ " -> try ("^b^") with _ -> log_backtrace (); raise (Api_errors.Server_error (Api_errors.field_type_error,[param]))" in
+  let wrap var_binding b = "fun " ^ var_binding ^ " -> try ("^b^") with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param]))" in
   let f = match ty with
     | Bool -> wrap "xml" "From.boolean xml"
     | DateTime -> wrap "xml" "From.datetime xml"
