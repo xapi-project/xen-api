@@ -117,6 +117,7 @@ let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_n
 		exit 1
 
 let main backend =
+	Printexc.record_backtrace true;
 
 	(* Listen for transferred file descriptors *)
 	let forwarded_server = Xcp_service.make_socket_server (forwarded_path ())

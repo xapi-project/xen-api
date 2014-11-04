@@ -82,6 +82,7 @@ type t = {
 	mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
 	mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
 	test_cancel_at: int option;                    (* index of the cancel point to trigger *)
+	mutable backtrace: Backtrace.t;                (* on error, a backtrace *)
 }
 
 type tasks = {
@@ -130,11 +131,12 @@ let add tasks dbg (f: t -> Interface.Task.async_result option) =
 		cancelling = false;
 		cancel = [];
 		cancel_points_seen = 0;
-		test_cancel_at = match tasks.test_cancel_trigger with
+		test_cancel_at = (match tasks.test_cancel_trigger with
 			| Some (dbg', n) when dbg = dbg' ->
 				clear_cancel_trigger tasks; (* one shot *)
 				Some n
-			| _ -> None
+			| _ -> None);
+		backtrace = Backtrace.empty;
 	} in
 	Mutex.execute tasks.m
 		(fun () ->
@@ -152,9 +154,10 @@ let run item =
 		debug "Task %s completed; duration = %.0f" item.id duration
 	with
 		| e ->
+			Backtrace.is_important e;
+			error "Task %s failed; %s" item.id (Printexc.to_string e);
+			item.backtrace <- Backtrace.remove e;
 			let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
-			debug "Task %s failed; exception = %s" item.id (e |> Jsonrpc.to_string);
-			debug "%s" (Printexc.get_backtrace ());
 			item.state <- Interface.Task.Failed e
 
 let exists_locked tasks id = SMap.mem id !(tasks.tasks)
@@ -175,7 +178,9 @@ let with_subtask t name f =
 		t.subtasks <- replace_assoc name (Interface.Task.Completed {Interface.Task.duration; result=None}) t.subtasks;
 		result
 	with e ->
-		t.subtasks <- replace_assoc name (Interface.Task.Failed (Interface.Exception.rpc_of_exnty (Interface.exnty_of_exn (Interface.Internal_error (Printexc.to_string e))))) t.subtasks;
+		Backtrace.is_important e;
+		let e' = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
+		t.subtasks <- replace_assoc name (Interface.Task.Failed e') t.subtasks;
 		raise e
 
 let list tasks =
