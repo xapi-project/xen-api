@@ -1,0 +1,6 @@
+\begin{equation*}
+\mathit{overhead} = \begin{cases}
+                      2 + \mathit{shadow}, & \mbox{if domain is HVM} \\
+                      1 + \mathit{shadow}, & \mbox{if domain is PV}
+                    \end{cases} \\
+\end{equation*}
