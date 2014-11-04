@@ -96,7 +96,7 @@ let counter = ref 0
 			"connection", "keep-alive";
 		] in
 		let request = Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri in
-		Request.write (fun req oc -> Request.write_body req oc body) request oc
+		Request.write (fun writer -> Request.write_body writer body) request oc
 		>>= fun () ->
 		Response.read ic
 		>>= function
@@ -108,9 +108,9 @@ let counter = ref 0
 				return (Error No_response)
 			| `Ok response ->
 				let body = Buffer.create 16 in
-				let reader = Response.read_body_chunk response in
+				let reader = Response.make_body_reader response ic in
 				let rec loop () =
-					reader ic
+					Response.read_body_chunk reader
 					>>= function
 					| Cohttp.Transfer.Chunk x ->
 						Buffer.add_string body x;
