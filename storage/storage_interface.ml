@@ -159,7 +159,7 @@ module Dynamic = struct
 		
 end
 
-
+exception Backend_error_with_backtrace of (string * (string list)) (** name * params *)
 
 exception Sr_not_attached of string               (** error: SR must be attached to access VDIs *)
 exception Vdi_does_not_exist of string            (** error: the VDI is unknown *)
