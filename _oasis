@@ -1,17 +1,17 @@
 OASISFormat:  0.3
 Name:         stdext
-Version:      0.12.0
+Version:      0.11.0
 Synopsis:     Standard extension library
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
-Copyrights:   (C) 2006-2014 Citrix
+Copyrights:   (C) 2012 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
 Library stdext
   Path: lib
-  Modules: Arrayext, Backtrace, Base64, Bigbuffer, Config, Date, Either, Encodings, ExtentlistSet, Filenameext, Fring, Fun, Hashtblext, Int64ext, LazyList, Listext, Mapext, Monad, Opt, Pervasiveext, Qring, Range, Ring, Xstringext, Threadext, Trie, Unixext, VIO, Zerocheck
+  Modules: Arrayext, Base64, Bigbuffer, Config, Date, Either, Encodings, ExtentlistSet, Filenameext, Fring, Fun, Hashtblext, Int64ext, LazyList, Listext, Mapext, Monad, Opt, Pervasiveext, Qring, Range, Ring, Xstringext, Threadext, Trie, Unixext, VIO, Zerocheck
   CSources: blkgetsize_stubs.c, unixext_open_stubs.c, unixext_stubs.c, unixext_write_stubs.c, zerocheck_stub.c
-  BuildDepends: threads, uuidm, unix, fd-send-recv, bigarray
+  BuildDepends: threads, uuidm, unix, fd-send-recv, bigarray, sexplib, sexplib.syntax, xapi-backtrace
 
 

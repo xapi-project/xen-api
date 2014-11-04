@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: ad1a1bbbb71d472f0711580d2cc59333)
+# DO NOT EDIT (digest: 0b1ac2bd701986ac4e927661d05dbd2f)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -16,34 +17,52 @@
 # Library stdext
 "lib/stdext.cmxs": use_stdext
 <lib/stdext.{cma,cmxa}>: use_libstdext_stubs
-<lib/*.ml{,i}>: pkg_bigarray
-<lib/*.ml{,i}>: pkg_fd-send-recv
-<lib/*.ml{,i}>: pkg_threads
-<lib/*.ml{,i}>: pkg_unix
-<lib/*.ml{,i}>: pkg_uuidm
+<lib/*.ml{,i,y}>: pkg_bigarray
+<lib/*.ml{,i,y}>: pkg_fd-send-recv
+<lib/*.ml{,i,y}>: pkg_sexplib
+<lib/*.ml{,i,y}>: pkg_sexplib.syntax
+<lib/*.ml{,i,y}>: pkg_threads
+<lib/*.ml{,i,y}>: pkg_unix
+<lib/*.ml{,i,y}>: pkg_uuidm
+<lib/*.ml{,i,y}>: pkg_xapi-backtrace
 "lib/blkgetsize_stubs.c": pkg_bigarray
 "lib/blkgetsize_stubs.c": pkg_fd-send-recv
+"lib/blkgetsize_stubs.c": pkg_sexplib
+"lib/blkgetsize_stubs.c": pkg_sexplib.syntax
 "lib/blkgetsize_stubs.c": pkg_threads
 "lib/blkgetsize_stubs.c": pkg_unix
 "lib/blkgetsize_stubs.c": pkg_uuidm
+"lib/blkgetsize_stubs.c": pkg_xapi-backtrace
 "lib/unixext_open_stubs.c": pkg_bigarray
 "lib/unixext_open_stubs.c": pkg_fd-send-recv
+"lib/unixext_open_stubs.c": pkg_sexplib
+"lib/unixext_open_stubs.c": pkg_sexplib.syntax
 "lib/unixext_open_stubs.c": pkg_threads
 "lib/unixext_open_stubs.c": pkg_unix
 "lib/unixext_open_stubs.c": pkg_uuidm
+"lib/unixext_open_stubs.c": pkg_xapi-backtrace
 "lib/unixext_stubs.c": pkg_bigarray
 "lib/unixext_stubs.c": pkg_fd-send-recv
+"lib/unixext_stubs.c": pkg_sexplib
+"lib/unixext_stubs.c": pkg_sexplib.syntax
 "lib/unixext_stubs.c": pkg_threads
 "lib/unixext_stubs.c": pkg_unix
 "lib/unixext_stubs.c": pkg_uuidm
+"lib/unixext_stubs.c": pkg_xapi-backtrace
 "lib/unixext_write_stubs.c": pkg_bigarray
 "lib/unixext_write_stubs.c": pkg_fd-send-recv
+"lib/unixext_write_stubs.c": pkg_sexplib
+"lib/unixext_write_stubs.c": pkg_sexplib.syntax
 "lib/unixext_write_stubs.c": pkg_threads
 "lib/unixext_write_stubs.c": pkg_unix
 "lib/unixext_write_stubs.c": pkg_uuidm
+"lib/unixext_write_stubs.c": pkg_xapi-backtrace
 "lib/zerocheck_stub.c": pkg_bigarray
 "lib/zerocheck_stub.c": pkg_fd-send-recv
+"lib/zerocheck_stub.c": pkg_sexplib
+"lib/zerocheck_stub.c": pkg_sexplib.syntax
 "lib/zerocheck_stub.c": pkg_threads
 "lib/zerocheck_stub.c": pkg_unix
 "lib/zerocheck_stub.c": pkg_uuidm
+"lib/zerocheck_stub.c": pkg_xapi-backtrace
 # OASIS_STOP

@@ -84,8 +84,9 @@ let strip predicate string =
 let escaped ?rules string = match rules with
 	| None -> String.escaped string
 	| Some rules ->
-		let aux h t = (try List.assoc h rules
-			       with Not_found -> of_char h) :: t in
+		let aux h t = (if List.mem_assoc h rules
+                               then List.assoc h rules
+			       else of_char h) :: t in
 		concat "" (fold_right aux string [])
 
 (** Take a predicate and a string, return a list of strings separated by
@@ -104,8 +105,18 @@ let split_f p str =
 	end  in
 	List.rev (List.map implode (alternate [] true (explode str)))
 
+let index_opt s c =
+	let rec loop i =
+		if String.length s = i
+		then None
+		else
+			if s.[i] = c
+			then Some i
+			else loop (i + 1) in
+	loop 0
+
 let rec split ?limit:(limit=(-1)) c s =
-	let i = try String.index s c with Not_found -> -1 in
+	let i = match index_opt s c with | Some x -> x | None -> -1 in
 	let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
 	if i = -1 || nlimit = 0 then
 		[ s ]
