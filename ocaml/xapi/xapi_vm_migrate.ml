@@ -759,14 +759,13 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 
-	(* Check that the VM has at most one snapshot, and that that snapshot is not a checkpoint. *)
-	(match Db.VM.get_snapshots ~__context ~self:vm with
-	| [] -> ()
-	| [snapshot] ->
-		if (Db.VM.get_power_state ~__context ~self:snapshot) = `Suspended then
-			raise (Api_errors.Server_error (Api_errors.vm_has_checkpoint, [Ref.string_of vm]))
-	| _ ->
-			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
+	(* Check that none of its snapshots is a checkpoint. *)
+	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
+	List.iter
+		(fun snapshot ->
+		 if (Db.VM.get_power_state ~__context ~self:snapshot) = `Suspended then
+			 raise (Api_errors.Server_error (Api_errors.vm_has_checkpoint, [Ref.string_of vm])))
+		snapshots;
 
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
