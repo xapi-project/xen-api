@@ -1,4 +1,4 @@
-{
+%{
 open Xn_cfg_types
 %}
 %token <string> IDENT STRING
