@@ -131,6 +131,7 @@ let do_it uri string =
 let make ?(timeout=30.) uri call =
 	let string = Xmlrpc.string_of_call call in
 	lwt result = do_it uri string in
+Printf.fprintf stderr "result = [%s]\n%!" result;
     Lwt.return (Xmlrpc.response_of_string result)
 
 let make_json ?(timeout=30.) uri call =
