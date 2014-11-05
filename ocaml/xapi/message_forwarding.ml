@@ -1691,10 +1691,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
+			let vm_state = Db.VM.get_power_state ~__context ~self:vm in
+			let forwarder = match vm_state with
+				| `Running | `Paused -> forward_vm_op
+				| _ ->
+					 let snapshot = Db.VM.get_record ~__context ~self:vm in
+					 (fun ~local_fn ~__context ~vm op ->
+						 ignore (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
 					Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
-					forward_vm_op ~local_fn ~__context ~vm
+					forwarder ~local_fn ~__context ~vm
 						(fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options)
 				)
 

@@ -768,7 +768,11 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	| _ ->
 			raise (Api_errors.Server_error (Api_errors.vm_has_too_many_snapshots, [Ref.string_of vm])));
 
-	let source_host_ref = Db.VM.get_resident_on ~__context ~self:vm in
+	let source_host_ref =
+		let host = Db.VM.get_resident_on ~__context ~self:vm in
+		if host <> Ref.null then host else
+			Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+
 	let migration_type =
 		try
 			ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref);
