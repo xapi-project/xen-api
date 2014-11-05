@@ -73,9 +73,9 @@ let hand_over_connection req s path =
 	try
 		debug "hand_over_connection %s %s to %s" (Http.string_of_method_t req.Http.Request.m) req.Http.Request.uri path;
 		let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-		let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 		finally
 			(fun () ->
+				let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 				Unix.connect control_fd (Unix.ADDR_UNIX path);
 				let msg = req |> Http.Request.rpc_of_t |> Jsonrpc.to_string in
 				let len = String.length msg in
