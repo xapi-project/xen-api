@@ -27,6 +27,7 @@ module IO = struct
 
 	type ic = (unit -> unit Deferred.t) * Reader.t
 	type oc = (unit -> unit Deferred.t) * Writer.t
+	type conn = unit
 
 	let iter fn x = Deferred.List.iter x ~f:fn 
 

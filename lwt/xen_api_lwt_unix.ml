@@ -24,6 +24,7 @@ module Lwt_unix_IO = struct
 
 	type ic = (unit -> unit Lwt.t) * Lwt_io.input_channel
 	type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
+        type conn = Lwt_unix.file_descr
 
 	let iter fn x = Lwt_list.iter_s fn x
 
@@ -130,6 +131,7 @@ let do_it uri string =
 let make ?(timeout=30.) uri call =
 	let string = Xmlrpc.string_of_call call in
 	lwt result = do_it uri string in
+Printf.fprintf stderr "result = [%s]\n%!" result;
     Lwt.return (Xmlrpc.response_of_string result)
 
 let make_json ?(timeout=30.) uri call =

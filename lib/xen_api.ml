@@ -37,7 +37,7 @@ type ('a, 'b) result =
 	| Error of 'b
 
 module type IO = sig
-	include Cohttp.IO.S
+	include Cohttp.S.IO
 
 	val close : (ic * oc) -> unit t
 
@@ -96,7 +96,7 @@ let counter = ref 0
 			"connection", "keep-alive";
 		] in
 		let request = Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri in
-		Request.write (fun req oc -> Request.write_body req oc body) request oc
+		Request.write (fun writer -> Request.write_body writer body) request oc
 		>>= fun () ->
 		Response.read ic
 		>>= function
@@ -107,12 +107,20 @@ let counter = ref 0
 				Printf.fprintf stderr "malformed response: %s\n%!" error;
 				return (Error No_response)
 			| `Ok response ->
-				Response.read_body_chunk response ic
-				>>= fun result ->
-			  let body = match result with 
-			      Cohttp.Transfer.Chunk body 
-			    | Cohttp.Transfer.Final_chunk body  -> body 
-			    | _ -> "" in
+				let body = Buffer.create 16 in
+				let reader = Response.make_body_reader response ic in
+				let rec loop () =
+					Response.read_body_chunk reader
+					>>= function
+					| Cohttp.Transfer.Chunk x ->
+						Buffer.add_string body x;
+						loop ()
+					| Cohttp.Transfer.Final_chunk x  ->
+						Buffer.add_string body x;
+						return (Buffer.contents body)
+					| Cohttp.Transfer.Done ->
+						return (Buffer.contents body) in
+				loop () >>= fun body ->
 (* for debugging --
 incr counter;
 let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in

@@ -67,13 +67,13 @@ let start_upload ~chunked ~uri =
     | Some x ->
       begin match Re_str.bounded_split_delim (Re_str.regexp_string ":") x 2 with
       | [ user; pass ] ->
-        let b = Cohttp.Auth.(to_string (Basic (user, pass))) in
+        let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
         Header.add headers "authorization" b
       | _ ->
         failwith (Printf.sprintf "I don't know how to handle authentication for %s (try scheme://user:password@host/path)" (Uri.to_string uri));
       end in
   let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri in
-  Request.write (fun t _ -> return ()) request c >>= fun () ->
+  Request.write (fun _ -> return ()) request c >>= fun () ->
   Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
 
   begin match r with
