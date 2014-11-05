@@ -58,7 +58,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `changing_shadow_memory_live
 	| `changing_VCPUs_live
 	| `data_source_op
-	| `migrate_send
 	| `pause
 	| `pool_migrate
 	| `send_sysrq
@@ -82,6 +81,8 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `shutdown
 	| `hard_shutdown
 	                                -> [`Paused; `Suspended; `Running]
+	| `migrate_send
+	                                -> [`Halted; `Suspended; `Running]
 	| `assert_operation_valid
 	| `metadata_export
 	| `power_state_reset
