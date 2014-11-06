@@ -1,5 +1,5 @@
-BINDIR?=/tmp/
-MANDIR?=/tmp/
+BINDIR?=/usr/sbin
+MANDIR?=/usr/share/man
 
 .PHONY: install uninstall clean test
 
