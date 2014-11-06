@@ -1,8 +1,8 @@
-GPU pass-through support for Boston
-===================================
+GPU pass-through support
+========================
 
-This document contains the software design for GPU pass-through support
-for the Boston release (XS 6.0).
+This document contains the software design for GPU pass-through. This
+code was originally included in the version of Xapi used in XenServer 6.0.
 
 Overview
 --------
