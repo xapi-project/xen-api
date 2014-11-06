@@ -8,6 +8,8 @@ Before reading these, first familiarise yourself with the
   assigned to VMs
 - [GRE tunnelling](tunnelling.md): describes the API used to set up GRE tunnels for guest
   network traffic
+- [NIC offload](pif-properties.md): describes the API used to configure network offload,
+  including GRO
 - [XenAPI evolution](XenAPI-evolution.md): the XenAPI lifecycle i.e. how the XenAPI evolves
   over time
 - [memory accounting](memory-accounting.md): explains how the host memory
