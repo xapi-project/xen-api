@@ -479,18 +479,18 @@ let main ~root_dir ~switch_port =
       info "Received EOF from inotify event pipe"
       >>= fun () ->
       Shutdown.exit 1
-    | `Ok (Created name)
-    | `Ok (Moved (Into name)) ->
-      create switch_port root_dir name
-    | `Ok (Unlinked name)
-    | `Ok (Moved (Away name)) ->
-      destroy switch_port name
+    | `Ok (Created path)
+    | `Ok (Moved (Into path)) ->
+      create switch_port root_dir (Filename.basename path)
+    | `Ok (Unlinked path)
+    | `Ok (Moved (Away path)) ->
+      destroy switch_port (Filename.basename path)
     | `Ok (Modified _) ->
       return ()
-    | `Ok (Moved (Move (a, b))) ->
-      destroy switch_port a
+    | `Ok (Moved (Move (path_a, path_b))) ->
+      destroy switch_port (Filename.basename path_a)
       >>= fun () ->
-      create switch_port root_dir b
+      create switch_port root_dir (Filename.basename path_b)
     | `Ok Queue_overflow ->
       sync ~root_dir ~switch_port
     ) >>= fun () ->
