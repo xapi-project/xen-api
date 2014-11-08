@@ -87,7 +87,7 @@ let dp_destroy task dp =
 	))
 
 let get_disk_by_name task path =
-	match Xstringext.String.split '/' path with
+	match Xstringext.String.split ~limit:2 '/' path with
 		| [ sr; vdi ] ->
 			info "Processing disk SR=%s VDI=%s" sr vdi;
 			sr, vdi
