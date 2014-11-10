@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: b295e9a47484cc1eec12b9840e42b6a1)
+# DO NOT EDIT (digest: dc92c10ab687115b6f1bcb07a386582f)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -348,11 +348,11 @@
 <xl/xenops_xl_main.{native,byte}>: pkg_xcp.xen
 <xl/xenops_xl_main.{native,byte}>: pkg_xenctrl
 <xl/xenops_xl_main.{native,byte}>: pkg_xenlight
-<xl/xenops_xl_main.{native,byte}>: pkg_xenlight.xentoollog
 <xl/xenops_xl_main.{native,byte}>: pkg_xenstore
 <xl/xenops_xl_main.{native,byte}>: pkg_xenstore.unix
 <xl/xenops_xl_main.{native,byte}>: pkg_xenstore_transport
 <xl/xenops_xl_main.{native,byte}>: pkg_xenstore_transport.unix
+<xl/xenops_xl_main.{native,byte}>: pkg_xentoollog
 <xl/xenops_xl_main.{native,byte}>: pkg_xmlm
 <xl/xenops_xl_main.{native,byte}>: use_xenopsd
 <xl/*.ml{,i}>: pkg_cohttp
@@ -375,11 +375,11 @@
 <xl/*.ml{,i}>: pkg_xcp.xen
 <xl/*.ml{,i}>: pkg_xenctrl
 <xl/*.ml{,i}>: pkg_xenlight
-<xl/*.ml{,i}>: pkg_xenlight.xentoollog
 <xl/*.ml{,i}>: pkg_xenstore
 <xl/*.ml{,i}>: pkg_xenstore.unix
 <xl/*.ml{,i}>: pkg_xenstore_transport
 <xl/*.ml{,i}>: pkg_xenstore_transport.unix
+<xl/*.ml{,i}>: pkg_xentoollog
 <xl/*.ml{,i}>: pkg_xmlm
 <xl/*.ml{,i}>: use_xenopsd
 "xl/fsync_stubs.c": pkg_cohttp
@@ -402,11 +402,11 @@
 "xl/fsync_stubs.c": pkg_xcp.xen
 "xl/fsync_stubs.c": pkg_xenctrl
 "xl/fsync_stubs.c": pkg_xenlight
-"xl/fsync_stubs.c": pkg_xenlight.xentoollog
 "xl/fsync_stubs.c": pkg_xenstore
 "xl/fsync_stubs.c": pkg_xenstore.unix
 "xl/fsync_stubs.c": pkg_xenstore_transport
 "xl/fsync_stubs.c": pkg_xenstore_transport.unix
+"xl/fsync_stubs.c": pkg_xentoollog
 "xl/fsync_stubs.c": pkg_xmlm
 "xl/fsync_stubs.c": use_xenopsd
 "xl/poll_stubs.c": pkg_cohttp
@@ -429,11 +429,11 @@
 "xl/poll_stubs.c": pkg_xcp.xen
 "xl/poll_stubs.c": pkg_xenctrl
 "xl/poll_stubs.c": pkg_xenlight
-"xl/poll_stubs.c": pkg_xenlight.xentoollog
 "xl/poll_stubs.c": pkg_xenstore
 "xl/poll_stubs.c": pkg_xenstore.unix
 "xl/poll_stubs.c": pkg_xenstore_transport
 "xl/poll_stubs.c": pkg_xenstore_transport.unix
+"xl/poll_stubs.c": pkg_xentoollog
 "xl/poll_stubs.c": pkg_xmlm
 "xl/poll_stubs.c": use_xenopsd
 <xl/xenops_xl_main.{native,byte}>: custom
