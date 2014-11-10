@@ -37,7 +37,7 @@ Xapi toolstack, the interface can in theory be used by other clients.
 The rest of this document is structured as follows.
 Section [assumptions] lists assumptions made by the ballooning daemon on
 other parts of the system; these assumptions need careful review and may
-not be valid. Section [Toolstack interface](#Toolstack-interface) describes the interface
+not be valid. Section [Toolstack interface](#toolstack-interface) describes the interface
 between the toolstack and the ballooning daemon. Section [Ballooning
 policy] describes the simple built-in ballooning policy and
 Section [memory model] describes how Squeezed models memory.
@@ -526,7 +526,7 @@ The rules are:
 
 1.  if the domain has never been run and is paused then
     $\texttt{maxmem}\leftarrow\texttt{reservation}$ (for information
-    about reservations see Section [Toolstack interface](#Toolstack-interface);
+    about reservations see Section [Toolstack interface](#toolstack-interface);
 
     -   these domains are probably still being built and we must let
         them allocate their `startmem`
