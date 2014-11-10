@@ -125,8 +125,7 @@ Environmental assumptions
     after 5 seconds, it is effectively <span>*inactive*</span>. Active
     domains will be expected to pick up the slack.
 
-Toolstack interface
-===================
+# Toolstack interface
 
 This section begins by describing the concept of a
 <span>*reservation*</span> and then describes the toolstack interface in
