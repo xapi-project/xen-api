@@ -415,7 +415,7 @@ let _ =
     ~doc:"XHA cannot be enabled because this host's license does not allow it." ();
 
   error Api_errors.v6d_failure []
-    ~doc:"There was a problem with the license daemon (v6d). Is it running?" ();
+    ~doc:"There was a problem with the license daemon (v6d)." ();
   error Api_errors.invalid_edition ["edition"]
     ~doc:"The edition you supplied is invalid." ();
   error Api_errors.missing_connection_details []
