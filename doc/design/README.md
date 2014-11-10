@@ -29,22 +29,22 @@ per-host memory ballooning daemon. It performs two tasks:
     on a host.
 
 The daemon currently includes a simple ballooning policy (see
-Section [Ballooning policy]) and the intention is that this can be
+Section [Ballooning policy](#ballooning-policy) and the intention is that this can be
 replaced later with more sophisticated policies
 (e.g. *xenballoond*[^1])). Although the only client is the
 Xapi toolstack, the interface can in theory be used by other clients.
 
 The rest of this document is structured as follows.
-Section [assumptions] lists assumptions made by the ballooning daemon on
+Section [assumptions](#assumptions) lists assumptions made by the ballooning daemon on
 other parts of the system; these assumptions need careful review and may
 not be valid. Section [Toolstack interface](#toolstack-interface) describes the interface
-between the toolstack and the ballooning daemon. Section [Ballooning
-policy] describes the simple built-in ballooning policy and
-Section [memory model] describes how Squeezed models memory.
-The main loop of the daemon is described in Section [The main loop] and
-a detailed example is described in Section [example].
-Section [structure] describes the structure of the daemon itself and
-finally Section [issues] lists some known issues.
+between the toolstack and the ballooning daemon. Section
+[Ballooning policy](#ballooning-policy) describes the simple built-in ballooning policy and
+Section [memory model](#the-memory-model) describes how Squeezed models memory.
+The main loop of the daemon is described in Section [The main loop](#the-main-loop) and
+a detailed example is described in Section [example](#example).
+Section [structure](#structure) describes the structure of the daemon itself and
+finally Section [issues](#issues) lists some known issues.
 
 Environmental assumptions
 =========================
@@ -58,7 +58,7 @@ Environmental assumptions
 2.  The Squeezed daemon calls
     `setmaxmem` in order to cap the amount of memory a domain can use.
     This relies on a patch to xen[^2] which allows `maxmem` to be set
-    lower than `totpages`. See Section [maxmem] for more information.
+    lower than `totpages`. See Section [maxmem](#maxmem) for more information.
 
 3.  The Squeezed daemon
     assumes that only domains which write `control/feature-balloon` into
@@ -81,9 +81,8 @@ Environmental assumptions
 
     -   The Squeezed daemon
         does not know or care exactly what causes the difference between
-        `totpages` and `memory/target` and it does <span>*not*</span>
-        expect it to remain constant across <span><span
-        style="font-variant:small-caps;">Xen</span></span> releases. It
+        `totpages` and `memory/target` and it does *not*
+        expect it to remain constant across Xen releases. It
         only expects the value to remain constant over the lifetime of a
         domain.
 
@@ -96,20 +95,18 @@ Environmental assumptions
         currenty using `totpages` allocate or free $x$, it suffices to
         set `memory/target` to
         $x+\texttt{totpages}+\texttt{memory-offset}$ and wait for the
-        balloon driver to finish. See Section [memory model] for more
+        balloon driver to finish. See Section [memory model](#the-memory-model) for more
         detail.
 
 7.  The Squeezed daemon must
     maintain a “slush fund” of memory (currently 9MiB) which it must
-    prevent any domain from allocating. Since (i) some <span><span
-    style="font-variant:small-caps;">Xen</span></span> operations (such
+    prevent any domain from allocating. Since (i) some Xen operations (such
     as domain creation) require memory within a physical address range
-    (e.g. $<$ 4GiB) and (ii) since <span><span
-    style="font-variant:small-caps;">Xen</span></span> preferentially
+    (e.g. $<$ 4GiB) and (ii) since Xen preferentially
     allocates memory outside these ranges, it follows that by preventing
-    guests from allocating <span>*all*</span> host memory (even
+    guests from allocating *all* host memory (even
     transiently) we guarantee that memory from within these special
-    ranges is always available. See Section [twophase section] for more
+    ranges is always available. See Section [twophase section](#twophase-section) for more
     details.
 
 8.  The Squeezed daemon
@@ -122,20 +119,18 @@ Environmental assumptions
 
 10. The Squeezed daemon
     assumes that, if a balloon driver has not made any visible progress
-    after 5 seconds, it is effectively <span>*inactive*</span>. Active
+    after 5 seconds, it is effectively *inactive*. Active
     domains will be expected to pick up the slack.
 
 # Toolstack interface
 
 This section begins by describing the concept of a
-<span>*reservation*</span> and then describes the toolstack interface in
+*reservation* and then describes the toolstack interface in
 pseudocode.
 
-A <span>*reservation*</span> is: an amount of host free memory tagged
-with an associated <span>*reservation id*</span>. Note this is an
-internal <span><span
-style="font-variant:small-caps;">squeezed</span></span> concept and
-<span><span style="font-variant:small-caps;">Xen</span></span> is
+A *reservation* is: an amount of host free memory tagged
+with an associated *reservation id*. Note this is an
+internal Squeezed concept and Xen is
 completely unaware of it. When the daemon is moving memory between
 domains, it always aims to keep
 $$\mathit{host\ free\ memory} >= s + \sum_i{\mathit{reservation}_i}$$
@@ -143,39 +138,34 @@ where $s$ is the size of the “slush fund” (currently 9MiB) and
 $\mathit{reservation}_i$ is the amount corresponding to the $i$th
 reservation.
 
-As an aside: Earlier versions of <span><span
-style="font-variant:small-caps;">squeezed</span></span> always
-associated memory with a <span><span
-style="font-variant:small-caps;">Xen</span></span> domain. Unfortunately
+As an aside: Earlier versions of Squeezed always
+associated memory with a Xen domain. Unfortunately
 this required domains to be created before memory was freed which was
 problematic because domain creation requires small amounts of contiguous
 frames. Rather than implement some form of memory defragmentation,
-<span><span style="font-variant:small-caps;">squeezed</span></span> and
-<span><span style="font-variant:small-caps;">XAPI</span></span> were
+Squeezed and Xenopsd were
 modified to free memory before creating a domain. This necessitated
-making memory <span>*reservations*</span> first-class stand-alone
+making memory *reservations* first-class stand-alone
 entities.
 
-Once a <span>*reservation*</span> is made (and the corresponding memory
-is freed), it can be <span>*transferred*</span> to a domain created by a
-toolstack. This associates the <span>*reservation*</span> with that
+Once a *reservation* is made (and the corresponding memory
+is freed), it can be *transferred* to a domain created by a
+toolstack. This associates the *reservation* with that
 domain so that, if the domain is destroyed, the
-<span>*reservation*</span> is also freed. Note that <span><span
-style="font-variant:small-caps;">squeezed</span></span> is careful not
-to count both a domain’s <span>*reservation*</span> and its `totpages`
+*reservation* is also freed. Note that Squeezed is careful not
+to count both a domain’s *reservation* and its `totpages`
 during e.g. domain building: instead it considers the domain’s
-allocation to be the maximum of <span>*reservation*</span> and
+allocation to be the maximum of *reservation* and
 `totpages`.
 
-The size of a <span>*reservation*</span> may either be specified exactly
+The size of a *reservation* may either be specified exactly
 by the caller or the caller may provide a memory range. If a range is
 provided the daemon will allocate at least as much as the minimum value
 provided and as much as possible up to the maximum. By allocating as
 much memory as possible to the domain, the probability of a successful
 boot is increased.
 
-Clients of the <span><span
-style="font-variant:small-caps;">squeezed</span></span> provide a string
+Clients of the Squeezed provide a string
 name when they log in. All untransferred reservations made by a client
 are automatically deleted when a client logs in. This prevents memory
 leaks where a client crashes and loses track of its own reservation ids.
@@ -191,7 +181,7 @@ The interface looks like this:
 
     void transfer_reservation_to_domain(string client_name, string reservation_id, int domid)
 
-The <span><span style="font-variant:small-caps;">XAPI</span></span>
+The Xapi
 toolstack has code like the following: (in
 <http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xapi&m=Vmops>)
 
@@ -206,12 +196,11 @@ The interface is currently implemented using a trivial RPC protocol over
 xenstore where requests and responses are directories and their
 parameters and return values are keys in those directories.
 
-Ballooning policy {#Ballooning policy}
+Ballooning policy
 =================
 
 This section describes the very simple default policy currently
-built-into <span><span
-style="font-variant:small-caps;">squeezed</span></span>.
+built-into Squeezed.
 
 Every domain has a pair of values written into xenstore:
 `memory/dynamic-min` and `memory/dynamic-max` with the following
@@ -219,21 +208,18 @@ meanings:
 
 `memory/dynamic-min`
 
-:   : the lowest value that <span><span
-    style="font-variant:small-caps;">squeezed</span></span> is allowed
+:   : the lowest value that Squeezed is allowed
     to set `memory/target`. The administrator should make this as low as
     possible but high enough to ensure that the applications inside the
     domain actually work.
 
 `memory/dynamic-max`
 
-:   : the highest value that <span><span
-    style="font-variant:small-caps;">squeezed</span></span> is allowed
+:   : the highest value that Squeezed is allowed
     to set `memory/target`. This can be used to dynamically cap the
     amount of memory a domain can use.
 
-If all balloon drivers are responsive then <span><span
-style="font-variant:small-caps;">squeezed</span></span> daemon allocates
+If all balloon drivers are responsive then Squeezed daemon allocates
 memory proportionally, so that each domain has the same value of:
 $$\frac{
 \texttt{memory/target}-\texttt{memory/dynamic-min}
@@ -249,7 +235,7 @@ $$\frac{
 
 Note that the values of `memory/target` suggested by the policy are
 ideal values. In many real-life situations (e.g. when a balloon driver
-fails to make progress and is declared <span>*inactive*</span>) the
+fails to make progress and is declared *inactive*) the
 `memory/target` values will be different.
 
 Note that, by default, domain 0 has
@@ -258,13 +244,12 @@ ballooning. Clearly a more sophisticated policy would be required here
 since ballooning down domain 0 as extra domains are started would be…
 problematic.
 
-The memory model used by <span><span style="font-variant:small-caps;">squeezed</span></span> {#memory model}
-============================================================================================
+The memory model
+================
 
-This section describes the model used internally by <span><span
-style="font-variant:small-caps;">squeezed</span></span>.
+This section describes the model used internally by Squeezed.
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon considers a ballooning-aware domain (i.e. one which has written
 the `feature-balloon` flag into xenstore) to be a 6-tuple:
 $$\mathit{ballooning~domain} = (\texttt{dynamic-min}, \texttt{dynamic-max}, \texttt{target}, \texttt{totpages}, \texttt{memory-offset}, \texttt{maxmem})$$
@@ -273,17 +258,16 @@ where
 `dynamic-min`
 
 :   : policy value written to `memory/dynamic-min` in xenstore by a
-    toolstack (see Section [Ballooning policy])
+    toolstack (see Section [Ballooning policy](#ballooning-policy))
 
 `dynamic-max`
 
 :   : policy value written to `memory/dynamic-max` in xenstore by a
-    toolstack (see Section [Ballooning policy])
+    toolstack (see Section [Ballooning policy](#ballooning-policy))
 
 `target`
 
-:   : balloon driver target written to `memory/target` in xenstore by
-    <span><span style="font-variant:small-caps;">squeezed</span></span>
+:   : balloon driver target written to `memory/target` in xenstore by Squeezed.
 
 `totpages`
 
@@ -306,7 +290,7 @@ to cause a domain currently using `totpages` to maintain this value
 indefinitely.
 $$\texttt{totpages'} {\stackrel{def}{=}}\texttt{totpages} - \texttt{memory-offset}$$
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon believes that:
 
 -   a domain should be ballooning iff
@@ -323,7 +307,7 @@ daemon believes that:
 -   to cause a domain to free $y$ it sufficies to set
     $\texttt{target}\leftarrow\texttt{totpages}-\texttt{memory-offset}-y$.
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon considers non-ballooning aware domains (i.e. those which have not
 written `feature-balloon`) to be represented by pairs of:
 $$\mathit{other~domain} = (\texttt{totpages}, \mathit{reservation})$$
@@ -336,21 +320,19 @@ where
 
 $\mathit{reservation}$
 
-:   : memory initially freed for this domain by <span><span
-    style="font-variant:small-caps;">squeezed</span></span> after a
+:   : memory initially freed for this domain by Squeezed after a
     `transfer_reservation_to_domid` call
 
 Note that non-ballooning aware domains will always have
 $\texttt{startmem}=\texttt{target}$ since the domain will not be
 instructed to balloon. Since a domain which is being built will have
-$0<=\texttt{totpages}<=\mathit{reservation}$, <span><span
-style="font-variant:small-caps;">squeezed</span></span> computes:
+$0<=\texttt{totpages}<=\mathit{reservation}$, Squeezed computes:
 $$\mathit{unused}(i) {\stackrel{def}{=}}i.\mathit{reservation} - i.\texttt{totpages}$$
 and subtracts this from its model of the host’s free memory, ensuring
 that it doesn’t accidentally reallocate this memory for some other
 purpose.
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon believes that:
 
 -   all guest domains start out as non-ballooning aware domains where
@@ -359,7 +341,7 @@ daemon believes that:
 -   some guest domains become ballooning-aware during their boot
     sequence i.e. when they write `feature-balloon`
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon considers a host to be a 5-tuple:
 $$\mathit{host} = (\mathit{ballooning~domains}, \mathit{other~domains}, s, \texttt{physinfo.free\_pages}, \mathit{reservation}_i)$$
 where
@@ -367,8 +349,7 @@ where
 $\mathit{ballooning~domains}$
 
 :   : a list of $\mathit{ballooning~domain}$ values representing domains
-    which <span><span
-    style="font-variant:small-caps;">squeezed</span></span> will
+    which Squeezed will
     instruct to balloon;
 
 $\mathit{other~domains}$
@@ -380,8 +361,7 @@ $\mathit{other~domains}$
 
 $s$
 
-:   : a “slush fund” of low memory required for <span><span
-    style="font-variant:small-caps;">Xen</span></span>;
+:   : a “slush fund” of low memory required for Xen;
 
 `physinfo.free_pages`
 
@@ -390,16 +370,16 @@ $s$
 
 $\mathit{reservation}_i$
 
-:   : a set of memory <span>*reservations*</span> not allocated to any
+:   : a set of memory *reservations* not allocated to any
     domain
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
+The Squeezed
 daemon considers memory to be unused (i.e. not allocated for any useful
 purpose) as follows:
 $$\mathit{unused~memory} = \texttt{physinfo.free\_pages} -
 \Sigma_i\mathit{reservation}_i - s - \Sigma_{i\in\mathit{other~domains}}\mathit{unused}(i)$$
 
-The main loop {#The main loop}
+The main loop
 =============
 
 The main loop [^4] is triggered by either:
@@ -412,25 +392,26 @@ The main loop [^4] is triggered by either:
 Each iteration of the main loop[^5] generates the following actions:
 
 1.  Domains which were active but have failed to make progress towards
-    their target in 5s are declared <span>*inactive*</span>. These
+    their target in 5s are declared *inactive*. These
     domains then have:
     $$\texttt{maxmem}\leftarrow\mathit{min}(\texttt{target}, \texttt{totpages})$$
 
 2.  Domains which were inactive but have started to make progress
-    towards their target are declared <span>*active*</span>. These
+    towards their target are declared *active*. These
     domains then have: $$\texttt{maxmem}\leftarrow\texttt{target}$$
 
 3.  Domains which are currently active have new targets computed
-    according to the policy (see Section [Ballooning policy]). Note that
+    according to the policy (see Section [Ballooning policy](#ballooning-policy)). Note that
     inactive domains are ignored and not expected to balloon.
 
-Note that domains remain classified as <span>*inactive*</span> only
+Note that domains remain classified as *inactive* only
 during one run of the main loop. Once the loop has terminated all
-domains are optimistically assumed to be <span>*active*</span> again.
-Therefore should a domain be classified as <span>*inactive*</span> once,
+domains are optimistically assumed to be *active* again.
+Therefore should a domain be classified as *inactive* once,
 it will get many later chances to respond.
 
-See Section [twophase section] for more detail on how targets are
+See [Two phase target setting](#two-phase-target-setting)
+for more detail on how targets are
 updated and Section [maxmem] for more detail about `maxmem`.
 
 The main loop has a notion of a host free memory “target”, similar to
@@ -440,7 +421,7 @@ increased. When we are trying to distribute memory among guests
 (e.g. after a domain has shutdown and freed lots of memory), the host
 free memory “target” is low. Note the host free memory “target” is
 always at least several MiB to ensure that some host free memory with
-physical address $<$ 4GiB is free (see Section [twophase section] for
+physical address $<$ 4GiB is free (see [Two phase target setting](#two-phase-target-setting) for
 related information).
 
 The main loop terminates when all <span>*active*</span> domains have
@@ -470,7 +451,7 @@ action. To achieve this, the daemon monitors the list of
 style="font-variant:small-caps;">XAPI</span></span> toolstack which
 currently generates an alert to inform the admin.
 
-Two-phase target setting {#twophase section}
+Two phase target setting
 ------------------------
 
 ![The diagram shows how a system with two domains can evolve if domain
