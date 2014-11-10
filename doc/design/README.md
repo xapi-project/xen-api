@@ -1,13 +1,10 @@
 Squeezed: a host memory ballooning daemon
 =========================================
 
-Version 0.2
-Date: 10th November 2014
-Converted to markdown
-
-Version: 0.1
-Date: 9th November 2009
-Initial version
+Version | Date          | Change
+--------|---------------|---------------------
+0.2     | 10th Nov 2014 | Update to markdown
+0.1     | 9th Nov 2009  | Initial version
 
 Introduction
 ============
