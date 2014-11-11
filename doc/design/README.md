@@ -502,50 +502,51 @@ The rules are:
 Example operation
 =================
 
-![The diagram shows an initial system state comprising 3 domains on a
+The diagram shows an initial system state comprising 3 domains on a
 single host. The state is not ideal; the domains each have the same
 policy settings (`dynamic-min` and `dynamic-max`) and yet are using
-differing values of $\texttt{totpages'}$. In addition the host has more
+differing values of `adjusted-totpages`. In addition the host has more
 memory free than desired. The second diagram shows the result of
 computing ideal target values and the third diagram shows the result
 after targets have been set and the balloon drivers have
-responded.](fig/calculation)
+responded.
 
-[calculation]
+![calculation](http://xapi-project.github.io/squeezed/doc/design/calculation.svg)
 
-The scenario in Figure [calculation] includes 3 domains (domain 1,
+The scenario above includes 3 domains (domain 1,
 domain 2, domain 3) on a host. Each of the domains has a non-ideal
-$\texttt{totpages'}$ value.
+`adjusted-totpages` value.
 
 Recall we also have the policy constraint that:
-$$\texttt{dynamic-min} <= \texttt{target} <= \texttt{dynamic-max}$$
+`dynamic-min` <= `target` <= `dynamic-max`
 Hypothetically if we reduce `target` by
-$\texttt{target}-\texttt{dynamic-min}$ (i.e. by setting
-$\texttt{target}\leftarrow\texttt{dynamic-min}$) then we should reduce
+`target`-`dynamic-min` (i.e. by setting
+`target` to `dynamic-min`) then we should reduce
 `totpages` by the same amount, freeing this much memory on the host. In
-the upper-most graph in Figure [calculation] the total amount of memory
+the upper-most graph in the diagram above, the total amount of memory
 which would be freed if we set each of the 3 domain’s
-$\texttt{target}\leftarrow\texttt{dynamic-min}$ is:
-$$\mathit{d1} + \mathit{d2} + \mathit{d3}$$ In this hypothetical
+`target` to `dynamic-min` is:
+`d1` + `d2` + `d3`. In this hypothetical
 situation we would now have
-$x + s + \mathit{d1} + \mathit{d2} + \mathit{d3}$ free on the host where
-$s$ is the host slush fund and $x$ is completely unallocated. Since we
+`x` + `s` + `d1` + `d2` + `d3` free on the host where
+`s` is the host slush fund and `x` is completely unallocated. Since we
 always want to keep the host free memory above $s$, we are free to
-return $x + \mathit{d1} + \mathit{d2} + \mathit{d3}$ to guests. If we
+return `x` + `d1` + `d2` + `d3` to guests. If we
 use the default built-in proportional policy then, since all domains
 have the same `dynamic-min` and `dynamic-max`, each gets the same
-fraction of this free memory which we call $g$:
-$$g {\stackrel{def}{=}}\frac{x + \mathit{d1} + \mathit{d2} + \mathit{d3}}{3}$$
+fraction of this free memory which we call `g`:
+![definition of g](http://xapi-project.github.io/squeezed/doc/design/g.svg)
 For each domain, the ideal balloon target is now
-$\texttt{target} = \texttt{dynamic-min} + g$. The <span><span
-style="font-variant:small-caps;">squeezed</span></span> daemon sets
-these targets in two phases, as described in Section [twophase section]
+`target` = `dynamic-min` + `g`.
+Squeezed does not set all the targets at once: this would allow the
+allocating domains to race with the deallocating domains, potentially allowing
+all low memory to be allocated. Therefore Squeezed sets the
+targets in [two phases](#two-phase-target-setting).
 
 The structure of the daemon
 ===========================
 
-The <span><span style="font-variant:small-caps;">squeezed</span></span>
-daemon is a single-threaded daemon which is started by an `init.d`
+Squeezed is a single-threaded daemon which is started by an `init.d`
 script. It sits waiting for incoming requests on its toolstack interface
 and checks every 10s whether all domain targets are set to the ideal
 values (see Section [Ballooning policy]). If an allocation request
