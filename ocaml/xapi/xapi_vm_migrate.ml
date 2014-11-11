@@ -921,6 +921,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 	TaskHelper.set_cancellable ~__context;
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
+		assert_can_migrate ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[];
 		migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[]
 	) ;
 	Db.VBD.get_VDI ~__context ~self:vbd
