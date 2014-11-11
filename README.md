@@ -10,13 +10,6 @@ to move memory between running VMs. It is able to:
 
 Squeezed is an optional component of the [xapi toolstack](http://wiki.xen.org/wiki/Choice_of_Toolstacks).
 
-building the design documentation
----------------------------------
-
-    git clone git://github.com/xen-org/squeezed
-    cd squeezed/doc
-    make
-
 building the development version
 --------------------------------
 
@@ -24,8 +17,16 @@ First follow the [xenopsd build instructions](http://wiki.xen.org/wiki/Building_
 
 To build squeezed:
 
-    git clone git://github.com/xen-org/squeezed
+    git clone git://github.com/xapi-project/squeezed
     cd squeezed
-    obuild configure
-    obuild build
+    ./configure
+    make
 
+There is also a version [packaged in opam](https://opam.ocaml.org/packages/xapi-squeezed/xapi-squeezed.0.10.7/).
+
+documentation
+-------------
+
+- [Architecture](doc/architecture/README.md): a high-level overview of Squeezed.
+- [Design](doc/design/README.md): discover the low-level details, formats, protocols,
+  concurrency etc.
