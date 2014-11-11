@@ -1,13 +1,5 @@
-Squeezed: a host memory ballooning daemon
-=========================================
-
-Version | Date          | Change
---------|---------------|---------------------
-0.2     | 10th Nov 2014 | Update to markdown
-0.1     | 9th Nov 2009  | Initial version
-
-Introduction
-============
+Squeezed: a host memory ballooning daemon for Xen
+=================================================
 
 Squeezed is a single host memory ballooning daemon. It helps by:
 
@@ -134,7 +126,7 @@ internal Squeezed concept and Xen is
 completely unaware of it. When the daemon is moving memory between
 domains, it always aims to keep
 ![host free memory >= s + sum_i(reservation_i)](http://xapi-project.github.io/squeezed/doc/design/hostfreemem.svg)
-where $s$ is the size of the “slush fund” (currently 9MiB) and
+where *s* is the size of the “slush fund” (currently 9MiB) and
 ![reservation_t](http://xapi-project.github.io/squeezed/doc/design/reservation.svg)
 is the amount corresponding to the *i*th
 reservation.
@@ -221,32 +213,25 @@ Every domain has a pair of values written into xenstore:
 `memory/dynamic-min` and `memory/dynamic-max` with the following
 meanings:
 
-`memory/dynamic-min`
-
-:   : the lowest value that Squeezed is allowed
-    to set `memory/target`. The administrator should make this as low as
-    possible but high enough to ensure that the applications inside the
-    domain actually work.
-
-`memory/dynamic-max`
-
-:   : the highest value that Squeezed is allowed
-    to set `memory/target`. This can be used to dynamically cap the
-    amount of memory a domain can use.
+- `memory/dynamic-min` the lowest value that Squeezed is allowed
+  to set `memory/target`. The administrator should make this as low as
+  possible but high enough to ensure that the applications inside the
+  domain actually work.
+- `memory/dynamic-max`
+  the highest value that Squeezed is allowed
+  to set `memory/target`. This can be used to dynamically cap the
+  amount of memory a domain can use.
 
 If all balloon drivers are responsive then Squeezed daemon allocates
 memory proportionally, so that each domain has the same value of:
-$$\frac{
-\texttt{memory/target}-\texttt{memory/dynamic-min}
-}{
-\texttt{memory/dynamic-max}-\texttt{memory/dynamic-min}
-}$$ So:
+![target-min/(max-min)](http://xapi-project.github.io/squeezed/doc/design/fraction.svg)
+So:
 
 -   if memory is plentiful then all domains will have
-    $\texttt{memory/target}=\texttt{memory/dynamic-max}$
+    `memory/target`=`memory/dynamic-max`
 
 -   if memory is scarce then all domains will have
-    $\texttt{memory/target}=\texttt{memory/dynamic-min}$
+    `memory/target`=`memory/dynamic-min`
 
 Note that the values of `memory/target` suggested by the policy are
 ideal values. In many real-life situations (e.g. when a balloon driver
@@ -254,10 +239,11 @@ fails to make progress and is declared *inactive*) the
 `memory/target` values will be different.
 
 Note that, by default, domain 0 has
-$\texttt{dynamic\_min}=\texttt{dynamic\_max}$, effectively disabling
+`memory/dynamic-min=`memory/dynamic-max`, effectively disabling
 ballooning. Clearly a more sophisticated policy would be required here
-since ballooning down domain 0 as extra domains are started would be…
-problematic.
+since ballooning down domain 0 as extra domains are started would be
+counterproductive while backends and control interfaces remaining in
+domain 0.
 
 The memory model
 ================
@@ -661,6 +647,14 @@ Issues
     <span>*inactive*</span> for 20s means that a domain could alternate
     between <span>*inactive*</span> for 19s and <span>*active*</span>
     for 1s and not be declared “uncooperative”.
+
+Document history
+----------------
+
+Version | Date          | Change
+--------|---------------|---------------------
+0.2     | 10th Nov 2014 | Update to markdown
+0.1     | 9th Nov 2009  | Initial version
 
 [^1]: <http://wiki.xensource.com/xenwiki/Open_Topics_For_Discussion?action=AttachFile&do=get&target=Memory+Overcommit.pdf>
 
