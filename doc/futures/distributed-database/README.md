@@ -123,4 +123,45 @@ A basic prototype has been created:
   opam pin add xapi-database git://github.com/djs55/xapi-database
   opam pin add xapi git://github.com/djs55/xen-api#schema-sexp
 ```
+The ```xapi-database``` is clone of the existing Xapi database code
+configured to run as a separate process. There is
+[code to convert from XML to git](https://github.com/djs55/xapi-database/blob/master/core/db_git.ml#L55)
+and
+[an implementation of the Xapi remote database API](https://github.com/djs55/xapi-database/blob/master/core/db_git.ml#L186)
+which uses the following layout:
+```
+$ git clone /xapi.db db
+Cloning into 'db'...
+done.
 
+$ cd db; ls
+xapi
+
+$ ls xapi
+console   host_metrics  PCI          pool     SR      user  VM
+host      network       PIF          session  tables  VBD   VM_metrics
+host_cpu  PBD           PIF_metrics  SM       task    VDI
+
+$ ls xapi/pool
+OpaqueRef:39adc911-0c32-9e13-91a8-43a25939110b
+
+$ ls xapi/pool/OpaqueRef\:39adc911-0c32-9e13-91a8-43a25939110b/
+crash_dump_SR                 __mtime           suspend_image_SR
+__ctime                       name_description  uuid
+default_SR                    name_label        vswitch_controller
+ha_allow_overcommit           other_config      wlb_enabled
+ha_enabled                    redo_log_enabled  wlb_password
+ha_host_failures_to_tolerate  redo_log_vdi      wlb_url
+ha_overcommitted              ref               wlb_username
+ha_plan_exists_for            _ref              wlb_verify_cert
+master                        restrictions
+
+$ ls xapi/pool/OpaqueRef\:39adc911-0c32-9e13-91a8-43a25939110b/other_config/
+cpuid_feature_mask  memory-ratio-hvm  memory-ratio-pv
+
+$ cat xapi/pool/OpaqueRef\:39adc911-0c32-9e13-91a8-43a25939110b/other_config/cpuid_feature_mask
+ffffff7f-ffffffff-ffffffff-ffffffff
+```
+Notice how:
+- every object is a directory
+- every key/value pair is represented as a file
