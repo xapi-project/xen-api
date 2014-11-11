@@ -247,6 +247,7 @@ counterproductive while backends and control interfaces remain in
 domain 0.
 
 The memory model
+================
 
 Squeezed
 considers a ballooning-aware domain (i.e. one which has written
@@ -346,23 +347,23 @@ purpose) if it is neither in use by a domain nor reserved.
 The main loop
 =============
 
-The main loop [^4] is triggered by either:
+The main loop is triggered by either:
 
 1.  the arrival of an allocation request on the toolstack interface; or
 
 2.  the policy engine – polled every 10s – deciding that a target
-    adjustment is needed.
+    [adjustment is needed](https://github.com/xapi-project/squeezed/blob/7a5601d1543bd27e1e390a0a4f0a50aa531760e6/src/memory_server.ml#L60).
 
-Each iteration of the main loop[^5] generates the following actions:
+Each iteration of the main loop generates the following actions:
 
 1.  Domains which were active but have failed to make progress towards
     their target in 5s are declared *inactive*. These
     domains then have:
-    $$\texttt{maxmem}\leftarrow\mathit{min}(\texttt{target}, \texttt{totpages})$$
+    `maxmem` set to the minimum of `target` and `totpages.
 
 2.  Domains which were inactive but have started to make progress
     towards their target are declared *active*. These
-    domains then have: $$\texttt{maxmem}\leftarrow\texttt{target}$$
+    domains then have: `maxmem` set to `target`.
 
 3.  Domains which are currently active have new targets computed
     according to the policy (see Section [Ballooning policy](#ballooning-policy)). Note that
@@ -374,9 +375,9 @@ domains are optimistically assumed to be *active* again.
 Therefore should a domain be classified as *inactive* once,
 it will get many later chances to respond.
 
-See [Two phase target setting](#two-phase-target-setting)
-for more detail on how targets are
-updated and Section [maxmem] for more detail about `maxmem`.
+The targets are set in [two phases](#two-phase-target-setting).
+The [maxmem](#use-of-maxmem) is used to prevent domains suddenly allocating
+more memory than we want them to.
 
 The main loop has a notion of a host free memory “target”, similar to
 the existing domain memory `target`. When we are trying to free memory
@@ -385,10 +386,10 @@ increased. When we are trying to distribute memory among guests
 (e.g. after a domain has shutdown and freed lots of memory), the host
 free memory “target” is low. Note the host free memory “target” is
 always at least several MiB to ensure that some host free memory with
-physical address $<$ 4GiB is free (see [Two phase target setting](#two-phase-target-setting) for
+physical address less than 4GiB is free (see [Two phase target setting](#two-phase-target-setting) for
 related information).
 
-The main loop terminates when all <span>*active*</span> domains have
+The main loop terminates when all *active* domains have
 reached their targets (this could be because all domains responded or
 because they all wedged and became inactive); and the policy function
 hasn’t suggested any new target changes. There are three possible
@@ -400,36 +401,35 @@ results:
     limits (i.e. `dynamic_min` values are too high;
 
 3.  Failure if the operation failed because one or more domains became
-    <span>*inactive*</span> and this prevented us from reaching our host
+    *inactive* and this prevented us from reaching our host
     free memory “target”.
 
-Note that, since only <span>*active*</span> domains have their targets
+Note that, since only *active* domains have their targets
 set, the system effectively rewards domains which refuse to free memory
-(<span>*inactive*</span>) and punishes those which do free memory
-(<span>*active*</span>). This effect is countered by signalling to the
+(*inactive*) and punishes those which do free memory
+(*active*). This effect is countered by signalling to the
 admin which domains/VMs aren’t responding so they can take corrective
 action. To achieve this, the daemon monitors the list of
-<span>*inactive*</span> domains and if a domain is
-<span>*inactive*</span> for more than 20s it writes a flag into xenstore
-`memory/uncooperative`. This key is seen by the <span><span
-style="font-variant:small-caps;">XAPI</span></span> toolstack which
-currently generates an alert to inform the admin.
+*inactive* domains and if a domain is
+*inactive* for more than 20s it writes a flag into xenstore
+`memory/uncooperative`. This key can be monitored and used to generate
+an alert, if desired.
 
 Two phase target setting
 ------------------------
 
-![The diagram shows how a system with two domains can evolve if domain
+The following diagram shows how a system with two domains can evolve if domain
 `memory/target` values are increased for some domains and decreased for
 others, at the same time. Each graph shows two domains (domain 1 and
 domain 2) and a host. For a domain, the square box shows its
-$\texttt{totpages'}$ and the arrow indicates the direction of the
+`adjusted-totpages` and the arrow indicates the direction of the
 `memory/target`. For the host the square box indicates total free
 memory. Note the highlighted state where the host’s free memory is
-temporarily exhausted.](fig/twophase)
+temporarily exhausted
 
-[twophase]
+![Two phase target setting](http://xapi-project.github.io/squeezed/doc/design/twophase.svg)
 
-Consider the scenario shown graphically in Figure [twophase]. In the
+In the
 initial state (at the top of the diagram), there are two domains, one
 which has been requested to use more memory and the other requested to
 use less memory. In effect the memory is to be transferred from one
@@ -440,24 +440,22 @@ initially. However the system will not move atomically from the initial
 state to the final: there are a number of possible transient in-between
 states, two of which have been drawn in the middle of the diagram. In
 the left-most transient state the domain which was asked to
-<span>*free*</span> memory has freed all the memory requested: this is
+*free* memory has freed all the memory requested: this is
 reflected in the large amount of host memory free. In the right-most
-transient state the domain which was asked to <span>*allocate*</span>
+transient state the domain which was asked to *allocate*
 memory has allocated all the memory requested: now the host’s free
 memory has hit zero.
 
-If the host’s free memory hits zero then <span><span
-style="font-variant:small-caps;">Xen</span></span> has been forced to
-give all memory to guests, including memory $<$ 4GiB which is critical
+If the host’s free memory hits zero then Xen  has been forced to
+give all memory to guests, including memory less than 4GiB which is critical
 for allocating certain structures. Even if we ask a domain to free
 memory via the balloon driver there is no guarantee that it will free
-the <span>*useful*</span> memory. This leads to an annoying failure mode
+the *useful* memory. This leads to an annoying failure mode
 where operations such as creating a domain free due to `ENOMEM` despite
 the fact that there is apparently lots of memory free.
 
 The solution to this problem is to adopt a two-phase `memory/target`
-setting policy. The <span><span
-style="font-variant:small-caps;">squeezed</span></span> daemon forces
+setting policy. The Squeezed daemon forces
 domains to free memory first before allowing domains to allocate,
 in-effect forcing the system to move through the left-most state in the
 diagram above.
