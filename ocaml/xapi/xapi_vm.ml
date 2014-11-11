@@ -199,6 +199,13 @@ let start ~__context ~vm ~start_paused ~force =
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
+	(* Clear out any VM guest metrics record. Guest metrics will be updated by
+	 * the running VM and for now they might be wrong, especially network
+	 * addresses inherited by a cloned VM. *)
+	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
+	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
+
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
 	match vmr.API.vM_VGPUs with
