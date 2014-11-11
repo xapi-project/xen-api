@@ -463,23 +463,23 @@ diagram above.
 Use of maxmem
 -------------
 
-The <span><span style="font-variant:small-caps;">Xen</span></span>
+The Xen
 domain `maxmem` value is used to limit memory allocations by the domain.
 The rules are:
 
 1.  if the domain has never been run and is paused then
-    $\texttt{maxmem}\leftarrow\texttt{reservation}$ (for information
-    about reservations see Section [Toolstack interface](#toolstack-interface);
+    `maxmem` is set to `reservation (reservations were described
+    in the [Toolstack interface](#toolstack-interface) section above);
 
     -   these domains are probably still being built and we must let
         them allocate their `startmem`
 
-    -   **FIXME**: this \`\`never been run’ concept pre-dates the
+    -   **FIXME**: this "never been run" concept pre-dates the
         `feature-balloon` flag: perhaps we should use the
         `feature-balloon` flag instead.
 
 2.  if the domain is running and the balloon driver is thought to be
-    working then $\texttt{maxmem}\leftarrow\texttt{target}$; and
+    working then `maxmem` is set to `target`; and
 
     -   there may be a delay between lowering a target and the domain
         noticing so we prevent the domain from allocating memory when it
@@ -487,7 +487,7 @@ The rules are:
 
 3.  if the domain is running and the balloon driver is thought to be
     inactive then
-    $\texttt{maxmem}\leftarrow \mathit{min}(\texttt{target}, \texttt{actual})$.
+    `maxmem` is set to the minimum of `target` and `actual`.
 
     -   if the domain is using more memory than it should then we allow
         it to make progress down towards its target; however
