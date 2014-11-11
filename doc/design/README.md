@@ -58,7 +58,7 @@ Environmental assumptions
 2.  The Squeezed daemon calls
     `setmaxmem` in order to cap the amount of memory a domain can use.
     This relies on a patch to xen[^2] which allows `maxmem` to be set
-    lower than `totpages`. See Section [maxmem](#maxmem) for more information.
+    lower than `totpages`. See Section [maxmem](#use-of-maxmem) for more information.
 
 3.  The Squeezed daemon
     assumes that only domains which write `control/feature-balloon` into
@@ -92,9 +92,12 @@ Environmental assumptions
     value.
 
     -   Corrollary: to make a domain with a responsive balloon driver
-        currenty using `totpages` allocate or free $x$, it suffices to
+        currenty using `totpages` allocate or free
+        ![x](http://xapi-project.github.io/squeezed/doc/design/x.svg),
+        it suffices to
         set `memory/target` to
-        $x+\texttt{totpages}+\texttt{memory-offset}$ and wait for the
+        ![x+totpages-memoryoffset](http://xapi-project.github.io/squeezed/doc/design/xtotpages.svg)
+        and wait for the
         balloon driver to finish. See Section [memory model](#the-memory-model) for more
         detail.
 
@@ -498,8 +501,8 @@ domains to free memory first before allowing domains to allocate,
 in-effect forcing the system to move through the left-most state in the
 diagram above.
 
-Use of `maxmem` {#maxmem}
----------------
+Use of maxmem
+-------------
 
 The <span><span style="font-variant:small-caps;">Xen</span></span>
 domain `maxmem` value is used to limit memory allocations by the domain.
@@ -666,4 +669,3 @@ Issues
 [^8]: <http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xenops&m=Squeeze_test>
 
 [^9]: <http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/lowmem-emergency-pool>
-
