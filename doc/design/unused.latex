@@ -1,0 +1,1 @@
+$$\mathit{unused}(i) {\stackrel{def}{=}}i.\mathit{reservation} - i.\texttt{totpages}$$

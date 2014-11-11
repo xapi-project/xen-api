@@ -225,6 +225,7 @@ meanings:
 If all balloon drivers are responsive then Squeezed daemon allocates
 memory proportionally, so that each domain has the same value of:
 ![target-min/(max-min)](http://xapi-project.github.io/squeezed/doc/design/fraction.svg)
+
 So:
 
 -   if memory is plentiful then all domains will have
@@ -239,96 +240,75 @@ fails to make progress and is declared *inactive*) the
 `memory/target` values will be different.
 
 Note that, by default, domain 0 has
-`memory/dynamic-min=`memory/dynamic-max`, effectively disabling
+`memory/dynamic-min`=`memory/dynamic-max`, effectively disabling
 ballooning. Clearly a more sophisticated policy would be required here
 since ballooning down domain 0 as extra domains are started would be
-counterproductive while backends and control interfaces remaining in
+counterproductive while backends and control interfaces remain in
 domain 0.
 
 The memory model
-================
 
-This section describes the model used internally by Squeezed.
+Squeezed
+considers a ballooning-aware domain (i.e. one which has written
+the `feature-balloon` flag into xenstore) to be completely described by
+the parameters:
 
-The Squeezed
-daemon considers a ballooning-aware domain (i.e. one which has written
-the `feature-balloon` flag into xenstore) to be a 6-tuple:
-$$\mathit{ballooning~domain} = (\texttt{dynamic-min}, \texttt{dynamic-max}, \texttt{target}, \texttt{totpages}, \texttt{memory-offset}, \texttt{maxmem})$$
-where
+- `dynamic-min`: policy value written to `memory/dynamic-min` in xenstore by a
+  toolstack (see Section [Ballooning policy](#ballooning-policy))
 
-`dynamic-min`
-
-:   : policy value written to `memory/dynamic-min` in xenstore by a
+- `dynamic-max`: policy value written to `memory/dynamic-max` in xenstore by a
     toolstack (see Section [Ballooning policy](#ballooning-policy))
 
-`dynamic-max`
+- `target`: balloon driver target written to `memory/target` in xenstore by
+   Squeezed.
 
-:   : policy value written to `memory/dynamic-max` in xenstore by a
-    toolstack (see Section [Ballooning policy](#ballooning-policy))
+- `totpages`: instantaneous number of pages used by the domain as returned by
+  the hypercall `domain_getinfo`
 
-`target`
+- `memory-offset`: constant difference between `target` and `totpages` when the
+  balloon driver believes no ballooning is necessary: where
+  `memory-offset` = `totpages` - `target` when the balloon driver believes it
+  has reached its target.
 
-:   : balloon driver target written to `memory/target` in xenstore by Squeezed.
+- `maxmem`: upper limit on `totpages`: where `totpages` <= `maxmem`
 
-`totpages`
-
-:   : instantaneous number of pages used by the domain as returned by
-    `domain_getinfo`
-
-`memory-offset`
-
-:   : constant difference between `target` and `totpages` when the
-    balloon driver believes no ballooning is necessary:
-    $$\texttt{memory-offset} {\stackrel{def}{=}}\texttt{totpages} - \texttt{target} \mathit{~when~idle}$$
-
-`maxmem`
-
-:   : upper limit on `totpages`:
-    $$\texttt{totpages} <= \texttt{maxmem}$$
-
-For convenience we define a `totpages’` to be the target value necessary
+For convenience we define a `adjusted-target` to be the *target* value necessary
 to cause a domain currently using `totpages` to maintain this value
-indefinitely.
-$$\texttt{totpages'} {\stackrel{def}{=}}\texttt{totpages} - \texttt{memory-offset}$$
+indefinitely so `adjusted-target` = `totpages` - `memory-offset`.
 
 The Squeezed
 daemon believes that:
 
 -   a domain should be ballooning iff
-    $\texttt{totpages'} <> \texttt{target}$ (unless it has become
-    <span>*inactive*</span>);
+    `adjusted-target` <> `target` (unless it has become *inactive*)
 
 -   a domain has hit its target iff
-    $\texttt{totpages'} = \texttt{target}$ (to within 1 page);
+    `adjusted-target` = `target` (to within 1 page);
 
--   if a domain has $\texttt{target}\leftarrow x$ then, when ballooning
+-   if a domain has
+    `target` = `x` then, when ballooning
     is complete, it will have
-    $\texttt{totpages}=\texttt{memory-offset}+x$; and therefore
+    `totpages` = `memory-offset` + `x`; and therefore
 
--   to cause a domain to free $y$ it sufficies to set
-    $\texttt{target}\leftarrow\texttt{totpages}-\texttt{memory-offset}-y$.
+-   to cause a domain to free `y` it sufficies to set
+    `target` := `totpages` - `memory-offset` - `y`.
 
 The Squeezed
 daemon considers non-ballooning aware domains (i.e. those which have not
 written `feature-balloon`) to be represented by pairs of:
-$$\mathit{other~domain} = (\texttt{totpages}, \mathit{reservation})$$
-where
 
-`totpages`
-
-:   : instantaneous number of pages used by the domain as returned by
+- `totpages`: instantaneous number of pages used by the domain as returned by
     `domain_getinfo`
 
-$\mathit{reservation}$
-
-:   : memory initially freed for this domain by Squeezed after a
-    `transfer_reservation_to_domid` call
+- `reservation`: memory initially freed for this domain by Squeezed after a
+  `transfer_reservation_to_domid` call
 
 Note that non-ballooning aware domains will always have
-$\texttt{startmem}=\texttt{target}$ since the domain will not be
+`startmem` = `target`
+since the domain will not be
 instructed to balloon. Since a domain which is being built will have
-$0<=\texttt{totpages}<=\mathit{reservation}$, Squeezed computes:
-$$\mathit{unused}(i) {\stackrel{def}{=}}i.\mathit{reservation} - i.\texttt{totpages}$$
+0 <= `totpages` <= `reservation`, Squeezed computes
+![unused(i)=reservation(i)-totpages](http://xapi-project.github.io/squeezed/doc/design/unused.svg)
 and subtracts this from its model of the host’s free memory, ensuring
 that it doesn’t accidentally reallocate this memory for some other
 purpose.
@@ -337,48 +317,31 @@ The Squeezed
 daemon believes that:
 
 -   all guest domains start out as non-ballooning aware domains where
-    $\texttt{target}=\mathit{reservation}=\texttt{startmem}$;
+    `target`=`reservation`=`startmem`$;
 
 -   some guest domains become ballooning-aware during their boot
     sequence i.e. when they write `feature-balloon`
 
 The Squeezed
-daemon considers a host to be a 5-tuple:
-$$\mathit{host} = (\mathit{ballooning~domains}, \mathit{other~domains}, s, \texttt{physinfo.free\_pages}, \mathit{reservation}_i)$$
-where
+daemon considers a host to be represented by:
 
-$\mathit{ballooning~domains}$
+- ballooning domains: a set of domains which Squeezed will instruct
+  to balloon;
 
-:   : a list of $\mathit{ballooning~domain}$ values representing domains
-    which Squeezed will
-    instruct to balloon;
+- other domains: a set of booting domains and domains which have no
+  balloon drivers (or whose balloon drivers have failed)
 
-$\mathit{other~domains}$
+- a "slush fund" of low memory required for Xen
 
-:   : a list of $\mathit{other~domain}$ values which includes both
-    domains which are still booting and will transform into
-    $\mathit{ballooning~domains}$ and those which have no balloon
-    drivers.
+- `physinfo.free_pages` total amount of memory instantanously free
+  (including both `free_pages` and `scrub_pages`)
 
-$s$
-
-:   : a “slush fund” of low memory required for Xen;
-
-`physinfo.free_pages`
-
-:   : total amount of memory instantanously free (including both
-    `free_pages` and `scrub_pages`)
-
-$\mathit{reservation}_i$
-
-:   : a set of memory *reservations* not allocated to any
-    domain
+- reservations: batches of free memory which are not (yet) associated
+  with any domain
 
 The Squeezed
 daemon considers memory to be unused (i.e. not allocated for any useful
-purpose) as follows:
-$$\mathit{unused~memory} = \texttt{physinfo.free\_pages} -
-\Sigma_i\mathit{reservation}_i - s - \Sigma_{i\in\mathit{other~domains}}\mathit{unused}(i)$$
+purpose) if it is neither in use by a domain nor reserved.
 
 The main loop
 =============
