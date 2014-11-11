@@ -118,9 +118,9 @@ Prototype
 =========
 
 A basic prototype has been created:
-
+```
   opam pin xen-api-client git://github.com/djs55/xen-api-client#improvements
   opam pin add xapi-database git://github.com/djs55/xapi-database
   opam pin add xapi git://github.com/djs55/xen-api#schema-sexp
-
+```
 
