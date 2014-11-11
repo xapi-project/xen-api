@@ -26,7 +26,8 @@ on a number of
 [assumptions about the environment](#environmental-assumptions),
 for example that most domains have co-operative balloon drivers.
 In theory the policy could be replaced later with something more sophisticated
-(c.f. *xenballoond*[^1])).
+(for example see
+[xenballoond](https://github.com/avsm/xen-unstable/blob/master/tools/xenballoon/xenballoond.README)).
 
 The [Toolstack interface](#toolstack-interface) is used by
 [Xenopsd](https://github.com/xapi-project/xenopsd) to free memory
@@ -35,7 +36,7 @@ Although the only known client is Xenopsd,
 the interface can in theory be used by other clients. Multiple clients
 can safely use the interface at the same time.
 
-The [internal structure]((#the-structure-of-the-daemon) consists of
+The [internal structure](#the-structure-of-the-daemon) consists of
 a single-thread event loop. To see how it works end-to-end, consult
 the [example](#example-operation).
 
@@ -54,8 +55,9 @@ Environmental assumptions
 
 2.  The Squeezed daemon calls
     `setmaxmem` in order to cap the amount of memory a domain can use.
-    This relies on a patch to xen[^2] which allows `maxmem` to be set
-    lower than `totpages`. See Section [maxmem](#use-of-maxmem) for more information.
+    This relies on a patch to
+    [xen which allows `maxmem` to be set lower than `totpages`](http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/max-pages-below-tot-pages).
+    See Section [maxmem](#use-of-maxmem) for more information.
 
 3.  The Squeezed daemon
     assumes that only domains which write `control/feature-balloon` into
@@ -73,7 +75,7 @@ Environmental assumptions
     assumes that a domain which is created with a particular
     `memory/target` (and `startmem`, to within rounding error) will
     reach a stable value of `totpages` before writing
-    `control/feature-balloon`.[^3]The daemon writes this value to
+    `control/feature-balloon`. The daemon writes this value to
     `memory/memory-offset` for future reference.
 
     -   The Squeezed daemon
@@ -90,10 +92,10 @@ Environmental assumptions
 
     -   Corrollary: to make a domain with a responsive balloon driver
         currenty using `totpages` allocate or free
-        ![x](http://xapi-project.github.io/squeezed/doc/design/x.svg),
+        *x*
         it suffices to
         set `memory/target` to
-        ![x+totpages-memoryoffset](http://xapi-project.github.io/squeezed/doc/design/xtotpages.svg)
+        *x+`totpages`-`memoryoffset`*
         and wait for the
         balloon driver to finish. See Section [memory model](#the-memory-model) for more
         detail.
@@ -102,12 +104,13 @@ Environmental assumptions
     maintain a “slush fund” of memory (currently 9MiB) which it must
     prevent any domain from allocating. Since (i) some Xen operations (such
     as domain creation) require memory within a physical address range
-    (e.g. $<$ 4GiB) and (ii) since Xen preferentially
+    (e.g. less than 4GiB) and (ii) since Xen preferentially
     allocates memory outside these ranges, it follows that by preventing
     guests from allocating *all* host memory (even
     transiently) we guarantee that memory from within these special
-    ranges is always available. See Section [twophase section](#twophase-section) for more
-    details.
+    ranges is always available. Squeezed operates in
+    [two phases](#twophase-section): first causing memory to be freed; and
+    second causing memory to be allocated.
 
 8.  The Squeezed daemon
     assumes that it may set `memory/target` to any value within range:
@@ -124,18 +127,16 @@ Environmental assumptions
 
 # Toolstack interface
 
-This section begins by describing the concept of a
-*reservation* and then describes the toolstack interface in
-pseudocode.
-
+The toolstack interface introduces the concept of a *reservation*.
 A *reservation* is: an amount of host free memory tagged
 with an associated *reservation id*. Note this is an
 internal Squeezed concept and Xen is
 completely unaware of it. When the daemon is moving memory between
 domains, it always aims to keep
-$$\mathit{host\ free\ memory} >= s + \sum_i{\mathit{reservation}_i}$$
+![host free memory >= s + sum_i(reservation_i)](http://xapi-project.github.io/squeezed/doc/design/hostfreemem.svg)
 where $s$ is the size of the “slush fund” (currently 9MiB) and
-$\mathit{reservation}_i$ is the amount corresponding to the $i$th
+![reservation_t](http://xapi-project.github.io/squeezed/doc/design/reservation.svg)
+is the amount corresponding to the *i*th
 reservation.
 
 As an aside: Earlier versions of Squeezed always
@@ -172,29 +173,43 @@ leaks where a client crashes and loses track of its own reservation ids.
 
 The interface looks like this:
 
-    string session_id login(string client_name)
+    string session_id login(
+      string client_name
+    )
 
-    string reservation_id reserve_memory(string client_name, int kib)
-    int amount, string reservation_id reserve_memory_range(string client_name, int min, int max)
+    string reservation_id reserve_memory(
+      string client_name,
+      int kib
+    )
 
-    void delete_reservation(string client_name, string reservation_id)
+    int amount, string reservation_id reserve_memory_range(
+      string client_name,
+      int min,
+      int max
+    )
 
-    void transfer_reservation_to_domain(string client_name, string reservation_id, int domid)
+    void delete_reservation(
+      string client_name,
+      string reservation_id
+    )
 
-The Xapi
-toolstack has code like the following: (in
-<http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xapi&m=Vmops>)
+    void transfer_reservation_to_domain(
+      string client_name,
+      string reservation_id,
+      int domid
+    )
 
-     r_id = reserve_memory_range("xapi", min, max);
+[The Xenopsd code](https://github.com/xapi-project/xenopsd/blob/bf4f8d13ded299b56e55a4b36221ada3dfa0b2b1/xc/xenops_server_xen.ml#L353) in pseudocode works as follows:
+
+     r_id = reserve_memory_range("xenopsd", min, max);
      try:
         d = domain_create()
-        transfer_reservation_to_domain("xapi", r_id, d)
+        transfer_reservation_to_domain("xenopsd", r_id, d)
      with:
-        delete_reservation("xapi", r_id)
+        delete_reservation("xenopsd", r_id)
 
-The interface is currently implemented using a trivial RPC protocol over
-xenstore where requests and responses are directories and their
-parameters and return values are keys in those directories.
+The interface is currently implemented using a trivial RPC protocol
+over a Unix domain socket in domain 0.
 
 Ballooning policy
 =================
