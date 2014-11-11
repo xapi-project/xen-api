@@ -16,6 +16,6 @@ Principles
 
 Contents
 --------
-- [Architecture](doc/architecture/README.md): a high-level overview of Squeezed.
+- [Architecture](architecture/README.md): a high-level overview of Squeezed.
 - [Design](design/README.md): discover the low-level details, formats, protocols,
   concurrency etc.
