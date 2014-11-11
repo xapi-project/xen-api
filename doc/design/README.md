@@ -125,7 +125,9 @@ with an associated *reservation id*. Note this is an
 internal Squeezed concept and Xen is
 completely unaware of it. When the daemon is moving memory between
 domains, it always aims to keep
+
 ![host free memory >= s + sum_i(reservation_i)](http://xapi-project.github.io/squeezed/doc/design/hostfreemem.svg)
+
 where *s* is the size of the “slush fund” (currently 9MiB) and
 ![reservation_t](http://xapi-project.github.io/squeezed/doc/design/reservation.svg)
 is the amount corresponding to the *i*th
