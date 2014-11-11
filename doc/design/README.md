@@ -9,42 +9,39 @@ Version | Date          | Change
 Introduction
 ============
 
-We wish to:
+Squeezed is a single host memory ballooning daemon. It helps by:
 
-1.  allow VM memory to be adjusted dynamically without having to reboot;
+1.  allowing VM memory to be adjusted dynamically without having to reboot;
     and
 
-2.  “squeeze” a few more VMs onto a host to cover the interval between
-    another host failing and more capacity being brought online.
+2.  avoiding wasting memory by keeping everything fully utilised, while retaining
+    the ability to take memory back to start new VMs.
 
-Squeezed is a
-per-host memory ballooning daemon. It performs two tasks:
+Squeezed currently includes a simple
+[Ballooning policy](#ballooning-policy)
+which serves as a useful default.
+The policy is written with respect to an abstract
+[Xen memory model](#the-memory-model), which is based
+on a number of
+[assumptions about the environment](#environmental-assumptions),
+for example that most domains have co-operative balloon drivers.
+In theory the policy could be replaced later with something more sophisticated
+(c.f. *xenballoond*[^1])).
 
-1.  it exports a simple host memory management interface to the
-    [Xapi toolstack](https://github.com/xapi-project/xapi-project)
-    toolstack through which [Xenopsd](https://github.com/xapi-project/xenopsd) can
-    *reserve* memory for new domains;
+The [Toolstack interface](#toolstack-interface) is used by
+[Xenopsd](https://github.com/xapi-project/xenopsd) to free memory
+for starting new VMs.
+Although the only known client is Xenopsd,
+the interface can in theory be used by other clients. Multiple clients
+can safely use the interface at the same time.
 
-2.  it applies a *ballooning policy* to all domains running
-    on a host.
+The [internal structure]((#the-structure-of-the-daemon) consists of
+a single-thread event loop. To see how it works end-to-end, consult
+the [example](#example-operation).
 
-The daemon currently includes a simple ballooning policy (see
-Section [Ballooning policy](#ballooning-policy) and the intention is that this can be
-replaced later with more sophisticated policies
-(e.g. *xenballoond*[^1])). Although the only client is the
-Xapi toolstack, the interface can in theory be used by other clients.
-
-The rest of this document is structured as follows.
-Section [assumptions](#assumptions) lists assumptions made by the ballooning daemon on
-other parts of the system; these assumptions need careful review and may
-not be valid. Section [Toolstack interface](#toolstack-interface) describes the interface
-between the toolstack and the ballooning daemon. Section
-[Ballooning policy](#ballooning-policy) describes the simple built-in ballooning policy and
-Section [memory model](#the-memory-model) describes how Squeezed models memory.
-The main loop of the daemon is described in Section [The main loop](#the-main-loop) and
-a detailed example is described in Section [example](#example).
-Section [structure](#structure) describes the structure of the daemon itself and
-finally Section [issues](#issues) lists some known issues.
+No software is ever perfect; to understand the flaws in Squeezed,
+please consult the
+[list of issues](#issues).
 
 Environmental assumptions
 =========================
@@ -540,7 +537,7 @@ The rules are:
     -   **FIXME**: should we reduce the target to leave the domain in a
         neutral state instead of asking it to allocate and fail forever?
 
-Example operation {#example}
+Example operation
 =================
 
 ![The diagram shows an initial system state comprising 3 domains on a
@@ -582,7 +579,7 @@ $\texttt{target} = \texttt{dynamic-min} + g$. The <span><span
 style="font-variant:small-caps;">squeezed</span></span> daemon sets
 these targets in two phases, as described in Section [twophase section]
 
-The structure of the daemon {#structure}
+The structure of the daemon
 ===========================
 
 The <span><span style="font-variant:small-caps;">squeezed</span></span>
