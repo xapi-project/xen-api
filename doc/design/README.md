@@ -549,26 +549,28 @@ The structure of the daemon
 Squeezed is a single-threaded daemon which is started by an `init.d`
 script. It sits waiting for incoming requests on its toolstack interface
 and checks every 10s whether all domain targets are set to the ideal
-values (see Section [Ballooning policy]). If an allocation request
+values
+(recall the [Ballooning policy](#ballooning-policy)). If an allocation request
 arrives or if the domain targets require adjusting then it calls into
 the module
-[ocaml/xenops/squeeze\_xen.ml](ocaml/xenops/squeeze_xen.ml)[^6].
+[squeeze_xen.ml](https://github.com/xapi-project/squeezed/blob/master/src/squeeze_xen.ml).
 
-The module [ocaml/xenops/squeeze\_xen.ml](ocaml/xenops/squeeze_xen.ml)
+The module
+[src/squeeze_xen.ml](https://github.com/xapi-project/squeezed/blob/master/src/squeeze_xen.ml)
 contains code which inspects the state of the host (through hypercalls
 and reading xenstore) and creates a set of records describing the
 current state of the host and all the domains. Note this snapshot of
 state is not atomic – it is pieced together from multiple hypercalls and
 xenstore reads – we assume that the errors generated are small and we
 ignore them. These records are passed into the
-[ocaml/xenops/squeeze.ml](ocaml/xenops/squeeze.ml)[^7] module where they
-are processed and converted into a list of <span>*actions*</span> i.e.
+[squeeze.ml](https://github.com/xapi-project/squeezed/blob/master/lib/squeeze.ml)
+module where they
+are processed and converted into a list of *actions* i.e.
 (i) updates to `memory/target` and; (ii) declarations that particular
-domains have become <span>*inactive*</span> or <span>*active*</span>.
-The rationale for separating the <span><span
-style="font-variant:small-caps;">Xen</span></span> interface from the
+domains have become *inactive* or *active*.
+The rationale for separating the Xen interface from the
 main ballooning logic was to make testing easier: the module
-[ocaml/xenops/squeeze\_test.ml](ocaml/xenops/squeeze_test.ml)[^8]
+[test/squeeze_test.ml](https://github.com/xapi-project/squeezed/blob/master/test/squeeze_test.ml)
 contains a simple simulator which allows various edge-cases to be
 checked.
 
@@ -578,8 +580,8 @@ Issues
 -   If a linux domU kernel has the netback, blkback or blktap modules
     then they away pages via `alloc_empty_pages_and_pagevec()` during
     boot. This interacts with the balloon driver to break the assumption
-    that, reducing the target by $x$ from a neutral value should free
-    $x$ amount of memory.
+    that, reducing the target by `x` from a neutral value should free
+    `x` amount of memory.
 
 -   Polling the state of the host (particular the xenstore contents) is
     a bit inefficient. Perhaps we should move the policy values
@@ -590,24 +592,24 @@ Issues
     We may wish to similarly quantise the `target` value or check that
     the `memory-offset` calculation still works.
 
--   The <span><span style="font-variant:small-caps;">Xen</span></span>
-    patch queue reintroduces the lowmem emergency pool[^9]. This was an
+-   The Xen
+    patch queue reintroduces the lowmem emergency pool. This was an
     attempt to prevent guests from allocating lowmem before we switched
     to a two-phase target setting procedure. This patch can probably be
     removed.
 
--   It seems unnecessarily evil to modify an <span>*inactive*</span>
-    domain’s `maxmem` leaving $\texttt{maxmem}<\texttt{target}$, causing
+-   It seems unnecessarily evil to modify an *inactive*
+    domain’s `maxmem` leaving `maxmem` less than `target}``, causing
     the guest to attempt allocations forwever. It’s probably neater to
     move the `target` at the same time.
 
--   Declaring a domain <span>*active*</span> just because it makes small
+-   Declaring a domain *active* just because it makes small
     amounts of progress shouldn’t be enough. Otherwise a domain could
     free 1 byte (or maybe 1 page) every 5s.
 
 -   Likewise, declaring a domain “uncooperative” only if it has been
-    <span>*inactive*</span> for 20s means that a domain could alternate
-    between <span>*inactive*</span> for 19s and <span>*active*</span>
+    *inactive* for 20s means that a domain could alternate
+    between *inactive* for 19s and *active*
     for 1s and not be declared “uncooperative”.
 
 Document history
@@ -617,23 +619,3 @@ Version | Date          | Change
 --------|---------------|---------------------
 0.2     | 10th Nov 2014 | Update to markdown
 0.1     | 9th Nov 2009  | Initial version
-
-[^1]: <http://wiki.xensource.com/xenwiki/Open_Topics_For_Discussion?action=AttachFile&do=get&target=Memory+Overcommit.pdf>
-
-[^2]: <http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/max-pages-below-tot-pages>
-
-[^3]: The `control/feature-balloon` key is probably the wrong signal.
-
-[^4]: `change_host_free_memory` in
-    <http://xenbits.xen.org/xapi/xen-api.hg?file/3e8c0167940d/ocaml/xenops/squeeze.ml>
-
-[^5]: `one_iteration` in
-    <http://xenbits.xen.org/xapi/xen-api.hg?file/3e8c0167940d/ocaml/xenops/squeeze.ml>
-
-[^6]: <http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xenops&m=Squeeze_xen>
-
-[^7]: <http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xenops&m=Squeeze>
-
-[^8]: <http://www.xen.org/files/XenCloud/ocamldoc/index.html?c=xenops&m=Squeeze_test>
-
-[^9]: <http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/lowmem-emergency-pool>
