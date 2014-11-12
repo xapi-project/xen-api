@@ -1,45 +1,45 @@
-module Row :
-  sig
-    type t
-    val add : int64 -> string -> string -> t -> t
-	val add_defaults : int64 -> Schema.Table.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> string -> 'a -> 'a) -> t -> 'a -> 'a
-    val find : string -> t -> string
-    val iter : (string -> string -> unit) -> t -> unit
-    val remove : string -> t -> t
-    val update : int64 -> string -> string -> (string -> string) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> string -> 'b -> 'b) -> t -> 'b -> 'b
-  end
+(** The values stored in the database *)
+module Value : sig
+        type t = string
+end
 
-module Table :
-  sig
-    type t
-    val add : int64 -> string -> Row.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> Row.t -> 'a -> 'a) -> t -> 'a -> 'a
-	val find_exn : string -> string -> t -> Row.t
-    val find : string -> t -> Row.t
-	val mem : string -> t -> bool
-    val iter : (string -> Row.t -> unit) -> t -> unit
-    val remove : int64 -> string -> t -> t
-    val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
-	val rows : t -> Row.t list
-  end
+module type MAP = sig
+        type t
+        type value
+        val add: int64 -> string -> value -> t -> t
+        val empty : t
+        val fold : (string -> int64 -> int64 -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        val find : string -> t -> value
+        val mem : string -> t -> bool
+        val iter : (string -> value -> unit) -> t -> unit
+        val update : int64 -> string -> value -> (value -> value) -> t -> t
+end
 
-module TableSet :
-  sig
-    type t
-    val add : int64 -> string -> Table.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> Table.t -> 'a -> 'a) -> t -> 'a -> 'a
-    val find : string -> t -> Table.t
-    val iter : (string -> Table.t -> unit) -> t -> unit
-    val remove : string -> t -> t
-    val update : int64 -> string -> Table.t -> (Table.t -> Table.t) -> t -> t
-    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
-  end
+module Row : sig
+        include MAP
+          with type value = Value.t
+
+        val add_defaults: int64 -> Schema.Table.t -> t -> t
+        val remove : string -> t -> t
+        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+end
+
+module Table : sig
+        include MAP
+          with type value = Row.t
+        val update_generation : int64 -> string -> value -> (value -> value) -> t -> t
+        val rows : t -> value list
+        val remove : int64 -> string -> t -> t
+        val find_exn : string -> string -> t -> value
+        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+end
+
+module TableSet : sig
+        include MAP
+          with type value = Table.t
+        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val remove : string -> t -> t
+end
 
 module Manifest :
   sig
@@ -112,4 +112,3 @@ type structured_op_t =
 	| RemoveMap
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t
-

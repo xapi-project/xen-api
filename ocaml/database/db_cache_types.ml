@@ -1,5 +1,10 @@
 open Db_exn
 
+(** The values stored in the database *)
+module Value = struct
+        type t = string
+end
+
 (** Database tables, columns and rows are all indexed by string, each
 	using a specialised StringMap *)
 module StringMap = struct
@@ -16,8 +21,20 @@ module type VAL = sig
 	type v
 end
 
+module type MAP = sig
+	type t
+        type value
+	val add: int64 -> string -> value -> t -> t
+	val empty : t
+	val fold : (string -> int64 -> int64 -> value -> 'b -> 'b) -> t -> 'b -> 'b
+	val find : string -> t -> value
+	val mem : string -> t -> bool
+	val iter : (string -> value -> unit) -> t -> unit
+	val update : int64 -> string -> value -> (value -> value) -> t -> t
+end
+
 (** A specialised StringMap whose range type is V.v, and which keeps a record of when records are created/updated *)
-module Map2 = functor(V: VAL) -> struct
+module Make = functor(V: VAL) -> struct
 	type x = {
 		created : int64;
 		updated : int64;
@@ -43,28 +60,24 @@ module Map2 = functor(V: VAL) -> struct
 			else updatefn ()				
 		else
 			updatefn ()
-	let fold_over_recent since f = StringMap.fold (fun x y z -> if y.updated > since then f y.created y.updated 0L x y.v z else z)
+	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.updated > since then f y.created y.updated 0L x y.v z else z) t initial
 end
 
-module StringStringMap = Map2(struct type v = string end)
+module StringStringMap = Make(struct type v = string end)
 
 module type ROW = sig
-	type t
-	val add: int64 -> string -> string -> t -> t
+        include MAP
+          with type value = Value.t
+
 	val add_defaults: int64 -> Schema.Table.t -> t -> t
-	val empty : t
-	val fold : (string -> int64 -> int64 -> string -> 'b -> 'b) -> t -> 'b -> 'b
-	val find : string -> t -> string
-	val mem : string -> t -> bool
-	val iter : (string -> string -> unit) -> t -> unit
 	val remove : string -> t -> t
-	val update : int64 -> string -> string -> (string -> string) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> string -> 'b -> 'b) -> t -> 'b -> 'b
+	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Row : ROW = struct
 	include StringStringMap
 	type t=map_t
+        type value = Value.t
 	let find key t =
 		try find key t
 		with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
@@ -77,28 +90,23 @@ module Row : ROW = struct
 			else t) t schema.Schema.Table.columns
 end
 
-module StringRowMap = Map2(struct type v = Row.t end)
+module StringRowMap = Make(struct type v = Row.t end)
 
 module type TABLE = sig
-	type t
-	val add: int64 -> string -> Row.t -> t -> t
-	val empty : t
-	val fold : (string -> int64 -> int64 -> Row.t -> 'b -> 'b) -> t -> 'b -> 'b
-	val find_exn : string -> string -> t -> Row.t
-	val find : string -> t -> Row.t
-	val mem : string -> t -> bool
-	val iter : (string -> Row.t -> unit) -> t -> unit
-	val remove : int64 -> string -> t -> t
+        include MAP
+          with type value = Row.t
 	val update_generation : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-	val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val rows : t -> Row.t list
+	val remove : int64 -> string -> t -> t
+        val find_exn : string -> string -> t -> Row.t
+        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
 	type t = { rows : StringRowMap.map_t;
 			   deleted_len : int;
 			   deleted : (int64 * int64 * string) list }
+        type value = Row.t
 	let add g key value t = {t with rows=StringRowMap.add g key value t.rows}
 	let empty = {rows=StringRowMap.empty; deleted_len = 1; deleted=[(0L,0L,"")] }
 	let fold f t acc = StringRowMap.fold f t.rows acc
@@ -124,7 +132,7 @@ module Table : TABLE = struct
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f errf t acc =
-		let acc = StringRowMap.fold_over_recent since (fun c u d x _ z -> f c u d x z) t.rows acc in
+		let acc = StringRowMap.fold_over_recent since (fun c u d x _ z -> f c u d x z) errf t.rows acc in
 		let rec fold_over_deleted deleted acc =
 			match deleted with
 				| (created,destroyed,r)::xs ->
@@ -142,24 +150,19 @@ module Table : TABLE = struct
 		fold (fun _ _ _ r rs -> r :: rs) t []
 end
 
-module StringTableMap = Map2(struct type v = Table.t end)
+module StringTableMap = Make(struct type v = Table.t end)
 
 module type TABLESET = sig
-	type t
-	val add: int64 -> string -> Table.t -> t -> t
-	val empty : t
-	val fold : (string -> int64 -> int64 -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
-	val find : string -> t -> Table.t
-	val mem : string -> t -> bool
-	val iter : (string -> Table.t -> unit) -> t -> unit
+        include MAP
+          with type value = Table.t
+	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val remove : string -> t -> t
-	val update : int64 -> string -> Table.t -> (Table.t -> Table.t) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
 module TableSet : TABLESET = struct
 	include StringTableMap
 	type t=map_t
+        type value = Table.t
 	let find key t =
 		try find key t
 		with Not_found -> raise (DBCache_NotFound ("missing table", key, ""))
