@@ -13,7 +13,7 @@ Both problems can be addressed by observing that the database objects
 correspond to distinct physical objects where eventual consistency is
 perfectly ok. For example if host 'A' is running a VM and changes the
 VM's name, it doesn't matter if it takes a while before the change shows
-up on host 'B'. If host 'B' changes it's network configuration then it
+up on host 'B'. If host 'B' changes its network configuration then it
 doesn't matter how long it takes host 'A' to notice. We would still like
 the metadata to be replicated to cope with failure, but we can allow
 changes to be committed locally and synchronised later.
