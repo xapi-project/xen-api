@@ -29,7 +29,7 @@ module type MAP = sig
         type value
 	val add: Time.t -> string -> value -> t -> t
 	val empty : t
-	val fold : (string -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+	val fold : (string -> Time.t -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
 	val mem : string -> t -> bool
 	val iter : (string -> value -> unit) -> t -> unit
@@ -44,7 +44,7 @@ module Make = functor(V: VAL) -> struct
 		v : V.v }
 	type map_t = x StringMap.t
 	let empty = StringMap.empty
-	let fold f = StringMap.fold (fun key x -> f key x.created x.updated x.v)
+	let fold f = StringMap.fold (fun key x -> f key x.created x.updated 0L x.v)
 	let add generation key value = StringMap.add key {created=generation; updated=generation; v=value}
 	let find key map = (StringMap.find key map).v 
 	let mem = StringMap.mem
@@ -150,7 +150,7 @@ module Table : TABLE = struct
 					acc
 		in fold_over_deleted t.deleted acc
 	let rows t =
-		fold (fun _ _ _ r rs -> r :: rs) t []
+		fold (fun _ _ _ _ r rs -> r :: rs) t []
 end
 
 module StringTableMap = Make(struct type v = Table.t end)
@@ -281,9 +281,9 @@ module Database = struct
 		(* Recompute the keymap *)
 		let keymap =
 			TableSet.fold
-				(fun tblname _ _ tbl acc ->
+				(fun tblname _ _ _ tbl acc ->
 					Table.fold
-						(fun rf _ _ row acc ->
+						(fun rf _ _ _ row acc ->
 							let acc = KeyMap.add_unique tblname Db_names.ref (Ref rf) (tblname, rf) acc in
 							if Row.mem Db_names.uuid row
 							then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid row)) (tblname, rf) acc
@@ -303,7 +303,7 @@ module Database = struct
 						   VBDs may be missing a VBDs field altogether on
 						   upgrade) *)
 						let many_tbl' = Table.fold
-							(fun vm _ _ row acc ->
+							(fun vm _ _ _ row acc ->
 								let row' = Row.add g many_fldname (SExpr.string_of (SExpr.Node [])) row in
 								Table.add g vm row' acc)
 							many_tbl Table.empty in
@@ -311,7 +311,7 @@ module Database = struct
 						(* Build up a table of VM -> VBDs *)
 
 						let vm_to_vbds = Table.fold
-							(fun vbd _ _ row acc ->
+							(fun vbd _ _ _ row acc ->
 								let vm = Row.find one_fldname row in
 								let existing = if Schema.ForeignMap.mem vm acc then Schema.ForeignMap.find vm acc else [] in
 								Schema.ForeignMap.add vm (vbd :: existing) acc)

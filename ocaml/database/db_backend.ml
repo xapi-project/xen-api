@@ -42,7 +42,7 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 	(* Generate a new row given a table schema *)
 	let row schema row : Row.t * int64 =
 		Row.fold 
-			(fun name created updated v (acc,max_upd) ->
+			(fun name created updated _ v (acc,max_upd) ->
 				try
 					let col = Schema.Table.find name schema in
 					let v',updated' = if col.Schema.Column.persistent then v,updated else col.Schema.Column.empty,g in
@@ -54,13 +54,13 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 	let table tblname tbl : Table.t =
 		let schema = Schema.Database.find tblname schema.Schema.database in
 		Table.fold
-			(fun objref created updated r acc ->
+			(fun objref created updated _ r acc ->
 				let (r,updated) = row schema r in
 				Table.update updated objref Row.empty (fun _ -> r) (Table.add created objref r acc)) tbl Table.empty in
 	Database.update
 		(fun ts -> 
 			TableSet.fold 
-				(fun tblname created updated tbl acc ->
+				(fun tblname created updated _ tbl acc ->
 					let tbl' = table tblname tbl in
 					TableSet.add updated tblname tbl' acc) ts TableSet.empty)
 		db

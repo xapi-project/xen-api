@@ -111,7 +111,7 @@ let read_set_ref t rcd =
 		Printf.printf "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan\n%!" rcd.table rcd.where_field rcd.where_value rcd.return;
 		let tbl = TableSet.find rcd.table (Database.tableset db) in
 		Table.fold
-			(fun rf _ _ row acc ->
+			(fun rf _ _ _ row acc ->
 				if Row.find rcd.where_field row = rcd.where_value 
 				then Row.find rcd.return row :: acc else acc)
 			tbl []
@@ -127,7 +127,7 @@ let read_set_ref t rcd =
 let read_record_internal db tblname objref =
 	let tbl = TableSet.find tblname (Database.tableset db) in
 	let row = Table.find_exn tblname objref tbl in
-	let fvlist = Row.fold (fun k _ _ d env -> (k,d)::env) row [] in
+	let fvlist = Row.fold (fun k _ _ _ d env -> (k,d)::env) row [] in
 	(* Unfortunately the interface distinguishes between Set(Ref _) types and 
 	   ordinary fields *)
 	let schema = Schema.table tblname (Database.schema db) in
@@ -155,7 +155,7 @@ let delete_row_locked t tblname objref =
 	let db = get_database t in
 	Database.notify (PreDelete(tblname, objref)) db;
 	update_database t (remove_row tblname objref);
-	Database.notify (Delete(tblname, objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
+	Database.notify (Delete(tblname, objref, Row.fold (fun k _ _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
 		
 let delete_row t tblname objref = 
 	with_lock (fun () -> delete_row_locked t tblname objref)
@@ -176,7 +176,7 @@ let create_row_locked t tblname kvs' new_objref =
 	let row = Row.add_defaults g schema row in
 	W.debug "create_row %s (%s) [%s]" tblname new_objref (String.concat "," (List.map (fun (k,v)->"("^k^","^"v"^")") kvs'));
 	update_database t (add_row tblname new_objref row);
-	Database.notify (Create(tblname, new_objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
+	Database.notify (Create(tblname, new_objref, Row.fold (fun k _ _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
 		
 let create_row t tblname kvs' new_objref =
 	with_lock (fun () -> create_row_locked t tblname kvs' new_objref)
@@ -186,7 +186,7 @@ let read_field_where t rcd =
 	let db = get_database t in
 	let tbl = TableSet.find rcd.table (Database.tableset db) in
 	Table.fold
-		(fun r _ _ row acc ->
+		(fun r _ _ _ row acc ->
 			let field = Row.find rcd.where_field row in
 			if field = rcd.where_value then Row.find rcd.return row :: acc else acc
 		) tbl []
@@ -209,7 +209,7 @@ let db_get_by_name_label t tbl label =
 (* Read references from tbl *)
 let read_refs t tblname =
 	let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
-	Table.fold (fun r _ _ _ acc -> r :: acc) tbl []
+	Table.fold (fun r _ _ _ _ acc -> r :: acc) tbl []
 		
 (* Return a list of all the refs for which the expression returns true. *)
 let find_refs_with_filter_internal db (tblname: string) (expr: Db_filter_types.expr) =
@@ -218,7 +218,7 @@ let find_refs_with_filter_internal db (tblname: string) (expr: Db_filter_types.e
 		| Db_filter_types.Literal x -> x
 		| Db_filter_types.Field x -> Row.find x row in
 	Table.fold
-		(fun r _ _ row acc ->
+		(fun r _ _ _ row acc ->
 			if Db_filter.eval_expr (eval_val row) expr
 			then Row.find Db_names.ref row :: acc else acc
 		) tbl []
@@ -377,8 +377,8 @@ let make t connections default_schema =
 
 (** Return an association list of table name * record count *)
 let stats t = 
-	TableSet.fold (fun name _ _ tbl acc ->
-		let size = Table.fold (fun _ _ _ _ acc -> acc + 1) tbl 0 in
+	TableSet.fold (fun name _ _ _ tbl acc ->
+		let size = Table.fold (fun _ _ _ _ _ acc -> acc + 1) tbl 0 in
 		(name, size) :: acc)
 		(Database.tableset (get_database t))
 		[]

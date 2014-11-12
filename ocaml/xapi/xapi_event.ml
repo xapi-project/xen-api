@@ -505,10 +505,10 @@ let from_inner __context session subs from from_t deadline =
 
 	let valid_ref_counts =
 		Db_cache_types.TableSet.fold
-			(fun tablename _ _ table acc ->
+			(fun tablename _ _ _ table acc ->
 				(String.lowercase tablename,
 					(Db_cache_types.Table.fold
-						(fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+						(fun r _ _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
 		tableset [] in
 
 	{

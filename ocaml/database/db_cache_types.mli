@@ -13,7 +13,7 @@ module type MAP = sig
         type value
         val add: Time.t -> string -> value -> t -> t
         val empty : t
-        val fold : (string -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        val fold : (string -> Time.t -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
         val find : string -> t -> value
         val mem : string -> t -> bool
         val iter : (string -> value -> unit) -> t -> unit
