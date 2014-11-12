@@ -22,6 +22,7 @@ module type MAP = sig
         val add: Time.t -> string -> value -> t -> t
         val empty : t
         val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
         val find : string -> t -> value
         val mem : string -> t -> bool
         val iter : (string -> value -> unit) -> t -> unit
@@ -34,7 +35,6 @@ module Row : sig
 
         val add_defaults: Time.t -> Schema.Table.t -> t -> t
         val remove : string -> t -> t
-        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : sig
@@ -44,14 +44,12 @@ module Table : sig
         val rows : t -> value list
         val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> value
-        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module TableSet : sig
         include MAP
           with type value = Table.t
-        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
         val remove : string -> t -> t
 end
 
