@@ -5,6 +5,7 @@ OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xc
 #OCAMLDEPFLAGS = -pp "camlp4o"
 
 UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
+UseCamlp4(sexplib.syntax, schema)
 
 OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 

@@ -287,7 +287,7 @@ module Database = struct
 				x.tables KeyMap.empty in
 		(* For each of the one-to-many relationships, recompute the many end *)
 		let tables =
-			Schema.StringMap.fold
+			Schema.ForeignMap.fold
 				(fun one_tblname rels tables ->
 					List.fold_left (fun tables (one_fldname, many_tblname, many_fldname) ->
 						(* VBD.VM : Ref(VM) -> VM.VBDs : Set(Ref(VBD)) *)
@@ -307,10 +307,10 @@ module Database = struct
 						let vm_to_vbds = Table.fold
 							(fun vbd _ _ row acc ->
 								let vm = Row.find one_fldname row in
-								let existing = if Schema.StringMap.mem vm acc then Schema.StringMap.find vm acc else [] in
-								Schema.StringMap.add vm (vbd :: existing) acc)
-							one_tbl Schema.StringMap.empty in
-						let many_tbl'' = Schema.StringMap.fold
+								let existing = if Schema.ForeignMap.mem vm acc then Schema.ForeignMap.find vm acc else [] in
+								Schema.ForeignMap.add vm (vbd :: existing) acc)
+							one_tbl Schema.ForeignMap.empty in
+						let many_tbl'' = Schema.ForeignMap.fold
 							(fun vm vbds acc ->
 								if not(Table.mem vm acc)
 								then acc

@@ -30,6 +30,10 @@ let of_datamodel () =
 			let this = obj.Datamodel_types.name, f.Datamodel_types.field_name in
 			Datamodel_utils.Relations.is_in_relation api this && 
 				(Datamodel_utils.Relations.classify api (this,(Datamodel_utils.Relations.other_end_of api this)) = (`Many, `Many)) in
+		let ty = match f.Datamodel_types.ty with
+			| Datamodel_types.Set _ -> Type.Set
+			| Datamodel_types.Map(_,_) -> Type.Pairs
+			| _ -> Type.String in
 		{
 			Column.name = Escaping.escape_id f.Datamodel_types.full_name;
 			(* NB we always regenerate one-to-many Set(Ref _) fields *)
@@ -40,6 +44,7 @@ let of_datamodel () =
 				if issetref 
 				then Some (SExpr.string_of (SExpr.Node []))
 				else Opt.map Datamodel_values.to_db_string f.Datamodel_types.default_value ;
+			ty = ty;
 			issetref = issetref;
 		} in
 
@@ -49,6 +54,7 @@ let of_datamodel () =
 		persistent = true;
 		empty = "";
 		default = None;
+		ty = Type.String;
 		issetref = false;
 	} in
 
@@ -66,9 +72,9 @@ let of_datamodel () =
 			| `Many, `Many -> true
 			| _ -> false in
 	let add_relation p t (((one_tbl, one_fld), (many_tbl, many_fld)) as r) =
-		let l = if StringMap.mem one_tbl t then StringMap.find one_tbl t else [] in
+		let l = if ForeignMap.mem one_tbl t then ForeignMap.find one_tbl t else [] in
 		if p r 
-		then StringMap.add one_tbl ((one_fld, many_tbl, many_fld) :: l) t
+		then ForeignMap.add one_tbl ((one_fld, many_tbl, many_fld) :: l) t
 		else t in
 
 	let database api = {
@@ -78,6 +84,16 @@ let of_datamodel () =
 		major_vsn = Datamodel.schema_major_vsn;
 		minor_vsn = Datamodel.schema_minor_vsn;
 		database = database Datamodel.all_api;
-		one_to_many = List.fold_left (add_relation is_one_to_many) StringMap.empty (Dm_api.relations_of_api Datamodel.all_api);
-		many_to_many = List.fold_left (add_relation is_many_to_many) StringMap.empty (Dm_api.relations_of_api Datamodel.all_api);
+		one_to_many = List.fold_left (add_relation is_one_to_many) ForeignMap.empty (Dm_api.relations_of_api Datamodel.all_api);
+		many_to_many = List.fold_left (add_relation is_many_to_many) ForeignMap.empty (Dm_api.relations_of_api Datamodel.all_api);
 	}
+
+(* For now this is a convenience debugging function. Eventually we should
+   separate the datamodel from the database and load the schema from disk. *)
+let write_schema_to_file filename =
+	let t = of_datamodel () in
+	let sexp = Schema.sexp_of_t t in
+	let oc = open_out filename in
+	let txt = Sexplib.Sexp.to_string_hum sexp in
+	output_string oc txt;
+	close_out oc
