@@ -369,12 +369,13 @@ let upgrade_pif_metrics = {
 
 let upgrade_host_editions = {
 	description = "Upgrading host editions";
-	version = (fun x -> x < creedence);
+	version = (fun x -> x <= tampa);
 	fn = fun ~__context ->
 		let hosts = Db.Host.get_all ~__context in
 		let new_sku = function
-				| "advanced" | "enterprise" | "platinum" | "per-socket" -> "enterprise-per-socket"
-				| "free" | "enterprise-xd" | "xendesktop" | _ -> "free" in
+				| "enterprise-xd" -> "xendesktop"
+				| "advanced" | "enterprise" | "platinum" -> "per-socket"
+				| "free" | _ -> "free" in
 		List.iter
 			(fun host ->
 				(* Modify edition *)
