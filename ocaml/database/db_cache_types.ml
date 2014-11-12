@@ -39,7 +39,7 @@ module type MAP = sig
 	val add: Time.t -> string -> value -> t -> t
 	val empty : t
 	val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
-	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
 	val mem : string -> t -> bool
 	val iter : (string -> value -> unit) -> t -> unit
@@ -77,7 +77,7 @@ module Make = functor(V: VAL) -> struct
 			else updatefn ()				
 		else
 			updatefn ()
-	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f x y.stat y.v z else z) t initial
+	let fold_over_recent since f t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f x y.stat y.v z else z) t initial
 end
 
 module StringStringMap = Make(struct type v = string end)
@@ -115,7 +115,7 @@ module type TABLE = sig
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> Row.t
-        val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
@@ -147,9 +147,9 @@ module Table : TABLE = struct
 		 deleted = new_deleted}
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
-	let fold_over_recent since f errf t acc = StringRowMap.fold_over_recent since f errf t.rows acc
+	let fold_over_recent since f t acc = StringRowMap.fold_over_recent since f t.rows acc
 
-	let fold_over_deleted since f errf t acc =
+	let fold_over_deleted since f t acc =
                 let rec loop xs acc = match xs with
 			| (created,deleted,r)::xs ->
 				let new_acc =
@@ -159,7 +159,6 @@ module Table : TABLE = struct
 				in
 				if deleted <= since then new_acc else loop xs new_acc
 			| [] ->
-				errf ();
 				acc in
                 loop t.deleted acc
 

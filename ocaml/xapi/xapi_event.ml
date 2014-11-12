@@ -445,7 +445,7 @@ let from_inner __context session subs from from_t deadline =
 						end else begin
 							(creates,mods,deletes,last)
 						end
-					) (fun () -> ()) (Db_cache_types.TableSet.find table tableset) acc in
+					) (Db_cache_types.TableSet.find table tableset) acc in
                                 (* Fold over the deleted objects *)
 		 		Db_cache_types.Table.fold_over_deleted !last_generation
                                          (fun objref { Db_cache_types.Stat.created; modified; deleted } (creates,mods,deletes,last) ->
@@ -458,7 +458,7 @@ let from_inner __context session subs from from_t deadline =
 						end else begin
 							(creates,mods,deletes,last)
 						end
-					) (fun () -> ()) (Db_cache_types.TableSet.find table tableset) acc
+					) (Db_cache_types.TableSet.find table tableset) acc
 			) ([],[],[],!last_generation) tables) in
 
 	(* Each event.from should have an independent subscription record *)
