@@ -3,41 +3,46 @@ module Value : sig
         type t = string
 end
 
+(** A timestamp *)
+module Time : sig
+        type t = Generation.t
+end
+
 module type MAP = sig
         type t
         type value
-        val add: int64 -> string -> value -> t -> t
+        val add: Time.t -> string -> value -> t -> t
         val empty : t
-        val fold : (string -> int64 -> int64 -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        val fold : (string -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
         val find : string -> t -> value
         val mem : string -> t -> bool
         val iter : (string -> value -> unit) -> t -> unit
-        val update : int64 -> string -> value -> (value -> value) -> t -> t
+        val update : Time.t -> string -> value -> (value -> value) -> t -> t
 end
 
 module Row : sig
         include MAP
           with type value = Value.t
 
-        val add_defaults: int64 -> Schema.Table.t -> t -> t
+        val add_defaults: Time.t -> Schema.Table.t -> t -> t
         val remove : string -> t -> t
-        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : sig
         include MAP
           with type value = Row.t
-        val update_generation : int64 -> string -> value -> (value -> value) -> t -> t
+        val update_generation : Time.t -> string -> value -> (value -> value) -> t -> t
         val rows : t -> value list
-        val remove : int64 -> string -> t -> t
+        val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> value
-        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module TableSet : sig
         include MAP
           with type value = Table.t
-        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
         val remove : string -> t -> t
 end
 

@@ -1,8 +1,11 @@
 open Db_exn
 
-(** The values stored in the database *)
 module Value = struct
         type t = string
+end
+
+module Time = struct
+        type t = Generation.t
 end
 
 (** Database tables, columns and rows are all indexed by string, each
@@ -24,9 +27,9 @@ end
 module type MAP = sig
 	type t
         type value
-	val add: int64 -> string -> value -> t -> t
+	val add: Time.t -> string -> value -> t -> t
 	val empty : t
-	val fold : (string -> int64 -> int64 -> value -> 'b -> 'b) -> t -> 'b -> 'b
+	val fold : (string -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
 	val mem : string -> t -> bool
 	val iter : (string -> value -> unit) -> t -> unit
@@ -36,8 +39,8 @@ end
 (** A specialised StringMap whose range type is V.v, and which keeps a record of when records are created/updated *)
 module Make = functor(V: VAL) -> struct
 	type x = {
-		created : int64;
-		updated : int64;
+		created : Time.t;
+		updated : Time.t;
 		v : V.v }
 	type map_t = x StringMap.t
 	let empty = StringMap.empty
@@ -69,9 +72,9 @@ module type ROW = sig
         include MAP
           with type value = Value.t
 
-	val add_defaults: int64 -> Schema.Table.t -> t -> t
+	val add_defaults: Time.t -> Schema.Table.t -> t -> t
 	val remove : string -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Row : ROW = struct
@@ -95,17 +98,17 @@ module StringRowMap = Make(struct type v = Row.t end)
 module type TABLE = sig
         include MAP
           with type value = Row.t
-	val update_generation : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
+	val update_generation : Time.t -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
 	val rows : t -> Row.t list
-	val remove : int64 -> string -> t -> t
+	val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> Row.t
-        val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
 	type t = { rows : StringRowMap.map_t;
 			   deleted_len : int;
-			   deleted : (int64 * int64 * string) list }
+			   deleted : (Time.t * Time.t * string) list }
         type value = Row.t
 	let add g key value t = {t with rows=StringRowMap.add g key value t.rows}
 	let empty = {rows=StringRowMap.empty; deleted_len = 1; deleted=[(0L,0L,"")] }
@@ -155,7 +158,7 @@ module StringTableMap = Make(struct type v = Table.t end)
 module type TABLESET = sig
         include MAP
           with type value = Table.t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val remove : string -> t -> t
 end
 

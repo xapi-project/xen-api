@@ -46,7 +46,7 @@ module To = struct
     let record rf ctime mtime (row: Row.t) _ = 
 		let preamble = 
 			if persist_generation_counts 
-			then [("__mtime",Int64.to_string mtime); ("__ctime",Int64.to_string ctime); ("ref",rf)] 
+			then [("__mtime",Generation.to_string mtime); ("__ctime",Generation.to_string ctime); ("ref",rf)] 
 			else [("ref",rf)] 
 		in
 	  let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ _ v acc -> (k, Xml_spaces.protect v) :: acc) row preamble)) in
