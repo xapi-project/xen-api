@@ -8,12 +8,20 @@ module Time : sig
         type t = Generation.t
 end
 
+module Stat : sig
+        type t = {
+                created: Time.t;
+                modified: Time.t;
+                deleted: Time.t;
+        }
+end
+
 module type MAP = sig
         type t
         type value
         val add: Time.t -> string -> value -> t -> t
         val empty : t
-        val fold : (string -> Time.t -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
         val find : string -> t -> value
         val mem : string -> t -> bool
         val iter : (string -> value -> unit) -> t -> unit
@@ -26,7 +34,7 @@ module Row : sig
 
         val add_defaults: Time.t -> Schema.Table.t -> t -> t
         val remove : string -> t -> t
-        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : sig
@@ -36,13 +44,13 @@ module Table : sig
         val rows : t -> value list
         val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> value
-        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Stat.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module TableSet : sig
         include MAP
           with type value = Table.t
-        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
         val remove : string -> t -> t
 end
 

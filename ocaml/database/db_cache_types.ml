@@ -8,6 +8,15 @@ module Time = struct
         type t = Generation.t
 end
 
+module Stat = struct
+        type t = {
+                created: Time.t;
+                modified: Time.t;
+                deleted: Time.t;
+        }
+        let make x = { created = x; modified = x; deleted = 0L }
+end
+
 (** Database tables, columns and rows are all indexed by string, each
 	using a specialised StringMap *)
 module StringMap = struct
@@ -29,7 +38,7 @@ module type MAP = sig
         type value
 	val add: Time.t -> string -> value -> t -> t
 	val empty : t
-	val fold : (string -> Time.t -> Time.t -> Time.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+	val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
 	val mem : string -> t -> bool
 	val iter : (string -> value -> unit) -> t -> unit
@@ -39,21 +48,25 @@ end
 (** A specialised StringMap whose range type is V.v, and which keeps a record of when records are created/updated *)
 module Make = functor(V: VAL) -> struct
 	type x = {
-		created : Time.t;
-		updated : Time.t;
-		v : V.v }
+                stat: Stat.t;
+		v : V.v
+        }
 	type map_t = x StringMap.t
 	let empty = StringMap.empty
-	let fold f = StringMap.fold (fun key x -> f key x.created x.updated 0L x.v)
-	let add generation key value = StringMap.add key {created=generation; updated=generation; v=value}
+	let fold f = StringMap.fold (fun key x -> f key x.stat x.v)
+	let add generation key v =
+                let stat = Stat.make generation in
+                StringMap.add key { stat; v }
 	let find key map = (StringMap.find key map).v 
 	let mem = StringMap.mem
 	let iter f = StringMap.iter (fun key x -> f key x.v)
 	let remove = StringMap.remove
 	let update_generation generation key default f row =
-		StringMap.update key {created=generation; updated=generation; v=default} (fun x -> {x with updated=generation; v=f x.v}) row
+                let default = { stat = Stat.make generation; v = default } in
+                StringMap.update key default (fun x -> { stat = { x.stat with Stat.modified=generation }; v=f x.v}) row
 	let update generation key default f row = 
-		let updatefn () = StringMap.update key {created=generation; updated=generation; v=default} (fun x -> {x with updated=generation; v=f x.v}) row in
+                let default = { stat = Stat.make generation; v = default } in
+                let updatefn () = StringMap.update key default (fun x -> { stat = { x.stat with Stat.modified=generation }; v=f x.v}) row in
 		if mem key row 
 		then
 			let old = find key row in
@@ -63,7 +76,7 @@ module Make = functor(V: VAL) -> struct
 			else updatefn ()				
 		else
 			updatefn ()
-	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.updated > since then f y.created y.updated 0L x y.v z else z) t initial
+	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f y.stat x y.v z else z) t initial
 end
 
 module StringStringMap = Make(struct type v = string end)
@@ -74,7 +87,7 @@ module type ROW = sig
 
 	val add_defaults: Time.t -> Schema.Table.t -> t -> t
 	val remove : string -> t -> t
-	val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Row : ROW = struct
@@ -102,7 +115,7 @@ module type TABLE = sig
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> Row.t
-        val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (Stat.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
@@ -122,7 +135,7 @@ module Table : TABLE = struct
 	let remove g key t =
 		let upper_length_deleted_queue = 512 in
 		let lower_length_deleted_queue = 256 in
-		let created = (StringMap.find key t.rows).StringRowMap.created in
+		let created = (StringMap.find key t.rows).StringRowMap.stat.Stat.created in
 		let new_element = (created,g,key) in
 		let new_len,new_deleted =
 			if t.deleted_len + 1 < upper_length_deleted_queue
@@ -135,22 +148,22 @@ module Table : TABLE = struct
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f errf t acc =
-		let acc = StringRowMap.fold_over_recent since (fun c u d x _ z -> f c u d x z) errf t.rows acc in
+		let acc = StringRowMap.fold_over_recent since (fun stat x _ z -> f stat x z) errf t.rows acc in
 		let rec fold_over_deleted deleted acc =
 			match deleted with
-				| (created,destroyed,r)::xs ->
+				| (created,deleted,r)::xs ->
 					let new_acc =
-						if (destroyed > since) && (created <= since)
-						then (f created 0L destroyed r acc)
+						if (deleted > since) && (created <= since)
+                                                then (f { Stat.created; modified = deleted; deleted } r acc)
 						else acc
 					in
-					if destroyed <= since then new_acc else fold_over_deleted xs new_acc
+					if deleted <= since then new_acc else fold_over_deleted xs new_acc
 				| [] ->
 					errf ();
 					acc
 		in fold_over_deleted t.deleted acc
 	let rows t =
-		fold (fun _ _ _ _ r rs -> r :: rs) t []
+		fold (fun _ _ r rs -> r :: rs) t []
 end
 
 module StringTableMap = Make(struct type v = Table.t end)
@@ -158,7 +171,7 @@ module StringTableMap = Make(struct type v = Table.t end)
 module type TABLESET = sig
         include MAP
           with type value = Table.t
-	val fold_over_recent : Time.t -> (Time.t -> Time.t -> Time.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val remove : string -> t -> t
 end
 
@@ -281,9 +294,9 @@ module Database = struct
 		(* Recompute the keymap *)
 		let keymap =
 			TableSet.fold
-				(fun tblname _ _ _ tbl acc ->
+				(fun tblname _ tbl acc ->
 					Table.fold
-						(fun rf _ _ _ row acc ->
+						(fun rf _ row acc ->
 							let acc = KeyMap.add_unique tblname Db_names.ref (Ref rf) (tblname, rf) acc in
 							if Row.mem Db_names.uuid row
 							then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid row)) (tblname, rf) acc
@@ -303,7 +316,7 @@ module Database = struct
 						   VBDs may be missing a VBDs field altogether on
 						   upgrade) *)
 						let many_tbl' = Table.fold
-							(fun vm _ _ _ row acc ->
+							(fun vm _ row acc ->
 								let row' = Row.add g many_fldname (SExpr.string_of (SExpr.Node [])) row in
 								Table.add g vm row' acc)
 							many_tbl Table.empty in
@@ -311,7 +324,7 @@ module Database = struct
 						(* Build up a table of VM -> VBDs *)
 
 						let vm_to_vbds = Table.fold
-							(fun vbd _ _ _ row acc ->
+							(fun vbd _ row acc ->
 								let vm = Row.find one_fldname row in
 								let existing = if Schema.ForeignMap.mem vm acc then Schema.ForeignMap.find vm acc else [] in
 								Schema.ForeignMap.add vm (vbd :: existing) acc)

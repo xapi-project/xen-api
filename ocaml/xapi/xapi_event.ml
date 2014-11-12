@@ -435,17 +435,17 @@ let from_inner __context session subs from from_t deadline =
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
 		 		Db_cache_types.Table.fold_over_recent !last_generation
-					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
+                                         (fun { Db_cache_types.Stat.created; modified; deleted } objref (creates,mods,deletes,last) ->
 						if Subscription.object_matches subs (String.lowercase table) objref then begin
-							let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
-							if dtime > 0L then begin
-								if ctime > !last_generation then
+							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
+							if deleted > 0L then begin
+								if created > !last_generation then
 									(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
 								else
-									(creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
+									(creates,mods,(table, objref, deleted)::deletes,last) (* It might have been modified, but we can't tell now *)
 							end else begin
-								((if ctime > !last_generation then (table, objref, ctime)::creates else creates),
-								(if mtime > !last_generation then (table, objref, mtime)::mods else mods),
+								((if created > !last_generation then (table, objref, created)::creates else creates),
+								(if modified > !last_generation then (table, objref, modified)::mods else mods),
 								deletes, last)
 							end 
 						end else begin
@@ -505,10 +505,10 @@ let from_inner __context session subs from from_t deadline =
 
 	let valid_ref_counts =
 		Db_cache_types.TableSet.fold
-			(fun tablename _ _ _ table acc ->
+			(fun tablename _ table acc ->
 				(String.lowercase tablename,
 					(Db_cache_types.Table.fold
-						(fun r _ _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+						(fun r _ _ acc -> Int32.add 1l acc) table 0l))::acc)
 		tableset [] in
 
 	{

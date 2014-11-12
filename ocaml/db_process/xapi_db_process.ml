@@ -99,7 +99,7 @@ let find_my_host_row() =
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
   let db = Db_ref.get_database (Db_backend.make ()) in
   let tbl = TableSet.find Db_names.host (Database.tableset db) in
-  Table.fold (fun r _ _ _ row acc -> if Row.find Db_names.uuid row = localhost_uuid then (Some (r, row)) else acc) tbl None
+  Table.fold (fun r _ row acc -> if Row.find Db_names.uuid row = localhost_uuid then (Some (r, row)) else acc) tbl None
 
 let _iscsi_iqn = "iscsi_iqn"
 let _other_config = "other_config"
