@@ -76,7 +76,7 @@ module Make = functor(V: VAL) -> struct
 			else updatefn ()				
 		else
 			updatefn ()
-	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f y.stat x y.v z else z) t initial
+	let fold_over_recent since f _ t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f x y.stat y.v z else z) t initial
 end
 
 module StringStringMap = Make(struct type v = string end)
@@ -87,7 +87,7 @@ module type ROW = sig
 
 	val add_defaults: Time.t -> Schema.Table.t -> t -> t
 	val remove : string -> t -> t
-	val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Row : ROW = struct
@@ -115,7 +115,7 @@ module type TABLE = sig
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> Row.t
-        val fold_over_recent : Time.t -> (Stat.t -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (string -> Stat.t -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
@@ -148,13 +148,13 @@ module Table : TABLE = struct
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f errf t acc =
-		let acc = StringRowMap.fold_over_recent since (fun stat x _ z -> f stat x z) errf t.rows acc in
+		let acc = StringRowMap.fold_over_recent since (fun x stat _ z -> f x stat z) errf t.rows acc in
 		let rec fold_over_deleted deleted acc =
 			match deleted with
 				| (created,deleted,r)::xs ->
 					let new_acc =
 						if (deleted > since) && (created <= since)
-                                                then (f { Stat.created; modified = deleted; deleted } r acc)
+                                                then (f r { Stat.created; modified = deleted; deleted } acc)
 						else acc
 					in
 					if deleted <= since then new_acc else fold_over_deleted xs new_acc
@@ -171,7 +171,7 @@ module StringTableMap = Make(struct type v = Table.t end)
 module type TABLESET = sig
         include MAP
           with type value = Table.t
-	val fold_over_recent : Time.t -> (Stat.t -> string -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val remove : string -> t -> t
 end
 

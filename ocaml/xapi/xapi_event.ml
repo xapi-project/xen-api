@@ -435,7 +435,7 @@ let from_inner __context session subs from from_t deadline =
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
 		 		Db_cache_types.Table.fold_over_recent !last_generation
-                                         (fun { Db_cache_types.Stat.created; modified; deleted } objref (creates,mods,deletes,last) ->
+                                         (fun objref { Db_cache_types.Stat.created; modified; deleted } (creates,mods,deletes,last) ->
 						if Subscription.object_matches subs (String.lowercase table) objref then begin
 							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
 							if deleted > 0L then begin
