@@ -115,7 +115,8 @@ module type TABLE = sig
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
         val find_exn : string -> string -> t -> Row.t
-        val fold_over_recent : Time.t -> (string -> Stat.t -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
+        val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 end
 
 module Table : TABLE = struct
@@ -147,21 +148,22 @@ module Table : TABLE = struct
 		 deleted = new_deleted}
 	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
-	let fold_over_recent since f errf t acc =
-		let acc = StringRowMap.fold_over_recent since (fun x stat _ z -> f x stat z) errf t.rows acc in
-		let rec fold_over_deleted deleted acc =
-			match deleted with
-				| (created,deleted,r)::xs ->
-					let new_acc =
-						if (deleted > since) && (created <= since)
-                                                then (f r { Stat.created; modified = deleted; deleted } acc)
-						else acc
-					in
-					if deleted <= since then new_acc else fold_over_deleted xs new_acc
-				| [] ->
-					errf ();
-					acc
-		in fold_over_deleted t.deleted acc
+	let fold_over_recent since f errf t acc = StringRowMap.fold_over_recent since f errf t.rows acc
+
+	let fold_over_deleted since f errf t acc =
+                let rec loop xs acc = match xs with
+			| (created,deleted,r)::xs ->
+				let new_acc =
+					if (deleted > since) && (created <= since)
+                                        then (f r { Stat.created; modified = deleted; deleted } acc)
+					else acc
+				in
+				if deleted <= since then new_acc else loop xs new_acc
+			| [] ->
+				errf ();
+				acc in
+                loop t.deleted acc
+
 	let rows t =
 		fold (fun _ _ r rs -> r :: rs) t []
 end

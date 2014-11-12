@@ -434,20 +434,27 @@ let from_inner __context session subs from from_t deadline =
 			if Subscription.table_matches subs "message" then (!Message.get_since_for_events) ~__context !last_msg_gen else (0L, []) in
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
-		 		Db_cache_types.Table.fold_over_recent !last_generation
+                                (* Fold over the live objects *)
+                                let acc = Db_cache_types.Table.fold_over_recent !last_generation
+                                         (fun objref { Db_cache_types.Stat.created; modified; deleted } _ (creates,mods,deletes,last) ->
+						if Subscription.object_matches subs (String.lowercase table) objref then begin
+							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
+							((if created > !last_generation then (table, objref, created)::creates else creates),
+							(if modified > !last_generation then (table, objref, modified)::mods else mods),
+							deletes, last)
+						end else begin
+							(creates,mods,deletes,last)
+						end
+					) (fun () -> ()) (Db_cache_types.TableSet.find table tableset) acc in
+                                (* Fold over the deleted objects *)
+		 		Db_cache_types.Table.fold_over_deleted !last_generation
                                          (fun objref { Db_cache_types.Stat.created; modified; deleted } (creates,mods,deletes,last) ->
 						if Subscription.object_matches subs (String.lowercase table) objref then begin
 							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
-							if deleted > 0L then begin
-								if created > !last_generation then
-									(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
-								else
-									(creates,mods,(table, objref, deleted)::deletes,last) (* It might have been modified, but we can't tell now *)
-							end else begin
-								((if created > !last_generation then (table, objref, created)::creates else creates),
-								(if modified > !last_generation then (table, objref, modified)::mods else mods),
-								deletes, last)
-							end 
+							if created > !last_generation then
+								(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
+							else
+								(creates,mods,(table, objref, deleted)::deletes,last) (* It might have been modified, but we can't tell now *)
 						end else begin
 							(creates,mods,deletes,last)
 						end
