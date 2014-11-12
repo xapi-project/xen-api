@@ -174,7 +174,7 @@ let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
 		let rrdi = Mutex.execute mutex (fun () ->
 			let rrdi = Hashtbl.find vm_rrds vm_uuid in
 			debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
-				host_uuid vm_uuid;
+				vm_uuid host_uuid;
 			Hashtbl.remove vm_rrds vm_uuid;
 			rrdi
 		) in
