@@ -127,7 +127,6 @@ module type TABLE = sig
         include MAP
           with type value = Row.t
 	val touch : Time.t -> string -> Row.t -> t -> t
-	val rows : t -> Row.t list
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
@@ -171,9 +170,6 @@ module Table : TABLE = struct
 			| [] ->
 				acc in
                 loop t.deleted acc
-
-	let rows t =
-		fold (fun _ _ r rs -> r :: rs) t []
 end
 
 module StringTableMap = Make(struct type v = Table.t end)

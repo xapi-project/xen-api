@@ -98,8 +98,6 @@ end
 module Table : sig
         include MAP
           with type value = Row.t
-
-        val rows : t -> value list
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
