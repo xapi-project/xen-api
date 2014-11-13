@@ -52,6 +52,7 @@ module type MAP = sig
         type value
 	val empty : t
 	val add: Time.t -> string -> value -> t -> t
+	val remove : Time.t -> string -> t -> t
 	val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
@@ -76,7 +77,7 @@ module Make = functor(V: VAL) -> struct
 	let find key map = (StringMap.find key map).v 
 	let mem = StringMap.mem
 	let iter f = StringMap.iter (fun key x -> f key x.v)
-	let remove = StringMap.remove
+	let remove _ = StringMap.remove
 	let touch generation key default row =
                 let default = { stat = Stat.make generation; v = default } in
                 StringMap.update key default (fun x -> { x with stat = { x.stat with Stat.modified=generation } }) row
@@ -102,7 +103,6 @@ module type ROW = sig
           with type value = Value.t
 
 	val add_defaults: Time.t -> Schema.Table.t -> t -> t
-	val remove : string -> t -> t
 end
 
 module Row : ROW = struct
@@ -128,7 +128,6 @@ module type TABLE = sig
           with type value = Row.t
 	val touch : Time.t -> string -> Row.t -> t -> t
 	val rows : t -> Row.t list
-	val remove : Time.t -> string -> t -> t
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
@@ -153,7 +152,7 @@ module Table : TABLE = struct
 			then t.deleted_len + 1, (new_element::t.deleted)
 			else lower_length_deleted_queue + 1, (new_element::(Listext.List.take lower_length_deleted_queue t.deleted))
 		in
-		{rows = StringRowMap.remove key t.rows;
+		{rows = StringRowMap.remove g key t.rows;
 		 deleted_len = new_len;
 		 deleted = new_deleted}
 	let touch g key default t = {t with rows = StringRowMap.touch g key default t.rows }
@@ -179,11 +178,7 @@ end
 
 module StringTableMap = Make(struct type v = Table.t end)
 
-module type TABLESET = sig
-        include MAP
-          with type value = Table.t
-	val remove : string -> t -> t
-end
+module type TABLESET = MAP with type value = Table.t
 
 module TableSet : TABLESET = struct
 	include StringTableMap

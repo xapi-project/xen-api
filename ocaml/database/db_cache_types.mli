@@ -46,6 +46,9 @@ module type MAP = sig
         (** [add now key value map] returns a new map with [key] associated with [value],
             with creation time [now] *)
 
+        val remove : Time.t -> string -> t -> t
+        (** [remove now key t] removes the binding of [key] from [t]. *)
+
         val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
         (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)
 
@@ -90,8 +93,6 @@ module Row : sig
             in [t]. If the schema is missing a default value then raises [DBCache_NotFound]:
             this would happen if a client failed to provide a necessary field. *)
 
-        val remove : string -> t -> t
-        (** [remove key t] removes the binding of [key] from [t]. *)
 end
 
 module Table : sig
@@ -99,15 +100,10 @@ module Table : sig
           with type value = Row.t
 
         val rows : t -> value list
-        val remove : Time.t -> string -> t -> t
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
-module TableSet : sig
-        include MAP
-          with type value = Table.t
-        val remove : string -> t -> t
-end
+module TableSet : MAP with type value = Table.t
 
 module Manifest :
   sig
