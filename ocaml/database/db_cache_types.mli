@@ -98,7 +98,11 @@ end
 module Table : sig
         include MAP
           with type value = Row.t
+
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold_over_deleted now f t initial] folds [f key stat acc] over the keys
+            which have been recently deleted. Note this is not guaranteed to remember
+            all events, so the list may be short. *)
 end
 
 module TableSet : MAP with type value = Table.t
