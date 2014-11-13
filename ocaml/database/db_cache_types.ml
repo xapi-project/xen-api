@@ -128,7 +128,6 @@ module type TABLE = sig
 	val update_generation : Time.t -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
-        val find_exn : string -> string -> t -> Row.t
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
@@ -140,9 +139,6 @@ module Table : TABLE = struct
 	let add g key value t = {t with rows=StringRowMap.add g key value t.rows}
 	let empty = {rows=StringRowMap.empty; deleted_len = 1; deleted=[(0L,0L,"")] }
 	let fold f t acc = StringRowMap.fold f t.rows acc
-	let find_exn tbl key t =
-		try StringRowMap.find key t.rows
-		with Not_found -> raise (DBCache_NotFound ("missing row", tbl, key))
 	let find key t = StringRowMap.find key t.rows
 	let mem key t = StringRowMap.mem key t.rows
 	let iter f t = StringRowMap.iter f t.rows
@@ -420,7 +416,10 @@ let is_valid tblname objref db =
 
 
 let get_field tblname objref fldname db =
-	Row.find fldname (Table.find_exn tblname objref (TableSet.find tblname (Database.tableset db)))
+        try
+	  Row.find fldname (Table.find objref (TableSet.find tblname (Database.tableset db)))
+        with Not_found ->
+          raise (DBCache_NotFound ("missing row", tblname, objref))
 
 let unsafe_set_field g tblname objref fldname newval =
 	(Database.update 

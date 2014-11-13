@@ -50,7 +50,10 @@ let is_valid_ref t objref =
 		| None -> false
 			
 let read_field_internal t tblname fldname objref db = 
-	Row.find fldname (Table.find_exn tblname objref (TableSet.find tblname (Database.tableset db)))
+        try
+	        Row.find fldname (Table.find objref (TableSet.find tblname (Database.tableset db)))
+        with Not_found ->
+                raise (DBCache_NotFound ("missing row", tblname, objref))
 
 (* Read field from cache *)
 let read_field t tblname fldname objref =
@@ -125,38 +128,45 @@ let read_set_ref t rcd =
    name of the Set Ref field in tbl; and ref list is the list of foreign keys from related
    table with remote-fieldname=objref] *)
 let read_record_internal db tblname objref =
-	let tbl = TableSet.find tblname (Database.tableset db) in
-	let row = Table.find_exn tblname objref tbl in
-	let fvlist = Row.fold (fun k _ d env -> (k,d)::env) row [] in
-	(* Unfortunately the interface distinguishes between Set(Ref _) types and 
-	   ordinary fields *)
-	let schema = Schema.table tblname (Database.schema db) in
-	let set_ref = List.filter (fun (k, _) ->
-		try
-			let column = Schema.Table.find k schema in
-			column.Schema.Column.issetref
-		with Not_found as e ->
-			Printf.printf "Failed to find table %s in schema\n%!" k;
-			raise e
-	) fvlist in
-	(* the set_ref fields must be converted back into lists *)
-	let set_ref = List.map (fun (k, v) -> 
-		k, String_unmarshall_helper.set (fun x -> x) v) set_ref in
-	(fvlist, set_ref)
+        try
+	        let tbl = TableSet.find tblname (Database.tableset db) in
+	        let row = Table.find objref tbl in
+	        let fvlist = Row.fold (fun k _ d env -> (k,d)::env) row [] in
+	        (* Unfortunately the interface distinguishes between Set(Ref _) types and 
+	           ordinary fields *)
+	        let schema = Schema.table tblname (Database.schema db) in
+	        let set_ref = List.filter (fun (k, _) ->
+                        try
+                                let column = Schema.Table.find k schema in
+                                column.Schema.Column.issetref
+                        with Not_found as e ->
+                                Printf.printf "Failed to find table %s in schema\n%!" k;
+                                raise e
+                ) fvlist in
+	        (* the set_ref fields must be converted back into lists *)
+	        let set_ref = List.map (fun (k, v) -> 
+                        k, String_unmarshall_helper.set (fun x -> x) v) set_ref in
+	        (fvlist, set_ref)
+        with Not_found ->
+                raise (DBCache_NotFound ("missing row", tblname, objref))
+
 let read_record t = read_record_internal (get_database t)
 
 (* Delete row from tbl *)
 let delete_row_locked t tblname objref =
-	W.debug "delete_row %s (%s)" tblname objref;
+        try
+                W.debug "delete_row %s (%s)" tblname objref;
 	
-	let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
-	let row = Table.find_exn tblname objref tbl in
+	        let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
+	        let row = Table.find objref tbl in
 	
-	let db = get_database t in
-	Database.notify (PreDelete(tblname, objref)) db;
-	update_database t (remove_row tblname objref);
-	Database.notify (Delete(tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])) (get_database t)
-		
+	        let db = get_database t in
+	        Database.notify (PreDelete(tblname, objref)) db;
+	        update_database t (remove_row tblname objref);
+	        Database.notify (Delete(tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])) (get_database t)
+        with Not_found ->
+                raise (DBCache_NotFound ("missing row", tblname, objref))
+
 let delete_row t tblname objref = 
 	with_lock (fun () -> delete_row_locked t tblname objref)
 
@@ -231,15 +241,14 @@ let read_records_where t tbl expr =
 	List.map (fun ref->ref, read_record_internal db tbl ref) reqd_refs
 	
 let process_structured_field_locked t (key,value) tblname fld objref proc_fn_selector =
-	
-    (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
-    let key = ensure_utf8_xml key in
-    let value = ensure_utf8_xml value in
-	
-	let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
-	let row = Table.find_exn tblname objref tbl in
-	let existing_str = Row.find fld row in
-	let new_str = match proc_fn_selector with
+        (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
+        let key = ensure_utf8_xml key in
+        let value = ensure_utf8_xml value in
+	try
+	        let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
+	        let row = Table.find objref tbl in
+	        let existing_str = Row.find fld row in
+	        let new_str = match proc_fn_selector with
 		| AddSet -> add_to_set key existing_str
 		| RemoveSet -> remove_from_set key existing_str
 		| AddMap -> 
@@ -251,7 +260,9 @@ let process_structured_field_locked t (key,value) tblname fld objref proc_fn_sel
 					raise (Duplicate_key (tblname,fld,objref,key));
 			end
 		| RemoveMap -> remove_from_map key existing_str in
-	write_field t tblname objref fld new_str
+	        write_field t tblname objref fld new_str
+        with Not_found ->
+                raise (DBCache_NotFound ("missing row", tblname, objref))
 	
 let process_structured_field t (key,value) tblname fld objref proc_fn_selector =
 	with_lock (fun () -> 

@@ -92,7 +92,6 @@ module Table : sig
         val update_generation : Time.t -> string -> value -> (value -> value) -> t -> t
         val rows : t -> value list
         val remove : Time.t -> string -> t -> t
-        val find_exn : string -> string -> t -> value
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
 end
 
