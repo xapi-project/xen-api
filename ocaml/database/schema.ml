@@ -19,6 +19,15 @@ module Type = struct
 	| Set (* of strings *)
 	| Pairs (* of string * string *)
 	with sexp
+
+        exception Error of t * t
+        let _ = Printexc.register_printer (function
+                | Error (expected, actual) ->
+                        Some (Printf.sprintf "Schema.Type.Error: expected %s; received %s"
+                                (Sexplib.Sexp.to_string_hum (sexp_of_t expected))
+                                (Sexplib.Sexp.to_string_hum (sexp_of_t actual)))
+                | _ -> None
+        )
 end
 
 module Value = struct
@@ -32,6 +41,28 @@ module Value = struct
         | String x -> x
         | Set xs -> String_marshall_helper.set (fun x -> x) xs
         | Pairs xs -> String_marshall_helper.map (fun x -> x) (fun x -> x) xs
+
+        let unmarshal ty x = match ty with
+        | Type.String -> String x
+        | Type.Set -> Set (String_unmarshall_helper.set (fun x -> x) x)
+        | Type.Pairs -> Pairs (String_unmarshall_helper.map (fun x -> x) (fun x -> x) x)
+
+        module Unsafe_cast = struct
+                let string = function
+                | String x -> x
+                | Set _ -> raise (Type.Error(Type.String, Type.Set))
+                | Pairs _ -> raise (Type.Error(Type.String, Type.Pairs))
+
+                let set = function
+                | Set xs -> xs
+                | String _ -> raise (Type.Error(Type.Set, Type.String))
+                | Pairs _ -> raise (Type.Error(Type.Set, Type.Pairs))
+
+                let pairs = function
+                | Pairs x -> x
+                | String _ -> raise (Type.Error(Type.Pairs, Type.String))
+                | Set _ -> raise (Type.Error(Type.Pairs, Type.Set))
+        end
 end
 
 module Column = struct

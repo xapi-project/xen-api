@@ -14,10 +14,6 @@
 
 open Db_exn
 
-module Value = struct
-        type t = string
-end
-
 module Time = struct
         type t = Generation.t
 end
@@ -44,7 +40,7 @@ module StringMap = struct
 end
 
 module type VAL = sig
-	type v
+	type t
 end
 
 module type MAP = sig
@@ -62,11 +58,11 @@ module type MAP = sig
         val touch : int64 -> string -> value -> t -> t
 end
 
-(** A specialised StringMap whose range type is V.v, and which keeps a record of when records are created/updated *)
+(** A specialised StringMap whose range type is V.t, and which keeps a record of when records are created/updated *)
 module Make = functor(V: VAL) -> struct
 	type x = {
                 stat: Stat.t;
-		v : V.v
+		v : V.t
         }
 	type map_t = x StringMap.t
 	let empty = StringMap.empty
@@ -96,12 +92,11 @@ module Make = functor(V: VAL) -> struct
 	let fold_over_recent since f t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f x y.stat y.v z else z) t initial
 end
 
-module StringStringMap = Make(struct type v = string end)
-
 module Row = struct
-	include StringStringMap
+        include Make(Schema.Value)
+
 	type t=map_t
-        type value = Value.t
+        type value = Schema.Value.t
 	let find key t =
 		try find key t
 		with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
@@ -109,14 +104,14 @@ module Row = struct
 		List.fold_left (fun t c ->
 			if not(mem c.Schema.Column.name t)
 			then match c.Schema.Column.default with
-				| Some default -> add g c.Schema.Column.name (Schema.Value.marshal default) t
+				| Some default -> add g c.Schema.Column.name default t
 				| None -> raise (DBCache_NotFound ("missing field", c.Schema.Column.name, ""))
 			else t) t schema.Schema.Table.columns
 end
 
-module StringRowMap = Make(struct type v = Row.t end)
-
 module Table = struct
+        module StringRowMap = Make(Row)
+
 	type t = { rows : StringRowMap.map_t;
 			   deleted_len : int;
 			   deleted : (Time.t * Time.t * string) list }
@@ -158,10 +153,9 @@ module Table = struct
                 loop t.deleted acc
 end
 
-module StringTableMap = Make(struct type v = Table.t end)
-
 module TableSet = struct
-	include StringTableMap
+	include Make(Table)
+
 	type t=map_t
         type value = Table.t
 	let find key t =
@@ -223,10 +217,10 @@ end
 (** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update =
 	| RefreshRow of string (* tblname *) * string (* objref *)
-	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string (* oldval *) * string (* newval *)
+	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* oldval *) * Schema.Value.t (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
-	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
-	| Create of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
+	| Delete of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
+	| Create of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
 
 module Database = struct
 	type t = {
@@ -284,8 +278,8 @@ module Database = struct
 						(fun rf _ row acc ->
 							let acc = KeyMap.add_unique tblname Db_names.ref (Ref rf) (tblname, rf) acc in
 							if Row.mem Db_names.uuid row
-							then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid row)) (tblname, rf) acc
-							else acc
+                                                        then KeyMap.add_unique tblname Db_names.uuid (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row))) (tblname, rf) acc
+                                                        else acc
 						)
 						tbl acc)
 				x.tables KeyMap.empty in
@@ -302,7 +296,7 @@ module Database = struct
 						   upgrade) *)
 						let many_tbl' = Table.fold
 							(fun vm _ row acc ->
-								let row' = Row.add g many_fldname (SExpr.string_of (SExpr.Node [])) row in
+                                                                let row' = Row.add g many_fldname (Schema.Value.Set []) row in
 								Table.add g vm row' acc)
 							many_tbl Table.empty in
 
@@ -310,7 +304,7 @@ module Database = struct
 
 						let vm_to_vbds = Table.fold
 							(fun vbd _ row acc ->
-								let vm = Row.find one_fldname row in
+								let vm = Schema.Value.Unsafe_cast.string (Row.find one_fldname row) in
 								let existing = if Schema.ForeignMap.mem vm acc then Schema.ForeignMap.find vm acc else [] in
 								Schema.ForeignMap.add vm (vbd :: existing) acc)
 							one_tbl Schema.ForeignMap.empty in
@@ -320,8 +314,7 @@ module Database = struct
 								then acc
 								else
 									let row = Table.find vm acc in
-									let vbds' = SExpr.string_of (SExpr.Node (List.map (fun x -> SExpr.String x) vbds)) in
-									let row' = Row.add g many_fldname vbds' row in
+									let row' = Row.add g many_fldname (Schema.Value.Set vbds) row in
 									Table.add g vm row' acc)
 							vm_to_vbds many_tbl' in
 						TableSet.add g many_tblname many_tbl'' tables)
@@ -349,38 +342,22 @@ end
 
 (* Helper functions to deal with Sets and Maps *)
 let add_to_set key t =
-	let existing = Db_action_helper.parse_sexpr t in
-	let processed = Db_action_helper.add_key_to_set key existing in
-	SExpr.string_of (SExpr.Node processed)
+        let t = Schema.Value.Unsafe_cast.set t in
+        Schema.Value.Set (if List.mem key t then t else key :: t)
 
 let remove_from_set key t =
-	let existing = Db_action_helper.parse_sexpr t in
-	let processed = List.filter (function SExpr.String x -> x <> key | _ -> true) existing in
-	SExpr.string_of (SExpr.Node processed)
-
-let set_of_string t =
-	List.map
-		(function SExpr.String x -> x
-			| x -> failwith (Printf.sprintf "Unexpected sexpr: %s" t))
-		(Db_action_helper.parse_sexpr t)
-let string_of_set t = SExpr.string_of (SExpr.Node (List.map (fun x -> SExpr.String x) t))
+        let t = Schema.Value.Unsafe_cast.set t in
+        Schema.Value.Set (List.filter (fun x -> x <> key) t)
 
 exception Duplicate
 let add_to_map key value t =
-	let existing = Db_action_helper.parse_sexpr t in
-	let kv = SExpr.Node [ SExpr.String key; SExpr.String value ] in
-	let duplicate = List.fold_left (||) false
-			(List.map (function SExpr.Node (SExpr.String k :: _) when k = key -> true
-				| _ -> false) existing) in
-	if duplicate then raise Duplicate;
-	let processed = kv::existing in
-	SExpr.string_of (SExpr.Node processed)
+        let t = Schema.Value.Unsafe_cast.pairs t in
+        if List.mem key (List.map fst t) then raise Duplicate;
+        Schema.Value.Pairs ((key, value) :: t)
 
 let remove_from_map key t =
-	let existing = Db_action_helper.parse_sexpr t in
-	let processed = List.filter (function SExpr.Node [ SExpr.String x; _ ] -> x <> key
-		| _ -> true) existing in
-	SExpr.string_of (SExpr.Node processed)
+        let t = Schema.Value.Unsafe_cast.pairs t in
+        Schema.Value.Pairs (List.filter (fun (k, _) -> k <> key) t)
 
 
 let (++) f g x = f (g x)
@@ -401,14 +378,14 @@ let unsafe_set_field g tblname objref fldname newval =
 	(Database.update 
 	++ (TableSet.update g tblname Table.empty)
 	++ (Table.update g objref Row.empty)
-	++ (Row.update g fldname ""))
+	++ (Row.update g fldname (Schema.Value.String "")))
 		(fun _ -> newval) 
 
 let update_one_to_many g tblname objref f db =
 	if not (is_valid tblname objref db) then db else
 	List.fold_left (fun db (one_fld, many_tbl, many_fld) ->
 		(* the value one_fld_val is the Ref _ *)
-		let one_fld_val = get_field tblname objref one_fld db in
+		let one_fld_val = Schema.Value.Unsafe_cast.string (get_field tblname objref one_fld db) in
 		let valid = try ignore(Database.table_of_ref one_fld_val db); true with _ -> false in
 		if valid
 		then unsafe_set_field g many_tbl one_fld_val many_fld (f objref (get_field many_tbl one_fld_val many_fld db)) db
@@ -418,8 +395,7 @@ let update_one_to_many g tblname objref f db =
 let update_many_to_many g tblname objref f db =
 	if not (is_valid tblname objref db) then db else
 	List.fold_left (fun db (this_fld, other_tbl, other_fld) ->
-		let this_fld_val = get_field tblname objref this_fld db in
-		let this_fld_refs = set_of_string this_fld_val in
+                let this_fld_refs = Schema.Value.Unsafe_cast.set (get_field tblname objref this_fld db) in
 		(* for each of this_fld_refs, apply f *)
 		List.fold_left (fun db other_ref ->
 			let valid = try ignore(Database.table_of_ref other_ref db); true with _ -> false in
@@ -452,7 +428,7 @@ let set_field tblname objref fldname newval db =
 		 ++ ((Database.update 
 			  ++ (TableSet.update g tblname Table.empty)
 			  ++ (Table.update g objref Row.empty)
-			  ++ (Row.update g fldname "")) (fun _ -> newval))
+			  ++ (Row.update g fldname (Schema.Value.String ""))) (fun _ -> newval))
 		 ++ (update_one_to_many g tblname objref remove_from_set)
 		 ++ (update_many_to_many g tblname objref remove_from_set)) db
 	end else begin
@@ -461,7 +437,7 @@ let set_field tblname objref fldname newval db =
 		 ++ ((Database.update 
 			 ++ (TableSet.update g tblname Table.empty)
 			 ++ (Table.update g objref Row.empty)
-			 ++ (Row.update g fldname ""))
+			 ++ (Row.update g fldname (Schema.Value.String "")))
 				(fun _ -> newval))) db
 	end
 
@@ -489,13 +465,13 @@ let add_row tblname objref newval db =
 	 ++ (Database.update_keymap (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref)))
 	 ++ (Database.update_keymap (fun m ->
 									 if Row.mem Db_names.uuid newval
-									 then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid newval)) (tblname, objref) m
+									 then KeyMap.add_unique tblname Db_names.uuid (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))) (tblname, objref) m
 									 else m))) db
 
 let remove_row tblname objref db =
 	let uuid =
 		try
-			Some (Row.find Db_names.uuid (Table.find objref (TableSet.find tblname (Database.tableset db))))
+			Some (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid (Table.find objref (TableSet.find tblname (Database.tableset db)))))
 		with _ -> None in
 	let g = db.Database.manifest.Manifest.generation_count in
 	(Database.increment

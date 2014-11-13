@@ -45,8 +45,9 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
                         (fun name { Stat.created; modified } v (acc,max_upd) ->
 				try
 					let col = Schema.Table.find name schema in
-					let v',modified' = if col.Schema.Column.persistent then v,modified else Schema.Value.marshal col.Schema.Column.empty,g in
-					(Row.update modified' name "" (fun _ -> v') (Row.add created name v' acc),max max_upd modified')
+                                        let empty = col.Schema.Column.empty in
+					let v',modified' = if col.Schema.Column.persistent then v,modified else empty,g in
+					(Row.update modified' name empty (fun _ -> v') (Row.add created name v' acc),max max_upd modified')
 				with Not_found ->
 					Printf.printf "Skipping unknown column: %s\n%!" name;
 					(acc,max max_upd modified)) row (Row.empty,0L) in

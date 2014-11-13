@@ -79,11 +79,15 @@ let database_callback event db =
 	let other_tbl_refs_for_this_field tblname fldname =
 		List.filter (fun (_,fld) -> fld=fldname) (other_tbl_refs tblname) in	
 
-	let is_valid_ref r = 
-		try
-			ignore(Database.table_of_ref r db);
-			true
-		with _ -> false in
+	let is_valid_ref = function
+                | Schema.Value.String r ->
+                        begin
+	        	        try
+	        	        	ignore(Database.table_of_ref r db);
+	        	        	true
+	        	        with _ -> false
+                        end
+                | _ -> false in
 
 	match event with
 		| RefreshRow (tblname, objref) ->
@@ -100,12 +104,14 @@ let database_callback event db =
 		| WriteField (tblname, objref, fldname, oldval, newval) ->
 			let events_old_val = 
 				if is_valid_ref oldval then 
+                                        let oldval = Schema.Value.Unsafe_cast.string oldval in
 					events_of_other_tbl_refs
 						(List.map (fun (tbl,fld) ->
 							(tbl, oldval, find_get_record tbl ~__context:context ~self:oldval)) (other_tbl_refs_for_this_field tblname fldname)) 
 				else [] in
 			let events_new_val =
 				if is_valid_ref newval then
+                                        let newval = Schema.Value.Unsafe_cast.string newval in
 					events_of_other_tbl_refs
 						(List.map (fun (tbl,fld) ->
 							(tbl, newval, find_get_record tbl ~__context:context ~self:newval)) (other_tbl_refs_for_this_field tblname fldname)) 
@@ -148,9 +154,10 @@ let database_callback event db =
 			let other_tbl_refs =
 				List.fold_left (fun accu (remote_tbl,fld) ->
 					let fld_value = List.assoc fld kv in
-					if is_valid_ref fld_value 
-					then (remote_tbl, fld_value, find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu 
-					else accu) 
+					if is_valid_ref fld_value then begin
+                                                let fld_value = Schema.Value.Unsafe_cast.string fld_value in
+					        (remote_tbl, fld_value, find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu 
+                                        end else accu) 
 					[] other_tbl_refs in
 			let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
 			List.iter (function
@@ -167,9 +174,10 @@ let database_callback event db =
 			let other_tbl_refs =
 				List.fold_left (fun accu (tbl,fld) ->
 					let fld_value = List.assoc fld kv in
-					if is_valid_ref fld_value 
-					then (tbl, fld_value, find_get_record tbl ~__context:context ~self:fld_value) :: accu
-					else accu) 
+                                        if is_valid_ref fld_value then begin
+                                                let fld_value = Schema.Value.Unsafe_cast.string fld_value in
+					         (tbl, fld_value, find_get_record tbl ~__context:context ~self:fld_value) :: accu
+                                        end else accu) 
 					[] other_tbl_refs in
 			let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in
 			begin match snapshot() with

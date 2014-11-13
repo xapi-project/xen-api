@@ -30,9 +30,9 @@ let lookup key =
 	let db = Db_ref.get_database t in
 	let r (tblname, objref) = 
 		let row = Table.find objref (TableSet.find tblname (Database.tableset db)) in {
-			name_label = (try Some (Row.find Db_names.name_label row) with _ -> None);
-			uuid = Row.find Db_names.uuid row;
-			_ref = Row.find Db_names.ref row;
+			name_label = (try Some (Schema.Value.Unsafe_cast.string (Row.find Db_names.name_label row)) with _ -> None);
+			uuid = Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row);
+			_ref = Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row);
 		} in
 	Opt.map r (Database.lookup_key key db)
 

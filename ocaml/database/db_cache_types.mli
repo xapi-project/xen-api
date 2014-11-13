@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Value : sig
-        type t = string
-        (** A value stored in the database *)
-
-end
-
 module Time : sig
         type t = Generation.t
         (** A monotonically increasing counter associated with this database *)
@@ -85,7 +79,7 @@ end
 
 module Row : sig
         include MAP
-          with type value = Value.t
+          with type value = Schema.Value.t
 
         val add_defaults: Time.t -> Schema.Table.t -> t -> t
         (** [add_defaults now schema t]: returns a row which is [t] extended to contain
@@ -122,10 +116,10 @@ module Manifest :
 (** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update = 
 	| RefreshRow of string (* tblname *) * string (* objref *)
-	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string  (* oldval *) * string (* newval *)
+	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* oldval *) * Schema.Value.t (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
-	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
-	| Create of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
+	| Delete of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
+	| Create of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
 
 module Database :
   sig
@@ -150,13 +144,13 @@ module Database :
   end
 
 exception Duplicate
-val add_to_set : string -> string -> string
-val remove_from_set : string -> string -> string
-val add_to_map : string -> string -> string -> string
-val remove_from_map : string -> string -> string
+val add_to_set : string -> Schema.Value.t -> Schema.Value.t
+val remove_from_set : string -> Schema.Value.t -> Schema.Value.t
+val add_to_map : string -> string -> Schema.Value.t -> Schema.Value.t
+val remove_from_map : string -> Schema.Value.t -> Schema.Value.t
 
-val set_field : string -> string -> string -> string -> Database.t -> Database.t
-val get_field : string -> string -> string -> Database.t -> string
+val set_field : string -> string -> string -> Schema.Value.t -> Database.t -> Database.t
+val get_field : string -> string -> string -> Database.t -> Schema.Value.t
 val remove_row : string -> string -> Database.t -> Database.t
 val add_row : string -> string -> Row.t -> Database.t -> Database.t
 val touch : string -> string -> Database.t -> Database.t

@@ -57,10 +57,7 @@ let read_field_internal t tblname fldname objref db =
 
 (* Read field from cache *)
 let read_field t tblname fldname objref =
-	read_field_internal t tblname fldname objref (get_database t)
-
-
-
+        Schema.Value.marshal (read_field_internal t tblname fldname objref (get_database t))
 
 (** Finds the longest XML-compatible UTF-8 prefix of the given *)
 (** string, by truncating the string at the first incompatible *)
@@ -81,6 +78,10 @@ let write_field_locked t tblname objref fldname newval =
 	Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t)
 			
 let write_field t tblname objref fldname newval =
+        let db = get_database t in
+	let schema = Schema.table tblname (Database.schema db) in
+        let column = Schema.Table.find fldname schema in
+        let newval = Schema.Value.unmarshal column.Schema.Column.ty newval in
 	with_lock (fun () -> 
 		write_field_locked t tblname objref fldname newval)
 
@@ -107,16 +108,16 @@ let read_set_ref t rcd =
 		let _, many_tbl, many_fld = List.find (fun (a, _, _) -> a = one_fld) rels in
 		let objref = rcd.where_value in
 		
-		let str = read_field_internal t many_tbl many_fld objref db in
-		String_unmarshall_helper.set (fun x -> x) str		
+		Schema.Value.Unsafe_cast.set (read_field_internal t many_tbl many_fld objref db)
 	end else begin
 		error "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan" rcd.table rcd.where_field rcd.where_value rcd.return;
 		Printf.printf "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan\n%!" rcd.table rcd.where_field rcd.where_value rcd.return;
 		let tbl = TableSet.find rcd.table (Database.tableset db) in
 		Table.fold
 			(fun rf _ row acc ->
-				if Row.find rcd.where_field row = rcd.where_value 
-				then Row.find rcd.return row :: acc else acc)
+                                let v = Schema.Value.Unsafe_cast.string (Row.find rcd.where_field row) in
+				if v = rcd.where_value 
+				then v :: acc else acc)
 			tbl []
 	end
 			
@@ -136,16 +137,15 @@ let read_record_internal db tblname objref =
 	           ordinary fields *)
 	        let schema = Schema.table tblname (Database.schema db) in
 	        let set_ref = List.filter (fun (k, _) ->
-                        try
-                                let column = Schema.Table.find k schema in
-                                column.Schema.Column.issetref
-                        with Not_found as e ->
-                                Printf.printf "Failed to find table %s in schema\n%!" k;
-                                raise e
+                        let column = Schema.Table.find k schema in
+                        column.Schema.Column.issetref
+                ) fvlist in
+                let fvlist = List.map (fun (k, v) ->
+                        k, Schema.Value.marshal v
                 ) fvlist in
 	        (* the set_ref fields must be converted back into lists *)
 	        let set_ref = List.map (fun (k, v) -> 
-                        k, String_unmarshall_helper.set (fun x -> x) v) set_ref in
+                        k, Schema.Value.Unsafe_cast.set v) set_ref in
 	        (fvlist, set_ref)
         with Not_found ->
                 raise (DBCache_NotFound ("missing row", tblname, objref))
@@ -172,13 +172,18 @@ let delete_row t tblname objref =
 
 (* Create new row in tbl containing specified k-v pairs *)
 let create_row_locked t tblname kvs' new_objref =
-	
-    (* Ensure values are valid for UTF-8-encoded XML. *)
-    let kvs' = List.map (fun (key, value) -> (key, ensure_utf8_xml value)) kvs' in
+        let db = get_database t in
+	let schema = Schema.table tblname (Database.schema db) in
+
+        let kvs' = List.map (fun (key, value) ->
+                let value = ensure_utf8_xml value in
+                let column = Schema.Table.find key schema in
+                key, Schema.Value.unmarshal column.Schema.Column.ty value
+        ) kvs' in
 
     (* we add the reference to the row itself so callers can use read_field_where to
 	   return the reference: awkward if it is just the key *)
-    let kvs' = (Db_names.ref, new_objref) :: kvs' in
+    let kvs' = (Db_names.ref, Schema.Value.String new_objref) :: kvs' in
 	let g = Manifest.generation (Database.manifest (get_database t)) in
 	let row = List.fold_left (fun row (k, v) -> Row.add g k v row) Row.empty kvs' in
 	let schema = Schema.table tblname (Database.schema (get_database t)) in
@@ -197,8 +202,8 @@ let read_field_where t rcd =
 	let tbl = TableSet.find rcd.table (Database.tableset db) in
 	Table.fold
 		(fun r _ row acc ->
-			let field = Row.find rcd.where_field row in
-			if field = rcd.where_value then Row.find rcd.return row :: acc else acc
+			let field = Schema.Value.marshal (Row.find rcd.where_field row) in
+			if field = rcd.where_value then Schema.Value.marshal (Row.find rcd.return row) :: acc else acc
 		) tbl []
 		
 let db_get_by_uuid t tbl uuid_val =
@@ -226,11 +231,11 @@ let find_refs_with_filter_internal db (tblname: string) (expr: Db_filter_types.e
 	let tbl = TableSet.find tblname (Database.tableset db) in
 	let eval_val row = function
 		| Db_filter_types.Literal x -> x
-		| Db_filter_types.Field x -> Row.find x row in
+		| Db_filter_types.Field x -> Schema.Value.marshal (Row.find x row) in
 	Table.fold
 		(fun r _ row acc ->
 			if Db_filter.eval_expr (eval_val row) expr
-			then Row.find Db_names.ref row :: acc else acc
+			then Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc else acc
 		) tbl []
 let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
 		
@@ -248,7 +253,7 @@ let process_structured_field_locked t (key,value) tblname fld objref proc_fn_sel
 	        let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
 	        let row = Table.find objref tbl in
 	        let existing_str = Row.find fld row in
-	        let new_str = match proc_fn_selector with
+	        let newval = match proc_fn_selector with
 		| AddSet -> add_to_set key existing_str
 		| RemoveSet -> remove_from_set key existing_str
 		| AddMap -> 
@@ -260,7 +265,7 @@ let process_structured_field_locked t (key,value) tblname fld objref proc_fn_sel
 					raise (Duplicate_key (tblname,fld,objref,key));
 			end
 		| RemoveMap -> remove_from_map key existing_str in
-	        write_field t tblname objref fld new_str
+		write_field_locked t tblname objref fld newval
         with Not_found ->
                 raise (DBCache_NotFound ("missing row", tblname, objref))
 	

@@ -759,9 +759,9 @@ let database_callback event db =
 			| Db_cache_types.RefreshRow (tblname, objref) ->
 				None
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
-				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
+				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
 				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname 
-				then Some (WriteField(tblname, objref, fldname, newval))
+				then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
 				else None
 			| Db_cache_types.PreDelete (tblname, objref) ->
 				None
@@ -771,7 +771,7 @@ let database_callback event db =
 				else None
 			| Db_cache_types.Create (tblname, objref, kvs) ->
 				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
-				then Some (CreateRow(tblname, objref, kvs))
+				then Some (CreateRow(tblname, objref, (List.map (fun (k, v) -> k, Schema.Value.marshal v) kvs)))
 				else None 
 	in
 

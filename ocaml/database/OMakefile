@@ -20,13 +20,11 @@ BLOCK_DEVICE_IO_FILES = \
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 OCamlDocProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
-DATABASE_SERVER_FILES = database_server_main test_schemas database_test ../autogen/db_actions 
-DATABASE_TEST_FILES = database_test database_test_main test_schemas
+DATABASE_SERVER_FILES = database_server_main test_schemas ../autogen/db_actions 
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove
 	OCAML_LIBS += ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
 	OCamlProgram(database_server, $(DATABASE_SERVER_FILES))
-	OCamlProgram(database_test, $(DATABASE_TEST_FILES))
 
 section:
 	OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server
@@ -43,5 +41,5 @@ sdk-install: install
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS) xenEnterpriseAPI* gen gen.opt db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml
-	rm -f block_device_io unit_test_marshall block_device_io.opt unit_test_marshall.opt database_test
+	rm -f block_device_io unit_test_marshall block_device_io.opt unit_test_marshall.opt
 
