@@ -98,14 +98,7 @@ end
 
 module StringStringMap = Make(struct type v = string end)
 
-module type ROW = sig
-        include MAP
-          with type value = Value.t
-
-	val add_defaults: Time.t -> Schema.Table.t -> t -> t
-end
-
-module Row : ROW = struct
+module Row = struct
 	include StringStringMap
 	type t=map_t
         type value = Value.t
@@ -123,14 +116,7 @@ end
 
 module StringRowMap = Make(struct type v = Row.t end)
 
-module type TABLE = sig
-        include MAP
-          with type value = Row.t
-	val touch : Time.t -> string -> Row.t -> t -> t
-        val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
-end
-
-module Table : TABLE = struct
+module Table = struct
 	type t = { rows : StringRowMap.map_t;
 			   deleted_len : int;
 			   deleted : (Time.t * Time.t * string) list }
@@ -174,9 +160,7 @@ end
 
 module StringTableMap = Make(struct type v = Table.t end)
 
-module type TABLESET = MAP with type value = Table.t
-
-module TableSet : TABLESET = struct
+module TableSet = struct
 	include StringTableMap
 	type t=map_t
         type value = Table.t
