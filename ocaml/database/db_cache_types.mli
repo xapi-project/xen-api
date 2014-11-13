@@ -12,35 +12,63 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** The values stored in the database *)
 module Value : sig
         type t = string
+        (** A value stored in the database *)
+
 end
 
-(** A timestamp *)
 module Time : sig
         type t = Generation.t
+        (** A monotonically increasing counter associated with this database *)
 end
 
 module Stat : sig
         type t = {
-                created: Time.t;
-                modified: Time.t;
-                deleted: Time.t;
+                created: Time.t;  (** Time this value was created *)
+                modified: Time.t; (** Time this value was last modified *)
+                deleted: Time.t;  (** Time this value was deleted (or 0L meaning it is still alive) *)
         }
+        (** Metadata associated with a database value *)
 end
 
 module type MAP = sig
         type t
+        (** A map from string to some value *)
+
         type value
-        val add: Time.t -> string -> value -> t -> t
+        (** The type of the values in the map *)
+
         val empty : t
+        (** The empty map *)
+
+        val add: Time.t -> string -> value -> t -> t
+        (** [add now key value map] returns a new map with [key] associated with [value],
+            with creation time [now] *)
+
         val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)
+
         val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold_over_recent since f t initial] folds [f key stats value acc] over all the
+            items with a modified time larger than [since] *)
+
         val find : string -> t -> value
+        (** [find key t] returns the value associated with [key] in [t] or raises
+            [DBCache_NotFound] *)
+
         val mem : string -> t -> bool
+        (** [mem key t] returns true if [value] is associated with [key] in [t] or false
+            otherwise *)
+
         val iter : (string -> value -> unit) -> t -> unit
+        (** [iter f t] applies [f key value] to each binding in [t] *)
+
         val update : Time.t -> string -> value -> (value -> value) -> t -> t
+        (** [update now key default f t] returns a new map which is the same as [t] except:
+            if there is a value associated with [key] it is replaced with [f key[
+            or if there is no value associated with [key] then [default] is associated with [key]
+          *)
 end
 
 module Row : sig
@@ -48,12 +76,19 @@ module Row : sig
           with type value = Value.t
 
         val add_defaults: Time.t -> Schema.Table.t -> t -> t
+        (** [add_defaults now schema t]: returns a row which is [t] extended to contain
+            all the columns specified in the schema, with default values set if not already
+            in [t]. If the schema is missing a default value then raises [DBCache_NotFound]:
+            this would happen if a client failed to provide a necessary field. *)
+
         val remove : string -> t -> t
+        (** [remove key t] removes the binding of [key] from [t]. *)
 end
 
 module Table : sig
         include MAP
           with type value = Row.t
+
         val update_generation : Time.t -> string -> value -> (value -> value) -> t -> t
         val rows : t -> value list
         val remove : Time.t -> string -> t -> t

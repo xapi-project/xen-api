@@ -50,8 +50,8 @@ end
 module type MAP = sig
 	type t
         type value
-	val add: Time.t -> string -> value -> t -> t
 	val empty : t
+	val add: Time.t -> string -> value -> t -> t
 	val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
 	val find : string -> t -> value
