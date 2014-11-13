@@ -42,8 +42,8 @@ let of_datamodel () =
 			(* NB Set(Ref _) fields aren't allowed to have a default value specified so we hardcode one here *)
 			default = 
 				if issetref 
-				then Some (SExpr.string_of (SExpr.Node []))
-				else Opt.map Datamodel_values.to_db_string f.Datamodel_types.default_value ;
+                                then Some (Value.Set [])
+				else Opt.map Datamodel_values.to_db f.Datamodel_types.default_value ;
 			ty = ty;
 			issetref = issetref;
 		} in
@@ -52,7 +52,7 @@ let of_datamodel () =
 	let _ref = {
 		Column.name = Db_names.ref;
 		persistent = true;
-		empty = "";
+		empty = Value.String "";
 		default = None;
 		ty = Type.String;
 		issetref = false;

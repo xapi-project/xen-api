@@ -109,7 +109,7 @@ module Row = struct
 		List.fold_left (fun t c ->
 			if not(mem c.Schema.Column.name t)
 			then match c.Schema.Column.default with
-				| Some default -> add g c.Schema.Column.name default t
+				| Some default -> add g c.Schema.Column.name (Schema.Value.marshal default) t
 				| None -> raise (DBCache_NotFound ("missing field", c.Schema.Column.name, ""))
 			else t) t schema.Schema.Table.columns
 end

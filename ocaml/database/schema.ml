@@ -21,12 +21,25 @@ module Type = struct
 	with sexp
 end
 
+module Value = struct
+        type t =
+        | String of string
+        | Set of string list
+        | Pairs of (string * string) list
+        with sexp
+
+        let marshal = function
+        | String x -> x
+        | Set xs -> String_marshall_helper.set (fun x -> x) xs
+        | Pairs xs -> String_marshall_helper.map (fun x -> x) (fun x -> x) xs
+end
+
 module Column = struct
 	type t = {
 		name: string;
 		persistent: bool;         (** see is_field_persistent *)
-		empty: string;            (** fresh value used when loading non-persistent fields *)
-		default: string option;   (** if column is missing, this is default value is used *)
+		empty: Value.t;           (** fresh value used when loading non-persistent fields *)
+		default: Value.t option;  (** if column is missing, this is default value is used *)
 		ty: Type.t;               (** the type of the value in the column *)
 		issetref: bool;           (** only so we can special case set refs in the interface *)
 	} with sexp
