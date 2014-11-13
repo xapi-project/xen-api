@@ -66,9 +66,18 @@ module type MAP = sig
 
         val update : Time.t -> string -> value -> (value -> value) -> t -> t
         (** [update now key default f t] returns a new map which is the same as [t] except:
-            if there is a value associated with [key] it is replaced with [f key[
-            or if there is no value associated with [key] then [default] is associated with [key]
+            if there is a value associated with [key] it is replaced with [f key]
+            or if there is no value associated with [key] then [default] is associated with [key].
+            This function touches the modification time of [key] *unless* [f key] is physically
+            equal with the current value: in this case the modification time isn't bumped as
+            an optimisation.
           *)
+
+        val touch : Time.t -> string -> value -> t -> t
+        (** [touch now key default t] returns a new map which is the same as [t] except:
+            if there is a value associated with [t] then its modification time is set to [now];
+            if there is no value asssociated with [t] then one is created with value [default].
+            On exit there will be a binding of [key] whose modification time is [now] *)
 end
 
 module Row : sig
@@ -89,7 +98,6 @@ module Table : sig
         include MAP
           with type value = Row.t
 
-        val update_generation : Time.t -> string -> value -> (value -> value) -> t -> t
         val rows : t -> value list
         val remove : Time.t -> string -> t -> t
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
@@ -107,7 +115,7 @@ module Manifest :
     val empty : t
     val make : int -> int -> Generation.t -> t
     val generation : t -> Generation.t
-    val update_generation : (Generation.t -> Generation.t) -> t -> t
+    val touch : (Generation.t -> Generation.t) -> t -> t
     val next : t -> t
 	val schema : t -> int * int
 	val update_schema : ((int * int) option -> (int * int) option) -> t -> t
@@ -153,8 +161,7 @@ val set_field : string -> string -> string -> string -> Database.t -> Database.t
 val get_field : string -> string -> string -> Database.t -> string
 val remove_row : string -> string -> Database.t -> Database.t
 val add_row : string -> string -> Row.t -> Database.t -> Database.t
-
-val update_generation : string -> string -> Database.t -> Database.t
+val touch : string -> string -> Database.t -> Database.t
 
 type where_record = {
 	table: string;       (** table from which ... *)

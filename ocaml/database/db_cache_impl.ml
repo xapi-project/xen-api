@@ -84,8 +84,8 @@ let write_field t tblname objref fldname newval =
 	with_lock (fun () -> 
 		write_field_locked t tblname objref fldname newval)
 
-let refresh_row t tblname objref =
-	update_database t (update_generation tblname objref);
+let touch_row t tblname objref =
+	update_database t (touch tblname objref);
 	Database.notify (RefreshRow(tblname, objref)) (get_database t)
 
 (* This function *should* only be used by db_actions code looking up Set(Ref _) fields:

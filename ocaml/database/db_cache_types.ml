@@ -58,6 +58,7 @@ module type MAP = sig
 	val mem : string -> t -> bool
 	val iter : (string -> value -> unit) -> t -> unit
 	val update : int64 -> string -> value -> (value -> value) -> t -> t
+        val touch : int64 -> string -> value -> t -> t
 end
 
 (** A specialised StringMap whose range type is V.v, and which keeps a record of when records are created/updated *)
@@ -76,9 +77,9 @@ module Make = functor(V: VAL) -> struct
 	let mem = StringMap.mem
 	let iter f = StringMap.iter (fun key x -> f key x.v)
 	let remove = StringMap.remove
-	let update_generation generation key default f row =
+	let touch generation key default row =
                 let default = { stat = Stat.make generation; v = default } in
-                StringMap.update key default (fun x -> { stat = { x.stat with Stat.modified=generation }; v=f x.v}) row
+                StringMap.update key default (fun x -> { x with stat = { x.stat with Stat.modified=generation } }) row
 	let update generation key default f row = 
                 let default = { stat = Stat.make generation; v = default } in
                 let updatefn () = StringMap.update key default (fun x -> { stat = { x.stat with Stat.modified=generation }; v=f x.v}) row in
@@ -125,7 +126,7 @@ module StringRowMap = Make(struct type v = Row.t end)
 module type TABLE = sig
         include MAP
           with type value = Row.t
-	val update_generation : Time.t -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
+	val touch : Time.t -> string -> Row.t -> t -> t
 	val rows : t -> Row.t list
 	val remove : Time.t -> string -> t -> t
         val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
@@ -155,7 +156,7 @@ module Table : TABLE = struct
 		{rows = StringRowMap.remove key t.rows;
 		 deleted_len = new_len;
 		 deleted = new_deleted}
-	let update_generation g key default f t = {t with rows = StringRowMap.update_generation g key default f t.rows }
+	let touch g key default t = {t with rows = StringRowMap.touch g key default t.rows }
 	let update g key default f t = {t with rows = StringRowMap.update g key default f t.rows}
 	let fold_over_recent since f t acc = StringRowMap.fold_over_recent since f t.rows acc
 
@@ -229,11 +230,11 @@ module Manifest = struct
 
 	let generation x = x.generation_count
 
-	let update_generation f x = {
+	let touch f x = {
 		x with generation_count = f x.generation_count
 	}
 
-	let next = update_generation (Int64.add 1L)
+	let next = touch (Int64.add 1L)
 
 	let schema x = match x.schema with
 		| None -> 0, 0
@@ -275,7 +276,7 @@ module Database = struct
 		{ x with tables = f x.tables }
 
 	let set_generation g =
-		update_manifest (Manifest.update_generation (fun _ -> g))
+		update_manifest (Manifest.touch (fun _ -> g))
 
 	let update_tableset f x =
 		{ x with tables = f x.tables }
@@ -489,7 +490,7 @@ let set_field tblname objref fldname newval db =
 				(fun _ -> newval))) db
 	end
 
-let update_generation tblname objref db =
+let touch tblname objref db =
 	let g = Manifest.generation (Database.manifest db) in
 	(* We update the generation twice so that we can return the lower count
 	   for the "event.inject" API to guarantee that the token from a later
@@ -498,7 +499,7 @@ let update_generation tblname objref db =
 	(Database.increment ++ Database.increment
 		++ ((Database.update
 			++ (TableSet.update g tblname Table.empty)
-			++ (Table.update_generation g objref Row.empty)) id
+			++ (Table.touch g objref)) Row.empty
 		)) db
 
 let add_row tblname objref newval db =

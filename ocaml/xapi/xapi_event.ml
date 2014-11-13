@@ -558,7 +558,7 @@ let inject ~__context ~_class ~_ref =
 		(fun () ->
 			let db_ref = Db_backend.make () in
 			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
-			Db_cache_impl.refresh_row db_ref _class _ref; (* consumes this generation *)
+			Db_cache_impl.touch_row db_ref _class _ref; (* consumes this generation *)
 			g
 		) in
 	let token = Int64.sub generation 1L, 0L in
