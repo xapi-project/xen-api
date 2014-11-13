@@ -60,8 +60,7 @@ test:
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
-#	The following test no longer runs:
-#	./ocaml/database/database_test
+	./ocaml/database/database_test
 #	The following test no longer compiles:
 #	./ocaml/xenops/device_number_test
 #	The following test must be run in dom0:
