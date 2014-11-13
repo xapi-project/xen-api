@@ -187,11 +187,11 @@ let get_snapshots_vbds ~__context ~vm =
 			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
 	aux [] 0 vm
 
-let destroy_snapshots ~__context ~vm =
+let destroy_vm_and_snapshots rpc session_id ~vm =
 	let rec aux cur =
-		let parent = Db.VM.get_parent ~__context ~self:cur in
-		Db.VM.destroy ~__context ~self:cur;
-		if Db.is_valid_ref __context parent then
+		let parent = XenAPI.VM.get_parent rpc session_id cur in
+		XenAPI.VM.destroy rpc session_id cur;
+		if parent <> Ref.null then
 			aux parent
 	in aux vm
 
@@ -656,8 +656,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				end else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
 			if not is_intra_pool then begin
-				info "Destroying VM & snapshots";
-				destroy_snapshots ~__context ~vm
+				info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
+				XenAPI.VM.power_state_reset rpc session_id vm;
+				destroy_vm_and_snapshots rpc session_id vm
 			end);
 		SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
 	with e ->
