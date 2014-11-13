@@ -169,6 +169,8 @@ let create_vgpus ~__context (vm, vm_r) hvm =
 			(fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref)
 			vgpus
 	in
+	if virtual_vgpus <> [] && not (Pool_features.is_enabled ~__context Features.VGPU) then
+		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
 	add_pcis_to_vm ~__context vm passthru_vgpus;
 	if not (vgpu_manual_setup_of_vm vm_r)
 	then add_vgpus_to_vm ~__context vm virtual_vgpus

@@ -74,7 +74,7 @@ let setup () =
   try
     update_env ()
   with exn ->
+    Backtrace.is_important exn;
     debug "dbsync caught an exception: %s"
       (ExnHelper.string_of_exn exn);
-    log_backtrace();
     raise exn

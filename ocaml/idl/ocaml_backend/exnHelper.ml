@@ -24,7 +24,6 @@ module D = Debug.Make(struct let name="backtrace" end)
 open D
 
 let error_of_exn e =
-	log_backtrace ();
 	match e with
 		| Stunnel.Stunnel_error msg ->
 			internal_error, [ "Connection failed: " ^ (String.lowercase msg) ^ "." ]

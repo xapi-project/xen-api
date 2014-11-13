@@ -877,10 +877,10 @@ let handler req fd _ =
 
 			TaskHelper.set_progress ~__context 1.
 		with
-		| Api_errors.Server_error(code, params) ->
-			TaskHelper.failed ~__context(code, params)
+		| Api_errors.Server_error(code, params) as e ->
+			TaskHelper.failed ~__context e
 		| e ->
-			TaskHelper.failed ~__context (Api_errors.internal_error, [ ExnHelper.string_of_exn e ])
+			TaskHelper.failed ~__context e
     )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
@@ -921,6 +921,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 	TaskHelper.set_cancellable ~__context;
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
+		assert_can_migrate ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[];
 		migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[]
 	) ;
 	Db.VBD.get_VDI ~__context ~self:vbd

@@ -1,0 +1,1 @@
+\mathit{shadow} = \mathit{max}(1, \mathit{multiplier}*\left\lceil\mathit{staticmax}+128*\mathit{vcpus}\right\rceil/128)

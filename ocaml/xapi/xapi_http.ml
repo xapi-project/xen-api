@@ -103,7 +103,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
 			 | Some task_id ->
 					 TaskHelper.failed
 						 ~__context:(Context.from_forwarded_task task_id)
-						 (Api_errors.rbac_permission_denied,[permission;msg])
+						 (Api_errors.Server_error (Api_errors.rbac_permission_denied,[permission;msg]))
     );
     raise exc
 	in
@@ -209,7 +209,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
       )
   with Http.Unauthorised s as e -> 
     let fail __context = 
-      TaskHelper.failed ~__context (Api_errors.session_authentication_failed, [])
+      TaskHelper.failed ~__context (Api_errors.Server_error(Api_errors.session_authentication_failed, []))
     in
     debug "No authentication provided to http handler: returning 401 unauthorised";
     (* Fail the task *)

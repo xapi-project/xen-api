@@ -508,7 +508,7 @@ let filter_records_on_fields records (k,v) =
 	end
 
 
-let stdparams = ["server";"password";"port";"username"; "minimal"; "force"; "multiple"; "all"; "message-priority"]
+let stdparams = ["server";"password";"port";"username"; "minimal"; "force"; "multiple"; "all"; "message-priority"; "trace"]
 
 (* This goes through the list of parameters, extracting any of the form map-name-key=value   *)
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
@@ -3258,7 +3258,7 @@ let vm_import fd printer rpc session_id params =
 									marshal fd (Command (PrintStderr "Failed to import directory-format XVA\n"));
 									debug "Import failed with exception: %s" (Printexc.to_string e);
 									(if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0))
-									then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.import_error_generic,[(Printexc.to_string e)])
+									then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.Server_error(Api_errors.import_error_generic,[(Printexc.to_string e)]))
 									);
 									raise (ExitWithError 2)
 							end

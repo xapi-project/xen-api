@@ -93,7 +93,7 @@ let watchdog f =
 									exit 127
 								with e ->
 									error "Caught exception at toplevel: '%s'" (Printexc.to_string e);
-									log_backtrace ();
+									Debug.log_backtrace e (Backtrace.get e);
 									raise e (* will exit the process with rc=2 *)
 							end;
 						(* parent just reset the sighandler *)

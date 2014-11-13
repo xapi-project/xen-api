@@ -38,42 +38,44 @@ let respond req rpc s =
 
 let list_drivers req s = respond req (System_domains.rpc_of_services (System_domains.list_services ())) s
 
-let fix_cookie cookie =
-  let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
+let fix_cookie = function
+	| [] -> []
+	| cookie -> begin
+		let str_cookie = String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) cookie) in
 
-  let bounded_split_delim re s n =
-    let rec extract_comps_inner start acc m =
-      let get_fin () = List.rev ((String.sub s start (String.length s - start))::acc) in
-      if m=1 then get_fin () else
-	try 	
-	  let first_end, all_end = Re.get_ofs (Re.exec ~pos:start re s) 0 in
-	  extract_comps_inner all_end ((String.sub s start (first_end - start))::acc) (m-1)
-	with Not_found ->
-	  get_fin ()
-    in extract_comps_inner 0 [] n
-  in
+		let bounded_split_delim re s n =
+			let rec extract_comps_inner start acc m =
+				let get_fin () = List.rev ((String.sub s start (String.length s - start))::acc) in
+				if m=1 then get_fin () else
+					try
+						let first_end, all_end = Re.get_ofs (Re.exec ~pos:start re s) 0 in
+						extract_comps_inner all_end ((String.sub s start (first_end - start))::acc) (m-1)
+					with Not_found ->
+						get_fin ()
+			in extract_comps_inner 0 [] n
+		in
 
-  let comps = bounded_split_delim (Re.compile (Re_emacs.re "[;,][ \t]*")) str_cookie 0 in
+		let comps = bounded_split_delim (Re.compile (Re_emacs.re "[;,][ \t]*")) str_cookie 0 in
 
-          (* We don't handle $Path, $Domain, $Port, $Version (or $anything
-             $else) *)
-  let cookies = List.filter (fun s -> s.[0] != '$') comps in
-  let split_pair nvp =
-    match String.split '=' nvp with
-    | [] -> ("","")
-    | n :: [] -> (n, "")
-    | n :: v :: _ -> (n, v)
-  in 
-  (List.map split_pair cookies)
+		(* We don't handle $Path, $Domain, $Port, $Version (or $anything $else) *)
+		let cookies = List.filter (fun s -> s.[0] != '$') comps in
+		let split_pair nvp =
+			match String.split '=' nvp with
+			| [] -> ("","")
+			| n :: [] -> (n, "")
+			| n :: v :: _ -> (n, v)
+		in
+		(List.map split_pair cookies)
+	end
 
 (* Transmits [req] and [s] to the service listening on [path] *)
 let hand_over_connection req s path =
 	try
 		debug "hand_over_connection %s %s to %s" (Http.string_of_method_t req.Http.Request.m) req.Http.Request.uri path;
 		let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-		let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 		finally
 			(fun () ->
+				let req = Http.Request.({ req with cookie=fix_cookie req.cookie}) in
 				Unix.connect control_fd (Unix.ADDR_UNIX path);
 				let msg = req |> Http.Request.rpc_of_t |> Jsonrpc.to_string in
 				let len = String.length msg in

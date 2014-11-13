@@ -266,8 +266,7 @@ module Monitor = struct
 
 	(** Background thread which monitors the membership set and takes action if HA is
 		armed and something goes wrong *)
-	let thread_body () : unit =
-		Debug.name_thread "ha_monitor";
+	let ha_monitor () : unit = Debug.with_thread_named "ha_monitor" (fun () ->
 		debug "initialising HA background thread";
 		(* NB we may be running this code on a slave in emergency mode *)
 
@@ -596,6 +595,7 @@ module Monitor = struct
 			log_and_ignore_exn Rrdd.HA.disable;
 
 			debug "HA background thread told to stop")
+		) ()
 
 	let prevent_restarts_for seconds =
 		(* Wait until the thread stops processing and is about to sleep / is already sleeping *)
@@ -622,7 +622,7 @@ module Monitor = struct
 					| None ->
 						(* This will cause the started thread to block until signal_database_state_valid is called *)
 						request_shutdown := false;
-						thread := Some (Thread.create thread_body ()))
+						thread := Some (Thread.create ha_monitor ()))
 
 	let signal_database_state_valid () =
 		Mutex.execute thread_m

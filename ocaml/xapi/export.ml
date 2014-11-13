@@ -540,8 +540,8 @@ let handler (req: Request.t) s _ =
        then Some (Ref.of_string (List.assoc "task_id" all))
        else None in
        begin match task_id with 
-         | None -> Server_helpers.exec_with_new_task "export" ~task_in_database:true (fun __context -> TaskHelper.failed ~__context (a,b))
-         | Some task_id -> Server_helpers.exec_with_forwarded_task task_id (fun __context -> TaskHelper.failed ~__context (a,b))
+         | None -> Server_helpers.exec_with_new_task "export" ~task_in_database:true (fun __context -> TaskHelper.failed ~__context e)
+         | Some task_id -> Server_helpers.exec_with_forwarded_task task_id (fun __context -> TaskHelper.failed ~__context e)
        end
 	     | e ->
 		 error "Caught exception in export handler: %s" (Printexc.to_string e);

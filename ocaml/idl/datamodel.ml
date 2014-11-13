@@ -415,7 +415,7 @@ let _ =
     ~doc:"XHA cannot be enabled because this host's license does not allow it." ();
 
   error Api_errors.v6d_failure []
-    ~doc:"There was a problem with the license daemon (v6d). Is it running?" ();
+    ~doc:"There was a problem with the license daemon (v6d)." ();
   error Api_errors.invalid_edition ["edition"]
     ~doc:"The edition you supplied is invalid." ();
   error Api_errors.missing_connection_details []
@@ -617,6 +617,12 @@ let _ =
     ~doc:"You attempted an operation on a VM which requires PV drivers to be installed but the drivers were not detected." ();
   error Api_errors.vm_old_pv_drivers [ "vm"; "major"; "minor" ]
     ~doc:"You attempted an operation on a VM which requires a more recent version of the PV drivers. Please upgrade your PV drivers." ();
+  error Api_errors.vm_lacks_feature_shutdown [ "vm" ]
+	  ~doc:"You attempted an operation which needs the cooperative shutdown feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_vcpu_hotplug [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM hotplug-vcpu feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_suspend [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM cooperative suspend feature on a VM which lacks it." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]
@@ -2068,7 +2074,7 @@ let vm_pool_migrate = call
   ~params:[Ref _vm, "vm", "The VM to migrate";
 	   Ref _host, "host", "The target host";
 	   Map(String, String), "options", "Extra configuration operations" ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.vm_is_template; Api_errors.operation_not_allowed; Api_errors.vm_migrate_failed; Api_errors.vm_missing_pv_drivers]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.vm_is_template; Api_errors.operation_not_allowed; Api_errors.vm_migrate_failed]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
@@ -3537,7 +3543,8 @@ let task =
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
-      field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
+      field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
+      field ~qualifier:DynamicRO ~in_product_since:rel_augusta ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
     ]) 
     ()
 

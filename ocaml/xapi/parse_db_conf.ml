@@ -148,11 +148,8 @@ let parse_db_conf s =
     sanity_check !connections;
     !connections
   with exn ->
-    begin
-      debug "Database config parse failed: %s" (Printexc.to_string exn);
-      log_backtrace();
-      raise Cannot_parse_database_config_file
-    end
+    error "Database config parse failed: %s" (Printexc.to_string exn);
+    Backtrace.reraise exn Cannot_parse_database_config_file
 
 let get_db_conf path =
   if Sys.file_exists path then

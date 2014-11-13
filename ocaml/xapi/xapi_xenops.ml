@@ -50,7 +50,11 @@ let assume_task_succeeded queue_name dbg id =
         Client.TASK.destroy dbg id;
         match t.Task.state with
         | Task.Completed _ -> t
-        | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+        | Task.Failed x ->
+		let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+		let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
+		Backtrace.add exn bt;
+		raise exn
         | Task.Pending _ -> failwith "task pending"
 
 let wait_for_task queue_name dbg id =
@@ -70,6 +74,12 @@ let xenapi_of_xenops_power_state = function
 	| Some Suspended -> `Suspended
 	| Some Paused -> `Paused
 	| None -> `Halted
+
+let xenops_of_xenapi_power_state = function
+	| `Running -> Running
+	| `Halted -> Halted
+	| `Suspended -> Suspended
+	| `Paused -> Paused
 
 module Platform = struct
 	(* Keys we push through to xenstore. *)
@@ -1704,29 +1714,27 @@ let success_task queue_name f dbg id =
 				| Task.Completed _ -> f t
 				| Task.Failed x -> 
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
-					begin match exn with 
-						| Failed_to_contact_remote_service x ->
-							failwith (Printf.sprintf "Failed to contact remote service on: %s\n" x)
-						| e -> 
-							debug "%s: caught xenops exception: %s" dbg (Jsonrpc.to_string x);
-							raise e
-					end
+					let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
+					Backtrace.add exn bt;
+					raise exn
 				| Task.Pending _ -> failwith "task pending"
 		) (fun () -> Client.TASK.destroy dbg id)
 
 (* Catch any uncaught xenops exceptions and transform into the most relevant XenAPI error.
    We do not want a XenAPI client to see a raw xenopsd error. *)
 let transform_xenops_exn ~__context queue_name f =
-	let reraise code params =
-		error "Re-raising as %s [ %s ]" code (String.concat "; " params);
-		raise (Api_errors.Server_error(code, params)) in
-	let internal fmt = Printf.kprintf
-		(fun x ->
-			reraise Api_errors.internal_error [ x ]
-		) fmt in
 	try
 		f ()
-	with
+	with e ->
+		let reraise code params =
+			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
+			let e' = Api_errors.Server_error(code, params) in
+			Backtrace.reraise e e' in
+		let internal fmt = Printf.kprintf
+			(fun x ->
+				reraise Api_errors.internal_error [ x ]
+			) fmt in
+		begin match e with
 		| Internal_error msg -> internal "xenopsd internal error: %s" msg
 		| Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
 		| Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
@@ -1774,6 +1782,8 @@ let transform_xenops_exn ~__context queue_name f =
 			reraise Api_errors.task_cancelled [ Ref.string_of task ]
 		| Storage_backend_error(code, params) -> reraise code params
 		| PCIBack_not_loaded -> internal "pciback has not loaded"
+		| e -> raise e
+		end
 
 let refresh_vm ~__context ~self =
 	let id = id_of_vm ~__context ~self in
@@ -1836,6 +1846,12 @@ let sync __context queue_name x =
 	let dbg = Context.string_of_task __context in
 	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg
 
+let check_power_state ~__context ~self ~expected =
+	let found = Db.VM.get_power_state ~__context ~self in
+	if expected <> found then begin
+		let f = xenops_of_xenapi_power_state in
+		raise (Bad_power_state(f found, f expected)) end
+
 let pause ~__context ~self =
 	let queue_name = queue_of_vm ~__context ~self in
 	transform_xenops_exn ~__context queue_name
@@ -1846,7 +1862,7 @@ let pause ~__context ~self =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.pause dbg id |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Paused)
+			check_power_state ~__context ~self ~expected:`Paused
 		)
 
 let unpause ~__context ~self =
@@ -1859,7 +1875,7 @@ let unpause ~__context ~self =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.unpause dbg id |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Running)
+			check_power_state ~__context ~self ~expected:`Running
 		)
 
 let set_xenstore_data ~__context ~self xsdata =
@@ -1895,10 +1911,6 @@ let set_vcpus ~__context ~self n =
 						"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max";
 						string_of_int n
 					]))
-				| Unimplemented _ ->
-					error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
-					raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-					["HVM VMs cannot hotplug CPUs"]))
 		)
 
 let set_shadow_multiplier ~__context ~self target =
@@ -2000,7 +2012,7 @@ let start ~__context ~self paused =
 				raise e
 		);
 	(* XXX: if the guest crashed or shutdown immediately then it may be offline now *)
-	assert (Db.VM.get_power_state ~__context ~self = (if paused then `Paused else `Running))
+	check_power_state ~__context ~self ~expected:(if paused then `Paused else `Running)
 
 let start ~__context ~self paused =
 	let queue_name = queue_of_vm ~__context ~self in
@@ -2008,13 +2020,15 @@ let start ~__context ~self paused =
 		(fun () ->
 			try
 				start ~__context ~self paused
-			with Bad_power_state(a, b) ->
+			with Bad_power_state(a, b) as e ->
+				Backtrace.is_important e;
 				let power_state = function
 					| Running -> "Running"
 					| Halted -> "Halted"
 					| Suspended -> "Suspended"
 					| Paused -> "Paused" in
-				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]))
+				let exn = Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]) in
+				Backtrace.reraise e exn
 		)
 
 let reboot ~__context ~self timeout =
@@ -2030,7 +2044,7 @@ let reboot ~__context ~self timeout =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Running)
+			check_power_state ~__context ~self ~expected:`Running
 		)
 
 let shutdown ~__context ~self timeout =
@@ -2045,7 +2059,7 @@ let shutdown ~__context ~self timeout =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ();
-			assert (Db.VM.get_power_state ~__context ~self = `Halted);
+			check_power_state ~__context ~self ~expected:`Halted;
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 			List.iter
@@ -2083,7 +2097,7 @@ let suspend ~__context ~self =
 						info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
 						Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
 						Events_from_xenopsd.wait queue_name dbg id ();
-						assert (Db.VM.get_power_state ~__context ~self = `Suspended);
+						check_power_state ~__context ~self ~expected:`Suspended;
 						assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
 					with e ->
 						error "Caught exception suspending VM: %s" (string_of_exn e);
@@ -2139,7 +2153,7 @@ let resume ~__context ~self ~start_paused ~force =
 				(fun rpc session_id ->
 					XenAPI.VDI.destroy rpc session_id vdi
 				);
-			assert (Db.VM.get_power_state ~__context ~self = if start_paused then `Paused else `Running);
+			check_power_state ~__context ~self ~expected:(if start_paused then `Paused else `Running)
 		)
 
 let s3suspend ~__context ~self =

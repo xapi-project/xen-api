@@ -110,8 +110,7 @@ let scan_all ~__context =
 		debug "Automatically scanning SRs = [ %s ]" (String.concat ";" (List.map Ref.string_of scannable_srs));
 	List.iter (scan_one ~__context) scannable_srs
 
-let scanning_thread () =
-	Debug.name_thread "sr_scan";
+let scanning_thread () = Debug.with_thread_named "scanning_thread" (fun () ->
 	Server_helpers.exec_with_new_task "SR scanner" (fun __context ->
 		let host = Helpers.get_localhost ~__context in
 
@@ -127,6 +126,7 @@ let scanning_thread () =
 			try scan_all ~__context
 			with e -> debug "Exception in SR scanning thread: %s" (Printexc.to_string e)
 		done)
+	) ()
 
 (* introduce, creates a record for the SR in the database. It has no other side effect *)
 let introduce  ~__context ~uuid ~name_label

@@ -87,8 +87,9 @@ let do_rpcs req s username password minimal cmd session args =
   let cspec =
     try
       Hashtbl.find cmdtable cmdname
-    with
-	Not_found -> raise (Unknown_command cmdname) in
+    with Not_found as e ->
+      error "Rethowing Not_found as Unknown_command %s" cmdname;
+      Backtrace.reraise e (Unknown_command cmdname) in
   (* Forward if we're not the master, and if the cspec doesn't contain the key 'neverforward' *)
   let do_forward =  
     (not (Pool_role.is_master ())) && (not (List.mem Neverforward cspec.flags))
@@ -188,41 +189,34 @@ let get_line str i =
 
 let param_error s t sock =
   marshal sock (Command (PrintStderr ((if s <> "" then s ^ ": " ^ t else t)^"\n")));
-  marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"));
-  marshal sock (Command (Exit 1))
+  marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"))
 
 let other_error msg sock =
-  marshal sock (Command (PrintStderr (msg^"\n")));
-  marshal sock (Command (Exit 1))
+  marshal sock (Command (PrintStderr (msg^"\n")))
 
 let multiple_error errs sock =
   List.iter (fun (erruuid, errmsg) ->
     let msg = Printf.sprintf "operation failed on %s: %s" erruuid errmsg in
-    marshal sock (Command (Print msg))) errs;
-  marshal sock (Command (Exit 1))
+    marshal sock (Command (Print msg))) errs
 
-let do_handle (req:Http.Request.t) str (s:Unix.file_descr) =
+(* This never raises exceptions: *)
+let parse_session_and_args str =
 	let rec get_args n cur =
 		let (next,arg) = get_line str n in
 		let arg = zap_cr arg in
 		match next with
-				Some i -> get_args i (arg::cur)
-			| None -> (arg::cur)
-	in
+		| Some i -> get_args i (arg::cur)
+		| None -> (arg::cur) in
 	let args = List.rev (get_args 0 []) in
-	let (session,args) =
-		try
-			let line = List.hd args in
-			if String.startswith "session_id=" line
-			then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
-			else (None,args)
-		with _ -> (None,args) in
-	let cmd = parse_commandline ("xe"::args) in
-	ignore(exec_command req cmd s session args)
+	try
+		let line = List.hd args in
+		if String.startswith "session_id=" line
+		then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
+		else (None,args)
+	with _ -> (None,args)
 
 let exception_handler s e =
-  debug "Xapi_cli.exception_handler: Got exception %s" (ExnHelper.string_of_exn e);
-  log_backtrace ();
+  error "Converting exception %s into a CLI response" (ExnHelper.string_of_exn e);
   match e with
     | Cli_operations.ExitWithError n ->
 	marshal s (Command (Exit n))
@@ -269,6 +263,22 @@ let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
       debug "Rejecting request from client";
       failwith "Version mismatch"
   end;
+  let session, args = parse_session_and_args str in
   try
-    do_handle req str s
-  with e -> exception_handler s e    
+    (* Unfortunately parse errors can happen preventing the '--trace' option from working *)
+    let cmd = parse_commandline ("xe"::args) in
+    match Backtrace.with_backtraces (fun () -> exec_command req cmd s session args) with
+    | `Ok _ -> ()
+    | `Error (e, bt) ->
+        exception_handler s e;
+        (* Command execution errors can use --trace *)
+        if Cli_operations.get_bool_param cmd.params "trace" then begin
+          marshal s (Command (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))));
+          marshal s (Command (PrintStderr "Backtrace:\n"));
+          marshal s (Command (PrintStderr (Backtrace.(to_string_hum bt))));
+        end;
+        Debug.log_backtrace e bt;
+        marshal s (Command (Exit 1));
+  with e ->
+    exception_handler s e;
+    marshal s (Command (Exit 1));

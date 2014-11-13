@@ -2531,8 +2531,9 @@ let switch_map =
 let convert_switch switch =
   try
     List.assoc switch switch_map
-  with Not_found ->
-    raise (ParseError ("Unknown switch: "^switch))
+  with Not_found as e ->
+    error "Rethrowing Not_found as ParseError: Unknown switch: %s" switch;
+    Backtrace.reraise e (ParseError ("Unknown switch: "^switch))
 
 type token =
     | Id of string
@@ -2548,7 +2549,9 @@ let get_cmdname cmd = cmd.cmdname
 
 let get_reqd_param cmd p =
   try List.assoc p cmd.params
-  with Not_found -> raise (ParamNotFound p)
+  with Not_found as e ->
+    error "Rethrowing Not_found as ParamNotFound %s" p;
+    Backtrace.reraise e (ParamNotFound p)
 
 let string_of_token t =
   match t with
@@ -2676,8 +2679,9 @@ let parse_commandline arg_list =
      argv0 = argv0;
      params = params}
   with 
-  | ParseError _ as e -> raise e
-  | _ -> raise (ParseError "")
+  | e ->
+    error "Rethowing %s as ParseError \"\"" (Printexc.to_string e);
+    Backtrace.reraise e (ParseError "")
 
 (* ----------------------------------------------------------------------
    Help function
@@ -2718,7 +2722,9 @@ let rio_help printer minimal cmd =
 	 ("description     ",desc)] in
       printer (Cli_printer.PTable [recs])
     with
-	Not_found ->
+	Not_found as e ->
+          Debug.log_backtrace e (Backtrace.get e);
+          error "Responding with Unknown command %s" cmd;
 	  printer (Cli_printer.PList ["Unknown command '"^cmd^"'"])
   in
   let cmds = List.filter (fun (x,_) -> not (List.mem x ["server";"username";"password";"port";"minimal";"all"])) cmd.params in
@@ -2785,7 +2791,9 @@ let geneva_help printer minimal cmd =
 	 ("optional params ",String.concat ", " cmd_spec.optn)] in
       printer (Cli_printer.PTable [recs])
     with
-	Not_found ->
+	Not_found as e ->
+          Debug.log_backtrace e (Backtrace.get e);
+          error "Responding with Unknown command %s" cmd;
 	  printer (Cli_printer.PList ["Unknown command '"^cmd^"'"])
   in
   if List.mem_assoc "cmd" cmd.params then

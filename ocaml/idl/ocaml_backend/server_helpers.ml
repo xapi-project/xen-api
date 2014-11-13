@@ -81,12 +81,12 @@ let exec ?marshaller ?f_forward ~__context f =
       result 
   with 
     | Api_errors.Server_error (a,b) as e when a = Api_errors.task_cancelled -> 
+        Backtrace.is_important e;
         TaskHelper.cancel ~__context;
         raise e
     | e -> 
-        debug "Server_helpers.exec exception_handler: Got exception %s" (ExnHelper.string_of_exn e);
-        log_backtrace ();
-        TaskHelper.failed ~__context (ExnHelper.error_of_exn e);
+        Backtrace.is_important e;
+        TaskHelper.failed ~__context e;
         raise e
 
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)

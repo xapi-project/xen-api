@@ -18,6 +18,11 @@ let to_string = function
       Printf.sprintf "Server_error(%s, [ %a ])" name (fun () -> String.concat "; ") args
   | e -> Printexc.to_string e
 
+let _ =
+  Printexc.register_printer (function
+  | Server_error(code, params) as e -> Some (to_string e)
+  | _ -> None)
+
 let message_deprecated = "MESSAGE_DEPRECATED"
 let message_removed = "MESSAGE_REMOVED"
 
@@ -166,6 +171,9 @@ let vm_migrate_failed = "VM_MIGRATE_FAILED"
 let vm_missing_pv_drivers = "VM_MISSING_PV_DRIVERS"
 let vm_failed_shutdown_ack = "VM_FAILED_SHUTDOWN_ACKNOWLEDGMENT"
 let vm_old_pv_drivers = "VM_OLD_PV_DRIVERS"
+let vm_lacks_feature_shutdown = "VM_LACKS_FEATURE_SHUTDOWN"
+let vm_lacks_feature_suspend = "VM_LACKS_FEATURE_SUSPEND"
+let vm_lacks_feature_vcpu_hotplug = "VM_LACKS_FEATURE_VCPU_HOTPLUG"
 let vm_cannot_delete_default_template = "VM_CANNOT_DELETE_DEFAULT_TEMPLATE"
 let vm_memory_size_too_low = "VM_MEMORY_SIZE_TOO_LOW"
 let vm_memory_target_wait_timeout = "VM_MEMORY_TARGET_WAIT_TIMEOUT"

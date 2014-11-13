@@ -632,8 +632,8 @@ let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret)
 let protect_exn f x =
 	try Some (f x)
 	with e ->
-		log_backtrace ();
 		debug "Ignoring exception: %s" (Printexc.to_string e);
+		Debug.log_backtrace e (Backtrace.get e);
 		None
 
 (* Remark: the order in which we create the object in the distant database is not very important, as we have *)

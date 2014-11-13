@@ -178,8 +178,7 @@ let callback is_json req bio _ =
 		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
 			  (Xmlrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
 	  | e ->
-		  error "Caught exception in callback...";
-		  log_backtrace ();
+		  Backtrace.is_important e;
 		  raise e
 
 
