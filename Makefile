@@ -5,7 +5,7 @@ NAME=xenops
 J=4
 
 clean:
-	@rm -f setup.data setup.log setup.bin config.mk lib/version.ml
+	@rm -f setup.data setup.log setup.bin lib/version.ml
 	@rm -rf _build
 	@rm -f xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt
 	@rm -f xenopsd-xc.1 xenopsd-xenlight.1 xenopsd-simulator.1 xenopsd-libvirt.1
