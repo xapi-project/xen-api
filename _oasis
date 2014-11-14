@@ -44,4 +44,9 @@ Test test_networkd
   Command: $network_test
   WorkingDirectory: .
 
+Executable cli
+  CompiledObject:     best
+  Path:               cli
+  MainIs:             network_cli.ml
+  BuildDepends:       cmdliner, stdext, network-libs, xcp, xcp.network
 
