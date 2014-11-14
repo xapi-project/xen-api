@@ -108,16 +108,18 @@ let host_pre_declare_dead ~__context ~host ~reason =
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
-  (* reverse lookup host from metrics id; don't have backedge here... *)
-  let tasks = Db.Task.get_all ~__context in
-  info "Running host dead hook for %s" (Ref.string_of host);
-  let forwarded_tasks =
-    List.filter (fun t -> Db.Task.get_forwarded_to ~__context ~self:t = host) tasks in
-  List.iter
-	  (fun task ->
-		  let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task task in
-		  List.iter Locking_helpers.kill_resource resources
-	  ) forwarded_tasks
+	info "Running host dead hook for %s" (Ref.string_of host);
+	(* reverse lookup host from metrics id; don't have backedge here... *)
+	let forwarded_tasks =
+		let open Db_filter_types in
+		Db.Task.get_refs_where ~__context
+			~expr:(Eq (Field "forwarded_to", Literal (Ref.string_of host)))
+	in
+	List.iter
+		(fun task ->
+			let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task task in
+			List.iter Locking_helpers.kill_resource resources
+		) forwarded_tasks
 
 let host_post_declare_dead ~__context ~host ~reason = 
   (* Cancel outstanding tasks first-- should release necessary locks *)
