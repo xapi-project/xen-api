@@ -113,7 +113,7 @@ with rpc
 type attached_vdi = {
 	domid: int;
 	attach_info: Storage_interface.attach_info;
-}
+} with rpc
 
 (* The following module contains left-overs from the "classic" domain.ml *)
 module Domain = struct
@@ -666,7 +666,13 @@ module VBD = struct
 
 	let id_of vbd = snd vbd.id
 
-	let attach_and_activate task xs vm vbd = function
+	(* When we attach a VDI we remember the attach result so we can lookup
+	   details such as the device-kind later. *)
+
+	let vdi_attach_path vbd = Printf.sprintf "/xapi/%s/private/vdis/%s" (fst vbd.id) (snd vbd.id)
+
+	let attach_and_activate task xs vm vbd vdi =
+		let attached_vdi = match vdi with
 		| None ->
 			(* XXX: do something better with CDROMs *)
 			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=""; xenstore_data=[]; } }
@@ -676,7 +682,9 @@ module VBD = struct
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of vm vbd.id in
 			let vm = fst vbd.id in
-			Storage.attach_and_activate ~xs task vm dp sr vdi (vbd.mode = ReadWrite)
+			Storage.attach_and_activate ~xs task vm dp sr vdi (vbd.mode = ReadWrite) in
+		xs.Xs.write (vdi_attach_path vbd) (attached_vdi |> rpc_of_attached_vdi |> Jsonrpc.to_string);
+		attached_vdi
 
 	let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 
@@ -708,11 +716,22 @@ module VBD = struct
 			Storage.epoch_end task sr vdi
 		| _ -> ()
 
-	let device_kind_of_backend_keys backend_keys =
-		try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
-		with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
+	let _backend_kind = "backend-kind"
 
-	let device_kind_of vbd = device_kind_of_backend_keys vbd.extra_backend_keys
+	let device_kind_of ~xs vbd =
+		(* If the user has provided an override then use that *)
+		if List.mem_assoc _backend_kind vbd.extra_backend_keys
+		then Device_common.kind_of_string (List.assoc _backend_kind vbd.extra_backend_keys)
+		else match (try Some(xs.Xs.read (vdi_attach_path vbd) |> Jsonrpc.of_string |> attached_vdi_of_rpc) with _ -> None) with
+		| None ->
+			(* An empty VBD has to be a CDROM: anything will do *)
+			Device_common.Vbd !Xenopsd.default_vbd_backend_kind
+		| Some vdi ->
+			let xenstore_data = vdi.attach_info.Storage_interface.xenstore_data in
+			(* Use the storage manager's preference *)
+			if List.mem_assoc _backend_kind xenstore_data
+			then Device_common.kind_of_string (List.assoc _backend_kind xenstore_data)
+			else Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
@@ -801,7 +820,7 @@ module VBD = struct
 						backend_domid;
 						pdev_path = Some (vdi.attach_info.Storage_interface.params);
 						vdev = Some vdev;
-						backend = if !Xenopsd.use_qdisk then Xenlight.DISK_BACKEND_QDISK else Xenlight.DISK_BACKEND_PHY;
+						backend = Xenlight.DISK_BACKEND_PHY;
 						format = Xenlight.DISK_FORMAT_RAW;
 						script = Some !Xl_path.vbd_script;
 						removable = 1;
@@ -878,7 +897,7 @@ module VBD = struct
 				Opt.iter (function
 					| Ionice qos ->
 						try
-							let (device: Device_common.device) = device_by_id xs vm (device_kind_of vbd) Newest (id_of vbd) in
+							let (device: Device_common.device) = device_by_id xs vm (device_kind_of ~xs vbd) Newest (id_of vbd) in
 							let path = Device_common.kthread_pid_path_of_device ~xs device in
 							let kthread_pid = xs.Xs.read path |> int_of_string in
 							ionice qos kthread_pid
@@ -919,7 +938,7 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					let (device: Device_common.device) = device_by_id xs vm (device_kind_of vbd) Newest (id_of vbd) in
+					let (device: Device_common.device) = device_by_id xs vm (device_kind_of ~xs vbd) Newest (id_of vbd) in
 					let qos_target = get_qos xc xs vm vbd device in
 
 					let device_number = device_number_of_device device in
@@ -945,7 +964,7 @@ module VBD = struct
 	let pre_plug task vm hvm vbd =
 		debug "VBD.pre_plug";
 		let vdi = with_xs (fun xs -> attach_and_activate task xs vm vbd vbd.backend) in
-
+(* override the backend-keys here *)
 		let extra_backend_keys = List.fold_left (fun acc (k,v) ->
 			let k = "sm-data/" ^ k in
 			(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
@@ -957,21 +976,24 @@ module VBD = struct
 		let backend, format, script =
 			if vbd.backend = None then
 				(* empty CDROM *)
-				if !Xenopsd.use_qdisk then
-					Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_EMPTY, None
-				else
-					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
+				Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
 			else
-				if !Xenopsd.use_qdisk then
-					(* FIXME: "regular" block devices *)
-					if vdi.attach_info.Storage_interface.xenstore_data = []
-					then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
-					(* FIXME: "magic" block devices via qemu *)
-					else if List.mem_assoc "format" vdi.attach_info.Storage_interface.xenstore_data
-					then Xenlight.DISK_BACKEND_QDISK, format_of_string (List.assoc "format" vdi.attach_info.Storage_interface.xenstore_data), None
-					else Xenlight.DISK_BACKEND_QDISK, Xenlight.DISK_FORMAT_RAW, None
-				else
-					Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+				let xd = vdi.attach_info.Storage_interface.xenstore_data in
+				if xd = [] || not(List.mem_assoc "backend-kind" xd)
+				then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+				else begin
+					match List.assoc "backend-kind" xd with
+					| "qdisk" ->
+						let format =
+							if List.mem_assoc "format" xd
+							then format_of_string (List.assoc "format" xd)
+							else Xenlight.DISK_FORMAT_QCOW2 in (* FIXME *)
+						Xenlight.DISK_BACKEND_QDISK, format, None
+					| "blkback" ->
+						Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+					| x ->
+						failwith (Printf.sprintf "libxl doesn't support backend-kind=%s" x)
+				end
 			in
 
 		let removable = if vbd.unpluggable then 1 else 0 in
@@ -985,7 +1007,7 @@ module VBD = struct
 		in
 
 		(* Remember the VBD id with the device *)
-		let vbd_id = _device_id (device_kind_of vbd), id_of vbd in
+		let vbd_id = with_xs (fun xs -> _device_id (device_kind_of ~xs vbd), id_of vbd) in
 		(* Remember the VDI with the device (for later deactivation) *)
 		let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
 		let dp_id = _dp_id, Storage.id_of vm vbd.Vbd.id in
@@ -1033,7 +1055,7 @@ module VBD = struct
 							(* wait for plug *)
 							let device =
 								let open Device_common in
-								let kind = device_kind_of vbd in
+								let kind = device_kind_of ~xs vbd in
 								let frontend = { domid = frontend_domid; kind; devid } in
 								let backend = { domid = backend_domid; kind; devid } in
 								{ backend = backend; frontend = frontend }
@@ -1060,7 +1082,7 @@ module VBD = struct
 					      rely on the event thread calling us again later.
 					*)
 					let domid = domid_of_uuid Oldest (uuid_of_string vm) in
-					let kind = device_kind_of vbd in
+					let kind = device_kind_of ~xs vbd in
 					(* If the device is gone then we don't need to shut it down but we do need
 					   to free any storage resources. *)
 					let device =
@@ -1129,7 +1151,7 @@ module VBD = struct
 					with_ctx (fun ctx ->
 						let vdev = Opt.map Device_number.to_linux_device vbd.position in
 						let domid = domid_of_uuid Newest (uuid_of_string vm) in
-						let kind = device_kind_of vbd in
+						let kind = device_kind_of ~xs vbd in
 						match vdev, domid with
 						| Some vdev, Some domid ->
 							let open Xenlight.Device_disk in
@@ -1165,7 +1187,7 @@ module VBD = struct
 				with_ctx (fun ctx ->
 					let vdev = Opt.map Device_number.to_linux_device vbd.position in
 					let domid = domid_of_uuid Newest (uuid_of_string vm) in
-					let kind = device_kind_of vbd in
+					let kind = device_kind_of ~xs vbd in
 					match vdev, domid with
 					| Some vdev, Some domid ->
 						let open Xenlight.Device_disk in
@@ -1190,7 +1212,7 @@ module VBD = struct
 		with_xc_and_xs
 			(fun xc xs ->
 				try
-					let kind = device_kind_of vbd in
+					let kind = device_kind_of ~xs vbd in
 					let (device: Device_common.device) = device_by_id xs vm kind Newest (id_of vbd) in
 					if Hotplug.device_is_online ~xs vm device
 					then begin
@@ -2181,7 +2203,7 @@ module VM = struct
 					(* wait for plug *)
 					let device =
 						let open Device_common in
-						let kind = VBD.device_kind_of vbd in
+						let kind = VBD.device_kind_of ~xs vbd in
 						let frontend = { domid; kind; devid } in
 						let backend = { domid = backend_domid; kind; devid } in
 						{ backend = backend; frontend = frontend }
@@ -2218,7 +2240,7 @@ module VM = struct
 					VBD.write_extra backend_domid domid devid extra_backend_keys;
 
 					(* We store away the disk so we can implement VBD.stat *)
-					let kind = VBD.device_kind_of vbd in
+					let kind = VBD.device_kind_of ~xs vbd in
 					let device =
 						let open Device_common in
 						let frontend = { domid = domid; kind; devid } in

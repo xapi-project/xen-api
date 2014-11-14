@@ -29,7 +29,6 @@ let run_hotplug_scripts = ref true
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
 let vgpu_ready_timeout = ref 30.
-let use_qdisk = ref false
 let use_upstream_qemu = ref false
 
 let watch_queue_length = ref 1000
@@ -47,7 +46,6 @@ let options = [
     "hotplug_timeout", Arg.Set_float hotplug_timeout, (fun () -> string_of_float !hotplug_timeout), "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, (fun () -> string_of_float !qemu_dm_ready_timeout), "Time before we assume qemu has become stuck";
     "watch_queue_length", Arg.Set_int watch_queue_length, (fun () -> string_of_int !watch_queue_length), "Maximum number of unprocessed xenstore watch events before we restart";
-    "use-qdisk", Arg.Bool (fun x -> use_qdisk := x), (fun () -> string_of_bool !use_qdisk), "True if we want to use QEMU as our storage backend";
     "use-upstream-qemu", Arg.Bool (fun x -> use_upstream_qemu := x), (fun () -> string_of_bool !use_upstream_qemu), "True if we want to use upsteam QEMU";
 	"default-vbd-backend-kind", Arg.Set_string default_vbd_backend_kind, (fun () -> !default_vbd_backend_kind), "Default backend for VBDs";
 	"ca-140252-workaround", Arg.Bool (fun x -> ca_140252_workaround := x), (fun () -> string_of_bool !ca_140252_workaround), "Workaround for evtchn misalignment for legacy PV tools";

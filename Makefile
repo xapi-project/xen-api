@@ -5,7 +5,7 @@ NAME=xenops
 J=4
 
 clean:
-	@rm -f setup.data setup.log setup.bin config.mk lib/version.ml
+	@rm -f setup.data setup.log setup.bin lib/version.ml
 	@rm -rf _build
 	@rm -f xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt
 	@rm -f xenopsd-xc.1 xenopsd-xenlight.1 xenopsd-simulator.1 xenopsd-libvirt.1
@@ -55,14 +55,16 @@ endif
 	install -D ./xenopsd-simulator.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	install -D ./xenops_xc_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	install -D ./xenopsd-xc.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
-	install -D ./scripts/vif $(DESTDIR)/$(SCRIPTSDIR)/vif
-	install -D ./scripts/block $(DESTDIR)/$(SCRIPTSDIR)/block
+	install -D ./scripts/vif $(DESTDIR)/$(LIBEXECDIR)/vif
+	install -D ./scripts/vif-real $(DESTDIR)/$(LIBEXECDIR)/vif-real
+	install -D ./scripts/block $(DESTDIR)/$(LIBEXECDIR)/block
+	install -D ./scripts/xen-backend.rules $(DESTDIR)/etc/udev/rules.d/xen-backend.rules
+	install -D ./scripts/tap $(DESTDIR)/$(LIBEXECDIR)/tap
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/qemu-vif-script $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
-	install -D ./scripts/network.conf $(DESTDIR)/$(ETCDIR)/xcp/network.conf
-	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) SCRIPTSDIR=$(SCRIPTSDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
+	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
 reinstall: install
 	@ocamlfind remove $(NAME) || true
@@ -78,9 +80,13 @@ uninstall:
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-simluator.1
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
-	rm -f $(DESTDIR)/$(SCRIPTSDIR)/vif
-	rm -f $(DESTDIR)/$(SCRIPTSDIR)/block
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/vif
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/vif-real
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/block
+	rm -f $(DESTDIR)/etc/udev/rules.d/xen-backend.rules
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/tap
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
-	rm -f $(DESTDIR)/$(ETCDIR)/xcp/network.conf
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 
