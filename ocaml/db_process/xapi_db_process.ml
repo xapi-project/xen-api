@@ -99,7 +99,7 @@ let find_my_host_row() =
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
   let db = Db_ref.get_database (Db_backend.make ()) in
   let tbl = TableSet.find Db_names.host (Database.tableset db) in
-  Table.fold (fun r _ _ row acc -> if Row.find Db_names.uuid row = localhost_uuid then (Some (r, row)) else acc) tbl None
+  Table.fold (fun r _ row acc -> if Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row) = localhost_uuid then (Some (r, row)) else acc) tbl None
 
 let _iscsi_iqn = "iscsi_iqn"
 let _other_config = "other_config"
@@ -109,8 +109,7 @@ let do_read_hostiqn() =
   match find_my_host_row() with
 	  | None -> failwith "No row for localhost"
 	  | Some (_, row) ->
-		  let other_config_sexpr = Row.find Db_names.other_config row in
-		  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
+		  let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
 		  Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
 let do_write_hostiqn() =
@@ -122,8 +121,7 @@ let do_write_hostiqn() =
 	  | None -> failwith "No row for localhost"
 	  | Some (r, row) ->
 		  (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
-		  let other_config_sexpr = Row.find Db_names.other_config row in
-		  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
+		  let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
 		  let other_config =
 			  if List.mem_assoc _iscsi_iqn other_config then
 				  (* replace if key already exists *)
@@ -131,7 +129,7 @@ let do_write_hostiqn() =
 			  else
 				  (* ... otherwise add new key/value pair *)
 				  (_iscsi_iqn,new_iqn)::other_config in
-		  let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
+		  let other_config = Schema.Value.Pairs other_config in
 		  Db_ref.update_database (Db_backend.make ()) (set_field Db_names.host r Db_names.other_config other_config);
 		  write_out_databases()
 

@@ -434,24 +434,31 @@ let from_inner __context session subs from from_t deadline =
 			if Subscription.table_matches subs "message" then (!Message.get_since_for_events) ~__context !last_msg_gen else (0L, []) in
 		(msg_gen, messages, tableset, List.fold_left
 			(fun acc table ->
-		 		Db_cache_types.Table.fold_over_recent !last_generation
-					 (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
+                                (* Fold over the live objects *)
+                                let acc = Db_cache_types.Table.fold_over_recent !last_generation
+                                         (fun objref { Db_cache_types.Stat.created; modified; deleted } _ (creates,mods,deletes,last) ->
 						if Subscription.object_matches subs (String.lowercase table) objref then begin
-							let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
-							if dtime > 0L then begin
-								if ctime > !last_generation then
-									(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
-								else
-									(creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
-							end else begin
-								((if ctime > !last_generation then (table, objref, ctime)::creates else creates),
-								(if mtime > !last_generation then (table, objref, mtime)::mods else mods),
-								deletes, last)
-							end 
+							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
+							((if created > !last_generation then (table, objref, created)::creates else creates),
+							(if modified > !last_generation then (table, objref, modified)::mods else mods),
+							deletes, last)
 						end else begin
 							(creates,mods,deletes,last)
 						end
-					) (fun () -> ()) (Db_cache_types.TableSet.find table tableset) acc
+					) (Db_cache_types.TableSet.find table tableset) acc in
+                                (* Fold over the deleted objects *)
+		 		Db_cache_types.Table.fold_over_deleted !last_generation
+                                         (fun objref { Db_cache_types.Stat.created; modified; deleted } (creates,mods,deletes,last) ->
+						if Subscription.object_matches subs (String.lowercase table) objref then begin
+							let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
+							if created > !last_generation then
+								(creates,mods,deletes,last) (* It was created and destroyed since the last update *)
+							else
+								(creates,mods,(table, objref, deleted)::deletes,last) (* It might have been modified, but we can't tell now *)
+						end else begin
+							(creates,mods,deletes,last)
+						end
+					) (Db_cache_types.TableSet.find table tableset) acc
 			) ([],[],[],!last_generation) tables) in
 
 	(* Each event.from should have an independent subscription record *)
@@ -505,10 +512,10 @@ let from_inner __context session subs from from_t deadline =
 
 	let valid_ref_counts =
 		Db_cache_types.TableSet.fold
-			(fun tablename _ _ table acc ->
+			(fun tablename _ table acc ->
 				(String.lowercase tablename,
 					(Db_cache_types.Table.fold
-						(fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+						(fun r _ _ acc -> Int32.add 1l acc) table 0l))::acc)
 		tableset [] in
 
 	{
@@ -551,7 +558,7 @@ let inject ~__context ~_class ~_ref =
 		(fun () ->
 			let db_ref = Db_backend.make () in
 			let g = Manifest.generation (Database.manifest (Db_ref.get_database db_ref)) in
-			Db_cache_impl.refresh_row db_ref _class _ref; (* consumes this generation *)
+			Db_cache_impl.touch_row db_ref _class _ref; (* consumes this generation *)
 			g
 		) in
 	let token = Int64.sub generation 1L, 0L in

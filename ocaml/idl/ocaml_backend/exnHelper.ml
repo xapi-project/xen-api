@@ -33,8 +33,6 @@ let error_of_exn e =
 		| Db_exn.Too_many_values(tbl, objref, uuid) ->
 			(* Very bad: database has duplicate references or UUIDs *)
 			internal_error, [ sprintf "duplicate objects in database: tbl='%s'; object_ref='%s'; uuid='%s'" tbl objref uuid ]
-		| Db_action_helper.Db_set_or_map_parse_fail s ->
-			internal_error, [ sprintf "db set/map failure: %s" s ]
 		| Db_exn.DBCache_NotFound (reason,p1,p2) ->
 			begin
 				match reason with

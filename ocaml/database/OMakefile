@@ -1,10 +1,11 @@
 
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen ..
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
 
 UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
+UseCamlp4(sexplib.syntax, schema)
 
 OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 
@@ -19,8 +20,8 @@ BLOCK_DEVICE_IO_FILES = \
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 OCamlDocProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
-DATABASE_SERVER_FILES = database_server_main test_schemas database_test ../autogen/db_actions 
-DATABASE_TEST_FILES = database_test database_test_main test_schemas
+DATABASE_SERVER_FILES = database_server_main test_schemas ../autogen/db_actions 
+DATABASE_TEST_FILES = db_cache_test test_schemas
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove
 	OCAML_LIBS += ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server

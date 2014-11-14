@@ -12,21 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
-
-let __callback : ((?snapshot: Rpc.t -> string -> string -> string -> unit) option ref) = ref None
-let events_register f = __callback := Some f
-let events_unregister () = __callback := None
-    
-let events_notify ?(snapshot) ty op ref =
-  match !__callback with
-    | None -> ()
-    | Some f -> f ?snapshot ty op ref
-	 (* 
-exception Db_set_or_map_parse_fail of string
-  
-let parse_sexpr s : SExpr.t list =
-  match SExpr_TS.of_string s with
-    | SExpr.Node xs -> xs
-    | _ -> raise (Db_set_or_map_parse_fail s)
-*)
+(** Takes a function which is supplied with an fd representing the input to the
+    sha1sum and returns the checksum as a string *)
+val sha1sum: (Unix.file_descr -> unit) -> string

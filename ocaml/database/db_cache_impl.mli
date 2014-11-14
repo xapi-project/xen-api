@@ -13,8 +13,9 @@ val sync : Parse_db_conf.db_connection list -> Db_cache_types.Database.t -> unit
 (** [stats t] returns some stats data for logging *)
 val stats : Db_ref.t -> (string * int) list
 
-(** [refresh_row context tbl ref] generates a RefreshRow event *)
-val refresh_row : Db_ref.t -> string -> string -> unit
+(** [touch_row context tbl ref] bumps the generation count on [tbl], [ref] and
+    generates a RefreshRow event *)
+val touch_row : Db_ref.t -> string -> string -> unit
 
 (** Used for Test_db_lowlevel *)
 val fist_delay_read_records_where : bool ref

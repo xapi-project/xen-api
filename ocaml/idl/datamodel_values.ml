@@ -62,30 +62,34 @@ let to_ocaml_string v =
 		| Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
 	aux (to_rpc v)
       
-let rec to_db_string v =
+let rec to_db v =
+  let open Schema.Value in
   match v with
-    VString s -> s
-  | VInt i -> Int64.to_string i
-  | VFloat f -> string_of_float f
-  | VBool true -> "true"
-  | VBool false -> "false"
-  | VDateTime d -> Date.to_string d
-  | VEnum e -> e
-  | VMap vvl -> String_marshall_helper.map to_db_string to_db_string vvl
-  | VSet vl -> String_marshall_helper.set to_db_string vl
-  | VRef r -> r
+    VString s -> String s
+  | VInt i -> String (Int64.to_string i)
+  | VFloat f -> String (string_of_float f)
+  | VBool true -> String "true"
+  | VBool false -> String "false"
+  | VDateTime d -> String (Date.to_string d)
+  | VEnum e -> String e
+  | VMap vvl ->
+    Pairs(List.map (fun (k, v) -> to_string k, to_string v) vvl)
+  | VSet vl ->
+    Set(List.map to_string vl)
+  | VRef r -> String r
       
 (* Generate suitable "empty" database value of specified type *)
 let gen_empty_db_val t =
+  let open Schema in
   match t with
-  | String -> ""
-  | Int -> "0"
-  | Float -> string_of_float 0.0
-  | Bool -> "false"
-  | DateTime -> Date.to_string Date.never
-  | Enum (_,(enum_value,_)::_) -> enum_value
+  | String -> Value.String ""
+  | Int -> Value.String "0"
+  | Float -> Value.String (string_of_float 0.0)
+  | Bool -> Value.String "false"
+  | DateTime -> Value.String (Date.to_string Date.never)
+  | Enum (_,(enum_value,_)::_) -> Value.String enum_value
   | Enum (_, []) -> assert false
-  | Set _ -> String_marshall_helper.map to_db_string to_db_string []
-  | Map _ -> String_marshall_helper.set to_db_string []
-  | Ref _ -> Ref.string_of Ref.null
-  | Record _ -> ""
+  | Set _ -> Value.Set []
+  | Map _ -> Value.Pairs []
+  | Ref _ -> Value.String (Ref.string_of Ref.null)
+  | Record _ -> Value.String ""

@@ -43,13 +43,13 @@ module To = struct
 
   (* Marshal a whole database table to an Xmlm output abstraction *)
   let table schema (output: Xmlm.output) name (tbl: Table.t) = 
-    let record rf ctime mtime (row: Row.t) _ = 
+          let record rf { Stat.created; modified } (row: Row.t) _ = 
 		let preamble = 
 			if persist_generation_counts 
-			then [("__mtime",Int64.to_string mtime); ("__ctime",Int64.to_string ctime); ("ref",rf)] 
+			then [("__mtime",Generation.to_string modified); ("__ctime",Generation.to_string created); ("ref",rf)] 
 			else [("ref",rf)] 
 		in
-	  let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ _ v acc -> (k, Xml_spaces.protect v) :: acc) row preamble)) in
+	  let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ v acc -> (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc) row preamble)) in
       Xmlm.output output (`El_start tag);
       Xmlm.output output `El_end in
     let tag = make_tag "table" [ "name", name ] in
@@ -102,14 +102,14 @@ module From = struct
 					raise (Unmarshall_error "Unexpected end of file")
 			end else
 				f accu in
-		let rec f ((tableset, table, manifest) as acc) = match Xmlm.input input with
+		let rec f ((tableset, table, tblname, manifest) as acc) = match Xmlm.input input with
 				(* On reading a start tag... *)
 			| `El_start (tag: Xmlm.tag) ->
 				Stack.push tag tags;
 				begin match tag with
 					| (_, ("database" | "manifest")), _ -> f acc
-					| (_, "table"), [ (_, "name"), _ ] ->
-						f (tableset, Table.empty, manifest)
+					| (_, "table"), [ (_, "name"), tblname ] ->
+						f (tableset, Table.empty, tblname, manifest)
 					| (_, "row"), ((_, "ref"), rf) :: rest ->
 						(* Remove any other duplicate "ref"s which might have sneaked in there *)
 						let rest = List.filter (fun ((_,k), _) -> k <> "ref") rest in
@@ -118,11 +118,15 @@ module From = struct
 						let ctime = match ctime_l with | [(_,ctime_s)] -> Int64.of_string ctime_s | _ -> 0L in
 						let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
 						let row = List.fold_left (fun row ((_, k), v) -> 
-							Row.update mtime k "" (fun _ -> (Xml_spaces.unprotect v)) (Row.add ctime k (Xml_spaces.unprotect v) row)
+                                                        let table_schema = Schema.Database.find tblname schema.Schema.database in
+                                                        let column_schema = Schema.Table.find k table_schema in
+                                                        let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
+                                                        let empty = column_schema.Schema.Column.empty in
+							Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
 						) Row.empty rest in
-						f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), manifest)
+						f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), tblname, manifest)
 					| (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
-						f (tableset, table, (k, v) :: manifest)
+						f (tableset, table, tblname, (k, v) :: manifest)
 					| (_, name), _ -> 
 						raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
 				end
@@ -132,13 +136,13 @@ module From = struct
 				begin match tag with
 					| (_, ("database" | "manifest" | "row" | "pair")), _ -> maybe_return f acc
 					| (_, "table"), [ (_, "name"), name ] ->
-						maybe_return f (TableSet.add 0L name table tableset, Table.empty, manifest)
+						maybe_return f (TableSet.add 0L name table tableset, Table.empty, "", manifest)
 					| (_, name), _ -> 
 						raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
 				end
 			| _ -> f acc
 		in
-		let (ts, _, manifest) = f (TableSet.empty, Table.empty, []) in
+		let (ts, _, _, manifest) = f (TableSet.empty, Table.empty, "", []) in
 		let g = Int64.of_string (List.assoc _generation_count manifest) in
 		let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
 		let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in

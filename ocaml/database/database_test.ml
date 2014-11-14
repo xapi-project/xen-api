@@ -175,61 +175,61 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		let dump db g = 
 			let tables = Db_cache_types.Database.tableset db in
 			Db_cache_types.TableSet.fold_over_recent g 
-				(fun c u d name table acc ->
+				(fun name _ table acc ->
 					 Db_cache_types.Table.fold_over_recent g 
-						 (fun c u d r acc -> 
+                                                 (fun r { Db_cache_types.Stat.created; modified; deleted } _ acc -> 
 							  let s = 
 								  try 
 									  let row = Db_cache_types.Table.find r table in
 									  let s = Db_cache_types.Row.fold_over_recent g 
-										  (fun c u d k v acc ->
+										  (fun k _ v acc ->
 											   Printf.sprintf "%s %s=%s" acc k v) row "" in
 									  s 
 								  with _ -> "(deleted)"
 							  in
-							  Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r c u d s;
-							  ())
-						 (fun () -> ()) table ()) tables ()
+							  Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r created modified deleted s;
+							  ()
+						 ) table ())  tables ()
 		in
 
 		let get_created db g =
 			let tables = Db_cache_types.Database.tableset db in
 			Db_cache_types.TableSet.fold_over_recent g
-				(fun c u d name table acc ->
+				(fun name _ table acc ->
 					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
-							  if c>=g then (name,r)::acc else acc) ignore table acc
+                                                 (fun r { Db_cache_types.Stat.created } _ acc ->
+							  if created>=g then (name,r)::acc else acc) table acc
 				) tables []
 		in
 
 		let get_updated db g =
 			let tables = Db_cache_types.Database.tableset db in
 			Db_cache_types.TableSet.fold_over_recent g
-				(fun c u d name table acc ->
+				(fun name _ table acc ->
 					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
+						 (fun r _ _ acc ->
 							  let row = Db_cache_types.Table.find r table in
 							  Db_cache_types.Row.fold_over_recent g 
-								  (fun c u d k v acc ->
+								  (fun k _ v acc ->
 									   (r,(k,v))::acc) row acc)
-						 ignore table acc) tables []
+						 table acc) tables []
 		in
 
 		let get_deleted db g =
 			let tables = Db_cache_types.Database.tableset db in
 			Db_cache_types.TableSet.fold_over_recent g
-				(fun c u d name table acc ->
-					 Db_cache_types.Table.fold_over_recent g
-						 (fun c u d r acc ->
-							  if d > g then r::acc else acc)
-						 ignore table acc) tables []
+				(fun name _ table acc ->
+					 Db_cache_types.Table.fold_over_deleted g
+                                                 (fun r { Db_cache_types.Stat.deleted } acc ->
+							  if deleted > g then r::acc else acc)
+						 table acc) tables []
 		in
 
 		let get_max db =
 			let tables = Db_cache_types.Database.tableset db in
 			Db_cache_types.TableSet.fold_over_recent (-1L)
-				(fun c u d _ _ largest ->
-					 max c (max u (max d largest))) tables (-1L)
+                        (fun _ { Db_cache_types.Stat.created; modified; deleted } _ largest ->
+					 max created (max modified (max deleted largest))) tables (-1L)
 		in
 
 		let db = Db_ref.get_database t in

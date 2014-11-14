@@ -1,45 +1,105 @@
-module Row :
-  sig
-    type t
-    val add : int64 -> string -> string -> t -> t
-	val add_defaults : int64 -> Schema.Table.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> string -> 'a -> 'a) -> t -> 'a -> 'a
-    val find : string -> t -> string
-    val iter : (string -> string -> unit) -> t -> unit
-    val remove : string -> t -> t
-    val update : int64 -> string -> string -> (string -> string) -> t -> t
-	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> string -> 'b -> 'b) -> t -> 'b -> 'b
-  end
+(*
+ * Copyright (C) 2006-2014 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
 
-module Table :
-  sig
-    type t
-    val add : int64 -> string -> Row.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> Row.t -> 'a -> 'a) -> t -> 'a -> 'a
-	val find_exn : string -> string -> t -> Row.t
-    val find : string -> t -> Row.t
-	val mem : string -> t -> bool
-    val iter : (string -> Row.t -> unit) -> t -> unit
-    val remove : int64 -> string -> t -> t
-    val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
-    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
-	val rows : t -> Row.t list
-  end
+module Time : sig
+        type t = Generation.t
+        (** A monotonically increasing counter associated with this database *)
+end
 
-module TableSet :
-  sig
-    type t
-    val add : int64 -> string -> Table.t -> t -> t
-    val empty : t
-    val fold : (string -> int64 -> int64 -> Table.t -> 'a -> 'a) -> t -> 'a -> 'a
-    val find : string -> t -> Table.t
-    val iter : (string -> Table.t -> unit) -> t -> unit
-    val remove : string -> t -> t
-    val update : int64 -> string -> Table.t -> (Table.t -> Table.t) -> t -> t
-    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
-  end
+module Stat : sig
+        type t = {
+                created: Time.t;  (** Time this value was created *)
+                modified: Time.t; (** Time this value was last modified *)
+                deleted: Time.t;  (** Time this value was deleted (or 0L meaning it is still alive) *)
+        }
+        (** Metadata associated with a database value *)
+end
+
+module type MAP = sig
+        type t
+        (** A map from string to some value *)
+
+        type value
+        (** The type of the values in the map *)
+
+        val empty : t
+        (** The empty map *)
+
+        val add: Time.t -> string -> value -> t -> t
+        (** [add now key value map] returns a new map with [key] associated with [value],
+            with creation time [now] *)
+
+        val remove : Time.t -> string -> t -> t
+        (** [remove now key t] removes the binding of [key] from [t]. *)
+
+        val fold : (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)
+
+        val fold_over_recent : Time.t -> (string -> Stat.t -> value -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold_over_recent since f t initial] folds [f key stats value acc] over all the
+            items with a modified time larger than [since] *)
+
+        val find : string -> t -> value
+        (** [find key t] returns the value associated with [key] in [t] or raises
+            [DBCache_NotFound] *)
+
+        val mem : string -> t -> bool
+        (** [mem key t] returns true if [value] is associated with [key] in [t] or false
+            otherwise *)
+
+        val iter : (string -> value -> unit) -> t -> unit
+        (** [iter f t] applies [f key value] to each binding in [t] *)
+
+        val update : Time.t -> string -> value -> (value -> value) -> t -> t
+        (** [update now key default f t] returns a new map which is the same as [t] except:
+            if there is a value associated with [key] it is replaced with [f key]
+            or if there is no value associated with [key] then [default] is associated with [key].
+            This function touches the modification time of [key] *unless* [f key] is physically
+            equal with the current value: in this case the modification time isn't bumped as
+            an optimisation.
+          *)
+
+        val touch : Time.t -> string -> value -> t -> t
+        (** [touch now key default t] returns a new map which is the same as [t] except:
+            if there is a value associated with [t] then its modification time is set to [now];
+            if there is no value asssociated with [t] then one is created with value [default].
+            On exit there will be a binding of [key] whose modification time is [now] *)
+end
+
+module Row : sig
+        include MAP
+          with type value = Schema.Value.t
+
+        val add_defaults: Time.t -> Schema.Table.t -> t -> t
+        (** [add_defaults now schema t]: returns a row which is [t] extended to contain
+            all the columns specified in the schema, with default values set if not already
+            in [t]. If the schema is missing a default value then raises [DBCache_NotFound]:
+            this would happen if a client failed to provide a necessary field. *)
+
+end
+
+module Table : sig
+        include MAP
+          with type value = Row.t
+
+        val fold_over_deleted : Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
+        (** [fold_over_deleted now f t initial] folds [f key stat acc] over the keys
+            which have been recently deleted. Note this is not guaranteed to remember
+            all events, so the list may be short. *)
+end
+
+module TableSet : MAP with type value = Table.t
 
 module Manifest :
   sig
@@ -47,7 +107,7 @@ module Manifest :
     val empty : t
     val make : int -> int -> Generation.t -> t
     val generation : t -> Generation.t
-    val update_generation : (Generation.t -> Generation.t) -> t -> t
+    val touch : (Generation.t -> Generation.t) -> t -> t
     val next : t -> t
 	val schema : t -> int * int
 	val update_schema : ((int * int) option -> (int * int) option) -> t -> t
@@ -56,10 +116,10 @@ module Manifest :
 (** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update = 
 	| RefreshRow of string (* tblname *) * string (* objref *)
-	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string  (* oldval *) * string (* newval *)
+	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* oldval *) * Schema.Value.t (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
-	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
-	| Create of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
+	| Delete of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
+	| Create of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
 
 module Database :
   sig
@@ -84,17 +144,16 @@ module Database :
   end
 
 exception Duplicate
-val add_to_set : string -> string -> string
-val remove_from_set : string -> string -> string
-val add_to_map : string -> string -> string -> string
-val remove_from_map : string -> string -> string
+val add_to_set : string -> Schema.Value.t -> Schema.Value.t
+val remove_from_set : string -> Schema.Value.t -> Schema.Value.t
+val add_to_map : string -> string -> Schema.Value.t -> Schema.Value.t
+val remove_from_map : string -> Schema.Value.t -> Schema.Value.t
 
-val set_field : string -> string -> string -> string -> Database.t -> Database.t
-val get_field : string -> string -> string -> Database.t -> string
+val set_field : string -> string -> string -> Schema.Value.t -> Database.t -> Database.t
+val get_field : string -> string -> string -> Database.t -> Schema.Value.t
 val remove_row : string -> string -> Database.t -> Database.t
 val add_row : string -> string -> Row.t -> Database.t -> Database.t
-
-val update_generation : string -> string -> Database.t -> Database.t
+val touch : string -> string -> Database.t -> Database.t
 
 type where_record = {
 	table: string;       (** table from which ... *)
@@ -112,4 +171,3 @@ type structured_op_t =
 	| RemoveMap
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t
-
