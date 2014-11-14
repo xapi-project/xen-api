@@ -68,14 +68,8 @@ let check_many_to_many () =
 open OUnit
 
 let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test database library";
-
-  let suite = "tar" >:::
+  let suite = "db_cache" >:::
               [
                 "many to many" >:: check_many_to_many;
               ] in
-  run_test_tt ~verbose:!verbose suite
+  OUnit2.run_test_tt_main (OUnit.ounit2_of_ounit1 suite)
