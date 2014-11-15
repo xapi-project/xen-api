@@ -344,6 +344,82 @@ module From = struct
 		end
 end
 
+(* For testing: measure how many heap live words are generated per event. *)
+let test_db_size ~__context =
+        (* Number of events in the queue to simulate: *)
+        let max_n = 500 in
+        (* Number of iterations, to check for reproducibility *)
+        let iterations = 1 in
+        (* Whether to `Share_database or `Record_rpc *)
+        let mode : [ `Share_database | `Record_rpc ] = `Share_database in
+        (* Filename for gnuplot output: *)
+        let output_file = "/tmp/results.dat" in
+
+        let ref = Ref.make () in
+        let uuid = Uuid.(string_of_uuid (make_uuid ())) in
+        Db.VM.create ~__context ~ref
+                ~name_label:"test"
+                ~uuid
+                ~name_description:"blah blah blah"
+                ~hVM_boot_policy:"" ~hVM_boot_params:[] ~hVM_shadow_multiplier:1. ~platform:[] ~pCI_bus:""
+                ~pV_args:"" ~pV_ramdisk:"" ~pV_kernel:"" ~pV_bootloader:"" ~pV_bootloader_args:"" ~pV_legacy_args:""
+                ~actions_after_crash:`destroy ~actions_after_reboot:`destroy ~actions_after_shutdown:`destroy
+                ~allowed_operations:[] ~current_operations:[] ~blocked_operations:[] ~power_state:`Running
+                ~vCPUs_max:1L ~vCPUs_at_startup:1L ~vCPUs_params:[]
+                ~memory_overhead:0L
+                ~memory_static_min:1L ~memory_dynamic_min:1L ~memory_target:1L
+                ~memory_static_max:1L ~memory_dynamic_max:1L
+                ~resident_on:Ref.null ~scheduled_to_be_resident_on:Ref.null ~affinity:Ref.null ~suspend_VDI:Ref.null
+                ~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch:""
+                ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null ~transportable_snapshot_id:""
+                ~snapshot_info:[] ~snapshot_metadata:""
+                ~parent:Ref.null
+                ~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[] ~user_version:1L
+                ~ha_restart_priority:"" ~ha_always_run:false ~recommendations:""
+                ~last_boot_CPU_flags:[] ~last_booted_record:""
+                ~guest_metrics:Ref.null ~metrics:Ref.null
+                ~bios_strings:[] ~protection_policy:Ref.null
+                ~is_snapshot_from_vmpp:false
+                ~appliance:Ref.null
+                ~start_delay:0L
+                ~shutdown_delay:0L
+                ~order:0L
+                ~suspend_SR:Ref.null
+                ~version:0L
+                ~generation_id:"";
+        let results = Array.make iterations (Array.make 0 0) in
+        for i = 0 to iterations - 1 do
+                results.(i) <- Array.make max_n 0;
+        done;
+
+        Gc.compact ();
+        let start = Gc.((stat ()).live_words) in
+
+        let rec loop acc j n =
+                if n < max_n then begin
+                        Db.VM.set_name_label ~__context ~self:ref ~value:(Printf.sprintf "test-%d" n);
+                        Gc.compact ();
+                        let live = Gc.((stat ()).live_words) - start in
+                        results.(j).(n) <- live;
+                        let thing_to_store = match mode with
+                        | `Share_database -> `Db (Db_ref.get_database (Context.database_of __context))
+                        | `Record_rpc -> `Rpc (Eventgen.find_get_record "VM" ~__context ~self:(Ref.string_of ref) ()) in
+                        loop (thing_to_store :: acc) j (n + 1)
+                end in
+        for j = 0 to iterations - 1 do
+                loop [] j 0
+        done;
+        let oc = open_out output_file in
+        for i = 0 to max_n - 1 do
+                output_string oc (Printf.sprintf "%d " i);
+                for j = 0 to iterations - 1 do
+                        output_string oc (Printf.sprintf " %d " results.(j).(i))
+                done;
+                output_string oc "\n";
+        done;
+        close_out oc
+
+
 (** Register an interest in events generated on objects of class <class_name> *)
 let register ~__context ~classes =
 	let session = Context.get_session_id __context in
