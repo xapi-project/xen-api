@@ -97,8 +97,14 @@ module Next = struct
 	(* Infrastructure for the deprecated Event.next *)
 
 	(** Limit the event queue to this many events: *)
-	let max_queue_size = 10000000
-	let old_max_queue_length = 500
+        let max_stored_events = 500
+
+        (* Note: events are stored as records with the 'snapshot' kept as a closure, whose environment
+           references the database snapshot. The closure is only evaluated if the client requests
+           the event. Since successive database snapshots share most of the state, the amount of
+           additional heap usage should be small. In testing, a VM which differed only in the name
+           created on event with a heap usage of 160 words. Assuming 8 bytes per word, 500 events will
+           cost us about 600KiB. *)
 
 	(** Ordered list of events, newest first *)
 	let queue = ref []
@@ -124,11 +130,6 @@ module Next = struct
 	let m = Mutex.create ()
 	let c = Condition.create ()
 
-	let event_size ev = 
-	  let rpc = rpc_of_event ev in
-	  let string = Jsonrpc.to_string rpc in
-	  String.length string
-
 	(* Add an event to the queue if it matches any active subscriptions *)
 	let add ev =
 		Mutex.execute m
@@ -140,8 +141,7 @@ module Next = struct
 					else acc
 				) subscriptions false in
 			if matches then begin
-				let size = event_size ev in
-				queue := (size,ev) :: !queue;
+				queue := ev :: !queue;
 				(* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
 				id := Int64.add !id Int64.one;
 				Condition.broadcast c;
@@ -149,31 +149,16 @@ module Next = struct
 				(* debug "Dropping event %s" (string_of_event ev) *)
 			end;
 		
-			(* GC the events in the queue *)
-			let total_size = List.fold_left (fun acc (sz,_) -> acc + sz) 0 !queue in
-
-			let too_many = total_size > max_queue_size in
-			let to_keep, to_drop = if not too_many then !queue, []
-			  else
-			    (* Reverse-sort by ID and preserve only enough events such that the total
-			       size does not exceed 'max_queue_size' *)
-			    let sorted = (List.sort (fun (_,a) (_,b) -> compare (Int64.of_string b.id) (Int64.of_string a.id)) !queue) in
-			    let total_size_after, rev_to_keep, rev_to_drop = List.fold_left
-			      (fun (tot_size,keep,drop) (size,elt) ->
-				if tot_size + size < max_queue_size
-				then (tot_size + size, (size,elt)::keep, drop)
-				else (tot_size + size, keep, (size,elt)::drop)) (0,[],[]) sorted in
-			    let to_keep = List.rev rev_to_keep in
-			    let to_drop = List.rev rev_to_drop in
-			    if List.length to_keep < old_max_queue_length then
-			      warn "Event queue length degraded. Number of events kept: %d (less than old_max_queue_length=%d)" (List.length to_keep) old_max_queue_length;
-			    to_keep, to_drop
-			in
+                        let too_many = List.length !queue - max_stored_events in
+                        let to_keep, to_drop =
+                                if too_many <= 0
+                                then !queue, []
+                                else List.chop max_stored_events (List.sort (fun a b -> compare (Int64.of_string b.id) (Int64.of_string a.id)) !queue) in
 
 			queue := to_keep;
 			(* Remember the highest ID of the list of events to drop *)
 			if to_drop <> [] then
-			highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id;
+			highest_forgotten_id := Int64.of_string (List.hd to_drop).id;
 			(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
 			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
 		)
@@ -246,14 +231,14 @@ module Next = struct
 			Mutex.execute m
 			(fun () ->
 				some_events_lost := !highest_forgotten_id >= id_start;
-				List.find_all (fun (_,ev) -> check_ev ev) !queue
+				List.find_all check_ev !queue
 			) in
 		(* Note we may actually retrieve fewer events than we expect because the
 		   queue may have been coalesced. *)
 		if !some_events_lost (* is true *) then events_lost ();
 
 		(* NB queue is kept in reverse order *)
-		List.map snd (List.rev selected_events)
+		List.rev selected_events
 
 end
 
@@ -481,8 +466,8 @@ let from_inner __context session subs from from_t deadline =
 
 	last_generation := last;
 
-	let event_of op ?snapshot (table, objref, time) = {
-		id=Int64.to_string time; ts="0.0"; ty=String.lowercase table; op=op; reference=objref; snapshot=snapshot
+	let event_of op ?(snapshot_fn = fun () -> None) (table, reference, time) = {
+		id=Int64.to_string time; ts="0.0"; ty=String.lowercase table; op; reference; snapshot_fn
 	} in
 	let events = List.fold_left (fun acc x ->
 		let ev = event_of `del x in
@@ -491,22 +476,22 @@ let from_inner __context session subs from from_t deadline =
 	let events = List.fold_left (fun acc (table, objref, mtime) ->
 		let serialiser = Eventgen.find_get_record table in
 		try 
-			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
+			let snapshot_fn = serialiser ~__context ~self:objref in
+			let ev = event_of `_mod ~snapshot_fn (table, objref, mtime) in
 			if Subscription.event_matches subs ev then ev::acc else acc
 		with _ -> acc
 	) events mods in
 	let events = List.fold_left (fun acc (table, objref, ctime) ->
 		let serialiser = Eventgen.find_get_record table in
 		try 
-			let xml = serialiser ~__context ~self:objref () in
-			let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
+			let snapshot_fn = serialiser ~__context ~self:objref in
+			let ev = event_of `add ~snapshot_fn (table, objref, ctime) in
 			if Subscription.event_matches subs ev then ev::acc else acc
 		with _ -> acc
 	) events creates in
 	let events = List.fold_left (fun acc mev ->
 		let event = match mev with 
-		| Message.Create (_ref,message) -> event_of `add ?snapshot:(Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
+		| Message.Create (_ref,message) -> event_of `add ~snapshot_fn:(fun () -> Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
 		| Message.Del _ref -> event_of `del ("message",Ref.string_of _ref, 0L) in
 		event::acc) events messages in
 
@@ -566,14 +551,14 @@ let inject ~__context ~_class ~_ref =
 
 (* Internal interface ****************************************************)
 
-let event_add ?snapshot ty op reference  =
+let event_add ?(snapshot_fn = fun () -> None) ty op reference  =
 	let objs = List.filter (fun x->x.Datamodel_types.gen_events) (Dm_api.objects_of_api Datamodel.all_api) in
 	let objs = List.map (fun x->x.Datamodel_types.name) objs in
 	if List.mem ty objs then begin
 		let ts = string_of_float (Unix.time ()) in
 		let op = op_of_string op in
 
-		let ev = { id = Int64.to_string !Next.id; ts; ty = String.lowercase ty; op; reference; snapshot } in
+		let ev = { id = Int64.to_string !Next.id; ts; ty = String.lowercase ty; op; reference; snapshot_fn } in
 		From.add ev;
 		Next.add ev
 	end
@@ -601,9 +586,10 @@ let heartbeat ~__context =
 			let pool = try Some (Helpers.get_pool ~__context) with _ -> None in
 			match pool with
 			| Some pool ->
-				let pool_r = Db.Pool.get_record ~__context ~self:pool in
-				let pool_xml = API.rpc_of_pool_t pool_r in
-				event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
+                                let snapshot_fn () =
+				        let pool_r = Db.Pool.get_record ~__context ~self:pool in
+				        Some (API.rpc_of_pool_t pool_r) in
+				event_add ~snapshot_fn "pool" "mod" (Ref.string_of pool)
 			| None -> () (* no pool object created during initial boot *)
 		)
 	with e ->

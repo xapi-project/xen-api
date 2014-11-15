@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2014 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,21 +12,18 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+(* This callback is used in the events.next implementation *)
 
-let __callback : ((?snapshot: Rpc.t -> string -> string -> string -> unit) option ref) = ref None
+type snapshot_fn = unit -> Rpc.t option
+
+type callback = ?snapshot_fn:snapshot_fn -> string -> string -> string -> unit
+
+let __callback : callback option ref = ref None
+
 let events_register f = __callback := Some f
 let events_unregister () = __callback := None
     
-let events_notify ?(snapshot) ty op ref =
+let events_notify ?snapshot_fn ty op ref =
   match !__callback with
     | None -> ()
-    | Some f -> f ?snapshot ty op ref
-	 (* 
-exception Db_set_or_map_parse_fail of string
-  
-let parse_sexpr s : SExpr.t list =
-  match SExpr_TS.of_string s with
-    | SExpr.Node xs -> xs
-    | _ -> raise (Db_set_or_map_parse_fail s)
-*)
+    | Some f -> f ?snapshot_fn ty op ref

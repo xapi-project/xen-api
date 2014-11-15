@@ -358,8 +358,8 @@ let write ~__context ~_ref ~message =
 		   hasn't been written, we may want to also emit a del even, for
 		   consistency (since the reference for the message will never be
 		   valid again. *)
-		let rpc = API.rpc_of_message_t message in
-		Xapi_event.event_add ~snapshot:rpc "message" "add" (Ref.string_of _ref);
+		let snapshot_fn () = Some (API.rpc_of_message_t message) in
+		Xapi_event.event_add ~snapshot_fn "message" "add" (Ref.string_of _ref);
 		let (_: bool) = (!queue_push) message.API.message_name (message_to_string (_ref,message)) in
 		(*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
@@ -429,7 +429,7 @@ let destroy_real __context basefilename =
   List.iter (fun (dir,newpath) ->
 	Unixext.unlink_safe newpath) symlinks;
   Unixext.unlink_safe filename;
-  let rpc = API.rpc_of_message_t message in
+  let snapshot_fn () = Some (API.rpc_of_message_t message) in
 
   let gen = ref 0L in
 
@@ -449,7 +449,7 @@ let destroy_real __context basefilename =
 				ndeleted := 512)
 	  );
   cache_remove _ref;
-  Xapi_event.event_add ~snapshot:rpc "message" "del" (Ref.string_of _ref)
+  Xapi_event.event_add ~snapshot_fn "message" "del" (Ref.string_of _ref)
 
 let destroy ~__context ~self =
   (* Find the original message so we know where the symlinks will be *)

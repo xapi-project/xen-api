@@ -1686,7 +1686,7 @@ let event_wait_gen rpc session_id classname record_matches =
 								let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
 								if record_matches record then raise Finished
 							in
-							List.iter doevent (List.filter (fun e -> e.Event_types.snapshot <> None) events)
+							List.iter doevent (List.filter (fun e -> e.Event_types.snapshot_fn () <> None) events)
 						with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
 							debug "Got EVENTS_LOST; reregistering";
 							Client.Event.unregister ~rpc ~session_id ~classes;

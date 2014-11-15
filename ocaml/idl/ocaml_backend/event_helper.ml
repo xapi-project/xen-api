@@ -48,7 +48,7 @@ let maybe f x =
 		| None -> None
 			
 let record_of_event ev =
-	let rpc = ev.Event_types.snapshot in
+    let rpc = ev.Event_types.snapshot_fn () in
     match ev.Event_types.ty with
 		| "session" ->          Session (Ref.of_string ev.Event_types.reference, maybe (API.session_t_of_rpc) rpc)
 		| "task" ->             Task (Ref.of_string ev.Event_types.reference, maybe (API.task_t_of_rpc) rpc)
