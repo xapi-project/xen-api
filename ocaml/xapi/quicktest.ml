@@ -82,6 +82,17 @@ let event_next_test session_id =
 	then failed test "failed to see pool.other_config change"
 	else success test
 
+let wait_for_pool_key test session_id key =
+	let token = ref "" in
+	let finished = ref false in
+	let pool = Client.Pool.get_all !rpc session_id |> List.hd in
+	while not !finished do
+		let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_xmlrpc in
+		token := events.token;
+		let oc = Client.Pool.get_other_config !rpc session_id pool in
+		if List.mem_assoc key oc && (List.assoc key oc) = "1" then finished := true;
+	done
+
 let event_from_test session_id =
 	let test = make_test "Event.from test" 0 in
 	start test;
@@ -92,24 +103,42 @@ let event_from_test session_id =
 	begin try Client.Pool.remove_from_other_config !rpc session_id pool key with _ -> () end;
 	let (_: Thread.t) = Thread.create
 		(fun () ->
-			let token = ref "" in
-			while not (Mutex.execute m (fun () -> !finished)) do
-				let events = Client.Event.from !rpc session_id [ "pool" ] (!token) 10. |> event_from_of_xmlrpc in
-				token := events.token;
-				let oc = Client.Pool.get_other_config !rpc session_id pool in
-				if List.mem_assoc key oc && (List.assoc key oc) = "1"
-				then Mutex.execute m (fun () ->
-					debug test (Printf.sprintf "got expected event (new token = %s)" !token);
-					finished := true;
-				);
-				()
-			done
+			wait_for_pool_key test session_id key;
+			Mutex.execute m (fun () -> finished := true)
 		) () in
 	Thread.delay 1.;
 	Client.Pool.add_to_other_config !rpc session_id pool key "1";
 	Thread.delay 1.;
 	if not(Mutex.execute m (fun () -> !finished))
 	then failed test "failed to see pool.other_config change"
+	else success test
+
+let event_from_parallel_test session_id =
+	let test = make_test "Event.from parallel test" 0 in
+	start test;
+	let pool = Client.Pool.get_all !rpc session_id |> List.hd in
+	let key = "event_next_test" in
+	begin try Client.Pool.remove_from_other_config !rpc session_id pool key with _ -> () end;
+	let ok = ref true in
+	let (i_should_succeed: Thread.t) = Thread.create
+		(fun () ->
+			try
+				let _ = Client.Event.from !rpc session_id [] "" 10. in
+				() (* good *)
+			with e ->
+				debug test (ExnHelper.string_of_exn e);
+				ok := false;
+		) () in
+	let (interfering_thread: Thread.t) = Thread.create
+		(fun () ->
+			wait_for_pool_key test session_id key
+		) () in
+	Thread.delay 1.; (* wait for both threads to block in Event.from *)
+	Client.Pool.add_to_other_config !rpc session_id pool key "1";
+	Thread.join interfering_thread;
+	Thread.join i_should_succeed;
+	if not !ok
+	then failed test "Event.from got cancelled by mistake"
 	else success test
 
 let object_level_event_test session_id =
@@ -820,6 +849,7 @@ let _ =
 				maybe_run_test "event" event_next_unblocking_test;
 				maybe_run_test "event" (fun () -> event_next_test s);
 				maybe_run_test "event" (fun () -> event_from_test s);
+				maybe_run_test "event" (fun () -> event_from_parallel_test s);
 (*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
 				maybe_run_test "event" (fun () -> event_message_test s);
 				maybe_run_test "vdi" (fun () -> vdi_test s);
