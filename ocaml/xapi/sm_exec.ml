@@ -140,11 +140,16 @@ let xmlrpc_of_call (call: call) =
   XMLRPC.To.methodCall call.cmd [ XMLRPC.To.structure all ]
 
 let methodResponse xml =
-  match xml with
-  | Xml.Element("methodResponse", _, [ Xml.Element("params", _, [ Xml.Element("param", _, [ param ]) ]) ]) ->
+  (* try methodResponse: most specific *)
+  try
+    XMLRPC.From.methodResponse xml
+  with e ->
+    (* a non-XenAPI XMLRPC *)
+    begin match xml with
+    | Xml.Element("methodResponse", _, [ Xml.Element("params", _, [ Xml.Element("param", _, [ param ]) ]) ]) ->
       XMLRPC.Success [ param ]
-  | xml -> XMLRPC.From.methodResponse xml
-
+    | _ -> raise e
+    end
 
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
@@ -194,30 +199,49 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 		end
 	)
     in
+    (* The SMAPIv1 plugins originally used XMLRPC Faults. To support backtraces
+       we add the ability to report a XenAPI-style error and use "SR_BACKEND_FAILURE_WITH_BACKTRACE"
+       to transport the exception *)
 
-    match methodResponse xml with
-    | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
-    | XMLRPC.Fault(39l, _) ->
-	raise (Api_errors.Server_error (Api_errors.sr_not_empty, []))
-    | XMLRPC.Fault(24l, _) -> 
-	raise (Api_errors.Server_error (Api_errors.vdi_in_use, []))
-    | XMLRPC.Fault(16l, _) -> 
-	raise (Api_errors.Server_error (Api_errors.sr_device_in_use, []))
-    | XMLRPC.Fault(144l, _) ->
+    (* 1. parse the possible SMAPIv1 return formats *)
+    let response = match methodResponse xml with
+    | XMLRPC.Fault(code, reason) -> `Error (code, reason, None)
+    | XMLRPC.Failure ("SR_BACKEND_FAILURE_WITH_BACKTRACE", backtrace :: code :: reason :: []) ->
+        let backtrace = Backtrace.Interop.of_json (Filename.basename call.cmd) backtrace in
+        `Error (Int32.of_string code, reason, Some backtrace)
+    | XMLRPC.Failure (code, params) -> `XenAPI(code, params)
+    | XMLRPC.Success [ result ] -> `Ok result
+    | _ -> `XenAPI(Api_errors.internal_error, [ "Unexpected response from SM plugin" ]) in
+
+    (* 2. transform errors into exceptions with any backtrace *)
+    let response =
+      let backend_error b code params = match b with
+      | None -> `Error (Storage_interface.Backend_error(code, params))
+      | Some b -> `Error (Storage_interface.Backend_error_with_backtrace(code, Sexplib.Sexp.to_string (Backtrace.sexp_of_t b) :: params)) in
+      match response with
+      | `Error(38l, _, b) -> backend_error b Api_errors.sr_operation_not_supported (match call.sr_ref with None -> [] | Some sr -> [ Ref.string_of sr ])
+      | `Error(39l, _, b) -> backend_error b Api_errors.sr_not_empty []
+      | `Error(24l, _, b) -> backend_error b Api_errors.vdi_in_use []
+      | `Error(16l, _, b) -> backend_error b Api_errors.sr_device_in_use []
+      | `Error(144l, _, b) ->
 	(* Any call which returns this 'VDIMissing' error really ought to have
 	   been provided both an SR and VDI reference... *)
 	let sr = default "" (may Ref.string_of call.sr_ref)
 	and vdi = default "" (may Ref.string_of call.vdi_ref) in
-	raise (Api_errors.Server_error (Api_errors.vdi_missing, [ sr; vdi ]))
-	  
-    | XMLRPC.Fault(code, reason) ->
+	backend_error b Api_errors.vdi_missing [ sr; vdi ]
+    | `Error(code, reason, b) ->
 	let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
-	raise (Api_errors.Server_error(xenapi_code, [ ""; reason; stderr ]))
-	  
-    | XMLRPC.Success [ result ] -> result
-	| _ ->
-		raise (Api_errors.Server_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
- in
+	backend_error b xenapi_code [ ""; reason; stderr ]
+    | `XenAPI(code, params) ->
+        backend_error None code params
+    | `Ok result -> `Ok result in
+
+    match response with
+    | `Ok result -> result
+    | `Error exn ->
+      Backtrace.is_important exn;
+      raise exn in
+
   if needs_session
   then with_session call.sr_ref (fun session_id -> do_call { call with session_ref = Some session_id })
   else do_call call

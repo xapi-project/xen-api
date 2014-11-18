@@ -157,8 +157,6 @@ exception Command_failed of (int * string * string (*stdout*) * string (*stderr*
 exception Command_killed of (int * string * string (*stdout*) * string (*stderr*))
 exception Missing_field of string
 
-exception Not_implemented_in_backend (* Raised by clone at least *)
-
 exception Sr_not_empty
 exception Vdi_in_use
 exception Device_in_use
