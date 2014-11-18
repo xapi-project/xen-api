@@ -888,7 +888,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			| None -> ()
 
 		let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
-			if snapshot.API.vM_ha_restart_priority = Constants.ha_restart
+			if true
+				&& (snapshot.API.vM_ha_restart_priority = Constants.ha_restart)
+				&& (not snapshot.API.vM_ha_always_run)
 			then
 				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm
 			else
