@@ -488,11 +488,19 @@ let main_loop ifd ofd =
               let (server,path) = parse_url url in
               if not (Sys.file_exists filename) then
                 raise (ClientSideError (Printf.sprintf "file '%s' does not exist" filename));
+              (* If we can tell the file size then supply a content-length header--
+                 this will make the progress bar work. If we can't tell the file size
+                 (e.g. because it's a pipe) then we provide no header and rely on EOF
+                 to signal the upload is complete. *)
+              let content_length =
+                let stats = Unix.LargeFile.stat filename in
+                if stats.Unix.LargeFile.st_kind = Unix.S_REG
+                then Printf.sprintf "\r\nContent-length: %Ld" stats.Unix.LargeFile.st_size
+                else "" in
               let file_ch = open_in_bin filename in
-              let file_size = LargeFile.in_channel_length file_ch in
               let ic, oc = open_tcp server in
               debug "PUTting to path [%s]\n%!" path;
-              Printf.fprintf oc "PUT %s HTTP/1.0\r\ncontent-length: %Ld\r\n\r\n" path file_size;
+              Printf.fprintf oc "PUT %s HTTP/1.0%s\r\n\r\n" path content_length;
               flush oc;
               let resultline = input_line ic in
               let headers = read_rest_of_headers ic in
