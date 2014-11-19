@@ -207,7 +207,8 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
     let response = match methodResponse xml with
     | XMLRPC.Fault(code, reason) -> `Error (code, reason, None)
     | XMLRPC.Failure ("SR_BACKEND_FAILURE_WITH_BACKTRACE", backtrace :: code :: reason :: []) ->
-        let backtrace = Backtrace.Interop.of_json (Filename.basename call.cmd) backtrace in
+        let name = Filename.basename driver ^ " @ " ^ (Helper_hostname.get_hostname ()) in
+        let backtrace = Backtrace.Interop.of_json name backtrace in
         `Error (Int32.of_string code, reason, Some backtrace)
     | XMLRPC.Failure (code, params) -> `XenAPI(code, params)
     | XMLRPC.Success [ result ] -> `Ok result
