@@ -465,7 +465,10 @@ let host_no_local_storage = "no_local_storage"
 let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 
 (* Pool.other_config key to enable pass-through of PIF carrier *)
-let pass_through_pif_carrier = "pass_through_pif_carrier"
+let pass_through_pif_carrier_key = "pass_through_pif_carrier"
+
+(* Don't pass through PIF carrier information by default *)
+let pass_through_pif_carrier = ref false
 
 (* Remember the specific PCI devices needed for GPU passthrough *)
 let vgpu_pci = "vgpu_pci"
@@ -907,7 +910,10 @@ let other_options = [
     (fun s ->
       D.debug "Whitelisting PCI vendor %s for passthrough" s;
       Scanf.sscanf s "%4Lx" (fun _ -> s)) (* Scanf verifies format *)
-    (fun s -> s) igd_passthru_vendor_whitelist
+    (fun s -> s) igd_passthru_vendor_whitelist;
+
+  "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
+    (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
