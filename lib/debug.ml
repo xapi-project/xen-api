@@ -109,11 +109,13 @@ let gettimestring () =
 
 let format include_time brand priority message =
   let host = Cache.get hostname in
-  let name = match ThreadLocalTable.find names with Some x -> x | None -> "thread_zero" in
+  let id = get_thread_id () in
+  let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
   let task = match ThreadLocalTable.find tasks with Some x -> x | None -> "" in
 
-  let extra = Printf.sprintf "%s|%s|%s|%s" host name task brand in
-  Printf.sprintf "[%s%.5s|%s] %s" (if include_time then gettimestring () else "") priority extra message
+  Printf.sprintf "[%s%.5s|%s|%d %s|%s|%s] %s"
+    (if include_time then gettimestring () else "")
+    priority host id name task brand message
 
 let print_debug = ref false
 let log_to_stdout () = print_debug := true
