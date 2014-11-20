@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 21fd61b70457600a802589019bd01d38)
-version = "0.11.0"
+# DO NOT EDIT (digest: f8690efb71f599dc91ab26389ca83c22)
+version = "0.13.0"
 description = "Standard extension library"
 requires =
 "threads uuidm unix fd-send-recv bigarray sexplib sexplib.syntax xapi-backtrace"
