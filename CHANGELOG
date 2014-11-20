@@ -1,11 +1,24 @@
-1.9.56 (2014-09-15)
+1.9.58 (2014-11-20):
+ * examples: wrap task.destroy with an exception handler
+ * add GC stats reporting
+ * support a "feature-suspend" flag
+ * fix HTTP requests with an empty cookie
+ * add opam file
+ * add documentation
+ * update to new backtrace API
+ * xe: add "--trace" option to print backtraces
+ * add license check for vGPU
+ * run migration pre-checks for VDI.pool_migrate
+ * tidy up the internal database interface
+
+1.9.56 (2014-09-15):
  * configure: allow -warn-error to be disabled
  * use SMAPIv2 VDI.stat for XenAPI VDI.update
  * annotate startup tasks with extra debug information
  * examples: add a streaming export/import example
  * prevent the event queue from taking up too much memory
 
-1.9.55 (2014-09-14)
+1.9.55 (2014-09-14):
  * re-add xenopsd plugin for xen-bugtool
  * don't break when system gpg binary is upgraded
  * set the right month for host crashdump records
