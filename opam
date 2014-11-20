@@ -8,12 +8,13 @@ remove: [make "uninstall" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "LIBEXECDIR=%{bin}%
 depends: [
   "obuild" {>= "0.1.1"}
   "ocamlfind"
-  "xapi-idl"
-  "xapi-libs-transitional"
+  "xapi-backtrace"
+  "xapi-idl" {>= "0.9.21"}
+  "xapi-libs-transitional" {>= "0.9.7"}
   "xapi-inventory"
-  "xapi-stdext"
+  "xapi-stdext" {>= "0.13.0"}
   "xapi-forkexecd"
-  "xenctrl"
+  "xenctrl" {>= "0.9.28"}
   "xenstore_transport"
   "xapi-xenops"
   "io-page"

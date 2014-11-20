@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xcp-rrdd
-Version:     0.9.8
+Version:     0.9.9
 Synopsis:    XenServer RRD daemon
 Authors:     John Else
 License:     LGPL-2.1 with OCaml linking exception
