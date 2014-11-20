@@ -1,5 +1,9 @@
-0.12.0 (unreleased)
+0.13.0 (20-Nov-2014):
 * Depend on Backtrace from xapi-backtrace
+* Add an opam file
+
+0.12.0 (26-Sep-2014):
+* Fix build errors on OS X
 
 0.11.0 (30-May-2013):
 * Change Stringext module to Xstringext to avoid conflict with other packages
