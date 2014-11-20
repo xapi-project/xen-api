@@ -1,7 +1,13 @@
-0.9.20 14-Oct-2014
+0.9.21 (20-Nov-2014):
+* storage: add a Backend_failure_with_backtrace exception
+* xen: add a Task.backtrace field
+* lib: use the new Backtrace package
+* Add an opam file for easy pinning
+
+0.9.20 (14-Oct-2014):
 * Map all HVM device names to /dev/xvd*
 
-0.9.18 20-Aug-2014)
+0.9.18 (20-Aug-2014):
 * Add a cmdliner interface to Xcp_services with an example
 * Add 'with sexp' to Vm.t
 * Debug.DEBUG has an explicit module type
