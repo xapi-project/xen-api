@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 62900c795d623da99a5e707cccd15daf)
-version = "0.9.6"
+# DO NOT EDIT (digest: 29c69e6f71d23c02c5784dd57de3b6aa)
+version = "0.9.7"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "stdext threads"
 archive(byte) = "sexpr.cma"
