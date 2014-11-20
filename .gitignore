@@ -228,3 +228,4 @@ ocaml/xenops/domain_sethandle
 ocaml/test/suite
 xapi-db.xml*
 oUnit-*.cache
+_build
