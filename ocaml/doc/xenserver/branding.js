@@ -64,10 +64,16 @@ function get_release_name(s)
 		return 'XenServer 6.2 vGPU preview';
 		break;
 	case 'vgpu-productisation':
-		return 'XenServer 6.2 SP1'
+		return 'XenServer 6.2 SP1';
 		break;
 	case 'clearwater-felton':
-		return 'XenServer 6.2 SP1 Hotfix 4'
+		return 'XenServer 6.2 SP1 Hotfix 4';
+		break;
+	case 'clearwater-whetstone':
+		return 'XenServer 6.2 SP1 Hotfix 11';
+		break;
+	case 'creedence':
+		return 'XenServer 6.5';
 		break;
 	default:
 		return 'Unreleased';
