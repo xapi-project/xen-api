@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 613c5bfbd84d86db2de536b6acb19340)
+# DO NOT EDIT (digest: 09d878ac60bc2b2f0bde3700bf4e377b)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -16,17 +17,17 @@
 # Library rrdd_libs
 "lib/rrdd_libs.cmxs": use_rrdd_libs
 <lib/rrdd_libs.{cma,cmxa}>: oasis_library_rrdd_libs_byte
-<lib/*.ml{,i}>: oasis_library_rrdd_libs_byte
+<lib/*.ml{,i,y}>: oasis_library_rrdd_libs_byte
 <lib/rrdd_libs.{cma,cmxa}>: oasis_library_rrdd_libs_native
-<lib/*.ml{,i}>: oasis_library_rrdd_libs_native
-<lib/*.ml{,i}>: pkg_stdext
-<lib/*.ml{,i}>: pkg_threads
-<lib/*.ml{,i}>: pkg_xcp
+<lib/*.ml{,i,y}>: oasis_library_rrdd_libs_native
+<lib/*.ml{,i,y}>: pkg_stdext
+<lib/*.ml{,i,y}>: pkg_threads
+<lib/*.ml{,i,y}>: pkg_xcp
 # Executable xcp-rrdd
 <rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_byte
-<rrdd/*.ml{,i}>: oasis_executable_xcp_rrdd_byte
+<rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_byte
 <rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_native
-<rrdd/*.ml{,i}>: oasis_executable_xcp_rrdd_native
+<rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_native
 <rrdd/xcp_rrdd.{native,byte}>: pkg_forkexec
 <rrdd/xcp_rrdd.{native,byte}>: pkg_gzip
 <rrdd/xcp_rrdd.{native,byte}>: pkg_http-svr
@@ -48,27 +49,27 @@
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xen-gnt.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xenops
 <rrdd/xcp_rrdd.{native,byte}>: use_rrdd_libs
-<rrdd/*.ml{,i}>: pkg_forkexec
-<rrdd/*.ml{,i}>: pkg_gzip
-<rrdd/*.ml{,i}>: pkg_http-svr
-<rrdd/*.ml{,i}>: pkg_io-page.unix
-<rrdd/*.ml{,i}>: pkg_oclock
-<rrdd/*.ml{,i}>: pkg_rpclib
-<rrdd/*.ml{,i}>: pkg_rpclib.syntax
-<rrdd/*.ml{,i}>: pkg_rpclib.unix
-<rrdd/*.ml{,i}>: pkg_rrd-transport
-<rrdd/*.ml{,i}>: pkg_stdext
-<rrdd/*.ml{,i}>: pkg_threads
-<rrdd/*.ml{,i}>: pkg_uuid
-<rrdd/*.ml{,i}>: pkg_xcp
-<rrdd/*.ml{,i}>: pkg_xcp-inventory
-<rrdd/*.ml{,i}>: pkg_xcp-rrd
-<rrdd/*.ml{,i}>: pkg_xcp.network
-<rrdd/*.ml{,i}>: pkg_xcp.rrd
-<rrdd/*.ml{,i}>: pkg_xcp.xen
-<rrdd/*.ml{,i}>: pkg_xen-gnt.unix
-<rrdd/*.ml{,i}>: pkg_xenops
-<rrdd/*.ml{,i}>: use_rrdd_libs
+<rrdd/*.ml{,i,y}>: pkg_forkexec
+<rrdd/*.ml{,i,y}>: pkg_gzip
+<rrdd/*.ml{,i,y}>: pkg_http-svr
+<rrdd/*.ml{,i,y}>: pkg_io-page.unix
+<rrdd/*.ml{,i,y}>: pkg_oclock
+<rrdd/*.ml{,i,y}>: pkg_rpclib
+<rrdd/*.ml{,i,y}>: pkg_rpclib.syntax
+<rrdd/*.ml{,i,y}>: pkg_rpclib.unix
+<rrdd/*.ml{,i,y}>: pkg_rrd-transport
+<rrdd/*.ml{,i,y}>: pkg_stdext
+<rrdd/*.ml{,i,y}>: pkg_threads
+<rrdd/*.ml{,i,y}>: pkg_uuid
+<rrdd/*.ml{,i,y}>: pkg_xcp
+<rrdd/*.ml{,i,y}>: pkg_xcp-inventory
+<rrdd/*.ml{,i,y}>: pkg_xcp-rrd
+<rrdd/*.ml{,i,y}>: pkg_xcp.network
+<rrdd/*.ml{,i,y}>: pkg_xcp.rrd
+<rrdd/*.ml{,i,y}>: pkg_xcp.xen
+<rrdd/*.ml{,i,y}>: pkg_xen-gnt.unix
+<rrdd/*.ml{,i,y}>: pkg_xenops
+<rrdd/*.ml{,i,y}>: use_rrdd_libs
 <rrdd/xcp_rrdd.{native,byte}>: custom
 # OASIS_STOP
 <rrdd/rrdd_fake_common.ml>: syntax_camlp4o, pkg_rpc.syntax
