@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5d9d5f8dea6678f0bafc4c237b3e0281)
-version = "0.9.6"
+# DO NOT EDIT (digest: ce065de67ef89727803e0c60fc1eab86)
+version = "0.9.7"
 description = "Temporary set of to-be-deprecated libraries"
 requires = "stdext threads xenctrl xenctrlext xen-utils"
 archive(byte) = "cpuid.cma"

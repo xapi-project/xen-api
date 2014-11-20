@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6404d67d298a795930eacf50ea0a2535)
+# DO NOT EDIT (digest: 921ab6781026c3f29cf98fe2e4c899dc)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -15,29 +16,29 @@
 "_darcs": not_hygienic
 # Library sha1
 "sha1/sha1.cmxs": use_sha1
-<sha1/*.ml{,i}>: pkg_forkexec
-<sha1/*.ml{,i}>: pkg_stdext
-<sha1/*.ml{,i}>: pkg_threads
+<sha1/*.ml{,i,y}>: pkg_forkexec
+<sha1/*.ml{,i,y}>: pkg_stdext
+<sha1/*.ml{,i,y}>: pkg_threads
 # Library gzip
 "gzip/gzip.cmxs": use_gzip
-<gzip/*.ml{,i}>: pkg_forkexec
-<gzip/*.ml{,i}>: pkg_stdext
-<gzip/*.ml{,i}>: pkg_threads
+<gzip/*.ml{,i,y}>: pkg_forkexec
+<gzip/*.ml{,i,y}>: pkg_stdext
+<gzip/*.ml{,i,y}>: pkg_threads
 # Library xenstore
 "xenstore/xenstore.cmxs": use_xenstore
-<xenstore/*.ml{,i}>: pkg_stdext
-<xenstore/*.ml{,i}>: pkg_threads
-<xenstore/*.ml{,i}>: pkg_xenstore.unix
-<xenstore/*.ml{,i}>: pkg_xenstore_transport.unix
+<xenstore/*.ml{,i,y}>: pkg_stdext
+<xenstore/*.ml{,i,y}>: pkg_threads
+<xenstore/*.ml{,i,y}>: pkg_xenstore.unix
+<xenstore/*.ml{,i,y}>: pkg_xenstore_transport.unix
 # Library xenctrlext
 "xenctrlext/xenctrlext.cmxs": use_xenctrlext
 <xenctrlext/xenctrlext.{cma,cmxa}>: use_libxenctrlext_stubs
-<xenctrlext/*.ml{,i}>: pkg_stdext
-<xenctrlext/*.ml{,i}>: pkg_threads
-<xenctrlext/*.ml{,i}>: pkg_xenctrl
-<xenctrlext/*.ml{,i}>: pkg_xenstore.unix
-<xenctrlext/*.ml{,i}>: pkg_xenstore_transport.unix
-<xenctrlext/*.ml{,i}>: use_xenstore
+<xenctrlext/*.ml{,i,y}>: pkg_stdext
+<xenctrlext/*.ml{,i,y}>: pkg_threads
+<xenctrlext/*.ml{,i,y}>: pkg_xenctrl
+<xenctrlext/*.ml{,i,y}>: pkg_xenstore.unix
+<xenctrlext/*.ml{,i,y}>: pkg_xenstore_transport.unix
+<xenctrlext/*.ml{,i,y}>: use_xenstore
 "xenctrlext/xenctrlext_stubs.c": pkg_stdext
 "xenctrlext/xenctrlext_stubs.c": pkg_threads
 "xenctrlext/xenctrlext_stubs.c": pkg_xenctrl
@@ -46,21 +47,21 @@
 "xenctrlext/xenctrlext_stubs.c": use_xenstore
 # Library xenutils
 "xen-utils/xenutils.cmxs": use_xenutils
-<xen-utils/*.ml{,i}>: pkg_forkexec
-<xen-utils/*.ml{,i}>: pkg_stdext
-<xen-utils/*.ml{,i}>: pkg_threads
+<xen-utils/*.ml{,i,y}>: pkg_forkexec
+<xen-utils/*.ml{,i,y}>: pkg_stdext
+<xen-utils/*.ml{,i,y}>: pkg_threads
 # Library cpuid
 "cpuid/cpuid.cmxs": use_cpuid
 <cpuid/cpuid.{cma,cmxa}>: use_libcpuid_stubs
-<cpuid/*.ml{,i}>: pkg_forkexec
-<cpuid/*.ml{,i}>: pkg_stdext
-<cpuid/*.ml{,i}>: pkg_threads
-<cpuid/*.ml{,i}>: pkg_xenctrl
-<cpuid/*.ml{,i}>: pkg_xenstore.unix
-<cpuid/*.ml{,i}>: pkg_xenstore_transport.unix
-<cpuid/*.ml{,i}>: use_xenctrlext
-<cpuid/*.ml{,i}>: use_xenstore
-<cpuid/*.ml{,i}>: use_xenutils
+<cpuid/*.ml{,i,y}>: pkg_forkexec
+<cpuid/*.ml{,i,y}>: pkg_stdext
+<cpuid/*.ml{,i,y}>: pkg_threads
+<cpuid/*.ml{,i,y}>: pkg_xenctrl
+<cpuid/*.ml{,i,y}>: pkg_xenstore.unix
+<cpuid/*.ml{,i,y}>: pkg_xenstore_transport.unix
+<cpuid/*.ml{,i,y}>: use_xenctrlext
+<cpuid/*.ml{,i,y}>: use_xenstore
+<cpuid/*.ml{,i,y}>: use_xenutils
 "cpuid/cpuid_stubs.c": pkg_forkexec
 "cpuid/cpuid_stubs.c": pkg_stdext
 "cpuid/cpuid_stubs.c": pkg_threads
@@ -72,35 +73,35 @@
 "cpuid/cpuid_stubs.c": use_xenutils
 # Library pciutil
 "pciutil/pciutil.cmxs": use_pciutil
-<pciutil/*.ml{,i}>: pkg_stdext
-<pciutil/*.ml{,i}>: pkg_threads
+<pciutil/*.ml{,i,y}>: pkg_stdext
+<pciutil/*.ml{,i,y}>: pkg_threads
 # Library uuid
 "uuid/uuid.cmxs": use_uuid
 # Library xmllight2
 "xml-light2/xmllight2.cmxs": use_xmllight2
-<xml-light2/*.ml{,i}>: pkg_stdext
-<xml-light2/*.ml{,i}>: pkg_threads
-<xml-light2/*.ml{,i}>: pkg_xmlm
+<xml-light2/*.ml{,i,y}>: pkg_stdext
+<xml-light2/*.ml{,i,y}>: pkg_threads
+<xml-light2/*.ml{,i,y}>: pkg_xmlm
 # Library stunnel
 "stunnel/stunnel.cmxs": use_stunnel
-<stunnel/*.ml{,i}>: pkg_forkexec
-<stunnel/*.ml{,i}>: pkg_stdext
-<stunnel/*.ml{,i}>: pkg_threads
-<stunnel/*.ml{,i}>: pkg_xcp
+<stunnel/*.ml{,i,y}>: pkg_forkexec
+<stunnel/*.ml{,i,y}>: pkg_stdext
+<stunnel/*.ml{,i,y}>: pkg_threads
+<stunnel/*.ml{,i,y}>: pkg_xcp
 # Library httpsvr
 "http-svr/httpsvr.cmxs": use_httpsvr
-<http-svr/*.ml{,i}>: pkg_forkexec
-<http-svr/*.ml{,i}>: pkg_rpclib
-<http-svr/*.ml{,i}>: pkg_rpclib.syntax
-<http-svr/*.ml{,i}>: pkg_stdext
-<http-svr/*.ml{,i}>: pkg_threads
-<http-svr/*.ml{,i}>: pkg_xcp
-<http-svr/*.ml{,i}>: pkg_xmlm
-<http-svr/*.ml{,i}>: use_stunnel
-<http-svr/*.ml{,i}>: use_xmllight2
+<http-svr/*.ml{,i,y}>: pkg_forkexec
+<http-svr/*.ml{,i,y}>: pkg_rpclib
+<http-svr/*.ml{,i,y}>: pkg_rpclib.syntax
+<http-svr/*.ml{,i,y}>: pkg_stdext
+<http-svr/*.ml{,i,y}>: pkg_threads
+<http-svr/*.ml{,i,y}>: pkg_xcp
+<http-svr/*.ml{,i,y}>: pkg_xmlm
+<http-svr/*.ml{,i,y}>: use_stunnel
+<http-svr/*.ml{,i,y}>: use_xmllight2
 # Library sexpr
 "sexpr/sexpr.cmxs": use_sexpr
-<sexpr/*.ml{,i}>: pkg_stdext
-<sexpr/*.ml{,i}>: pkg_threads
+<sexpr/*.ml{,i,y}>: pkg_stdext
+<sexpr/*.ml{,i,y}>: pkg_threads
 # OASIS_STOP
 <http-svr/*.ml{,i}>: syntax_camlp4o

@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 420b860864977df3a6dd5416dc36b3c2)
-version = "0.9.6"
+# DO NOT EDIT (digest: a0b439fabf7815e148f42c4da8a04777)
+version = "0.9.7"
 description = "Temporary set of to-be-deprecated libraries"
 archive(byte) = "uuid.cma"
 archive(byte, plugin) = "uuid.cma"
