@@ -1,3 +1,14 @@
+0.9.46 (20-Nov-2014):
+* add some high-level documentation
+* xl: fix block device handling
+* xl: allow the storage backend to choose between Blkback and Qdisk
+* update to new Backtrace API
+* Fix parsing of VDI locations containing '/'
+* update following xentoollog change
+* fix "make install"
+* "make clean" nolonger deletes configure information
+* add an opam file
+
 0.9.44 (22-Sep-2014):
 * better libxl support
 * improved robustness should the event thread throw an exception
