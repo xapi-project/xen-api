@@ -334,6 +334,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
+	let vm_and_snapshots = vm :: Db.VM.get_snapshots ~__context ~self:vm in
 
 	(* Assert that every VDI is specified in the VDI map *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
@@ -351,21 +352,24 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let suspends_vdis =
-		if Db.VM.get_power_state ~__context ~self:vm = `Suspended
-		then
-			let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
-			let sr = Db.VDI.get_SR ~__context ~self:vdi in
-			if is_intra_pool && Helpers.host_has_pbd_for_sr ~__context ~host:dest_host_ref ~sr then [] else
-				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-				let dp = Storage_access.datapath_of_vbd ~domid ~device:"suspend_VDI" in
-				let location = Db.VDI.get_location ~__context ~self:vdi in
-				let sr = Db.SR.get_uuid ~__context ~self:sr in
-				let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-				let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-				let do_mirror = false in
-				let snapshot_of = Ref.null in
-				[vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror]
-		else [] in
+		List.fold_left
+			(fun acc vm_ref ->
+				if Db.VM.get_power_state ~__context ~self:vm_ref = `Suspended
+				then
+					let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm_ref in
+					let sr = Db.VDI.get_SR ~__context ~self:vdi in
+					if is_intra_pool && Helpers.host_has_pbd_for_sr ~__context ~host:dest_host_ref ~sr then acc else
+						let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm_ref) in
+						let dp = Storage_access.datapath_of_vbd ~domid ~device:"suspend_VDI" in
+						let location = Db.VDI.get_location ~__context ~self:vdi in
+						let sr = Db.SR.get_uuid ~__context ~self:sr in
+						let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
+						let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
+						let do_mirror = false in
+						let snapshot_of = Ref.null in
+						(vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) :: acc
+				else acc)
+			[] vm_and_snapshots in
 	let total_size = List.fold_left (fun acc (_,_,_,_,_,sz,_,_) -> Int64.add acc sz) 0L (suspends_vdis @ snapshots_vdis @ vdis) in
 	let dbg = Context.string_of_task __context in
 	let open Xapi_xenops_queue in
@@ -574,7 +578,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		if is_intra_pool 
 		then begin
-			let vm_and_snapshots = vm :: (Db.VM.get_snapshots ~__context ~self:vm) in
 			List.iter
 				(fun vm' ->
 					intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
@@ -660,8 +663,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				~remote_address:remote_master_address ~session_id ~old_vm:vm ~new_vm ;
 			(* Signal the remote pool that we're done *)
 		end;
-		
-		let vbds = List.map (fun vbd -> (vbd,Db.VBD.get_record ~__context ~self:vbd)) (Db.VM.get_VBDs ~__context ~self:vm) in
+
+		let vbds =
+			List.flatten
+				(List.map
+					 (fun vm -> List.map (fun vbd -> (vbd,Db.VBD.get_record ~__context ~self:vbd)) (Db.VM.get_VBDs ~__context ~self:vm))
+					 vm_and_snapshots) in
 
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
@@ -758,14 +765,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
-
-	(* Check that none of its snapshots is a checkpoint. *)
-	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
-	List.iter
-		(fun snapshot ->
-		 if (Db.VM.get_power_state ~__context ~self:snapshot) = `Suspended then
-			 raise (Api_errors.Server_error (Api_errors.vm_has_checkpoint, [Ref.string_of vm])))
-		snapshots;
 
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
