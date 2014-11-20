@@ -1,3 +1,8 @@
+0.9.9 (20-Nov-2014):
+* remove GC stats reporting
+* add opam file
+* update to new Backtrace API
+
 0.9.8 (8-Oct-2014)
 * Don't install rrdd-libs, it's an internal library
 * Create I/O metrics from /dev/shm and sysfs
