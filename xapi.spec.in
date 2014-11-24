@@ -20,7 +20,7 @@ XCP toolstack.
 %package core
 Summary: The xapi toolstack
 Group: System/Hypervisor
-Requires: busybox
+Requires: busybox m2crypto
 
 %description core
 This package contains the xapi toolstack.
