@@ -60,23 +60,6 @@ let track callback rpc (session_id:API.ref_session) task =
        done)
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
 
-let result_from_task rpc session_id remote_task =
-	match Client.Task.get_status rpc session_id remote_task with
-		| `cancelling | `cancelled ->
-			raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
-		| `pending ->
-			failwith "wait_for_task_completion failed; task is still pending"
-		| `success ->
-			()
-		| `failure ->
-			let error_info = Client.Task.get_error_info rpc session_id remote_task in
-			let trace = Client.Task.get_backtrace rpc session_id remote_task in
-			let exn = match error_info with
-				| code :: params -> Api_errors.Server_error(code, params)
-				| [] -> Failure (Printf.sprintf "Task failed but no error recorded: %s" (Ref.string_of remote_task)) in
-			Backtrace.(add exn (t_of_sexp (Sexplib.Sexp.of_string trace)));
-			raise exn
-
 (** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
 let wait_for_task_completion = track (fun _ -> ())
 
@@ -93,6 +76,26 @@ let wait_for_task_completion_with_progress fd =
     end
   )
 
+let result_from_task rpc session_id remote_task =
+	match Client.Task.get_status rpc session_id remote_task with
+		| `cancelling | `cancelled ->
+			raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
+		| `pending ->
+			error "result_from_task: task is still pending";
+			raise (Api_errors.Server_error(Api_errors.client_error, []))
+		| `success ->
+			Client.Task.get_result rpc session_id remote_task
+		| `failure ->
+			let error_info = Client.Task.get_error_info rpc session_id remote_task in
+			let trace = Client.Task.get_backtrace rpc session_id remote_task in
+			let exn = match error_info with
+				| code :: params -> Api_errors.Server_error(code, params)
+				| [] ->
+					error "Task %s failed but no error recorded" (Ref.string_of remote_task);
+					raise (Api_errors.Server_error(Api_errors.client_error, [])) in
+			Backtrace.(add exn (t_of_sexp (Sexplib.Sexp.of_string trace)));
+			raise exn
+
 let track_http_operation ?use_existing_task ?(progress_bar=false) fd rpc session_id (make_command: API.ref_task -> command) label =
   (* Need to associate the operation with a task so we can check for failure *)
   let task_id = match use_existing_task with None -> Client.Task.create rpc session_id label "" | Some t -> t in
@@ -108,16 +111,9 @@ let track_http_operation ?use_existing_task ?(progress_bar=false) fd rpc session
        else wait_for_task_completion)
          rpc session_id task_id;
       Thread.join receive_heartbeats;
-      if !response = Response OK then begin
-	 if Client.Task.get_status rpc session_id task_id = `success then begin
-	   let result = Client.Task.get_result rpc session_id task_id in
-	   debug "result was [%s]" result;
-	   result
-	 end else begin
-	   let params = Client.Task.get_error_info rpc session_id task_id in
-	   raise (Api_errors.Server_error(List.hd params, List.tl params));
-	 end
-       end else begin
+      if !response = Response OK
+      then result_from_task rpc session_id task_id
+      else begin
 	 debug "client-side reports failure";
 	 (* Debug info might have been written into the task, let's see if there is some *)
 	 Thread.delay 1.;
@@ -128,11 +124,8 @@ let track_http_operation ?use_existing_task ?(progress_bar=false) fd rpc session
 	 (* using this as an indicator that the handler never got the task. All handlers *)
 	 (* would need to use this mechanism if we want to check for it here. For now a  *)
 	 (* delay of 1 will do... *)
-	     let params = Client.Task.get_error_info rpc session_id task_id in
-		 if params = [] then
-			 raise (Api_errors.Server_error(Api_errors.client_error, []))
-		 else
-			 raise (Api_errors.Server_error(List.hd params, List.tl params));
+         let (_: string) = result_from_task rpc session_id task_id in
+         raise (Api_errors.Server_error(Api_errors.client_error, []))
        end)
     (fun () ->
        (* if we created our own task then destroy it again; if the task was supplied to us then don't destroy it --

@@ -60,11 +60,13 @@ let progress_bar printer task_record =
 let wait_with_progress_bar printer rpc session_id task =
 	Cli_util.track (progress_bar printer) rpc session_id task;
 	Cli_printer.PStderr "\n" |> printer;
-	Cli_util.result_from_task rpc session_id task
+	let (_: string) = Cli_util.result_from_task rpc session_id task in
+	()
 
 let wait printer rpc session_id task =
 	Cli_util.track (fun _ -> ()) rpc session_id task;
-	Cli_util.result_from_task rpc session_id task
+	let (_: string) = Cli_util.result_from_task rpc session_id task in
+	()
 
 let waiter printer rpc session_id params task =
 	finally
