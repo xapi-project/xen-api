@@ -50,77 +50,84 @@ let make_id =
     "Ref:" ^ (string_of_int this)
 
 let rec update_table ~__context ~include_snapshots ~preserve_power_state ~include_vhd_parents ~table vm =
-  let add r = 
-	  if not (Hashtbl.mem table (Ref.string_of r)) then
-		  Hashtbl.add table (Ref.string_of r)(make_id ()) in
+	let add r =
+		if not (Hashtbl.mem table (Ref.string_of r)) then
+			Hashtbl.add table (Ref.string_of r)(make_id ()) in
 
-  let rec add_vdi v =
-    add v;
-    let r = Db.VDI.get_record ~__context ~self:v in
-    add r.API.vDI_SR;
-    if include_vhd_parents then
-      begin
-        let sm_config = r.API.vDI_sm_config in
-        if List.mem_assoc Xapi_globs.vhd_parent sm_config then
-          begin
-            let parent_uuid = List.assoc Xapi_globs.vhd_parent sm_config in
-            try
-              let parent_ref = Db.VDI.get_by_uuid ~__context ~uuid:parent_uuid in
-			  (* Only recurse if we haven't already seen this VDI *)
-			  if not (Hashtbl.mem table (Ref.string_of parent_ref))
-              then add_vdi parent_ref
-            with _ ->
-              warn "VM.export_metadata: lookup of parent VDI %s failed"
-                parent_uuid
-          end
-      end
-  in
+	let rec add_vdi v =
+		add v;
+		let r = Db.VDI.get_record ~__context ~self:v in
+		add r.API.vDI_SR;
+		if include_vhd_parents then begin
+			let sm_config = r.API.vDI_sm_config in
+			if List.mem_assoc Xapi_globs.vhd_parent sm_config then begin
+				let parent_uuid = List.assoc Xapi_globs.vhd_parent sm_config in
+				try
+					let parent_ref = Db.VDI.get_by_uuid ~__context ~uuid:parent_uuid in
+					(* Only recurse if we haven't already seen this VDI *)
+					if not (Hashtbl.mem table (Ref.string_of parent_ref))
+					then add_vdi parent_ref
+				with _ ->
+					warn "VM.export_metadata: lookup of parent VDI %s failed" parent_uuid
+			end
+		end
+	in
 
-  if Db.is_valid_ref __context vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
-  add vm;
-  let vm = Db.VM.get_record ~__context ~self:vm in
-  List.iter 
-	(fun vif -> if Db.is_valid_ref __context vif then begin
-	       add vif;
-	       let vif = Db.VIF.get_record ~__context ~self:vif in
-	       add vif.API.vIF_network end) 
-	vm.API.vM_VIFs;
-  List.iter 
-	(fun vbd -> if Db.is_valid_ref __context vbd then begin
-	       add vbd;
-	       let vbd = Db.VBD.get_record ~__context ~self:vbd in
-	       if not(vbd.API.vBD_empty)
-	       then
-		 add_vdi vbd.API.vBD_VDI
-	       end) 
-	vm.API.vM_VBDs;
-  List.iter
-	(fun vgpu -> if Db.is_valid_ref __context vgpu then begin
-	       add vgpu;
-	       let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
-	       add vgpu.API.vGPU_type;
-	       add vgpu.API.vGPU_GPU_group end)
-	vm.API.vM_VGPUs;
-  (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
-  if include_snapshots then
-	  List.iter 
-		  (fun snap -> update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table snap)
-		  vm.API.vM_snapshots;
-  (* If VM is suspended then add the suspend_VDI *)
-  let vdi = vm.API.vM_suspend_VDI in
-  if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref __context vdi then begin
-    add_vdi vdi
-  end;
-  (* Add also the guest metrics *)
-  add vm.API.vM_guest_metrics;
+	if Db.is_valid_ref __context vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
+		add vm;
+		let vm = Db.VM.get_record ~__context ~self:vm in
 
-  (* Add the hosts links *)
-  add vm.API.vM_resident_on;
-  add vm.API.vM_affinity;
+		List.iter
+			(fun vif ->
+				if Db.is_valid_ref __context vif then begin
+					add vif;
+					let vif = Db.VIF.get_record ~__context ~self:vif in
+					add vif.API.vIF_network
+				end)
+			vm.API.vM_VIFs;
 
-  (* Add the parent VM *)
-  if include_snapshots then update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table vm.API.vM_parent
-  end
+		List.iter
+			(fun vbd ->
+				if Db.is_valid_ref __context vbd then begin
+					add vbd;
+					let vbd = Db.VBD.get_record ~__context ~self:vbd in
+					if not(vbd.API.vBD_empty)
+					then add_vdi vbd.API.vBD_VDI
+				end)
+			vm.API.vM_VBDs;
+
+		List.iter
+			(fun vgpu ->
+				if Db.is_valid_ref __context vgpu then begin
+					add vgpu;
+					let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+					add vgpu.API.vGPU_type;
+					add vgpu.API.vGPU_GPU_group
+				end)
+			vm.API.vM_VGPUs;
+
+		(* If we need to include snapshots, update the table for VMs in the 'snapshots' field *)
+		if include_snapshots then
+			List.iter
+				(fun snap -> update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table snap)
+				vm.API.vM_snapshots;
+
+		(* If VM is suspended then add the suspend_VDI *)
+		let vdi = vm.API.vM_suspend_VDI in
+		if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref __context vdi
+		then add_vdi vdi;
+
+		(* Add also the guest metrics *)
+		add vm.API.vM_guest_metrics;
+
+		(* Add the hosts links *)
+		add vm.API.vM_resident_on;
+		add vm.API.vM_affinity;
+
+		(* Add the parent VM *)
+		if include_snapshots
+		then update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table vm.API.vM_parent
+	end
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
     to include in the output. Other object references will be purged. *)
