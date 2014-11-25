@@ -125,7 +125,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~includ
 		add vm.API.vM_affinity;
 
 		(* Add the parent VM *)
-		if include_snapshots
+		if include_snapshots && Db.is_valid_ref __context vm.API.vM_parent
 		then update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table vm.API.vM_parent
 	end
 
