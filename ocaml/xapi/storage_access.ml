@@ -1030,9 +1030,12 @@ let transform_storage_exn f =
 	try
 		f ()
 	with
-		| Backend_error(code, params) ->
-			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
-			raise (Api_errors.Server_error(code, params))
+		| Backend_error(code, params) as e ->
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
+			let backtrace = Backtrace.Interop.of_json "SM" backtrace in
+			Backtrace.add e backtrace;
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
 		| Api_errors.Server_error(code, params) as e -> raise e
 		| No_storage_plugin_for_sr sr as e ->
 			Server_helpers.exec_with_new_task "transform_storage_exn"
@@ -1041,8 +1044,7 @@ let transform_storage_exn f =
 					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
 				)
 		| e ->
-			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
-			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+			Backtrace.reraise e (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
 
 let events_from_sm () =
 	ignore(Thread.create (fun () -> 
