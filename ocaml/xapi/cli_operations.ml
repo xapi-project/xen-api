@@ -1379,12 +1379,15 @@ let parse_host_uuid ?(default_master=true) rpc session_id params =
 	if List.mem_assoc "host-uuid" params then
 		let host_uuid=List.assoc "host-uuid" params in
 		Client.Host.get_by_uuid rpc session_id host_uuid
-	else
-		if default_master
+	else begin
+		let hosts = Client.Host.get_all rpc session_id in
+		let standalone = List.length hosts = 1 in
+		if standalone || default_master
 		then
 			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			Client.Pool.get_master rpc session_id pool
 		else failwith "Required parameter not found: host-uuid"
+	end
 
 let parse_device_config params =
 	(* Ack! We're supposed to use the format device-config:key=value but we need to match device-config-key=value for *)
