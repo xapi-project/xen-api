@@ -272,10 +272,36 @@ let process_ds_value ds value interval new_domid =
 					else
 						match ds.ds_last, value with
 							| VT_Int64 x, VT_Int64 y ->
-									let result = (Int64.sub y x) in
-									let result = if result < 0L then Int64.add result 0x100000000L else result in (* for wrapping 32 bit counters *)
+									let diff = (Int64.sub y x) in
+									let result =
+										if diff < 0L then
+											(* The current value would be less than the previous one in two scenario:
+											 *   1) the counter value exceeds 32-bit integer and wraps;
+											 *   2) one or more of the VMs rebooted then the counters of those VMs
+											 *      restarted from 0;
+											 *
+											 * For VM level counters they can be easily distinguished as new_domid will
+											 * be set to `true' in case of VM rebooting.
+											 *
+											 * While for host level counters we have no way to exactly figure out one
+											 * from another. However we can assume that the counters would not
+											 * accumulate very fast and the difference of two successive values (if no
+											 * rebooting) would not exceed 0x80000000.
+											 *
+											 * Even though in the second situation the correct value is unattainable.
+											 * So set to ZERO to mitigate the abnormal.
+											 *)
+											if diff < -0x80000000L then
+												Int64.add diff 0x100000000L (* for wrapping 32 bit counters *)
+											else
+												0L (* values reset to zero due to VM rebooting *)
+										else
+											diff
+									in
 									Int64.to_float result
-							| VT_Float x, VT_Float y -> y -. x
+							| VT_Float x, VT_Float y ->
+									(* value reset to zero due to VM rebooting, see comments above*)
+									if y < x then 0.0 else y -. x
 							| VT_Unknown, _ -> nan
 							| _, VT_Unknown -> nan
 							| _ -> failwith ("Bad type updating ds: "^ds.ds_name)
