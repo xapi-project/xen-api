@@ -290,7 +290,7 @@ let get_sr_vdi_to_stats_fun ~f () =
 
 let get_sr_vdi_to_stats = get_sr_vdi_to_stats_fun ~f:Stat.get_unsafe
 let get_sr_vdi_to_iostats = get_sr_vdi_to_stats_fun ~f:Iostat.get_unsafe
-		
+
 let sr_to_sth s_v_to_i =
 	let fold_fun acc ((s,v),sth) =
 		try 
@@ -300,130 +300,218 @@ let sr_to_sth s_v_to_i =
 	in
 	List.fold_left fold_fun [] s_v_to_i
 
-let get_sr_to_stats_summed_fun ~stats ~sum_fun ~sum_init =
-	let sum_list_of_lists (l : 'a list list) =
-		List.fold_left (fun acc l -> List.map2 sum_fun acc l) sum_init l in
-	let sr_to_stats = sr_to_sth stats in
-	let sr_to_nb_of_vdi = List.map (fun (s, stats) -> (s, List.length stats)) sr_to_stats in
-	let sr_to_stats_summed = List.map (fun (sr, stats) -> (sr, sum_list_of_lists stats)) sr_to_stats in
-	List.map2 (fun (sr, stats) (sr, vdi) -> (sr, (stats, vdi))) sr_to_stats_summed sr_to_nb_of_vdi
+module Stats_value = struct
+	type t =
+		{
+			io_throughput_read_mb : float;
+			io_throughput_write_mb : float;
+			iops_read : int64;
+			iops_write : int64;
+			iowait : float;
+			inflight : int64;
+		}
 
-let get_sr_to_stats_summed sr_vdi_to_stats = get_sr_to_stats_summed_fun ~stats:sr_vdi_to_stats ~sum_fun:(Int64.add) ~sum_init:[0L;0L;0L;0L;0L;0L;0L;0L;0L;0L;0L;0L;0L;0L;0L]
-let get_sr_to_iostats_summed sr_vdi_to_iostats = get_sr_to_stats_summed_fun ~stats:sr_vdi_to_iostats ~sum_fun:(+.) ~sum_init:[0.;0.;0.;0.;0.;0.;0.;0.;0.;0.;0.;]
+	let empty =
+		{
+			io_throughput_read_mb = 0.;
+			io_throughput_write_mb = 0.;
+			iops_read = 0L;
+			iops_write = 0L;
+			iowait = 0.;
+			inflight = 0L;
+		}
 
-let gen_metric_stat ~owner ~name ~key_format (stats, _) =
-	let ds_make = Ds.ds_make ~default:true
-	and stats_get = List.nth stats in
-	let io_throughput_read = stats_get 13
-	and io_throughput_write = stats_get 14 in
-	let io_throughput_total = Int64.add io_throughput_read io_throughput_write in
-	let io_throughput_read_mb = Int64.to_float io_throughput_read /. 1048576.
-	and io_throughput_write_mb = Int64.to_float io_throughput_write /. 1048576. in
-	let io_throughput_total_mb = Int64.to_float io_throughput_total /. 1048576.
-	and iops_read = stats_get 0
-	and iops_write = stats_get 4 in
-	let iops_total = Int64.add iops_read iops_write in
-	let iowait = Int64.to_float (stats_get 10) /. 1000.
-	and inflight = stats_get 8 in
-	[
-		owner, ds_make ~name:(key_format "io_throughput_read")
-			~description:("Data read from the " ^ name ^ ", in MiB/s")
-			~value:(Rrd.VT_Float io_throughput_read_mb)
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "io_throughput_write")
-			~description:("Data written to the " ^ name ^ ", in MiB/s")
-			~value:(Rrd.VT_Float io_throughput_write_mb)
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "io_throughput_total")
-			~description:("All " ^ name ^ " I/O, in MiB/s")
-			~value:(Rrd.VT_Float io_throughput_total_mb) 
-			~ty:Rrd.Derive ~units:"MiB/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "iops_read")
-			~description:"Read requests per second"
-			~value:(Rrd.VT_Int64 iops_read)
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "iops_write")
-			~description:"Write requests per second"
-			~value:(Rrd.VT_Int64 iops_write)
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "iops_total")
-			~description:"I/O Requests per second"
-			~value:(Rrd.VT_Int64 iops_total)
-			~ty:Rrd.Derive ~units:"requests/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "iowait")
-			~description:"Total I/O wait time (all requests) per second"
-			~value:(Rrd.VT_Float iowait)
-			~ty:Rrd.Derive ~units:"s/s" ~min:0. ();
-		owner, ds_make ~name:(key_format "inflight")
-			~description:"Number of I/O requests currently in flight" 
-			~value:(Rrd.VT_Int64 inflight) 
-			~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
-	]
-		
-let gen_metric_iostat ~owner ~name ~key_format (stats, nb_vdi) =
-	let ds_make = Ds.ds_make ~default:true
-	and stats_get = List.nth stats in
-	let avgqu_sz = stats_get 7
-	and svctm    = (stats_get 9) /. (float_of_int nb_vdi) in
-	[
-		owner, ds_make ~name:(key_format "latency")
-			~description:"Average I/O latency"
-			~value:(Rrd.VT_Float svctm)
-			~ty:Rrd.Gauge ~units:"milliseconds" ~min:0. ();
-		owner, ds_make ~name:(key_format "avgqu_sz")
-			~description:"Average I/O queue size"
-			~value:(Rrd.VT_Float avgqu_sz)
-			~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
-	]
+	let make stats last_stats : t =
+		let stats_get = List.nth stats in
+		let stats_diff_get n =
+			let stat = stats_get n in
+			let last_stat = match last_stats with | None -> 0L | Some s -> List.nth s n in
+			if stat >= last_stat then Int64.sub stat last_stat else stat
+		in
+		{
+			io_throughput_read_mb = Int64.to_float (stats_diff_get 13) /. 1048576.;
+			io_throughput_write_mb = Int64.to_float (stats_diff_get 14) /. 1048576.;
+			iops_read = stats_diff_get 0;
+			iops_write = stats_diff_get 4;
+			iowait = Int64.to_float (stats_diff_get 10) /. 1000.;
+			inflight = stats_get 8;
+		}
+
+	let sumup (values : t list) : t =
+		List.fold_left (fun acc v ->
+			{
+				io_throughput_read_mb = acc.io_throughput_read_mb +. v.io_throughput_read_mb;
+				io_throughput_write_mb = acc.io_throughput_write_mb +. v.io_throughput_write_mb;
+				iops_read = Int64.add acc.iops_read v.iops_read;
+				iops_write = Int64.add acc.iops_write v.iops_write;
+				iowait = acc.iowait +. v.iowait;
+				inflight = Int64.add acc.inflight v.inflight;
+			}) empty values
+
+	let make_ds ~owner ~name ~key_format (value : t) =
+		let ds_make = Ds.ds_make ~default:true in
+		[
+			owner, ds_make ~name:(key_format "io_throughput_read")
+				~description:("Data read from the " ^ name ^ ", in MiB/s")
+				~value:(Rrd.VT_Float value.io_throughput_read_mb)
+				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "io_throughput_write")
+				~description:("Data written to the " ^ name ^ ", in MiB/s")
+				~value:(Rrd.VT_Float value.io_throughput_write_mb)
+				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "io_throughput_total")
+				~description:("All " ^ name ^ " I/O, in MiB/s")
+				~value:(Rrd.VT_Float (value.io_throughput_read_mb +. value.io_throughput_write_mb))
+				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "iops_read")
+				~description:"Read requests per second"
+				~value:(Rrd.VT_Int64 value.iops_read)
+				~ty:Rrd.Absolute ~units:"requests/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "iops_write")
+				~description:"Write requests per second"
+				~value:(Rrd.VT_Int64 value.iops_write)
+				~ty:Rrd.Absolute ~units:"requests/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "iops_total")
+				~description:"I/O Requests per second"
+				~value:(Rrd.VT_Int64 (Int64.add value.iops_read value.iops_write))
+				~ty:Rrd.Absolute ~units:"requests/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "iowait")
+				~description:"Total I/O wait time (all requests) per second"
+				~value:(Rrd.VT_Float value.iowait)
+				~ty:Rrd.Absolute ~units:"s/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "inflight")
+				~description:"Number of I/O requests currently in flight"
+				~value:(Rrd.VT_Int64 value.inflight)
+				~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
+		]
+end
+
+module Iostats_value = struct
+	type t =
+		{
+			latency : float;
+			avgqu_sz : float;
+		}
+
+	let empty =
+		{
+			latency = 0.;
+			avgqu_sz = 0.;
+		}
+
+	let make iostats last_iostats : t =
+		let iostats_get = List.nth iostats in
+		{
+			latency = iostats_get 9;
+			avgqu_sz = iostats_get 7;
+		}
+
+	let sumup (values : t list) : t =
+		let v = List.fold_left (fun acc v ->
+			{
+				latency = acc.latency +. v.latency;
+				avgqu_sz = acc.avgqu_sz +. v.avgqu_sz;
+		   }) empty values in
+		{ v with avgqu_sz = v.avgqu_sz /. float_of_int (List.length values) }
+
+	let make_ds ~owner ~name ~key_format (value : t) =
+		let ds_make = Ds.ds_make ~default:true in
+		[
+			owner, ds_make ~name:(key_format "latency")
+				~description:"Average I/O latency"
+				~value:(Rrd.VT_Float value.latency)
+				~ty:Rrd.Gauge ~units:"milliseconds" ~min:0. ();
+			owner, ds_make ~name:(key_format "avgqu_sz")
+				~description:"Average I/O queue size"
+				~value:(Rrd.VT_Float value.avgqu_sz)
+                ~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
+		]
+end
 
 let list_all_assocs key xs = List.map snd (List.filter (fun (k,_) -> k = key) xs)
+
+let sr_vdi_to_last_iostats_values = ref None
+let sr_vdi_to_last_stats_values = ref None
 
 let gen_metrics () =
 	(* Get iostat data first, because this takes 1 second to complete *)
 	let sr_vdi_to_iostats = get_sr_vdi_to_iostats () in
 	let sr_vdi_to_stats   = get_sr_vdi_to_stats   () in
 
-	let sr_to_iostats = get_sr_to_iostats_summed sr_vdi_to_iostats in
-	let sr_to_stats   = get_sr_to_stats_summed   sr_vdi_to_stats in
+	(* Convert raw iostats/stats list to structured record *)
+	let sr_vdi_to_iostats_values =
+		List.map (fun ((sr, vdi) as sr_vdi, iostats) ->
+			let last_iostats = match !sr_vdi_to_last_iostats_values with
+				| None -> None
+				| Some s -> if Hashtbl.mem s sr_vdi then Some (Hashtbl.find s sr_vdi) else None in
+			(sr_vdi, Iostats_value.make iostats last_iostats)
+		) sr_vdi_to_iostats in
+	let sr_vdi_to_stats_values =
+		List.map (fun ((sr, vdi) as sr_vdi, stats) ->
+			let last_stats = match !sr_vdi_to_last_stats_values with
+				| None -> None
+				| Some s -> if Hashtbl.mem s sr_vdi then Some (Hashtbl.find s sr_vdi) else None in
+			(sr_vdi, Stats_value.make stats last_stats)
+		) sr_vdi_to_stats in
 
+	(* sum up to SR level stats values *)
+	let get_sr_to_stats_values ~stats_values ~sum_fun =
+		let sr_to_stats_values = sr_to_sth stats_values in
+		List.map (fun (sr, stats_values) -> (sr, sum_fun stats_values)) sr_to_stats_values in
+
+	let sr_to_iostats_values = get_sr_to_stats_values ~stats_values:sr_vdi_to_iostats_values ~sum_fun:Iostats_value.sumup in
+	let sr_to_stats_values   = get_sr_to_stats_values ~stats_values:sr_vdi_to_stats_values   ~sum_fun:Stats_value.sumup   in
+
+	(* create SR level data sources *)
 	let data_sources_iostats = List.map (
-		fun (sr, (stats, nb_vdi)) ->
+		fun (sr, iostats_value) ->
 			let key_format key = Printf.sprintf "%s_%s" key (String.sub sr 0 8) in
-			gen_metric_iostat ~owner:Rrd.Host ~name:"SR" ~key_format (stats, nb_vdi)
-		) sr_to_iostats in
+			Iostats_value.make_ds ~owner:Rrd.Host ~name:"SR" ~key_format iostats_value
+		) sr_to_iostats_values in
 	let data_sources_stats   = List.map (
-		fun (sr, (stats, nb_vdi)) ->
+		fun (sr, stats_value) ->
 			let key_format key = Printf.sprintf "%s_%s" key (String.sub sr 0 8) in
-			gen_metric_stat ~owner:Rrd.Host ~name:"SR" ~key_format (stats, nb_vdi)
-		) sr_to_stats in
+			Stats_value.make_ds ~owner:Rrd.Host ~name:"SR" ~key_format stats_value
+		) sr_to_stats_values in
 
 	let vdi_to_vm = get_vdi_to_vm_map () in
 	D.debug "VDI-to-VM map: %s" (String.concat "; " (List.map (fun (vdi, (vm, pos)) -> Printf.sprintf "%s -> %s @ %s" vdi vm pos) vdi_to_vm));
 
 	(* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
 	let data_sources_vm_iostats = List.flatten (
-		List.map (fun ((sr, vdi), stats) ->
+		List.map (fun ((sr, vdi), iostats_value) ->
 			let create_metrics (vm, pos) =
 				let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-				let stats = gen_metric_iostat ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format (stats, 1) in
+				let stats = Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format iostats_value in
 				(* Drop the latency metric -- this is already covered by vbd_DEV_{read,write}_latency provided by xcp-rrdd *)
 				List.tl stats in
 			let vms = list_all_assocs vdi vdi_to_vm in
 			List.map create_metrics vms
-		) sr_vdi_to_iostats) in
+		) sr_vdi_to_iostats_values) in
 	let data_sources_vm_stats = List.flatten (
-		List.map (fun ((sr, vdi), stats) ->
+		List.map (fun ((sr, vdi), stats_value) ->
 			let create_metrics (vm, pos) =
 				let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-				let stats = gen_metric_stat ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format (stats, 1) in
+				let stats = Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format stats_value in
 				(* Drop the io_throughput_* metrics -- the read and write ones are already covered by vbd_DEV_{read,write} provided by xcp-rrdd *)
 				List.rev_chop 3 stats |> snd in
 			let vms = list_all_assocs vdi vdi_to_vm in
 			List.map create_metrics vms
-		) sr_vdi_to_stats) in
+		) sr_vdi_to_stats_values) in
+
+	(* convert recent stats data to hashtbl for next iterator use *)
+	let to_hashtbl sr_vdi_to_stats =
+		let hashtbl = Hashtbl.create 20 in
+		List.iter (fun (sr_vdi, stats) ->
+			Hashtbl.add hashtbl sr_vdi stats
+		) sr_vdi_to_stats;
+		hashtbl
+	in
+	sr_vdi_to_last_iostats_values := Some (to_hashtbl sr_vdi_to_iostats);
+	sr_vdi_to_last_stats_values := Some (to_hashtbl sr_vdi_to_stats);
 
 	List.flatten (data_sources_stats @ data_sources_iostats @ data_sources_vm_stats @ data_sources_vm_iostats)
-	
+
 let _ =
 	initialise ();
 	(* It takes (at least) 1 second to get the iostat data, so start reading the data early enough *)
