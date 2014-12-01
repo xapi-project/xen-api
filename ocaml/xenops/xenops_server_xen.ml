@@ -2185,6 +2185,7 @@ module Actions = struct
 	let interesting_paths_for_domain domid uuid =
 		let open Printf in [
 			sprintf "/local/domain/%d/data/updated" domid;
+			sprintf "/local/domain/%d/data/ts" domid;
 			sprintf "/local/domain/%d/memory/target" domid;
 			sprintf "/local/domain/%d/memory/uncooperative" domid;
 			sprintf "/local/domain/%d/console/vnc-port" domid;
