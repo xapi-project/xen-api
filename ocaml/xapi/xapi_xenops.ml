@@ -1882,6 +1882,18 @@ let unpause ~__context ~self =
 			check_power_state ~__context ~self ~expected:`Running
 		)
 
+let request_rdp ~__context ~self enabled =
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.request_rdp %s %b" id enabled;
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.request_rdp dbg id enabled |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ()
+		)
+
 let set_xenstore_data ~__context ~self xsdata =
 	let queue_name = queue_of_vm ~__context ~self in
 	transform_xenops_exn ~__context queue_name
