@@ -2637,6 +2637,7 @@ let list_different_domains a b =
 let all_domU_watches domid uuid =
 	let open Printf in [
 		sprintf "/local/domain/%d/data/updated" domid;
+		sprintf "/local/domain/%d/data/ts" domid;
 		sprintf "/local/domain/%d/memory/target" domid;
 		sprintf "/local/domain/%d/memory/uncooperative" domid;
 		sprintf "/local/domain/%d/console/vnc-port" domid;
