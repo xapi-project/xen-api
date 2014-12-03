@@ -845,10 +845,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Read resisdent-on field from vm to determine who to forward to  *)
 		let forward_vm_op ~local_fn ~__context ~vm op =
-			let state = Db.VM.get_power_state ~__context ~self:vm in
-			match state with
-			| `Running | `Paused ->  do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
-			| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
+			if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+				do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
+			else
+				let state = Db.VM.get_power_state ~__context ~self:vm in
+				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
 
 		(* Notes on memory checking/reservation logic:
 		   When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1691,13 +1692,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
-			let vm_state = Db.VM.get_power_state ~__context ~self:vm in
-			let forwarder = match vm_state with
-				| `Running | `Paused -> forward_vm_op
-				| _ ->
-					 let snapshot = Db.VM.get_record ~__context ~self:vm in
-					 (fun ~local_fn ~__context ~vm op ->
-						 fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
+			let forwarder =
+				if Xapi_vm_lifecycle.is_live ~__context ~self:vm then forward_vm_op else
+					let snapshot = Db.VM.get_record ~__context ~self:vm in
+					(fun ~local_fn ~__context ~vm op ->
+						fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
 					Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;

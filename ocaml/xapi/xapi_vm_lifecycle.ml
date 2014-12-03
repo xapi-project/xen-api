@@ -499,3 +499,8 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 let get_operation_error ~__context ~self ~op ~strict =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
 	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
+
+(* VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
+let is_live ~__context ~self =
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	power_state = `Running || power_state = `Paused
