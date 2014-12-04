@@ -372,7 +372,16 @@ let update_netdev doms =
 (* disk related code                                 *)
 (*****************************************************)
 
+(* Record to hold metrics from sysfs *)
+type sysfs_stats = {
+	rd_sect : int64;
+	wr_sect : int64;
+	rd_avg_usecs : int64;
+	wr_avg_usecs : int64;
+}
+
 let update_vbds doms =
+	let open Blktap3_stats in
 	let read_int_file file =
 		let v = ref 0L in
 		try Unixext.readfile_line (fun l -> v := Int64.of_string l) file; !v
@@ -409,22 +418,18 @@ let update_vbds doms =
 				let wr_sect = read_int_file wr_file in
 				let _, rd_avg_usecs, _ = read_usecs_file rd_usecs_file in
 				let _, wr_avg_usecs, _ = read_usecs_file wr_usecs_file in
-				Some(rd_sect, wr_sect, rd_avg_usecs, wr_avg_usecs)
+				Some({ rd_sect = rd_sect; wr_sect = wr_sect;
+				rd_avg_usecs = rd_avg_usecs; wr_avg_usecs = wr_avg_usecs })
 			end
 		else
 			None
 	in
 	let read_raw_blktap3_stats vbd =
 		try
-			let open Blktap3_stats in
 			let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
 			(* Retrieve blktap3 statistics record *)
 			let stat_rec = get_blktap3_stats stat_file in
-			let rd_avg_usecs =
-				if stat_rec.st_rd_cnt > 0L then Int64.div stat_rec.st_rd_sum_usecs stat_rec.st_rd_cnt else 0L in
-			let wr_avg_usecs =
-				if stat_rec.st_wr_cnt > 0L then Int64.div stat_rec.st_wr_sum_usecs stat_rec.st_wr_cnt else 0L in
-			Some(stat_rec.st_rd_sect, stat_rec.st_wr_sect, rd_avg_usecs, wr_avg_usecs)
+			Some(stat_rec)
 		with _ ->
 			None in
 	let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
@@ -437,14 +442,10 @@ let update_vbds doms =
 			(fun s -> String.startswith "vbd-" s || String.startswith "tap-" s) sysfs_dirs in
 	let vbds = shm_vbds @ sysfs_vbds in
 	List.fold_left (fun acc vbd ->
-		let istap = String.startswith "tap-" vbd in
-		let isvbd3 = String.startswith "vbd3-" vbd in
-		let avg64 a b = Int64.div (Int64.add a b) 2L in
-		(* Produce IO RRDs when demanded *)
-		let generate_rrds acc rd_sect wr_sect rd_avg_usecs wr_avg_usecs =
+		let generate_stats acc blktap3_stat_rec sysfs_stat_rec =
 			let blksize = 512L in
-			let rd_bytes = Int64.mul rd_sect blksize in
-			let wr_bytes = Int64.mul wr_sect blksize in
+			let istap = String.startswith "tap-" vbd in
+			let isvbd3 = String.startswith "vbd3-" vbd in
 			let domid, devid =
 				if istap then Scanf.sscanf vbd "tap-%d-%d" (fun id devid -> (id, devid))
 				else if isvbd3 then Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid))
@@ -455,48 +456,106 @@ let update_vbds doms =
 			let vbd_name = Printf.sprintf "vbd_%s" device_name in
 			(* If blktap fails to cleanup then we might find a backend domid which doesn't
 				 correspond to an active domain uuid. Skip these for now. *)
-			let newacc =
-				try
-					let uuid = uuid_of_domid doms domid in
-					(VM uuid, ds_make ~name:(vbd_name^"_write")
-						~description:("Writes to device '"^device_name^"' in bytes per second")
-						~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-						~units:"B/s" ())::
-					(VM uuid, ds_make ~name:(vbd_name^"_read")
-						~description:("Reads from device '"^device_name^"' in bytes per second")
-						~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
-						~units:"B/s" ())::
-					(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
-						~description:("Read latency for device '" ^ device_name ^ "' in microseconds")
-						~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
-						~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
-					(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
-						~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
-						~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
-						~default:false ~units:"μs" ())::
-					acc
-				with _ -> acc
-				in
-				newacc
+			match blktap3_stat_rec, sysfs_stat_rec with
+			|Some(b), Some(s) ->
+					let rd_bytes = Int64.mul (Int64.add b.st_rd_sect s.rd_sect) 256L in
+					let wr_bytes = Int64.mul (Int64.add b.st_wr_sect s.wr_sect) 256L in
+					let b_rd_avg_usecs =
+						if b.st_rd_cnt > 0L then
+							Int64.div b.st_rd_sum_usecs b.st_rd_cnt
+						else 0L in
+					let b_wr_avg_usecs =
+						if b.st_wr_cnt > 0L then
+							Int64.div b.st_wr_sum_usecs b.st_wr_cnt
+						else 0L in
+					let rd_avg_usecs = max b_rd_avg_usecs s.rd_avg_usecs in
+					let wr_avg_usecs = max b_wr_avg_usecs s.wr_avg_usecs in
+					let newacc =
+						try
+							let uuid = uuid_of_domid doms domid in
+							(VM uuid, ds_make ~name:(vbd_name^"_write")
+								~description:("Writes to device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read")
+								~description:("Reads from device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
+								~description:("Read latency for device '" ^ device_name ^ "' in microseconds")
+								~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+								~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
+								~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
+								~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
+								~default:false ~units:"μs" ())::
+							acc
+						with _ -> acc
+					in
+					newacc
+			|Some(b), None ->
+					let rd_bytes = Int64.mul b.st_rd_sect blksize in
+					let wr_bytes = Int64.mul b.st_wr_sect blksize in
+					let rd_avg_usecs =
+						if b.st_rd_cnt > 0L then
+							Int64.div b.st_rd_sum_usecs b.st_rd_cnt
+						else 0L in
+					let wr_avg_usecs =
+						if b.st_wr_cnt > 0L then
+							Int64.div b.st_wr_sum_usecs b.st_wr_cnt
+						else 0L in
+					let newacc =
+						try
+							let uuid = uuid_of_domid doms domid in
+							(VM uuid, ds_make ~name:(vbd_name^"_write")
+								~description:("Writes to device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read")
+								~description:("Reads from device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
+								~description:("Read latency for device '" ^ device_name ^ "' in microseconds")
+								~units:"μs" ~value:(Rrd.VT_Int64 rd_avg_usecs)
+								~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
+								~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
+								~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
+								~default:false ~units:"μs" ())::
+							acc
+						with _ -> acc
+					in
+					newacc
+			|None, Some(s) ->
+					let rd_bytes = Int64.mul s.rd_sect blksize in
+					let wr_bytes = Int64.mul s.wr_sect blksize in
+					let newacc =
+						try
+							let uuid = uuid_of_domid doms domid in
+							(VM uuid, ds_make ~name:(vbd_name^"_write")
+								~description:("Writes to device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read")
+								~description:("Reads from device '"^device_name^"' in bytes per second")
+								~value:(Rrd.VT_Int64 rd_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_read_latency")
+								~description:("Read latency for device '" ^ device_name ^ "' in microseconds")
+								~units:"μs" ~value:(Rrd.VT_Int64 s.rd_avg_usecs)
+								~ty:Rrd.Gauge ~min:0.0 ~default:false ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_write_latency")
+								~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
+								~value:(Rrd.VT_Int64 s.wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
+								~default:false ~units:"μs" ())::
+							acc
+						with _ -> acc
+					in
+					newacc
+			|None, None -> acc
 		in
-		match read_raw_blktap3_stats vbd, read_all_sysfs_stats vbd with
-		| Some(a, b, c, d), Some(p, q, r, s) ->
-				let (shm_rd_sect, shm_wr_sect, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
-				let (rd_sect, wr_sect, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
-				(* Take max for usecs *)
-				let rd_avg_usecs = max rd_avg_usecs shm_rd_avg_usecs in
-				let wr_avg_usecs = max wr_avg_usecs shm_wr_avg_usecs in
-				(* Average out the read/write requests *)
-				let rd_sect = avg64 rd_sect shm_rd_sect in
-				let wr_sect = avg64 wr_sect shm_wr_sect in
-				generate_rrds acc rd_sect wr_sect rd_avg_usecs wr_avg_usecs;
-		| Some(a, b, c, d), None ->
-				let (shm_rd_sect, shm_wr_sect, shm_rd_avg_usecs, shm_wr_avg_usecs) = (a, b, c, d) in
-				generate_rrds acc shm_rd_sect shm_wr_sect shm_rd_avg_usecs shm_wr_avg_usecs
-		| None, Some(p, q, r, s) ->
-				let (rd_sect, wr_sect, rd_avg_usecs, wr_avg_usecs) = (p, q, r, s) in
-				generate_rrds acc rd_sect wr_sect rd_avg_usecs wr_avg_usecs
-		| None, None -> acc
+		generate_stats acc (read_raw_blktap3_stats vbd) (read_all_sysfs_stats vbd)
 	) [] vbds
 
 (*****************************************************)
