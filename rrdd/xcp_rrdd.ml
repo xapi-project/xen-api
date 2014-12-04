@@ -470,6 +470,11 @@ let update_vbds doms =
 						else 0L in
 					let rd_avg_usecs = max b_rd_avg_usecs s.rd_avg_usecs in
 					let wr_avg_usecs = max b_wr_avg_usecs s.wr_avg_usecs in
+					(* Retain old behaviour as handling sysfs becomes important only
+					 * when CAR-133 is in place. CAR-133 attempts to plug raw VDI's
+					 * directly from LVs to blkback. *)
+					let inflight = Int64.add (Int64.sub b.st_rd_req b.st_rd_cnt) (Int64.sub b.st_wr_req b.st_wr_cnt) in
+					let iowait = Int64.to_float (Int64.div (Int64.add b.st_rd_cnt b.st_wr_cnt) (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs))  /. 1000. in
 					let newacc =
 						try
 							let uuid = uuid_of_domid doms domid in
@@ -489,6 +494,30 @@ let update_vbds doms =
 								~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
 								~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
 								~default:false ~units:"μs" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_inflight")
+								~description:("Number of I/O requests currently in flight")
+								~value:(Rrd.VT_Int64 inflight) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+								~units:"requests" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iowait")
+								~description:("Total I/O wait time (all requests) per second")
+								~value:(Rrd.VT_Float iowait) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"s/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_read")
+								~description:("Read requests per second")
+								~value:(Rrd.VT_Int64 b.st_rd_cnt) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_write")
+								~description:("Write requests per second")
+								~value:(Rrd.VT_Int64 b.st_wr_cnt) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_total")
+								~description:("I/O Requests per second")
+								~value:(Rrd.VT_Int64 (Int64.add b.st_rd_cnt b.st_wr_cnt))
+								~ty:Rrd.Derive ~min:1.0 ~default:true ~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_io_throughput_total")
+								~description:("All " ^ device_name ^ " I/O")
+								~value:(Rrd.VT_Int64 (Int64.add rd_bytes wr_bytes)) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
 							acc
 						with _ -> acc
 					in
@@ -504,6 +533,11 @@ let update_vbds doms =
 						if b.st_wr_cnt > 0L then
 							Int64.div b.st_wr_sum_usecs b.st_wr_cnt
 						else 0L in
+					(* Retain old behaviour as handling sysfs becomes important only
+					 * when CAR-133 is in place. CAR-133 attempts to plug raw VDI's
+					 * directly from LVs to blkback. *)
+					let inflight = Int64.add (Int64.sub b.st_rd_req b.st_rd_cnt) (Int64.sub b.st_wr_req b.st_wr_cnt) in
+					let iowait = Int64.to_float (Int64.div (Int64.add b.st_rd_cnt b.st_wr_cnt) (Int64.add b.st_rd_sum_usecs b.st_wr_sum_usecs))  /. 1000. in
 					let newacc =
 						try
 							let uuid = uuid_of_domid doms domid in
@@ -523,6 +557,30 @@ let update_vbds doms =
 								~description:("Write latency for device '" ^ device_name ^ "' in microseconds")
 								~value:(Rrd.VT_Int64 wr_avg_usecs) ~ty:Rrd.Gauge ~min:0.0
 								~default:false ~units:"μs" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_inflight")
+								~description:("Number of I/O requests currently in flight")
+								~value:(Rrd.VT_Int64 inflight) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+								~units:"requests" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iowait")
+								~description:("Total I/O wait time (all requests) per second")
+								~value:(Rrd.VT_Float iowait) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"s/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_read")
+								~description:("Read requests per second")
+								~value:(Rrd.VT_Int64 b.st_rd_cnt) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_write")
+								~description:("Write requests per second")
+								~value:(Rrd.VT_Int64 b.st_wr_cnt) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_iops_total")
+								~description:("I/O Requests per second")
+								~value:(Rrd.VT_Int64 (Int64.add b.st_rd_cnt b.st_wr_cnt))
+								~ty:Rrd.Derive ~min:1.0 ~default:true ~units:"requests/s" ())::
+							(VM uuid, ds_make ~name:(vbd_name^"_io_throughput_total")
+								~description:("All " ^ device_name ^ " I/O")
+								~value:(Rrd.VT_Int64 (Int64.add rd_bytes wr_bytes)) ~ty:Rrd.Derive ~min:0.0 ~default:true
+								~units:"B/s" ())::
 							acc
 						with _ -> acc
 					in
