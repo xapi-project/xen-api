@@ -36,7 +36,7 @@ mgmt_ip() {
         [ "${MANAGEMENT_INTERFACE}" != "lo" ];
     then
         while [ true ]; do
-            IP=`/sbin/ifconfig ${MANAGEMENT_INTERFACE} | sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'`
+            IP=`/sbin/ip address show dev ${MANAGEMENT_INTERFACE} | sed -ne 's/.*inet \([^ /]*\).*/\1/p'`
             if [ -n "$IP" ]; then
                 echo "$IP"
                 return
