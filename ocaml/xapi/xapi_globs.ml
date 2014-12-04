@@ -966,6 +966,7 @@ module Resources = struct
 			List.map (make_resource [X_OK] false) nonessential_executables;
 			List.map (make_resource [R_OK; W_OK] true) essential_files;
 			List.map (make_resource [R_OK; W_OK] false) nonessential_files;
+			List.map (make_resource [R_OK; W_OK] true) essential_dirs;
 			List.map (make_resource [R_OK; W_OK] false) nonessential_dirs;
 		]
 end
