@@ -190,6 +190,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
 		end in
 
+	let assert_no_network_bond_on_me () =
+                let my_network_bonds = Db.Bond.get_all_records ~__context in
+                if List.length my_network_bonds > 0 then begin
+                        error "The current host has a network bond: it cannot join a new pool";
+                        raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_network_bond, []))
+                end in
+
 	let assert_management_interface_is_physical () =
 		let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
 			Eq (Field "management", Literal "true"),
@@ -373,6 +380,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_hosts_compatible ();
 	if (not force) then assert_hosts_homogeneous ();
 	assert_no_shared_srs_on_me ();
+	assert_no_network_bond_on_me ();
 	assert_management_interface_is_physical ();
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
