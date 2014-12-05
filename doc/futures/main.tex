@@ -2,7 +2,14 @@
 
 \documentclass[a4paper]{article}
 
-\usepackage{a4wide}
+\usepackage{geometry}
+\usepackage{layout}
+\geometry{
+  left=2.0cm,
+  right=2.5cm,
+  top=3.5cm,
+  bottom=3cm
+}
 \usepackage{graphicx}
 \usepackage{longtable}
 \usepackage{fancyhdr}
@@ -12,10 +19,6 @@
 \newcommand{\eqdef}{\stackrel{def}{=}}
 \newcommand{\Fig}[1]{Figure~\ref{#1}}
 
-\setlength\topskip{0cm}
-\setlength\topmargin{0cm}
-\setlength\oddsidemargin{0cm}
-\setlength\evensidemargin{0cm}
 %\setlength\parindent{0pt}
 
 \input{globals}

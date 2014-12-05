@@ -167,15 +167,18 @@ let of_content x closed =
     
 (*
   let header = [ "\\documentclass[8pt]{article}"; 
-  "\\usepackage{a4wide}";
+  "\\usepackage{geometry}";
+  "\\usepackage{layout}";
+  "\\geometry{";
+  "\left=2.0cm,";
+  "\right=2.5cm,";
+  "\top=3.5cm,";
+  "\bottom=3cm";
+  "}";
   "\\usepackage{graphics}";
   "\\usepackage{longtable}";
 (* "\\usepackage[a3paper,pdftex]{geometry}"; *)
   "\\usepackage{fancyhdr}";
-  "\\setlength\\topskip{0cm}";
-  "\\setlength\\topmargin{0cm}";
-  "\\setlength\\oddsidemargin{0cm}";
-  "\\setlength\\evensidemargin{0cm}";
   "\\setlength\\parindent{0pt}";
   "\\begin{document}" ]
   let footer = [ "\\end{document}" ]
