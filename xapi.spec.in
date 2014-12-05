@@ -106,6 +106,8 @@ ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
 rm -rf $RPM_BUILD_ROOT
 
 %post core
+[ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
+[ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
 [ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
@@ -130,6 +132,8 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xapissl
 /etc/rc.d/init.d/xenservices
 /etc/rc.d/init.d/genptoken
+/etc/rc.d/init.d/attach-static-vdis
+/etc/rc.d/init.d/save-boot-info
 %config(noreplace) /etc/sysconfig/perfmon
 %config(noreplace) /etc/sysconfig/xapi
 /etc/xapi.d/base-path

@@ -1,0 +1,67 @@
+#! /bin/bash
+#
+# attach-static-vdis    Attaches any statically-configured VDIs to dom0
+#
+# chkconfig: 2345 20 78
+# description: attaches any statically-configured VDIs to dom0
+
+STATE_DIR=/etc/xensource/static-vdis
+
+[ -d ${STATE_DIR} ] || exit 0
+[ -e /opt/xensource/bin/static-vdis ] || exit 0
+
+# Source function library.
+. /etc/init.d/functions
+
+# Needed for interface-reconfigure below
+. /etc/xensource-inventory
+
+clear_stale_state(){
+	for i in $(ls -1 ${STATE_DIR}); do
+	    # Clear the now-stale symlink to the attached disk. From this point the disk will
+	    # be considered 'currently-attached=false'
+	    rm -f ${STATE_DIR}/${i}/disk
+
+	    # If the disk was supposed to be deleted altogether on reboot then do it now
+	    UUID=$(cat ${STATE_DIR}/${i}/vdi-uuid)
+	    if [ -e ${STATE_DIR}/${i}/delete-next-boot ]; then
+	       logger "Deleting stale static-configured state for VDI: ${UUID}"
+	       rm -rf ${STATE_DIR}/${i}
+	    fi;
+	done
+}
+
+attach_all(){
+	ALL=$(ls -1 ${STATE_DIR})
+
+	for i in ${ALL}; do
+	    UUID=$(cat ${STATE_DIR}/${i}/vdi-uuid)
+	    logger "Attempting to attach VDI: ${UUID}"
+	    OUTPUT=$(/opt/xensource/bin/static-vdis attach ${UUID} 2>&1)
+	    if [ $? -ne 0 ]; then
+	       logger "Attempt to attach VDI: ${UUID} failed -- skipping (Error was: ${OUTPUT})"
+	    fi
+	done
+}
+
+start() {
+	echo -n $"Attempting to attach all statically-configured VDIs"
+	clear_stale_state
+	attach_all
+	echo 
+	return 0
+}
+
+case "$1" in
+start)
+	start
+	;;
+stop)
+	;;
+restart)
+	start
+	;;
+*)
+	echo $"Usage: $0 {start|stop|restart}"
+	exit 1
+esac
