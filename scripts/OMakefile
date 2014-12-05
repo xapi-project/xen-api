@@ -49,6 +49,8 @@ install:
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
+	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
+	$(IPROG) init.d-attach-static-vdis $(DESTDIR)/etc/rc.d/init.d/attach-static-vdis
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d

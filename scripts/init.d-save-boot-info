@@ -1,0 +1,10 @@
+#! /bin/bash
+#
+# save-boot-info          Save boot info
+#
+# chkconfig: 2345 20 01
+# description: Save boot info
+
+# Record boot-time CPU config for xapi
+cat /proc/cpuinfo >/etc/xensource/boot_time_cpus
+touch /etc/xensource/boot_time_info_updated
