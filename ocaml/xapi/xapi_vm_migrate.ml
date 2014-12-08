@@ -657,7 +657,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				!vdis_to_destroy;
 			if not is_intra_pool then begin
 				info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
-				XenAPI.VM.power_state_reset rpc session_id vm;
+				Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
 				destroy_vm_and_snapshots ~__context ~rpc ~session_id ~vm
 			end);
 		SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
