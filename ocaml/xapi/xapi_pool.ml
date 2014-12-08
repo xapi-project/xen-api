@@ -185,14 +185,14 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	let assert_no_shared_srs_on_me () =
 		let my_srs = Db.SR.get_all_records ~__context in
 		let my_shared_srs = List.filter (fun (sr,srec)-> srec.API.sR_shared && not (Helpers.is_tools_sr ~__context ~sr)) my_srs in
-		if List.length my_shared_srs > 0 then begin
-			error "The current host has no shared SRs: it cannot join a new pool";
-			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
+		if not (my_shared_srs = []) then begin
+			error "The current host has shared SRs: it cannot join a new pool";
+                        raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
 		end in
 
 	let assert_no_network_bond_on_me () =
                 let my_network_bonds = Db.Bond.get_all_records ~__context in
-                if List.length my_network_bonds > 0 then begin
+		if not (my_network_bonds = []) then begin
                         error "The current host has a network bond: it cannot join a new pool";
                         raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_network_bond, []))
                 end in
