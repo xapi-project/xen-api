@@ -432,6 +432,7 @@ module VM = struct
 	external destroy: debug_info -> Vm.id -> Task.id = ""
 	external pause: debug_info -> Vm.id -> Task.id = ""
 	external unpause: debug_info -> Vm.id -> Task.id = ""
+	external request_rdp: debug_info -> Vm.id -> bool -> Task.id = ""
 	external set_xsdata: debug_info -> Vm.id -> (string * string) list -> Task.id = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> Task.id = ""
 	external set_shadow_multiplier : debug_info -> Vm.id -> float -> Task.id = ""
