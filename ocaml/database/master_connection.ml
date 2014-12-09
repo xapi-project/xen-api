@@ -42,7 +42,7 @@ let force_connection_reset () =
   | Some st_proc ->
   info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
-	
+
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
 let last_master_connection_call : float option ref = ref None
@@ -60,29 +60,35 @@ let with_timestamp f =
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
    master goes away unexpectedly... *)
+let watchdog_start_mutex = Mutex.create()
+let my_watchdog : Thread.t option ref = ref None
 let start_master_connection_watchdog() =
-  Thread.create
+  Mutex.execute watchdog_start_mutex
     (fun () ->
-       while (true)
-       do
-	 try
-	   begin
-	     match !last_master_connection_call with
-	       None -> ()
-	     | Some t ->
-		 let now = Unix.gettimeofday() in
-		 let since_last_call = now -. t in
-		 if since_last_call > !Xapi_globs.master_connection_reset_timeout then
-		   begin
-		     debug "Master connection timeout: forcibly resetting master connection";
-		     force_connection_reset()
-		   end
-	   end;
-	   Thread.delay 10.
-	 with _ -> ()
-       done
+      match !my_watchdog with
+      | None ->
+        my_watchdog := Some (Thread.create (fun () ->
+          while (true) do
+            try
+              begin
+                match !last_master_connection_call with
+                | None -> ()
+                | Some t ->
+                  let now = Unix.gettimeofday() in
+                  let since_last_call = now -. t in
+                  if since_last_call > !Xapi_globs.master_connection_reset_timeout then
+                  begin
+                    debug "Master connection timeout: forcibly resetting master connection";
+                    force_connection_reset()
+                  end
+              end;
+              Thread.delay 10.
+            with _ -> ()
+          done
+        ) ())
+      | Some _ ->
+        ()
     )
-    ()
 
 module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
 
