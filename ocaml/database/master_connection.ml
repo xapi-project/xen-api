@@ -141,8 +141,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 	  None -> raise Goto_handler
 	| (Some stunnel_proc) ->
 	    let fd = stunnel_proc.Stunnel.fd in
-		with_http request
-			(fun (response, _) ->
+	    with_timestamp (fun () ->
+	        with_http request (fun (response, _) ->
 				(* XML responses must have a content-length because we cannot use the Xml.parse_in
 				   in_channel function: the input channel will buffer an arbitrary amount of stuff
 				   and we'll be out of sync with the next request. *)
@@ -150,17 +150,17 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 					| None -> raise Content_length_required
 					| Some l -> begin
 						if (Int64.to_int l) <= Sys.max_string_length then
-							with_timestamp (fun () -> Db_interface.String (Unixext.really_read_string fd (Int64.to_int l)))
+							Db_interface.String (Unixext.really_read_string fd (Int64.to_int l))
 						else
-							with_timestamp (fun () ->
-								let buf = Bigbuffer.make () in
-								Unixext.really_read_bigbuffer fd buf l;
-								Db_interface.Bigbuf buf)
+							let buf = Bigbuffer.make () in
+							Unixext.really_read_bigbuffer fd buf l;
+							Db_interface.Bigbuf buf
 					end
 				in
 				write_ok := true;
 				result := res (* yippeee! return and exit from while loop *)
 			) fd
+        )
       with
       | Http_svr.Client_requested_size_over_limit ->
 	error "Content length larger than known limit (%d)." Xapi_globs.http_limit_max_rpc_size;
