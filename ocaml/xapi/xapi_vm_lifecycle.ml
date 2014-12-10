@@ -423,8 +423,9 @@ let update_allowed_operations ~__context ~self =
 		Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
 (** Called on new VMs (clones, imports) and on server start to manually refresh
-    the power state, allowed_operations field etc *)
-let force_state_reset ~__context ~self ~value:state =
+    the power state, allowed_operations field etc.  Current-operations won't be
+    cleaned *)
+let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 	if state = `Halted then begin
 		(* mark all devices as disconnected *)
 		List.iter 
@@ -469,9 +470,15 @@ let force_state_reset ~__context ~self ~value:state =
 	end;
 
 	Db.VM.set_power_state ~__context ~self ~value:state;
-	if (Db.VM.get_current_operations ~__context ~self)<>[] then
-		Db.VM.set_current_operations ~__context ~self ~value:[];
 	update_allowed_operations ~__context ~self
+
+(** Called on new VMs (clones, imports) and on server start to manually refresh
+    the power state, allowed_operations field etc.  Clean current-operations
+    as well *)
+let force_state_reset ~__context ~self ~value:state =
+	if (Db.VM.get_current_operations ~__context ~self) <> [] then
+		Db.VM.set_current_operations ~__context ~self ~value:[];
+	force_state_reset_keep_current_operations ~__context ~self ~value:state
 
 (** Someone is cancelling a task so remove it from the current_operations *)
 let cancel_task ~__context ~self ~task_id = 
