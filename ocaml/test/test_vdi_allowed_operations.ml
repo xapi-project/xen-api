@@ -192,7 +192,7 @@ let test_ca126097 () =
 			Db.VDI.set_current_operations ~__context
 				~self:vdi_ref
 				~value:["mytask", `copy])
-		`snapshot None
+		`snapshot (Some (Api_errors.operation_not_allowed, []))
 
 let test =
 	"test_vdi_allowed_operations" >:::
