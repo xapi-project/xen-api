@@ -1421,6 +1421,17 @@ module VM = struct
 						}
 			)
 
+	let request_rdp vm enabled =
+		let uuid = uuid_of_vm vm in
+		with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest uuid with
+					| None -> raise (Does_not_exist("domain", vm.Vm.id))
+					| Some di ->
+						let path = Printf.sprintf "/local/domain/%d/control/ts" di.Xenctrl.domid in
+						xs.Xs.write path (if enabled then "1" else "0")
+			)
+
 	let set_domain_action_request vm request =
 		let uuid = uuid_of_vm vm in
 		with_xc_and_xs

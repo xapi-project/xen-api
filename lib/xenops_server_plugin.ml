@@ -87,7 +87,7 @@ module type S = sig
 		val s3resume: Xenops_task.t -> Vm.t -> unit
 
 		val get_state: Vm.t -> Vm.state
-
+		val request_rdp: Vm.t -> bool -> unit
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
