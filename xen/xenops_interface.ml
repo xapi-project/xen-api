@@ -250,7 +250,7 @@ module Vbd = struct
 
 	type mode = ReadOnly | ReadWrite
 
-	type ty = CDROM | Disk
+	type ty = CDROM | Disk | Floppy
 
 	type id = string * string
 
