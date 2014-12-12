@@ -1802,6 +1802,14 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.vdi_snapshot;
       flags=[];
     };
+   "vdi-revert",
+    {
+      reqd=["uuid"];
+      optn=["driver-params-"];
+      help="Revert a VDI to this particular snapshot";
+      implementation=No_fd Cli_operations.vdi_revert;
+      flags=[];
+    };
    "vdi-unlock",
     {
       reqd=["uuid"];
