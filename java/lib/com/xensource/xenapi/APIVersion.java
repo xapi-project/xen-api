@@ -32,16 +32,19 @@ package com.xensource.xenapi;
 
 public enum APIVersion
 {
-    API_1_1, API_1_2, API_1_3, API_1_4, API_1_5, API_1_6, API_1_7, API_1_8, API_1_9, API_1_10, API_2_0, API_2_1, API_2_2, API_2_3, UNKNOWN;
+    API_1_1, API_1_2, API_1_3, API_1_4, API_1_5, API_1_6, API_1_7, API_1_8, API_1_9, API_1_10,
+    API_2_0, API_2_1, API_2_2, API_2_3, API_2_4, UNKNOWN;
 
     public static APIVersion latest()
     {
-        return API_2_3;
+        return API_2_4;
     }
 
     public static APIVersion fromMajorMinor(long major, long minor)
     {
-        if (major == 2 && minor == 3) {
+        if (major == 2 && minor == 4) {
+            return API_2_4;
+        } else if (major == 2 && minor == 3) {
             return API_2_3;
         } else if (major == 2 && minor == 2) {
             return API_2_2;
@@ -107,6 +110,8 @@ public enum APIVersion
                 return "2.2";
             case API_2_3:
                 return "2.3";
+            case API_2_4:
+                return "2.4";
             default:
                 return "Unknown";
         }
