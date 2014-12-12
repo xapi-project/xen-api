@@ -327,10 +327,14 @@ set_api_version(xen_session *session)
 
     if (major_version == (int64_t)2)
     {
+<<<<<<< HEAD
         if (minor_version == (int64_t)3)
             session->api_version = xen_api_version_2_3;
 
         else if (minor_version == (int64_t)2)
+=======
+        if (minor_version == (int64_t)2)
+>>>>>>> master
             session->api_version = xen_api_version_2_2;
 
         else if (minor_version == (int64_t)1)
