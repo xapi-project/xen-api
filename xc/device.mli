@@ -40,7 +40,7 @@ sig
 	val physty_of_string : string -> physty
 	val uses_blktap : phystype:physty -> bool
 
-	type devty = CDROM | Disk
+	type devty = CDROM | Disk | Floppy
 	val string_of_devty : devty -> string
 	val devty_of_string : string -> devty
 
