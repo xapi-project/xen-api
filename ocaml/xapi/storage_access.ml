@@ -539,22 +539,39 @@ module SMAPIv1 = struct
 					raise (Vdi_does_not_exist vdi)
 				| Sm.MasterOnly -> redirect sr
 
-		let revert context ~dbg ~sr ~snapshot_info =
-			Server_helpers.exec_with_new_task "VDI.revert" ~subtask_of:(Ref.of_string dbg)
-				(fun __context ->
-					(* Clone the snapshot. *)
-					let new_vdi_info = clone context ~dbg ~sr ~vdi_info:snapshot_info in
-					(* Update snapshot links. *)
-					let vdi_ref = Db.VDI.get_by_uuid ~__context ~uuid:snapshot_info.snapshot_of in
-					let new_vdi_ref = Db.VDI.get_by_uuid ~__context ~uuid:new_vdi_info.vdi in
-					let snapshot_refs = Db.VDI.get_snapshots ~__context ~self:vdi_ref in
-					List.iter
-						(fun snapshot_ref -> Db.VDI.set_snapshot_of ~__context ~self:snapshot_ref ~value:new_vdi_ref)
-						snapshot_refs;
-					(* Destroy the original VDI. *)
-					destroy context ~dbg ~sr ~vdi:snapshot_info.snapshot_of;
-					(* Return the new VDI. *)
-					new_vdi_info)
+	(* Used when the SM backend doesn't export the VDI_REVERT capability *)
+	let revert_xapi context ~__context ~dbg ~sr ~snapshot_info =
+		(* Clone the snapshot. *)
+		let new_vdi_info = clone context ~dbg ~sr ~vdi_info:snapshot_info in
+		(* Update snapshot links. *)
+		let vdi_ref = Db.VDI.get_by_uuid ~__context ~uuid:snapshot_info.snapshot_of in
+		let new_vdi_ref = Db.VDI.get_by_uuid ~__context ~uuid:new_vdi_info.vdi in
+		let snapshot_refs = Db.VDI.get_snapshots ~__context ~self:vdi_ref in
+		List.iter
+			(fun snapshot_ref -> Db.VDI.set_snapshot_of ~__context ~self:snapshot_ref ~value:new_vdi_ref)
+			snapshot_refs;
+		(* Destroy the original VDI. *)
+		destroy context ~dbg ~sr ~vdi:snapshot_info.snapshot_of;
+		(* Return the new VDI. *)
+		new_vdi_info
+
+	let revert_smapi context ~__context ~dbg ~sr ~snapshot_info =
+		let snap = find_vdi ~__context sr snapshot_info.vdi |> fst in
+		for_vdi ~dbg ~sr ~vdi:snapshot_info.snapshot_of "VDI.revert"
+			(fun device_config _type sr self ->
+				Sm.vdi_revert device_config _type sr self snap;
+ 				vdi_info_from_db ~__context self
+			)
+
+	let revert context ~dbg ~sr ~snapshot_info =
+		Server_helpers.exec_with_new_task "VDI.revert" ~subtask_of:(Ref.of_string dbg)
+			(fun __context ->
+				try
+					revert_smapi context ~__context ~dbg ~sr ~snapshot_info
+				with
+                                | Smint.Not_implemented_in_backend ->
+					revert_xapi context ~__context ~dbg ~sr ~snapshot_info	
+			)
 
 		let stat context ~dbg ~sr ~vdi =
 			try

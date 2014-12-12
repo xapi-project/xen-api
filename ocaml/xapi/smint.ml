@@ -37,7 +37,7 @@ type capability =
     | Sr_metadata
     | Sr_trim
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
-    | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
+    | Vdi_clone | Vdi_snapshot | Vdi_revert | Vdi_resize | Vdi_activate | Vdi_deactivate
     | Vdi_update | Vdi_introduce 
     | Vdi_resize_online
     | Vdi_generate_config
@@ -70,6 +70,7 @@ let string_to_capability_table = [
 	"VDI_RESIZE_ONLINE",Vdi_resize_online;
 	"VDI_CLONE",      Vdi_clone;
 	"VDI_SNAPSHOT",   Vdi_snapshot;
+	"VDI_REVERT",     Vdi_revert;
 	"VDI_ACTIVATE",   Vdi_activate;
 	"VDI_DEACTIVATE", Vdi_deactivate;
 	"VDI_UPDATE",     Vdi_update;
