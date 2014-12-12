@@ -277,7 +277,7 @@ namespace XenAPI
                 }
             }
         }
-
+        
         public void login_with_password(string username, string password, string version, string originator)
         {
             try

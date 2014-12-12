@@ -106,6 +106,7 @@ and get_release_name release =
   else if release = rel_vgpu_tech_preview   then "XenServer 6.2 SP1 Tech-Preview"
   else if release = rel_vgpu_productisation then "XenServer 6.2 SP1"
   else if release = rel_clearwater_felton   then "XenServer 6.2 SP1 Hotfix XS62ESP1004"
+  else if release = rel_creedence           then "XenServer Creedence"
   else if release = rel_augusta             then "Unreleased"
   else                                           ""
 
@@ -118,7 +119,6 @@ and get_first_release releases =
 and get_first_release_string release =
   if release = "" then ""
   else sprintf "First published in %s." (get_release_name release)
-
 
 and get_prototyped_release lifecycle =
   match lifecycle with
@@ -164,6 +164,6 @@ and get_published_info_field field cls =
     if (not (expRelease = "")) then
       expRelease
     else if (not (clsReleaseIndex = -1)) && (not (fieldReleaseIndex = -1)) && (clsReleaseIndex < fieldReleaseIndex) then
-        get_first_release_string fieldRelease
+      get_first_release_string fieldRelease
     else
       ""
