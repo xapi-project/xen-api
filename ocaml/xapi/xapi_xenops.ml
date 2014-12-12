@@ -386,7 +386,10 @@ module MD = struct
 			position = Some device_number;
 			mode = if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite;
 			backend = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI;
-			ty = if vbd.API.vBD_type = `Disk then Disk else CDROM;
+			ty = (match vbd.API.vBD_type with
+				| `Disk -> Disk
+				| `CD -> CDROM
+				| `Floppy -> Floppy);
 			unpluggable = vbd.API.vBD_unpluggable;
 			extra_backend_keys = backend_kind_keys;
 			extra_private_keys = [];

@@ -5721,7 +5721,8 @@ let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed"
 
 let vbd_type = Enum ("vbd_type",
 		     [ "CD", "VBD will appear to guest as CD"; 
-		       "Disk", "VBD will appear to guest as disk" ])
+		       "Disk", "VBD will appear to guest as disk";
+                       "Floppy", "VBD will appear as a floppy"])
 
 let vbd_operations =
   Enum ("vbd_operations", 
