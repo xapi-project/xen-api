@@ -309,7 +309,12 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 	let find_vdi db_vdi_map loc =
 		if StringMap.mem loc db_vdi_map
 		then fst (StringMap.find loc db_vdi_map)
-		else Ref.null in
+		else
+			(* The db_vdis passed in might not be the complete set of VDIs *)
+			match Db.VDI.get_refs_where  ~__context ~expr:(Eq(Field "location", Literal loc)) with
+			| [] -> Ref.null
+			| r :: _ -> r
+		in
 
 	(* Delete ones which have gone away *)
 	StringMap.iter
