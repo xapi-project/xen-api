@@ -39,7 +39,11 @@ module Stats = struct
 		images : Image.t list;
 		tap : Tap.t;
 		nbd_mirror_failed : int;
+		reqs_outstanding : int;
 	} with rpc
+
+	let t_of_rpc rpc = t_of_rpc (match rpc with | Rpc.Dict x -> Rpc.Dict (List.map (function ("reqs_oustanding",y) -> ("reqs_outstanding",y) | x -> x) x) | y -> y)
+
 end
 	
 	
@@ -279,7 +283,9 @@ module Dummy = struct
 		  tap = { Tap.minor = t.minor;
 		          reqs = 0L,0L;
 				  kicks = 0L,0L; };
-		  nbd_mirror_failed = 0; }
+		  nbd_mirror_failed = 0;
+		  reqs_outstanding = 0;
+		}
 end
  		
 

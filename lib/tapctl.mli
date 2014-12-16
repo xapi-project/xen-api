@@ -30,6 +30,7 @@ module Stats :
       images : Image.t list;
       tap : Tap.t;
       nbd_mirror_failed : int;
+      reqs_outstanding : int;
     }
   end
 
