@@ -20,6 +20,7 @@ Executable "xcp-rrdd"
   CompiledObject:     best
   Path:               rrdd
   MainIs:             xcp_rrdd.ml
+  CSources:           blktap3_stats_stubs.c
   Custom:             true
   Install:            false
   ByteOpt:            -bin-annot
