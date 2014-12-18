@@ -28,4 +28,4 @@ rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 rem OF THE POSSIBILITY OF SUCH DAMAGE.
 
 @echo on
-C:\WinDDK\6001.18001\bin\catalog\signtool.exe sign -a -s my -n "Citrix Systems, Inc" -d %2 -t http://timestamp.verisign.com/scripts/timestamp.dll %1
+@echo signing disabled
