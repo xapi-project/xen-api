@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 96e7606c3574a47d8bc5fe1bc1eb86b9) *)
+(* DO NOT EDIT (digest: 9487b8cbb8e97fe86a5b083f96a84db1) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -609,61 +609,7 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("rrd_transport", ["lib"], [])];
      lib_c = [];
-     flags =
-       [
-          (["oasis_library_rrd_transport_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_rrd_transport_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_rrd_transport_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          ([
-              "oasis_library_rrd_transport_native";
-              "ocaml";
-              "ocamldep";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_library_rrd_transport_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          ([
-              "oasis_library_rrd_transport_native";
-              "ocaml";
-              "compile";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_native"; "ocaml"; "ocamldep"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_reader_native"; "ocaml"; "compile"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_native"; "ocaml"; "ocamldep"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_writer_native"; "ocaml"; "compile"; "native"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_test_suite_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_test_suite_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
-          (["oasis_executable_test_suite_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-bin-annot"])])
-       ];
+     flags = [];
      includes = [("utils", ["lib"]); ("test", ["lib"])]
   }
   ;;
@@ -672,6 +618,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 676 "myocamlbuild.ml"
+# 622 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
