@@ -62,7 +62,7 @@ let run_vhd_tool progress_cb args s s' path =
     | Failure(out, e) -> error "vhd-tool output: %s" out; raise e
   ) (fun () -> close pipe_read; close pipe_write)
 
-let receive progress_cb format protocol (s: Unix.file_descr) (path: string) (prefix: string) (prezeroed: bool) =
+let receive progress_cb format protocol (s: Unix.file_descr) (length: int64 option) (path: string) (prefix: string) (prezeroed: bool) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in
   let args = [ "serve";
                "--source-format"; format;
@@ -74,7 +74,11 @@ let receive progress_cb format protocol (s: Unix.file_descr) (path: string) (pre
                "--progress";
                "--machine";
                "--direct";
-             ] @ (if prezeroed then [ "--prezeroed" ] else []) in
+             ] @
+             (match length with
+              | Some x -> [ "--destination-size"; Int64.to_string x ]
+              | None -> []) @
+             (if prezeroed then [ "--prezeroed" ] else []) in
   run_vhd_tool progress_cb args s s' path
 
 open Fun
