@@ -1,15 +1,8 @@
-# OPAM packages needed to build tests.
-OPAM_PACKAGES="oasis cmdliner crc cstruct xen-gnt ounit xapi-idl xapi-rrd"
-
-
 case "$OCAML_VERSION,$OPAM_VERSION" in
-3.12.1,1.0.0) ppa=avsm/ocaml312+opam10 ;;
-3.12.1,1.1.0) ppa=avsm/ocaml312+opam11 ;;
-4.00.1,1.0.0) ppa=avsm/ocaml40+opam10 ;;
-4.00.1,1.1.0) ppa=avsm/ocaml40+opam11 ;;
-4.01.0,1.0.0) ppa=avsm/ocaml41+opam10 ;;
-4.01.0,1.1.0) ppa=avsm/ocaml41+opam11 ;;
-4.02.1,1.1.0) ppa=avsm/ocaml42+opam11 ;;
+3.12.1,1.2.0) ppa=avsm/ocaml312+opam12 ;;
+4.00.1,1.2.0) ppa=avsm/ocaml40+opam12 ;;
+4.01.0,1.2.0) ppa=avsm/ocaml41+opam12 ;;
+4.02.1,1.2.0) ppa=avsm/ocaml42+opam12 ;;
 *) echo Unknown $OCAML_VERSION,$OPAM_VERSION; exit 1 ;;
 esac
 
@@ -25,7 +18,9 @@ opam --version
 opam --git-version
 
 opam init
-opam install ${OPAM_PACKAGES}
+eval `opam config env`
+opam pin add xapi-rrd-transport $PWD -n
+opam install xapi-rrd-transport --deps-only
 
 eval `opam config -env`
 make
