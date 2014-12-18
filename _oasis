@@ -12,8 +12,6 @@ Library rrd_transport
   Path:                 lib
   Findlibname:          rrd-transport
   Modules:              Rrd_json, Rrd_protocol, Rrd_rpc, Rrd_protocol_v1, Rrd_protocol_v2, Rrd_io, Rrd_reader, Rrd_writer
-  ByteOpt:              -bin-annot
-  NativeOpt:            -bin-annot
   BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, xen-gnt, xen-gnt.unix, crc, threads
 
 Executable reader
@@ -21,8 +19,6 @@ Executable reader
   Path:                 utils
   MainIs:               reader.ml
   Install:              false
-  ByteOpt:              -bin-annot
-  NativeOpt:            -bin-annot
   BuildDepends:         cmdliner, threads, rrd-transport
 
 Executable writer
@@ -30,8 +26,6 @@ Executable writer
   Path:                 utils
   MainIs:               writer.ml
   Install:              false
-  ByteOpt:              -bin-annot
-  NativeOpt:            -bin-annot
   BuildDepends:         cmdliner, threads, rrd-transport
 
 Executable test_suite
@@ -39,7 +33,6 @@ Executable test_suite
   Path:                 test
   MainIs:               test_suite.ml
   Install:              false
-  ByteOpt:              -bin-annot
   BuildDepends:         oUnit, rrd-transport
 
 Test test_suite
