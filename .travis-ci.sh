@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="oasis cmdliner crc cstruct xen-gnt ounit xcp xcp-rrd"
+OPAM_PACKAGES="oasis cmdliner crc cstruct xen-gnt ounit xapi-idl xapi-rrd"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
@@ -24,8 +24,7 @@ echo OPAM versions
 opam --version
 opam --git-version
 
-opam init 
-opam remote add xapi-project git://github.com/xapi-project/opam-repo-dev
+opam init
 opam install ${OPAM_PACKAGES}
 
 eval `opam config -env`
