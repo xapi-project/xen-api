@@ -327,6 +327,26 @@ let get_domain_zero ~__context : API.ref_VM =
 	   raise (No_domain_zero uuid)
     )
 
+let update_domain_zero_name ~__context host hostname =
+  let stem = "Control domain on host: " in
+  let full_name = stem ^ hostname in
+  let dom0 = get_domain_zero ~__context in
+  (* Double check host *)
+  let dom0_host = Db.VM.get_resident_on ~__context ~self:dom0 in
+  if dom0_host <> host 
+  then 
+    error "Unexpectedly incorrect dom0 record in update_domain_zero_name"
+  else begin
+    let current_name = Db.VM.get_name_label ~__context ~self:dom0 in
+    let is_default = 
+      try
+        String.sub current_name 0 (String.length stem) = stem
+      with _ -> false
+    in
+    if is_default && current_name <> full_name then
+      Db.VM.set_name_label ~__context ~self:dom0 ~value:full_name
+  end
+
 let get_size_with_suffix s =
     let s, suffix = if String.length s > 0 then (
         let c = s.[String.length s - 1] in
