@@ -36,22 +36,28 @@ let string_of_address = function
 let address_of_console __context console : address option =
 	let vm = Db.Console.get_VM __context console in
 	let address_option =
-		try
-			let open Xenops_interface in
-			let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
-			let dbg = Context.string_of_task __context in		
-			let open Xapi_xenops_queue in
-			let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
-			let _, s = Client.VM.stat dbg id in
-			let proto = match Db.Console.get_protocol __context console with
-				| `rfb -> Vm.Rfb
-				| `vt100 -> Vm.Vt100
-				| `rdp -> failwith "No support for tunnelling RDP" in
-			let console = List.find (fun x -> x.Vm.protocol = proto) s.Vm.consoles in
-			Some (if console.Vm.path = "" then Port console.Vm.port else Path console.Vm.path)
-		with e ->
-			debug "%s" (Printexc.to_string e);
-			None in
+		if Db.VM.get_is_control_domain ~__context ~self:vm
+		then Some (Port (Db.Console.get_port ~__context ~self:console |> Int64.to_int))
+		else begin
+			try
+				let open Xenops_interface in
+				let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
+				let dbg = Context.string_of_task __context in
+				let open Xapi_xenops_queue in
+				let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
+				let _, s = Client.VM.stat dbg id in
+
+				let proto = match Db.Console.get_protocol __context console with
+					| `rfb -> Vm.Rfb
+					| `vt100 -> Vm.Vt100
+					| `rdp -> failwith "No support for tunnelling RDP" in
+				let console = List.find (fun x -> x.Vm.protocol = proto) s.Vm.consoles in
+				Some (if console.Vm.path = "" then Port console.Vm.port else Path console.Vm.path)
+			with e ->
+				debug "%s" (Printexc.to_string e);
+				None
+		end
+	in
 	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_address x)) address_option));
 	address_option
 
