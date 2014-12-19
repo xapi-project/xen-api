@@ -45,5 +45,6 @@ OCAML_OBJS = \
 	test_xenopsd_metadata \
 	../xenops/io \
 	test_xenopsd_io \
+	test_workload_balancing \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
