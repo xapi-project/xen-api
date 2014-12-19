@@ -853,19 +853,22 @@ let serve_chunked_to_raw _ c dest _ _ _ _ =
     end in
   loop ()
 
-let serve_raw_to_raw common size c dest _ _ _ _ =
+let serve_raw_to_raw common size c dest _ progress _ _ =
   let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
+  let p = progress size in
   let rec loop offset remaining =
     let this = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
     let block = Cstruct.sub buffer 0 this in
     c.Channels.really_read block >>= fun () ->
     Vhd_lwt.IO.really_write dest offset block >>= fun () ->
     let offset = Int64.(add offset (of_int this)) in
-    let remaining = Int64.(sub remaining (of_int this)) in
-    if remaining > 0L
-    then loop offset remaining
-    else return () in
+    let remaining = Int64.(sub remaining (of_int this)) in begin
+      p Int64.(sub size remaining);
+      if remaining > 0L
+      then loop offset remaining
+      else return ()
+    end in
   loop 0L size
 
 let serve common_options source source_fd source_format source_protocol destination destination_fd destination_format destination_size prezeroed progress machine expected_prefix ignore_checksums =
