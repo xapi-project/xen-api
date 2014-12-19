@@ -49,6 +49,7 @@ OCAML_OBJS = \
 	test_vm_helpers \
 	test_xenopsd_metadata \
 	test_ca121350 \
+	test_workload_balancing \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
