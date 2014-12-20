@@ -340,7 +340,9 @@ module Plugin = struct
 				let {reader} = find uid in
 				reader.Rrd_reader.read_payload ()
 			with e ->
-				error "Failed to process plugin: %s" (P.string_of_uid uid);
+				error "Failed to process plugin: %s (%s)"
+					(P.string_of_uid uid)
+					(Printexc.to_string e);
 				log_backtrace ();
 				let open Rrd_protocol in
 				match e with
