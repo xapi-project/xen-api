@@ -129,7 +129,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	| _ ->
 
 	Mutex.execute autodetect_mutex (fun () ->
-		let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
+		let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type in
 
 		if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
 			raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
@@ -137,7 +137,10 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 		(* Resolve the "autodetect" into a fixed device name now *)
 		let userdevice =
 			if userdevice = "autodetect"
-			then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
+			then match _type with
+				 (* already checked for [] above *)
+				 | `Floppy -> Device_number.to_linux_device (List.hd possibilities)
+				 | `CD | `Disk -> string_of_int (Device_number.to_disk_number (List.hd possibilities))
 			else userdevice
 		in
 
