@@ -3,6 +3,9 @@ maintainer: "john.else@citrix.com"
 build: [
   [make]
 ]
+build-test: [
+  [make "test"]
+]
 install: [
   [make "PREFIX=%{prefix}%" "install"]
 ]
