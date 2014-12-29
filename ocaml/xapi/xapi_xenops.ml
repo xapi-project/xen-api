@@ -1243,9 +1243,17 @@ let update_vbd ~__context (id: (string * string)) =
 					let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 					let vbdrs = List.map (fun self -> self, Db.VBD.get_record ~__context ~self) vbds in
 					let linux_device = snd id in
-					let disk_number = Device_number.of_linux_device (snd id) |> Device_number.to_disk_number |> string_of_int in
+					let device_number = Device_number.of_linux_device linux_device in
+					(* only try matching against disk number if the device is not a floppy (as "0" shouldn't match "fda") *)
+					let disk_number =
+						match Device_number.spec device_number with
+							| (Device_number.Ide,_,_)
+							| (Device_number.Xen,_,_) -> Some (device_number |> Device_number.to_disk_number |> string_of_int)
+							| _ -> None in
 					debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
-					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || vbdr.API.vBD_userdevice = disk_number) vbdrs in
+					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || 
+																(Opt.is_some disk_number && vbdr.API.vBD_userdevice = Opt.unbox disk_number)) vbdrs in
+					debug "VBD %s.%s matched device %s" (fst id) (snd id) vbd_r.API.vBD_userdevice;
 					Opt.iter
 						(fun (vb, state) ->
 							let currently_attached = state.plugged || state.active in
