@@ -1025,6 +1025,8 @@ let _ =
     ~doc:"The VM could not be imported because attached disks could not be found." ();
   error Api_errors.import_error_unexpected_file ["filename_expected";"filename_found"]
     ~doc:"The VM could not be imported because the XVA file is invalid: an unexpected file was encountered." ();
+  error Api_errors.import_error_system_template_file [ ]
+    ~doc:"Cannot import a system template" ();
 
   (* Restore errors *)
   error Api_errors.restore_incompatible_version [ ]

@@ -272,6 +272,7 @@ let import_error_failed_to_find_object = "IMPORT_ERROR_FAILED_TO_FIND_OBJECT"
 let import_error_attached_disks_not_found = "IMPORT_ERROR_ATTACHED_DISKS_NOT_FOUND"
 let import_error_unexpected_file = "IMPORT_ERROR_UNEXPECTED_FILE"
 let import_incompatible_version = "IMPORT_INCOMPATIBLE_VERSION"
+let import_error_system_template_file = "IMPORT_ERROR_SYSTEM_TEMPLATE"
 
 let restore_incompatible_version = "RESTORE_INCOMPATIBLE_VERSION"
 let restore_target_missing_device = "RESTORE_TARGET_MISSING_DEVICE"

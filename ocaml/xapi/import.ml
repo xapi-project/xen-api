@@ -33,6 +33,7 @@ type import_failure =
 | Failed_to_find_object of string
 | Attached_disks_not_found
 | Unexpected_file of string (* expected *) * string (* actual *)
+| System_template_file
 
 exception IFailure of import_failure
 
@@ -1354,6 +1355,21 @@ let metadata_handler (req: Request.t) s _ =
 						raise e
 				)))
 
+let is_default_template_true other_config =
+	let struct_other_config = XMLRPC.From.structure other_config in
+	List.iter (fun (a, b) -> if a = "default_template" then if (XMLRPC.From.string b) = "true" then raise (IFailure System_template_file)) struct_other_config;
+	()
+
+let is_default_template snap_metadata =
+	let snap_struct = XMLRPC.From.structure snap_metadata in
+	List.iter (fun (a, b) -> if a = "other_config" then is_default_template_true b) snap_struct;
+	()
+
+let is_system_template metadata =
+	let header_objects = header_of_xmlrpc metadata in
+	List.iter (fun a -> is_default_template a.snapshot) header_objects.objects;
+	()
+
 let handler (req: Request.t) s _ =
 	req.Request.close <- true;
 
@@ -1449,6 +1465,7 @@ let handler (req: Request.t) s _ =
 									with_open_archive s ?length:content_length
 										(fun metadata s ->
 											debug "Got XML";
+											is_system_template metadata;
 											let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in
 											let vmrefs =
 												if old_zurich_or_geneva
@@ -1539,6 +1556,9 @@ let handler (req: Request.t) s _ =
 										error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
 										expected (hex expected) actual (hex actual);
 										raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
+									| System_template_file ->
+										error "Cannot import a system template";
+										raise (Api_errors.Server_error (Api_errors.import_error_system_template_file, []))
 								end
 							| Api_errors.Server_error(code, params) as e ->
 								raise e
