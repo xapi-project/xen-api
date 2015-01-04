@@ -694,7 +694,8 @@ let _ =
     ~doc:"An error occured while saving the memory image of the specified virtual machine" ();
   error Api_errors.vm_checkpoint_resume_failed [ "vm" ]
     ~doc:"An error occured while restoring the memory image of the specified virtual machine" ();
-
+  error Api_errors.vm_pv_drivers_in_use [ "vm" ]
+    ~doc:"VM PV drivers still in use" ();
 	(* VM appliance errors *)
 	error Api_errors.operation_partially_failed [ "operation" ]
 		~doc:"Some VMs belonging to the appliance threw an exception while carrying out the specified operation" ();
@@ -2387,6 +2388,25 @@ let vm_call_plugin = call
 	~allowed_roles:_R_VM_OP
 	()
 
+let vm_set_auto_update_drivers = call
+	~name:"set_auto_update_drivers"
+	~in_product_since:rel_dundee
+	~doc:"Enable or disable PV auto update on Windows vm"
+	~params:[Ref _vm, "self", "The vm to set auto update drivers";
+			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
+	~allowed_roles:_R_VM_OP
+	~doc_tags:[Windows]
+	()
+
+let vm_assert_can_set_auto_update_drivers = call
+	~name:"assert_can_set_auto_update_drivers"
+	~in_product_since:rel_dundee
+	~doc:"Check if PV auto update can be set on Windows vm"
+	~params:[Ref _vm, "self", "The vm to check if auto update drivers can be set";
+			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
+	~allowed_roles:_R_VM_OP
+	~doc_tags:[Windows]
+	()
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -6933,6 +6953,8 @@ let vm =
 		vm_set_appliance;
 		vm_query_services;
 		vm_call_plugin;
+		vm_set_auto_update_drivers;
+		vm_assert_can_set_auto_update_drivers;
 		]
       ~contents:
       ([ uid _vm;
@@ -7009,7 +7031,8 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-      ])
+	field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
+    ])
 	()
 
 let vm_memory_metrics = 
