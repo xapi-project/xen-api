@@ -662,6 +662,7 @@ module MD = struct
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
+			auto_update_drivers = vm.API.vM_auto_update_drivers
 		}		
 
 
