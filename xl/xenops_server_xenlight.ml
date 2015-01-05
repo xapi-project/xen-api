@@ -1004,6 +1004,7 @@ module VBD = struct
 		let is_cdrom = match vbd.ty with
 			| CDROM -> 1
 			| Disk -> 0
+			| Floppy -> 0
 		in
 
 		(* Remember the VBD id with the device *)

@@ -330,15 +330,17 @@ let physty_of_string s =
 	| "file" -> File
 	| _      -> invalid_arg "physty_of_string"
 
-type devty = CDROM | Disk
+type devty = CDROM | Disk | Floppy
 
 let string_of_devty = function
 	| CDROM -> "cdrom"
 	| Disk  -> "disk"
+	| Floppy -> "floppy"
 
 let devty_of_string = function
 	| "cdrom" -> CDROM
 	| "disk"  -> Disk
+	| "floppy" -> Floppy
 	| _       -> invalid_arg "devty_of_string"
 
 let add_backend_keys ~xs (x: device) subdir keys =
@@ -517,7 +519,10 @@ let add_async ~xs ~hvm x domid =
 		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
-		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
+		"device-type", match x.dev_type with
+                       | CDROM -> "cdrom"
+                       | Disk -> "disk"
+                       | Floppy -> "floppy";
 	];
 	List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) [
 		"frontend-id", sprintf "%u" domid;
