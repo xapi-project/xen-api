@@ -324,6 +324,7 @@ let string_to_vbd_type s =
 	match String.lowercase s with
 		| "cd" -> `CD
 		| "disk" -> `Disk
+		| "floppy" -> `Floppy
 		| _ -> raise (Record_failure ("Expected 'CD' or 'Disk', got "^s))
 
 let power_to_string h =
