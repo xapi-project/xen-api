@@ -2535,6 +2535,18 @@ module VM = struct
 						}
 			)
 
+	let request_rdp vm enabled =
+		let open Xenlight.Dominfo in
+		let uuid = uuid_of_vm vm in
+		with_xs
+			(fun xs ->
+				match di_of_uuid Newest uuid with
+					| None, _ -> raise (Does_not_exist("domain", vm.Vm.id))
+					| Some di, _ ->
+						let path = Printf.sprintf "/local/domain/%d/control/ts" di.domid in
+						xs.Xs.write path (if enabled then "1" else "0")
+			)
+
 	let set_domain_action_request vm request =
 		let open Xenlight.Dominfo in
 		let uuid = uuid_of_vm vm in

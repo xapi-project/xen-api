@@ -69,6 +69,7 @@ module VM = struct
 	let s3suspend _ _ = unimplemented "VM.s3suspend"
 	let s3resume _ _ = unimplemented "VM.s3resume"
 	let get_state _ = Xenops_utils.halted_vm
+	let request_rdp _ _ = unimplemented "VM.request_rdp"
 	let set_domain_action_request _ _ = ()
 	let get_domain_action_request _ = None
 	let generate_state_string _ = ""
