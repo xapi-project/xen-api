@@ -2334,6 +2334,18 @@ let vm_set_appliance = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let vm_call_plugin = call
+	~name:"call_plugin"
+	~in_product_since:rel_augusta
+	~doc:"Call a XenAPI plugin on this vm"
+	~params:[Ref _vm, "vm", "The vm";
+		String, "plugin", "The name of the plugin";
+		String, "fn", "The name of the function within the plugin";
+		Map(String, String), "args", "Arguments for the function"]
+	~result:(String, "Result from the plugin")
+	~allowed_roles:_R_VM_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -6743,6 +6755,7 @@ let vm_operations =
         vm_migrate_send;
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
 		vm_query_services;vm_shutdown;
+		vm_call_plugin;
 	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6826,6 +6839,7 @@ let vm =
 		vm_import_convert;
 		vm_set_appliance;
 		vm_query_services;
+		vm_call_plugin;
 		]
       ~contents:
       ([ uid _vm;

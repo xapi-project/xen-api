@@ -1335,6 +1335,15 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[Vm_selectors];
     };
 
+   "vm-call-plugin",
+    {
+      reqd=["vm-uuid"; "plugin"; "fn"];
+      optn=["args:"];
+      help="Calls the function within the plugin on the given vm with optional arguments.";
+      implementation=No_fd Cli_operations.vm_call_plugin;
+      flags=[];
+    };
+
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];
