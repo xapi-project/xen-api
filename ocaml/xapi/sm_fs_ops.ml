@@ -248,11 +248,12 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 											rpc session_id import_task_id vdi_dst
 									in
 									debug "remote_uri = %s" remote_uri;
-									Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
-									let finished () =
+									try
+										Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
+										Tasks.wait_for_all ~rpc ~session_id ~tasks:[import_task_id];
 										match Db.Task.get_status ~__context ~self:import_task_id with
-										| `success -> true
-										| `failure | `cancelled ->
+										| `success -> ()
+										| _ ->
 											begin match Db.Task.get_error_info ~__context ~self:import_task_id with
 											| [] -> (* This should never happen *)
 												failwith("Copy of VDI to remote failed with unspecified error!")
@@ -260,11 +261,9 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 												debug "Copy of VDI to remote failed: %s [ %s ]" code (String.concat "; " params);
 												raise (Api_errors.Server_error (code, params))
 											end
-										| _ -> false
-									in
-									while not (finished ()) do
-										Thread.delay 0.5
-									done
+									with e ->
+										Tasks.wait_for_all ~rpc ~session_id ~tasks:[import_task_id];
+										raise e
 								)
 					)
 			with
