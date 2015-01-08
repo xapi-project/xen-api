@@ -42,8 +42,12 @@ export
 
 OCAMLPACKS = str xenctrl uuid xenstore.unix xenstore-compat xenops xcp.rrd forkexec rrdd-plugin
 
+OCAML_CLIBS = blktap3_stats_stubs
+StaticCLibrary(blktap3_stats_stubs, blktap3_stats_stubs)
+CFLAGS+=-I$(shell ocamlc -where)
+
 RRDP_IOSTAT = rrdp_iostat
-RRDP_IOSTAT_FILES = rrdp_iostat
+RRDP_IOSTAT_FILES = blktap3_stats rrdp_iostat
 RRDP_XENPM = rrdp_xenpm
 RRDP_XENPM_FILES = rrdp_xenpm
 RRDP_SQUEEZED = rrdp_squeezed
