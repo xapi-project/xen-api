@@ -176,7 +176,11 @@ let is_cancelling ~__context =
 	  List.exists (fun (_,x) -> x=`cancel) l
 
 let exn_if_cancelling ~__context =
-  if is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
+	if is_cancelling ~__context
+	then begin
+		let task_id = Context.get_task_id __context in
+		raise Api_errors.(Server_error (task_cancelled, [Ref.string_of task_id]))
+	end
 
 let cancel ~__context =
   operate_on_db_task ~__context

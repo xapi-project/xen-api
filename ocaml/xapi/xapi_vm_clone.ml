@@ -49,7 +49,10 @@ let wait_for_subtask ?progress_minmax ~__context task =
 		(* See if it has finished *)
 		match task_rec.API.task_status with
 		| `success -> finished := true
-		| `cancelled -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
+		| `cancelled -> begin
+			let task_id = Db.Task.get_by_uuid ~__context ~uuid:task_rec.API.task_uuid in
+			raise Api_errors.(Server_error (task_cancelled,[Ref.string_of task_id]))
+		end
 		| `failure -> 
 			begin match task_rec.API.task_error_info with
 					| code :: params -> raise (Api_errors.Server_error(code, params))
@@ -139,7 +142,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 
 	let fold_function (acc,done_so_far) (vbd,size) =
 		try
-			if TaskHelper.is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled, []));
+			TaskHelper.exn_if_cancelling ~__context;
 			let vbd_r = Client.VBD.get_record rpc session_id vbd in
 			(* If the VBD is empty there is no VDI to copy. *)
 			(* If the VBD is a CD then eject it (we cannot make copies of ISOs: they're identified *)

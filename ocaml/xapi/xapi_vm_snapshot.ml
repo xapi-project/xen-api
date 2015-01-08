@@ -206,7 +206,7 @@ let checkpoint ~__context ~vm ~new_name =
 		let snap =
 			if not (TaskHelper.is_cancelling ~__context) then begin
 				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name ~snapshot_info_record:!snapshot_info)
-				with Api_errors.Server_error (x, []) when x=Api_errors.task_cancelled -> None
+				with Api_errors.Server_error (x, _) when x=Api_errors.task_cancelled -> None
 			end else
 				None in
 
@@ -219,7 +219,9 @@ let checkpoint ~__context ~vm ~new_name =
 			Xapi_xenops.resume ~__context ~self:vm ~start_paused:false ~force:false;
 		end;
 		match snap with
-		| None      -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
+		| None  ->
+			let task_id = Context.get_task_id __context in
+			raise Api_errors.(Server_error (task_cancelled,[Ref.string_of task_id]))
 		| Some snap -> snap
 
 
