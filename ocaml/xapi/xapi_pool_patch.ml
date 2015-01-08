@@ -41,6 +41,7 @@ type patch_info = { uuid: string; name_label: string;
 
 exception Missing_patch_key of string
 exception Bad_patch_info
+exception Invalid_patch_uuid of string
 
 let rm = "/bin/rm"
 
@@ -137,6 +138,12 @@ let guidance_from_string = function
   | "restartXAPI" -> `restartXAPI
   | _ -> raise Bad_patch_info
 
+let precheck_patch_uuid uuid =
+  let uuid = String.lowercase uuid in
+  if not (Uuid.is_uuid uuid)
+    then raise (Invalid_patch_uuid uuid);
+  uuid
+
 let patch_info_of_xml = function
   | Element("info", attr, _) ->
       let find x = 
@@ -146,7 +153,7 @@ let patch_info_of_xml = function
       let label = find "name-label" 
       and descr = find "name-description" 
       and version = find "version" 
-      and uuid = find "uuid"
+      and uuid = precheck_patch_uuid (find "uuid")
       and guidance = find "after-apply-guidance"
       in
       let guidance =
