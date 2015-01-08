@@ -143,7 +143,7 @@ xapi.spec: xapi.spec.in
 srpm: xapi.spec
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
 	while ! [ -d .git ]; do cd ..; done; \
-	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
+	git archive --prefix=xapi-1.9.57/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-1.9.57.tar.bz2 # xen-api/Makefile
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
