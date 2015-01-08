@@ -242,15 +242,18 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
 							 * VDI.copy task. *)
 							Server_helpers.exec_with_subtask ~__context ~task_in_database:true "sparse_dd"
 								(fun ~__context ->
-									let task_id = Context.get_task_id __context in
-									let remote_uri = import_vdi_url ~__context ~prefer_slaves:true rpc session_id task_id vdi_dst in
+									let import_task_id = Context.get_task_id __context in
+									let remote_uri =
+										import_vdi_url ~__context ~prefer_slaves:true
+											rpc session_id import_task_id vdi_dst
+									in
 									debug "remote_uri = %s" remote_uri;
 									Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src remote_uri size;
 									let finished () =
-										match Db.Task.get_status ~__context ~self:task_id with
+										match Db.Task.get_status ~__context ~self:import_task_id with
 										| `success -> true
 										| `failure | `cancelled ->
-											begin match Db.Task.get_error_info ~__context ~self:task_id with
+											begin match Db.Task.get_error_info ~__context ~self:import_task_id with
 											| [] -> (* This should never happen *)
 												failwith("Copy of VDI to remote failed with unspecified error!")
 											| code :: params ->
