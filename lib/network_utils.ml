@@ -459,10 +459,8 @@ module Linux_bonding = struct
 			let master_symlink = Sysfs.getpath slave "master" in
 			let master_path = Unix.readlink master_symlink in
 			let slaves_path = Filename.concat master_symlink "bonding/slaves" in
-			let slaves = Sysfs.read_one_line slaves_path |> String.split ' ' in
-			if List.mem slave slaves
-			then Some (List.hd (List.rev (String.split '/' master_path)))
-			else None
+			Unix.access slaves_path [ Unix.F_OK ];
+			Some (List.hd (List.rev (String.split '/' master_path)))
 		with _ -> None
 end
 
