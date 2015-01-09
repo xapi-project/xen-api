@@ -174,6 +174,7 @@ let on_dom0_networking_change ~__context =
 				Db.Host.set_address ~__context ~self:localhost ~value:""
 			end
 	end;
+	Helpers.update_domain_zero_name ~__context localhost new_hostname;
 	debug "Signalling anyone waiting for the management IP address to change";
 	Mutex.execute management_ip_mutex
 		(fun () -> Condition.broadcast management_ip_cond)

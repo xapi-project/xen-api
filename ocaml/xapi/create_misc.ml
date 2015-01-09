@@ -262,7 +262,9 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	let constraints = create_domain_zero_memory_constraints host_info in
 	(* Write the updated memory constraints to the database. *)
-	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints
+	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints;
+	let localhost = Helpers.get_localhost ~__context in
+	Helpers.update_domain_zero_name ~__context localhost host_info.hostname
 
 and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
 	try

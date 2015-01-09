@@ -873,7 +873,8 @@ let set_hostname_live ~__context ~host ~hostname =
 	raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
   ignore(Forkhelpers.execute_command_get_output !Xapi_globs.set_hostname [hostname]);
   Debug.invalidate_hostname_cache ();
-  Db.Host.set_hostname ~__context ~self:host ~value:hostname
+  Db.Host.set_hostname ~__context ~self:host ~value:hostname;
+  Helpers.update_domain_zero_name ~__context host hostname
   )
 
 let is_in_emergency_mode ~__context =
