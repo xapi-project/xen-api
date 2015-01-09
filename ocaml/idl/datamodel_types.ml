@@ -50,7 +50,8 @@ let rel_vgpu_productisation = "vgpu-productisation"
 let rel_clearwater_felton = "clearwater-felton"
 let rel_clearwater_whetstone = "clearwater-whetstone"
 let rel_creedence = "creedence"
-let rel_augusta = "augusta"
+let rel_cream = "cream"
+let rel_dundee = "dundee"
 
 let release_order =
 	[ rel_rio
@@ -69,7 +70,8 @@ let release_order =
 	; rel_clearwater_felton
 	; rel_clearwater_whetstone
 	; rel_creedence
-	; rel_augusta
+	; rel_cream
+	; rel_dundee
 	]
 
 exception Unknown_release of string
