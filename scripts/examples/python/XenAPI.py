@@ -99,6 +99,7 @@ class UDSTransport(xmlrpclib.Transport):
     def __init__(self, use_datetime=0):
         self._use_datetime = use_datetime
         self._extra_headers=[]
+        self._connection = (None, None)
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
