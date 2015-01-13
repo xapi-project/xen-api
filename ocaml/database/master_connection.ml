@@ -40,7 +40,7 @@ let force_connection_reset () =
   | Some st_proc ->
   info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
-	
+
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
 let last_master_connection_call : float option ref = ref None
@@ -58,30 +58,36 @@ let with_timestamp f =
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
    master goes away unexpectedly... *)
+let watchdog_start_mutex = Mutex.create()
+let my_watchdog : Thread.t option ref = ref None
 let start_master_connection_watchdog() =
   let connection_reset_timeout = 2. *. 60. in
-  Thread.create
+  Mutex.execute watchdog_start_mutex
     (fun () ->
-       while (true)
-       do
-	 try
-	   begin
-	     match !last_master_connection_call with
-	       None -> ()
-	     | Some t ->
-		 let now = Unix.gettimeofday() in
-		 let since_last_call = now -. t in
-		 if since_last_call > connection_reset_timeout then
-		   begin
-		     debug "Master connection timeout: forcibly resetting master connection";
-		     force_connection_reset()
-		   end
-	   end;
-	   Thread.delay 10.
-	 with _ -> ()
-       done
+      match !my_watchdog with
+      | None ->
+        my_watchdog := Some (Thread.create (fun () ->
+          while (true) do
+            try
+              begin
+                match !last_master_connection_call with
+                | None -> ()
+                | Some t ->
+                  let now = Unix.gettimeofday() in
+                  let since_last_call = now -. t in
+                  if since_last_call > connection_reset_timeout then
+                  begin
+                    debug "Master connection timeout: forcibly resetting master connection";
+                    force_connection_reset()
+                  end
+              end;
+              Thread.delay 10.
+            with _ -> ()
+          done
+        ) ())
+      | Some _ ->
+        ()
     )
-    ()
 
 module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
 
@@ -137,8 +143,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 	  None -> raise Goto_handler
 	| (Some stunnel_proc) ->
 	    let fd = stunnel_proc.Stunnel.fd in
-		with_http request
-			(fun (response, _) ->
+	    with_timestamp (fun () ->
+	        with_http request (fun (response, _) ->
 				(* XML responses must have a content-length because we cannot use the Xml.parse_in
 				   in_channel function: the input channel will buffer an arbitrary amount of stuff
 				   and we'll be out of sync with the next request. *)
@@ -146,17 +152,17 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 					| None -> raise Content_length_required
 					| Some l -> begin
 						if (Int64.to_int l) <= Sys.max_string_length then
-							with_timestamp (fun () -> Db_interface.String (Unixext.really_read_string fd (Int64.to_int l)))
+							Db_interface.String (Unixext.really_read_string fd (Int64.to_int l))
 						else
-							with_timestamp (fun () ->
-								let buf = Bigbuffer.make () in
-								Unixext.really_read_bigbuffer fd buf l;
-								Db_interface.Bigbuf buf)
+							let buf = Bigbuffer.make () in
+							Unixext.really_read_bigbuffer fd buf l;
+							Db_interface.Bigbuf buf
 					end
 				in
 				write_ok := true;
 				result := res (* yippeee! return and exit from while loop *)
 			) fd
+        )
       with
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Http_client.Http_error (http_code,err_msg) ->
