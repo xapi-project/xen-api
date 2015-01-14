@@ -25,7 +25,7 @@ then
   usage
 fi
 
-if !(file -s "$iso" | grep "ISO 9660" >/dev/null)
+if !(file -s "$iso" | grep -q "ISO 9660")
 then
   echo "Supplemental pack must be an ISO." >&2
   exit 2
@@ -45,7 +45,7 @@ function cleanup()
 
 trap cleanup ERR
 
-mount -o loop "$iso" "$tempdir"
+mount -o loop,ro "$iso" "$tempdir"
 pushd "$tempdir" >/dev/null
 ./install
 cleanup
