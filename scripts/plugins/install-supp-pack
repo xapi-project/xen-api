@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import subprocess
+
+# Simple XenAPI plugin
+import XenAPIPlugin, time
+
+class PluginError(Exception):
+    """Base Exception class for all plugin errors."""
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+
+class ArgumentError(PluginError):
+    """Raised when the arguments to the plugin are invalid"""
+
+    def __init__(self, *args):
+        PluginError.__init__(self, *args)
+
+class SubprocessFailure(PluginError):
+    """Raised when there was a failure attaching the VDI"""
+
+    def __init__(self, *args):
+        PluginError.__init__(self, *args)
+
+def install(session, args):
+    if not args.has_key("vdi"):
+        raise ArgumentError("Key 'vdi' missing from arguments")
+    vdi=args['vdi']
+    process = subprocess.Popen([
+        "/opt/xensource/debug/with-vdi %s /opt/xensource/bin/xe-install-supplemental-pack" % vdi],
+        shell = True,
+        stdout = subprocess.PIPE,    
+        close_fds = True)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise SubprocessFailure("Failed to execute the install-supplemental-pack script", stdout, stderr)
+    return "OK"
+        
+if __name__ == "__main__":
+    XenAPIPlugin.dispatch({"install": install})
+
+
