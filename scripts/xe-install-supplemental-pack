@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -e
+
+function usage()
+{
+  echo "
+Usage:
+        $0 <filename.iso>
+" >&2
+  exit 1
+}
+
+if [ -z "$1" ]
+then
+  usage
+fi
+
+set -u
+
+iso="$1"
+
+if [ ! -f "$iso" ]
+then
+  usage
+fi
+
+if !(file "$iso" | grep "ISO 9660" >/dev/null)
+then
+  echo "Supplemental pack must be an ISO." >&2
+  exit 2
+fi
+
+tempdir=$(mktemp -d)
+
+function cleanup()
+{
+  if mount | grep "$tempdir" >/dev/null
+  then
+    popd >/dev/null
+    umount "$tempdir" || true
+  fi
+  rmdir "$tempdir"
+}
+
+trap cleanup ERR
+
+mount -o loop "$iso" "$tempdir"
+pushd "$tempdir" >/dev/null
+./install.sh
+cleanup
