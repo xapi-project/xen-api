@@ -28,7 +28,8 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
 			vgpu_type, max_capacity)
 		supported_VGPU_types
 
-let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types ~size =
+let create ~__context ~pCI ~gPU_group ~host ~other_config
+		~supported_VGPU_types ~size ~dom0_access =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let supported_VGPU_max_capacities =
@@ -36,7 +37,7 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types 
 	in
 	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
 		~gPU_group ~host ~other_config ~size
-		~supported_VGPU_max_capacities;
+		~supported_VGPU_max_capacities ~dom0_access;
 	Db.PGPU.set_supported_VGPU_types ~__context
 		~self:pgpu ~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context
@@ -106,7 +107,7 @@ let update_gpus ~__context ~host =
 					let self = create ~__context ~pCI:pci
 							~gPU_group:(Ref.null) ~host ~other_config:[]
 							~supported_VGPU_types
-							~size:Constants.pgpu_default_size
+							~size:Constants.pgpu_default_size ~dom0_access:`enabled
 					in
 					let group = Xapi_gpu_group.find_or_create ~__context self in
 					Helpers.call_api_functions ~__context (fun rpc session_id ->
