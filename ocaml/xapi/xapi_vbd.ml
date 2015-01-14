@@ -65,15 +65,25 @@ let plug ~__context ~self =
 	end
 
 let unplug ~__context ~self =
-	let vm = Db.VBD.get_VM ~__context ~self in
-	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
-	if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
-		debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of self);
-		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-		Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid;
-		Db.VBD.set_currently_attached ~__context ~self ~value:false
-	end
-	else Xapi_xenops.vbd_unplug ~__context ~self false
+	try
+		let vm = Db.VBD.get_VM ~__context ~self in
+		let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+		if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
+			debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of self);
+			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+			Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid;
+			Db.VBD.set_currently_attached ~__context ~self ~value:false
+		end
+		else Xapi_xenops.vbd_unplug ~__context ~self false
+	with Api_errors.Server_error (errcode, [errmsg]) as e when errcode = Api_errors.internal_error ->
+		error "xapi_vbd.unplug caught Api_errors.internal_error: %s" errmsg;
+		(*  SCTX-1901: Some VDIs can't be unplugged in Primary Storage when executing many volume snapshot jobs from CCP
+			like SCTX-1892, but seems that we cannot catch Storage_interface.Sr_not_attached exception at storage_impl.ml
+		*)
+		if String.startswith "Storage_interface.Sr_not_attached" errmsg then
+			Db.VBD.set_currently_attached ~__context ~self ~value:false
+		else
+			raise e
 
 let unplug_force ~__context ~self =
 	let vm = Db.VBD.get_VM ~__context ~self in
