@@ -92,7 +92,7 @@ def check_zero(session, args):
 def get_vdi_lsize(session, args):
     sruuid = args['sruuid']
     vdiuuid = args['vdiuuid']
-    (rc,stdout,stderr) = doexec(["/usr/sbin/lvs","--units","b", "VG_XenStorage-%s" % sruuid])
+    (rc,stdout,stderr) = doexec(["/sbin/lvs","--units","b", "VG_XenStorage-%s" % sruuid])
 
     # Get the last field of the last line of output
     lines = stdout.rstrip().split('\n')
@@ -106,7 +106,7 @@ def get_vdi_lsize(session, args):
 
 def get_sr_vfree(session, args):
     sruuid = args['sruuid']
-    (rc,stdout,stderr) = doexec(["/usr/sbin/vgs","--units","b", "VG_XenStorage-%s" % sruuid])
+    (rc,stdout,stderr) = doexec(["/sbin/vgs","--units","b", "VG_XenStorage-%s" % sruuid])
 
     # Get the last field of the last line of output
     lines = stdout.rstrip().split('\n')
@@ -120,7 +120,7 @@ def get_sr_vfree(session, args):
 def get_journals(session, args):
     """Returns the names of any logical volumes which are not called 'MGT' or begin 'VHD-' or 'LV-'"""
     sruuid = args['sruuid']
-    (rc,stdout,stderr) = doexec(["/usr/sbin/lvs","--noheadings","VG_XenStorage-%s" % sruuid])
+    (rc,stdout,stderr) = doexec(["/sbin/lvs","--noheadings","VG_XenStorage-%s" % sruuid])
 
     # Find the volumes which don't begin with 'MGT' or 'VHD-' or 'LV-'
     lines = stdout.rstrip().split('\n')
