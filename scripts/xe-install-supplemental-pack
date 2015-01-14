@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -11,21 +11,21 @@ Usage:
   exit 1
 }
 
-if [ -z "$1" ]
+if [ -n "$DEVICE" ]
 then
-  usage
+  iso="/dev/$DEVICE"
+else
+  iso="$1"
 fi
 
 set -u
 
-iso="$1"
-
-if [ ! -f "$iso" ]
+if [ ! -f "$iso" ] && [ ! -b "$iso" ]
 then
   usage
 fi
 
-if !(file "$iso" | grep "ISO 9660" >/dev/null)
+if !(file -s "$iso" | grep "ISO 9660" >/dev/null)
 then
   echo "Supplemental pack must be an ISO." >&2
   exit 2
