@@ -766,6 +766,8 @@ let _ =
   (* Pool errors *)
   error Api_errors.pool_joining_host_cannot_contain_shared_SRs []
     ~doc:"The host joining the pool cannot contain any shared storage." ();
+  error Api_errors.pool_joining_host_cannot_contain_network_bond []
+    ~doc:"The host joining the pool cannot contain any network bond." ();
   error Api_errors.pool_joining_host_cannot_have_running_or_suspended_VMs []
     ~doc:"The host joining the pool cannot have any running or suspended VMs." ();
   error Api_errors.pool_joining_host_cannot_have_running_VMs []
