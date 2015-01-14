@@ -3,7 +3,7 @@
 import subprocess
 
 # Simple XenAPI plugin
-import XenAPIPlugin, time
+import XenAPIPlugin
 
 class PluginError(Exception):
     """Base Exception class for all plugin errors."""
@@ -12,13 +12,11 @@ class PluginError(Exception):
 
 class ArgumentError(PluginError):
     """Raised when the arguments to the plugin are invalid"""
-
     def __init__(self, *args):
         PluginError.__init__(self, *args)
 
 class SubprocessFailure(PluginError):
     """Raised when there was a failure attaching the VDI"""
-
     def __init__(self, *args):
         PluginError.__init__(self, *args)
 
@@ -26,9 +24,14 @@ def install(session, args):
     if not args.has_key("vdi"):
         raise ArgumentError("Key 'vdi' missing from arguments")
     vdi=args['vdi']
+    try:
+        session.xenapi.VDI.get_by_uuid(vdi)
+    except:
+        raise ArgumentError("VDI parameter invalid")
+
     process = subprocess.Popen([
-        "/opt/xensource/debug/with-vdi %s /opt/xensource/bin/xe-install-supplemental-pack" % vdi],
-        shell = True,
+        "/opt/xensource/debug/with-vdi", vdi, "/opt/xensource/bin/xe-install-supplemental-pack"],
+        shell = False,
         stdout = subprocess.PIPE,    
         close_fds = True)
     stdout, stderr = process.communicate()
