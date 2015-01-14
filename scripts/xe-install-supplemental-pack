@@ -47,5 +47,5 @@ trap cleanup ERR
 
 mount -o loop "$iso" "$tempdir"
 pushd "$tempdir" >/dev/null
-./install.sh
+./install
 cleanup
