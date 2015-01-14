@@ -45,11 +45,7 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types 
 	pgpu
 
 let update_gpus ~__context ~host =
-	let pci_id_blacklist =
-		match Xapi_pci.get_system_display_device () with
-		| Some device -> [device]
-		| None -> []
-	in
+	let system_display_device = Xapi_pci.get_system_display_device () in
 	let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
 	let class_id = Xapi_pci.lookup_class_id Xapi_pci.Display_controller in
 	let pcis = List.filter (fun self ->
@@ -61,60 +57,58 @@ let update_gpus ~__context ~host =
 		| [] -> cur
 		| pci :: remaining_pcis ->
 			let pci_id = Db.PCI.get_pci_id ~__context ~self:pci in
-			if List.mem pci_id pci_id_blacklist
-			then find_or_create cur remaining_pcis
-			else begin
-				let supported_VGPU_types =
-					Xapi_vgpu_type.find_or_create_supported_types ~__context
-					~pci_db pci in
-				let pgpu =
-					try
-						let (rf, rc) = List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus in
-						let old_supported_VGPU_types =
-							Db.PGPU.get_supported_VGPU_types ~__context ~self:rf in
-						let old_enabled_VGPU_types =
-							Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf in
-						(* Pick up any new supported vGPU configs on the host *)
-						Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
-						(* Calculate the maximum capacities of the supported types. *)
-						let max_capacities =
-							calculate_max_capacities
-								~__context
-								~pCI:pci
-								~size:(Db.PGPU.get_size ~__context ~self:rf)
-								~supported_VGPU_types
-						in
-						Db.PGPU.set_supported_VGPU_max_capacities ~__context
-							~self:rf ~value:max_capacities;
-						(* Enable any new supported types. *)
-						let new_types_to_enable =
-							List.filter
-								(fun t -> not (List.mem t old_supported_VGPU_types))
-								supported_VGPU_types
-						in
-						(* Disable any types which are no longer supported. *)
-						let pruned_enabled_types =
-							List.filter
-								(fun t -> List.mem t supported_VGPU_types)
-								old_enabled_VGPU_types
-						in
-						Db.PGPU.set_enabled_VGPU_types ~__context
-							~self:rf
-							~value:(pruned_enabled_types @ new_types_to_enable);
-						(rf, rc)
-					with Not_found ->
-						let self = create ~__context ~pCI:pci
-								~gPU_group:(Ref.null) ~host ~other_config:[]
-								~supported_VGPU_types
-								~size:Constants.pgpu_default_size
-						in
-						let group = Xapi_gpu_group.find_or_create ~__context self in
-						Helpers.call_api_functions ~__context (fun rpc session_id ->
-							Client.Client.PGPU.set_GPU_group rpc session_id self group);
-						self, Db.PGPU.get_record ~__context ~self
-				in
-				find_or_create (pgpu :: cur) remaining_pcis
-			end
+			let supported_VGPU_types =
+				if system_display_device = (Some pci_id)
+				then []
+				else Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
+			in
+			let pgpu =
+				try
+					let (rf, rc) = List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus in
+					let old_supported_VGPU_types =
+						Db.PGPU.get_supported_VGPU_types ~__context ~self:rf in
+					let old_enabled_VGPU_types =
+						Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf in
+					(* Pick up any new supported vGPU configs on the host *)
+					Db.PGPU.set_supported_VGPU_types ~__context ~self:rf ~value:supported_VGPU_types;
+					(* Calculate the maximum capacities of the supported types. *)
+					let max_capacities =
+						calculate_max_capacities
+							~__context
+							~pCI:pci
+							~size:(Db.PGPU.get_size ~__context ~self:rf)
+							~supported_VGPU_types
+					in
+					Db.PGPU.set_supported_VGPU_max_capacities ~__context
+						~self:rf ~value:max_capacities;
+					(* Enable any new supported types. *)
+					let new_types_to_enable =
+						List.filter
+							(fun t -> not (List.mem t old_supported_VGPU_types))
+							supported_VGPU_types
+					in
+					(* Disable any types which are no longer supported. *)
+					let pruned_enabled_types =
+						List.filter
+							(fun t -> List.mem t supported_VGPU_types)
+							old_enabled_VGPU_types
+					in
+					Db.PGPU.set_enabled_VGPU_types ~__context
+						~self:rf
+						~value:(pruned_enabled_types @ new_types_to_enable);
+					(rf, rc)
+				with Not_found ->
+					let self = create ~__context ~pCI:pci
+							~gPU_group:(Ref.null) ~host ~other_config:[]
+							~supported_VGPU_types
+							~size:Constants.pgpu_default_size
+					in
+					let group = Xapi_gpu_group.find_or_create ~__context self in
+					Helpers.call_api_functions ~__context (fun rpc session_id ->
+						Client.Client.PGPU.set_GPU_group rpc session_id self group);
+					self, Db.PGPU.get_record ~__context ~self
+			in
+			find_or_create (pgpu :: cur) remaining_pcis
 	in
 	let current_pgpus = find_or_create [] pcis in
 	let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
