@@ -883,7 +883,7 @@ let other_options = [
       with e ->
         D.error "Unable to parse disable-logging-for=%s (expected space-separated list)" x
     ), (fun () -> "<default>"), (* no API to query the current list *)
-    "comma-separated list of modules to suppress logging from";
+    "space-separated list of modules to suppress logging from";
 
   "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
     (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
