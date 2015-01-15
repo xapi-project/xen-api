@@ -227,3 +227,24 @@ let get_remaining_capacity ~__context ~self ~vgpu_type =
 let assert_can_run_VGPU ~__context ~self ~vgpu =
 	let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
 	Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type
+
+let update_dom0_access ~__context ~self ~action =
+	let db_current = Db.PGPU.get_dom0_access ~__context ~self in
+	let db_new = match db_current, action with
+	| `enabled,           `enable
+	| `disable_on_reboot, `enable  -> `enabled
+	| `disabled,          `enable
+	| `enable_on_reboot,  `enable  -> `enable_on_reboot
+	| `enabled,           `disable
+	| `disable_on_reboot, `disable -> `disable_on_reboot
+	| `disabled,          `disable
+	| `enable_on_reboot,  `disable -> `disabled
+	in
+	Db.PGPU.set_dom0_access ~__context ~self ~value:db_new;
+	db_new
+
+let enable_dom0_access ~__context ~self =
+	update_dom0_access ~__context ~self ~action:`enable
+
+let disable_dom0_access ~__context ~self =
+	update_dom0_access ~__context ~self ~action:`disable
