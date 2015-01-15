@@ -201,6 +201,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/wlan.pyo
 /etc/xapi.d/plugins/wlan.pyc
 /etc/xapi.d/plugins/iovirt
+/etc/xapi.d/plugins/install-supp-pack
 %config(noreplace) /etc/xensource/db.conf
 %config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
