@@ -7855,6 +7855,38 @@ let pgpu =
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
+	let enable_dom0_access = call
+		~name:"enable_dom0_access"
+		~lifecycle:[Published, rel_cream, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be granted access";
+				param_release = cream_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let disable_dom0_access = call
+		~name:"disable_dom0_access"
+		~lifecycle:[Published, rel_cream, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be denied access";
+				param_release = cream_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	create_obj
 		~name:_pgpu
 		~descr:"A physical GPU (pGPU)"
@@ -7869,6 +7901,8 @@ let pgpu =
 			set_enabled_VGPU_types;
 			set_GPU_group;
 			get_remaining_capacity;
+			enable_dom0_access;
+			disable_dom0_access;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
