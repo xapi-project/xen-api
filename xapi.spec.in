@@ -63,7 +63,7 @@ XCP toolstack.
 %package core
 Summary: The xapi toolstack
 Group: System/Hypervisor
-Requires: busybox m2crypto
+Requires: busybox m2crypto net-tools
 
 %description core
 This package contains the xapi toolstack.
@@ -78,6 +78,7 @@ The command-line interface for controlling XCP hosts.
 %package tests
 Summary: Toolstack test programs
 Group: System/Hypervisor
+Requires: net-tools
 
 %description tests
 This package contains a series of simple regression tests.
