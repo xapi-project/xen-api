@@ -781,6 +781,8 @@ let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
 let logging_disabled_for = ref []
 
+let igd_passthru_vendor_whitelist = ref []
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -897,6 +899,13 @@ let other_options = [
 
   "xenopsd-default", Arg.Set_string default_xenopsd,
     (fun () -> !default_xenopsd), "default xenopsd to use";
+
+  gen_list_option "igd-passthru-vendor-whitelist"
+    "list of PCI vendor IDs for integrated graphics passthrough (space-separated)"
+    (fun s ->
+      D.debug "Whitelisting PCI vendor %s for passthrough" s;
+      Scanf.sscanf s "%4Lx" (fun _ -> s)) (* Scanf verifies format *)
+    (fun s -> s) igd_passthru_vendor_whitelist
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
