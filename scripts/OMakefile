@@ -112,6 +112,8 @@ install:
 	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
+
 
 sdk-install: install
 	mkdir -p $(SDK)
