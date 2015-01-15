@@ -261,7 +261,9 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
                                                         (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
                                                            between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
                                                            will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
-                                                           ripple effect is that remote xapi fails to parse metadata xml file.*)
+                                                           ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
+                                                           not always avoid the problem since any cached stunnel entry might be evicted. However, it is
+                                                           unlikely to happen in practice because the cache size is large enough.*)
 							with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
 								(with_http put
 									(fun (_, ofd) ->
