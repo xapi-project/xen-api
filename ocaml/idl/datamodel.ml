@@ -63,12 +63,15 @@ let clearwater_whetstone_release_schema_minor_vsn = 71
 let creedence_release_schema_major_vsn = 5
 let creedence_release_schema_minor_vsn = 72
 
-let augusta_release_schema_major_vsn = 5
-let augusta_release_schema_minor_vsn = 81
+let cream_release_schema_major_vsn = 5
+let cream_release_schema_minor_vsn = 72
+
+let dundee_release_schema_major_vsn = 5
+let dundee_release_schema_minor_vsn = 81
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
-let last_release_schema_minor_vsn = clearwater_felton_release_schema_minor_vsn
+let last_release_schema_major_vsn = creedence_release_schema_major_vsn
+let last_release_schema_minor_vsn = creedence_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -186,8 +189,14 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
-let augusta_release =
-	{ internal = get_product_releases rel_augusta
+let dundee_release =
+	{ internal = get_product_releases rel_dundee
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
+let cream_release =
+	{ internal = get_product_releases rel_cream
 	; opensource=get_oss_releases None
 	; internal_deprecated_since=None
 	}
@@ -2338,7 +2347,7 @@ let vm_set_appliance = call
 
 let vm_call_plugin = call
 	~name:"call_plugin"
-	~in_product_since:rel_augusta
+	~in_product_since:rel_cream
 	~doc:"Call a XenAPI plugin on this vm"
 	~params:[Ref _vm, "vm", "The vm";
 		String, "plugin", "The name of the plugin";
@@ -3558,7 +3567,7 @@ let task =
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
-      field ~qualifier:DynamicRO ~in_product_since:rel_augusta ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
+      field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
     ]) 
     ()
 
