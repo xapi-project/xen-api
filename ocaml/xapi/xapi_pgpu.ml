@@ -56,9 +56,10 @@ let update_gpus ~__context ~host =
 	let rec find_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
-			let pci_id = Db.PCI.get_pci_id ~__context ~self:pci in
 			let supported_VGPU_types =
+				let pci_id =  Db.PCI.get_pci_id ~__context ~self:pci in
 				if system_display_device = (Some pci_id)
+				&& not (Xapi_pci_helpers.(is_hidden_from_dom0 pci && is_igd_whitelisted pci))
 				then []
 				else Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
 			in
