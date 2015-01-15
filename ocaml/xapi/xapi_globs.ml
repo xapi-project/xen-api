@@ -779,6 +779,8 @@ let gpg_homedir = ref "/opt/xensource/gpg"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
+let logging_disabled_for = ref []
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -850,6 +852,19 @@ let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
 
 let trusted_patch_key = ref citrix_patch_key
 
+let gen_list_option name desc of_string string_of opt =
+  let parse s =
+    try
+      String.split_f String.isspace s |>
+      List.iter (fun x -> opt := (of_string x) :: !opt)
+    with e ->
+      D.error "Unable to parse %s=%s (expected space-separated list) error: %s"
+        name s (Printexc.to_string e)
+  and get () =
+    List.map string_of !opt |> String.concat "; " |> Printf.sprintf "[ %s ]"
+  in
+  name, Arg.String parse, get, desc
+
 let other_options = [
   "hotfix-fingerprint", Arg.Set_string trusted_patch_key,
     (fun () -> !trusted_patch_key), "Fingerprint of the key used for signed hotfixes";
@@ -872,18 +887,10 @@ let other_options = [
   "relax-xsm-sr-check", Arg.Set relax_xsm_sr_check,
     (fun () -> string_of_bool !relax_xsm_sr_check), "allow storage migration when SRs have been mirrored out-of-band (and have matching SR uuids)";
 
-  "disable-logging-for", Arg.String
-    (fun x ->
-      try
-        let modules = String.split_f String.isspace x in
-        List.iter (fun x ->
-          D.debug "Disabling logging for: %s" x;
-          Debug.disable x
-        ) modules
-      with e ->
-        D.error "Unable to parse disable-logging-for=%s (expected space-separated list)" x
-    ), (fun () -> "<default>"), (* no API to query the current list *)
-    "space-separated list of modules to suppress logging from";
+  gen_list_option "disable-logging-for"
+    "space-separated list of modules to suppress logging from"
+    (fun s -> D.debug "Disabling logging for: %s" s; Debug.disable s; s)
+    (fun s -> s) logging_disabled_for;
 
   "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
     (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
