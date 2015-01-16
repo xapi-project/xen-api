@@ -779,7 +779,7 @@ let gpg_homedir = ref "/opt/xensource/gpg"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
-let logging_disabled_for = ref []
+let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
 
@@ -891,8 +891,7 @@ let other_options = [
 
   gen_list_option "disable-logging-for"
     "space-separated list of modules to suppress logging from"
-    (fun s -> D.debug "Disabling logging for: %s" s; Debug.disable s; s)
-    (fun s -> s) logging_disabled_for;
+    (fun s -> s) (fun s -> s) disable_logging_for;
 
   "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
     (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
