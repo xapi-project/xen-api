@@ -104,6 +104,7 @@ module Vm = struct
 		| Cirrus
 		| Standard_VGA
 		| Vgpu
+		| IGD_passthrough
 	with sexp
 
 	type hvm_info = {
