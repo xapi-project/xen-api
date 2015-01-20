@@ -231,8 +231,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 	let video_mode =
 		(* If the vgpu keys are present for this VM, this overrides
 		 * the value of platform:vgpu. *)
-		if true
-			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then Vgpu
 		else
