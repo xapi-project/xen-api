@@ -107,6 +107,7 @@ and get_release_name release =
   else if release = rel_vgpu_productisation then "XenServer 6.2 SP1"
   else if release = rel_clearwater_felton   then "XenServer 6.2 SP1 Hotfix XS62ESP1004"
   else if release = rel_creedence           then "XenServer Creedence"
+  else if release = rel_cream               then "Unreleased"
   else if release = rel_dundee              then "Unreleased"
   else                                           ""
 
