@@ -132,8 +132,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
 		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
 	| Xenops_interface.Cancelled _ ->
-		let task_id = Context.get_task_id __context in
-		raise Api_errors.(Server_error (task_cancelled, [Ref.string_of task_id]))
+		TaskHelper.raise_cancelled ~__context
 	| e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
