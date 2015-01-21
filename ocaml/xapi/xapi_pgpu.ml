@@ -57,7 +57,7 @@ let update_gpus ~__context ~host =
 		| [] -> cur
 		| pci :: remaining_pcis ->
 			let igd_is_whitelisted pci =
-				let vendor_id = Db.PCI.get_subsystem_vendor_id ~__context ~self:pci in
+				let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in
 				List.mem vendor_id !Xapi_globs.igd_passthru_vendor_whitelist
 			in
 			let supported_VGPU_types =
