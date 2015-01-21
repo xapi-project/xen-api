@@ -108,3 +108,5 @@ let get_host_pcis pci_db =
 			link_related_pcis (pci :: ac) tl
 	in
 	link_related_pcis [] pcis
+
+let is_hidden_from_dom0 pci = true

@@ -240,10 +240,6 @@ let foreign_metadata_db = Filename.concat Fhs.vardir "foreign.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
-(* A comma-separated list of extra xenstore paths to watch in the migration code during
-   the disk flushing *)
-let migration_extra_paths_key = "migration_extra_paths"
-
 (* After this we start to delete completed tasks (never pending ones) *)
 let max_tasks = 200
 
@@ -489,6 +485,8 @@ let vgpu_manual_setup_key = "vgpu_manual_setup"
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
 let vgpu_extra_args_key = "vgpu_extra_args"
+
+let igd_passthru_vendor_whitelist : string list ref = ref []
 
 let dev_zero = "/dev/zero"
 
