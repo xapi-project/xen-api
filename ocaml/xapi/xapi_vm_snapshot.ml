@@ -221,9 +221,7 @@ let checkpoint ~__context ~vm ~new_name =
 			Xapi_xenops.resume ~__context ~self:vm ~start_paused:false ~force:false;
 		end;
 		match snap with
-		| None  ->
-			let task_id = Context.get_task_id __context in
-			raise Api_errors.(Server_error (task_cancelled,[Ref.string_of task_id]))
+		| None -> TaskHelper.raise_cancelled ~__context
 		| Some snap -> snap
 
 

@@ -74,8 +74,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 		   begin
 		     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
 		     let _ = Forkhelpers.waitpid pid in
-		     let task_id = Context.get_task_id __context in
-		     raise Api_errors.(Server_error (task_cancelled, [Ref.string_of task_id]))
+		     TaskHelper.raise_cancelled ~__context
 		   end;
 		 
 		 let (newpid,status) = Forkhelpers.waitpid_nohang pid in
