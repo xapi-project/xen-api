@@ -17,18 +17,33 @@
 open Xapi_globs
 open Printf
 open Stringext
+open Fun
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 let read_config filename =
+	let list_of_string of_string s =
+		try String.split_f String.isspace s |> List.map of_string
+		with e ->
+			D.error "Unable to parse %s (expected space-separated list) error: %s"
+				s (Printexc.to_string e);
+			[]
+	in
+	let vendor_whitelist = ref "" in
 	let configargs = [
 		"use-xenopsd", Config.Set_bool Xapi_globs.use_xenopsd;
 		Config_shared.disable_logging_for;
+		"igd-passthru-vendor-whitelist", Config.Set_string vendor_whitelist;
 		"relax-xsm-sr-check", Config.Set_bool Xapi_globs.relax_xsm_sr_check;
 	] in
 	try
-		Config.read filename configargs (fun _ _ -> ())
+		Config.read filename configargs (fun _ _ -> ());
+		Xapi_globs.igd_passthru_vendor_whitelist :=
+			list_of_string (fun s ->
+				D.debug "Whitelisting PCI vendor %s for passthrough" s;
+				Scanf.sscanf s "%4Lx" (fun _ -> s) (* Scanf verifies format *)
+			) !vendor_whitelist;
 	with Config.Error ls ->
 		List.iter (fun (p,s) ->
 								 eprintf "config file error: %s: %s\n" p s) ls;
