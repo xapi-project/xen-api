@@ -125,11 +125,15 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     | Some xsval -> [ mapkey, xsval ]
     | None -> []) kvpairs) in
 
+  let ts = match lookup "data/ts" with
+  	| Some value -> ["data-ts",value]
+  	| None -> [] in
+  	
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
   and device_id = to_map device_id
   and networks = to_map (networks "attr" list)
-  and other = to_map (other all_control)
+  and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
 
