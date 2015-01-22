@@ -29,6 +29,7 @@ val complete : __context:Context.t -> Rpc.t option -> unit
 val set_cancellable : __context:Context.t -> unit
 val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool
+val raise_cancelled : __context:Context.t -> 'a
 val exn_if_cancelling : __context:Context.t -> unit
 val cancel : __context:Context.t -> unit
 

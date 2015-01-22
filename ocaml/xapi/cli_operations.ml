@@ -3195,7 +3195,8 @@ let vm_import fd printer rpc session_id params =
 														* alert it to the failure. *)
 
 														(let l=Client.Task.get_current_operations rpc session_id importtask in
-															if List.exists (fun (_,x) -> x=`cancel) l then raise (Api_errors.Server_error(Api_errors.task_cancelled,[])));
+															if List.exists (fun (_,x) -> x=`cancel) l
+															then raise Api_errors.(Server_error(task_cancelled,[Ref.string_of importtask])));
 
 														(* Cancelling will close the connection, which will be interpreted by the import handler as failure *)
 

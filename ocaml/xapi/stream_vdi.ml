@@ -103,12 +103,10 @@ let write_block ~__context filename buffer ofd len =
 	Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
   with
 	Unix.Unix_error (a,b,c) as e ->
-		if TaskHelper.is_cancelling ~__context
-		then raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
-		else 
-		  (if b="write" 
-		   then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
-		   else raise e)
+		TaskHelper.exn_if_cancelling ~__context;
+		if b="write"
+		then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
+		else raise e
 
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
