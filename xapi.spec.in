@@ -280,7 +280,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/shutdown
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
-@OPTDIR@/libexec/vncterm-wrapper
 @OPTDIR@/libexec/xapi-health-check
 @OPTDIR@/libexec/xapi-rolling-upgrade
 @OPTDIR@/libexec/xha-lc
