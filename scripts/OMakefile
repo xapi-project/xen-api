@@ -76,7 +76,7 @@ install:
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
-	$(IPROG) vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)
