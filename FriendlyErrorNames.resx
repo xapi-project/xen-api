@@ -355,7 +355,7 @@
     <value>The device name {0} is invalid</value>
   </data>
   <data name="INVALID_EDITION" xml:space="preserve">
-    <value>The edition you supplied is invalid.</value>
+    <value>The license type you supplied is invalid.</value>
   </data>
   <data name="INVALID_PATCH" xml:space="preserve">
     <value>The uploaded update file is invalid</value>
@@ -393,6 +393,9 @@
   <data name="LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL" xml:space="preserve">
     <value>Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on servers separately.</value>
   </data>
+  <data name="LICENSE_CHECKOUT_ERROR" xml:space="preserve">
+    <value>The license type you requested is not available.</value>
+  </data>
   <data name="LICENSE_DOES_NOT_SUPPORT_POOLING" xml:space="preserve">
     <value>This server cannot join a pool because its license does not support pooling</value>
   </data>
@@ -404,6 +407,9 @@
   </data>
   <data name="LICENSE_FILE_DEPRECATED" xml:space="preserve">
     <value>This type of license file is for previous versions of XenServer. Please upgrade to the new licensing system.</value>
+  </data>
+  <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
+    <value>Host and pool have incompatible licenses.</value>
   </data>
   <data name="LICENSE_PROCESSING_ERROR" xml:space="preserve">
     <value>There was an error processing your license.  Please contact your support representative</value>
