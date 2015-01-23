@@ -354,6 +354,8 @@ module VM = struct
 		DB.write vm.Vm.id (s |> Jsonrpc.of_string |> Domain.t_of_rpc)
 
 	let minimum_reboot_delay = 0.
+
+	let request_rdp vm enabled = ()
 end
 
 module PCI = struct

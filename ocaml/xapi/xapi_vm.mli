@@ -246,3 +246,8 @@ val import_convert : __context:Context.t -> _type:string -> username:string -> p
 (** [query_services __context self] returns a Map of service type -> name label provided
 	by the specific VM. *)
 val query_services : __context:Context.t -> self:API.ref_VM -> (string * string) list
+
+val request_rdp_on : __context:Context.t -> vm:API.ref_VM -> unit
+val request_rdp_off: __context:Context.t -> vm:API.ref_VM -> unit
+
+val call_plugin : __context:Context.t -> vm:API.ref_VM -> plugin:string -> fn:string -> args:(string * string) list -> string
