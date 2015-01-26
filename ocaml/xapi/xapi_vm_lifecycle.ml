@@ -167,8 +167,8 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
 			| _ -> None
 
-(* templates support clone operations, destroy (if not default),
-   export, provision and memory settings change *)
+(* templates support clone operations, destroy and cross-pool migrate (if not default),
+   export, provision, and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
 	let default_template = 
 		bool_of_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config in
@@ -186,7 +186,7 @@ let check_template ~vmr ~op ~ref_str =
 	] in
 	if false
 		|| List.mem op allowed_operations
-		|| (op = `destroy && not default_template)
+		|| ((op = `destroy || op = `migrate_send) && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 

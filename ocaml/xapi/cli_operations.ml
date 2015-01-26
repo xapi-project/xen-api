@@ -2578,7 +2578,7 @@ let vm_migrate printer rpc session_id params =
 					let vdi_map = match default_sr with
 						| None -> vdi_map
 						| Some default_sr ->
-							  let vms = select_vms rpc session_id params
+							  let vms = select_vms ~include_template_vms:true rpc session_id params
 								  ( "host" :: "host-uuid" :: "host-name" :: "live"
 									:: vm_migrate_sxm_params ) in
 							  if vms = [] then failwith "No matching VMs found" ;
@@ -2606,7 +2606,7 @@ let vm_migrate printer rpc session_id params =
 						                           (Client.SR.get_uuid remote_rpc remote_session sr))))
 						vdi_map ;
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
-					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
+					ignore(do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
 						params (["host"; "host-uuid"; "host-name"; "live"] @ vm_migrate_sxm_params))
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
