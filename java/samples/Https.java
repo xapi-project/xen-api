@@ -77,7 +77,7 @@ public class Https extends TestBase
             connection = new Connection(url);
 
             // Log in
-            Session.loginWithPassword(connection, server.Username, server.Password, "1.3", "testRunner");
+            Session.loginWithPassword(connection, server.Username, server.Password, "1.3");
 
             // Print a record
             for (Host host : Host.getAllRecords(connection).keySet())

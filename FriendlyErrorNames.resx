@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AUTH_ALREADY_ENABLED" xml:space="preserve">
     <value>External authentication for this server is already enabled.</value>
@@ -194,6 +194,9 @@
   </data>
   <data name="DEVICE_DETACH_TIMEOUT" xml:space="preserve">
     <value>A timeout happened while attempting to detach a device {1} of type {0} from a VM</value>
+  </data>
+  <data name="DUPLICATE_MAC_SEED" xml:space="preserve">
+    <value>This MAC seed is already in use by a VM in the pool</value>
   </data>
   <data name="EVACUATE_NO_OTHER_HOSTS_FOR_MASTER" xml:space="preserve">
     <value>No other server available to nominate as master.  Please add or enable some other servers.</value>
@@ -352,7 +355,7 @@
     <value>The device name {0} is invalid</value>
   </data>
   <data name="INVALID_EDITION" xml:space="preserve">
-    <value>The edition you supplied is invalid. Valid editions are 'free', 'enterprise' and 'platinum'.</value>
+    <value>The license type you supplied is invalid.</value>
   </data>
   <data name="INVALID_PATCH" xml:space="preserve">
     <value>The uploaded update file is invalid</value>
@@ -390,6 +393,9 @@
   <data name="LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL" xml:space="preserve">
     <value>Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on servers separately.</value>
   </data>
+  <data name="LICENSE_CHECKOUT_ERROR" xml:space="preserve">
+    <value>The license type you requested is not available.</value>
+  </data>
   <data name="LICENSE_DOES_NOT_SUPPORT_POOLING" xml:space="preserve">
     <value>This server cannot join a pool because its license does not support pooling</value>
   </data>
@@ -401,6 +407,9 @@
   </data>
   <data name="LICENSE_FILE_DEPRECATED" xml:space="preserve">
     <value>This type of license file is for previous versions of XenServer. Please upgrade to the new licensing system.</value>
+  </data>
+  <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
+    <value>Host and pool have incompatible licenses.</value>
   </data>
   <data name="LICENSE_PROCESSING_ERROR" xml:space="preserve">
     <value>There was an error processing your license.  Please contact your support representative</value>
@@ -632,29 +641,119 @@ Authorized Roles: {1}</value>
   <data name="SR_BACKEND_FAILURE_400" xml:space="preserve">
     <value>The target server name or IP address is missing</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_401" xml:space="preserve">
+    <value>The Storage System ID is missing</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_402" xml:space="preserve">
+    <value>The Storage Pool ID is missing</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_41" xml:space="preserve">
     <value>The storage repository log operation failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_410" xml:space="preserve">
+    <value>The gssi operation to the CSLG server failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_411" xml:space="preserve">
+    <value>The SR loading operation failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_412" xml:space="preserve">
+    <value>An invalid storage protocol was specified</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_414" xml:space="preserve">
+    <value>Failed to probe SR</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_416" xml:space="preserve">
+    <value>Snapshot/Clone failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_417" xml:space="preserve">
+    <value>Storage assignment failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_418" xml:space="preserve">
+    <value>Storage un-assignment failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_419" xml:space="preserve">
+    <value>Storage allocation failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_42" xml:space="preserve">
     <value>The specified storage repository already exists</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_420" xml:space="preserve">
+    <value>Storage deallocation failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_421" xml:space="preserve">
+    <value>HBA Query failed</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_422" xml:space="preserve">
     <value>IQN/iSCSI initialization failed</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_423" xml:space="preserve">
+    <value>SCSI device scan failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_424" xml:space="preserve">
     <value>Failed to connect to target: please check the hostname or IP address</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_425" xml:space="preserve">
+    <value>The Storage Node ID is missing</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_426" xml:space="preserve">
+    <value>The VDI failed to be introduced to the database</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_427" xml:space="preserve">
+    <value>The CSLG software doesn't seem to be installed</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_428" xml:space="preserve">
     <value>Failed to create multiple sub-pools from parent pool</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_429" xml:space="preserve">
+    <value>Current XML definition is newer version</value>
   </data>
   <data name="SR_BACKEND_FAILURE_43" xml:space="preserve">
     <value>The specified VDI already exists</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_431" xml:space="preserve">
+    <value>Error in storage adapter communication</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_432" xml:space="preserve">
     <value>The adapter id is missing</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_433" xml:space="preserve">
+    <value>The username is missing</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_434" xml:space="preserve">
+    <value>The password is missing</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_435" xml:space="preserve">
+    <value>An invalid storage system ID was specified</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_436" xml:space="preserve">
+    <value>Failed to collect storage system information</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_437" xml:space="preserve">
+    <value>Failed to collect storage pool information</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_438" xml:space="preserve">
+    <value>Failed to delete storage pool</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_439" xml:space="preserve">
+    <value>Failed to collect storage volume information</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_44" xml:space="preserve">
     <value>The specified storage repository has insufficient space</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_440" xml:space="preserve">
+    <value>Failed to list storage volume</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_441" xml:space="preserve">
+    <value>Failed to resize storage volume</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_442" xml:space="preserve">
+    <value>Failed to list storage target ports</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_443" xml:space="preserve">
+    <value>Failed to list storage pool</value>
+  </data>
+  <data name="SR_BACKEND_FAILURE_444" xml:space="preserve">
+    <value>The tapdisk failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
     <value>XenServer does not support extended characters in CIFS paths, usernames, and passwords.</value>
@@ -818,6 +917,9 @@ Authorized Roles: {1}</value>
   <data name="SYSTEM_STATUS_RETRIEVAL_FAILED" xml:space="preserve">
     <value>Retrieving system status from the server failed.</value>
   </data>
+  <data name="UNIMPLEMENTED_IN_SM_BACKEND" xml:space="preserve">
+    <value>You have attempted a function which is not implemented</value>
+  </data>
   <data name="UNKNOWN_BOOTLOADER" xml:space="preserve">
     <value>The requested bootloader {1} for VM {0} is unknown</value>
   </data>
@@ -845,6 +947,9 @@ Authorized Roles: {1}</value>
   <data name="VCPUS_MAX_ALLOWED_TITLE" xml:space="preserve">
     <value>Maximum number of virtual CPUs allowed</value>
   </data>
+  <data name="VDI_COPY_FAILED" xml:space="preserve">
+    <value>The VDI copy action has failed</value>
+  </data>
   <data name="VDI_INCOMPATIBLE_TYPE" xml:space="preserve">
     <value>This operation cannot be performed because the specified virtual disk is of an incompatible type (e.g., an HA statefile cannot be attached to a VM)</value>
   </data>
@@ -867,7 +972,7 @@ Authorized Roles: {1}</value>
     <value>The operation required write access but VDI {0} is read-only</value>
   </data>
   <data name="VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE" xml:space="preserve">
-    <value>vGPU type is not compatible with one or more of the vGPU types currently running on this pGPU</value>
+    <value>The VM cannot start because all GPUs are fully used or are running other types of vGPU</value>
   </data>
   <data name="VGPU_TYPE_NOT_ENABLED" xml:space="preserve">
     <value>vGPU type is not one of the pGPU's enabled types.</value>
@@ -934,6 +1039,9 @@ Authorized Roles: {1}</value>
   </data>
   <data name="VM_REQUIRES_SR-SHORT" xml:space="preserve">
     <value>Cannot see required storage</value>
+  </data>
+  <data name="VM_REQUIRES_VGPU" xml:space="preserve">
+    <value>The VM cannot start because no GPU is available</value>
   </data>
   <data name="VM_REVERT_FAILED" xml:space="preserve">
     <value>An error occurred while reverting the specified virtual machine to the specified snapshot</value>

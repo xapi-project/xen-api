@@ -57,7 +57,7 @@ public class SessionReuse extends TestBase
         try
         {
             // Create a new Session, whose reference is stored in the Connection.
-            Session.loginWithPassword(connection1, server.Username, server.Password, "1.3", "testRunner");
+            Session.loginWithPassword(connection1, server.Username, server.Password, "1.3");
 
             // Re-use the Session in a second Connection object
             Connection connection2 = new Connection(url, connection1.getSessionReference());

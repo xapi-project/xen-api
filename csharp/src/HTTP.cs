@@ -36,11 +36,13 @@ using System.Net.Sockets;
 using System.Text;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Runtime.Serialization;
 
 namespace XenAPI
 {
     public partial class HTTP
     {
+        [Serializable]
         public class TooManyRedirectsException : Exception
         {
             private readonly int redirect;
@@ -51,17 +53,56 @@ namespace XenAPI
                 this.redirect = redirect;
                 this.uri = uri;
             }
+            
+            public TooManyRedirectsException() : base() { }
+
+            public TooManyRedirectsException(string message) : base(message) { }
+
+            public TooManyRedirectsException(string message, Exception exception) : base(message, exception) { }
+
+            protected TooManyRedirectsException(SerializationInfo info, StreamingContext context)
+                : base(info, context)
+            {
+                redirect = info.GetInt32("redirect");
+                uri = (Uri)info.GetValue("uri", typeof(Uri));
+            }
+
+            public override void GetObjectData(SerializationInfo info, StreamingContext context)
+            {
+                if (info == null)
+                {
+                    throw new ArgumentNullException("info");
+                }
+
+                info.AddValue("redirect", redirect);
+                info.AddValue("uri", uri, typeof(Uri));
+
+                base.GetObjectData(info, context);
+            }
         }
 
+        [Serializable]
         public class BadServerResponseException : Exception
         {
-            public BadServerResponseException(string msg)
-                : base(msg)
-            { }
+            public BadServerResponseException() : base() { }
+
+            public BadServerResponseException(string message) : base(message) { }
+
+            public BadServerResponseException(string message, Exception exception) : base(message, exception) { }
+
+            protected BadServerResponseException(SerializationInfo info, StreamingContext context) : base(info, context) { }
         }
 
+        [Serializable]
         public class CancelledException : Exception
         {
+            public CancelledException() : base() { }
+
+            public CancelledException(string message) : base(message) { }
+
+            public CancelledException(string message, Exception exception) : base(message, exception) { }
+
+            protected CancelledException(SerializationInfo info, StreamingContext context) : base(info, context) { }
         }
 
         public delegate bool FuncBool();

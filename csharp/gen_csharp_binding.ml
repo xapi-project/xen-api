@@ -819,11 +819,22 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Runtime.Serialization;
 using XenAdmin.Core;
 
 namespace XenAPI
 {
-    public class EventNextBlockedException : Exception { }
+    [Serializable]
+    public class EventNextBlockedException : Exception
+    {
+        public EventNextBlockedException() : base() { }
+
+        public EventNextBlockedException(string message) : base(message) { }
+
+        public EventNextBlockedException(string message, Exception exception) : base(message, exception) { }
+
+        protected EventNextBlockedException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+    }
 
     public static class XenObjectDownloader
     {
