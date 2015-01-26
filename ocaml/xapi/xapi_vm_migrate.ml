@@ -765,6 +765,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
+	let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
 
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
@@ -797,6 +798,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
+		let power_state = Db.VM.get_power_state ~__context ~self:vm in
+		(* The copy mode is only allow on stopped VM *)
+		if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
 		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		Helpers.assert_host_versions_not_decreasing ~__context

@@ -1192,8 +1192,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-migrate",
     {
       reqd=[];
-      optn=["live"; "host"; "host-uuid"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "force"; "vif:"; "vdi:"];
-      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. If you are migrating a VM to a remote pool, you will need to specify the remote-master, remote-username, and remote-password parameters. remote-master is the network address of the master host. To migrate to a particular host within a remote pool, you may additionally specify the host or host-uuid parameters. The vif and vdi mapping parameters take the form 'vif:<source vif uuid>=<dest network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. Unfortunately, destination uuids cannot be tab-completed.";
+      optn=["live"; "host"; "host-uuid"; "remote-master"; "remote-username"; "remote-password"; "remote-network"; "force"; "copy"; "vif:"; "vdi:"];
+      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. If you are migrating a VM to a remote pool, you will need to specify the remote-master, remote-username, and remote-password parameters. remote-master is the network address of the master host. To migrate to a particular host within a remote pool, you may additionally specify the host or host-uuid parameters. Also for cross-pool migration, setting 'copy=true' will enable the copy mode so that a stopped vm can be copied, instead of migrating, to the destination pool. The vif and vdi mapping parameters take the form 'vif:<source vif uuid>=<dest network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. Unfortunately, destination uuids cannot be tab-completed.";
       implementation=No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
     };
