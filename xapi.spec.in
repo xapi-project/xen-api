@@ -64,6 +64,10 @@ XCP toolstack.
 Summary: The xapi toolstack
 Group: System/Hypervisor
 Requires: busybox m2crypto net-tools
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+BuildRequires: systemd
 
 %description core
 This package contains the xapi toolstack.
@@ -157,6 +161,13 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
+%systemd_post cdrommon@.service
+
+%preun core
+%systemd_preun cdrommon@.service
+
+%postun core
+%systemd_postun_with_restart cdrommon@.service
 
 %post v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
@@ -293,6 +304,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
+%{_unitdir}/cdrommon@.service
 
 %files xe
 %defattr(-,root,root,-)
