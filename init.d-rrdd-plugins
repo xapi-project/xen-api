@@ -21,7 +21,6 @@ fi
 #CMD_PREFIX="@LIBEXECDIR@/${NAME}/"
 CMD_PREFIX="/opt/xensource/libexec/${NAME}/"
 
-# pidfile:
 PID_PREFIX="/var/run/"
 
 # lock file
