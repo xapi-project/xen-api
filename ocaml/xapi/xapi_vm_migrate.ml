@@ -656,10 +656,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		List.iter (fun mirror ->
 			ignore(Storage_access.unregister_mirror mirror)) !mirrors;
 
-		Rrdd_proxy.migrate_rrd ~__context ~remote_address ~session_id:(Ref.string_of session_id)
-			~vm_uuid:vm_uuid ~host_uuid:dest_host ();
+		if not copy then begin
+			Rrdd_proxy.migrate_rrd ~__context ~remote_address ~session_id:(Ref.string_of session_id)
+				~vm_uuid:vm_uuid ~host_uuid:dest_host ()
+		end;
 
-		if not is_intra_pool then begin
+		if not is_intra_pool && not copy then begin
 			(* Send non-database metadata *)
 			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid
 				~session_id ~remote_address:remote_master_address;
@@ -676,7 +678,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		Helpers.call_api_functions ~__context (fun rpc session_id -> 
 			List.iter (fun vdi -> 
-				if not (Xapi_fist.storage_motion_keep_vdi ()) 
+				if not (Xapi_fist.storage_motion_keep_vdi () || copy)
 				then begin
 					(* In a cross-pool migrate, due to the Xapi_xenops.with_events_suppressed call above, 
 					   the VBDs are left 'currently-attached=true', because they haven't been resynced
@@ -701,7 +703,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					XenAPI.VDI.destroy rpc session_id vdi
 				end else debug "Not destroying vdi: %s due to fist point" (Ref.string_of vdi))
 				!vdis_to_destroy;
-			if not is_intra_pool then begin
+			if not is_intra_pool && not copy then begin
 				info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
 				Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
 				destroy_vm_and_snapshots ~__context ~rpc ~session_id ~vm
