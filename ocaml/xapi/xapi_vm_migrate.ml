@@ -579,19 +579,23 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		TaskHelper.exn_if_cancelling ~__context;
 
-		if is_intra_pool 
-		then begin
-			List.iter
-				(fun vm' ->
-					intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
-					intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
-				vm_and_snapshots
-		end
-		else
+		let new_vm =
+			if is_intra_pool
+			then begin
+				List.iter
+					(fun vm' ->
+						intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
+						intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
+					vm_and_snapshots;
+				vm
+			end
+			else
 			(* Move the xapi VM metadata to the remote pool. *)
-			inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
-				~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
-				~vif_map ~dry_run:false ~live:true ~copy;
+				let vms =
+					inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
+						~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
+						~vif_map ~dry_run:false ~live:true ~copy in
+				List.hd vms in
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
@@ -605,9 +609,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				(fun self ->
 					Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
 		end;
-
-		(* Migrate the VM *)
-		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm_uuid in
 
 		(* Attach networks on remote *)
 		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:dest_host_ref ~vm:new_vm;
@@ -817,7 +818,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[dest_host]));
 
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
-		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy
+		try
+			assert (inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy = [])
 		with Xmlrpc_client.Connection_reset ->
 			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 

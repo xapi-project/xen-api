@@ -289,8 +289,11 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 							raise (Api_errors.Server_error(code, params))
 						| _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
 					end
-					| `success ->
-						debug "Remote metadata import succeeded"
+					| `success -> begin
+						debug "Remote metadata import succeeded";
+						let result = Client.Task.get_result rpc session_id remote_task in
+						API.Legacy.From.ref_VM_set "" (Xml.parse_string result)
+					end
 			)
 			(fun () -> Client.Task.destroy rpc session_id remote_task )
 	)
