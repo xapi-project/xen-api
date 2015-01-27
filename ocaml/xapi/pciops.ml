@@ -73,9 +73,15 @@ let unassign_all_for_vm ~__context vm =
 	let pcis = Db.VM.get_attached_PCIs ~__context ~self:vm in
 	List.iter (fun self -> Db.PCI.remove_attached_VMs ~__context ~self ~value:vm) pcis
 
+(* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
+(* It might be possible to refactor this but attempts so far have failed. *)
+let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x"
+let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
+let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
+
 let pcidev_of_pci ~__context pci =
-	let pci_id = Db.PCI.get_pci_id ~__context ~self:pci in
-	Scanf.sscanf pci_id "%04x:%02x:%02x.%01x" (fun a b c d -> (a, b, c, d))
+	let bdf_str = Db.PCI.get_pci_id ~__context ~self:pci in
+	Scanf.sscanf bdf_str bdf_fmt (fun a b c d -> (a, b, c, d))
 
 (* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
    xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
@@ -87,10 +93,10 @@ let sort_pcidevs devs =
 	) ids
 
 let of_string dev =
-	Scanf.sscanf dev "%d/%04x:%02x:%02x.%01x" (fun id a b c d -> (id, (a, b, c, d)))
+	Scanf.sscanf dev slash_bdf_scan_fmt (fun id a b c d -> (id, (a, b, c, d)))
 
 let to_string (id, (a, b, c, d)) =
-	Printf.sprintf "%d/%04x:%02x:%02x.%01x" id a b c d
+	Printf.sprintf slash_bdf_prnt_fmt id a b c d
 
 let other_pcidevs_of_vm ~__context other_config =
 	let devs =
