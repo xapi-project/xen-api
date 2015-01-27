@@ -285,12 +285,32 @@ let is_boot_file_whitelisted filename =
 let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 	let open Vm in
 
+	let localhost = Helpers.get_localhost ~__context in
+
+	let igd_is_whitelisted (_, (domain, bus, dev, fn)) =
+		let open Db_filter_types in
+		let target_pci_id = 
+			Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn in
+		match Db.PCI.get_refs_where ~__context
+                	~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+				(Eq (Field "pci_id", Literal target_pci_id)))) with
+		| pci_ref :: _ -> 
+			Xapi_pci_helpers.igd_is_whitelisted ~__context pci_ref
+		| _ -> false
+	in 
+
+        let igd_is_on_bus_zero (_, (_, bus, _, _)) = bus = 0 in
+
 	let video_mode =
 		(* If the vgpu keys are present for this VM, this overrides
 		 * the value of platform:vgpu. *)
 		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then Vgpu
+		else if List.exists 
+			(fun x -> igd_is_on_bus_zero x && igd_is_whitelisted x) 
+			(Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref) 
+		then IGD_passthrough
 		else
 			match string vm.API.vM_platform "cirrus" Platform.vga with
 			| "std" -> Standard_VGA
