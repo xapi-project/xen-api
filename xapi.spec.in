@@ -154,8 +154,6 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
 [ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add xenstored
-[ ! -x /sbin/chkconfig ] || chkconfig --add xenconsoled
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
@@ -176,8 +174,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xapi
 /etc/rc.d/init.d/xapi-domains
 @OPTDIR@/libexec/xapissl
-/etc/rc.d/init.d/xenstored
-/etc/rc.d/init.d/xenconsoled
 /etc/rc.d/init.d/genptoken
 /etc/rc.d/init.d/attach-static-vdis
 /etc/rc.d/init.d/save-boot-info

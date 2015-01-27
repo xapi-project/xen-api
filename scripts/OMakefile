@@ -43,8 +43,6 @@ install:
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
-	$(IPROG) init.d-xenstored $(DESTDIR)/etc/rc.d/init.d/xenstored
-	$(IPROG) init.d-xenconsoled $(DESTDIR)/etc/rc.d/init.d/xenconsoled
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
