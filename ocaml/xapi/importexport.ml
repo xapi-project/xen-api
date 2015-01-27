@@ -223,7 +223,7 @@ type vm_export_import = {
 }
 
 (* Copy VM metadata to a remote pool *)
-let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address which =
+let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~restore which =
 	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
 
 	let open Xmlrpc_client in
@@ -232,10 +232,12 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address wh
 		| `All -> "all=true"
 		| `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
 
-	let remote_import_request = match which with
-		| `All -> Printf.sprintf "%s?restore=true" Constants.import_metadata_uri
-		| `Only {vm=vm; live=live; dry_run=dry_run} ->
-			Printf.sprintf "%s?restore=true&live=%b&dry_run=%b" Constants.import_metadata_uri live dry_run in
+	let remote_import_request =
+		let params = match which with
+		| `All -> []
+		| `Only {vm=vm; live=live; dry_run=dry_run} -> [Printf.sprintf "live=%b" live; Printf.sprintf "dry_run=%b" dry_run] in
+		let params = Printf.sprintf "restore=%b" restore :: params in
+		Printf.sprintf "%s?%s" Constants.import_metadata_uri (String.concat "&" params) in
 
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of

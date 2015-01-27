@@ -217,7 +217,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
 				callback mirror_record.mr_remote_vdi_reference)
 		vdis_and_callbacks
 
-let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~vif_map ~dry_run ~live =
+let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~vif_map ~dry_run ~live ~copy =
 	List.iter (fun (vdi,mirror_record) ->
 		Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
 		Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
@@ -232,7 +232,7 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 	finally
 		(fun () ->
 			Importexport.remote_metadata_export_import ~__context
-				~rpc:remote_rpc ~session_id ~remote_address (`Only vm_export_import))
+				~rpc:remote_rpc ~session_id ~remote_address ~restore:(not copy) (`Only vm_export_import))
 		(fun () ->
 			(* Make sure we clean up the remote VDI and VIF mapping keys. *)
 			List.iter
@@ -299,6 +299,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 	let open Xapi_xenops in
+	let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -308,6 +309,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
 	let is_intra_pool = try ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref); true with _ -> false in
+
+	if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
@@ -588,7 +591,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			(* Move the xapi VM metadata to the remote pool. *)
 			inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
 				~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
-				~vif_map ~dry_run:false ~live:true;
+				~vif_map ~dry_run:false ~live:true ~copy;
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
@@ -814,7 +817,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[dest_host]));
 
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
-		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true
+		try inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy
 		with Xmlrpc_client.Connection_reset ->
 			raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote_address]))
 
