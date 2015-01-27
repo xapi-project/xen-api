@@ -1,0 +1,7 @@
+[Unit]
+Description=Monitor CDROM of %I
+
+[Service]
+Type=forking
+GuessMainPID=no
+ExecStart=/opt/xensource/libexec/cdrommon /dev/xapi/cd/%I
