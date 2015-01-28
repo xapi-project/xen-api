@@ -7791,6 +7791,14 @@ let pci =
 
 (** Physical GPUs (pGPU) *)
 
+let pgpu_dom0_access =
+	Enum ("pgpu_dom0_access", [
+		"enabled", "dom0 can access this device as normal";
+		"disable_on_reboot", "On host reboot dom0 will be blocked from accessing this device";
+		"disabled", "dom0 cannot access this device";
+		"enable_on_reboot", "On host reboot dom0 will be allowed to access this device";
+	])
+
 let pgpu =
 	let add_enabled_VGPU_types = call
 		~name:"add_enabled_VGPU_types"
@@ -7891,6 +7899,38 @@ let pgpu =
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
+	let enable_dom0_access = call
+		~name:"enable_dom0_access"
+		~lifecycle:[Published, rel_creedence, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be granted access";
+				param_release = creedence_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let disable_dom0_access = call
+		~name:"disable_dom0_access"
+		~lifecycle:[Published, rel_creedence, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be denied access";
+				param_release = creedence_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	create_obj
 		~name:_pgpu
 		~descr:"A physical GPU (pGPU)"
@@ -7905,6 +7945,8 @@ let pgpu =
 			set_enabled_VGPU_types;
 			set_GPU_group;
 			get_remaining_capacity;
+			enable_dom0_access;
+			disable_dom0_access;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
@@ -7920,6 +7962,7 @@ let pgpu =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_size)) "size" "Abstract size of this PGPU";
 			field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
+			field ~qualifier:DynamicRO ~ty:(pgpu_dom0_access) ~lifecycle:[Published, rel_creedence, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
 			]
 		()
 
