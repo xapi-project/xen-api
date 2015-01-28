@@ -1811,7 +1811,7 @@ module VM = struct
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
 		debug "Calling Xenlight.domain_destroy domid=%d" domid;
-		with_ctx (fun ctx -> Xenlight_events.async (Xenlight.Domain.destroy ctx domid)); 
+		with_ctx (fun ctx -> Xenlight.Domain.destroy ctx domid ());
 		debug "Call Xenlight.domain_destroy domid=%d completed" domid;
 
 		let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg in
