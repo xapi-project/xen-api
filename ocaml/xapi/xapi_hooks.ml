@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2015 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -14,22 +14,6 @@
 module D=Debug.Make(struct let name="xapi-hooks" end)
 open D
 
-(* Names of VM script hooks *)
-let scriptname__vm_pre_destroy  = "vm-pre-shutdown"
-let scriptname__vm_pre_migrate  = "vm-pre-migrate"
-let scriptname__vm_pre_start    = "vm-pre-start"
-let scriptname__vm_pre_reboot   = "vm-pre-reboot"
-let scriptname__vm_post_destroy  = "vm-post-destroy"
-
-(* VM Script hook reason codes *)
-let reason__clean_shutdown = "clean-shutdown"
-let reason__hard_shutdown  = "hard-shutdown"
-let reason__clean_reboot   = "clean-reboot"
-let reason__hard_reboot    = "hard-reboot"
-let reason__suspend        = "suspend"
-let reason__migrate_source = "source" (* passed to pre-migrate hook on source host *)
-let reason__revert         = "revert"
-
 (* Names of Host script hooks *)
 let scriptname__host_pre_declare_dead = "host-pre-declare-dead"
 let scriptname__host_post_declare_dead = "host-post-declare-dead"
@@ -39,6 +23,8 @@ let reason__assume_failed = "assume-failed"
 let reason__fenced = "fenced"
 let reason__dbdestroy = "dbdestroy"
 let reason__user = "user"
+let reason__clean_shutdown = "clean-shutdown"
+
 (* or clean-shutdown or clean-reboot *)
 
 (* Names of Pool script hooks *)
@@ -91,17 +77,6 @@ let execute_host_hook ~__context ~reason ~host =
 
 let execute_pool_hook ~__context ~reason =
   execute_hook ~__context ~args:[] ~reason
-
-let vm_pre_destroy ~__context ~reason ~vm =
-  execute_vm_hook ~__context ~script_name:scriptname__vm_pre_destroy ~reason ~vm
-let vm_pre_migrate ~__context ~reason ~vm =
-  execute_vm_hook ~__context ~script_name:scriptname__vm_pre_migrate ~reason ~vm
-let vm_pre_start ~__context ~reason ~vm =
-  execute_vm_hook ~__context ~script_name:scriptname__vm_pre_start ~reason ~vm
-let vm_pre_reboot ~__context ~reason ~vm =
-  execute_vm_hook ~__context ~script_name:scriptname__vm_pre_reboot ~reason ~vm
-let vm_post_destroy ~__context ~reason ~vm =
-  execute_vm_hook ~__context ~script_name:scriptname__vm_post_destroy ~reason ~vm
 
 let host_pre_declare_dead ~__context ~host ~reason = 
   execute_host_hook ~__context ~script_name:scriptname__host_pre_declare_dead ~reason ~host
