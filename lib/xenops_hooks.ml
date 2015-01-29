@@ -23,9 +23,11 @@ let hooks_dir = "/etc/xapi.d/"
 (* Names of VM script hooks *)
 let scriptname__vm_pre_destroy  = "vm-pre-shutdown"
 let scriptname__vm_pre_migrate  = "vm-pre-migrate"
+let scriptname__vm_post_migrate = "vm-post-migrate"
 let scriptname__vm_pre_start    = "vm-pre-start"
 let scriptname__vm_pre_reboot   = "vm-pre-reboot"
 let scriptname__vm_pre_resume   = "vm-pre-resume"
+let scriptname__vm_post_resume   = "vm-post-resume"
 let scriptname__vm_post_destroy  = "vm-post-destroy"
 
 (* VM Script hook reason codes *)
@@ -35,6 +37,7 @@ let reason__clean_reboot   = "clean-reboot"
 let reason__hard_reboot    = "hard-reboot"
 let reason__suspend        = "suspend"
 let reason__migrate_source = "source" (* passed to pre-migrate hook on source host *)
+let reason__migrate_dest   = "destination" (* passed to post-migrate hook on destination host *)
 let reason__none = "none"
 
 (* Exit codes: *)
@@ -77,21 +80,27 @@ let vm_pre_destroy ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_destroy ~reason ~id
 let vm_pre_migrate ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_migrate ~reason ~id
+let vm_post_migrate ~reason ~id =
+  execute_vm_hook ~script_name:scriptname__vm_post_migrate ~reason ~id
 let vm_pre_start ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_start ~reason ~id
 let vm_pre_reboot ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_reboot ~reason ~id
 let vm_pre_resume ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_resume ~reason ~id
+let vm_post_resume ~reason ~id =
+  execute_vm_hook ~script_name:scriptname__vm_post_resume ~reason ~id
 let vm_post_destroy ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
 
 type script =
 	| VM_pre_destroy
 	| VM_pre_migrate
+	| VM_post_migrate
 	| VM_pre_start
 	| VM_pre_reboot
 	| VM_pre_resume
+	| VM_post_resume
 	| VM_post_destroy
 with rpc
 
@@ -99,8 +108,10 @@ let vm ~script ~reason ~id =
 	let script_name = match script with
 		| VM_pre_destroy  -> scriptname__vm_pre_destroy
 		| VM_pre_migrate  -> scriptname__vm_pre_migrate
+		| VM_post_migrate -> scriptname__vm_post_migrate
 		| VM_pre_start    -> scriptname__vm_pre_start
 		| VM_pre_reboot   -> scriptname__vm_pre_reboot
 		| VM_pre_resume   -> scriptname__vm_pre_resume
+		| VM_post_resume  -> scriptname__vm_post_resume
 		| VM_post_destroy -> scriptname__vm_post_destroy in
 	execute_vm_hook ~script_name ~reason ~id

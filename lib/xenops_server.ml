@@ -862,7 +862,8 @@ let rec atomics_of_operation = function
 		] @ (atomics_of_operation (VM_restore_devices id)
 		) @ [
 			(* At this point the domain is considered survivable. *)
-			VM_set_domain_action_request(id, None)			
+			VM_set_domain_action_request(id, None);
+			VM_hook_script(id, Xenops_hooks.VM_post_resume, Xenops_hooks.reason__none);
 		]
 	| VBD_hotplug id ->
 		[
@@ -1348,7 +1349,8 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				perform_atomics ([
 				] @ (atomics_of_operation (VM_restore_devices id)) @ [
 					VM_unpause id;
-					VM_set_domain_action_request(id, None)
+					VM_set_domain_action_request(id, None);
+					VM_hook_script(id, Xenops_hooks.VM_post_migrate, Xenops_hooks.reason__migrate_dest);
 				]) t;
 
 				Handshake.send s Handshake.Success;
