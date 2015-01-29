@@ -703,16 +703,19 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 let request_rdp ~__context ~vm ~enabled =
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
 	let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
-	let is_feature_ts_on =
+	let is_feature_ts2_on =
 		match vm_gmr with
 			| None -> false
 			| Some vm_gmr ->
 				let other = vm_gmr.Db_actions.vM_guest_metrics_other in
 				try
-					List.assoc "feature-ts" other = "1"
+					match List.assoc "feature-ts2" other with
+					    | ""
+					    | "0" -> false
+					    | _ -> true
 				with Not_found -> false
 	in
-	if is_feature_ts_on
+	if is_feature_ts2_on
 	then
 		Xapi_xenops.request_rdp ~__context ~self:vm enabled
 	else raise Not_found
