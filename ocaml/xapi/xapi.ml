@@ -846,6 +846,9 @@ let server_init() =
           (* Grab the management IP address (wait forever for it if necessary) *)
           let ip = wait_for_management_ip_address ~__context in
 
+          debug "Start master_connection watchdog";
+          ignore (Master_connection.start_master_connection_watchdog ());
+
           debug "Attempting to communicate with master";
           (* Try to say hello to the pool *)
           begin match attempt_pool_hello ip with
