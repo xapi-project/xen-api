@@ -467,6 +467,11 @@ let default_viridian_key_value = "true"
 
 let device_id_key_name = "device_id"
 
+(* Key name for PCI device for Window Update control, goes in platform flags *)
+let pci_pv_key_name = "pci_pv"
+(* Disable if not explicitly set, including the scenario of importing, storage-motion, and host/pool upgrade *)
+let default_pci_pv_key_value = false
+
 (* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
 let machine_address_size_key_name = "machine-address-size"
 let machine_address_size_key_value = "36"

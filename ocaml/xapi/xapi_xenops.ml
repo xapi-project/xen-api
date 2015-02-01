@@ -54,6 +54,7 @@ module Platform = struct
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
+	let pci_pv = Xapi_globs.pci_pv_key_name
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -77,6 +78,7 @@ module Platform = struct
 		vgpu_pci_id;
 		vgpu_config;
 		vgpu_extra_args;
+		pci_pv;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -254,6 +256,36 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
                     List.map (String.strip String.isspace) l
                 with _ -> []
     in
+
+	let pci_emulations = pci_emulations @
+		let pcipv_enabled =
+			try
+				bool_of_string (List.assoc Xapi_globs.pci_pv_key_name vm.API.vM_platform)
+			with _ ->
+				Xapi_globs.default_pci_pv_key_value
+		in
+		if pcipv_enabled then
+			let name = Xapi_globs.pci_pv_key_name
+			and vendorid = 0x5853
+			and deviceid = 0xC000
+			and command = 3 (* IO and memory access *)
+			and status = 0
+			and revision = 1
+			and classcode = 0x000100 (* Storage device class, SCSI subclass *)
+			and headertype = 0
+			and subvendorid = 0x5853
+			and subsystemid = 0xC000
+			and interruputline = 0
+			and interruputpin = 3
+			in
+			let pcipv = Printf.sprintf "%s:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X"
+				name vendorid deviceid command status revision classcode
+				headertype subvendorid subsystemid interruputline interruputpin
+			in
+			[pcipv]
+		else
+			[]
+	in
 
 	match Helpers.boot_method_of_vm ~__context ~vm with
 		| Helpers.HVM { Helpers.timeoffset = t } -> HVM {
