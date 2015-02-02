@@ -41,6 +41,7 @@ type debug_info = string
 	connect a VBD backend to a VBD frontend *)
 type attach_info = {
 	params : string;
+	o_direct: bool;
 	xenstore_data : (string * string) list;
 }
 
