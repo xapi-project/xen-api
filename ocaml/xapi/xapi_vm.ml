@@ -204,6 +204,8 @@ let start ~__context ~vm ~start_paused ~force =
 	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
 	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
 
+	Db.VM.set_virt_hw_vn ~__context ~self:vm ~value:(get_vm_virt_hw_vn ~vm_record:vmr);
+
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
 	match vmr.API.vM_VGPUs with
