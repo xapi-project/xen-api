@@ -77,7 +77,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
-		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) ?(generation_id="0:0") () =
+		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) ?(generation_id="0:0") ?(virt_hw_vn=0L) () =
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
         ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
@@ -86,14 +86,14 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
-		~version ~generation_id
+		~version ~generation_id ~virt_hw_vn
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
 		?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
-		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) () = 
+		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) ?(virt_hw_vns=[]) () = 
 
-	Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
+	Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~virt_hw_vns
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
 		?(vLAN=(-1L)) ?(physical=true) ?(ip_configuration_mode=`None) ?(iP="") ?(netmask="")

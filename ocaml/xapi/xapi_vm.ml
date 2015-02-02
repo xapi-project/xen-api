@@ -194,7 +194,6 @@ let set_xenstore_data ~__context ~self ~value =
 let start ~__context ~vm ~start_paused ~force =
 	let vmr = Db.VM.get_record ~__context ~self:vm in
 	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
-
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
@@ -392,6 +391,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
+		~virt_hw_vn
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -443,6 +443,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
+		~virt_hw_vn
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in

@@ -1552,7 +1552,8 @@ let vm_create printer rpc session_id params =
 		~order:0L
 		~suspend_SR:Ref.null
 		~version:0L
-		~generation_id:"" in
+		~generation_id:""
+		~virt_hw_vn:0L in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 

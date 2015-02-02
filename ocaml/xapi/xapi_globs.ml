@@ -840,3 +840,5 @@ let read_external_config () =
 		D.info "Read global variables successfully from %s" xapi_globs_conf
 	end
 
+(* This set is used as an indicator to show the hardware virtual platform the current host have *)
+let host_virt_hw_vns = []

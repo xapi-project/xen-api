@@ -1647,6 +1647,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					~host_from:(Helpers.LocalObject source_host)
 					~host_to:(Helpers.LocalObject host);
 			end;
+			
+			Xapi_vm_helpers.assert_virt_hw_support
+				~__context
+				~vm:(vm)
+				~host_to:(Helpers.LocalObject host);
+
 			let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
 
 			(* Check that the VM is compatible with the host it is being migrated to. *)
