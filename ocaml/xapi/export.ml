@@ -378,7 +378,8 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~in
 
 	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms in
 	let hdr = Tar_unix.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
-	Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s
+	Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s;
+	Tar_unix.write_end s
 
 let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
   info "VM.export: VM = %s; preserve_power_state = '%s'"
@@ -497,9 +498,7 @@ let metadata_handler (req: Request.t) s _ =
 			List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
 			finally
                 (fun () -> export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs s)
- 				(fun () ->
- 					 List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs;
- 					 Tar_unix.write_end s);
+				(fun () -> List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs)
 		)
 
 let handler (req: Request.t) s _ =
