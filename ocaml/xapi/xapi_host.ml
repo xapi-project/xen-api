@@ -607,7 +607,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~local_cache_sr
 	~guest_VCPUs_params:[]
 	~display:`enabled
-	~virt_hw_vns:[]
+	~virt_hw_vns:Xapi_globs.host_virt_hw_vns
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
