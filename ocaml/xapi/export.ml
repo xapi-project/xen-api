@@ -486,19 +486,47 @@ let metadata_handler (req: Request.t) s _ =
 				raise (Api_errors.Server_error (Api_errors.operation_not_allowed, [ "Exporting metadata of a snapshot is not allowed" ]));
 
 			let task_id = Ref.string_of (Context.get_task_id __context) in
-			let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-				[ Http.Hdr.task_id ^ ": " ^ task_id;
-				"Server: "^Xapi_globs.xapi_user_agent;
-				content_type;
-				"Content-Disposition: attachment; filename=\"export.xva\""] in
+			let read_fd, write_fd = Unix.pipe () in
+			let export_error = ref None in
+			let writer_thread = Thread.create (fun () ->
+				(* lock all the VMs before exporting their metadata *)
+				List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
+				try
+					finally
+						(fun () -> export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs write_fd)
+						(fun () ->
+							Unix.close write_fd;
+							List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs)
+				with e ->
+					export_error := Some e)
+				()
+			in
+			let tar_data = Unixext.string_of_fd read_fd in
+			Thread.join writer_thread;
+			Unix.close read_fd;
+			match !export_error with
+			| None -> begin
+				let content_length = String.length tar_data in
 
-			Http_svr.headers s headers;
+				let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
+					[ Http.Hdr.task_id ^ ": " ^ task_id;
+					"Server: "^Xapi_globs.xapi_user_agent;
+					content_type;
+					"Content-Length: "^(string_of_int content_length);
+					"Content-Disposition: attachment; filename=\"export.xva\""] in
 
-			(* lock all the VMs before exporting their metadata *)
-			List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
-			finally
-                (fun () -> export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs s)
-				(fun () -> List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs)
+				Http_svr.headers s headers;
+
+				Unixext.really_write_string s tar_data
+			end
+			| Some e -> begin
+				let response_string = Http.Response.(to_wire_string internal_error) in
+				Unixext.really_write_string s response_string;
+				error
+					"Caught %s while exporting metadata - responding with HTTP 500"
+					(Printexc.to_string e);
+				raise e
+			end
 		)
 
 let handler (req: Request.t) s _ =
