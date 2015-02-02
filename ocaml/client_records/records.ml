@@ -880,6 +880,8 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
 			make_field ~name:"generation-id"
 				~get:(fun () -> (x ()).API.vM_generation_id) ();
+			make_field ~name:"virt-hw-vn"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_virt_hw_vn) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
@@ -1048,6 +1050,9 @@ let host_record rpc session_id host =
 				~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params) 
 				~add_to_map:(fun k v -> Client.Host.add_to_guest_VCPUs_params rpc session_id host k v)
 				~remove_from_map:(fun k -> Client.Host.remove_from_guest_VCPUs_params rpc session_id host k) ();
+			make_field ~name:"virt_hw_vns" 
+				~get:(fun () -> String.concat "; " (List.map Int64.to_string (x ()).API.host_virt_hw_vns)) 
+				~get_set:(fun () -> List.map Int64.to_string (x ()).API.host_virt_hw_vns) ();
 		]}
 
 let vdi_record rpc session_id vdi =
