@@ -91,9 +91,9 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
 		?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
-		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) ?(virt_hw_vns=[]) () = 
+		?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) () = 
 
-	Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~virt_hw_vns
+	Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
 		?(vLAN=(-1L)) ?(physical=true) ?(ip_configuration_mode=`None) ?(iP="") ?(netmask="")

@@ -836,8 +836,19 @@ let read_external_config () =
 		D.info "Read global variables successfully from %s" xapi_globs_conf
 	end
 
-(* This parameter means current hardware support Windows PV tool auto upgrade by create a specific PCI device *)
+(* VIRTUAL HARDWARE PLATFORM VERSIONS *)
+
+(* Zero is the implicit version offered by hosts older than this versioning concept. *)
+
+(* One is the first virtual hardware platform version to offer the
+   option of an emulated PCI device used to trigger a guest to install or
+   upgrade its PV tools (originally introduced to exploit the Windows
+   Update system). *)
 let win_auto_update_support = 1L
 
-(* This set is used as an indicator to show the hardware virtual platform the current host have *)
-let host_virt_hw_vns = [win_auto_update_support]
+(* When we add another version we shall probably need to update
+ * Xapi_vm_helpers.update_vm_virtual_hardware_platform_version and
+ * reconsider the place(s) from which we call it. *)
+
+(* This set is used as an indicator to show the virtual hardware platform versions the current host offers to its guests *)
+let host_virt_hw_vns = [0L; win_auto_update_support]
