@@ -836,5 +836,8 @@ let read_external_config () =
 		D.info "Read global variables successfully from %s" xapi_globs_conf
 	end
 
+(* This parameter means current hardware support Windows PV tool auto upgrade by create a specific PCI device *)
+let win_auto_update_support = 1L
+
 (* This set is used as an indicator to show the hardware virtual platform the current host have *)
-let host_virt_hw_vns = []
+let host_virt_hw_vns = [win_auto_update_support]

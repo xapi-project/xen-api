@@ -6885,7 +6885,7 @@ let vm =
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
-	field ~writer_roles:_R_VM_ADMIN ~qualifier:StaticRO ~in_product_since:rel_creedence ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware version the VM can running on";
+	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_creedence ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware version the VM can run on";
       ])
 	()
 

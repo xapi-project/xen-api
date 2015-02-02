@@ -1041,3 +1041,11 @@ let assert_virt_hw_support ~__context ~vm ~host_to =
 		if not (List.mem vm_virt_hw_vn host_virt_hw_vns) then
 			raise (Api_errors.Server_error (Api_errors.hardware_platform_version_6_5_SP1_required, []))
 	end
+
+let get_vm_virt_hw_vn ~vm_record =
+	let pcipv_enabled =
+		try
+			bool_of_string (List.assoc Xapi_globs.pci_pv_key_name vm_record.API.vM_platform)
+		with _ ->
+			Xapi_globs.default_pci_pv_key_value	in
+	if pcipv_enabled then Xapi_globs.win_auto_update_support else 0L
