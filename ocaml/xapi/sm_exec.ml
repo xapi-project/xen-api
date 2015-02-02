@@ -264,21 +264,23 @@ let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
 let parse_attach_result (xml : Xml.xml) = 
-	let info = XMLRPC.From.structure xml in
-	let params = XMLRPC.From.string (safe_assoc "params" info) in
-	let o_direct = XMLRPC.From.boolean (safe_assoc "o_direct" info) in
-	let xenstore_data = 
-		try
-			List.map (fun (x,y) -> (x,XMLRPC.From.string y))
-				(XMLRPC.From.structure (safe_assoc "xenstore_data" info))
-		with _ ->
-			[]
-	in
-	{
-		params;
-		o_direct;
-		xenstore_data;
-	}
+	rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
+		let info = XMLRPC.From.structure xml in
+		let params = XMLRPC.From.string (safe_assoc "params" info) in
+		let o_direct = XMLRPC.From.boolean (safe_assoc "o_direct" info) in
+		let xenstore_data =
+			try
+				List.map (fun (x,y) -> (x,XMLRPC.From.string y))
+					(XMLRPC.From.structure (safe_assoc "xenstore_data" info))
+			with _ ->
+				[]
+		in
+		{
+			params;
+			o_direct;
+			xenstore_data;
+		}
+	)
 
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
