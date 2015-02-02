@@ -96,6 +96,7 @@ let create ~__context ~name_label ~name_description
 		~suspend_SR
 		~version
 		~generation_id
+		~virt_hw_vn
 		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -162,6 +163,7 @@ let create ~__context ~name_label ~name_description
 		~suspend_SR
 		~version
 		~generation_id
+		~virt_hw_vn
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -1025,3 +1027,22 @@ let vm_fresh_genid ~__context ~self =
 	debug "Refreshing GenID for VM %s to %s" uuid new_genid;
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
+
+
+let assert_virt_hw_support ~__context ~vm ~host_to =
+	let vm_virt_hw_vn = Db.VM.get_virt_hw_vn ~__context ~self:vm in
+	if not (vm_virt_hw_vn = 0L)
+	then begin			
+		let host_virt_hw_vns = 
+		try
+			match host_to with
+	        | Helpers.LocalObject host_ref ->
+	        	Db.Host.get_virt_hw_vns ~__context ~self:host_ref
+	        | Helpers.RemoteObject (rpc, session_id, host_ref) ->
+	        	Client.Client.Host.get_virt_hw_vns ~rpc ~session_id ~self:host_ref
+	    with Not_found ->
+	    	[] in
+		
+		if not (List.mem vm_virt_hw_vn host_virt_hw_vns) then
+			raise (Api_errors.Server_error (Api_errors.hardware_platform_version_6_5_SP1_required, []))
+	end
