@@ -204,7 +204,9 @@ let start ~__context ~vm ~start_paused ~force =
 	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
 	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
 
-	Db.VM.set_virt_hw_vn ~__context ~self:vm ~value:(get_vm_virt_hw_vn ~vm_record:vmr);
+	(* This makes sense here while the available versions are 0 and 1.
+	 * If/when we introduce version 2, we must reassess this. *)
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)

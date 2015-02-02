@@ -565,7 +565,7 @@ let is_host_alive ~__context ~host =
 	false
   end
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~virt_hw_vns =
+let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info =
 
   let make_new_metrics_object ref =
 	Db.Host_metrics.create ~__context ~ref
@@ -577,6 +577,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
   let metrics = Ref.make () in
   make_new_metrics_object metrics;
 
+  let host_is_us = (uuid=(Helpers.get_localhost_uuid ())) in
   Db.Host.create ~__context ~ref:host
 	~current_operations:[] ~allowed_operations:[]
 	~software_version:Xapi_globs.software_version
@@ -606,11 +607,11 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~power_on_config:[]
 	~local_cache_sr
 	~guest_VCPUs_params:[]
-	~virt_hw_vns:Xapi_globs.host_virt_hw_vns
+	~virt_hw_vns:(if host_is_us then Xapi_globs.host_virt_hw_vns else [0L])
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
-  Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
+  Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us;
   host
 
 let precheck_destroy_declare_dead ~__context ~self call =

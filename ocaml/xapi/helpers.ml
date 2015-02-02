@@ -1153,3 +1153,11 @@ let force_loopback_vbd ~__context =
 	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
 	List.mem_assoc "force_loopback_vbd" other_config
 
+let is_true ~key ~pairlist ~default =
+	try
+		match List.assoc key pairlist with
+		| "true" | "1" -> true
+		| "false" | "0" -> false
+		| _ -> default
+	with Not_found ->
+		default
