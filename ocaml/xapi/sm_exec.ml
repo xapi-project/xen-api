@@ -266,6 +266,7 @@ let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 let parse_attach_result (xml : Xml.xml) = 
 	let info = XMLRPC.From.structure xml in
 	let params = XMLRPC.From.string (safe_assoc "params" info) in
+	let o_direct = XMLRPC.From.boolean (safe_assoc "o_direct" info) in
 	let xenstore_data = 
 		try
 			List.map (fun (x,y) -> (x,XMLRPC.From.string y))
@@ -274,8 +275,9 @@ let parse_attach_result (xml : Xml.xml) =
 			[]
 	in
 	{
-		params=params;
-		xenstore_data = xenstore_data; 
+		params;
+		o_direct;
+		xenstore_data;
 	}
 
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
