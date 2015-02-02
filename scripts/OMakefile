@@ -125,12 +125,15 @@ install:
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/iovirt $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
 
 sdk-install: install
 	mkdir -p $(SDK)
