@@ -912,6 +912,9 @@ let other_options = [
 
 let all_options = options_of_xapi_globs_spec @ other_options
 
+(* This set is used as an indicator to show the hardware virtual platform the current host have *)
+let host_virt_hw_vns = []
+
 module Resources = struct
 
 	let essential_executables = [
