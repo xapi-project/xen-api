@@ -92,6 +92,7 @@ let refresh_localhost_info ~__context info =
 
     Db.Host.remove_from_other_config ~__context ~self:host ~key:boot_time_key;
     Db.Host.add_to_other_config ~__context ~self:host ~key:boot_time_key ~value:boot_time_value;
+    Db.Host.set_virt_hw_vns ~__context ~self:host ~value:Xapi_globs.host_virt_hw_vns;
 
     let agent_start_key = "agent_start_time" in 
     let agent_start_time = string_of_float (Unix.time ()) in
