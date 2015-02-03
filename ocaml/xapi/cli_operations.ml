@@ -2606,8 +2606,11 @@ let vm_migrate printer rpc session_id params =
 						                           (Client.SR.get_uuid remote_rpc remote_session sr))))
 						vdi_map ;
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
-					ignore(do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
-						params (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"] @ vm_migrate_sxm_params))
+					let new_vm =
+						do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
+							params (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"] @ vm_migrate_sxm_params) |> List.hd in
+					if get_bool_param params "copy" then
+						printer (Cli_printer.PList [Client.VM.get_uuid remote_rpc remote_session new_vm])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin

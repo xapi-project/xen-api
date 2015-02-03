@@ -2231,6 +2231,7 @@ let vm_migrate_send = call
 		   Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
 		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
+  ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
   ~errs:[Api_errors.vm_bad_power_state]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()

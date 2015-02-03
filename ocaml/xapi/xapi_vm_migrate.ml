@@ -709,6 +709,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				destroy_vm_and_snapshots ~__context ~rpc ~session_id ~vm
 			end);
 		SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
+		new_vm
 	with e ->
 		error "Caught %s: cleaning up" (Printexc.to_string e);
 
@@ -974,6 +975,6 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
 		assert_can_migrate ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[];
-		migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[]
+		ignore(migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[])
 	) ;
 	Db.VBD.get_VDI ~__context ~self:vbd
