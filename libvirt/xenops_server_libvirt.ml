@@ -459,7 +459,7 @@ module VBD = struct
 	| None ->
 		None
 	| Some (Local path) ->
-		Some { Storage_interface.params=path; xenstore_data=[]; }
+		Some { Storage_interface.params=path; o_direct=true; xenstore_data=[]; }
 	| Some (VDI path) ->
 		let sr, vdi = Storage.get_disk_by_name task path in
 		let vm = fst vbd.Vbd.id in
