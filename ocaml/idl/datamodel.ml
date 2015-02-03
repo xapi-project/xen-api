@@ -3827,6 +3827,7 @@ let host_create_params =
     {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
     {param_type=Ref _sr; param_name="local_cache_sr"; param_doc="The SR that is used as a local cache"; param_release=cowley_release; param_default=(Some (VRef (Ref.string_of Ref.null)))};
     {param_type=Map(String,String); param_name="chipset_info"; param_doc="Information about chipset features"; param_release=boston_release; param_default=Some(VMap [])};
+    {param_type=(Set(Int)); param_name="virt_hw_vns"; param_doc="Information about Virtual Hardware Platform Version"; param_release=creedence_release; param_default=Some(VSet [])};
   ]
 
 let host_create = call
@@ -4358,6 +4359,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
+	field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VSet [])) ~ty:(Set (Int)) "virt_hw_vns" "The virtual hardware versions have";
  ])
 	()
 
@@ -6883,6 +6885,7 @@ let vm =
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
+	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_creedence ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware version the VM can run on";
       ])
 	()
 

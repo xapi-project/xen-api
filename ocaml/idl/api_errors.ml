@@ -38,6 +38,7 @@ let change_password_rejected = "CHANGE_PASSWORD_REJECTED"
 let user_is_not_local_superuser = "USER_IS_NOT_LOCAL_SUPERUSER"
 let cannot_contact_host = "CANNOT_CONTACT_HOST"
 let not_supported_during_upgrade = "NOT_SUPPORTED_DURING_UPGRADE"
+let hardware_platform_version_6_5_SP1_required= "HARDWARE_PLATFORM_VERSION_6_5_SP1_REQUIRED"
 
 let handle_invalid = "HANDLE_INVALID"
 let uuid_invalid = "UUID_INVALID"
