@@ -116,4 +116,4 @@ let get_host_pcis pci_db =
 	in
 	link_related_pcis [] pcis
 
-let is_hidden_from_dom0 pci = true
+let is_hidden_from_dom0 ~__context pci = Pciops.is_pci_hidden ~__context pci
