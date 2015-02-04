@@ -87,13 +87,7 @@ module Platform = struct
 
 	(* Helper functions. *)
 	let is_true ~key ~platformdata ~default =
-		try
-			match List.assoc key platformdata with
-			| "true" | "1" -> true
-			| "false" | "0" -> false
-			| _ -> default
-		with Not_found ->
-			default
+		Helpers.is_true ~key ~pairlist:platformdata ~default
 
 	let sanity_check ~platformdata ~filter_out_unknowns =
 		(* Filter out unknown flags, if applicable *)
@@ -258,13 +252,7 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
     in
 
 	let pci_emulations = pci_emulations @
-		let pcipv_enabled =
-			try
-				bool_of_string (List.assoc Xapi_globs.pci_pv_key_name vm.API.vM_platform)
-			with _ ->
-				Xapi_globs.default_pci_pv_key_value
-		in
-		if pcipv_enabled then
+		if Xapi_vm_helpers.is_pci_pv_enabled vm.API.vM_platform then
 			let name = Xapi_globs.pci_pv_key_name
 			and vendorid = 0x5853
 			and deviceid = 0xC000
