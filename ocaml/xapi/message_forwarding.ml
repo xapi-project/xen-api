@@ -887,6 +887,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				  Early_wakeup.broadcast (Datamodel._host, Ref.string_of host);
 			| None -> ()
 
+		let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
+			if true
+				&& (snapshot.API.vM_ha_restart_priority = Constants.ha_restart)
+				&& (not snapshot.API.vM_ha_always_run)
+			then
+				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm
+			else
+				Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, (vm, snapshot)] ()
+
 		(* README: Note on locking -- forward_to_suitable_host and reserve_memory_for_vm are only
 		   called in a context where the current_operations field for the VM object contains the
 		   operation we're considering. Thus the global_lock in this context is _not_ used to cover
@@ -904,11 +913,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
 					(* HA overcommit protection: we can either perform 'n' HA plans by including this in
 					   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
-					if snapshot.API.vM_ha_restart_priority = Constants.ha_restart
-					then
-						Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm
-					else
-						Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, (vm, snapshot)] ();
+					check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
 					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
 					host) in
 			finally
@@ -928,11 +933,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(* NB in the case of migrate although we are about to increase free memory on the sending host
 					   we ignore this because if a failure happens while a VM is in-flight it will still be considered
 					   on both hosts, potentially breaking the failover plan. *)
-					if snapshot.API.vM_ha_restart_priority = Constants.ha_restart
-					then
-						Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm
-					else
-						Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, (vm, snapshot)] ();
+					check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
 					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ());
 			finally f
 				(fun () ->
