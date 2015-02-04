@@ -135,6 +135,23 @@ module Domain = struct
 			| _  -> debug "Ignoring unexpected watch: %s" path
   end
 
+  let remove_gone_domains_cache xc =
+		let open Xenctrl.Domain_info in
+		let current_domains = Xenctrl.domain_getinfolist xc 0 in
+		Mutex.execute m
+		(fun () ->
+			try
+				let alive_domids = List.map (fun d -> d.domid) current_domains in
+  				let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) cache [] in
+  				let gone_domids = set_difference known_domids alive_domids in
+  				List.iter
+				(fun d ->
+					debug "Remove domid %d in cache" d;
+					Hashtbl.remove cache d
+				) gone_domids
+  			with _ -> ()
+		)
+
   module Watcher = Xenstore_watch.WatchXenstore(MemoryActions)
 
   let start_watch_xenstore_thread () = ignore (Watcher.create_watcher_thread ())
@@ -454,6 +471,7 @@ let make_host ~verbose ~xc ~xs =
 	(* Externally-visible side-effects. It's a bit ugly to include these here: *)
 	update_cooperative_table host;
 	update_cooperative_flags cnx;
+	Domain.remove_gone_domains_cache xc;
 
 	(* It's always safe to _decrease_ a domain's maxmem towards target. This catches the case
 	   where a toolstack creates a domain with maxmem = static_max and target < static_max (eg
