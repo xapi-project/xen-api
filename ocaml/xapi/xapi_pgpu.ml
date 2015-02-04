@@ -63,7 +63,7 @@ let update_gpus ~__context ~host =
 			let supported_VGPU_types =
 				let pci_addr =  Db.PCI.get_pci_id ~__context ~self:pci in
 				if system_display_device = (Some pci_addr)
-				&& not (Xapi_pci_helpers.is_hidden_from_dom0 pci && igd_is_whitelisted pci)
+				&& not (Xapi_pci_helpers.is_hidden_from_dom0 ~__context pci && igd_is_whitelisted pci)
 				then []
 				else Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
 			in
