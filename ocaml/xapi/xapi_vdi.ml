@@ -94,9 +94,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 			(* If the VBD is currently_attached then some operations can still be performed ie:
 			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
-			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
+			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831)
+			   VDI.revert is allowed as checkpoints have currently_attached VBDs. *)
 			let operation_can_be_performed_live = match op with
-			| `snapshot | `resize_online | `blocked | `clone -> true
+			| `snapshot | `resize_online | `blocked | `clone | `revert -> true
 			| _ -> false in
 
 			let operation_can_be_performed_with_ro_attach =
@@ -130,7 +131,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
 					else None
-				| `destroy ->
+				| `destroy | `reverting ->
 					if sr_type = "udev"
 					then Some (Api_errors.vdi_is_a_physical_device, [_ref])
 					else
@@ -177,6 +178,16 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					if not Smint.(has_capability Vdi_clone sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
+				| `revert -> begin
+					match
+						record.Db_actions.vDI_is_a_snapshot,
+						Smint.(has_capability Vdi_clone sm_features)
+					with
+					| true, true -> None
+					| _, false ->
+						Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					| false, true -> Some (Api_errors.only_revert_snapshot, [])
+				end
 				| _ -> None
 			)
 
@@ -428,6 +439,11 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
 			  name_label = a.Db_actions.vDI_name_label;
 			  name_description = a.Db_actions.vDI_name_description;
 			  sm_config = driver_params;
+				is_a_snapshot = a.Db_actions.vDI_is_a_snapshot;
+				snapshot_of =
+					if Db.is_valid_ref __context a.Db_actions.vDI_snapshot_of
+					then Db.VDI.get_uuid ~__context ~self:a.Db_actions.vDI_snapshot_of
+					else "";
 			  snapshot_time = Date.to_string (Date.of_float (Unix.gettimeofday ()));
 	  } in
 	  let sr' = Db.SR.get_uuid ~__context ~self:sR in
@@ -570,6 +586,16 @@ let clone ~__context ~vdi ~driver_params =
        raise e)
 		)
 
+let revert ~__context ~snapshot ~driver_params =
+	let new_vdi = Storage_access.transform_storage_exn
+		(fun () ->
+			let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+			snapshot_and_clone
+				(fun ~dbg ~sr ~vdi_info -> C.VDI.revert ~dbg ~sr ~snapshot_info:vdi_info)
+				~__context ~vdi:snapshot ~driver_params)
+	in
+	update_allowed_operations ~__context ~self:new_vdi;
+	new_vdi
 
 let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
 	Xapi_vdi_helpers.assert_managed ~__context ~vdi;
