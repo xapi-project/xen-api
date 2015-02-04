@@ -1078,7 +1078,10 @@ let deactivate_and_detach ~__context ~vbd ~domid =
 			on_vdi ~__context ~vbd ~domid
 				(fun rpc dbg dp sr vdi ->
 					let module C = Storage_interface.Client(struct let rpc = rpc end) in
-					C.DP.destroy dbg dp false
+					try
+						C.DP.destroy dbg dp false
+					with Storage_interface.Sr_not_attached(_) as e ->
+						debug "Storage_access.deactivate_and_detach: DP.destroy failed with %s; continuing" (Printexc.to_string e)
 				)
 		)
 
