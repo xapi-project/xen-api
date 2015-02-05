@@ -35,7 +35,6 @@ let base_suite =
 			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
 			Test_xenopsd_io.test;
-			Test_workload_balancing.test;
 		]
 
 let _ = run_test_tt_main base_suite

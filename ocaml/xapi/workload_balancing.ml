@@ -73,21 +73,11 @@ let raise_internal_error args =
 
 let split_host_port url =
   try
-    if url.[0] = '[' then (* IPv6 *)
-      begin
-          let host_end = String.rindex url ']' in
-          if url.[host_end + 1] <> ':' then
-              raise_url_invalid url;
-          let host = String.sub url 1 (host_end - 1) in
-          let port = String.sub url (host_end + 2) (String.length url - host_end - 2) in
+    match String.split_f (fun a -> a = ':') url with
+      | [host; port] ->
           (host, int_of_string port)
-      end
-    else
-      match String.split_f (fun a -> a = ':') url with
-        | [host; port] ->
-            (host, int_of_string port)
-        | _ ->
-            raise_url_invalid url
+      | _ ->
+          raise_url_invalid url
   with
     | _ -> raise_url_invalid url
 
