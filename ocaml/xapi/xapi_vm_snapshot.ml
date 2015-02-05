@@ -271,7 +271,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	let snap_vbds = Db.VM.get_VBDs ~__context ~self:snapshot in
 	let snap_vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) snap_vbds in
 	let snap_vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_vbds_without_cd in
-	let vdi_snap_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_vdis in
+	let vdis_snap_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_vdis in
 	let snap_vifs = Db.VM.get_VIFs ~__context ~self:snapshot in
 	let snap_vgpus = Db.VM.get_VGPUs ~__context ~self:snapshot in
 	let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
@@ -280,10 +280,14 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	(* Filter VBDs to ensure that we don't read empty CDROMs *)
 	let vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) vm_VBDs in
 	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_without_cd in
-	let vm_VDIs = List.filter (fun vdi -> List.mem vdi vdi_snap_of) vm_VDIs in
+	let vm_VDIs = List.filter (fun vdi -> List.mem vdi vdis_snap_of) vm_VDIs in
 	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
 	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
 	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+
+	let oldvdi_to_snapshots_map = List.map (fun vdi -> let snaps = Db.VDI.get_snapshots ~__context ~self:vdi in
+		(vdi, snaps)
+	) vm_VDIs in
 
 	(* clone all the disks of the snapshot *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -295,8 +299,15 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 
 		debug "Cloning the snapshoted disks";
 		let driver_params = Xapi_vm_clone.make_driver_params () in
-		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds driver_params in
+		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds_without_cd driver_params in
 		TaskHelper.set_progress ~__context 0.5;
+
+		debug "Updating the snapshot_of fields for relevant VDIs";
+		let oldvdi_to_newvdi_map = List.map2 (fun oldvdi (_, newvdi, _) -> (oldvdi,newvdi)) vdis_snap_of cloned_disks in
+		List.iter (fun (oldvdi, snaps) ->
+			let newvdi = List.assoc oldvdi oldvdi_to_newvdi_map in
+			List.iter (fun s -> Db.VDI.set_snapshot_of ~__context ~self:s ~value:newvdi) snaps
+		) oldvdi_to_snapshots_map;
 
 		debug "Cloning the suspend VDI if needed";
 		let cloned_suspend_VDI =
