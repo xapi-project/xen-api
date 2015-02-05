@@ -297,8 +297,6 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 		List.exists (Xapi_pci_helpers.igd_is_whitelisted ~__context) pci_refs
 	in 
 
-        let igd_is_on_bus_zero (_, (_, bus, _, _)) = bus = 0 in
-
 	let video_mode =
 		(* If the vgpu keys are present for this VM, this overrides
 		 * the value of platform:vgpu. *)
@@ -306,7 +304,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then Vgpu
 		else if List.exists 
-			(fun x -> igd_is_on_bus_zero x && igd_is_whitelisted x) 
+			(fun pci -> Pciops.bus_of pci = 0 && igd_is_whitelisted pci) 
 			(Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref) 
 		then IGD_passthrough
 		else
