@@ -851,4 +851,4 @@ let win_auto_update_support = 1L
  * reconsider the place(s) from which we call it. *)
 
 (* This set is used as an indicator to show the virtual hardware platform versions the current host offers to its guests *)
-let host_virt_hw_vns = [0L; win_auto_update_support]
+let host_virtual_hardware_platform_versions = [0L; win_auto_update_support]
