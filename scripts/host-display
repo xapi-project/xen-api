@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+"""
+This script can be used to enable, disable or query the status of dom0 and
+xen's use of the primary display device.
+
+n.b. the value returned by the "status" command will be correct as of the next
+boot (assuming that the boot config is not modified further), and is not
+necessarily correct at the time this script is called.
+"""
+
+import os
+import os.path
+import subprocess
+import sys
+import syslog
+from xcp.bootloader import Bootloader
+
+COMMAND_NAME = sys.argv[0]
+SHORT_COMMAND_NAME = os.path.basename(COMMAND_NAME)
+
+XE_SERIAL = 'xe-serial'
+XEN_CMDLINE = '/opt/xensource/libexec/xen-cmdline'
+
+def send_to_syslog(msg):
+    """ Send a message to syslog. """
+    pid = os.getpid()
+    syslog.syslog("%s[%d] - %s" %(SHORT_COMMAND_NAME, pid, msg))
+
+def doexec(args):
+    """Execute a subprocess, then return its return code, stdout and stderr"""
+    send_to_syslog(args)
+    proc = subprocess.Popen(
+        args,
+        stdin=None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=True)
+    rc = proc.wait()
+    stdout = proc.stdout
+    stderr = proc.stderr
+    return (rc, stdout, stderr)
+
+def disable(bootloader):
+    """
+        Configure the host not to output its console to the physical display on
+        next boot.
+    """
+    if bootloader.default == XE_SERIAL:
+        doexec([XEN_CMDLINE, "--set-xen", "console=com1"])
+    else:
+        doexec([XEN_CMDLINE, "--delete-dom0", "console=tty0"])
+        doexec([XEN_CMDLINE, "--delete-xen", "console"])
+
+def enable(bootloader):
+    """
+        Configure the host to output its console to the physical display on
+        next boot.
+    """
+    if bootloader.default == XE_SERIAL:
+        doexec([XEN_CMDLINE, "--set-xen", "console=com1,vga"])
+    else:
+        doexec([XEN_CMDLINE, "--set-xen", "console=vga"])
+        doexec([XEN_CMDLINE, "--set-dom0", "console=tty0"])
+
+def status(_):
+    """
+        Determine from the bootloader config whether the host is currently
+        configured to output its console to the physical display.
+    """
+    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
+    if "vga" in stdout.readline().strip():
+        sys.stdout.write("enabled")
+    else:
+        sys.stdout.write("disabled")
+
+COMMANDS = {
+    'disable': disable,
+    'enable': enable,
+    'status': status
+}
+
+def usage():
+    """ Display a usage string. """
+    command_names = COMMANDS.keys()
+    command_names.sort()
+    print "Usage:"
+    print "    %s {%s}" % (sys.argv[0], '|'.join(command_names))
+
+def main():
+    """ Program entry point. """
+    if len(sys.argv) == 2 and sys.argv[1] in COMMANDS.keys():
+        bootloader = Bootloader.loadExisting()
+        command = COMMANDS[sys.argv[1]]
+        command(bootloader)
+    else:
+        usage()
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
