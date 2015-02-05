@@ -989,7 +989,7 @@ module VBD = struct
 							then format_of_string (List.assoc "format" xd)
 							else Xenlight.DISK_FORMAT_QCOW2 in (* FIXME *)
 						Xenlight.DISK_BACKEND_QDISK, format, None
-					| "blkback" ->
+					| "vbd" ->
 						Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
 					| x ->
 						failwith (Printf.sprintf "libxl doesn't support backend-kind=%s" x)
