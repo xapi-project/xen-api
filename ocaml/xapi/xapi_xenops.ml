@@ -1837,6 +1837,16 @@ let unpause ~__context ~self =
 			assert (Db.VM.get_power_state ~__context ~self = `Running)
 		)
 
+let request_rdp ~__context ~self enabled =
+	transform_xenops_exn ~__context
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.request_rdp %s %b" id enabled;
+			let dbg = Context.string_of_task __context in
+			Client.VM.request_rdp dbg id enabled |> sync_with_task __context;
+			Events_from_xenopsd.wait dbg id ()
+		)
+
 let set_xenstore_data ~__context ~self xsdata =
 	transform_xenops_exn ~__context
 		(fun () ->

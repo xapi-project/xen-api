@@ -1523,6 +1523,18 @@ module VM = struct
 		DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
 
 	let minimum_reboot_delay = 120.
+
+	let request_rdp vm enabled =
+		let uuid = uuid_of_vm vm in
+		with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest uuid with
+					| None -> raise (Does_not_exist("domain", vm.Vm.id))
+					| Some di ->
+						let path = Printf.sprintf "/local/domain/%d/control/ts" di.domid in
+						xs.Xs.write path (if enabled then "1" else "0")
+			)
+
 end
 
 let on_frontend f domain_selection frontend =
@@ -2185,6 +2197,7 @@ module Actions = struct
 	let interesting_paths_for_domain domid uuid =
 		let open Printf in [
 			sprintf "/local/domain/%d/data/updated" domid;
+			sprintf "/local/domain/%d/data/ts" domid;
 			sprintf "/local/domain/%d/memory/target" domid;
 			sprintf "/local/domain/%d/memory/uncooperative" domid;
 			sprintf "/local/domain/%d/console/vnc-port" domid;

@@ -696,6 +696,51 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 	if power_state = `Running
 	then Xapi_xenops.set_memory_dynamic_range ~__context ~self min max
 
+let request_rdp ~__context ~vm ~enabled =
+	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+	let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
+	let is_feature_ts2_on =
+		match vm_gmr with
+			| None -> false
+			| Some vm_gmr ->
+				let other = vm_gmr.Db_actions.vM_guest_metrics_other in
+				try
+					match List.assoc "feature-ts2" other with
+					    | ""
+					    | "0" -> false
+					    | _ -> true
+				with Not_found -> false
+	in
+	if is_feature_ts2_on
+	then
+		Xapi_xenops.request_rdp ~__context ~self:vm enabled
+	else raise Not_found
+
+let request_rdp_on ~__context ~vm =
+	request_rdp ~__context ~vm ~enabled:true
+
+let request_rdp_off ~__context ~vm =
+	request_rdp ~__context ~vm ~enabled:false
+
+(* this is the generic plugin call available to xapi users *)
+let call_plugin ~__context ~vm ~plugin ~fn ~args =
+	if plugin <> "guest-agent-operation" then
+		raise (Api_errors.Server_error(Api_errors.xenapi_missing_plugin, [ plugin ]));
+	try
+		match fn with
+		| "request-rdp-on" ->
+			request_rdp_on ~__context ~vm;
+			""
+		| "request-rdp-off" ->
+			request_rdp_off ~__context ~vm;
+			""
+		| _ ->
+			let msg = Printf.sprintf "The requested fn \"%s\" could not be found in plugin \"%s\"." fn plugin in
+			raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "failed to find fn"; msg; msg ]))
+	with Not_found ->
+		let msg = Printf.sprintf "The requested fn \"%s\" of plugin \"%s\" could not be executed for lack of guest agent control feature." fn plugin in
+		raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "failed to execute fn"; msg; msg ]))
+
 let send_sysrq ~__context ~vm ~key =
 	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))
 

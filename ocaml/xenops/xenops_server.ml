@@ -87,6 +87,7 @@ type atomic =
 	| VM_set_memory_dynamic_range of (Vm.id * int64 * int64)
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
+	| VM_request_rdp of (Vm.id * bool)
 	| VM_set_domain_action_request of (Vm.id * domain_action_request option)
 	| VM_create_device_model of (Vm.id * bool)
 	| VM_destroy_device_model of Vm.id
@@ -1009,6 +1010,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.unpause %s" id;
 			B.VM.unpause t (VM_DB.read_exn id);
 			VM_DB.signal id
+		| VM_request_rdp (id, enabled) ->
+			debug "VM.request_rdp %s %b" id enabled;
+			B.VM.request_rdp (VM_DB.read_exn id) enabled
 		| VM_set_domain_action_request (id, dar) ->
 			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
@@ -1161,6 +1165,7 @@ and trigger_cleanup_after_failure op t = match op with
 		| VM_set_memory_dynamic_range (id, _, _)
 		| VM_pause id
 		| VM_unpause id
+		| VM_request_rdp (id, _)
 		| VM_set_domain_action_request (id, _)
 		| VM_create_device_model (id, _)
 		| VM_destroy_device_model id
@@ -1682,6 +1687,8 @@ module VM = struct
 	let pause _ dbg id = queue_operation dbg id (Atomic(VM_pause id))
 
 	let unpause _ dbg id = queue_operation dbg id (Atomic(VM_unpause id))
+
+	let request_rdp _ dbg id enabled = queue_operation dbg id (Atomic(VM_request_rdp (id, enabled)))
 
 	let set_xsdata _ dbg id xsdata = queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata)))
 

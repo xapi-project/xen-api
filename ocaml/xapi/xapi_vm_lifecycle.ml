@@ -51,6 +51,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `resume_on
 	                                -> [`Suspended]
 	| `awaiting_memory_live
+	| `call_plugin
 	| `clean_reboot
 	| `clean_shutdown
 	| `changing_memory_live
