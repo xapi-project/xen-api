@@ -30,7 +30,7 @@
 
 open Pervasiveext
 open Printf
-open Stringext
+open Xstringext
 open Getopt
 open Datamodel
 open Datamodel_types

@@ -30,7 +30,7 @@
 
 open Dm_api
 open Datamodel_utils
-open Stringext
+open Xstringext
 
 module DT=Datamodel_types
 

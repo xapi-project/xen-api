@@ -32,7 +32,7 @@
 
 open Pervasiveext
 open Printf
-open Stringext
+open Xstringext
 
 open Getopt
 
