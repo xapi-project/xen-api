@@ -234,12 +234,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 		let open Db_filter_types in
 		let target_pci_id = 
 			Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn in
-		match Db.PCI.get_refs_where ~__context
+		let pci_refs = Db.PCI.get_refs_where ~__context
                 	~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
-				(Eq (Field "pci_id", Literal target_pci_id)))) with
-		| pci_ref :: _ -> 
-			Xapi_pci_helpers.igd_is_whitelisted ~__context pci_ref
-		| _ -> false
+				(Eq (Field "pci_id", Literal target_pci_id)))) in
+		List.exists (Xapi_pci_helpers.igd_is_whitelisted ~__context) pci_refs
 	in 
 
         let igd_is_on_bus_zero (_, (_, bus, _, _)) = bus = 0 in
