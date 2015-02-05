@@ -235,7 +235,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 	let remote_import_request =
 		let params = match which with
 		| `All -> []
-		| `Only {vm=vm; live=live; dry_run=dry_run} -> [Printf.sprintf "live=%b" live; Printf.sprintf "dry_run=%b" dry_run] in
+		| `Only {vm=vm; live=live; dry_run=dry_run; send_snapshots=send_snapshots} -> [Printf.sprintf "live=%b" live; Printf.sprintf "dry_run=%b" dry_run; Printf.sprintf "export_snapshots=%b" send_snapshots] in
 		let params = Printf.sprintf "restore=%b" restore :: params in
 		Printf.sprintf "%s?%s" Constants.import_metadata_uri (String.concat "&" params) in
 

@@ -177,24 +177,6 @@ type mirror_record = {
 	mr_remote_vdi_reference : API.ref_VDI;
 }
 
-let get_snapshots_vbds ~__context ~vm =
-	let rec aux acc nb_snapshots cur =
-		let parent = Db.VM.get_parent ~__context ~self:cur in
-		debug "get_snapshots %s" (Ref.string_of parent);
-		if not (Db.is_valid_ref __context parent) then
-			(acc,nb_snapshots)
-		else
-			aux ((Db.VM.get_VBDs ~__context ~self:parent) @ acc) (nb_snapshots + 1) parent in
-	aux [] 0 vm
-
-let destroy_vm_and_snapshots ~__context ~rpc ~session_id ~vm =
-	let rec aux cur =
-		let parent = XenAPI.VM.get_parent rpc session_id cur in
-		XenAPI.VM.destroy rpc session_id cur;
-		if Db.is_valid_ref __context parent then
-			aux parent
-	in aux vm
-
 (* If VM's suspend_SR is set to the local SR, it won't be visible to
    the destination host after an intra-pool storage migrate *)
 let intra_pool_fix_suspend_sr ~__context host vm =
@@ -227,7 +209,7 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
 		Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
 
 	let vm_export_import = {
-		Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots=true;
+		Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots = not copy;
 	} in
 	finally
 		(fun () ->
@@ -303,8 +285,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
-	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
+	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
+	let vm_and_snapshots = vm :: snapshots in
+	let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
 
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
@@ -337,7 +320,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			end
 		else None in
 	let vdis = List.filter_map (vdi_filter false) vbds in
-	let vm_and_snapshots = vm :: Db.VM.get_snapshots ~__context ~self:vm in
 
 	(* Assert that every VDI is specified in the VDI map *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
@@ -706,7 +688,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if not is_intra_pool && not copy then begin
 				info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
 				Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-				destroy_vm_and_snapshots ~__context ~rpc ~session_id ~vm
+				List.iter (fun self -> Db.VM.destroy ~__context ~self) vm_and_snapshots
 			end);
 		SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
 		new_vm
