@@ -542,7 +542,7 @@ module MD = struct
 
 		let open Pci in
 		List.mapi
-			(fun idx (domain, bus, dev, fn) -> {
+			(fun idx (_, (domain, bus, dev, fn)) -> {
 				id = (vm.API.vM_uuid, Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn);
 				position = idx;
 				domain = domain;

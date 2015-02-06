@@ -91,7 +91,7 @@ let pcidev_of_pci ~__context pci =
 let sort_pcidevs devs =
 	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
 	List.flatten (List.map (fun id ->
-		List.map snd (List.filter (fun (x, _) -> x = id) devs)
+		List.filter (fun (x, _) -> x = id) devs
 	) ids)
 
 let of_string dev =
