@@ -532,12 +532,12 @@ module MD = struct
 
 	let pcis_of_vm ~__context (vmref, vm) =
 		let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
-		let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
+		let devs = List.flatten (Pciops.sort_pcidevs vgpu_pcidevs) in
 
 		(* The 'unmanaged' PCI devices are in the other_config key: *)
 		let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config in
 
-		let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
+		let unmanaged = List.flatten (Pciops.sort_pcidevs other_pcidevs) in
 
 		let devs = devs @ unmanaged in
 
