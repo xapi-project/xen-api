@@ -271,16 +271,17 @@ let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
 			and command = 3 (* IO and memory access *)
 			and status = 0
 			and revision = 1
-			and classcode = 0x000100 (* Storage device class, SCSI subclass *)
+			and classcode = 0x088000 (* Other system peripheral. See
+				https://www-s.acm.illinois.edu/sigops/roll_your_own/7.c.1.html *)
 			and headertype = 0
 			and subvendorid = 0x5853
 			and subsystemid = 0xC000
-			and interruputline = 0
-			and interruputpin = 3
+			and interruptline = 0
+			and interruptpin = 3
 			in
 			let pcipv = Printf.sprintf "%s:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X:%X"
 				name vendorid deviceid command status revision classcode
-				headertype subvendorid subsystemid interruputline interruputpin
+				headertype subvendorid subsystemid interruptline interruptpin
 			in
 			[pcipv]
 		else
