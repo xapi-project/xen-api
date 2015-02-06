@@ -287,3 +287,7 @@ val sync_tunnels : __context:Context.t -> host:API.ref_host -> unit
 val sync_pif_currently_attached : __context:Context.t -> host:API.ref_host -> bridges:string list -> unit
 
 val migrate_receive : __context:Context.t -> host:API.ref_host -> network:API.ref_network -> options:API.string_to_string_map -> API.string_to_string_map
+
+val enable_display : __context:Context.t -> host:API.ref_host -> API.host_display
+
+val disable_display : __context:Context.t -> host:API.ref_host -> API.host_display

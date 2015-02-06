@@ -2534,6 +2534,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let migrate_receive ~__context ~host ~network ~options =
 			info "Host.migrate_receive: host = '%s'; network = '%s'" (host_uuid ~__context host) (network_uuid ~__context network);
 			Local.Host.migrate_receive ~__context ~host ~network ~options
+
+		let enable_display ~__context ~host =
+			info "Host.enable_display: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.enable_display ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.enable_display rpc session_id host)
+
+		let disable_display ~__context ~host =
+			info "Host.disable_display: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.disable_display ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.disable_display rpc session_id host)
 	end
 
 	module Host_crashdump = struct
