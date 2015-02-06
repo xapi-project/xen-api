@@ -4244,6 +4244,28 @@ let host_sync_pif_currently_attached = call ~flags:[`Session]
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_enable_display = call
+	~name:"enable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Enable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
+let host_disable_display = call
+	~name:"disable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Disable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4328,6 +4350,8 @@ let host =
 		 host_sync_pif_currently_attached;
 		 host_migrate_receive;
 		 host_declare_dead;
+		 host_enable_display;
+		 host_disable_display;
 		 ]
       ~contents:
         ([ uid _host;

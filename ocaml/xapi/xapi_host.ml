@@ -1584,3 +1584,24 @@ let migrate_receive ~__context ~host ~network ~options =
 	  Xapi_vm_migrate._session_id, new_session_id;
 	  Xapi_vm_migrate._master, master_url;
 	]
+
+let update_display ~__context ~host ~action =
+	let db_current = Db.Host.get_display ~__context ~self:host in
+	let db_new = match db_current, action with
+	| `enabled,           `enable
+	| `disable_on_reboot, `enable  -> `enabled
+	| `disabled,          `enable
+	| `enable_on_reboot,  `enable  -> `enable_on_reboot
+	| `enabled,           `disable
+	| `disable_on_reboot, `disable -> `disable_on_reboot
+	| `disabled,          `disable
+	| `enable_on_reboot,  `disable -> `disabled
+	in
+	Db.Host.set_display ~__context ~self:host ~value:db_new;
+	db_new
+
+let enable_display ~__context ~host =
+	update_display ~__context ~host ~action:`enable
+
+let disable_display ~__context ~host =
+	update_display ~__context ~host ~action:`disable
