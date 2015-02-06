@@ -356,6 +356,8 @@ module SMAPIv1 = struct
 							(* Record whether the VDI is benefiting from read caching *)
 							Server_helpers.exec_with_new_task "VDI.attach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
 								let read_caching = not attach_info_v1.Smint.o_direct in
+								Db.VDI.remove_from_sm_config ~__context ~self
+									~key:Xapi_globs.read_caching_sm_config_key;
 								Db.VDI.add_to_sm_config ~__context ~self
 									~key:Xapi_globs.read_caching_sm_config_key
 									~value:(string_of_bool read_caching)
