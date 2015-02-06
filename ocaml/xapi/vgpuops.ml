@@ -98,7 +98,7 @@ let add_pcis_to_vm ~__context vm passthru_vgpus =
 		(List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) pcis)) in
 	let devs : (int * int * int * int) list = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (pcis @ dependent_pcis)) in
 	(* Add a hotplug ordering (see pcidevs_of_pci) *)
-	let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
+	let devs : ((int * (int * int * int * int))) list = List.mapi (fun i pci -> i, pci) devs in
 	(* Update VM other_config for PCI passthrough *)
 	(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
 	let value = String.concat "," (List.map Pciops.to_string devs) in
