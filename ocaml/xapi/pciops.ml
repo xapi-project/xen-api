@@ -90,9 +90,9 @@ let pcidev_of_pci ~__context pci =
    multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
 let sort_pcidevs devs =
 	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
-	List.map (fun id ->
+	List.flatten (List.map (fun id ->
 		List.map snd (List.filter (fun (x, _) -> x = id) devs)
-	) ids
+	) ids)
 
 let of_string dev =
 	Scanf.sscanf dev slash_bdf_scan_fmt (fun id a b c d -> (id, (a, b, c, d)))
