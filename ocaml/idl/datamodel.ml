@@ -4036,6 +4036,14 @@ let host_get_server_certificate = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_display =
+	Enum ("host_display", [
+		"enabled", "This host is outputting its console to a physical display device";
+		"disable_on_reboot", "The host will stop outputting its console to a physical display device on next boot";
+		"disabled", "This host is not outputting its console to a physical display device";
+		"enable_on_reboot", "The host will start outputting its console to a physical display device on next boot";
+	])
+
 let host_operations =
   Enum ("host_allowed_operations", 
 	[ "provision", "Indicates this host is able to provision another VM"; 
@@ -4367,6 +4375,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
+	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
  ])
 	()
 
