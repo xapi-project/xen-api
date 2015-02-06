@@ -17,6 +17,7 @@ install:
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/var/lib/xcp
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -43,7 +44,6 @@ install:
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
-	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
@@ -52,6 +52,7 @@ install:
 	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)/etc/rc.d/init.d/attach-static-vdis
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
+	$(IPROG) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
@@ -76,7 +77,7 @@ install:
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
-	$(IPROG) vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)
