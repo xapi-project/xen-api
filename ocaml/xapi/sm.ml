@@ -180,6 +180,12 @@ let vdi_snapshot dconf driver driver_params sr vdi =
   srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_snapshot" [] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+
+let vdi_revert dconf driver sr vdi snap =
+  debug "vdi_revert" driver (sprintf "sr=%s vdi=%s snap=%s" (Ref.string_of sr) (Ref.string_of vdi) (Ref.string_of snap));
+  (* NB the SM backends treat the snapshot as the 'target', hence first argument *)
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:snap dconf "vdi_revert" [ Ref.string_of vdi ] in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 	
 let vdi_clone dconf driver driver_params sr vdi =
   debug "vdi_clone" driver (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr) (Ref.string_of vdi) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params)));

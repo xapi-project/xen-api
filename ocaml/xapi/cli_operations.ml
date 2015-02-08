@@ -1183,6 +1183,13 @@ let vdi_snapshot printer rpc session_id params =
 	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
 	printer (Cli_printer.PList [newuuid])
 
+let vdi_revert printer rpc session_id params =
+	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let driver_params = read_map_params "driver-params" params in
+	let newvdi = Client.VDI.revert rpc session_id vdi driver_params in
+	let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
+	printer (Cli_printer.PList [newuuid])
+
 let vdi_destroy printer rpc session_id params =
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	Client.VDI.destroy rpc session_id vdi
