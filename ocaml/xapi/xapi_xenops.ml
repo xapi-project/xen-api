@@ -282,16 +282,31 @@ let is_boot_file_whitelisted filename =
 		(* avoid ..-style attacks and other weird things *)
 	&&(safe_str filename)
 
-let builder_of_vm ~__context ~vm timeoffset pci_passthrough =
+let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 	let open Vm in
+
+	let localhost = Helpers.get_localhost ~__context in
+
+	let igd_is_whitelisted (_, (domain, bus, dev, fn)) =
+		let open Db_filter_types in
+		let target_pci_id = 
+			Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn in
+		let pci_refs = Db.PCI.get_refs_where ~__context
+                	~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+				(Eq (Field "pci_id", Literal target_pci_id)))) in
+		List.exists (Xapi_pci_helpers.igd_is_whitelisted ~__context) pci_refs
+	in 
 
 	let video_mode =
 		(* If the vgpu keys are present for this VM, this overrides
 		 * the value of platform:vgpu. *)
-		if true
-			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then Vgpu
+		else if List.exists 
+			(fun pci -> Pciops.bus_of pci = 0 && igd_is_whitelisted pci) 
+			(Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref) 
+		then IGD_passthrough
 		else
 			match string vm.API.vM_platform "cirrus" Platform.vga with
 			| "std" -> Standard_VGA
@@ -645,7 +660,7 @@ module MD = struct
 			xsdata = vm.API.vM_xenstore_data;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
-			ty = builder_of_vm ~__context ~vm timeoffset pci_passthrough;
+			ty = builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
 			memory_static_max = vm.API.vM_memory_static_max;
