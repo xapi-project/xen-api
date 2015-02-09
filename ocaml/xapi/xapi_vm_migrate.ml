@@ -561,6 +561,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		TaskHelper.exn_if_cancelling ~__context;
 
+		let ha_always_run_reset = not is_intra_pool && Db.VM.get_ha_always_run ~__context ~self:vm in
+
 		let new_vm =
 			if is_intra_pool
 			then begin
@@ -572,12 +574,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				vm
 			end
 			else
-			(* Move the xapi VM metadata to the remote pool. *)
+				(* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
+				let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote_rpc ~session_id ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
+				(* Move the xapi VM metadata to the remote pool. *)
 				let vms =
 					inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id
 						~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
 						~vif_map ~dry_run:false ~live:true ~copy in
-				List.hd vms in
+				let vm = List.hd vms in
+				let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote_rpc ~session_id ~self:vm ~value:false in
+				vm in
 
 		if Xapi_fist.pause_storage_migrate2 () then begin
 			TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
@@ -644,6 +650,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		end;
 
 		if not is_intra_pool && not copy then begin
+			(* Replicate HA runtime flag if necessary *)
+			if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote_rpc ~session_id ~self:new_vm ~value:true;
 			(* Send non-database metadata *)
 			Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid
 				~session_id ~remote_address:remote_master_address;
