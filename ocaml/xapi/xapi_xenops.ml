@@ -54,6 +54,7 @@ module Platform = struct
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
+	let igd_passthru_key = Xapi_globs.igd_passthru_key
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -228,27 +229,16 @@ let is_boot_file_whitelisted filename =
 let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 	let open Vm in
 
-	let localhost = Helpers.get_localhost ~__context in
-
-	let igd_is_whitelisted (_, (domain, bus, dev, fn)) =
-		let open Db_filter_types in
-		let target_pci_id = 
-			Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn in
-		let pci_refs = Db.PCI.get_refs_where ~__context
-                	~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
-				(Eq (Field "pci_id", Literal target_pci_id)))) in
-		List.exists (Xapi_pci_helpers.igd_is_whitelisted ~__context) pci_refs
-	in 
-
 	let video_mode =
 		(* If the vgpu keys are present for this VM, this overrides
 		 * the value of platform:vgpu. *)
 		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then Vgpu
-		else if List.exists 
-			(fun pci -> Pciops.bus_of pci = 0 && igd_is_whitelisted pci) 
-			(Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref) 
+		else if (Platform.is_true
+			~key:Platform.igd_passthru_key
+			~platformdata:vm.API.vM_platform
+			~default:false)
 		then IGD_passthrough
 		else
 			match string vm.API.vM_platform "cirrus" Platform.vga with

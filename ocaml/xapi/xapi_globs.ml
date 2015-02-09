@@ -486,6 +486,7 @@ let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
 let vgpu_extra_args_key = "vgpu_extra_args"
 
+let igd_passthru_key = "igd_passthrough"
 let igd_passthru_vendor_whitelist : string list ref = ref []
 
 let dev_zero = "/dev/zero"
