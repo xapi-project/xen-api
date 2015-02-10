@@ -83,6 +83,16 @@ let add_pcis_to_vm ~__context vm passthru_vgpus =
 			pcis
 		end else
 			[] in
+	(* Add a platform key to the VM if any of the PCIs are integrated GPUs;
+	 * otherwise remove the key. *)
+	Db.VM.remove_from_platform ~__context
+		~self:vm ~key:Xapi_globs.igd_passthru_key;
+	if List.exists
+		(fun pci ->
+			let (_, pci_bus, _, _) = Pciops.pcidev_of_pci ~__context pci in
+			(pci_bus = 0) && (Xapi_pci_helpers.igd_is_whitelisted ~__context pci))
+		pcis
+	then Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true";
 	(* The GPU PCI devices which xapi manages may have dependencies: *)
 	let dependent_pcis = List.setify (List.flatten
 		(List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) pcis)) in
