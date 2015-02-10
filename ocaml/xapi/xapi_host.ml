@@ -1601,3 +1601,12 @@ let enable_display ~__context ~host =
 
 let disable_display ~__context ~host =
 	update_display ~__context ~host ~action:`disable
+
+let sync_display ~__context ~host=
+	if !Xapi_globs.on_system_boot then begin
+		let status = match Xapi_host_display.status () with
+		| `enabled | `unknown -> `enabled
+		| `disabled -> `disabled
+		in
+		Db.Host.set_display ~__context ~self:host ~value:status
+	end
