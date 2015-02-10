@@ -1574,17 +1574,24 @@ let migrate_receive ~__context ~host ~network ~options =
 	]
 
 let update_display ~__context ~host ~action =
+	let open Xapi_host_display in
 	let db_current = Db.Host.get_display ~__context ~self:host in
-	let db_new = match db_current, action with
-	| `enabled,           `enable
-	| `disable_on_reboot, `enable  -> `enabled
-	| `disabled,          `enable
-	| `enable_on_reboot,  `enable  -> `enable_on_reboot
-	| `enabled,           `disable
-	| `disable_on_reboot, `disable -> `disable_on_reboot
-	| `disabled,          `disable
-	| `enable_on_reboot,  `disable -> `disabled
+	let db_new, actual_action = match db_current, action with
+	| `enabled,           `enable  -> `enabled,           None
+	| `disable_on_reboot, `enable  -> `enabled,           Some `enable
+	| `disabled,          `enable  -> `enable_on_reboot,  Some `enable
+	| `enable_on_reboot,  `enable  -> `enable_on_reboot,  None
+	| `enabled,           `disable -> `disable_on_reboot, Some `disable
+	| `disable_on_reboot, `disable -> `disable_on_reboot, None
+	| `disabled,          `disable -> `disabled,          None
+	| `enable_on_reboot,  `disable -> `disabled,          Some `disable
 	in
+	begin
+		match actual_action with
+		| None -> ()
+		| Some `disable -> disable ()
+		| Some `enable  -> enable ()
+	end;
 	if db_new <> db_current
 	then Db.Host.set_display ~__context ~self:host ~value:db_new;
 	db_new
