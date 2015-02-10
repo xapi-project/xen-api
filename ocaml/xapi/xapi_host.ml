@@ -1585,7 +1585,8 @@ let update_display ~__context ~host ~action =
 	| `disabled,          `disable
 	| `enable_on_reboot,  `disable -> `disabled
 	in
-	Db.Host.set_display ~__context ~self:host ~value:db_new;
+	if db_new <> db_current
+	then Db.Host.set_display ~__context ~self:host ~value:db_new;
 	db_new
 
 let enable_display ~__context ~host =
