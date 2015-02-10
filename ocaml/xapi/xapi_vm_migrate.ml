@@ -129,7 +129,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
 		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
 	| Xenops_interface.Cancelled _ ->
-		raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
+		TaskHelper.raise_cancelled ~__context
 	| e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
