@@ -64,9 +64,10 @@ let update_gpus ~__context ~host =
 				then `disabled
 				else `enabled
 			in
+			let pci_addr =  Some (Db.PCI.get_pci_id ~__context ~self:pci) in
+			let is_system_display_device = (system_display_device = pci_addr) in
 			let supported_VGPU_types =
-				let pci_addr =  Db.PCI.get_pci_id ~__context ~self:pci in
-				if system_display_device = (Some pci_addr)
+				if is_system_display_device
 				&& not Xapi_pci_helpers.(is_hidden_from_dom0 pci && igd_is_whitelisted ~__context pci)
 				then []
 				else Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
@@ -110,11 +111,12 @@ let update_gpus ~__context ~host =
 					Db.PGPU.set_enabled_VGPU_types ~__context
 						~self:rf
 						~value:(pruned_enabled_types @ new_types_to_enable);
+					Db.PGPU.set_is_system_display_device ~__context
+						~self:rf
+						~value:is_system_display_device;
 					(rf, rc)
 				with Not_found ->
 					let dom0_access = determine_dom0_access pci in
-				        let pci_addr =  Db.PCI.get_pci_id ~__context ~self:pci in
-				        let is_system_display_device = (system_display_device = (Some pci_addr)) in
 					let self = create ~__context ~pCI:pci
 							~gPU_group:(Ref.null) ~host ~other_config:[]
 							~supported_VGPU_types
