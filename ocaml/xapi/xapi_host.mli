@@ -292,3 +292,5 @@ val migrate_receive : __context:Context.t -> host:API.ref_host -> network:API.re
 val enable_display : __context:Context.t -> host:API.ref_host -> API.host_display
 
 val disable_display : __context:Context.t -> host:API.ref_host -> API.host_display
+
+val sync_display : __context:Context.t -> host:API.ref_host -> unit
