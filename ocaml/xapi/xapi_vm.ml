@@ -233,6 +233,7 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	start ~__context ~vm ~start_paused ~force
 
 let hard_reboot ~__context ~vm =
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	Xapi_xenops.reboot ~__context ~self:vm None
 
 let hard_shutdown ~__context ~vm =
@@ -252,6 +253,7 @@ let hard_shutdown ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm None
 
 let clean_reboot ~__context ~vm =
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	Xapi_xenops.reboot ~__context ~self:vm (Some !Xapi_globs.domain_shutdown_total_timeout)
 
 let clean_shutdown_with_timeout ~__context ~vm timeout =
