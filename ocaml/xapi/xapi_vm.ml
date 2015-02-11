@@ -194,7 +194,6 @@ let set_xenstore_data ~__context ~self ~value =
 let start ~__context ~vm ~start_paused ~force =
 	let vmr = Db.VM.get_record ~__context ~self:vm in
 	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
-
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
@@ -204,6 +203,10 @@ let start ~__context ~vm ~start_paused ~force =
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
 	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
 	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
+
+	(* This makes sense here while the available versions are 0 and 1.
+	 * If/when we introduce version 2, we must reassess this. *)
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
@@ -230,6 +233,7 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	start ~__context ~vm ~start_paused ~force
 
 let hard_reboot ~__context ~vm =
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	Xapi_xenops.reboot ~__context ~self:vm None
 
 let hard_shutdown ~__context ~vm =
@@ -249,6 +253,7 @@ let hard_shutdown ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm None
 
 let clean_reboot ~__context ~vm =
+	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	Xapi_xenops.reboot ~__context ~self:vm (Some !Xapi_globs.domain_shutdown_total_timeout)
 
 let clean_shutdown_with_timeout ~__context ~vm timeout =
@@ -392,6 +397,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
+		~hardware_platform_version
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -443,6 +449,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
+		~hardware_platform_version
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in

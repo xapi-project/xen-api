@@ -77,6 +77,7 @@ let create ~__context ~name_label ~name_description
 		~suspend_SR
 		~version
 		~generation_id
+		~hardware_platform_version
 		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -143,6 +144,7 @@ let create ~__context ~name_label ~name_description
 		~suspend_SR
 		~version
 		~generation_id
+		~hardware_platform_version
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -245,6 +247,31 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 	  ~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier;
 	validate_actions_after_crash ~__context ~self ~value:x.API.vM_actions_after_crash
 
+let assert_hardware_platform_support ~__context ~vm ~host =
+	let vm_hardware_platform_version = Db.VM.get_hardware_platform_version ~__context ~self:vm in
+	let host_virtual_hardware_platform_versions = 
+		try
+			match host with
+				| Helpers.LocalObject host_ref ->
+					Db.Host.get_virtual_hardware_platform_versions ~__context ~self:host_ref
+				| Helpers.RemoteObject (rpc, session_id, host_ref) ->
+					Client.Client.Host.get_virtual_hardware_platform_versions ~rpc ~session_id ~self:host_ref
+		with Not_found ->
+			(* An old host that does not understand the concept
+			 * has implicit support for version 0 *)
+			[0L]
+	in
+	if not (List.mem vm_hardware_platform_version host_virtual_hardware_platform_versions) then
+		let host_r = match host with
+			| Helpers.LocalObject host_ref -> host_ref
+			| Helpers.RemoteObject (rpc, session_id, host_ref) -> host_ref
+		in
+		raise (Api_errors.Server_error (
+			Api_errors.vm_host_incompatible_virtual_hardware_platform_version, [
+				Ref.string_of host_r;
+				"["^(String.concat "; " (List.map Int64.to_string host_virtual_hardware_platform_versions))^"]";
+				Ref.string_of vm;
+				Int64.to_string vm_hardware_platform_version]))
 
 let assert_host_is_enabled ~__context ~host =
 	(* Check the host is enabled first *)
@@ -448,6 +475,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
+ - The host must support the VM's required Virtual Hardware Platform version.
  - The vCPU, memory, shadow multiplier, and actions-after-crash values must be valid.
  - For each VBD, corresponding VDI's SR must be attached on the target host.
  - For each VIF, either the Network has a PIF connecting to the target host,
@@ -472,6 +500,8 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
 	validate_basic_parameters ~__context ~self ~snapshot;
 	assert_host_is_live ~__context ~host;
 	assert_host_is_enabled ~__context ~host;
+	(* Check the host can support the VM's required version of virtual hardware platform *)
+	assert_hardware_platform_support ~__context ~vm:self ~host:(Helpers.LocalObject host);
 	if do_sr_check then
 		assert_can_see_SRs ~__context ~self ~host;
 	assert_can_see_networks ~__context ~self ~host;
@@ -1021,3 +1051,19 @@ let remove_superfluous_genids ~__context =
 					vm.API.vM_generation_id vm.API.vM_uuid ;
 				Db.VM.set_generation_id ~__context ~self ~value:""
 			end)
+
+let is_pci_pv_enabled ~platformdata =
+	Helpers.is_true ~key:(Xapi_globs.pci_pv_key_name) ~pairlist:platformdata ~default:(Xapi_globs.default_pci_pv_key_value)
+
+let update_vm_virtual_hardware_platform_version ~__context ~vm =
+	let vm_record = Db.VM.get_record ~__context ~self:vm in
+	(* Deduce what we can, but the guest VM might need a higher version. *)
+	let visibly_required_version =
+		if is_pci_pv_enabled vm_record.API.vM_platform then
+			Xapi_globs.win_auto_update_support
+		else
+			0L
+	in
+	let current_version = vm_record.API.vM_hardware_platform_version in
+	if visibly_required_version > current_version then
+		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
