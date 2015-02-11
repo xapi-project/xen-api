@@ -42,3 +42,9 @@ val get_remaining_capacity : __context:Context.t ->
 (** Check whether a VGPU can run on a particular PGPU. *)
 val assert_can_run_VGPU : __context:Context.t -> self:API.ref_PGPU ->
 	vgpu:API.ref_VGPU -> unit
+
+val enable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
+	API.pgpu_dom0_access
+
+val disable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
+	API.pgpu_dom0_access

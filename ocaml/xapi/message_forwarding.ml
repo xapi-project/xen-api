@@ -3718,7 +3718,23 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	module PCI = struct end
 
-	module PGPU = Local.PGPU
+	module PGPU = struct
+		include Local.PGPU
+
+		let enable_dom0_access ~__context ~self =
+			info "PGPU.enable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self);
+			let host = Db.PGPU.get_host ~__context ~self in
+			let local_fn = Local.PGPU.enable_dom0_access ~self in
+			do_op_on ~__context ~local_fn ~host
+				(fun session_id rpc -> Client.PGPU.enable_dom0_access rpc session_id self)
+
+		let disable_dom0_access ~__context ~self =
+			info "PGPU.disable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self);
+			let host = Db.PGPU.get_host ~__context ~self in
+			let local_fn = Local.PGPU.disable_dom0_access ~self in
+			do_op_on ~__context ~local_fn ~host
+				(fun session_id rpc -> Client.PGPU.disable_dom0_access rpc session_id self)
+	end
 
 	module GPU_group = struct
 		(* Don't forward. These are just db operations. *)
