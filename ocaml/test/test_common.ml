@@ -195,9 +195,11 @@ let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)
 		?(gPU_group=Ref.null) ?(host=Ref.null) ?(other_config=[])
 		?(size=Constants.pgpu_default_size)
 		?(supported_VGPU_types=[]) ?(enabled_VGPU_types=[])
-		?(supported_VGPU_max_capacities=[]) ?(dom0_access=`enabled) () =
+		?(supported_VGPU_max_capacities=[]) ?(dom0_access=`enabled)
+		?(is_system_display_device=false) () =
 	Db.PGPU.create ~__context ~ref ~uuid ~pCI ~gPU_group
-		~host ~other_config ~size ~supported_VGPU_max_capacities ~dom0_access;
+		~host ~other_config ~size ~supported_VGPU_max_capacities ~dom0_access
+		~is_system_display_device;
 	Db.PGPU.set_supported_VGPU_types ~__context ~self:ref
 		~value:supported_VGPU_types;
 	Db.PGPU.set_enabled_VGPU_types ~__context ~self:ref
