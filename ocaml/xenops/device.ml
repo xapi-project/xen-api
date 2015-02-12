@@ -339,15 +339,17 @@ let physty_of_string s =
 	| "file" -> File
 	| _      -> invalid_arg "physty_of_string"
 
-type devty = CDROM | Disk
+type devty = CDROM | Disk | Floppy
 
 let string_of_devty = function
 	| CDROM -> "cdrom"
 	| Disk  -> "disk"
+    | Floppy -> "floppy"
 
 let devty_of_string = function
 	| "cdrom" -> CDROM
 	| "disk"  -> Disk
+    | "floppy" -> Floppy
 	| _       -> invalid_arg "devty_of_string"
 
 let add_backend_keys ~xs (x: device) subdir keys =
