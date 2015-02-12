@@ -2,7 +2,7 @@
 type bus_type =
 	| Xen     (** A xen paravirtualised bus *)
 	| Scsi    (** A SCSI bus *)
-    | Floppy  (** A floppy bus *)
+    | FloppyBus  (** A floppy bus *)
 	| Ide     (** An IDE bus *)
 
 (** A specification for a device number. There are more valid specifications than
