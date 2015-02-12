@@ -524,7 +524,10 @@ let add_async ~xs ~hvm x domid =
 		"backend-id", string_of_int x.backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
-		"device-type", if x.dev_type = CDROM then "cdrom" else "disk";
+        "device-type", match x.dev_type with
+            | CDROM  -> "cdrom"
+            | Disk   -> "disk"
+            | Floppy -> "floppy";
 	];
 	Hashtbl.add_list back_tbl [
 		"frontend-id", sprintf "%u" domid;
