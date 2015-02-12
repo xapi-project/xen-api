@@ -1,7 +1,7 @@
 type bus_type =
 	| Xen 
 	| Scsi
-    | Floppy
+    | FloppyBus
 	| Ide
 with rpc
 
@@ -12,7 +12,7 @@ type t = spec with rpc
 let to_debug_string = function
 	| (Xen,    disk, partition)  -> Printf.sprintf "Xen(%d, %d)"  disk partition
 	| (Scsi,   disk, partition) -> Printf.sprintf "Scsi(%d, %d)" disk partition
-    | (Floppy, disk, partition) -> Printf.sprintf "Floppy(%d, %d)" disk partition
+    | (FloppyBus, disk, partition) -> Printf.sprintf "FloppyBus(%d, %d)" disk partition
 	| (Ide,    disk, partition)  -> Printf.sprintf "Ide(%d, %d)"  disk partition
 
 (* ocamlp4-friendly operators *)
@@ -37,7 +37,7 @@ let make (x: spec) : t =
 	begin match x with
 		| Xen,    disk, partition -> assert_in_range "xen" max_xen (disk, partition)
 		| Scsi,   disk, partition -> assert_in_range "scsi" max_scsi (disk, partition)
-        | Floppy, disk, partition -> assert_in_range "floppy" max_floppy (disk, partition)
+        | FloppyBus, disk, partition -> assert_in_range "floppy" max_floppy (disk, partition)
 		| Ide,    disk, partition -> assert_in_range "ide" max_ide (disk, partition)
 	end;
 	x
@@ -53,7 +53,7 @@ let to_xenstore_int = function
 	| Xen,    disk, partition when disk < 16 -> (202 <| 8) || (disk <| 4)       || partition
 	| Xen,    disk, partition                -> (1 <| 28)  || (disk <| 8)       || partition
 	| Scsi,   disk, partition               -> (8 <| 8)   || (disk <| 4)       || partition
-    | Floppy, disk, partition               -> (203 <| 8) || (disk <| 4)       || partition
+    | FloppyBus, disk, partition               -> (203 <| 8) || (disk <| 4)       || partition
 	| Ide,    disk, partition                ->
 		let m = List.nth deprecated_ide_table (disk / 2) in
 		let n = disk - (disk / 2) * 2 in (* NB integers behave differently to reals *)
@@ -67,7 +67,7 @@ let of_xenstore_int x =
 	else match x >| 8 with
 		| 202 -> Xen, (x >| 4) && ((1 <| 4) - 1), x && ((1 <| 4) - 1)
 		| 8   -> Scsi, (x >| 4) && ((1 <| 4) - 1), x && ((1 <| 4) - 1)
-        | 203 -> Floppy, (x >| 4) && ((1 <| 4) - 1), x && ((1 <| 4) - 1)
+        | 203 -> FloppyBus, (x >| 4) && ((1 <| 4) - 1), x && ((1 <| 4) - 1)
 		| n   ->
 			let idx = snd(List.fold_left (fun (i, res) e -> i+1, if e = n then i else res) (0, -1) deprecated_ide_table) in
 			if idx < 0
@@ -104,7 +104,7 @@ let to_linux_device =
 	function
 		| Xen,    disk, part -> Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
 		| Scsi,   disk, part -> Printf.sprintf "sd%s%s"  (string_of_int26 disk) (p part)
-        | Floppy, disk, part -> Printf.sprintf "fd%s%s"  (string_of_int26 disk) (p part)
+        | FloppyBus, disk, part -> Printf.sprintf "fd%s%s"  (string_of_int26 disk) (p part)
 		| Ide,    disk, part -> Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
 
 let of_linux_device x =
@@ -144,7 +144,7 @@ let of_linux_device x =
 			Scsi, disk, partition
         | 'f' :: 'd' :: rest ->
             let disk, partition = parse_b26_int rest in
-            Floppy, disk, partition
+            FloppyBus, disk, partition
 		| 'h' :: 'd' :: rest ->
 			let disk, partition = parse_b26_int rest in
 			Ide, disk, partition
@@ -163,7 +163,7 @@ type disk_number = int
 let to_disk_number = function
 	| Xen, disk, _ -> disk
 	| Scsi, disk, _ -> disk
-    | Floppy, disk, _ -> disk
+    | FloppyBus, disk, _ -> disk
 	| Ide, disk, _ -> disk
 
 let of_disk_number hvm n = 

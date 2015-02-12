@@ -803,7 +803,7 @@ let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 3
 let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 15
 let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 15
 let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
-let allowed_VBD_devices_HVM_floppy     = List.map (fun x -> Device_number.make (Device_number.Floppy, x, 0)) (inclusive_range 0 1)
+let allowed_VBD_devices_HVM_floppy     = List.map (fun x -> Device_number.make (Device_number.FloppyBus, x, 0)) (inclusive_range 0 1)
 
 let allowed_VIF_devices_HVM    = vif_inclusive_range 0 3
 let allowed_VIF_devices_HVM_PP = vif_inclusive_range 0 6
