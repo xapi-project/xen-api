@@ -1,8 +1,9 @@
 (** Disks are attached to particular bus types: *)
 type bus_type =
-	| Xen  (** A xen paravirtualised bus *)
-	| Scsi (** A SCSI bus *)
-	| Ide  (** An IDE bus *)
+	| Xen     (** A xen paravirtualised bus *)
+	| Scsi    (** A SCSI bus *)
+    | Floppy  (** A floppy bus *)
+	| Ide     (** An IDE bus *)
 
 (** A specification for a device number. There are more valid specifications than
     valid device numbers because of hardware and/or protocol limits. *)
