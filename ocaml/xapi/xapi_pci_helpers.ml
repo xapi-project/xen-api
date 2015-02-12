@@ -116,8 +116,6 @@ let get_host_pcis pci_db =
 	in
 	link_related_pcis [] pcis
 
-let is_hidden_from_dom0 pci = true
-
 let igd_is_whitelisted ~__context pci =
 	let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in
 	List.mem vendor_id !Xapi_globs.igd_passthru_vendor_whitelist

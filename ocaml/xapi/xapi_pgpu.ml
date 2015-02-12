@@ -60,7 +60,7 @@ let update_gpus ~__context ~host =
 		| [] -> cur
 		| pci :: remaining_pcis ->
 			let determine_dom0_access pci =
-				if Xapi_pci_helpers.is_hidden_from_dom0 pci
+				if Pciops.is_pci_hidden ~__context pci
 				then `disabled
 				else `enabled
 			in
@@ -68,7 +68,7 @@ let update_gpus ~__context ~host =
 			let is_system_display_device = (system_display_device = pci_addr) in
 			let supported_VGPU_types =
 				if is_system_display_device
-				&& not Xapi_pci_helpers.(is_hidden_from_dom0 pci && igd_is_whitelisted ~__context pci)
+				&& not (Pciops.is_pci_hidden ~__context pci && Xapi_pci_helpers.igd_is_whitelisted ~__context pci)
 				then []
 				else Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
 			in
