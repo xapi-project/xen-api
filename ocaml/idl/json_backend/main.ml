@@ -14,6 +14,7 @@
 (* main.ml *)
 
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
 
 (* JSON *)
@@ -88,7 +89,7 @@ let fields_of_obj obj =
 			"name", JString field.field_name;
 			"description", JString field.field_description;
 			"type", JString (string_of_ty field.ty);
-			"tag", JString "snapshots";
+			"tag", JString (match field.field_doc_tags with [] -> "" | t :: _ -> string_of_doc_tag t);
 		]
 	) fields
 
@@ -98,7 +99,7 @@ let messages_of_obj obj =
 		JObject [
 			"name", JString msg.msg_name;
 			"description", JString msg.msg_doc;
-			"tag", JString "snapshots";
+			"tag", JString (match msg.msg_doc_tags with [] -> "" | t :: _ -> string_of_doc_tag t);
 		]
 	) msgs
 
