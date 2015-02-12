@@ -87,6 +87,20 @@ module Domain = struct
 			  Hashtbl.remove cache domid;
 			  None
 
+  let remove_gone_domains_cache xc =
+	  let current_domains = Xenctrl.domain_getinfolist xc 0 in
+	  Mutex.execute m
+	  (fun () ->
+			let alive_domids = List.map (fun d -> d.Xenctrl.domid) current_domains in
+			let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) cache [] in
+			let gone_domids = set_difference known_domids alive_domids in
+			List.iter
+			(fun d ->
+				debug "Remove domid %d in cache" d;
+				Hashtbl.remove cache d
+			) gone_domids
+	  )
+
   let _introduceDomain = "@introduceDomain"
   let _releaseDomain = "@releaseDomain"
 
@@ -570,6 +584,7 @@ let make_host ~verbose ~xc =
 	(* Externally-visible side-effects. It's a bit ugly to include these here: *)
 	update_cooperative_table host;
 	update_cooperative_flags cnx;
+	Domain.remove_gone_domains_cache xc;
 
 	(* It's always safe to _decrease_ a domain's maxmem towards target. This catches the case
 	   where a toolstack creates a domain with maxmem = static_max and target < static_max (eg
