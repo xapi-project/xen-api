@@ -1699,6 +1699,7 @@ module VBD = struct
 						dev_type = (match vbd.ty with
 							| CDROM -> Device.Vbd.CDROM
 							| Disk -> Device.Vbd.Disk
+                            | Floppy -> Device.Vbd.Floppy
 						);
 						unpluggable = vbd.unpluggable;
 						protocol = None;
