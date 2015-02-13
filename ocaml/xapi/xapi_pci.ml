@@ -159,6 +159,10 @@ let with_vga_arbiter ~readonly f =
 		0o000
 		f
 
+let disable_system_display_device () =
+	with_vga_arbiter ~readonly:false
+		(fun fd -> Unixext.really_write_string fd "decodes none")
+
 let get_system_display_device () =
 	try
 		let line =
