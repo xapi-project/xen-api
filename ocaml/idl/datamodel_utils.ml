@@ -225,7 +225,8 @@ let new_messages_of_field x order fld =
 		 msg_pool_internal = false;
 		 msg_db_only = fld.internal_only;
 		 msg_allowed_roles = None;
-		 msg_map_keys_roles = []
+		 msg_map_keys_roles = [];
+		 msg_doc_tags = [];
 	       } in
   let getter = { common with
 		   msg_name = prefix "get_";
@@ -336,7 +337,9 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_force_custom = x.force_custom_actions;
 		 msg_allowed_roles = None;
 		 msg_map_keys_roles = [];
-		 msg_obj_name=x.name } in
+		 msg_obj_name=x.name;
+		 msg_doc_tags = [];
+		 } in
   (* Constructor *)
   let ctor = { common with 
            msg_name = "create";
@@ -517,3 +520,9 @@ let wire_name = wire_name_common "."
 let alternative_wire_name = wire_name_common "_"
 
 let wire_name_of_field (fld: field) = String.concat "_" fld.full_name
+
+let string_of_doc_tag = function
+	| VM_lifecycle -> "vm-lifecycle"
+	| Snapshots -> "snapshots"
+	| Networking -> "networking"
+

@@ -304,7 +304,7 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 	?(pool_internal=false)
 	~allowed_roles
 	?(map_keys_roles=[])
-	?(params=[]) ?versioned_params ?lifecycle () =
+	?(params=[]) ?versioned_params ?lifecycle ?(doc_tags=[]) () =
 	(* if you specify versioned_params then these get put in the params field of the message record;
 	 * otherwise params go in with no default values and param_release=call_release...
 	 *)
@@ -353,7 +353,8 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 		msg_hide_from_docs = hide_from_docs;
 		msg_pool_internal = pool_internal;
 		msg_allowed_roles = allowed_roles;
-		msg_map_keys_roles = map_keys_roles
+		msg_map_keys_roles = map_keys_roles;
+		msg_doc_tags = doc_tags;
 	}
 
 let assert_operation_valid enum cls self = call 
@@ -1578,6 +1579,7 @@ let vm_snapshot = call
   ]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
   ~allowed_roles:_R_VM_POWER_ADMIN
+  ~doc_tags:[Snapshots]
   ()
 
 let vm_revert = call
@@ -1588,6 +1590,7 @@ let vm_revert = call
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed;
 		Api_errors.sr_full; Api_errors.vm_revert_failed ]
   ~allowed_roles:_R_VM_POWER_ADMIN
+  ~doc_tags:[Snapshots]
   ()
 
 let vm_checkpoint = call
@@ -2994,6 +2997,7 @@ let vdi_snapshot = call
   ~doc:"Take a read-only snapshot of the VDI, returning a reference to the snapshot. If any driver_params are specified then these are passed through to the storage-specific substrate driver that takes the snapshot. NB the snapshot lives in the same Storage Repository as its parent."
   ~result:(Ref _vdi, "The ID of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
+  ~doc_tags:[Snapshots]
   ()
 
 let vdi_clone = call
@@ -3008,6 +3012,7 @@ let vdi_clone = call
   ~doc:"Take an exact copy of the VDI and return a reference to the new disk. If any driver_params are specified then these are passed through to the storage-specific substrate driver that implements the clone operation. NB the clone lives in the same Storage Repository as its parent."
   ~result:(Ref _vdi, "The ID of the newly created VDI.")
   ~allowed_roles:_R_VM_ADMIN
+  ~doc_tags:[Snapshots]
   ()
 
 let vdi_resize = call
@@ -3155,7 +3160,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since ?(internal_only = fal
 	?internal_deprecated_since ?(ignore_foreign_key = false) ?(writer_roles=None) ?(reader_roles=None)
 	?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true)
 	?(map_keys_roles=[]) (* list of (key_name,(writer_roles)) for a map field *)
-	?lifecycle name desc =
+	?lifecycle ?(doc_tags=[]) name desc =
 	(* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
 	 * This should eventually become 'None'. *)
 	let in_product_since = match in_product_since with None -> Some rel_rio | x -> x in
@@ -3196,6 +3201,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since ?(internal_only = fal
 		field_setter_roles = writer_roles;
 		field_getter_roles = reader_roles;
 		field_map_keys_roles = map_keys_roles;
+		field_doc_tags = doc_tags;
 	}
 
 let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) ?lifecycle refname =
@@ -5743,10 +5749,10 @@ let vdi =
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/0/backend/vbd/<domid>/<device-id>/sm-data) after the VDI is attached. This is generally set by the SM backends on vdi_attach." ~default_value:(Some (VMap []));
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
 
-	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~qualifier:DynamicRO ~ty:Bool             "is_a_snapshot" "true if this is a snapshot.";
-	field ~in_product_since:rel_orlando ~default_value:(Some (VRef ""))              ~qualifier:DynamicRO ~ty:(Ref _vdi)       "snapshot_of" "Ref pointing to the VDI this snapshot is of.";
-	field ~in_product_since:rel_orlando                                              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "snapshots" "List pointing to all the VDIs snapshots.";
-	field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime         "snapshot_time" "Date/time when this snapshot was created.";
+	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~qualifier:DynamicRO ~ty:Bool ~doc_tags:[Snapshots] "is_a_snapshot" "true if this is a snapshot.";
+	field ~in_product_since:rel_orlando ~default_value:(Some (VRef ""))              ~qualifier:DynamicRO ~ty:(Ref _vdi) ~doc_tags:[Snapshots] "snapshot_of" "Ref pointing to the VDI this snapshot is of.";
+	field ~in_product_since:rel_orlando                                              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots" "List pointing to all the VDIs snapshots.";
+	field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time" "Date/time when this snapshot was created.";
 	field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";

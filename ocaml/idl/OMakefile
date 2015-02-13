@@ -1,4 +1,4 @@
-.SUBDIRS: ocaml_backend js_backend
+.SUBDIRS: ocaml_backend js_backend json_backend
 
 PSTOPDF = $(shell bash -c "which pstopdf 2>/dev/null || which ps2pdf 2>/dev/null || which ps2pdf14 2>/dev/null || echo false")
 

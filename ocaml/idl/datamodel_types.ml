@@ -151,6 +151,8 @@ and obj_op = Make | Delete | GetByUuid | GetByLabel | GetRecord | GetAll | GetAl
 
 and param = {param_type:ty; param_name:string; param_doc:string; param_release: release; param_default: api_value option}
 
+and doc_tag = VM_lifecycle | Snapshots | Networking
+
 (** Types of RPC messages; in addition to those generated for object fields *)
 and message = { 
     msg_name: string;
@@ -173,7 +175,8 @@ and message = {
     msg_custom_marshaller: bool;
     msg_hide_from_docs: bool; (* don't list the function in the documentation and do not include it in the SDK *)
     msg_allowed_roles: string list option;
-    msg_map_keys_roles: (string * (string list option)) list
+    msg_map_keys_roles: (string * (string list option)) list;
+    msg_doc_tags: doc_tag list;
 } 
 
 and field = {
@@ -191,7 +194,8 @@ and field = {
     field_ignore_foreign_key: bool;
     field_setter_roles: string list option;
     field_getter_roles: string list option;
-    field_map_keys_roles: (string * (string list option)) list
+    field_map_keys_roles: (string * (string list option)) list;
+    field_doc_tags: doc_tag list;
 } 
 
 and error = { 
