@@ -1608,5 +1608,7 @@ let sync_display ~__context ~host=
 		| `enabled | `unknown -> `enabled
 		| `disabled -> `disabled
 		in
+		if status = `disabled
+		then Xapi_pci.disable_system_display_device ();
 		Db.Host.set_display ~__context ~self:host ~value:status
 	end
