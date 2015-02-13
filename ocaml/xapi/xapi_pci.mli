@@ -31,3 +31,6 @@ val update_pcis : __context:Context.t -> host:API.ref_host -> unit
 
 (** Get the PCI id of the host's display device. *)
 val get_system_display_device : unit -> string option
+
+(** Disable decoding for the host's display device. *)
+val disable_system_display_device : unit -> unit

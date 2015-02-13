@@ -152,10 +152,21 @@ let update_pcis ~__context ~host =
 	let obsolete = List.set_difference existing current in
 	List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete
 
+let with_vga_arbiter ~readonly f =
+	Unixext.with_file
+		"/dev/vga_arbiter"
+		(if readonly then [Unix.O_RDONLY] else [Unix.O_RDWR])
+		0o000
+		f
+
+let disable_system_display_device () =
+	with_vga_arbiter ~readonly:false
+		(fun fd -> Unixext.really_write_string fd "decodes none")
+
 let get_system_display_device () =
 	try
 		let line =
-			Unixext.with_file "/dev/vga_arbiter" [Unix.O_RDONLY] 0o000 (fun fd ->
+			with_vga_arbiter ~readonly:true (fun fd ->
 				let data = Unixext.try_read_string ~limit:1024 fd in
 				List.hd (String.split ~limit:2 '\n' data)
 			)
