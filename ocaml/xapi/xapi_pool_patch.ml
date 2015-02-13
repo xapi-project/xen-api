@@ -645,8 +645,18 @@ let apply ~__context ~self ~host =
 	        output;
 		
         | Failure(log, exn) ->
-	        debug "error from patch application: %s" log;
-	        raise (Api_errors.Server_error(Api_errors.patch_apply_failed, [log]))
+		debug "error from patch application: %s" log;
+           	let error_string = "Backup files already present - aborting." in
+           	if List.length (Xstringext.String.find_all error_string log) = 0 then
+               		raise (Api_errors.Server_error(Api_errors.patch_apply_failed, [log]))
+           	else begin
+               		let xml = Xml.parse_string log in
+               		match xml with
+               		| Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_UNKNOWN_ERROR")], [Element("info", _, [PCData info])]) ->
+                    		raise (Api_errors.Server_error(Api_errors.patch_apply_failed_backup_files_exists, [info]))
+               		| _ ->
+                   		raise (Bad_precheck_xml "Could not find element info")
+           	end
     end
     
 let pool_apply ~__context ~self =
