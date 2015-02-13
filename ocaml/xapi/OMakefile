@@ -188,6 +188,7 @@ XAPI_MODULES = $(COMMON) \
 	api_server \
 	create_misc \
 	xapi_host \
+	xapi_host_display \
 	xapi_plugins \
 	xapi_fuse \
 	db_gc \

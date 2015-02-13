@@ -4036,6 +4036,14 @@ let host_get_server_certificate = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_display =
+	Enum ("host_display", [
+		"enabled", "This host is outputting its console to a physical display device";
+		"disable_on_reboot", "The host will stop outputting its console to a physical display device on next boot";
+		"disabled", "This host is not outputting its console to a physical display device";
+		"enable_on_reboot", "The host will start outputting its console to a physical display device on next boot";
+	])
+
 let host_operations =
   Enum ("host_allowed_operations", 
 	[ "provision", "Indicates this host is able to provision another VM"; 
@@ -4236,6 +4244,28 @@ let host_sync_pif_currently_attached = call ~flags:[`Session]
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_enable_display = call
+	~name:"enable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Enable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
+let host_disable_display = call
+	~name:"disable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Disable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4320,6 +4350,8 @@ let host =
 		 host_sync_pif_currently_attached;
 		 host_migrate_receive;
 		 host_declare_dead;
+		 host_enable_display;
+		 host_disable_display;
 		 ]
       ~contents:
         ([ uid _host;
@@ -4367,6 +4399,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
+	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
  ])
 	()
 

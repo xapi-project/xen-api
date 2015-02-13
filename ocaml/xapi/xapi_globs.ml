@@ -331,6 +331,7 @@ let sync_switch_off = "nosync" (* Set the following keys to this value to disabl
 let sync_local_vdi_activations = "sync_local_vdi_activations"
 let sync_create_localhost = "sync_create_localhost"
 let sync_enable_localhost = "sync_enable_localhost"
+let sync_host_display = "sync_host_display"
 let sync_refresh_localhost_info = "sync_refresh_localhost_info"
 let sync_record_host_memory_properties = "sync_record_host_memory_properties"
 let sync_copy_license_to_db = "sync_copy_license_to_db"

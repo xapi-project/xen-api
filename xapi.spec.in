@@ -242,6 +242,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/generate_ssl_cert
 @OPTDIR@/libexec/host-backup
 @OPTDIR@/libexec/host-bugreport-upload
+@OPTDIR@/libexec/host-display
 @OPTDIR@/libexec/host-restore
 @OPTDIR@/libexec/interface-reconfigure
 @OPTDIR@/libexec/interface-visualise
