@@ -12,13 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stringext
-
 let script = "/opt/xensource/libexec/host-display"
 
 let call_script ~command =
 	let (stdout, _) = Forkhelpers.execute_command_get_output script [command]
-	in String.strip String.isspace stdout
+	in String.trim stdout
 
 let disable () =
 	let (_: string) = call_script "disable" in ()
