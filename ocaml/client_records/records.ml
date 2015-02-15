@@ -848,6 +848,10 @@ let vm_record rpc session_id vm =
 			make_field ~name:"networks"
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
+			make_field ~name:"network-paths-optimized"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_network_paths_optimized) (xgm ()) )) ();
+			make_field ~name:"storage-paths-optimized"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_storage_paths_optimized) (xgm ()) )) ();
 			make_field ~name:"other"
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
