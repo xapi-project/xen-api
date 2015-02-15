@@ -7055,9 +7055,22 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "os_version" "version of the OS";
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version" 
 	"version of the PV drivers";
-      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "PV_drivers_up_to_date"
-	"true if the PV drivers appear to be up to date";
-
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
+        ~lifecycle:[
+          Published, rel_rio, "true if the PV drivers appear to be up to date";
+          Deprecated, rel_dundee, "Deprecated in favour of network_paths_optimized and storage_paths_optimized, and redefined in terms of them"
+        ]
+      "PV_drivers_up_to_date" "Logical AND of network_paths_optimized and storage_paths_optimized";
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None ~default_value:(Some (VBool false))
+        ~lifecycle:[
+          Published, rel_dundee, "Network paths are optimized with backend";
+        ]
+      "network_paths_optimized" "True if the network paths are optimized with PV driver";
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None ~default_value:(Some (VBool false))
+        ~lifecycle:[
+          Published, rel_dundee, "Storage paths are optimized with backend";
+        ]
+      "storage_paths_optimized" "True if the storage paths are optimized with PV driver";
       field ~qualifier:DynamicRO ~ty:(Map(String, String))
         ~lifecycle:[
           Published, rel_rio, "free/used/total";
