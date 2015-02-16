@@ -992,6 +992,7 @@ let host_record rpc session_id host =
 				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations))
 				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations) ();
 			make_field ~name:"enabled" ~get:(fun () -> string_of_bool (x ()).API.host_enabled) ();
+			make_field ~name:"display" ~get:(fun () -> Record_util.host_display_to_string (x ()).API.host_display) ();
 			make_field ~name:"API-version-major" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_major) ();
 			make_field ~name:"API-version-minor" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_minor) ();
 			make_field ~name:"API-version-vendor" ~get:(fun () -> (x ()).API.host_API_version_vendor) ();

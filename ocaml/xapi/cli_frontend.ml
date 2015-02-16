@@ -801,6 +801,24 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+   "host-enable-display",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Enable display for the host";
+      implementation=No_fd Cli_operations.host_enable_display;
+      flags=[];
+    };
+
+   "host-disable-display",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Disable display for the host";
+      implementation=No_fd Cli_operations.host_disable_display;
+      flags=[];
+    };
+
    "patch-upload",
     {
       reqd=["file-name"];

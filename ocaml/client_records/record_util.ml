@@ -291,6 +291,13 @@ let string_to_on_crash_behaviour s=
 	| _ -> raise (Record_failure ("Expected 'destroy', 'coredump_and_destroy'," ^
 		"'restart', 'coredump_and_restart', 'preserve' or 'rename_restart', got "^s))
 
+let host_display_to_string h =
+	match h with
+	| `enabled -> "enabled"
+	| `enable_on_reboot -> "enable_on_reboot"
+	| `disabled -> "disabled"
+	| `disable_on_reboot -> "disable_on_reboot"
+
 let boot_type_to_string x =
   match x with
     `bios -> "BIOS"
