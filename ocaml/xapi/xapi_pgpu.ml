@@ -254,6 +254,16 @@ let update_dom0_access ~__context ~self ~action =
 	| `disabled,          `disable
 	| `enable_on_reboot,  `disable -> `disabled
 	in
+
+	let pci = Db.PGPU.get_PCI ~__context ~self in
+	begin
+		match db_new with 
+		| `enabled
+		| `enable_on_reboot -> Pciops.unhide_pci ~__context pci
+		| `disabled
+		| `disable_on_reboot -> Pciops.hide_pci ~__context pci
+	end;
+
 	Db.PGPU.set_dom0_access ~__context ~self ~value:db_new;
 	db_new
 
