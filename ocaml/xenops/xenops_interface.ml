@@ -83,6 +83,7 @@ module Vm = struct
 		| Cirrus
 		| Standard_VGA
 		| Vgpu
+		| IGD_passthrough
 
 	type hvm_info = {
 		hap: bool;

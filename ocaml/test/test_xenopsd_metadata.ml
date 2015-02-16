@@ -42,7 +42,7 @@ let run_builder_of_vm __context =
 	let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
 	let vm = List.nth vms 0 in
 	let vm_record = Db.VM.get_record ~__context ~self:vm in
-	Xapi_xenops.builder_of_vm ~__context ~vm:vm_record "0" false
+	Xapi_xenops.builder_of_vm ~__context (vm, vm_record) "0" false
 
 (* Test the behaviour of the "hvm_serial" other_config/platform key. *)
 module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
@@ -127,6 +127,7 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 			| Vm.Cirrus -> "Cirrus"
 			| Vm.Standard_VGA -> "Standard_VGA"
 			| Vm.Vgpu -> "Vgpu"
+			| Vm.IGD_passthrough -> "IGD_passthrough"
 	end
 
 	module State = XapiDb
@@ -146,6 +147,17 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 		(* Video modes set in the platform map should be respected. *)
 		{oc=[]; platform=["vga", "cirrus"]}, Vm.Cirrus;
 		{oc=[]; platform=["vga", "std"]}, Vm.Standard_VGA;
+		(* The IGD passthrough key should be respected. *)
+		{oc=[]; platform=["igd_passthrough", "true"]}, Vm.IGD_passthrough;
+		(* The IGD passthrough should override the "vga" key. *)
+		{
+			oc=[];
+			platform=["igd_passthrough", "true"; "vga", "cirrus"]
+		}, Vm.IGD_passthrough;
+		{
+			oc=[];
+			platform=["igd_passthrough", "true"; "vga", "std"]
+		}, Vm.IGD_passthrough;
 		(* We should be able to enable vGPU mode. *)
 		{oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
 		(* vGPU mode should override whatever's set for the "vga" key. *)

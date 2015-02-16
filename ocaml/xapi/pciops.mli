@@ -45,3 +45,27 @@ val to_string: (int * (int * int * int * int)) -> string
 
 (** Return the PCI device as a tuple *)
 val of_string: string -> (int * (int * int * int * int))
+
+(** Check whether a PCI device will be hidden from the dom0 kernel on boot. *)
+val is_pci_hidden: __context:Context.t -> [ `PCI ] Ref.t -> bool
+
+(** Hide a PCI device from the dom0 kernel. (Takes affect after next boot.) *)
+val hide_pci: __context:Context.t -> [ `PCI ] Ref.t -> unit
+
+(** Unhide a PCI device from the dom0 kernel. (Takes affect after next boot.) *)
+val unhide_pci: __context:Context.t -> [ `PCI ] Ref.t -> unit
+
+(** Return the id of a PCI device *)
+val id_of: (int * (int * int * int * int)) -> int
+
+(** Return the domain of a PCI device *)
+val domain_of: (int * (int * int * int * int)) -> int
+
+(** Return the bus of a PCI device *)
+val bus_of: (int * (int * int * int * int)) -> int
+
+(** Return the device of a PCI device *)
+val dev_of: (int * (int * int * int * int)) -> int
+
+(** Return the function of a PCI device *)
+val fn_of: (int * (int * int * int * int)) -> int

@@ -2535,6 +2535,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let migrate_receive ~__context ~host ~network ~options =
 			info "Host.migrate_receive: host = '%s'; network = '%s'" (host_uuid ~__context host) (network_uuid ~__context network);
 			Local.Host.migrate_receive ~__context ~host ~network ~options
+
+		let enable_display ~__context ~host =
+			info "Host.enable_display: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.enable_display ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.enable_display rpc session_id host)
+
+		let disable_display ~__context ~host =
+			info "Host.disable_display: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.disable_display ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.disable_display rpc session_id host)
 	end
 
 	module Host_crashdump = struct
@@ -3726,7 +3738,23 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	module PCI = struct end
 
-	module PGPU = Local.PGPU
+	module PGPU = struct
+		include Local.PGPU
+
+		let enable_dom0_access ~__context ~self =
+			info "PGPU.enable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self);
+			let host = Db.PGPU.get_host ~__context ~self in
+			let local_fn = Local.PGPU.enable_dom0_access ~self in
+			do_op_on ~__context ~local_fn ~host
+				(fun session_id rpc -> Client.PGPU.enable_dom0_access rpc session_id self)
+
+		let disable_dom0_access ~__context ~self =
+			info "PGPU.disable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self);
+			let host = Db.PGPU.get_host ~__context ~self in
+			let local_fn = Local.PGPU.disable_dom0_access ~self in
+			do_op_on ~__context ~local_fn ~host
+				(fun session_id rpc -> Client.PGPU.disable_dom0_access rpc session_id self)
+	end
 
 	module GPU_group = struct
 		(* Don't forward. These are just db operations. *)

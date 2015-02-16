@@ -177,6 +177,7 @@ sig
 	    | Std_vga
 	    | Cirrus
 	    | Vgpu
+	    | IGD_passthrough
 	val disp_intf_opt_of_rpc: Rpc.t -> disp_intf_opt
 	val rpc_of_disp_intf_opt: disp_intf_opt -> Rpc.t
 

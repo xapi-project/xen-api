@@ -606,6 +606,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~power_on_config:[]
 	~local_cache_sr
 	~guest_VCPUs_params:[]
+	~display:`enabled
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1583,3 +1584,43 @@ let migrate_receive ~__context ~host ~network ~options =
 	  Xapi_vm_migrate._session_id, new_session_id;
 	  Xapi_vm_migrate._master, master_url;
 	]
+
+let update_display ~__context ~host ~action =
+	let open Xapi_host_display in
+	let db_current = Db.Host.get_display ~__context ~self:host in
+	let db_new, actual_action = match db_current, action with
+	| `enabled,           `enable  -> `enabled,           None
+	| `disable_on_reboot, `enable  -> `enabled,           Some `enable
+	| `disabled,          `enable  -> `enable_on_reboot,  Some `enable
+	| `enable_on_reboot,  `enable  -> `enable_on_reboot,  None
+	| `enabled,           `disable -> `disable_on_reboot, Some `disable
+	| `disable_on_reboot, `disable -> `disable_on_reboot, None
+	| `disabled,          `disable -> `disabled,          None
+	| `enable_on_reboot,  `disable -> `disabled,          Some `disable
+	in
+	begin
+		match actual_action with
+		| None -> ()
+		| Some `disable -> disable ()
+		| Some `enable  -> enable ()
+	end;
+	if db_new <> db_current
+	then Db.Host.set_display ~__context ~self:host ~value:db_new;
+	db_new
+
+let enable_display ~__context ~host =
+	update_display ~__context ~host ~action:`enable
+
+let disable_display ~__context ~host =
+	update_display ~__context ~host ~action:`disable
+
+let sync_display ~__context ~host=
+	if !Xapi_globs.on_system_boot then begin
+		let status = match Xapi_host_display.status () with
+		| `enabled | `unknown -> `enabled
+		| `disabled -> `disabled
+		in
+		if status = `disabled
+		then Xapi_pci.disable_system_display_device ();
+		Db.Host.set_display ~__context ~self:host ~value:status
+	end

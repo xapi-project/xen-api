@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 72
+let schema_minor_vsn = 73
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -63,9 +63,12 @@ let clearwater_whetstone_release_schema_minor_vsn = 71
 let creedence_release_schema_major_vsn = 5
 let creedence_release_schema_minor_vsn = 72
 
+let cream_release_schema_major_vsn = 5
+let cream_release_schema_minor_vsn = 73
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = clearwater_felton_release_schema_major_vsn
-let last_release_schema_minor_vsn = clearwater_felton_release_schema_minor_vsn
+let last_release_schema_major_vsn = creedence_release_schema_major_vsn
+let last_release_schema_minor_vsn = creedence_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -182,6 +185,12 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
+
+let cream_release =
+	{ internal = get_product_releases rel_cream
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
 
 let creedence_release =
 	{ internal = get_product_releases rel_creedence
@@ -3539,7 +3548,7 @@ let task =
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
-      field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
+      field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
     ]) 
     ()
 
@@ -4039,6 +4048,14 @@ let host_get_server_certificate = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_display =
+	Enum ("host_display", [
+		"enabled", "This host is outputting its console to a physical display device";
+		"disable_on_reboot", "The host will stop outputting its console to a physical display device on next boot";
+		"disabled", "This host is not outputting its console to a physical display device";
+		"enable_on_reboot", "The host will start outputting its console to a physical display device on next boot";
+	])
+
 let host_operations =
   Enum ("host_allowed_operations", 
 	[ "provision", "Indicates this host is able to provision another VM"; 
@@ -4239,6 +4256,28 @@ let host_sync_pif_currently_attached = call ~flags:[`Session]
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_enable_display = call
+	~name:"enable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Enable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
+let host_disable_display = call
+	~name:"disable_display"
+	~lifecycle:[Published, rel_cream, ""]
+	~doc:"Disable console output to the physical display device next time this host boots"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~result:(host_display, "This host's physical display usage")
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4323,6 +4362,8 @@ let host =
 		 host_sync_pif_currently_attached;
 		 host_migrate_receive;
 		 host_declare_dead;
+		 host_enable_display;
+		 host_disable_display;
 		 ]
       ~contents:
         ([ uid _host;
@@ -4370,6 +4411,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
+	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
  ])
 	()
 
@@ -7752,6 +7794,14 @@ let pci =
 
 (** Physical GPUs (pGPU) *)
 
+let pgpu_dom0_access =
+	Enum ("pgpu_dom0_access", [
+		"enabled", "dom0 can access this device as normal";
+		"disable_on_reboot", "On host reboot dom0 will be blocked from accessing this device";
+		"disabled", "dom0 cannot access this device";
+		"enable_on_reboot", "On host reboot dom0 will be allowed to access this device";
+	])
+
 let pgpu =
 	let add_enabled_VGPU_types = call
 		~name:"add_enabled_VGPU_types"
@@ -7852,6 +7902,38 @@ let pgpu =
 		~allowed_roles:_R_READ_ONLY
 		()
 	in
+	let enable_dom0_access = call
+		~name:"enable_dom0_access"
+		~lifecycle:[Published, rel_cream, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be granted access";
+				param_release = cream_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let disable_dom0_access = call
+		~name:"disable_dom0_access"
+		~lifecycle:[Published, rel_cream, ""]
+		~versioned_params:[
+			{
+				param_type = (Ref _pgpu);
+				param_name = "self";
+				param_doc = "The PGPU to which dom0 will be denied access";
+				param_release = cream_release;
+				param_default = None;
+			};
+		]
+		~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	create_obj
 		~name:_pgpu
 		~descr:"A physical GPU (pGPU)"
@@ -7866,6 +7948,8 @@ let pgpu =
 			set_enabled_VGPU_types;
 			set_GPU_group;
 			get_remaining_capacity;
+			enable_dom0_access;
+			disable_dom0_access;
 		]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
@@ -7881,6 +7965,8 @@ let pgpu =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_size)) "size" "Abstract size of this PGPU";
 			field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
+			field ~qualifier:DynamicRO ~ty:(pgpu_dom0_access) ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
+			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VBool false)) "is_system_display_device" "Is this device the system display device";
 			]
 		()
 
