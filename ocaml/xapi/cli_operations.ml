@@ -4021,6 +4021,16 @@ let host_reset_cpu_features printer rpc session_id params =
 			get_host_from_session rpc session_id in
 	Client.Host.reset_cpu_features rpc session_id host
 
+let host_enable_display printer rpc session_id params =
+	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let result = Client.Host.enable_display rpc session_id host in
+	printer (Cli_printer.PMsg (Record_util.host_display_to_string result))
+
+let host_disable_display printer rpc session_id params =
+	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let result = Client.Host.disable_display rpc session_id host in
+	printer (Cli_printer.PMsg (Record_util.host_display_to_string result))
+
 let patch_upload fd printer rpc session_id params =
 	let filename = List.assoc "file-name" params in
 	let make_command task_id =
