@@ -561,6 +561,7 @@ and get_all_records_method classname =
     msg_force_custom = None;
     msg_allowed_roles = None;
     msg_map_keys_roles = [];
+    msg_doc_tags = [];
   };
 
 and get_constructor_params content =
