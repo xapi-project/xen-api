@@ -57,6 +57,17 @@ let entire_gpu = {
 	internal_config = [];
 }
 
+let dummy_vgpu = {
+	vendor_name = "";
+	model_name = "dummy";
+	framebuffer_size = 0L;
+	max_heads = 0L;
+	max_resolution_x = 0L;
+	max_resolution_y = 0L;
+	size = 1L;
+	internal_config = [Xapi_globs.vgpu_config_key, "dummy"];
+}
+
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
 		~max_resolution_x ~max_resolution_y ~size ~internal_config =
 	let ref = Ref.make () in
@@ -249,7 +260,10 @@ let find_or_create_supported_types ~__context ~pci_db pci =
 	let vgpu_types = List.map
 		(fun v -> find_or_create ~__context v) relevant_types in
 	let entire_gpu_type = find_or_create ~__context entire_gpu in
-	entire_gpu_type :: vgpu_types
+	if Xapi_fist.dummy_vgpu_type () then
+		let dummy_vgpu_type = find_or_create ~__context dummy_vgpu in
+		dummy_vgpu_type :: entire_gpu_type :: vgpu_types
+	else entire_gpu_type :: vgpu_types
 
 let requires_passthrough ~__context ~self =
 	let type_rec = Db.VGPU_type.get_record ~__context ~self in
