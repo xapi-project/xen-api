@@ -159,7 +159,7 @@ let _hide_pci ~__context pci =
 		let p = pcidev_of_pci ~__context pci in
 		let devs = p::(get_hidden_pcidevs ()) in
 		let valstr = List.fold_left (fun acc d -> acc ^ (paren_of d)) "" devs in
-		let cmd = Printf.sprintf "%s --set-dom0 %s'%s'"
+		let cmd = Printf.sprintf "%s --set-dom0 %s%s"
 			xen_cmdline_path pci_hiding_key_eq valstr in
 		let _ = Helpers.get_process_output cmd in
 		()
@@ -180,7 +180,7 @@ let _unhide_pci ~__context pci =
 		let cmd = match new_value with
 			| "" -> Printf.sprintf "%s --delete-xen %s"
 				xen_cmdline_path pci_hiding_key
-			| _ -> Printf.sprintf "%s --set-dom0 %s'%s'"
+			| _ -> Printf.sprintf "%s --set-dom0 %s%s"
 				xen_cmdline_path pci_hiding_key_eq new_value
 		in
 		let _ = Helpers.get_process_output cmd in
