@@ -152,7 +152,7 @@ let is_pci_hidden ~__context pci =
 	)
 
 let _hide_pci ~__context pci =
-	if not (is_pci_hidden ~__context pci) then (
+	if not (_is_pci_hidden ~__context pci) then (
 		let paren_of (a, b, c, d) = (
 			Printf.sprintf bdf_paren_prnt_fmt a b c d
 		) in
@@ -172,7 +172,7 @@ let hide_pci ~__context pci =
 	)
 
 let _unhide_pci ~__context pci =
-	if (is_pci_hidden ~__context pci) then (
+	if (_is_pci_hidden ~__context pci) then (
 		let raw_value = get_pci_hidden_raw_value () in
 		let bdf_paren = Printf.sprintf "(%s)"
 			(Db.PCI.get_pci_id ~__context ~self:pci) in
