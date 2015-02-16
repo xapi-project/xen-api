@@ -104,7 +104,7 @@ let messages_of_obj obj =
 	) msgs
 
 let _ =
-	let api = Datamodel_utils.add_implicit_messages (Datamodel.all_api) in
+	let api = Datamodel.all_api in
 	let objs = objects_of_api api in
 	let json = JArray (List.map (fun obj ->
 		JObject [
