@@ -695,6 +695,15 @@ let parse_patch_precheck_xml patch xml =
   | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_VM_RUNNING")], _) ->
       (* <error errorcode="PATCH_PRECHECK_FAILED_VM_RUNNING" /> *)
       raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_vm_running, [Ref.string_of patch]))
+  | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_OUT_OF_SPACE")], children) ->
+      (* <error errorcode="PATCH_PRECHECK_FAILED_OUT_OF_SPACE">
+       *   <found>165396480</found>
+       *   <required>1073741824000</required>
+       * </error>
+       *)
+      let found = findElement "found" children in
+      let required = findElement "required" children in
+      raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_out_of_space, [Ref.string_of patch; found; required]))
   | _ ->
       raise (Bad_precheck_xml "Unknown error code or malformed xml")
   
