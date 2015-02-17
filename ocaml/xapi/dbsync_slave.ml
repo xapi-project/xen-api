@@ -49,7 +49,7 @@ let create_localhost ~__context info =
 	~hostname:info.hostname ~address:ip 
 	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
 	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
-	~local_cache_sr:Ref.null ~chipset_info:[] ~virt_hw_vns:Xapi_globs.host_virt_hw_vns
+	~local_cache_sr:Ref.null ~chipset_info:[]
     in ()		
 
 (* TODO cat /proc/stat for btime ? *)
@@ -82,6 +82,7 @@ let refresh_localhost_info ~__context info =
     Db.Host.set_software_version ~__context ~self:host ~value:software_version;
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
+    Db.Host.set_virt_hw_vns ~__context ~self:host ~value:Xapi_globs.host_virt_hw_vns;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
     let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
     Db.Host.set_capabilities ~__context ~self:host ~value:caps;
@@ -92,13 +93,13 @@ let refresh_localhost_info ~__context info =
 
     Db.Host.remove_from_other_config ~__context ~self:host ~key:boot_time_key;
     Db.Host.add_to_other_config ~__context ~self:host ~key:boot_time_key ~value:boot_time_value;
-    Db.Host.set_virt_hw_vns ~__context ~self:host ~value:Xapi_globs.host_virt_hw_vns;
 
     let agent_start_key = "agent_start_time" in 
     let agent_start_time = string_of_float (Unix.time ()) in
 
     Db.Host.remove_from_other_config ~__context ~self:host ~key:agent_start_key;
     Db.Host.add_to_other_config ~__context ~self:host ~key:agent_start_key ~value:agent_start_time;
+
     (* Register whether we have local storage or not *)
 
     if not (Helpers.local_storage_exists ()) then begin

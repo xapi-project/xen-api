@@ -751,10 +751,13 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && live then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
+		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
-			~host_to:(Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref));
+			~host_to;
+		(* Check the host can support the VM's required version of virtual hardware platform *)
+		Xapi_vm_helpers.assert_virt_hw_support ~__context ~vm ~host:host_to;
 
 		(*Check that the remote host is enabled and not in maintenance mode*)
 		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in

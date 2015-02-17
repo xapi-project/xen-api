@@ -415,8 +415,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 				 * we need an alternative way of preserving the value of the local_cache_sr field, so it's
 				 * been added to the constructor. *)
 				~local_cache_sr
-        		~chipset_info:host.API.host_chipset_info
-        		~virt_hw_vns:host.API.host_virt_hw_vns
+				~chipset_info:host.API.host_chipset_info
 			in
 
 			(* Copy other-config into newly created host record: *)

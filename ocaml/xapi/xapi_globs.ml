@@ -840,5 +840,24 @@ let read_external_config () =
 		D.info "Read global variables successfully from %s" xapi_globs_conf
 	end
 
-(* This set is used as an indicator to show the hardware virtual platform the current host have *)
-let host_virt_hw_vns = []
+(* VIRTUAL HARDWARE PLATFORM VERSIONS *)
+
+(* This set is used as an indicator to show the virtual hardware
+   platform versions the current host offers to its guests *)
+let host_virt_hw_vns = [
+	(* Zero is the implicit version offered by hosts older than this
+	   versioning concept, and the version implicitly required by old
+	   guests that do not specify a version. *)
+	0L;
+	(* Version one is the version in which this versioning concept was
+	   introduced. This Virtual Hardware Platform might not differ
+	   significantly from the immediately preceding version zero, but
+	   it seems prudent to introduce a way to differentiate it from
+	   the whole history of older host versions. *)
+	1L;
+	(* We anticipate that version two will be the first virtual
+	   hardware platform version to offer the option of an emulated
+	   PCI device used to trigger a guest to install or upgrade its PV
+	   tools (originally introduced to exploit the Windows Update
+	   system). *)
+]
