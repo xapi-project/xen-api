@@ -90,7 +90,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~suspend_SR:Ref.null
 				~version:0L
 				~generation_id:""
-				~virt_hw_vn:0L
+				~hardware_platform_version:0L
 			      in
 
                  TaskHelper.operate_on_db_task ~__context

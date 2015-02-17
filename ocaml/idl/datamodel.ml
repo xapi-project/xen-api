@@ -4442,7 +4442,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
 	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
-	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virt_hw_vns" "The set of versions of the virtual hardware platform that the host can offer to its guests";
+	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
  ])
 	()
 
@@ -6971,7 +6971,7 @@ let vm =
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
-	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware platform version the VM can run on";
+	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
       ])
 	()
 
