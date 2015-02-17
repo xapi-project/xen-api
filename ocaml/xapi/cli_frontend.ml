@@ -2509,6 +2509,24 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.dr_task_destroy;
 			flags=[]
 		};
+
+		"pgpu-enable-dom0-access",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Enable PGPU access to dom0.";
+			implementation=No_fd Cli_operations.pgpu_enable_dom0_access;
+			flags=[]
+		};
+
+		"pgpu-disable-dom0-access",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Disable PGPU access to dom0.";
+			implementation=No_fd Cli_operations.pgpu_disable_dom0_access;
+			flags=[]
+		};
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

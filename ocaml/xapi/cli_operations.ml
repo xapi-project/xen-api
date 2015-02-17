@@ -4449,3 +4449,15 @@ let dr_task_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let ref = Client.DR_task.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.DR_task.destroy ~rpc ~session_id ~self:ref
+
+let pgpu_enable_dom0_access printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.PGPU.get_by_uuid rpc session_id uuid in
+	let result = Client.PGPU.enable_dom0_access rpc session_id ref in
+	printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+
+let pgpu_disable_dom0_access printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.PGPU.get_by_uuid rpc session_id uuid in
+	let result = Client.PGPU.disable_dom0_access rpc session_id ref in
+	printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
