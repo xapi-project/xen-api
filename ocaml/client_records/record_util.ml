@@ -298,6 +298,9 @@ let host_display_to_string h =
 	| `disabled -> "disabled"
 	| `disable_on_reboot -> "disable_on_reboot"
 
+let pgpu_dom0_access_to_string x =
+	host_display_to_string x
+
 let boot_type_to_string x =
   match x with
     `bios -> "BIOS"
