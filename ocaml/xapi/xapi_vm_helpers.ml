@@ -247,6 +247,31 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 	  ~hVM_shadow_multiplier:x.API.vM_HVM_shadow_multiplier;
 	validate_actions_after_crash ~__context ~self ~value:x.API.vM_actions_after_crash
 
+let assert_virt_hw_support ~__context ~vm ~host =
+	let vm_virt_hw_vn = Db.VM.get_virt_hw_vn ~__context ~self:vm in
+	let host_virt_hw_vns = 
+		try
+			match host with
+				| Helpers.LocalObject host_ref ->
+					Db.Host.get_virt_hw_vns ~__context ~self:host_ref
+				| Helpers.RemoteObject (rpc, session_id, host_ref) ->
+					Client.Client.Host.get_virt_hw_vns ~rpc ~session_id ~self:host_ref
+		with Not_found ->
+			(* An old host that does not understand the concept
+			 * has implicit support for version 0 *)
+			[0L]
+	in
+	if not (List.mem vm_virt_hw_vn host_virt_hw_vns) then
+		let host_r = match host with
+			| Helpers.LocalObject host_ref -> host_ref
+			| Helpers.RemoteObject (rpc, session_id, host_ref) -> host_ref
+		in
+		raise (Api_errors.Server_error (
+			Api_errors.vm_host_incompatible_virtual_hardware_platform_version, [
+				Ref.string_of host_r;
+				"["^(String.concat "; " (List.map Int64.to_string host_virt_hw_vns))^"]";
+				Ref.string_of vm;
+				Int64.to_string vm_virt_hw_vn]))
 
 let assert_host_is_enabled ~__context ~host =
 	(* Check the host is enabled first *)
@@ -450,6 +475,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
+ - The host must support the VM's required Virtual Hardware Platform version.
  - The vCPU, memory, shadow multiplier, and actions-after-crash values must be valid.
  - For each VBD, corresponding VDI's SR must be attached on the target host.
  - For each VIF, either the Network has a PIF connecting to the target host,
@@ -474,6 +500,8 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
 	validate_basic_parameters ~__context ~self ~snapshot;
 	assert_host_is_live ~__context ~host;
 	assert_host_is_enabled ~__context ~host;
+	(* Check the host can support the VM's required version of virtual hardware platform *)
+	assert_virt_hw_support ~__context ~vm:self ~host:(Helpers.LocalObject host);
 	if do_sr_check then
 		assert_can_see_SRs ~__context ~self ~host;
 	assert_can_see_networks ~__context ~self ~host;
@@ -1023,21 +1051,3 @@ let remove_superfluous_genids ~__context =
 					vm.API.vM_generation_id vm.API.vM_uuid ;
 				Db.VM.set_generation_id ~__context ~self ~value:""
 			end)
-
-let assert_virt_hw_support ~__context ~vm ~host_to =
-	let vm_virt_hw_vn = Db.VM.get_virt_hw_vn ~__context ~self:vm in
-	if not (vm_virt_hw_vn = 0L)
-	then begin			
-		let host_virt_hw_vns = 
-		try
-			match host_to with
-	        | Helpers.LocalObject host_ref ->
-	        	Db.Host.get_virt_hw_vns ~__context ~self:host_ref
-	        | Helpers.RemoteObject (rpc, session_id, host_ref) ->
-	        	Client.Client.Host.get_virt_hw_vns ~rpc ~session_id ~self:host_ref
-	    with Not_found ->
-	    	[] in
-		
-		if not (List.mem vm_virt_hw_vn host_virt_hw_vns) then
-			raise (Api_errors.Server_error (Api_errors.hardware_platform_version_6_5_SP1_required, []))
-	end

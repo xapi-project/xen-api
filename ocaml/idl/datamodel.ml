@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 72
+let schema_minor_vsn = 73
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -64,7 +64,7 @@ let creedence_release_schema_major_vsn = 5
 let creedence_release_schema_minor_vsn = 72
 
 let cream_release_schema_major_vsn = 5
-let cream_release_schema_minor_vsn = 72
+let cream_release_schema_minor_vsn = 73
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = creedence_release_schema_major_vsn
@@ -874,6 +874,8 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
+  error Api_errors.vm_host_incompatible_virtual_hardware_platform_version ["host"; "host_versions"; "vm"; "vm_version"]
+	  ~doc:"You attempted to run a VM on a host that cannot provide the VM's required Virtual Hardware Platform version." ();
   error Api_errors.vm_has_pci_attached ["vm"]
     ~doc:"This operation could not be performed, because the VM has one or more PCI devices passed through." ();
   error Api_errors.vm_has_vgpu ["vm"]
@@ -1668,6 +1670,7 @@ let vm_assert_can_boot_here = call
 		Api_errors.host_not_enough_free_memory;
 		Api_errors.vm_requires_sr;
 		Api_errors.vm_host_incompatible_version;
+		Api_errors.vm_host_incompatible_virtual_hardware_platform_version;
 	]
 	()
 
@@ -3836,7 +3839,6 @@ let host_create_params =
     {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
     {param_type=Ref _sr; param_name="local_cache_sr"; param_doc="The SR that is used as a local cache"; param_release=cowley_release; param_default=(Some (VRef (Ref.string_of Ref.null)))};
     {param_type=Map(String,String); param_name="chipset_info"; param_doc="Information about chipset features"; param_release=boston_release; param_default=Some(VMap [])};
-    {param_type=(Set(Int)); param_name="virt_hw_vns"; param_doc="Information about Virtual Hardware Platform Version"; param_release=cream_release; param_default=Some(VSet [])};
   ]
 
 let host_create = call
@@ -4368,7 +4370,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
-	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [])) ~ty:(Set (Int)) "virt_hw_vns" "The virtual hardware versions have";
+	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virt_hw_vns" "The set of versions of the virtual hardware platform that the host can offer to its guests";
  ])
 	()
 
@@ -6894,7 +6896,7 @@ let vm =
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
-	field ~writer_roles:_R_VM_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware version the VM can running on";
+	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "virt_hw_vn" "The host virtual hardware platform version the VM can run on";
       ])
 	()
 
