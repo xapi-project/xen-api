@@ -992,6 +992,7 @@ let host_record rpc session_id host =
 				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations))
 				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations) ();
 			make_field ~name:"enabled" ~get:(fun () -> string_of_bool (x ()).API.host_enabled) ();
+			make_field ~name:"display" ~get:(fun () -> Record_util.host_display_to_string (x ()).API.host_display) ();
 			make_field ~name:"API-version-major" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_major) ();
 			make_field ~name:"API-version-minor" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_minor) ();
 			make_field ~name:"API-version-vendor" ~get:(fun () -> (x ()).API.host_API_version_vendor) ();
@@ -1464,6 +1465,8 @@ let pgpu_record rpc session_id pgpu =
 			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pGPU_uuid) ();
 			make_field ~name:"vendor-name" ~get:(fun () -> try (xp ()).API.pCI_vendor_name with _ -> nid) ();
 			make_field ~name:"device-name" ~get:(fun () -> try (xp ()).API.pCI_device_name with _ -> nid) ();
+			make_field ~name:"dom0-access" ~get:(fun () -> Record_util.pgpu_dom0_access_to_string (x ()).API.pGPU_dom0_access ) ();
+			make_field ~name:"is-system-display-device" ~get:(fun () -> string_of_bool (x ()).API.pGPU_is_system_display_device ) ();
 			make_field ~name:"gpu-group-uuid"
 				~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid)
 				~set:(fun gpu_group_uuid ->
