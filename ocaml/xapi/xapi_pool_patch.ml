@@ -649,7 +649,13 @@ let update_db ~__context =
 
 exception Bad_precheck_xml of string
 
-let parse_patch_precheck_xml patch = function
+let parse_patch_precheck_xml patch xml =
+  let rec findElement name = function
+    | Element (tagName, _, (PCData head)::_)::tail -> if tagName = name then head else findElement name tail
+    | _::tail -> findElement name tail
+    | [] -> raise (Bad_precheck_xml "Could not find element %s")
+  in
+  match xml with
   | Element ("error", [("errorcode", "PATCH_PRECHECK_FAILED_UNKNOWN_ERROR")], [Element("info", _, [PCData info])]) ->
       (* <error errorcode="PATCH_PRECHECK_FAILED_UNKNOWN_ERROR">
         <info>Any message in text - for errors that don't fit into another category</info>
@@ -674,11 +680,6 @@ let parse_patch_precheck_xml patch = function
         <found>4.0.91</found>
         <required>4.0.95 or newer</required>
       </error> *)
-      let rec findElement name = function
-        | Element (tagName, _, (PCData head)::_)::tail -> if tagName = name then head else findElement name tail
-        | _::tail -> findElement name tail
-        | [] -> raise (Bad_precheck_xml "Could not find element %s")
-      in
         let found = findElement "found" children in
         let required = findElement "required" children in
         raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_wrong_server_version, [Ref.string_of patch; found; required]))
@@ -688,11 +689,6 @@ let parse_patch_precheck_xml patch = function
         <found>50845c</found>
         <required>^58332[pc]$</required>
       </error> *)
-      let rec findElement name = function
-        | Element (tagName, _, (PCData head)::_)::tail -> if tagName = name then head else findElement name tail
-        | _::tail -> findElement name tail
-        | [] -> raise (Bad_precheck_xml "Could not find element %s")
-      in
         let found = findElement "found" children in
         let required = findElement "required" children in
         raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_wrong_server_build, [Ref.string_of patch; found; required]))
