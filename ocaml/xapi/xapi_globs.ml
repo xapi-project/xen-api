@@ -844,7 +844,7 @@ let read_external_config () =
 
 (* This set is used as an indicator to show the virtual hardware
    platform versions the current host offers to its guests *)
-let host_virt_hw_vns = [
+let host_virtual_hardware_platform_versions = [
 	(* Zero is the implicit version offered by hosts older than this
 	   versioning concept, and the version implicitly required by old
 	   guests that do not specify a version. *)

@@ -194,7 +194,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~suspend_SR:Ref.null
 		~version:0L
 		~generation_id:""
-		~virt_hw_vn:0L;
+		~hardware_platform_version:0L;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol =
