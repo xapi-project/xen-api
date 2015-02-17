@@ -82,7 +82,7 @@ let refresh_localhost_info ~__context info =
     Db.Host.set_software_version ~__context ~self:host ~value:software_version;
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
-    Db.Host.set_virt_hw_vns ~__context ~self:host ~value:Xapi_globs.host_virt_hw_vns;
+    Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
     let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
     Db.Host.set_capabilities ~__context ~self:host ~value:caps;

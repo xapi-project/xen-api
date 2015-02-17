@@ -391,7 +391,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
-		~virt_hw_vn
+		~hardware_platform_version
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -443,7 +443,7 @@ let create ~__context
 		~suspend_SR
 		~version
 		~generation_id
-		~virt_hw_vn
+		~hardware_platform_version
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
