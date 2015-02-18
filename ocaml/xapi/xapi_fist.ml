@@ -116,3 +116,4 @@ let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
 
 let allowed_unsigned_patches () = fistpoint_read "allowed_unsigned_patches"
 
+let dummy_vgpu_type () = fistpoint "dummy_vgpu_type"
