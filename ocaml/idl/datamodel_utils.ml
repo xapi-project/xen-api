@@ -526,3 +526,11 @@ let string_of_doc_tag = function
 	| Snapshots -> "snapshots"
 	| Networking -> "networking"
 
+let string_of_lifecycle_transition = function
+	| Prototyped -> "prototyped"
+	| Published -> "published"
+	| Extended -> "extended"
+	| Changed -> "changed"
+	| Deprecated -> "deprecated"
+	| Removed -> "removed"
+
