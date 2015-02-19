@@ -518,7 +518,7 @@ let action_writedelta block_dev_fd client datasock target_response_time =
   read_separator client;
   let data = read_data client length in
 
-  R.debug "writedelta command read params from client: generation count [%d] length [%d]" (int_of_string generation_count) length;
+  R.debug "writedelta command read params from client: generation count [%s] length [%d]" generation_count length;
 
   try
     (* Read the validity byte *)
