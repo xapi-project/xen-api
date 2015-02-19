@@ -253,7 +253,7 @@ let read_database block_dev_fd target_response_time =
   ignore_int (Unixext.seek_rel block_dev_fd len);
 
   (* Read the generation count and marker *)
-  let generation_count = int_of_string (read generation_size) in
+  let generation_count = Int64.of_string (read generation_size) in
   let marker_end = read marker_size in
   if marker_start <> marker_end then raise (NonMatchingMarkers(marker_start, marker_end))
   else (len, db_fn, generation_count, marker_start)
@@ -268,7 +268,7 @@ let read_delta block_dev_fd target_response_time =
   if len = 0 then raise EndOfDeltas;
   (* Otherwise, it seems valid so read it *)
   let delta = read len in
-  let generation_count = int_of_string (read generation_size) in
+  let generation_count = Int64.of_string (read generation_size) in
   let marker = read marker_size in
   (len, delta, generation_count, marker)
 
@@ -624,7 +624,7 @@ let action_read block_dev_fd client datasock target_response_time =
     let length, db_fn, generation_count, marker = read_database block_dev_fd target_response_time in
 
     (* Send the generation count and length of the database to the client *)
-    send_response client (Printf.sprintf "%s|%016d|%016d" db_mesg generation_count length);
+    send_response client (Printf.sprintf "%s|%016Ld|%016d" db_mesg generation_count length);
 
     (* Open the data channel; send the contents of the database down the data channel; close the data channel *)
     transfer_database_to_sock datasock db_fn target_response_time;
@@ -636,7 +636,7 @@ let action_read block_dev_fd client datasock target_response_time =
         if marker <> marker' then raise (NonMatchingMarkers(marker, marker'))
         else
           (* Send the delta to the client *)
-          send_response client (Printf.sprintf "%s|%016d|%016d|%s" delta_mesg generation_count length delta);
+          send_response client (Printf.sprintf "%s|%016Ld|%016d|%s" delta_mesg generation_count length delta);
       done
     with EndOfDeltas -> send_response client end_mesg (* finish with the end message *)
   with
@@ -712,7 +712,7 @@ let _ =
           try
             (* Attempt to read a database record *)
             let length, db_fn, generation_count, marker = read_database block_dev_fd target_response_time in
-            Printf.printf "*** [Half %s] Database with generation count [%d] and length %d:\n" (half_to_string half) generation_count length;
+            Printf.printf "*** [Half %s] Database with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
             db_fn (fun chunk len -> print_string chunk);
             Printf.printf "\n";
             Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker;
@@ -723,7 +723,7 @@ let _ =
               if marker <> marker' then raise (NonMatchingMarkers(marker, marker'))
               else
                 (* Send the delta to the client *)
-                Printf.printf "*** [Half %s] Delta with generation count [%d] and length %d:\n" (half_to_string half) generation_count length;
+                Printf.printf "*** [Half %s] Delta with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
                 Printf.printf "%s\n" delta;
                 Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker'
             done
