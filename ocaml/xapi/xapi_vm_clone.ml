@@ -333,6 +333,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~suspend_SR:Ref.null
 		~version:0L
 		~generation_id
+		~hardware_platform_version:0L
 	;
 
 	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"
