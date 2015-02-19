@@ -1050,7 +1050,7 @@ let host_record rpc session_id host =
 				~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params) 
 				~add_to_map:(fun k v -> Client.Host.add_to_guest_VCPUs_params rpc session_id host k v)
 				~remove_from_map:(fun k -> Client.Host.remove_from_guest_VCPUs_params rpc session_id host k) ();
-			make_field ~name:"virtual_hardware_platform_versions" 
+			make_field ~name:"virtual-hardware-platform-versions" 
 				~get:(fun () -> String.concat "; " (List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions)) 
 				~get_set:(fun () -> List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions) ();
 		]}
