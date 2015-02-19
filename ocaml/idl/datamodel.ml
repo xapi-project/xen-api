@@ -1073,6 +1073,8 @@ let _ =
     ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
     ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server.  All VMs must be suspended before the patch can be applied." ();
+  error Api_errors.patch_precheck_failed_out_of_space [ "patch"; "found_space"; "required_required"]
+    ~doc:"The patch precheck stage failed: the server does not have enough space." ();
   error Api_errors.patch_precheck_tools_iso_mounted ["patch"]
     ~doc:"XenServer Tools ISO must be ejected from all running VMs." ();
 
