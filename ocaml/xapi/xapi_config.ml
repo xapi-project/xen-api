@@ -36,6 +36,7 @@ let read_config filename =
 		Config_shared.disable_logging_for;
 		"igd-passthru-vendor-whitelist", Config.Set_string vendor_whitelist;
 		"relax-xsm-sr-check", Config.Set_bool Xapi_globs.relax_xsm_sr_check;
+		"hotfix-fingerprint", Config.Set_string Xapi_globs.trusted_patch_key;
 	] in
 	try
 		Config.read filename configargs (fun _ _ -> ());

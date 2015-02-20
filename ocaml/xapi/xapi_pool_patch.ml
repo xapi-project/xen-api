@@ -46,14 +46,6 @@ let rm = "/bin/rm"
 (* Host patches are directories are placed here: *)
 let patch_dir = "/var/patch"
 
-let xensource_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
-
-let oem_patch_keys = [
-	xensource_patch_key; (* normal public key *)
-	"NDExQUZBNzQwMDJFMDg1QjM3RDZGRkY1QTY1OTlCNDdENDBFMUY4Qw=="; (* pub=D40E1F8C public key *)
-	"NEJDMzFFN0Q3M0EwRjdBNzY3QzM3NEMyQTk3NjkwNTYzMERBQTkxNA=="; (* pub=30DAA914 public key *)
-]
-
 let check_unsigned_patch_fist path =
 	match Xapi_fist.allowed_unsigned_patches () with
 	| None -> false
@@ -81,7 +73,7 @@ let extract_patch path =
 	    (match fingerprint with 
 	      | Some f ->
 		  let enc = Base64.encode f in
-		  if enc <> xensource_patch_key
+		  if enc <> !Xapi_globs.trusted_patch_key
 		  then 
 		    (
                       debug "Got fingerprint: %s" f;
@@ -331,143 +323,7 @@ let sync () =
 let patch_header_length = 8
 let skip_signature_flag = Filename.concat Fhs.etcdir "skipsignature"
 
-let update_upload_pre_script = Filename.concat Fhs.libexecdir "update-upload-pre"
-let update_upload_post_script = Filename.concat Fhs.libexecdir "update-upload-post"
-
 let skip_signature_test () = Sys.file_exists skip_signature_flag
-
-let oem_patch_stream_handler (req: Request.t) s _ =
-  Xapi_http.with_context "Streaming OEM update to secondary partition" req s
-    (fun __context ->
-      if not (on_oem ~__context)
-      then raise (Api_errors.Server_error (Api_errors.only_allowed_on_oem_edition, 
-                                          ["update-upload"]));
-      let secondary_partition = find_secondary_partition () in
-      
-      (* Call update-upload-pre script before we consider streaming in the new contents *)
-      debug "Calling %s" update_upload_pre_script;
-      ignore(execute_command_get_output update_upload_pre_script []);
-      
-      Http_svr.headers s (Http.http_200_ok ());
-
-      let signature_file = Filename.temp_file "oem_update_" ".sig" in
-      
-      finally
-	(fun () ->
-      let header_length = 
-        if not (skip_signature_test ()) then begin
-          (* Read the length of the signature at the front of the stream *)
-          let signature_length = String.make patch_header_length '0' in
-          let () = Unixext.really_read s signature_length 0 patch_header_length in
-          let signature_length = 
-            try Int64.of_string signature_length 
-            with _ -> raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
-          in
-            debug "Signature is '%i' bytes long..." (Int64.to_int signature_length);
-            debug "Putting signature in file: %s" signature_file;
-            
-            (* Copy the signature off the front of the fd *)
-            Unixext.with_file signature_file [ Unix.O_WRONLY ] 0o600
-              (fun fd ->
-               let (_: int64) = Unixext.copy_file ~limit:signature_length s fd in ()
-              );
-            Int64.add signature_length (Int64.of_int patch_header_length)
-        end 
-        else begin
-	  (* This is quite significant: *)
-	  warn "Update signature check skipped: applying update with no signature";
-          Int64.zero
-        end
-      in
-      
-      begin
-        try
-          debug "Streaming update to partition: %s" secondary_partition;
-          (* Copy the rest of the fd straight to the partition 
-             (no where else to put it...) *)
-          let bytes_written = Unixext.with_file secondary_partition [ Unix.O_WRONLY ] 0o0
-            (fun fd ->
-               match req.Request.content_length with 
-                 | Some i ->
-                     let length = Int64.sub i header_length in
-                       debug "Got content-length of %s, so copying %s" 
-                         (Int64.to_string i) (Int64.to_string length);
-                       Unixext.copy_file ~limit:length s fd
-                 | None -> 
-                     debug "Didn't get content-length";
-                     Unixext.copy_file s fd
-            ) 
-          in
-	  
-          debug "Streaming complete.  Syncing";
-          sync ();
-          debug "Sync Complete";
-	  
-          if (Int64.to_int (Int64.rem bytes_written (Int64.of_int 512))) >  0
-          then raise (Api_errors.Server_error(Api_errors.invalid_patch_with_log, 
-                                             ["Image must be multiple of 512"]));
-	  
-          if not (skip_signature_test ()) then begin
-            debug "Checking signature on update...";         
-            Gpg.with_detached_signature secondary_partition signature_file bytes_written
-	          (fun fingerprint _ -> 
-	             (match fingerprint with 
-		            | Some f ->
- 		                (* base64 encoded fingerprint of our public patch signing key *)
-		                if not (List.mem (Base64.encode f) oem_patch_keys) 		             
-                        then 
-		                  (
-                            debug "Got fingerprint: %s" f;
-			                (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
-			                raise Gpg.InvalidSignature
-		                  )
-                        else
-                          debug "Fingerprint verified."
-		            | None ->
-		                debug "No fingerprint!";
-		                raise Gpg.InvalidSignature);
-              )
-          end
-          else begin 
-            debug "Skipping signature check..." 
-          end;
-
-	  (* Call update-upload-post script to prepare the system for reboot with the new patch *)
-	  debug "Calling %s" update_upload_post_script;
-	  ignore(execute_command_get_output update_upload_post_script []);
-
-        with e ->
-          begin
-            (* If we get an exception then we should overwrite 
-               the first meg with zeros *)
-            debug "There was an error writing the patch to disk: %s" 
-              (Printexc.to_string e);
-            debug "Zeroing first meg of %s..." secondary_partition;
-            Unixext.with_file secondary_partition [ Unix.O_WRONLY ] 0o0
-              (fun fd' ->
-                Unixext.with_file Xapi_globs.dev_zero [ Unix.O_RDONLY ] 0o0
-                  (fun fd ->
-                    let megabyte = Int64.of_int (1024 * 1024) in
-                    let (_: int64) = Unixext.copy_file ~limit:megabyte fd fd' in ()
-                  )
-              );
-            debug "Zeroing complete.  Syncing";
-            sync ();
-            debug "Sync Complete";
-	    
-            match e with
-              | Unix.Unix_error (e, _, _) when e = Unix.ENOSPC -> 
-                  raise (Api_errors.Server_error(Api_errors.out_of_space, [secondary_partition]))
-              | _ -> 
-                  raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
-          end
-      end;
-
-	)
-	(fun () -> Unixext.unlink_safe signature_file);
-
-      debug "Update applied successfully!";
-    )
 
 let pool_patch_download_handler (req: Request.t) s _ =
   Xapi_http.with_context "Downloading pool patch" req s
