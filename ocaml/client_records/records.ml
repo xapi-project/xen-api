@@ -1163,7 +1163,7 @@ let vbd_record rpc session_id vbd =
       ~set:(fun boot -> Client.VBD.set_bootable rpc session_id vbd (safe_bool_of_string "bootable" boot)) ();
     make_field ~name:"mode" ~get:(fun () -> match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW") 
       ~set:(fun mode -> Client.VBD.set_mode rpc session_id vbd (Record_util.string_to_vbd_mode mode)) ();
-    make_field ~name:"type" ~get:(fun () -> match (x ()).API.vBD_type with `CD -> "CD" | `Disk -> "Disk")
+    make_field ~name:"type" ~get:(fun () -> match (x ()).API.vBD_type with `CD -> "CD" | `Disk -> "Disk" | `Floppy -> "Floppy")
       ~set:(fun ty -> Client.VBD.set_type rpc session_id vbd (Record_util.string_to_vbd_type ty)) ();
     make_field ~name:"unpluggable" ~get:(fun () -> string_of_bool (x ()).API.vBD_unpluggable)
       ~set:(fun unpluggable -> Client.VBD.set_unpluggable rpc session_id vbd (safe_bool_of_string "unpluggable" unpluggable)) ();

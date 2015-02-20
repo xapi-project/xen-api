@@ -152,6 +152,7 @@ let print_disk vbd =
 		| Vbd.ReadWrite -> "w" in
 	let ty = match vbd.Vbd.ty with
 		| Vbd.CDROM -> ":cdrom"
+        | Vbd.Floppy -> ":floppy"
 		| Vbd.Disk -> "" in
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
@@ -193,6 +194,7 @@ let print_disk vbd =
 		| Vbd.ReadWrite -> "w" in
 	let ty = match vbd.Vbd.ty with
 		| Vbd.CDROM -> ":cdrom"
+        | Vbd.Floppy -> ":floppy"
 		| Vbd.Disk -> "" in
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
@@ -548,7 +550,11 @@ let vbd_list x =
 			let id = snd vbd.Vbd.id in
 			let position = Opt.default "None" (Opt.map Device_number.to_linux_device vbd.Vbd.position) in
 			let mode = if vbd.Vbd.mode = Vbd.ReadOnly then "RO" else "RW" in
-			let ty = match vbd.Vbd.ty with Vbd.CDROM -> "CDROM" | Vbd.Disk -> "HDD" in
+			let ty = match vbd.Vbd.ty with 
+                | Vbd.CDROM -> "CDROM" 
+                | Vbd.Floppy -> "Floppy"
+                | Vbd.Disk -> "HDD" 
+            in
 			let plugged = if state.Vbd.plugged then "X" else " " in
 			let disk = Opt.default "" (Opt.map (function
 				| Local x -> x |> trim 32
