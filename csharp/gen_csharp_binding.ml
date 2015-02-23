@@ -1628,6 +1628,7 @@ and exposed_type = function
   | Set(Ref name)           -> sprintf "List<XenRef<%s>>" (exposed_class_name name)
   | Set(Enum(name, _) as x) -> enums := TypeSet.add x !enums;
                                sprintf "List<%s>" name
+  | Set(Int)                -> "long[]"
   | Set(String)             -> "string[]"
   | Enum(name, _) as x      -> enums := TypeSet.add x !enums; name
   | Map(u, v)               -> sprintf "Dictionary<%s, %s>" (exposed_type u)
