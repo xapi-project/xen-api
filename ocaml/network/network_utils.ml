@@ -86,9 +86,10 @@ module Sysfs = struct
 
 	let is_physical name =
 		try
-			let link = Unix.readlink (getpath name "device") in
-			(* filter out device symlinks which look like /../../../devices/xen-backend/vif- *)
-			not(List.mem "xen-backend" (String.split '/' link))
+			let devpath = getpath name "device" in
+			let driver_link = Unix.readlink (devpath ^ "/driver") in
+			(* filter out symlinks under device/driver which look like /../../../devices/xen-backend/vif- *)
+			not(List.mem "xen-backend" (String.split '/' driver_link))
 		with _ -> false
 
 	let get_carrier name =
