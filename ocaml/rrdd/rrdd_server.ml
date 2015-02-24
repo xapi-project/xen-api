@@ -585,12 +585,20 @@ module Plugin = struct
 		end;
 		Hashtbl.replace last_read_checksum uid checksum
 
+	(* The function that tells the plugin what to write at the top of its output
+	 * file. *)
+	let get_header _ () : string = header
+
+	(* The function that a plugin can use to determine which file to write to. *)
+	let get_path _ ~(uid : string) : string =
+		Filename.concat base_path uid
+
 	(* The function that reads the file that corresponds to the plugin with the
 	 * specified uid, and returns the contents of the file in terms of the
 	 * payload type, or throws an exception. *)
 	let read_file (uid : string) : payload =
 		try
-			let path = Filename.concat base_path uid in
+			let path = get_path () uid in
 			let fd = open_file ~path in
 			if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 				raise Read_error;
@@ -613,14 +621,6 @@ module Plugin = struct
 			| Invalid_header_string | Invalid_length | Invalid_checksum
 			| No_update as e -> raise e
 			| _ -> raise Read_error
-
-	(* The function that tells the plugin what to write at the top of its output
-	 * file. *)
-	let get_header _ () : string = header
-
-	(* The function that a plugin can use to determine which file to write to. *)
-	let get_path _ ~(uid : string) : string =
-		Filename.concat base_path uid
 
 	(* A map storing currently registered plugins, and their sampling
 	 * frequencies. *)
