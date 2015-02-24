@@ -62,7 +62,7 @@ start() {
     "@BINDIR@/xenstored" ${XENSTORED_ARG}
 
 	OLD_ULIMIT_N=$(ulimit -n)
-	ulimit -n 4096
+	ulimit -n 16384
 	/usr/sbin/xenconsoled --log=hv --timestamp=hv --log-dir=/var/log/xen
 	ulimit -n $OLD_ULIMIT_N
 	[ -d /var/log/blktap ] || mkdir /var/log/blktap
