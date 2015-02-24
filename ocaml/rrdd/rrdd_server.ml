@@ -457,13 +457,26 @@ module Plugin = struct
 	(* Cache of open file handles to files written by plugins. *)
 	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
 
+	let open_files_m : Mutex.t = Mutex.create ()
+
 	(* A function that opens files using the above cache. *)
 	let open_file ~(path : string) : Unix.file_descr =
 		try Hashtbl.find open_files path
 		with Not_found ->
-			let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
-			Hashtbl.add open_files path fd;
-			fd
+			Mutex.execute open_files_m (fun _ ->
+				let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
+				Hashtbl.add open_files path fd;
+				fd
+			)
+
+	(* Close a file descriptor for a path and remove it from the fd cache *)
+	let close_file ~(path : string) : unit =
+		try
+			Mutex.execute open_files_m (fun _ ->
+				Hashtbl.find open_files path |> Unix.close;
+				Hashtbl.remove open_files path
+			)
+		with Not_found -> ()
 
 	(* A function that reads using Unixext.really_read a string of specified
 	 * length from the specified file. *)
@@ -656,6 +669,7 @@ module Plugin = struct
 	 * process its output file at most once more. *)
 	let deregister _ ~(uid : string) : unit =
 		Mutex.execute registered_m (fun _ ->
+			close_file (get_path () uid);
 			Hashtbl.remove registered uid
 		)
 
