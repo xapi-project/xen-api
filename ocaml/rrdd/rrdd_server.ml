@@ -457,13 +457,26 @@ module Plugin = struct
 	(* Cache of open file handles to files written by plugins. *)
 	let open_files : (string, Unix.file_descr) Hashtbl.t = Hashtbl.create 10
 
+	let open_files_m : Mutex.t = Mutex.create ()
+
 	(* A function that opens files using the above cache. *)
 	let open_file ~(path : string) : Unix.file_descr =
 		try Hashtbl.find open_files path
 		with Not_found ->
-			let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
-			Hashtbl.add open_files path fd;
-			fd
+			Mutex.execute open_files_m (fun _ ->
+				let fd = Unix.openfile path [Unix.O_RDONLY] 0 in
+				Hashtbl.add open_files path fd;
+				fd
+			)
+
+	(* Close a file descriptor for a path and remove it from the fd cache *)
+	let close_file ~(path : string) : unit =
+		try
+			Mutex.execute open_files_m (fun _ ->
+				Hashtbl.find open_files path |> Unix.close;
+				Hashtbl.remove open_files path
+			)
+		with Not_found -> ()
 
 	(* A function that reads using Unixext.really_read a string of specified
 	 * length from the specified file. *)
@@ -585,12 +598,20 @@ module Plugin = struct
 		end;
 		Hashtbl.replace last_read_checksum uid checksum
 
+	(* The function that tells the plugin what to write at the top of its output
+	 * file. *)
+	let get_header _ () : string = header
+
+	(* The function that a plugin can use to determine which file to write to. *)
+	let get_path _ ~(uid : string) : string =
+		Filename.concat base_path uid
+
 	(* The function that reads the file that corresponds to the plugin with the
 	 * specified uid, and returns the contents of the file in terms of the
 	 * payload type, or throws an exception. *)
 	let read_file (uid : string) : payload =
 		try
-			let path = Filename.concat base_path uid in
+			let path = get_path () uid in
 			let fd = open_file ~path in
 			if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 				raise Read_error;
@@ -613,14 +634,6 @@ module Plugin = struct
 			| Invalid_header_string | Invalid_length | Invalid_checksum
 			| No_update as e -> raise e
 			| _ -> raise Read_error
-
-	(* The function that tells the plugin what to write at the top of its output
-	 * file. *)
-	let get_header _ () : string = header
-
-	(* The function that a plugin can use to determine which file to write to. *)
-	let get_path _ ~(uid : string) : string =
-		Filename.concat base_path uid
 
 	(* A map storing currently registered plugins, and their sampling
 	 * frequencies. *)
@@ -656,6 +669,7 @@ module Plugin = struct
 	 * process its output file at most once more. *)
 	let deregister _ ~(uid : string) : unit =
 		Mutex.execute registered_m (fun _ ->
+			close_file (get_path () uid);
 			Hashtbl.remove registered uid
 		)
 
