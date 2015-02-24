@@ -118,10 +118,10 @@ let pci_hiding_key_eq = pci_hiding_key ^ "="
 let xen_cmdline_path = "/opt/xensource/libexec/xen-cmdline"
 
 let get_pci_hidden_raw_value () =
-	let cmd = xen_cmdline_path ^ " --get-xen " ^ pci_hiding_key in
+	let cmd = xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
 	let raw_kv_string = Helpers.get_process_output cmd in
 	(* E.g. "xen-pciback.hide=(0000:00:02.0)(0000:00:02.1)\n" or just "\n" *)
-	if String.startswith raw_kv_string pci_hiding_key_eq then
+	if String.startswith pci_hiding_key_eq raw_kv_string then
 		let keylen = String.length pci_hiding_key_eq in
 		(* rtrim to remove trailing newline *)
 		String.rtrim(String.sub_to_end raw_kv_string keylen)
@@ -152,14 +152,14 @@ let is_pci_hidden ~__context pci =
 	)
 
 let _hide_pci ~__context pci =
-	if not (is_pci_hidden ~__context pci) then (
+	if not (_is_pci_hidden ~__context pci) then (
 		let paren_of (a, b, c, d) = (
 			Printf.sprintf bdf_paren_prnt_fmt a b c d
 		) in
 		let p = pcidev_of_pci ~__context pci in
 		let devs = p::(get_hidden_pcidevs ()) in
 		let valstr = List.fold_left (fun acc d -> acc ^ (paren_of d)) "" devs in
-		let cmd = Printf.sprintf "%s --set-xen %s'%s'"
+		let cmd = Printf.sprintf "%s --set-dom0 %s%s"
 			xen_cmdline_path pci_hiding_key_eq valstr in
 		let _ = Helpers.get_process_output cmd in
 		()
@@ -172,7 +172,7 @@ let hide_pci ~__context pci =
 	)
 
 let _unhide_pci ~__context pci =
-	if (is_pci_hidden ~__context pci) then (
+	if (_is_pci_hidden ~__context pci) then (
 		let raw_value = get_pci_hidden_raw_value () in
 		let bdf_paren = Printf.sprintf "(%s)"
 			(Db.PCI.get_pci_id ~__context ~self:pci) in
@@ -180,7 +180,7 @@ let _unhide_pci ~__context pci =
 		let cmd = match new_value with
 			| "" -> Printf.sprintf "%s --delete-xen %s"
 				xen_cmdline_path pci_hiding_key
-			| _ -> Printf.sprintf "%s --set-xen %s'%s'"
+			| _ -> Printf.sprintf "%s --set-dom0 %s%s"
 				xen_cmdline_path pci_hiding_key_eq new_value
 		in
 		let _ = Helpers.get_process_output cmd in

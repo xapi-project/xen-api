@@ -333,6 +333,10 @@ let update_env __context sync_keys =
 	 been tidied up and attempt to delete orphaned pool-wide patch records. *)
 
   (* refresh host info fields *)
+	switched_sync Xapi_globs.sync_host_display (fun () ->
+		Xapi_host.sync_display ~__context ~host:localhost
+	);
+
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
     refresh_localhost_info ~__context info;
   );
