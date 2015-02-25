@@ -803,6 +803,38 @@ let choose_crashdump_sr ~__context ~vm =
     | None, None ->
         raise (Api_errors.Server_error (Api_errors.vm_no_crashdump_sr, [Ref.string_of vm]))
 
+(* Returns an SR suitable for receiving patches on this host *)
+let choose_patch_sr ~__context ~host =
+    (* If the Pool.default_SR exists, use that. Otherwise choose a local SR which
+       supports VDI_CLONE (as a side-effect this rules out 'udev' and 'iso' but we
+       really do want to be able to clone and delete patches temporarily. *)
+    let pool = get_pool ~__context in
+    let pool_sr = Db.Pool.get_default_SR ~__context ~self:pool in
+    let local_sr = match (
+      Db.Host.get_PBDs ~__context ~self:host
+      |> List.map (fun pbd ->
+          try
+            (* If someone concurrently deletes a PBD/SR/SM then ignore that one *)
+            let sr = Db.PBD.get_SR ~__context ~self:pbd in
+            let ty = Db.SR.get_type ~__context ~self:sr in
+            match Db.SM.get_records_where  ~__context ~expr:(Eq(Field "type", Literal ty)) with
+            | [ _, sm ] ->
+              if List.mem "VDI_CLONE" sm.API.sM_capabilities
+              then Some sr
+              else None
+            | _ -> None
+          with _ -> None
+        )
+      |> List.filter (fun x -> x <> None)
+      ) with
+    | Some x :: _ -> Some x
+    | _ -> None in
+    match check_sr_exists_for_host ~__context ~self:pool_sr ~host, local_sr with
+    | Some x, _ -> x
+    | _, Some x -> x
+    | None, None ->
+        raise (Api_errors.Server_error (Api_errors.host_no_patch_sr, [Ref.string_of host]))
+
 (* return the operations filtered for cancels functions *)
 let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~task_ids (* all tasks to explicitly cancel *) ~set =
   let cancel_splitset_taskid set1 taskids =

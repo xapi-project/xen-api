@@ -187,12 +187,16 @@ let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "
 
 let destroy_invalid_pool_patches ~__context =
 	let is_valid_pool_patch patch =
-		(* If patch has been applied to at least one host, then it is valid. *)
-		if (Db.Pool_patch.get_host_patches ~__context ~self:patch) <> [] then true
-		(* If patch hasn't been applied to any host, but we can still apply it, then it is valid. *)
-		(* File needs to exist in the master's filesystem for us to be able to apply it. *)
-		else if (Sys.file_exists (Db.Pool_patch.get_filename ~__context ~self:patch)) then true
-		else false
+		let filename = Db.Pool_patch.get_filename ~__context ~self:patch in
+                let vdi = Db.Pool_patch.get_VDI ~__context ~self:patch in
+		false
+		(* If a patch has been applied to at least one host, we need to keep the
+		   record for database integrity *)
+		|| ((Db.Pool_patch.get_host_patches ~__context ~self:patch) <> [])
+		(* If a patch exists in the filesytem then keep it *)
+		|| (Sys.file_exists filename)
+		(* If a patch VDI exists then keep it *)
+		|| (Db.is_valid_ref __context vdi)
 	in
 	let pool_patches = Db.Pool_patch.get_all ~__context in
 	List.iter
