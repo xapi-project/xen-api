@@ -112,10 +112,6 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	if _type <> `CD && empty
 	then raise (Api_errors.Server_error(Api_errors.vbd_not_removable_media, [ "in constructor" ]));
 
-	(* Prevent VBDs being created which are of type "CD" which are
-	   not either .iso files or CD block devices *)
-	if _type = `CD && not(empty)
-	then Xapi_vdi_helpers.assert_vdi_is_valid_iso ~__context ~vdi:vDI;
 	(* Prevent RW VBDs being created pointing to RO VDIs *)
 	if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI
 	then raise (Api_errors.Server_error(Api_errors.vdi_readonly, [ Ref.string_of vDI ]));
@@ -133,7 +129,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	| _ ->
 
 	Mutex.execute autodetect_mutex (fun () ->
-		let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM in
+		let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type in
 
 		if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
 			raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
@@ -141,7 +137,10 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 		(* Resolve the "autodetect" into a fixed device name now *)
 		let userdevice =
 			if userdevice = "autodetect"
-			then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
+			then match _type with
+				 (* already checked for [] above *)
+				 | `Floppy -> Device_number.to_linux_device (List.hd possibilities)
+				 | `CD | `Disk -> string_of_int (Device_number.to_disk_number (List.hd possibilities))
 			else userdevice
 		in
 
@@ -217,7 +216,6 @@ let assert_ok_to_insert ~__context ~vbd ~vdi =
     assert_not_suspended ~__context ~vm;
     assert_removable ~__context ~vbd;
     assert_empty ~__context ~vbd;
-	Xapi_vdi_helpers.assert_vdi_is_valid_iso ~__context ~vdi;
     Xapi_vdi_helpers.assert_managed ~__context ~vdi;
 	assert_doesnt_make_vm_non_agile ~__context ~vm ~vdi
 

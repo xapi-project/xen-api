@@ -766,7 +766,7 @@ let get_possible_hosts ~__context ~vm =
 	let snapshot = Db.VM.get_record ~__context ~self:vm in
 	get_possible_hosts_for_vm ~__context ~vm ~snapshot
 
-let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
+let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm ~_type:`Disk)
 let get_allowed_VIF_devices = allowed_VIF_devices
 
 (** Mark all currently-attached VBDs and VIFs as reserved, call some function and then
