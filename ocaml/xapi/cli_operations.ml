@@ -4048,6 +4048,16 @@ let host_reset_cpu_features printer rpc session_id params =
 			get_host_from_session rpc session_id in
 	Client.Host.reset_cpu_features rpc session_id host
 
+let host_enable_display printer rpc session_id params =
+	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let result = Client.Host.enable_display rpc session_id host in
+	printer (Cli_printer.PMsg (Record_util.host_display_to_string result))
+
+let host_disable_display printer rpc session_id params =
+	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let result = Client.Host.disable_display rpc session_id host in
+	printer (Cli_printer.PMsg (Record_util.host_display_to_string result))
+
 let patch_upload fd printer rpc session_id params =
 	let filename = List.assoc "file-name" params in
 	let make_command task_id =
@@ -4439,3 +4449,15 @@ let dr_task_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let ref = Client.DR_task.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.DR_task.destroy ~rpc ~session_id ~self:ref
+
+let pgpu_enable_dom0_access printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.PGPU.get_by_uuid rpc session_id uuid in
+	let result = Client.PGPU.enable_dom0_access rpc session_id ref in
+	printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+
+let pgpu_disable_dom0_access printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.PGPU.get_by_uuid rpc session_id uuid in
+	let result = Client.PGPU.disable_dom0_access rpc session_id ref in
+	printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
