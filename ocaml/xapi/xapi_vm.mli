@@ -150,8 +150,7 @@ val create :
   order:int64 ->
   suspend_SR:[ `SR ] Ref.t ->
   version:int64 ->
-  generation_id:string ->
-  hardware_platform_version:int64
+  generation_id:string
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :

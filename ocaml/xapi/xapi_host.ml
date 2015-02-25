@@ -577,7 +577,6 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
   let metrics = Ref.make () in
   make_new_metrics_object metrics;
 
-  let host_is_us = (uuid=(Helpers.get_localhost_uuid ())) in
   Db.Host.create ~__context ~ref:host
 	~current_operations:[] ~allowed_operations:[]
 	~software_version:Xapi_globs.software_version
@@ -607,11 +606,10 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~power_on_config:[]
 	~local_cache_sr
 	~guest_VCPUs_params:[]
-	~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
-  Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us;
+  Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
   host
 
 let precheck_destroy_declare_dead ~__context ~self call =
