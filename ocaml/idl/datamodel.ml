@@ -2571,6 +2571,7 @@ let host_signal_networking_change = call ~flags:[`Session]
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~doc_tags:[Networking]
   ()
 
 let host_notify = call
@@ -2600,6 +2601,7 @@ let host_management_reconfigure = call
     Ref _pif, "pif", "reference to a PIF object corresponding to the management interface";
 	  ]
   ~allowed_roles:_R_POOL_OP
+  ~doc_tags:[Networking]
   ()
 
 let host_local_management_reconfigure = call ~flags:[`Session]
@@ -2627,6 +2629,7 @@ let host_management_disable = call ~flags:[`Session]
   ~doc:"Disable the management network interface"
   ~params:[]
   ~allowed_roles:_R_POOL_OP
+  ~doc_tags:[Networking]
   ()
 
 let host_get_management_interface = call
@@ -2636,6 +2639,7 @@ let host_get_management_interface = call
   ~params:[Ref _host, "host", "Which host's management interface is required"]
   ~result:(Ref _pif, "The management interface for the host")
   ~allowed_roles:_R_POOL_OP
+  ~doc_tags:[Networking]
   ()
 
 (* Simple host evacuate message for Miami.
@@ -3252,7 +3256,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	?(contents_default_reader_roles=default_field_reader_roles) ?(contents_default_writer_roles=None)
 	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
 	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
-	~messages_default_allowed_roles (* used in constructor, destructor and explicit obj msgs *)
+	~messages_default_allowed_roles ?(doc_tags=[])(* used in constructor, destructor and explicit obj msgs *)
 	() =
 	let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
 	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
@@ -3292,6 +3296,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
 		persist = persist; gen_events = gen_events; obj_release = release;
 		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
+		obj_doc_tags = doc_tags;
 	}
 
 (** Additional messages for srs *)
@@ -4407,7 +4412,7 @@ let host =
 	field ~qualifier:DynamicRO ~ty:(Set String) "supported_bootloaders" "a list of the bootloaders installed on the machine";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "resident_VMs" "list of VMs currently resident on host";
 	field ~qualifier:RW ~ty:(Map(String, String)) "logging" "logging configuration";
-	field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "physical network interfaces";
+	field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) ~doc_tags:[Networking] "PIFs" "physical network interfaces";
 	field ~qualifier:RW ~ty:(Ref _sr) "suspend_image_sr" "The SR in which VDIs for suspend images are created";
 	field ~qualifier:RW ~ty:(Ref _sr) "crash_dump_sr" "The SR in which VDIs for crash dumps are created";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_crashdump)) "crashdumps" "Set of host crash dumps";
@@ -4415,8 +4420,8 @@ let host =
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "physical blockdevices";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu)) "host_CPUs" "The physical CPUs on this host";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on this host";
-	field ~in_oss_since:None ~qualifier:RW ~ty:String "hostname" "The hostname of this host";
-	field ~in_oss_since:None ~qualifier:RW ~ty:String "address" "The address by which this host can be contacted from any other host in the pool";
+	field ~in_oss_since:None ~qualifier:RW ~ty:String ~doc_tags:[Networking] "hostname" "The hostname of this host";
+	field ~in_oss_since:None ~qualifier:RW ~ty:String ~doc_tags:[Networking] "address" "The address by which this host can be contacted from any other host in the pool";
 	field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) "metrics" "metrics associated with this host";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map (String,String)) "license_params" "State of the current license";
 	field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "boot_free_mem" "Free memory on host at boot time";
@@ -4587,6 +4592,7 @@ let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
+      ~doc_tags:[Networking]
       ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
         network_attach_for_vm; network_detach_for_vm]
       ~contents:
@@ -4818,6 +4824,7 @@ let pif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
       ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
 		pif_db_introduce; pif_db_forget; pif_set_property
@@ -4867,6 +4874,7 @@ let pif_metrics =
       ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
       ~messages:[] ~contents:
       [ uid _pif_metrics;
 	namespace ~name:"io" ~contents:iobandwidth ();
@@ -4940,6 +4948,7 @@ let bond_set_property = call
 let bond = 
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
+    ~doc_tags:[Networking]
     ~messages:[ bond_create; bond_destroy; bond_set_mode; bond_set_property ]
     ~contents:
     [ uid _bond;
@@ -4976,6 +4985,7 @@ let vlan =
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux" ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
+    ~doc_tags:[Networking]
     ~messages:[ vlan_create; vlan_destroy ] ~contents:
     ([
        uid _vlan;
@@ -5009,6 +5019,7 @@ let tunnel =
 	create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
 	~doccomments:[]
 	~messages_default_allowed_roles:_R_POOL_OP
+	~doc_tags:[Networking]
 	~messages:[ tunnel_create; tunnel_destroy ]
 	~contents:([
 		uid _tunnel ~lifecycle:[Published, rel_cowley, "Unique identifier/object reference"];
@@ -5180,6 +5191,7 @@ let vif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Networking]
       ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
         vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed]
       ~contents:
@@ -5207,6 +5219,7 @@ let vif_metrics =
       ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Networking]
       ~messages:[] ~contents:
       [ uid _vif_metrics;
 	namespace ~name:"io" ~contents:iobandwidth ();
@@ -6912,7 +6925,7 @@ let vm =
 	namespace ~name:"actions" ~contents:actions ();
 	
 	field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _console)) "consoles" "virtual console devices";
-	field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "virtual network interfaces";
+	field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~doc_tags:[Networking] "VIFs" "virtual network interfaces";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "virtual block devices";
 	field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps" "crash dumps associated with this VM";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs";
@@ -7593,6 +7606,7 @@ let event =
     force_custom_actions=None;
     obj_allowed_roles=_R_POOL_ADMIN;
     obj_implicit_msg_allowed_roles=_R_ALL;
+    obj_doc_tags=[];
   }
 
 (** Blobs - binary blobs of data *)
