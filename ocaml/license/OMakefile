@@ -16,7 +16,6 @@ V6FILES = \
 V6D = v6d
 
 OCamlProgram($(V6D), $(V6FILES))
-OCamlDocProgram($(V6D), $(V6FILES))
 
 .PHONY: install
 install: $(V6D)

@@ -274,7 +274,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi \
 
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
-OCamlDocProgram(xapi, xapi_main $(XAPI_MODULES))
 
 OCamlLibrary(xapi, xapi $(XAPI_MODULES))
 

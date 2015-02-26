@@ -1,7 +1,3 @@
-OCAMLINCLUDES += +ocamldoc
-BYTE_ENABLED = TRUE
-OCamlLibrary(odoc_json, odoc_json)
-
 OCAML_LIBS += ../idl/datamodel
 OCAMLINCLUDES += ../idl
 
@@ -32,4 +28,4 @@ noarch-install: sdk-install
 .PHONY: clean
 clean:
 	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o *.omc
-	rm -rf components.js content api jsapi
+	rm -rf api jsapi

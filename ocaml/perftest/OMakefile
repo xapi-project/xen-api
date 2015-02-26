@@ -4,7 +4,6 @@ OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid xcp-inventory
 
 PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests ../xapi/xapi_inventory perfdebug 
 OCamlProgram(perftest, $(PERFTEST_FILES))
-OCamlDocProgram(perftest, $(PERFTEST_FILES))
 OCamlProgram(apiperf, perfutil apiperf ../fhs)
 OCamlProgram(histogram, statistics histogram gnuplot testtypes perfdebug graphutil)
 OCamlProgram(cumulative_time, cumulative_time gnuplot testtypes perfdebug graphutil)

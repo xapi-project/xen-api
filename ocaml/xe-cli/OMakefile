@@ -7,7 +7,6 @@ section
 	OCAMLFLAGS = -dtypes -thread -warn-error F
 	CLI_FILES = newcli ../xapi/cli_protocol options
 	OCamlProgram(xe, $(CLI_FILES))
-	OCamlDocProgram(xe, $(CLI_FILES))
 
 section
 
