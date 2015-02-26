@@ -200,6 +200,7 @@ let _ =
 			"messages", JArray messages;
 			"enums", jarray_of_enums enums;
 			"lifecycle", jarray_of_lifecycle obj.obj_lifecycle;
+			"tag", JString (match obj.obj_doc_tags with [] -> "" | t :: _ -> string_of_doc_tag t);
 		]
 	) objs) in
 	print_endline (string_of_json 0 json)
