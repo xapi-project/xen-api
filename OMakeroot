@@ -75,30 +75,6 @@ OCamlLibraryClib(name, files, clibs) =
    return $(array $(if $(NATIVE_ENABLED), $(NATIVELIB)), $(if $(NATIVE_ENABLED), $(CLIB)), $(if $(BYTE_ENABLED), $(BYTELIB)))
 
 #
-# The documentation generator
-#
-OCAMLDOC = ocamldoc
-
-#
-# Generation of documentation from .ml or .mli files
-#
-OCamlDoc(name, modules, type) =
-    private.CMIFILES = $(addsuffix .cmi, $(modules))
-    .PHONY: doc
-    dir = $(ROOT)/ocaml/doc
-    doc: $(CMIFILES) $(ROOT)/ocaml/doc/odoc_json.cma
-        python $(ROOT)/ocaml/doc/doc.py $(dir) $(name) $(type) "$(modules)" "$(OCAMLINCLUDES)" "$(OCAMLPACKS)" "$(OCAML_LIBS)"
-
-OCamlDocProgram(name, modules) =
-	OCamlDoc($(name), $(modules), "program")
-
-OCamlDocLibrary(name, modules) =
-	OCamlDoc($(name), $(modules), "library")
-
-OCamlDocPackage(name, modules) =
-	OCamlDoc($(name), $(modules), "package")
-
-#
 # Use Camlp4
 #
 UseCamlp4(packs, files) =

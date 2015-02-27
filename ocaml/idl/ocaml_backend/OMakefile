@@ -18,7 +18,6 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 # only gen_api requires datamodel library:
 GEN_API_FILES = gen_api gen_test genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping locking ../api_lowlevel gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper
 OCamlProgram(gen_api_main, $(GEN_API_FILES))
-OCamlDocProgram(gen_api_main, $(GEN_API_FILES))
 
 FILTER = closed # or opensource or closed or debug or implementation
 
@@ -138,11 +137,6 @@ OCamlLibrary(xapi_client, $(XAPI_CLIENT_OBJS))
 OCamlLibrary(htmldoc, htmldoc)
 
 OCAMLPACKS=$(_OCAMLPACKS)
-
-OCamlDocLibrary(common, $(COMMON_OBJS))
-OCamlDocLibrary(client, $(CLIENT_OBJS))
-OCamlDocLibrary(server, $(SERVER_OBJS))
-OCamlDocPackage(xapi-client, $(XAPI_CLIENT_OBJS))
 
 .PHONY: clean
 clean:

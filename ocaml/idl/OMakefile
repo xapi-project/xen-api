@@ -32,7 +32,6 @@ CLOSED_EPS = xenenterpriseapi-datamodel-graph.eps citrix_logo_black.eps
 DOCDIR = $(ROOT)/ocaml/autogen/doc
 
 OCamlProgram($(DATAMODEL), $(DATAMODEL_FILES) datamodel_main)
-OCamlDocProgram(datamodel, $(DATAMODEL_FILES))
 
 #.PHONY: sdk-classes
 #sdk-classes: sdk-classes.dot

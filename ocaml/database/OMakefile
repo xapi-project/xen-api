@@ -18,7 +18,6 @@ BLOCK_DEVICE_IO_FILES = \
 	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors
 
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
-OCamlDocProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
 DATABASE_SERVER_FILES = database_server_main test_schemas ../autogen/db_actions 
 DATABASE_TEST_FILES = db_cache_test test_schemas
