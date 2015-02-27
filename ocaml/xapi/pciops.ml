@@ -178,7 +178,7 @@ let _unhide_pci ~__context pci =
 			(Db.PCI.get_pci_id ~__context ~self:pci) in
 		let new_value = String.replace bdf_paren "" raw_value in
 		let cmd = match new_value with
-			| "" -> Printf.sprintf "%s --delete-xen %s"
+			| "" -> Printf.sprintf "%s --delete-dom0 %s"
 				xen_cmdline_path pci_hiding_key
 			| _ -> Printf.sprintf "%s --set-dom0 %s%s"
 				xen_cmdline_path pci_hiding_key_eq new_value
