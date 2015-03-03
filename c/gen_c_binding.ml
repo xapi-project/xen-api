@@ -1260,6 +1260,7 @@ and free_impl val_name record = function
   | Map(l, r)        -> let n = mapname l r in
                         sprintf "%s_free(%s);" (typename n) val_name
   | Record x         -> sprintf "%s_free(%s);" (record_typename x) val_name
+  | Set(Int)         -> sprintf "xen_int_set_free(%s);" val_name
   | _                -> "DONT_KNOW"
 
 
@@ -1307,6 +1308,9 @@ and c_type_of_ty needed record = function
       needed := StringSet.add "string_set" !needed;
       "struct xen_string_set *"
   | Set (Record "event") -> "struct xen_event_record_set *"
+  | Set (Int)            ->
+      needed := StringSet.add "int_set" !needed;
+      "struct xen_int_set *"
   | Set _                -> "SET_DONT_KNOW"
   | Map(l, r) as x ->
       let n = mapname l r in

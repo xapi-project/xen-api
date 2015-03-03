@@ -154,6 +154,7 @@ and exposed_type = function
                                                             (exposed_type v)
   | Record name             -> qualified_class_name name
   | Set(Record name)        -> sprintf "List<%s>" (qualified_class_name name)
+  | Set(Int)                -> sprintf "long[]"
   | _                       -> assert false
 
 and obj_internal_type = function

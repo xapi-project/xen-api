@@ -95,6 +95,7 @@ extern const abstract_type abstract_type_ref;
 
 extern const abstract_type abstract_type_string_set;
 extern const abstract_type abstract_type_ref_set;
+extern const abstract_type abstract_type_int_set;
 
 extern const abstract_type abstract_type_string_int_map;
 extern const abstract_type abstract_type_string_string_map;

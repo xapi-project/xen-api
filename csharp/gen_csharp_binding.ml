@@ -1635,6 +1635,7 @@ and exposed_type = function
                                                             (exposed_type v)
   | Record name             -> exposed_class_name name
   | Set(Record name)        -> sprintf "List<%s>" (exposed_class_name name)
+  | Set(Int)                -> sprintf "long[]"
   | _                       -> assert false
 
 
@@ -1699,6 +1700,7 @@ and convert_from_hashtable fname ty =
       | Set(Record name)    -> 
           sprintf "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
             (exposed_class_name name) (exposed_class_name name) field
+      | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
       | _                   -> assert false 
 
 and sanitise_function_name name =
@@ -1727,6 +1729,8 @@ and simple_convert_from_proxy thing ty =
   | Set(Record name)    -> 
       sprintf "Helper.Proxy_%sArrayTo%sList(%s)" 
       (exposed_class_name name) (exposed_class_name name) thing
+  | Set(Int)            ->
+      sprintf "Helper.StringArrayToLongArray(%s)" thing
   | _                   -> assert false 
 
 
@@ -1741,11 +1745,13 @@ and convert_to_proxy thing ty = (*function*)
   | Enum (name,_)       -> sprintf "%s_helper.ToString(%s)" name thing
   | Set (Ref name)         -> sprintf "(%s != null) ? Helper.RefListToStringArray(%s) : new string[] {}" thing thing
   | Set(String)         -> thing
-  | Set(Enum(name, _))  -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
+  | Set (Int) -> sprintf "(%s != null) ? Helper.LongArrayToStringArray(%s) : new string[] {}" thing thing
+  | Set(Enum(_, _))  -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
   | Map(u, v) as x      -> maps := TypeSet.add x !maps;
                            sprintf "%s(%s)"
                            (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
   | Record name         -> sprintf "%s.ToProxy()" thing
+
   | _                   -> assert false
 
 

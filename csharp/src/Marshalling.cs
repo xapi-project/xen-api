@@ -99,6 +99,19 @@ namespace XenAPI
             }
         }
 
+        public static long[] ParseLongArray(Hashtable table, string key)
+        {
+            object[] val = table.ContainsKey(key) ? (object[])table[key] : null;
+            if (val == null)
+            {
+                return new long[0];
+            }
+            else
+            {
+                return Array.ConvertAll<object, long>(val, delegate(object o) { return long.Parse(o.ToString()); });
+            }
+        }
+
         public static XenRef<T> ParseRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
             string r = ParseString(table, key);
