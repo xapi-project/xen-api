@@ -1308,10 +1308,9 @@ static size_t size_of_member(const abstract_type *type)
     case STRING:
         return sizeof(char *);
 
-/*
     case INT:
         return sizeof(int64_t);
-
+	/*
     case FLOAT:
         return sizeof(double);
 
@@ -1977,6 +1976,12 @@ const abstract_type abstract_type_string_set =
         .typename = SET,
         .child = &abstract_type_string
     };
+
+const abstract_type abstract_type_int_set =
+  {
+    .typename = SET,
+    .child = &abstract_type_int
+  };
 
 const abstract_type abstract_type_ref_set =
     {
