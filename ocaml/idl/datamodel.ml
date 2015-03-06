@@ -1692,6 +1692,7 @@ let vm_assert_can_boot_here = call
 		Api_errors.vm_requires_sr;
 		Api_errors.vm_host_incompatible_version;
 	]
+	~doc_tags:[Memory]
 	()
 
 let vm_assert_agile = call
@@ -1731,6 +1732,7 @@ let vm_maximise_memory = call
 	  ]
   ~result:(Int, "The maximum possible static-max")
   ~allowed_roles:_R_READ_ONLY
+  ~doc_tags:[Memory]
   ()
 
 let vm_get_allowed_VBD_devices = call ~flags:[`Session] ~no_current_operations:true
@@ -1775,6 +1777,7 @@ let vm_compute_memory_overhead = call
 	~hide_from_docs:false
 	~result:(Int, "the virtualization memory overhead of the VM.")
 	~allowed_roles:_R_READ_ONLY
+	~doc_tags:[Memory]
 	()
 
 let vm_set_memory_dynamic_max = call ~flags:[`Session]
@@ -1786,7 +1789,9 @@ let vm_set_memory_dynamic_max = call ~flags:[`Session]
 		Int, "value", "The new value of memory_dynamic_max";
 	]
 	~allowed_roles:_R_VM_POWER_ADMIN
-	~errs:[] ()
+	~errs:[]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_dynamic_min = call ~flags:[`Session]
 	~in_product_since:rel_midnight_ride
@@ -1797,7 +1802,9 @@ let vm_set_memory_dynamic_min = call ~flags:[`Session]
 		Int, "value", "The new value of memory_dynamic_min";
 	]
 	~allowed_roles:_R_VM_POWER_ADMIN
-	~errs:[] ()
+	~errs:[]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_dynamic_range = call
 	~name:"set_memory_dynamic_range"
@@ -1809,7 +1816,9 @@ let vm_set_memory_dynamic_range = call
 		Ref _vm, "self", "The VM";
 		Int, "min", "The new minimum value";
 		Int, "max", "The new maximum value";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 (* When HA is enabled we need to prevent memory *)
 (* changes which will break the recovery plan.  *)
@@ -1822,7 +1831,9 @@ let vm_set_memory_static_max = call ~flags:[`Session]
 	~params:[
 		Ref _vm, "self", "The VM to modify";
 		Int, "value", "The new value of memory_static_max";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_static_min = call ~flags:[`Session]
 	~in_product_since:rel_midnight_ride
@@ -1833,7 +1844,9 @@ let vm_set_memory_static_min = call ~flags:[`Session]
 	~params:[
 		Ref _vm, "self", "The VM to modify";
 		Int, "value", "The new value of memory_static_min";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_static_range = call
 	~name:"set_memory_static_range"
@@ -1844,7 +1857,9 @@ let vm_set_memory_static_range = call
 	~params:[Ref _vm, "self", "The VM";
 		Int, "min", "The new minimum value";
 		Int, "max", "The new maximum value";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_limits = call
 	~name:"set_memory_limits"
@@ -1856,7 +1871,9 @@ let vm_set_memory_limits = call
 		Int, "static_max", "The new value of memory_static_max.";
 		Int, "dynamic_min", "The new value of memory_dynamic_min.";
 		Int, "dynamic_max", "The new value of memory_dynamic_max.";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_set_memory_target_live = call
 	~name:"set_memory_target_live"
@@ -1867,7 +1884,9 @@ let vm_set_memory_target_live = call
 	~params:[
 		Ref _vm, "self", "The VM";
 		Int, "target", "The target in bytes";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_wait_memory_target_live = call
 	~name:"wait_memory_target_live"
@@ -1877,7 +1896,9 @@ let vm_wait_memory_target_live = call
 	~allowed_roles:_R_READ_ONLY
 	~params:[
 		Ref _vm, "self", "The VM";
-	] ()
+	]
+	~doc_tags:[Memory]
+	()
 
 let vm_get_cooperative = call
 	~name:"get_cooperative"
@@ -1889,6 +1910,7 @@ let vm_get_cooperative = call
 	]
 	~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
 	~allowed_roles:_R_READ_ONLY
+	~doc_tags:[Memory]
 	()
 
 let vm_query_services = call
@@ -2538,6 +2560,7 @@ let host_compute_free_memory = call
 	~hide_from_docs:false
 	~result:(Int, "the amount of free memory on the host.")
   ~allowed_roles:_R_READ_ONLY
+	~doc_tags:[Memory]
 	()
 
 let host_compute_memory_overhead = call
@@ -2549,6 +2572,7 @@ let host_compute_memory_overhead = call
 	~hide_from_docs:false
 	~result:(Int, "the virtualization memory overhead of the host.")
 	~allowed_roles:_R_READ_ONLY
+	~doc_tags:[Memory]
 	()
 
 (* Diagnostics see if host is in emergency mode *)
@@ -3605,27 +3629,27 @@ let user = (* DEPRECATED in favor of subject *)
 let guest_memory =
 	let field = field ~ty:Int in
 	[
-		field "overhead" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
-		field "target" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L)) ~internal_deprecated_since:rel_midnight_ride;
-		field "static_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
-		field "dynamic_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic maximum (bytes)";
-		field "dynamic_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic minimum (bytes)";
-		field "static_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
+		field "overhead" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L)) ~doc_tags:[Memory];
+		field "target" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L)) ~internal_deprecated_since:rel_midnight_ride ~doc_tags:[Memory];
+		field "static_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot." ~doc_tags:[Memory];
+		field "dynamic_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic maximum (bytes)" ~doc_tags:[Memory];
+		field "dynamic_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic minimum (bytes)" ~doc_tags:[Memory];
+		field "static_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing." ~doc_tags:[Memory];
 	]
 
 (** Host Memory *)
 let host_memory =
 	let field = field ~ty:Int in
 	[
-		field ~qualifier:DynamicRO "overhead" "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
+		field ~qualifier:DynamicRO "overhead" "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L)) ~doc_tags:[Memory];
 	]
 
 (** Host Metrics Memory *)
 let host_metrics_memory = 
 	let field = field ~ty:Int in
 	[
-		field ~qualifier:DynamicRO "total" "Total host memory (bytes)";
-		field ~qualifier:DynamicRO ~internal_deprecated_since:rel_midnight_ride "free" "Free host memory (bytes)";
+		field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~doc_tags:[Memory];
+		field ~qualifier:DynamicRO ~internal_deprecated_since:rel_midnight_ride "free" "Free host memory (bytes)" ~doc_tags:[Memory];
 	]
 
 let api_version = 
