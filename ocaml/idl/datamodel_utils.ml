@@ -525,6 +525,7 @@ let string_of_doc_tag = function
 	| VM_lifecycle -> "vm-lifecycle"
 	| Snapshots -> "snapshots"
 	| Networking -> "networking"
+	| Memory -> "memory"
 
 let string_of_lifecycle_transition = function
 	| Prototyped -> "prototyped"

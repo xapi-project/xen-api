@@ -151,7 +151,7 @@ and obj_op = Make | Delete | GetByUuid | GetByLabel | GetRecord | GetAll | GetAl
 
 and param = {param_type:ty; param_name:string; param_doc:string; param_release: release; param_default: api_value option}
 
-and doc_tag = VM_lifecycle | Snapshots | Networking
+and doc_tag = VM_lifecycle | Snapshots | Networking | Memory
 
 (** Types of RPC messages; in addition to those generated for object fields *)
 and message = { 
