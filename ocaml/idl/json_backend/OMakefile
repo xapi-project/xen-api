@@ -9,9 +9,9 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 
 .PHONY: clean
 clean:
-        rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main xenapi.json
+        rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main *.json
 
 .PHONY: doc
 doc: main
-	./main > xenapi.json
+	./main
 

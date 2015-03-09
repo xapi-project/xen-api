@@ -240,7 +240,8 @@ type obj = {
 	gen_events: bool;
 	persist: persist_option;
 	obj_release: release;
-	in_database: bool (* If the object is in the database *)
+	in_database: bool; (* If the object is in the database *)
+	obj_doc_tags: doc_tag list;
 } with rpc
 
 (* val rpc_of_obj : obj -> Rpc.t *)
