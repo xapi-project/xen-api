@@ -116,7 +116,7 @@ let fields_of_obj_with_enums obj =
 	List.fold_left (fun (fields, enums) field ->
 		let ty, e = string_of_ty_with_enums field.ty in
 		JObject (
-			("name", JString field.field_name) ::
+			("name", JString (String.concat "_" field.full_name)) ::
 			("description", JString field.field_description) ::
 			("type", JString ty) ::
 			("qualifier", JString (string_of_qualifier field.qualifier)) ::
