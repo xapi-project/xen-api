@@ -220,7 +220,7 @@ let check_pci ~op ~ref_str =
 
 let check_vgpu ~op ~ref_str =
 	match op with
-	| `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
+	| `checkpoint | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
 	| _ -> None
 
 (* VM cannot be converted into a template while it is a member of an appliance. *)
