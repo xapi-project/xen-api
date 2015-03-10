@@ -1688,7 +1688,10 @@ let events_from_xapi () =
 							   received BUT we will not necessarily receive events for the new VMs *)
 
 							while true do
-								let from = XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:60. |> event_from_of_rpc in
+								let api_timeout = 60. in
+								let timeout = 30. +. api_timeout +. !Xapi_globs.master_connection_reset_timeout in
+								let otherwise () = info "Event.from timed out in %f seconds, abort the events listening loop and retry" timeout; raise Exit in
+								let from = Helpers.timebox ~timeout ~otherwise (fun () -> XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:api_timeout |> event_from_of_rpc) in
 								if List.length from.events > 200 then warn "Warning: received more than 200 events!";
 								List.iter
 									(function
