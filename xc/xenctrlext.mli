@@ -21,9 +21,6 @@ external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xenctrlex
 external domain_send_s3resume: handle -> domid -> unit = "stub_xenctrlext_domain_send_s3resume"
 external domain_get_acpi_s_state: handle -> domid -> int = "stub_xenctrlext_domain_get_acpi_s_state"
 
-external domain_trigger_power: handle -> domid -> unit = "stub_xenctrlext_domain_trigger_power"
-external domain_trigger_sleep: handle -> domid -> unit = "stub_xenctrlext_domain_trigger_sleep"
-
 external domain_suppress_spurious_page_faults: handle -> domid -> unit = "stub_xenctrlext_domain_suppress_spurious_page_faults"
 
 type runstateinfo = {

@@ -1138,15 +1138,6 @@ let send_s3resume ~xc domid =
 	debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid;
 	Xenctrlext.domain_send_s3resume xc domid
 
-let trigger_power ~xc domid =
-	let uuid = get_uuid ~xc domid in
-	debug "VM = %s; domid = %d; domain_trigger_power" (Uuid.to_string uuid) domid;
-	Xenctrlext.domain_trigger_power xc domid
-let trigger_sleep ~xc domid =
-	let uuid = get_uuid ~xc domid in
-	debug "VM = %s; domid = %d; domain_trigger_sleep" (Uuid.to_string uuid) domid;
-	Xenctrlext.domain_trigger_sleep xc domid
-
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	(*
 	let bitmap = ref Int64.zero in

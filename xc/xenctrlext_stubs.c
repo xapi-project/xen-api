@@ -156,24 +156,6 @@ CAMLprim value stub_xenctrlext_domain_set_timer_mode(value xch, value id, value 
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xenctrlext_domain_trigger_power(value xch, value domid)
-{
-	CAMLparam2(xch, domid);
-#if defined(XENCTRL_HAS_TRIGGER_POWER)
-	xc_domain_trigger_power(_H(xch), _D(domid));
-#endif
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xenctrlext_domain_trigger_sleep(value xch, value domid)
-{
-	CAMLparam2(xch, domid);
-#if defined(XENCTRL_HAS_TRIGGER_SLEEP)
-	xc_domain_trigger_sleep(_H(xch), _D(domid));
-#endif
-	CAMLreturn(Val_unit);
-}
-
 CAMLprim value stub_xenctrlext_domain_suppress_spurious_page_faults(value xch,
                                                            value domid)
 {
