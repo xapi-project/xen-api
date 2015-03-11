@@ -270,47 +270,47 @@ let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
 let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
-	let snap_vbds = Db.VM.get_VBDs ~__context ~self:snapshot in
-	let snap_vbds_disk, snap_vbds_cd =
+	let snap_VBDs = Db.VM.get_VBDs ~__context ~self:snapshot in
+	let snap_VBDs_disk, snap_VBDs_CD =
 		List.partition
 			(fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
-			snap_vbds
+			snap_VBDs
 	in
-	let snap_vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_vbds_disk in
-	let vdis_snap_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_vdis in
-	let snap_vifs = Db.VM.get_VIFs ~__context ~self:snapshot in
-	let snap_vgpus = Db.VM.get_VGPUs ~__context ~self:snapshot in
+	let snap_disks = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_VBDs_disk in
+	let snap_disks_snapshot_of = List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_disks in
+	let snap_VIFs = Db.VM.get_VIFs ~__context ~self:snapshot in
+	let snap_VGPUs = Db.VM.get_VGPUs ~__context ~self:snapshot in
 	let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
 
 	let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
 	(* Filter VBDs to ensure that we don't read empty CDROMs *)
-	let vbds_without_cd = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk) vm_VBDs in
-	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_without_cd in
-	let vm_VDIs = List.filter (fun vdi -> List.mem vdi vdis_snap_of) vm_VDIs in
+	let vm_VBDs_disk = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk) vm_VBDs in
+	let vm_disks = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vm_VBDs_disk in
+	let vm_disks_with_snapshot = List.filter (fun vdi -> List.mem vdi snap_disks_snapshot_of) vm_disks in
 	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
 	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
 	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
 
 	let oldvdi_to_snapshots_map = List.map (fun vdi -> let snaps = Db.VDI.get_snapshots ~__context ~self:vdi in
 		(vdi, snaps)
-	) vm_VDIs in
+	) vm_disks_with_snapshot in
 
 	(* clone all the disks of the snapshot *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 
 		debug "Cleaning up the old VBDs and VDIs to have more free space";
 		List.iter (safe_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs;
-		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_VDIs);
+		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_disks_with_snapshot);
 		TaskHelper.set_progress ~__context 0.2;
 
 		debug "Cloning the snapshoted disks";
 		let driver_params = Xapi_vm_clone.make_driver_params () in
-		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds_disk driver_params in
-		let cloned_cds = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds_cd driver_params in
+		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_VBDs_disk driver_params in
+		let cloned_CDs = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_VBDs_CD driver_params in
 		TaskHelper.set_progress ~__context 0.5;
 
 		debug "Updating the snapshot_of fields for relevant VDIs";
-		let oldvdi_to_newvdi_map = List.map2 (fun oldvdi (_, newvdi, _) -> (oldvdi,newvdi)) vdis_snap_of cloned_disks in
+		let oldvdi_to_newvdi_map = List.map2 (fun oldvdi (_, newvdi, _) -> (oldvdi,newvdi)) snap_disks_snapshot_of cloned_disks in
 		List.iter (fun (oldvdi, snaps) ->
 			let newvdi = List.assoc oldvdi oldvdi_to_newvdi_map in
 			List.iter (fun s -> Db.VDI.set_snapshot_of ~__context ~self:s ~value:newvdi) snaps
@@ -326,7 +326,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 		try
 			debug "Copying the VBDs";
 			let (_ : [`VBD] Ref.t list) =
-				List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) (cloned_disks @ cloned_cds) in
+				List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) (cloned_disks @ cloned_CDs) in
 			(* XXX: no VBDs stored in the LBR now *)
 			(*
 			(* To include the case of checkpoints we must also update the VBD references in the LBR *)
@@ -343,7 +343,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 
 			debug "Setting up the new VIFs";
 			let (_ : [`VIF] Ref.t list) =
-				List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true vif) snap_vifs in
+				List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true vif) snap_VIFs in
 			TaskHelper.set_progress ~__context 0.8;
 
 			debug "Cleaning up the old VGPUs";
@@ -351,7 +351,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 
 			debug "Setting up the new VGPUs";
 			let (_ : [`VGPU] Ref.t list) =
-				List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm vgpu) snap_vgpus in
+				List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm vgpu) snap_VGPUs in
 			TaskHelper.set_progress ~__context 0.9;
 		with e ->
 			error "Error while updating the new VBD, VDI, VIF and VGPU records. Cleaning up the cloned VDIs.";
