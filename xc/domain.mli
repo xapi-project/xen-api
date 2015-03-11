@@ -162,12 +162,6 @@ val suspend: Xenops_task.Xenops_task.t -> xc: Xenctrl.handle -> xs: Xenstore.Xs.
 (** send a s3resume event to a domain *)
 val send_s3resume: xc: Xenctrl.handle -> domid -> unit
 
-(** send a power button push to a domain *)
-val trigger_power: xc: Xenctrl.handle -> domid -> unit
-
-(** send a sleep button push to a domain *)
-val trigger_sleep: xc: Xenctrl.handle -> domid -> unit
-
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 val vcpu_affinity_set: xc: Xenctrl.handle -> domid -> int -> bool array -> unit
 
