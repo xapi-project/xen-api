@@ -275,7 +275,10 @@ let call_api_functions ~__context f =
     (fun () ->
        (* debug "remote client call finished; logging out"; *)
        if !require_explicit_logout
-      then Client.Client.Session.logout rpc session_id)
+       then
+	       try Client.Client.Session.logout rpc session_id
+	       with e ->
+		       debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
 
 let call_emergency_mode_functions hostname f =
 	let open Xmlrpc_client in
