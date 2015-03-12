@@ -52,12 +52,11 @@ sig
 		dev_type: devty;
 		unpluggable: bool;
 		protocol: protocol option;
+		kind: Device_common.kind;
 		extra_backend_keys: (string * string) list;
 		extra_private_keys: (string * string) list;
 		backend_domid: int;
 	}
-
-	val device_kind_of_backend_keys : (string * string) list -> kind
 
 	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 

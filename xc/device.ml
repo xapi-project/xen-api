@@ -478,14 +478,11 @@ type t = {
 	dev_type: devty;
 	unpluggable: bool;
 	protocol: protocol option;
+	kind: Device_common.kind;
 	extra_backend_keys: (string * string) list;
 	extra_private_keys: (string * string) list;
 	backend_domid: int;
 }
-
-let device_kind_of_backend_keys backend_keys =
-	try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
-	with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 let add_async ~xs ~hvm x domid =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
@@ -496,9 +493,8 @@ let add_async ~xs ~hvm x domid =
 		| None ->
 			make (free_device ~xs hvm domid) in
 	let devid = to_xenstore_key device_number in
-	let kind = device_kind_of_backend_keys x.extra_backend_keys in
 	let device = 
-	  let backend = { domid = x.backend_domid; kind = kind; devid = devid }
+	  let backend = { domid = x.backend_domid; kind = x.kind; devid = devid }
 	  in  device_of_backend backend domid
 	in
 
