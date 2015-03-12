@@ -240,7 +240,7 @@ let assert_space_available ?(multiplier=2L) patch_size =
 	let stat = statvfs patch_dir in
 	let free_bytes =
 		(* block size times free blocks *)
-		Int64.mul stat.f_frsize stat.f_bavail in
+		Int64.mul stat.f_frsize stat.f_bfree in
 	let really_required = Int64.mul multiplier patch_size in
 	if really_required > free_bytes
 	then
