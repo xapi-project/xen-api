@@ -286,6 +286,8 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	(* Filter VBDs to ensure that we don't read empty CDROMs *)
 	let vm_VBDs_disk = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk) vm_VBDs in
 	let vm_disks = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vm_VBDs_disk in
+	(* Filter out VM disks for which the snapshot does not have a corresponding
+	 * disk - these disks will be left unattached after the revert is complete. *)
 	let vm_disks_with_snapshot = List.filter (fun vdi -> List.mem vdi snap_disks_snapshot_of) vm_disks in
 	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
 	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
