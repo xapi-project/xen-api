@@ -299,7 +299,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_disks_with_snapshot);
 		TaskHelper.set_progress ~__context 0.2;
 
-		debug "Cloning the snapshoted disks";
+		debug "Cloning the snapshotted disks";
 		let driver_params = Xapi_vm_clone.make_driver_params () in
 		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_VBDs_disk driver_params in
 		let cloned_CDs = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_VBDs_CD driver_params in
