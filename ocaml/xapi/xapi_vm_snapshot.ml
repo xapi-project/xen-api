@@ -289,10 +289,6 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 	let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
 	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
 
-	let oldvdi_to_snapshots_map = List.map (fun vdi -> let snaps = Db.VDI.get_snapshots ~__context ~self:vdi in
-		(vdi, snaps)
-	) vm_disks_with_snapshot in
-
 	(* clone all the disks of the snapshot *)
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 
@@ -308,11 +304,24 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
 		TaskHelper.set_progress ~__context 0.5;
 
 		debug "Updating the snapshot_of fields for relevant VDIs";
-		let oldvdi_to_newvdi_map = List.map2 (fun oldvdi (_, newvdi, _) -> (oldvdi,newvdi)) snap_disks_snapshot_of cloned_disks in
-		List.iter (fun (oldvdi, snaps) ->
-			let newvdi = List.assoc oldvdi oldvdi_to_newvdi_map in
-			List.iter (fun s -> Db.VDI.set_snapshot_of ~__context ~self:s ~value:newvdi) snaps
-		) oldvdi_to_snapshots_map;
+		List.iter2
+			(fun snap_disk (_, cloned_disk, _) ->
+				(* For each snapshot disk which was just cloned:
+				 * 1) Find the value of snapshot_of
+				 * 2) Find all snapshots with the same snapshot_of
+				 * 3) Update each of these snapshots so that their snapshot_of points
+				 *    to the new cloned disk. *)
+				let open Db_filter_types in
+				let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snap_disk in
+				let all_snaps_in_tree = Db.VDI.get_refs_where ~__context
+					~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
+				in
+				List.iter
+					(fun snapshot ->
+						Db.VDI.set_snapshot_of ~__context ~self:snapshot ~value:cloned_disk)
+					all_snaps_in_tree)
+			snap_disks
+			cloned_disks;
 
 		debug "Cloning the suspend VDI if needed";
 		let cloned_suspend_VDI =
