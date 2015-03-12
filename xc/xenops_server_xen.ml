@@ -13,6 +13,7 @@
  *)
 
 open Xenops_interface
+open Memory_interface
 open Xenops_utils
 open Xenops_server_plugin
 open Xenops_helpers
@@ -393,9 +394,7 @@ module Mem = struct
 		wants to keep the memory, then call [transfer_reservation_to_domain]. *)
 	let with_reservation dbg min max f =
 		let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range dbg min max) in
-		finally
-			(fun () -> f amount id)
-			(fun () -> delete_reservation dbg id)
+                f amount id
 
 	(** Transfer this 'reservation' to the given domain id *)
 	let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
@@ -417,6 +416,26 @@ module Mem = struct
 	let transfer_reservation_to_domain dbg domid r =
 		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
 		()
+        
+        let query_reservation_of_domain dbg domid =
+                match get_session_id dbg with
+                        | Some session_id ->
+                                begin
+                                        try
+                                                let reservation_id = Client.query_reservation_of_domain dbg session_id domid in
+                                                debug "Memory reservation_id = %s" reservation_id;
+                                                reservation_id
+                                        with
+                                                | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+                                                        error "Ballooning daemon has disappeared. Cannot query reservation_id for domid = %d" domid;
+                                                        raise No_reservation
+                                                | _ ->
+                                                        error "Internal error. Cannot query reservation_id for domid = %d" domid;
+                                                        raise No_reservation
+                                end
+                        | None ->
+                                info "No ballooning daemon. Cannot query reservation_id for domid = %d" domid;
+                                raise No_reservation
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
 	let balance_memory dbg =
@@ -996,6 +1015,13 @@ module VM = struct
 						~pci_passthrough:hvm_info.pci_passthrough
 						~boot_order:hvm_info.boot_order ~nics ~disks ())
 
+        let clean_memory_reservation task domid =
+                try
+                        let reservation_id = Mem.query_reservation_of_domain task.Xenops_task.dbg domid in
+                        Mem.delete_reservation task.Xenops_task.dbg (reservation_id, None)
+                with No_reservation ->
+                        error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
+
 	let build_domain_exn xc xs domid task vm vbds vifs =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
@@ -1063,36 +1089,39 @@ module VM = struct
 
 	let build_domain vm vbds vifs xc xs task _ di =
 		let domid = di.Xenctrl.domid in
-		try
-			build_domain_exn xc xs domid task vm vbds vifs
-		with
-			| Bootloader.Bad_sexpr x ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
-				debug "%s" m;
-				raise (Internal_error m)
-			| Bootloader.Bad_error x ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s" vm.Vm.id domid x in
-				debug "%s" m;
-				raise (Internal_error m)
-			| Bootloader.Unknown_bootloader x ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
-				debug "%s" m;
-				raise (Internal_error m)
-			| Bootloader.Error_from_bootloader x ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s" vm.Vm.id domid x in
-				debug "%s" m;
-				raise (Bootloader_error (vm.Vm.id, x))
-			| Domain.Not_enough_memory m ->
-				debug "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld bytes" vm.Vm.id domid m;
-				raise (Not_enough_memory m)
-			| e ->
-				let m = Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid (Printexc.to_string e) in
-				debug "%s" m;
-				raise e
+                finally
+                    (fun () ->
+                            try
+                                    build_domain_exn xc xs domid task vm vbds vifs;
+                            with
+                                    | Bootloader.Bad_sexpr x ->
+                                            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
+                                            debug "%s" m;
+                                            raise (Internal_error m)
+                                    | Bootloader.Bad_error x ->
+                                            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s" vm.Vm.id domid x in
+                                            debug "%s" m;
+                                            raise (Internal_error m)
+                                    | Bootloader.Unknown_bootloader x ->
+                                            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
+                                            debug "%s" m;
+                                            raise (Internal_error m)
+                                    | Bootloader.Error_from_bootloader x ->
+                                            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s" vm.Vm.id domid x in
+                                            debug "%s" m;
+                                            raise (Bootloader_error (vm.Vm.id, x))
+                                    | Domain.Not_enough_memory m ->
+                                            debug "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld bytes" vm.Vm.id domid m;
+                                            raise (Not_enough_memory m)
+                                    | e ->
+                                            let m = Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid (Printexc.to_string e) in
+                                            debug "%s" m;
+                                            raise e
+                    ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
 	let build ?restore_fd task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
 
-	let create_device_model_exn vbds vifs saved_state xc xs task vm di =
+        let create_device_model_exn vbds vifs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
@@ -1281,45 +1310,48 @@ module VM = struct
 	let restore task progress_callback vm vbds vifs data =
 		on_domain
 			(fun xc xs task vm di ->
-				let domid = di.Xenctrl.domid in
-				let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
-				let k = vm.Vm.id in
-				let vmextra = DB.read_exn k in
-				let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
-					| { VmExtra.build_info = None } ->
-						error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-						raise (Does_not_exist("build_info", vm.Vm.id))
-					| { VmExtra.build_info = Some x; VmExtra.ty } ->
-						let initial_target = get_initial_target ~xs domid in
-						let timeoffset = match ty with
-								Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
-							| _ -> "" in
-						({ x with Domain.memory_target = initial_target }, timeoffset) in
-				let no_incr_generationid = false in
-				begin
-					try
+                            finally
+                                (fun () ->
+				        let domid = di.Xenctrl.domid in
+				        let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+				        let k = vm.Vm.id in
+				        let vmextra = DB.read_exn k in
+				        let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
+				        	| { VmExtra.build_info = None } ->
+				        		error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
+				        		raise (Does_not_exist("build_info", vm.Vm.id))
+				        	| { VmExtra.build_info = Some x; VmExtra.ty } ->
+				        		let initial_target = get_initial_target ~xs domid in
+				        		let timeoffset = match ty with
+				        				Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
+				        			| _ -> "" in
+				        		({ x with Domain.memory_target = initial_target }, timeoffset) in
+				        let no_incr_generationid = false in
+				        begin
+				        	try
 
-						with_data ~xc ~xs task data false
-							(fun fd ->
-								Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
-							);
-					with e ->
-						error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
-						(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
-						if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
-							try
-								debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-								Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
-							with e -> debug "Domain.destroy failed. Re-raising original error."
-						end;
-						raise e
-				end;
+				        		with_data ~xc ~xs task data false
+				        			(fun fd ->
+				        				Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) build_info timeoffset (choose_xenguest vm.Vm.platformdata) domid fd
+				        			);
+				        	with e ->
+				        		error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
+				        		(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
+				        		if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
+				        			try
+				        				debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
+				        				Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
+				        			with e -> debug "Domain.destroy failed. Re-raising original error."
+				        		end;
+				        		raise e
+				        end;
 
-				Int64.(
-					let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
-					and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
-					Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-				)
+				        Int64.(
+				        	let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
+				        	and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
+				        	Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+				        )
+                                ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 			) Newest task vm
 
 	let s3suspend =
