@@ -1635,7 +1635,6 @@ and exposed_type = function
                                                             (exposed_type v)
   | Record name             -> exposed_class_name name
   | Set(Record name)        -> sprintf "List<%s>" (exposed_class_name name)
-  | Set(Int)                -> sprintf "long[]"
   | _                       -> assert false
 
 
