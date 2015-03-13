@@ -342,6 +342,7 @@ module SMAPIv1 = struct
 							);
 							{ params = attach_info_v1.Smint.params;
 								o_direct = attach_info_v1.Smint.o_direct;
+								o_direct_reason = attach_info_v1.Smint.o_direct_reason;
 								xenstore_data = attach_info_v1.Smint.xenstore_data; }
 						) in
 				Mutex.execute vdi_read_write_m

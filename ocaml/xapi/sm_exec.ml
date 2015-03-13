@@ -268,6 +268,10 @@ let parse_attach_result (xml : Xml.xml) =
 			try XMLRPC.From.boolean (safe_assoc "o_direct" info)
 			with _ -> true
 		in
+		let o_direct_reason =
+			try XMLRPC.From.string (safe_assoc "o_direct_reason" info)
+			with _ -> ""
+		in
 		let xenstore_data =
 			try
 				List.map (fun (x,y) -> (x,XMLRPC.From.string y))
@@ -278,6 +282,7 @@ let parse_attach_result (xml : Xml.xml) =
 		{
 			params;
 			o_direct;
+			o_direct_reason;
 			xenstore_data;
 		}
 	)
