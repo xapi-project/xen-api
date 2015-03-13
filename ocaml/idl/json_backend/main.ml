@@ -154,10 +154,25 @@ let jarray_of_roles = function
 	| None -> JArray []
 	| Some rs -> JArray (List.map (fun s -> JString s) rs)
 
+let session_id =
+	{
+		param_type = Ref Datamodel._session;
+		param_name = "session_id";
+		param_doc = "Reference to a valid session";
+		param_release = Datamodel.rio_release;
+		param_default = None;
+	}
+
 let messages_of_obj_with_enums obj =
 	List.fold_left (fun (msgs, enums) msg ->
+		let params =
+			if msg.msg_session then
+				session_id :: msg.msg_params
+			else
+				msg.msg_params
+		in
 		let result, enums1 = jarray_of_result_with_enums msg.msg_result in
-		let params, enums2 = jarray_of_params_with_enums msg.msg_params in
+		let params, enums2 = jarray_of_params_with_enums params in
 		JObject [
 			"name", JString msg.msg_name;
 			"description", JString msg.msg_doc;
