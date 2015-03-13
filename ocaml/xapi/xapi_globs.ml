@@ -191,8 +191,6 @@ let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
 
 let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
 
-let read_caching_sm_config_key_prefix = "read-caching-enabled-on-"
-
 let mac_seed = "mac_seed" (* set in a VM to generate MACs by hash chaining *)
 
 let ( ** ) = Int64.mul

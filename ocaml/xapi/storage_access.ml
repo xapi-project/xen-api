@@ -311,9 +311,14 @@ module SMAPIv1 = struct
 		let vdi_read_write = Hashtbl.create 10
 		let vdi_read_write_m = Mutex.create ()
 		let vdi_read_caching_m = Mutex.create ()
-		let vdi_read_caching_key ~__context =
+		let per_host_key ~__context ~prefix =
 			let host_uuid = Db.Host.get_uuid ~__context ~self:(Helpers.get_localhost ~__context) in
-			Printf.sprintf "%s%s" Xapi_globs.read_caching_sm_config_key_prefix host_uuid
+			Printf.sprintf "%s-%s" prefix host_uuid
+		let read_caching_key ~__context =
+			per_host_key ~__context ~prefix:"read-caching-enabled-on"
+		let read_caching_reason_key ~__context =
+			per_host_key ~__context ~prefix:"read-caching-reason"
+
 
 		let epoch_begin context ~dbg ~sr ~vdi =
 			try
@@ -333,11 +338,16 @@ module SMAPIv1 = struct
 							(* Record whether the VDI is benefiting from read caching *)
 							Server_helpers.exec_with_new_task "VDI.attach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
 								let read_caching = not attach_info_v1.Smint.o_direct in
-								let key = vdi_read_caching_key ~__context in
+								let on_key = read_caching_key ~__context in
+								let reason_key = read_caching_reason_key ~__context in
 								Mutex.execute vdi_read_caching_m (fun () ->
-									Db.VDI.remove_from_sm_config ~__context ~self ~key;
-									Db.VDI.add_to_sm_config ~__context ~self ~key
-										~value:(string_of_bool read_caching)
+									Db.VDI.remove_from_sm_config ~__context ~self ~key:on_key;
+									Db.VDI.remove_from_sm_config ~__context ~self ~key:reason_key;
+									Db.VDI.add_to_sm_config ~__context ~self ~key:on_key
+										~value:(string_of_bool read_caching);
+									if not read_caching then
+										Db.VDI.add_to_sm_config ~__context ~self ~key:reason_key
+											~value:(attach_info_v1.Smint.o_direct_reason)
 								)
 							);
 							{ params = attach_info_v1.Smint.params;
@@ -394,9 +404,11 @@ module SMAPIv1 = struct
 					(fun device_config _type sr self ->
 						Sm.vdi_detach device_config _type sr self;
 						Server_helpers.exec_with_new_task "VDI.detach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
-							let key = vdi_read_caching_key ~__context in
+							let on_key = read_caching_key ~__context in
+							let reason_key = read_caching_reason_key ~__context in
 							Mutex.execute vdi_read_caching_m (fun () ->
-								Db.VDI.remove_from_sm_config ~__context ~self ~key
+								Db.VDI.remove_from_sm_config ~__context ~self ~key:on_key;
+								Db.VDI.remove_from_sm_config ~__context ~self ~key:reason_key
 							)
 						)
 					);
