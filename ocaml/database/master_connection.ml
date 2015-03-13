@@ -112,6 +112,8 @@ let start_master_connection_watchdog() =
 
 module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
 
+exception Goto_handler
+
 (** Called when the connection to the master is (re-)established. This will be called once
     on slave start and then every time after the master restarts and we reconnect. *)
 let on_database_connection_established = ref (fun () -> ())
@@ -122,15 +124,22 @@ let open_secure_connection () =
   let st_proc = Stunnel.connect ~use_fork_exec_helper:true
 	  ~extended_diagnosis:true
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
-  my_connection := Some st_proc;
-  info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
-  !on_database_connection_established ()
-    
+  let fd_closed = Thread.wait_timed_read st_proc.Stunnel.fd 5. in
+  let proc_quit = try Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0; false with e -> true in
+  if not fd_closed && not proc_quit then begin
+	  info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
+	  my_connection := Some st_proc;
+	  !on_database_connection_established ()
+  end else begin
+	  info "stunnel disconnected fd_closed=%s proc_quit=%s" (string_of_bool fd_closed) (string_of_bool proc_quit);
+	  let () = try Stunnel.disconnect st_proc with _ -> () in
+	  raise Goto_handler
+  end
+
 (* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
    fails *)
-exception Goto_handler
 let connection_timeout = ref !Xapi_globs.master_connection_default_timeout
-  
+
 (* if this is true then xapi will restart if retries exceeded [and enter emergency mode if still
    can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
    are exceeded *)
