@@ -1711,13 +1711,19 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
 let vgpu_args_of_nvidia domid vcpus vgpu =
+	let suspend_file = sprintf demu_save_path domid in
+	let resume_file = sprintf demu_restore_path domid in
 	let open Xenops_interface.Vgpu in
 	[
 		"--domain=" ^ (string_of_int domid);
 		"--vcpus=" ^ (string_of_int vcpus);
 		"--gpu=" ^ (Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
 		"--config=" ^ vgpu.config_file;
-	]
+		"--suspend=" ^ suspend_file;
+	] @
+	if Sys.file_exists resume_file
+	then ["--resume=" ^ resume_file]
+	else []
 
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: "--syslog" :: args
@@ -1814,6 +1820,14 @@ let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
 
 (* suspend/resume is a done by sending signals to qemu *)
 let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
+	let suspend_vgpu () = match Vgpu.pid ~xs domid with
+	| None -> debug "vgpu: no process running"
+	| Some vgpu_pid -> begin
+		let tag = Printf.sprintf "(domid = %d pid = %d)" domid vgpu_pid in
+		debug "vgpu: suspending vgpu with SIGHUP %s" tag;
+		Unix.kill vgpu_pid Sys.sighup
+	end in
+	suspend_vgpu ();
 	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 let resume (task: Xenops_task.t) ~xs ~qemu_domid domid =
 	signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
