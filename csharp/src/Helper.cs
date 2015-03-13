@@ -307,6 +307,49 @@ namespace XenAPI
         }
 
         /// <summary>
+        /// Parses an array of strings into an Array of longs
+        /// </summary>
+        /// <param name="input">Must not be null. Must not contain null. May have Length zero.</param>
+        /// <returns></returns>
+        internal static long[] StringArrayToLongArray(string[] input)
+        {
+            long[] result = new long[input.Length];
+            for(int i=0; i<input.Length; i++)
+            {
+                try
+                {
+                    result[i]=long.Parse(input[i]);
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Parses an array of longs into an Array of strings
+        /// </summary>
+        /// <param name="input">Must not be null. Must not contain null. May have Length zero.</param>
+        /// <returns></returns>
+        internal static string[] LongArrayToStringArray(long[] input)
+        {
+            string[] result = new string[input.Length];
+            for(int i=0; i<input.Length; i++)
+            {
+                try
+                {
+                    result[i]=input[i].ToString();
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+            return result;
+        }
+
+
+        /// <summary>
         /// Parses an array of objects into a List of members of the given enum T by first calling ToString() on each array element.
         /// </summary>
         /// <typeparam name="T"></typeparam>
