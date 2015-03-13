@@ -171,11 +171,21 @@ let messages_of_obj_with_enums obj =
 			else
 				msg.msg_params
 		in
+		let ctor =
+			if msg.msg_tag = FromObject Make then
+				let ctor_fields =
+					List.filter (function { qualifier = (StaticRO | RW) } -> true | _ -> false) (fields_of_obj obj)
+						|> List.map (fun f -> String.concat "_" f.full_name ^ (if f.default_value = None then "*" else ""))
+				in
+				Printf.sprintf "\nThe constructor args are: %s (* = non-optional)." (String.concat ", " ctor_fields)
+			else
+				""
+		in
 		let result, enums1 = jarray_of_result_with_enums msg.msg_result in
 		let params, enums2 = jarray_of_params_with_enums params in
 		JObject [
 			"name", JString msg.msg_name;
-			"description", JString msg.msg_doc;
+			"description", JString (msg.msg_doc ^ ctor);
 			"result", result;
 			"params", params;
 			"errors", jarray_of_errors msg.msg_errors;
