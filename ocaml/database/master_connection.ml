@@ -37,11 +37,31 @@ exception Cannot_connect_to_master
    the (now dead!) stunnel process.
 *)
 let force_connection_reset () =
-  match !my_connection with
-    None -> ()
-  | Some st_proc ->
-  info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
-      Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
+	(* Cleanup cached stunnel connections to the master, so that future API
+	   calls won't be blocked. *)
+	if Pool_role.is_slave () then begin
+		let host = Pool_role.get_master_address () in
+		let port = !Xapi_globs.https_port in
+		(* We don't currently have a method to enumerate all the stunnel links
+		   to an address in the cache. The easiest way is, for each valid config
+		   combination, we pop out (remove) its links until Not_found is raised.
+		   Here, we have two such combinations, i.e. verify_cert=true/false, as
+		   host and port are fixed values. *)
+		let purge_stunnels verify_cert =
+			try
+				while true do
+					let st = Stunnel_cache.remove host port verify_cert in
+					try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
+				done
+			with Not_found -> () in
+		purge_stunnels true; purge_stunnels false;
+		info "force_connection_reset: all cached connections to the master have been purged";
+	end;
+	match !my_connection with
+	| None -> ()
+	| Some st_proc ->
+		 (info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
+		  Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm)
 
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
