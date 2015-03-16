@@ -91,11 +91,8 @@ let is_prim_opt_type = function
 let rec of_ty_verbatim = function
   | String -> "string" | Int -> "int" | Float -> "float" | Bool -> "bool"
   | DateTime -> "datetime" | Enum (name, things) -> name
-  | Set x ->
-      if (is_prim_type x) then
-	(of_ty_verbatim x) ^ " Set"
-      else "("^(of_ty_verbatim x)^") Set"
-  | Map (a, b) -> "(" ^ (of_ty_verbatim a) ^ " -> " ^ (of_ty_verbatim b) ^ ") Map"
+  | Set x -> (of_ty_verbatim x) ^ " set"
+  | Map (a, b) -> "(" ^ (of_ty_verbatim a) ^ " -> " ^ (of_ty_verbatim b) ^ ") map"
   | Ref obj -> obj ^ " ref"
   | Record obj -> obj ^ " record"
 
@@ -103,11 +100,8 @@ let rec of_ty_verbatim = function
 let rec of_ty = function
   | String -> "string" | Int -> "int" | Float -> "float" | Bool -> "bool"
   | DateTime -> "datetime" | Enum (name, things) -> escape name
-  | Set x ->
-      if (is_prim_type x) then
-	(of_ty x) ^ " Set"
-      else "("^(of_ty x)^") Set"
-  | Map (a, b) -> "(" ^ (of_ty a) ^ " $\\rightarrow$ " ^ (of_ty b) ^ ") Map"
+  | Set x -> (of_ty x) ^ " set"
+  | Map (a, b) -> "(" ^ (of_ty a) ^ " $\\rightarrow$ " ^ (of_ty b) ^ ") map"
   | Ref obj -> (escape obj)^" ref"
   | Record obj -> escape obj ^ " record"
 
@@ -120,11 +114,11 @@ let of_ty_opt_verbatim = function
 let desc_of_ty_opt = function
     None -> "" | Some(_, desc) -> desc
 
-(** Add namespaces (separated by /) to each field name *)
+(** Add namespaces (separated by _) to each field name *)
 let flatten stuff =
   let rec f ns = function
     | Field fr -> Field { fr with field_name = ns ^ fr.field_name} 
-    | Namespace(ns', contents) -> Namespace("", List.map (f (ns ^ ns' ^ "/")) contents)
+    | Namespace(ns', contents) -> Namespace("", List.map (f (ns ^ ns' ^ "_")) contents)
   in
     f "" stuff
 
@@ -509,8 +503,6 @@ let all api closed =
     print_endline "\\begin{center}\\resizebox{0.8\\textwidth}{!}{"; 
     print_endline (sprintf "\\includegraphics{%s}" graphfilename);
     print_endline "}\\end{center}";
-    print_endline "\\";
-    print_endline "\\subsection{List of bound fields}";
 
     print_endline "\\section{Types}";
     print_endline "\\subsection{Primitives}";
@@ -520,23 +512,23 @@ let all api closed =
     print_endline "\\hline";
     print_endline "Type & Description \\\\";
     print_endline "\\hline";    
-    print_endline "String & text strings \\\\";
-    print_endline "Int    & 64-bit integers \\\\";
-    print_endline "Float & IEEE double-precision floating-point numbers \\\\";
-    print_endline "Bool   & boolean \\\\";
-    print_endline "DateTime & date and timestamp \\\\";
-    print_endline "Ref (object name) & reference to an object of class name \\\\";
+    print_endline "string & text strings \\\\";
+    print_endline "int    & 64-bit integers \\\\";
+    print_endline "float & IEEE double-precision floating-point numbers \\\\";
+    print_endline "bool   & boolean \\\\";
+    print_endline "datetime & date and timestamp \\\\";
     print_endline "\\hline";
     print_endline "\\end{tabular}\\end{center}";
-    print_endline "\\subsection{Higher order types}";
+    print_endline "\\subsection{Higher-order types}";
     print_endline "The following type constructors are used:";
     print_endline "";
     print_endline "\\begin{center}\\begin{tabular}{|ll|}";
     print_endline "\\hline";
     print_endline "Type & Description \\\\";
     print_endline "\\hline";    
-    print_endline "List (t) & an arbitrary-length list of elements of type t \\\\";
-    print_endline "Map (a $\\rightarrow$ b) & a table mapping values of type a to values of type b \\\\";
+    print_endline "$c$ ref & reference to an object of class $c$ \\\\";
+    print_endline "$t$ set & a set of elements of type $t$ \\\\";
+    print_endline "($a \\rightarrow b$) map & a table mapping values of type $a$ to values of type $b$ \\\\";
     print_endline "\\hline";
     print_endline "\\end{tabular}\\end{center}";
     print_endline "\\subsection{Enumeration types}";
