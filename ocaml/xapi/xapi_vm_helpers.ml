@@ -19,7 +19,6 @@ open Xstringext
 open Printf
 open Xapi_vm_memory_constraints
 open Listext
-open Xenstore
 open Fun
 
 module D=Debug.Make(struct let name="xapi" end)
