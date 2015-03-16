@@ -142,6 +142,8 @@ ocaml/idl/datamodel
 ocaml/idl/html_build
 ocaml/idl/js_backend/api.js
 ocaml/idl/js_backend/main
+ocaml/idl/json_backend/main
+ocaml/idl/json_backend/*.json
 ocaml/idl/ocaml_backend/gen_api_main
 ocaml/mpathalert/mpathalert
 ocaml/muxdemux/tar
