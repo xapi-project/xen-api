@@ -63,9 +63,8 @@ let _ =
       let api = DU.add_implicit_messages ~document_order:!latex_mode api in
       (* Only show those visible to the client *)
       let api = filter (fun _ -> true) (fun field -> true) DU.on_client_side api in
-      (* And only those marked as not hidden from the docs *)
-      let api = filter 
-	(fun _ -> true) (fun _ -> true) (fun m -> not(m.msg_hide_from_docs)) api in
+      (* And only messages marked as not hidden from the docs, and non-internal fields *)
+      let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
 
       if !dirname <> "" then Unix.chdir !dirname;
 	if (!latex_mode) then begin

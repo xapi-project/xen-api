@@ -42,8 +42,7 @@ type json =
 	| JArray of json list
 	| JString of string
 	| JNumber of float
-	| JTrue
-	| JFalse
+	| JBoolean of bool
 	| JEmpty
 
 let endl n =
@@ -55,8 +54,7 @@ let rec string_of_json n = function
 	| JArray l -> "[ " ^ (String.concat ", " (List.map (fun j -> (string_of_json n j)) l)) ^ " ]"
 	| JString s -> "\"" ^ (escape_json s) ^ "\""
 	| JNumber n -> Printf.sprintf "%.4f" n
-	| JTrue -> "true"
-	| JFalse -> "false"
+	| JBoolean b -> if b = true then "true" else "false"
 	| JEmpty -> "\"\""
 
 
@@ -112,7 +110,6 @@ let fields_of_obj_with_enums obj =
 		) [] contents
 	in
 	let fields = flatten_contents obj.contents in
-	let fields = List.filter (fun f -> not f.internal_only) fields in
 	List.fold_left (fun (fields, enums) field ->
 		let ty, e = string_of_ty_with_enums field.ty in
 		JObject (
@@ -157,23 +154,48 @@ let jarray_of_roles = function
 	| None -> JArray []
 	| Some rs -> JArray (List.map (fun s -> JString s) rs)
 
+let session_id =
+	{
+		param_type = Ref Datamodel._session;
+		param_name = "session_id";
+		param_doc = "Reference to a valid session";
+		param_release = Datamodel.rio_release;
+		param_default = None;
+	}
+
 let messages_of_obj_with_enums obj =
-	let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
 	List.fold_left (fun (msgs, enums) msg ->
+		let params =
+			if msg.msg_session then
+				session_id :: msg.msg_params
+			else
+				msg.msg_params
+		in
+		let ctor =
+			if msg.msg_tag = FromObject Make then
+				let ctor_fields =
+					List.filter (function { qualifier = (StaticRO | RW) } -> true | _ -> false) (fields_of_obj obj)
+						|> List.map (fun f -> String.concat "_" f.full_name ^ (if f.default_value = None then "*" else ""))
+				in
+				Printf.sprintf "\nThe constructor args are: %s (* = non-optional)." (String.concat ", " ctor_fields)
+			else
+				""
+		in
 		let result, enums1 = jarray_of_result_with_enums msg.msg_result in
-		let params, enums2 = jarray_of_params_with_enums msg.msg_params in
+		let params, enums2 = jarray_of_params_with_enums params in
 		JObject [
 			"name", JString msg.msg_name;
-			"description", JString msg.msg_doc;
+			"description", JString (msg.msg_doc ^ ctor);
 			"result", result;
 			"params", params;
 			"errors", jarray_of_errors msg.msg_errors;
 			"roles", jarray_of_roles msg.msg_allowed_roles;
 			"tag", JString (match msg.msg_doc_tags with [] -> "" | t :: _ -> string_of_doc_tag t);
 			"lifecycle", jarray_of_lifecycle msg.msg_lifecycle;
+			"implicit", JBoolean (msg.msg_tag <> Custom);
 		] :: msgs,
 		enums @ enums1 @ enums2
-	) ([], []) msgs
+	) ([], []) obj.messages
 
 let jarray_of_enums enums =
 	JArray (List.map (fun (name, vs) ->
@@ -251,7 +273,8 @@ let releases objs =
 					"message"
 				) changes
 			in
-			let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
+			(* Don't include implicit messages *)
+			let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
 			let msg_changes = List.fold_left (fun l m -> l @ (changes_for_msg m)) [] msgs in
 			
 			let changes_for_field f =
@@ -271,7 +294,6 @@ let releases objs =
 				) [] contents
 			in
 			let fields = flatten_contents obj.contents in
-			let fields = List.filter (fun f -> not f.internal_only) fields in
 			let field_changes = List.fold_left (fun l f -> l @ (changes_for_field f)) [] fields in
 
 			obj_changes @ field_changes @ msg_changes
@@ -283,6 +305,13 @@ let releases objs =
 
 let _ =
 	let api = Datamodel.all_api in
+	(* Add all implicit messages *)
+	let api = add_implicit_messages api in
+	(* Only include messages that are visible to a XenAPI client *)
+	let api = filter (fun _ -> true) (fun _ -> true) on_client_side api in
+	(* And only messages marked as not hidden from the docs, and non-internal fields *)
+	let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
+
 	let objs = objects_of_api api in
 	Unixext.write_string_to_file "xenapi.json" (objs |> json_of_objs |> string_of_json 0);
 	releases objs
