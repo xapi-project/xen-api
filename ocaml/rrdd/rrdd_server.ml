@@ -628,12 +628,18 @@ module Plugin = struct
 			verify_checksum_freshness ~uid ~checksum;
 			parse_payload ~json:payload
 		with e ->
-			error "Failed to process plugin: %s (%s)" uid (Printexc.to_string e);
-			log_backtrace ();
+			let log e =
+				error "Failed to process plugin: %s (%s)" uid (Printexc.to_string e);
+				log_backtrace ()
+			in
 			match e with
-			| Invalid_header_string | Invalid_length | Invalid_checksum
-			| No_update as e -> raise e
-			| _ -> raise Read_error
+			| No_update -> raise No_update
+			| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
+				log e;
+				raise e
+			| e ->
+				log e;
+				raise Read_error
 
 	(* A map storing currently registered plugins, and their sampling
 	 * frequencies. *)
