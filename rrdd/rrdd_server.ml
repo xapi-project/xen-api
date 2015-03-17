@@ -340,15 +340,21 @@ module Plugin = struct
 				let {reader} = find uid in
 				reader.Rrd_reader.read_payload ()
 			with e ->
-				error "Failed to process plugin: %s (%s)"
-					(P.string_of_uid uid)
-					(Printexc.to_string e);
-				log_backtrace ();
+				let log e =
+					error "Failed to process plugin: %s (%s)"
+						(P.string_of_uid uid)
+						(Printexc.to_string e);
+					log_backtrace ()
+				in
 				let open Rrd_protocol in
 				match e with
-				| Invalid_header_string | Invalid_length | Invalid_checksum
-				| No_update as e -> raise e
-				| _ -> raise Read_error
+				| No_update -> raise No_update
+				| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
+					log e;
+					raise e
+				| e ->
+					log e;
+					raise Read_error
 
 		(* Returns the number of seconds until the next reading phase for the
 		 * sampling frequency given at registration by the plugin with the specified
