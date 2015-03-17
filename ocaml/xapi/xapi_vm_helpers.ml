@@ -1056,3 +1056,18 @@ let vm_fresh_genid ~__context ~self =
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
 
+let is_pci_pv_enabled ~platformdata =
+	Helpers.is_true ~key:(Xapi_globs.pci_pv_key_name) ~pairlist:platformdata ~default:(Xapi_globs.default_pci_pv_key_value)
+
+let update_vm_virtual_hardware_platform_version ~__context ~vm =
+	let vm_record = Db.VM.get_record ~__context ~self:vm in
+	(* Deduce what we can, but the guest VM might need a higher version. *)
+	let visibly_required_version =
+		if is_pci_pv_enabled vm_record.API.vM_platform then
+			Xapi_globs.pci_for_PV_support
+		else
+			0L
+	in
+	let current_version = vm_record.API.vM_hardware_platform_version in
+	if visibly_required_version > current_version then
+		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
