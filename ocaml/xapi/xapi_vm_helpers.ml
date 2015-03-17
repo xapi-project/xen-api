@@ -20,6 +20,7 @@ open Printf
 open Xapi_vm_memory_constraints
 open Listext
 open Fun
+module XenAPI = Client.Client
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -273,7 +274,7 @@ let assert_hardware_platform_support ~__context ~vm ~host =
 				| Helpers.LocalObject host_ref ->
 					Db.Host.get_virtual_hardware_platform_versions ~__context ~self:host_ref
 				| Helpers.RemoteObject (rpc, session_id, host_ref) ->
-					Client.Client.Host.get_virtual_hardware_platform_versions ~rpc ~session_id ~self:host_ref
+					XenAPI.Host.get_virtual_hardware_platform_versions ~rpc ~session_id ~self:host_ref
 		with Not_found ->
 			(* An old host that does not understand the concept
 			 * has implicit support for version 0 *)
