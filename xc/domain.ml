@@ -72,6 +72,7 @@ exception Domain_build_failed
 exception Domain_build_pre_failed of string
 exception Domain_restore_failed
 exception Domain_restore_truncated_hvmstate
+exception Domain_restore_truncated_vgpustate
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
 exception Xenguest_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
@@ -821,6 +822,29 @@ let consume_qemu_record fd limit domid uuid =
 		end
 	) (fun () -> Unix.close fd2)
 
+let consume_demu_record fd limit domid uuid =
+	let file = sprintf demu_restore_path domid in
+	let fd2 = Unix.openfile file
+		[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
+	in
+	finally (fun () ->
+		debug "VM = %s; domid = %d; reading %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
+		let bytes =
+			try
+				Unixext.copy_file ~limit fd fd2
+			with Unix.Unix_error (e, s1, s2) ->
+				error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid (Unix.error_message e) s1 s2;
+				Unixext.unlink_safe file;
+				raise Suspend_image_failure
+		in
+		if bytes <> limit
+		then begin
+			error "VM = %s; domid = %d; qemu save file was truncated"
+				(Uuid.to_string uuid) domid;
+			raise Domain_restore_truncated_vgpustate
+		end
+	) (fun () -> Unix.close fd2)
+
 let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
 	let module DD = Debug.Make(struct let name = "mig64" end) in
 	let open DD in
@@ -885,6 +909,10 @@ let restore_common (task: Xenops_task.t) ~xc ~xs ~hvm ~store_port ~store_domid ~
 			| Qemu_trad, len ->
 				debug "Read Qemu_trad header (length=%Ld)" len;
 				consume_qemu_record fd len domid uuid;
+				process_header res
+			| Demu, len ->
+				debug "Read Demu header (length=%Ld)" len;
+				consume_demu_record fd len domid uuid;
 				process_header res
 			| End_of_image, _ ->
 				debug "Read suspend image footer";
@@ -1094,6 +1122,24 @@ let write_qemu_record domid uuid legacy_libxc fd =
 		Unix.close fd2
 	)
 
+let write_demu_record domid uuid fd =
+	let file = sprintf demu_save_path domid in
+	let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
+	finally (fun () ->
+		let size = Int64.of_int Unix.((stat file).st_size) in
+		let open Suspend_image in
+		let open Suspend_image.M in
+		debug "Writing Demu header with length %Ld" size;
+		write_header fd (Demu, size) >>= fun () ->
+		debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
+		if Unixext.copy_file ~limit:size fd2 fd <> size
+		then failwith "Failed to write whole demu state file";
+		return ()
+	) (fun () ->
+		Unix.unlink file;
+		Unix.close fd2
+	)
+
 (* suspend register the callback function that will be call by linux_save
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
@@ -1133,6 +1179,9 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path vm_str domid fd fla
 		* image, we should try putting it below in the relevant section of the
 		* suspend-image-writing *)
 		(if hvm then write_qemu_record domid uuid legacy_libxc fd else return ()) >>= fun () ->
+		debug "Qemu record written";
+		let vgpu = Sys.file_exists (sprintf demu_save_path domid) in
+		(if vgpu then write_demu_record domid uuid fd else return ()) >>= fun () ->
 		debug "Writing End_of_image footer";
 		write_header fd (End_of_image, 0L)
 	in match res with

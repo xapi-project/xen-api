@@ -83,5 +83,8 @@ val protocol_of_string : string -> protocol
 val qemu_save_path: (int -> 'a, 'b, 'a) format
 val qemu_restore_path: (int -> 'a, 'b, 'a) format
 
+val demu_save_path: (int -> 'a, 'b, 'a) format
+val demu_restore_path: (int -> 'a, 'b, 'a) format
+
 (** Directory in xenstore where qemu writes its state *)
 val device_model_path: qemu_domid:int -> int -> string

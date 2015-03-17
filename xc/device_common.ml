@@ -285,6 +285,9 @@ let protocol_of_string = function
 let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
 let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
 
+let demu_save_path : (_, _, _) format = "/var/lib/xen/demu-save.%d"
+let demu_restore_path : (_, _, _) format = "/var/lib/xen/demu-resume.%d"
+
 (* Where qemu writes its state and is signalled *)
 let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
