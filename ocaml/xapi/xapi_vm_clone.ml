@@ -132,7 +132,9 @@ let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_pa
 	Client.Task.destroy rpc session_id task;
 	vdi_ref
 
-(* Clone a list of disks, if any error occurs then delete all the ones we've got *)
+(* Clone a list of disks, if any error occurs then delete all the ones we've
+ * got. Reverse the list at the end, so that the disks are returned in the
+ * same order as the [vbds] parameter. *)
 let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 	(* Find the sizes of the disks, and the total size in order to do progress *)
 	let sizes = List.map 
@@ -160,7 +162,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 			delete_disks rpc session_id acc; (* Delete those cloned so far *)
 			raise e
 	in
-	fst (List.fold_left fold_function ([],0L) sizes)
+	List.rev (fst (List.fold_left fold_function ([],0L) sizes))
 
 let power_state_at_snapshot = "power-state-at-snapshot"
 let disk_snapshot_type = "disk-snapshot-type"
