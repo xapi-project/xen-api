@@ -24,6 +24,9 @@ PID_FILE="/var/run/${NAME}.pid"
 # lock file
 SUBSYS_FILE="/var/lock/subsys/${NAME}"
 
+# set max number of open fds
+ulimit -n 4096
+
 start() {
 	echo -n $"Starting ${FULL_NAME}: "
 
