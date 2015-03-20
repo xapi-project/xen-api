@@ -16,5 +16,4 @@ setup.bin
 *.toc
 *~
 #*
-configure
 config.mk
