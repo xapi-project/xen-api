@@ -230,7 +230,7 @@ module type S = sig
   val whoami: unit -> string
 
   module IO: sig
-    include Cohttp.IO.S
+    include Cohttp.S.IO
 
     val map: ('a -> 'b) -> 'a t -> 'b t
 
@@ -270,7 +270,7 @@ module type S = sig
   end
 end
 
-module Connection = functor(IO: Cohttp.IO.S) -> struct
+module Connection = functor(IO: Cohttp.S.IO) -> struct
 	open IO
 	module Request = Cohttp.Request.Make(IO)
 	module Response = Cohttp.Response.Make(IO)
@@ -280,9 +280,9 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 		let body = match b with None -> "" | Some x -> x in
 		let headers = In.headers body in
 		let req = Cohttp.Request.make ~meth ~headers uri in
-		Request.write (fun req oc -> match b with
+		Request.write (fun writer -> match b with
 		| Some body ->
-			Request.write_body req oc body
+			Request.write_body writer body
 		| None -> return ()
 		) req oc >>= fun () ->
 
@@ -293,7 +293,8 @@ module Connection = functor(IO: Cohttp.IO.S) -> struct
 				(* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
 				return (`Error Unsuccessful_response)
 			end else begin
-				Response.read_body_chunk response ic >>= function
+				let reader = Response.make_body_reader response ic in
+				Response.read_body_chunk reader >>= function
 				| Transfer.Final_chunk x -> return (`Ok x)
 				| Transfer.Chunk x -> return (`Ok x)
 				| Transfer.Done -> return (`Ok "")

@@ -20,7 +20,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str
+  BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,re,re.str, bisect
 
 Library message_switch_lwt
   Build$:             flag(lwt)
@@ -29,7 +29,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
 
 Library message_switch_async
   Build$:             flag(async)
@@ -38,7 +38,7 @@ Library message_switch_async
   Findlibparent:      message_switch
   Findlibname:        async
   Modules:            Protocol_async
-  BuildDepends:       async,cohttp,cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
 
 Library message_switch_unix
   CompiledObject:     best
@@ -46,7 +46,7 @@ Library message_switch_unix
   Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix, Protocol_unix_scheduler
-  BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       unix,threads,cohttp (>= 0.15.0),rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
 
 Library message_switch_server
   Build$:             flag(lwt)
@@ -57,7 +57,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Switch
-  BuildDepends:       lwt,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.syntax,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
 
 Executable m_cli
   CompiledObject:     best
@@ -65,7 +65,7 @@ Executable m_cli
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.unix, cmdliner
+  BuildDepends:       message_switch, message_switch.unix, cmdliner, bisect
 
 Executable link_test
   Build$:             flag(lwt)&&flag(tests)
@@ -74,7 +74,7 @@ Executable link_test
   MainIs:             link_test_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, bisect
 
 Executable client
   Build$:             flag(lwt)&&flag(tests)
@@ -83,7 +83,7 @@ Executable client
   MainIs:             client_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, bisect
 
 Executable client_async
   Build$:             flag(async)&&flag(tests)
@@ -92,7 +92,7 @@ Executable client_async
   MainIs:             client_async_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
+  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async, bisect
 
 Executable client_unix
   CompiledObject:     best
@@ -101,7 +101,7 @@ Executable client_unix
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.unix, cohttp
+  BuildDepends:       message_switch, message_switch.unix, cohttp, bisect
 
 Executable server
   Build$:             flag(lwt)&&flag(tests)
@@ -110,7 +110,7 @@ Executable server
   MainIs:             server_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, bisect
 
 Executable server_async
   Build$:             flag(async)&&flag(tests)
@@ -119,7 +119,7 @@ Executable server_async
   MainIs:             server_async_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async
+  BuildDepends:       message_switch, message_switch.async, async, async_unix, threads, cohttp, cohttp.async, bisect
 
 Executable server_unix
   CompiledObject:     best
@@ -128,7 +128,7 @@ Executable server_unix
   Build$:             flag(tests)
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.unix
+  BuildDepends:       message_switch, message_switch.unix, bisect
 
 Executable switch
   Build$:             flag(lwt)
@@ -137,4 +137,4 @@ Executable switch
   MainIs:             switch_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, bisect

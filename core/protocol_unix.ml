@@ -44,6 +44,7 @@ module IO = struct
 
 	type ic = in_channel
 	type oc = out_channel
+	type conn = unit
 
 	let read_line ic =
 		try
