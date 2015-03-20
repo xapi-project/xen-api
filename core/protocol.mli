@@ -168,7 +168,7 @@ module type S = sig
   val whoami: unit -> string
 
   module IO: sig
-    include Cohttp.IO.S
+    include Cohttp.S.IO
 
     val map: ('a -> 'b) -> 'a t -> 'b t
 
@@ -208,7 +208,7 @@ module type S = sig
   end
 end
 
-module Connection(IO: Cohttp.IO.S) : sig
+module Connection(IO: Cohttp.S.IO) : sig
 	val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
 end
 

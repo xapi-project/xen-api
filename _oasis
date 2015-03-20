@@ -20,7 +20,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp,rpclib,rpclib.json,rpclib.syntax,re,re.str
+  BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,re,re.str
 
 Library message_switch_lwt
   Build$:             flag(lwt)
@@ -29,7 +29,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_async
   Build$:             flag(async)
@@ -38,7 +38,7 @@ Library message_switch_async
   Findlibparent:      message_switch
   Findlibname:        async
   Modules:            Protocol_async
-  BuildDepends:       async,cohttp,cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_unix
   CompiledObject:     best
@@ -46,7 +46,7 @@ Library message_switch_unix
   Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix, Protocol_unix_scheduler
-  BuildDepends:       unix,threads,cohttp,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       unix,threads,cohttp (>= 0.15.0),rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Library message_switch_server
   Build$:             flag(lwt)
@@ -57,7 +57,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Switch
-  BuildDepends:       lwt,lwt.syntax,cohttp,cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.syntax,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
 
 Executable m_cli
   CompiledObject:     best

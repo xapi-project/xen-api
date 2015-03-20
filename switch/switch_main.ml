@@ -31,7 +31,7 @@ let make_server () =
 	let (_: 'a) = logging_thread () in
 
   	(* (Response.t * Body.t) Lwt.t *)
-	let callback conn_id req body =
+	let callback (_, conn_id) req body =
 		let conn_id_s = Cohttp.Connection.to_string conn_id in
 		let open Protocol in
 		lwt body = Cohttp_lwt_body.to_string body in
@@ -50,7 +50,7 @@ let make_server () =
 			debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
 			Cohttp_lwt_unix.Server.respond_string ~status ~body ()
 		in
-	let conn_closed conn_id () =
+	let conn_closed (_, conn_id) =
 		let conn_id_s = Cohttp.Connection.to_string conn_id in
 		let session = Connections.get_session conn_id_s in
 		Connections.remove conn_id_s;
@@ -63,8 +63,8 @@ let make_server () =
 			end in
 
 	info "Message switch starting";
-	let config = { Cohttp_lwt_unix.Server.callback; conn_closed } in
-	Cohttp_lwt_unix.Server.create ~address:!ip ~port:!port config
+        let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
+	Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port !port)) t
 
 let _ =
 	let daemonize = ref false in
