@@ -32,24 +32,22 @@ module M = struct
     let is_determined t = Lwt.state t <> Lwt.Sleep
   end
 
-	let connect port =
-		let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-		let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
-		let result = ref None in
-		lwt () = while_lwt !result = None do
-			try_lwt
-				lwt () = Lwt_unix.connect fd sockaddr in
-				let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
-				let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
-				result := Some (ic, oc);
-				return ()
-			with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _) ->
-				lwt () = Lwt_unix.sleep 5. in
-				return ()
-		done in
-		match !result with
-		| None -> assert false
-		| Some x -> return x
+  let connect port =
+    let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
+    let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+    let rec loop () =
+      Lwt.catch (fun () ->
+        Lwt_unix.connect fd sockaddr >>= fun () ->
+        let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
+        let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
+        return (ic, oc)
+      ) (function
+      | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _) ->
+        Lwt_unix.sleep 5. >>= fun () ->
+        loop ()
+      | e -> fail e
+      ) in
+    loop ()
 
   let disconnect (ic, oc) =
     Lwt_io.close ic
