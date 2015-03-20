@@ -18,6 +18,11 @@ install:
 	make -C ocaml install
 	make -C python install
 
+.PHONY: uninstall
+uninstall:
+	make -C ocaml uninstall
+	make -C python uninstall
+
 .PHONY: reinstall
 reinstall:
 	make -C ocaml reinstall
