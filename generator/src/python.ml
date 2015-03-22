@@ -281,6 +281,66 @@ let test_impl_of_interfaces env i =
     ]
   ]
 
+let commandline_parse env i m =
+  let open Printf in
+  [
+    Line (sprintf "def _parse_%s(self):" m.Method.name);
+    Block ([
+        Line (sprintf "\"\"\"%s\"\"\"" m.Method.description);
+      ] @ [
+        Line (sprintf "parser = argparse.ArgumentParser(description='%s')" m.Method.description);
+        Line "parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)";
+      ] @ (
+        List.map (fun a -> Line (sprintf "parser.add_argument('--%s', action='store', dest='%s', help='%s')" a.Arg.name a.Arg.name a.Arg.description)) m.Method.inputs
+      ) @ [
+        Line "args = vars(parser.parse_args())";
+        Line "if args['json']:";
+        Block [
+            Line "return json.loads(sys.stdin.readline(),)";
+        ];
+        Line "return args";
+      ])
+  ]
+
+let commandline_run env i m =
+  let open Printf in
+  [
+    Line (sprintf "def %s(self):" m.Method.name);
+    Block [
+      Line "try:";
+      Block [
+        Line (sprintf "request = self._parse_%s()" m.Method.name);
+        Line (sprintf "results = self.dispatcher.%s(request)" m.Method.name);
+        Line "print json.dumps(results)";
+      ];
+      Line "except Exception, e:";
+      Block [
+        Line "if request.has_key('json') and request['json']:";
+        Block [Line "xapi.handle_exception(e)"];
+        Line "else:";
+        Block [Line "raise e"];
+      ]
+    ]
+  ]
+
+let commandline_of_interface env i =
+  let open Printf in
+  [
+    Line "import argparse";
+    Line "import xapi";
+    Line (sprintf "class %s_commandline():" i.Interface.name);
+    Block ([
+      Line "\"\"\"Parse command-line arguments and call an implementation.\"\"\"";
+      Line "def __init__(self, impl):";
+      Block [
+        Line "self.impl = impl";
+        Line "self.dispatcher = Datapath_server_dispatcher(self.impl)";
+      ];
+   ] @ (List.concat (List.map (commandline_parse env i) i.Interface.methods)) @ (
+        List.concat (List.map (commandline_run env i) i.Interface.methods))
+   )
+  ]
+
 let of_interfaces env i =
   let open Printf in
   [
@@ -290,7 +350,7 @@ let of_interfaces env i =
     List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
   ) @ (
     List.fold_left (fun acc i -> acc @
-                                 (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i)
+                                 (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i) @ (commandline_of_interface env i)
                    ) [] i.Interfaces.interfaces
   ) @ [
     Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
