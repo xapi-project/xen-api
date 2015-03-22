@@ -288,17 +288,17 @@ let commandline_parse env i m =
     Block ([
         Line (sprintf "\"\"\"%s\"\"\"" m.Method.description);
       ] @ [
-        Line (sprintf "parser = argparse.ArgumentParser(description='%s')" m.Method.description);
-        Line "parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)";
-      ] @ (
-        List.map (fun a -> Line (sprintf "parser.add_argument('--%s', action='store', dest='%s', help='%s')" a.Arg.name a.Arg.name a.Arg.description)) m.Method.inputs
-      ) @ [
-        Line "args = vars(parser.parse_args())";
-        Line "if args['json']:";
+        Line "# in --json mode we don't have any other arguments";
+        Line "if '--json' in sys.argv:";
         Block [
             Line "return json.loads(sys.stdin.readline(),)";
         ];
-        Line "return args";
+        Line (sprintf "parser = argparse.ArgumentParser(description='%s')" m.Method.description);
+        Line "parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)";
+      ] @ (
+        List.map (fun a -> Line (sprintf "parser.add_argument('%s', action='store', help='%s')" a.Arg.name a.Arg.description)) m.Method.inputs
+      ) @ [
+        Line "return vars(parser.parse_args())";
       ])
   ]
 
@@ -307,18 +307,23 @@ let commandline_run env i m =
   [
     Line (sprintf "def %s(self):" m.Method.name);
     Block [
+      Line "use_json = False";
       Line "try:";
       Block [
         Line (sprintf "request = self._parse_%s()" m.Method.name);
+        Line "use_json = 'json' in request and request['json']";
         Line (sprintf "results = self.dispatcher.%s(request)" m.Method.name);
         Line "print json.dumps(results)";
       ];
       Line "except Exception, e:";
       Block [
-        Line "if request.has_key('json') and request['json']:";
+        Line "if use_json:";
         Block [Line "xapi.handle_exception(e)"];
         Line "else:";
-        Block [Line "raise e"];
+        Block [
+          Line "traceback.print_exc()";
+          Line "raise e"
+        ];
       ]
     ]
   ]
@@ -326,7 +331,7 @@ let commandline_run env i m =
 let commandline_of_interface env i =
   let open Printf in
   [
-    Line "import argparse";
+    Line "import argparse, traceback";
     Line "import xapi";
     Line (sprintf "class %s_commandline():" i.Interface.name);
     Block ([
