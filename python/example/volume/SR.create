@@ -6,6 +6,7 @@ import xapi, v
 class Implementation(v.SR_skeleton):
     def create(self, dbg, uri, configuration):
         u = urlparse.urlparse(uri)
+        print repr(configuration)
         return
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, time, socket, traceback, syslog, json
+import os, sys, time, socket, traceback, syslog, json, argparse
 
 log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
 pid = None
@@ -86,6 +86,15 @@ def is_long(x):
         return True
     except:
         return False
+
+class ListAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        k = values[0]
+        v = values[1]
+        if hasattr(namespace, self.dest) and getattr(namespace, self.dest) is not None:
+            getattr(namespace, self.dest)[k] = v
+        else:
+            setattr(namespace, self.dest, { k: v })
 
 # Helper function to daemonise ##############################################
 def daemonize():

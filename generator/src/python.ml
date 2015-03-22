@@ -296,7 +296,12 @@ let commandline_parse env i m =
         Line (sprintf "parser = argparse.ArgumentParser(description='%s')" m.Method.description);
         Line "parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)";
       ] @ (
-        List.map (fun a -> Line (sprintf "parser.add_argument('%s', action='store', help='%s')" a.Arg.name a.Arg.description)) m.Method.inputs
+        List.map (fun a -> match a.Arg.ty with
+        | Type.Dict(_, _) ->
+          Line (sprintf "parser.add_argument('--%s', default = {}, nargs=2, action=xapi.ListAction, help='%s')" a.Arg.name a.Arg.description)
+        | _ ->
+          Line (sprintf "parser.add_argument('%s', action='store', help='%s')" a.Arg.name a.Arg.description)
+        ) m.Method.inputs
       ) @ [
         Line "return vars(parser.parse_args())";
       ])
