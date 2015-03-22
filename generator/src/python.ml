@@ -284,7 +284,7 @@ let test_impl_of_interfaces env i =
 let commandline_parse env i m =
   let open Printf in
   [
-    Line (sprintf "def %s(self):" m.Method.name);
+    Line (sprintf "def _parse_%s(self):" m.Method.name);
     Block ([
         Line (sprintf "\"\"\"%s\"\"\"" m.Method.description);
       ] @ [
@@ -302,6 +302,27 @@ let commandline_parse env i m =
       ])
   ]
 
+let commandline_run env i m =
+  let open Printf in
+  [
+    Line (sprintf "def %s(self):" m.Method.name);
+    Block [
+      Line "try:";
+      Block [
+        Line (sprintf "request = self._parse_%s()" m.Method.name);
+        Line (sprintf "results = self.dispatcher.%s(request)" m.Method.name);
+        Line "print json.dumps(results)";
+      ];
+      Line "except Exception, e:";
+      Block [
+        Line "if request.has_key('json') and request['json']:";
+        Block [Line "xapi.handle_exception(e)"];
+        Line "else:";
+        Block [Line "raise e"];
+      ]
+    ]
+  ]
+
 let commandline_of_interface env i =
   let open Printf in
   [
@@ -312,23 +333,12 @@ let commandline_of_interface env i =
       Line "\"\"\"Parse command-line arguments and call an implementation.\"\"\"";
       Line "def __init__(self, impl):";
       Block [
-        Line "self.impl = impl"
+        Line "self.impl = impl";
+        Line "self.dispatcher = Datapath_server_dispatcher(self.impl)";
       ];
-   ] @ (List.concat (List.map (commandline_parse env i) i.Interface.methods)) @ [
-      Line "def run(self, request):";
-      Block [
-        Line "try:";
-        Block [
-          Line "dispatcher = Datapath_server_dispatcher(self.impl)";
-          Line "results = dispatcher.attach(request)";
-          Line "print json.dumps(results)";
-        ];
-        Line "except Exception, e:";
-        Block [
-          Line "xapi.handle_exception(e)"
-        ]
-      ]
-    ])
+   ] @ (List.concat (List.map (commandline_parse env i) i.Interface.methods)) @ (
+        List.concat (List.map (commandline_run env i) i.Interface.methods))
+   )
   ]
 
 let of_interfaces env i =
