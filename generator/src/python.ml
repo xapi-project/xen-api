@@ -334,7 +334,7 @@ let commandline_of_interface env i =
       Line "def __init__(self, impl):";
       Block [
         Line "self.impl = impl";
-        Line "self.dispatcher = Datapath_server_dispatcher(self.impl)";
+        Line (sprintf "self.dispatcher = %s_server_dispatcher(self.impl)" i.Interface.name);
       ];
    ] @ (List.concat (List.map (commandline_parse env i) i.Interface.methods)) @ (
         List.concat (List.map (commandline_run env i) i.Interface.methods))
