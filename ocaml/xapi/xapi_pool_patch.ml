@@ -231,10 +231,10 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
-(* Experiments showed that we need about twice the amount of free
+(* Experiments showed that we need about thrice the amount of free
    space on the filesystem as the size of the patch, which is where
    the multiplier comes from. *)
-let assert_space_available ?(multiplier=2L) patch_size =
+let assert_space_available ?(multiplier=3L) patch_size =
 	let open Unixext in
 	ignore (Unixext.mkdir_safe patch_dir 0o755);
 	let stat = statvfs patch_dir in
