@@ -62,6 +62,7 @@ release:
 	sed -i -r s'/, bisect//g' _oasis
 	sed -i -r s'/\"bisect\"//g' opam
 	sed -i -r s'/\"oasis\"//g' opam
+	sed -i -r s'/\"ocveralls\"//g' opam
 	# Remove our aversion to OASIS autogen
 	sed -i -r s'/setup.ml//g' .gitignore
 	sed -i -r s'/myocamlbuild.ml//g' .gitignore
