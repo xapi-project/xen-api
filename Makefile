@@ -57,3 +57,18 @@ reinstall: setup.bin
 	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -reinstall
 
+release:
+	# Remove our dependencies on oasis and bisect
+	sed -i -r s'/, bisect//g' _oasis
+	sed -i -r s'/\"bisect\"//g' opam
+	sed -i -r s'/\"oasis\"//g' opam
+	sed -i -r s'/\"ocveralls\"//g' opam
+	# Remove our aversion to OASIS autogen
+	sed -i -r s'/setup.ml//g' .gitignore
+	sed -i -r s'/myocamlbuild.ml//g' .gitignore
+	sed -i -r s'/_tags//g' .gitignore
+	sed -i -r s'/\*.mllib//g' .gitignore
+	sed -i -r s'/\*.mldylib//g' .gitignore
+	sed -i -r s'/\*.mlpack//g' .gitignore
+	sed -i -r s'/META//g' .gitignore
+	oasis setup
