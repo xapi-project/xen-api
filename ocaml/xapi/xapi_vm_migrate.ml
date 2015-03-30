@@ -311,7 +311,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
 				if not (is_intra_pool && Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null) || snapshot) then begin
 					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-					Xapi_xenops.vbd_eject ~__context ~self:vbd;
+					Helpers.call_api_functions ~__context
+						(fun rpc session_id -> XenAPI.VBD.eject ~rpc ~session_id ~vbd)
 				end;
 				None
 			end else begin
