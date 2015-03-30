@@ -49,6 +49,7 @@ let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release
 let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
 let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
 let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
+let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -434,6 +435,48 @@ let remove_restricted_pbd_keys = {
 		) (Db.PBD.get_all ~__context)
 }
 
+let upgrade_recommendations_for_gpu_passthru = {
+	description = "Upgrading recommendations to allow GPU passthrough on HVM Linux guests";
+	version = (fun x -> x < cream);
+	fn = fun ~__context ->
+		List.iter (fun self ->
+			let recommendations = Db.VM.get_recommendations ~__context ~self in
+			let updated = ref false in
+			let ob = Buffer.create 600 in
+			let i = Xmlm.make_input (`String (0, recommendations)) in
+			let o = Xmlm.make_output (`Buffer ob) in
+			let rec pull i o depth =
+				match Xmlm.input i with
+				| `El_start ((_, name), attrs) as el ->
+					(* Assumption: a recommendation pre-Cream that has allow-gpu-passthrough = 0 implies HVM Linux.
+					 * We are upgrading these to allow-gpu-passthrough = 1, but allow-vgpu = 0. *)
+					let attrs = List.map (fun ((_, n), m) -> n, m) attrs in
+					let field = if List.mem_assoc "field" attrs then Some (List.assoc "field" attrs) else None in
+					let value = if List.mem_assoc "value" attrs then Some (List.assoc "value" attrs) else None in
+					if name = "restriction" && field = Some "allow-gpu-passthrough" && value = Some "0" then begin
+						Xmlm.output o (`El_start (("", name), [("", "field"), "allow-gpu-passthrough"; ("", "value"), "1"]));
+						Xmlm.output o (`El_start (("", name), [("", "field"), "allow-vgpu"; ("", "value"), "0"]));
+						updated := true
+					end else
+						Xmlm.output o el;
+					pull i o (depth + 1)
+				| el ->
+					Xmlm.output o el;
+					if el = `El_end then
+						if depth = 1 then () else pull i o (depth - 1)
+					else
+						pull i o depth
+			in
+			try
+				pull i o 0;
+				if !updated then
+					Db.VM.set_recommendations ~__context ~self ~value:(Buffer.contents ob)
+			with _ ->
+				(* Ignore any errors while parsing the recommendations XML. The upgrade is "best effort". *)
+				()
+		) (Db.VM.get_all ~__context)
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -453,6 +496,7 @@ let rules = [
 	set_vgpu_types;
 	add_default_pif_properties;
 	remove_restricted_pbd_keys;
+	upgrade_recommendations_for_gpu_passthru;
 ]
 
 (* Maybe upgrade most recent db *)
