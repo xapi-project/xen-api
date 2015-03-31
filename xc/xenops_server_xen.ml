@@ -1607,9 +1607,9 @@ module VBD = struct
 		let attached_vdi = match vdi with
 		| None ->
 			(* XXX: do something better with CDROMs *)
-			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=""; xenstore_data=[]; } }
+			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=""; o_direct=true; o_direct_reason=""; xenstore_data=[]; } }
 		| Some (Local path) ->
-			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=path; xenstore_data=[]; } }
+			{ domid = this_domid ~xs; attach_info = { Storage_interface.params=path; o_direct=true; o_direct_reason=""; xenstore_data=[]; } }
 		| Some (VDI path) ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			let dp = Storage.id_of (string_of_int frontend_domid) vbd.id in
