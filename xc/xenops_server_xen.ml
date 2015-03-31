@@ -1681,15 +1681,14 @@ module VBD = struct
 				else begin
 					let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
 
-					let kind = device_kind_of_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
 					let extra_backend_keys = List.fold_left (fun acc (k,v) ->
 						let k = "sm-data/" ^ k in
 						(k,v)::(List.remove_assoc k acc)) vbd.extra_backend_keys vdi.attach_info.Storage_interface.xenstore_data in
 
-					let device_kind = device_kind_of ~xs vbd in
+					let kind = device_kind_of ~xs vbd in
 
 					(* Remember the VBD id with the device *)
-					let vbd_id = _device_id device_kind, id_of vbd in
+					let vbd_id = _device_id kind, id_of vbd in
 					(* Remember the VDI with the device (for later deactivation) *)
 					let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
 					let dp_id = _dp_id, Storage.id_of (string_of_int frontend_domid) vbd.Vbd.id in
