@@ -107,7 +107,7 @@ module Debug_print_impl = struct
 						error "VDI.attach dp:%s sr:%s vdi:%s : double attach" dp sr vdi;
 						failwith "double attach"
 						end else Hashtbl.replace attached key ());
-				{ params="XXX"; xenstore_data=[] }
+				{ params="XXX"; o_direct=true; o_direct_reason=""; xenstore_data=[] }
 			end
 		let activate context ~dbg ~dp ~sr ~vdi =
 			Mutex.execute m
