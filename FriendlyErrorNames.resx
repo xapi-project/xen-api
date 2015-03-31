@@ -1025,6 +1025,9 @@ Authorized Roles: {1}</value>
   <data name="VM_NOT_RESIDENT_HERE" xml:space="preserve">
     <value>The specified VM is not currently resident on the specified server.</value>
   </data>
+    <data name="VM_REQUIRES_GPU" xml:space="preserve">
+    <value>You attempted to run a VM on a host which doesn't have a GPU available in the GPU group needed by the VM. The VM has a virtual GPU attached to this GPU group.</value>
+  </data>
   <data name="VM_REQUIRES_GPU-SHORT" xml:space="preserve">
     <value>GPU not available</value>
   </data>
