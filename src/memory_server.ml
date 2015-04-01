@@ -144,14 +144,11 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
 let query_reservation_of_domain _ dbg session_id domid =
         wrap dbg
         (fun () ->
-                Xenctrl.with_intf
-                (fun xc ->
-                        try
-                                let reservation_id = Client.immediate (get_client ()) (fun xs -> Client.read xs (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid)) in
-                                reservation_id
-                        with Xs_protocol.Enoent _ ->
-                                raise No_reservation
-                )
+            try
+                let reservation_id = Client.immediate (get_client ()) (fun xs -> Client.read xs (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid)) in
+                reservation_id
+            with Xs_protocol.Enoent _ ->
+                raise No_reservation
         )
 
 let balance_memory _ dbg =
