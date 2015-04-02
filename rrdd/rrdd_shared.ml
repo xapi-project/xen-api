@@ -116,7 +116,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	let transport = SSL(SSL.make (), address, !https_port) in
 	with_transport transport (
 		with_http request (fun (response, fd) ->
-			try Rrd.to_fd rrd fd
+			try Rrd_unix.to_fd rrd fd
 			with e -> log_backtrace ()
 		)
 	);
@@ -139,7 +139,7 @@ let archive_rrd ?(save_stats_locally = Pool_role_shared.is_master ()) ~uuid
 				Unixext.mkdir_safe Constants.rrd_location 0o755;
 				let base_filename = Constants.rrd_location ^ "/" ^ uuid in
 				Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
-					(fun fd -> Gzip.compress fd (Rrd.to_fd rrd));
+					(fun fd -> Gzip.compress fd (Rrd_unix.to_fd rrd));
 				(* If there's an uncompressed one hanging around, remove it. *)
 				Unixext.unlink_safe base_filename
 			end else begin

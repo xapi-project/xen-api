@@ -15,7 +15,7 @@ let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 		Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
 			@ ["Access-Control-Allow-Origin: *"] in
 	Http_svr.headers s header_content;
-	Rrd.to_fd rrd s
+	Rrd_unix.to_fd rrd s
 
 (* A handler for putting a VM's RRD data into the Http response.
  * The rrdd assumes that it has RRD for the vm_uuid, since xapi confirmed this
@@ -29,7 +29,7 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let rrd = Mutex.execute mutex
 		(fun () -> Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd) in
 	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
-	Rrd.to_fd rrd s
+	Rrd_unix.to_fd rrd s
 
 (* A handler for putting the host's RRD data into the Http response. *)
 let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -43,7 +43,7 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	Http_svr.headers s
 		(Http.http_200_ok ~version:"1.0" ~keep_alive:false () @
 			["Access-Control-Allow-Origin: *"]);
-	Rrd.to_fd ~json:(List.mem_assoc "json" query) rrd s
+	Rrd_unix.to_fd ~json:(List.mem_assoc "json" query) rrd s
 
 (* Get an XML/JSON document (as a string) representing the updates since the
  * specified start time. *)
@@ -62,7 +62,7 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
 				("host:" ^ localhost_uuid ^ ":", rrdi.rrd)::vm_rrds
 			else vm_rrds
 		in
-		Rrd.export ~json prefixandrrds start interval cfopt)
+		Rrd_updates.export ~json prefixandrrds start interval cfopt)
 
 (* Writes XML/JSON representing the updates since the specified start time to
  * the file descriptor that corresponds to the client HTTP connection. *)

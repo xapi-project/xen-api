@@ -202,7 +202,8 @@ let send_host_rrd_to_master _ () =
 let add_ds ~rrdi ~ds_name =
 	let open Ds in
 	let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
-	Rrd.rrd_add_ds rrdi.rrd
+	let now = Unix.gettimeofday () in
+	Rrd.rrd_add_ds rrdi.rrd now
 		(Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
 
 let add_host_ds _ ~(ds_name : string) : unit =
@@ -238,10 +239,11 @@ let query_possible_host_dss _ () : Data_source.t list =
 	)
 
 let query_host_ds _ ~(ds_name : string) : float =
+	let now = Unix.gettimeofday () in
 	Mutex.execute mutex (fun () ->
 		match !host_rrd with
 		| None -> failwith "No data source!"
-		| Some rrdi -> Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
+		| Some rrdi -> Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
 	)
 
 let add_vm_ds _ ~(vm_uuid : string) ~(domid : int) ~(ds_name : string) : unit =
@@ -265,9 +267,10 @@ let query_possible_vm_dss _ ~(vm_uuid : string) : Data_source.t list =
 	)
 
 let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
+	let now = Unix.gettimeofday () in
 	Mutex.execute mutex (fun () ->
 		let rrdi = Hashtbl.find vm_rrds vm_uuid in
-		Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average
+		Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
 	)
 
 let update_use_min_max _ ~(value : bool) () : unit =
