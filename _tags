@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: a5ff006be747e15efd9341c4930682c1)
+# DO NOT EDIT (digest: c2264267f34d492fdab44e1703914e33)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -41,6 +41,7 @@ true: annot, bin_annot
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rpclib.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rrd
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rrd-transport
+<rrdd/xcp_rrdd.{native,byte}>: pkg_rrd.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_stdext
 <rrdd/xcp_rrdd.{native,byte}>: pkg_threads
 <rrdd/xcp_rrdd.{native,byte}>: pkg_uuid
@@ -62,6 +63,7 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: pkg_rpclib.unix
 <rrdd/*.ml{,i,y}>: pkg_rrd
 <rrdd/*.ml{,i,y}>: pkg_rrd-transport
+<rrdd/*.ml{,i,y}>: pkg_rrd.unix
 <rrdd/*.ml{,i,y}>: pkg_stdext
 <rrdd/*.ml{,i,y}>: pkg_threads
 <rrdd/*.ml{,i,y}>: pkg_uuid
@@ -83,6 +85,7 @@ true: annot, bin_annot
 "rrdd/blktap3_stats_stubs.c": pkg_rpclib.unix
 "rrdd/blktap3_stats_stubs.c": pkg_rrd
 "rrdd/blktap3_stats_stubs.c": pkg_rrd-transport
+"rrdd/blktap3_stats_stubs.c": pkg_rrd.unix
 "rrdd/blktap3_stats_stubs.c": pkg_stdext
 "rrdd/blktap3_stats_stubs.c": pkg_threads
 "rrdd/blktap3_stats_stubs.c": pkg_uuid
