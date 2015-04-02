@@ -742,20 +742,6 @@ let json_to_string rrd =
   Buffer.add_string b (do_rras (Array.to_list rrd.rrd_rras)^"}"); (* XXX need to split this *)
   Buffer.contents b
 
-(*
-(* XXX: we copy and return to avoid holding locks: this is why we aren't exposing
-   an iter/fold interface here. It would be better to copy the original (compact)
-   data then top copy the expanded version. *)
-let to_bigbuffer ?(json=false) rrd =
-  let b = Bigbuffer.make () in
-  begin
-	if json 
-	then Bigbuffer.append_string b (to_json rrd) (* XXX: might be too big *)
-  	else iter_over_xml rrd (Bigbuffer.append_string b)
-  end;
-  b
-*)
-
 module Statefile_latency = struct
   type t = {id: string; latency: float option} with rpc
 end
