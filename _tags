@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 15fda3f5c8d2daf0e95deee6d827554d)
+# DO NOT EDIT (digest: db19bea58052be222d98b4ffa2f2d6aa)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -108,6 +108,7 @@ true: annot, bin_annot
 <rrd/*.ml{,i,y}>: pkg_rpclib
 <rrd/*.ml{,i,y}>: pkg_rpclib.syntax
 <rrd/*.ml{,i,y}>: pkg_rpclib.xml
+<rrd/*.ml{,i,y}>: pkg_rrd
 <rrd/*.ml{,i,y}>: pkg_sexplib
 <rrd/*.ml{,i,y}>: pkg_sexplib.syntax
 <rrd/*.ml{,i,y}>: pkg_threads
@@ -115,7 +116,6 @@ true: annot, bin_annot
 <rrd/*.ml{,i,y}>: pkg_uri
 <rrd/*.ml{,i,y}>: pkg_xapi-backtrace
 <rrd/*.ml{,i,y}>: pkg_xcp-inventory
-<rrd/*.ml{,i,y}>: pkg_xcp-rrd
 <rrd/*.ml{,i,y}>: pkg_xmlm
 <rrd/*.ml{,i,y}>: use_xcp
 # Library xcp_xen

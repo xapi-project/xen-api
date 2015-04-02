@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 08b4d50e7d54e709ede26800bb052f95)
+# DO NOT EDIT (digest: 0fea1dee6c7809669349e540aa47d5ba)
 version = "0.9.21"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
@@ -38,7 +38,7 @@ package "rrd" (
  version = "0.9.21"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax xcp-rrd"
+ requires = "xcp threads rpclib rpclib.syntax rrd"
  archive(byte) = "xcp_rrd.cma"
  archive(byte, plugin) = "xcp_rrd.cma"
  archive(native) = "xcp_rrd.cmxa"
