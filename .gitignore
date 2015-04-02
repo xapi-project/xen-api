@@ -11,3 +11,4 @@ setup.ml
 configure
 *.native
 *.byte
+META
