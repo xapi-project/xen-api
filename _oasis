@@ -8,27 +8,36 @@ Plugins:     META (0.3), DevFiles (0.4)
 BuildTools:  ocamlbuild
 OCamlVersion: >= 4.00
 
-Library xapi_rrd
-  Pack:               true
+Library rrd
+  Pack:               false
   CompiledObject:     best
   Path:               lib
   Findlibname:        rrd
-  Modules:            Rrd, Fring
-  BuildDepends:       stdext, rpclib, rpclib.syntax, uuidm, threads
+  Modules:            Rrd, Rrd_fring, Rrd_updates, Rrd_utils
+  BuildDepends:       rpclib, rpclib.syntax, uuidm
+
+Library rrd_unix
+  Pack:               false
+  CompiledObject:     best
+  Path:               unix
+  Findlibname:        unix
+  Findlibparent:      rrd
+  Modules:            Rrd_unix
+  BuildDepends:       rrd, unix
 
 Executable rewrite
   Install:            false
   CompiledObject:     best
   Path:               lib_test
   MainIs:             rewrite.ml
-  BuildDepends:       rrd, unix, bigarray
+  BuildDepends:       rrd, rrd.unix, unix, bigarray
 
 Executable            test
   Install:            false
   CompiledObject:     best
   Path:               lib_test
   MainIs:             unit_tests.ml
-  BuildDepends:       rrd, unix, bigarray, oUnit
+  BuildDepends:       rrd, rrd.unix, unix, bigarray, oUnit
 
 Test test
   Command:            $test

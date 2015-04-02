@@ -19,6 +19,8 @@
 (**
  * @group Performance Monitoring
 *)
+module Fring = Rrd_fring
+module Utils = Rrd_utils
 
 exception No_RRA_Available
 exception Invalid_data_source of string
