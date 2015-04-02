@@ -17,6 +17,7 @@ install: setup.data
 
 uninstall: setup.data
 	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+	ocamlfind remove rrd || /bin/true
 
 reinstall: setup.data
 	$(SETUP) -reinstall $(REINSTALLFLAGS)
