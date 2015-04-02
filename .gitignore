@@ -1,3 +1,14 @@
 *.swp
-
-dist/*
+_build
+_tags
+*.mldylib
+*.mllib
+*.mlpack
+myocamlbuild.ml
+setup.data
+setup.log
+setup.ml
+configure
+*.native
+*.byte
+META

@@ -1,15 +1,41 @@
-dist/build/lib-rrd/rrd.cmxa:
-	obuild configure
-	obuild build
+CONFIGUREFLAGS = --enable-tests
+SETUP = ocaml setup.ml
 
-.PHONY: install
-install:
-	ocamlfind install xcp-rrd lib/META $(wildcard dist/build/lib-xcp-rrd/*)
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-.PHONY: uninstall
-uninstall:
-	ocamlfind remove xcp-rrd
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-.PHONY: clean
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
+
+all:
+	$(SETUP) -all $(ALLFLAGS)
+
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
+
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+	ocamlfind remove rrd || /bin/true
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
+
 clean:
-	rm -rf dist
+	$(SETUP) -clean $(CLEANFLAGS)
+
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.ml: _oasis
+	oasis setup
+
+setup.data: setup.ml
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
