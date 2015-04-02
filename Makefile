@@ -1,3 +1,4 @@
+CONFIGUREFLAGS = --enable-tests
 SETUP = ocaml setup.ml
 
 build: setup.data

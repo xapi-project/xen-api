@@ -17,8 +17,19 @@ Library xapi_rrd
   BuildDepends:       stdext, rpclib, rpclib.syntax, uuidm, threads
 
 Executable rewrite
-  Install: false
-  CompiledObject: best
-  Path: test
-  MainIs: rewrite.ml
-  BuildDepends: rrd, unix, bigarray
+  Install:            false
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             rewrite.ml
+  BuildDepends:       rrd, unix, bigarray
+
+Executable            test
+  Install:            false
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             unit_tests.ml
+  BuildDepends:       rrd, unix, bigarray, oUnit
+
+Test test
+  Command:            $test
+  WorkingDirectory:   lib_test
