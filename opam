@@ -9,6 +9,6 @@ remove: [
 ]
 depends: [
   "rpc"
-  "xapi-stdext"
+  "uuidm"
   "oasis"
 ]

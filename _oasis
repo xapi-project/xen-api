@@ -14,7 +14,7 @@ Library rrd
   Path:               lib
   Findlibname:        rrd
   Modules:            Rrd, Rrd_fring, Rrd_updates, Rrd_utils
-  BuildDepends:       rpclib, rpclib.syntax, uuidm
+  BuildDepends:       rpclib, rpclib.syntax
 
 Library rrd_unix
   Pack:               false
@@ -23,7 +23,7 @@ Library rrd_unix
   Findlibname:        unix
   Findlibparent:      rrd
   Modules:            Rrd_unix
-  BuildDepends:       rrd, unix
+  BuildDepends:       rrd, unix, uuidm
 
 Executable rewrite
   Install:            false
