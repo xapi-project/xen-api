@@ -73,8 +73,9 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 						let current_dss = Rrd.ds_names rrdi.rrd in
 						let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
 						let rrd =
+							let now = Unix.gettimeofday () in
 							if List.length new_defaults > 0 then (
-								let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
+								let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
 								Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid};
 								rrd
 							) else rrdi.rrd
@@ -118,8 +119,9 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 				let current_dss = Rrd.ds_names rrdi.rrd in
 				let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
 				let rrd =
+					let now = Unix.gettimeofday () in
 					if List.length new_defaults > 0 then
-						let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
+						let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
 						host_rrd := Some {rrd; dss = host_dss; domid = 0};
 						rrd
 					else
