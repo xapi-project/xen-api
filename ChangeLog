@@ -1,3 +1,6 @@
+trunk (unreleased):
+* switch build to OASIS
+
 0.9.1 (26-Sep-2014):
 * CA-102285: Use the stream API to read the XML RRD file
 * Fix 'make install' and 'make uninstall' (by making them PHONY targets)

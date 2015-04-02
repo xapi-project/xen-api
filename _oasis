@@ -1,0 +1,24 @@
+OASISFormat: 0.3
+Name:        xcp-rrd
+Version:     0.9.0
+Synopsis:    RRD manipulation library
+Authors:     Jonathan Ludlam, David Scott, John Else
+License:     ISC
+Plugins:     META (0.3), DevFiles (0.4)
+BuildTools:  ocamlbuild
+OCamlVersion: >= 4.00
+
+Library xapi_rrd
+  Pack:               true
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        rrd
+  Modules:            Rrd, Fring
+  BuildDepends:       stdext, rpclib, rpclib.syntax, uuidm, threads
+
+Executable rewrite
+  Install: false
+  CompiledObject: best
+  Path: test
+  MainIs: rewrite.ml
+  BuildDepends: rrd, unix, bigarray
