@@ -12,7 +12,7 @@ Library rrd_transport
   Path:                 lib
   Findlibname:          rrd-transport
   Modules:              Rrd_json, Rrd_protocol, Rrd_rpc, Rrd_protocol_v1, Rrd_protocol_v2, Rrd_io, Rrd_reader, Rrd_writer
-  BuildDepends:         bigarray, cstruct, xcp.rrd, xcp-rrd, xen-gnt, xen-gnt.unix, crc, threads
+  BuildDepends:         bigarray, cstruct, xcp.rrd, rrd, xen-gnt, xen-gnt.unix, crc, threads
 
 Executable reader
   CompiledObject:       best
