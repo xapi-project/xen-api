@@ -44,7 +44,7 @@ Library xcp_rrd
   Findlibname:        rrd
   Findlibparent:      xcp
   Modules:            Data_source, Ds, Rrd_interface, Rrd_client
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax, xcp-rrd
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax, rrd
 
 Library xcp_xen
   CompiledObject:     best
