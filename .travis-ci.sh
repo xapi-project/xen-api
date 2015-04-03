@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="vhd-format lwt cstruct uuidm cmdliner tapctl nbd.0.9.1 cohttp xcp xenstore xenstore_transport uri"
+OPAM_PACKAGES="vhd-format lwt cstruct uuidm cmdliner nbd cohttp xenstore xenstore_transport uri ssl sha tar-format"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
@@ -24,7 +24,6 @@ opam --version
 opam --git-version
 
 opam init 
-opam remote add xapi-project git://github.com/xapi-project/opam-repo-dev
 opam install ${OPAM_PACKAGES}
 
 eval `opam config -env`

@@ -40,6 +40,7 @@ let make_input c =
   { header_buffer; header_buffer_idx; c }
 
 type oc = Channels.t
+type conn = Channels.t
 
 let really_read_into c buf ofs len =
   let tmp = Cstruct.create len in
