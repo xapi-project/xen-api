@@ -1291,7 +1291,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 						]) in
 					let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
 
-					Request.write (fun t _ -> ()) request mfd;
+					Request.write (fun _ -> ()) request mfd;
 
 					begin match Handshake.recv mfd with
 						| Handshake.Success -> ()
@@ -1811,7 +1811,7 @@ module VM = struct
 				] in
 				let response = Cohttp.Response.make ~version:`HTTP_1_1 
 				  ~status:`Not_found ~headers () in
-				Response.write (fun _ _ -> ()) response s
+				Response.write (fun _ -> ()) response s
 		) ()
 
 	let generate_state_string _ dbg vm =
