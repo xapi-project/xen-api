@@ -406,8 +406,8 @@ let http_handler call_of_string string_of_response process s =
 					"user-agent", default_service_name;
 					"content-length", string_of_int content_length;
 				] in
-				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`OK ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
-				Response.write (fun t oc -> Response.write_body t oc response_txt) response oc
+				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`OK ~headers ~encoding:(Cohttp.Transfer.Fixed (Int64.of_int content_length)) () in
+				Response.write (fun t -> Response.write_body t response_txt) response oc
 			end
 		| _, _ ->
 			let content_length = 0 in
@@ -415,8 +415,8 @@ let http_handler call_of_string string_of_response process s =
 				"user-agent", default_service_name;
 				"content-length", string_of_int content_length;
 			] in
-			let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed content_length) () in
-			Response.write (fun t oc -> ()) response oc
+			let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed (Int64.of_int content_length)) () in
+			Response.write (fun t -> ()) response oc
 		end
 
 let ign_thread (t:Thread.t) = ignore t
