@@ -11,6 +11,7 @@ build: [
 remove: [["ocamlfind" "remove" "xen-api-client"]]
 depends: [
   "ocamlfind"
+  "oasis"
   "lwt" {>= "2.4.3"}
   "cstruct" {>= "1.0.1"}
   "ssl"
