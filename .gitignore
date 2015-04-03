@@ -3,7 +3,12 @@ _build/
 setup.bin
 setup.data
 setup.log
+setup.ml
 *~
 *.byte
 *.native
-
+myocamlbuild.ml
+*.mllib
+*.mldylib
+META
+*.mlpack
