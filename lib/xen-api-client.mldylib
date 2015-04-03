@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2b315a6d3fb44e6789d63e4f86a22da7)
+# DO NOT EDIT (digest: d1ba087a0e5f465d60f282b53e158412)
 API
 Api_errors
 Api_messages
@@ -8,4 +8,6 @@ Date
 Xen_api
 Event_helper
 Event_types
+Xen_api_metrics
+Xen_api_auth
 # OASIS_STOP

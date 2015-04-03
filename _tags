@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: f0be5ec06cca1b5d8992e2f2c5f5731a)
+# DO NOT EDIT (digest: 55e282fadbdfca3c4aa84a4c60d9d5d1)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -18,6 +18,7 @@ true: annot, bin_annot
 "lib/xen-api-client.cmxs": use_xen-api-client
 <lib/*.ml{,i,y}>: pkg_cohttp
 <lib/*.ml{,i,y}>: pkg_rpclib
+<lib/*.ml{,i,y}>: pkg_rrd
 <lib/*.ml{,i,y}>: pkg_xmlm
 # Library xen-api-client-lwt
 "lwt/xen-api-client-lwt.cmxs": use_xen-api-client-lwt
@@ -29,6 +30,7 @@ true: annot, bin_annot
 <lwt/*.ml{,i,y}>: pkg_lwt.unix
 <lwt/*.ml{,i,y}>: pkg_re.str
 <lwt/*.ml{,i,y}>: pkg_rpclib
+<lwt/*.ml{,i,y}>: pkg_rrd
 <lwt/*.ml{,i,y}>: pkg_uri
 <lwt/*.ml{,i,y}>: pkg_xmlm
 <lwt/*.ml{,i,y}>: use_xen-api-client
@@ -39,6 +41,7 @@ true: annot, bin_annot
 <async/*.ml{,i,y}>: pkg_cohttp
 <async/*.ml{,i,y}>: pkg_core
 <async/*.ml{,i,y}>: pkg_rpclib
+<async/*.ml{,i,y}>: pkg_rrd
 <async/*.ml{,i,y}>: pkg_threads
 <async/*.ml{,i,y}>: pkg_uri
 <async/*.ml{,i,y}>: pkg_xmlm
@@ -47,11 +50,13 @@ true: annot, bin_annot
 <lib_test/xen_api_test.{native,byte}>: pkg_cohttp
 <lib_test/xen_api_test.{native,byte}>: pkg_oUnit
 <lib_test/xen_api_test.{native,byte}>: pkg_rpclib
+<lib_test/xen_api_test.{native,byte}>: pkg_rrd
 <lib_test/xen_api_test.{native,byte}>: pkg_xmlm
 <lib_test/xen_api_test.{native,byte}>: use_xen-api-client
 <lib_test/*.ml{,i,y}>: pkg_cohttp
 <lib_test/*.ml{,i,y}>: pkg_oUnit
 <lib_test/*.ml{,i,y}>: pkg_rpclib
+<lib_test/*.ml{,i,y}>: pkg_rrd
 <lib_test/*.ml{,i,y}>: pkg_xmlm
 <lib_test/*.ml{,i,y}>: use_xen-api-client
 <lib_test/xen_api_test.{native,byte}>: custom
@@ -64,6 +69,7 @@ true: annot, bin_annot
 <lwt_test/list_vms.{native,byte}>: pkg_lwt.unix
 <lwt_test/list_vms.{native,byte}>: pkg_re.str
 <lwt_test/list_vms.{native,byte}>: pkg_rpclib
+<lwt_test/list_vms.{native,byte}>: pkg_rrd
 <lwt_test/list_vms.{native,byte}>: pkg_uri
 <lwt_test/list_vms.{native,byte}>: pkg_xmlm
 <lwt_test/list_vms.{native,byte}>: use_xen-api-client
@@ -74,6 +80,7 @@ true: annot, bin_annot
 <async_test/list_vms.{native,byte}>: pkg_cohttp
 <async_test/list_vms.{native,byte}>: pkg_core
 <async_test/list_vms.{native,byte}>: pkg_rpclib
+<async_test/list_vms.{native,byte}>: pkg_rrd
 <async_test/list_vms.{native,byte}>: pkg_threads
 <async_test/list_vms.{native,byte}>: pkg_uri
 <async_test/list_vms.{native,byte}>: pkg_xmlm
@@ -84,6 +91,7 @@ true: annot, bin_annot
 <async_test/*.ml{,i,y}>: pkg_cohttp
 <async_test/*.ml{,i,y}>: pkg_core
 <async_test/*.ml{,i,y}>: pkg_rpclib
+<async_test/*.ml{,i,y}>: pkg_rrd
 <async_test/*.ml{,i,y}>: pkg_threads
 <async_test/*.ml{,i,y}>: pkg_uri
 <async_test/*.ml{,i,y}>: pkg_xmlm
@@ -95,6 +103,7 @@ true: annot, bin_annot
 <event_test/event_test.{native,byte}>: pkg_cohttp
 <event_test/event_test.{native,byte}>: pkg_core
 <event_test/event_test.{native,byte}>: pkg_rpclib
+<event_test/event_test.{native,byte}>: pkg_rrd
 <event_test/event_test.{native,byte}>: pkg_threads
 <event_test/event_test.{native,byte}>: pkg_uri
 <event_test/event_test.{native,byte}>: pkg_xmlm
@@ -105,6 +114,7 @@ true: annot, bin_annot
 <event_test/*.ml{,i,y}>: pkg_cohttp
 <event_test/*.ml{,i,y}>: pkg_core
 <event_test/*.ml{,i,y}>: pkg_rpclib
+<event_test/*.ml{,i,y}>: pkg_rrd
 <event_test/*.ml{,i,y}>: pkg_threads
 <event_test/*.ml{,i,y}>: pkg_uri
 <event_test/*.ml{,i,y}>: pkg_xmlm
@@ -119,11 +129,28 @@ true: annot, bin_annot
 <lwt_test/upload_disk.{native,byte}>: pkg_lwt.unix
 <lwt_test/upload_disk.{native,byte}>: pkg_re.str
 <lwt_test/upload_disk.{native,byte}>: pkg_rpclib
+<lwt_test/upload_disk.{native,byte}>: pkg_rrd
 <lwt_test/upload_disk.{native,byte}>: pkg_uri
 <lwt_test/upload_disk.{native,byte}>: pkg_xmlm
 <lwt_test/upload_disk.{native,byte}>: use_xen-api-client
 <lwt_test/upload_disk.{native,byte}>: use_xen-api-client-lwt
+# Executable watch_metrics_lwt
+<lwt_test/watch_metrics.{native,byte}>: pkg_cohttp
+<lwt_test/watch_metrics.{native,byte}>: pkg_cohttp.lwt
+<lwt_test/watch_metrics.{native,byte}>: pkg_cstruct
+<lwt_test/watch_metrics.{native,byte}>: pkg_cstruct.lwt
+<lwt_test/watch_metrics.{native,byte}>: pkg_lwt
+<lwt_test/watch_metrics.{native,byte}>: pkg_lwt.ssl
+<lwt_test/watch_metrics.{native,byte}>: pkg_lwt.unix
+<lwt_test/watch_metrics.{native,byte}>: pkg_re.str
+<lwt_test/watch_metrics.{native,byte}>: pkg_rpclib
+<lwt_test/watch_metrics.{native,byte}>: pkg_rrd
+<lwt_test/watch_metrics.{native,byte}>: pkg_uri
+<lwt_test/watch_metrics.{native,byte}>: pkg_xmlm
+<lwt_test/watch_metrics.{native,byte}>: use_xen-api-client
+<lwt_test/watch_metrics.{native,byte}>: use_xen-api-client-lwt
 <lwt_test/*.ml{,i,y}>: pkg_cohttp
+<lwt_test/*.ml{,i,y}>: pkg_cohttp.lwt
 <lwt_test/*.ml{,i,y}>: pkg_cstruct
 <lwt_test/*.ml{,i,y}>: pkg_cstruct.lwt
 <lwt_test/*.ml{,i,y}>: pkg_lwt
@@ -131,6 +158,7 @@ true: annot, bin_annot
 <lwt_test/*.ml{,i,y}>: pkg_lwt.unix
 <lwt_test/*.ml{,i,y}>: pkg_re.str
 <lwt_test/*.ml{,i,y}>: pkg_rpclib
+<lwt_test/*.ml{,i,y}>: pkg_rrd
 <lwt_test/*.ml{,i,y}>: pkg_uri
 <lwt_test/*.ml{,i,y}>: pkg_xmlm
 <lwt_test/*.ml{,i,y}>: use_xen-api-client
