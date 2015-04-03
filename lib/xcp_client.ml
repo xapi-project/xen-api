@@ -51,7 +51,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 		| Some x ->
 			begin match split_colon x with
 			| username :: password :: [] ->
-				Cohttp.Header.add_authorization headers (Cohttp.Auth.Basic (username, password))
+				Cohttp.Header.add_authorization headers (`Basic (username, password))
 			| _ -> headers
 			end
 		| None -> headers in
@@ -63,14 +63,15 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 		(fun fd ->
 			let ic = Unix.in_channel_of_descr fd in
 			let oc = Unix.out_channel_of_descr fd in
-			Request.write (fun t oc -> Request.write_body t oc req) http_req oc;
+			Request.write (fun writer -> Request.write_body writer req) http_req oc;
 			match Response.read ic with
 				| `Eof -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
 				| `Invalid x -> failwith (Printf.sprintf "Failed to read HTTP response from: %s (got '%s')" (url ()) x)
 				| `Ok t ->
 					begin match Cohttp.Response.status t with
 						| `OK ->
-							let body = match Response.read_body_chunk t ic with
+							let reader = Response.make_body_reader t ic in
+							let body = match Response.read_body_chunk reader with
 							| Cohttp.Transfer.Chunk body
 							| Cohttp.Transfer.Final_chunk body -> body
 							| _ -> "" in

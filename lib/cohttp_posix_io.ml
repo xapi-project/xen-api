@@ -38,6 +38,8 @@ module Unbuffered_IO = struct
 
   type oc = Unix.file_descr
 
+  type conn = unit
+
   let read_http_headers fd =
     let buf = Buffer.create 128 in
     (* We can safely read everything up to this marker: *)
@@ -132,6 +134,7 @@ module Buffered_IO = struct
 
   type ic = in_channel
   type oc = out_channel
+  type conn = unit
 
   let read_line ic =
     try

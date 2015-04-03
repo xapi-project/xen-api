@@ -14,6 +14,7 @@ depends: [ "uri"
            "xmlm"
            "rpc" {> "1.4.0"}
            "ocamlfind"
+           "cohttp" {>= "0.15.0"}
            "message-switch"
            "xapi-stdext"
 	   "xapi-rrd"
