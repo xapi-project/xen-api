@@ -80,7 +80,7 @@ let handle_received_fd this_connection =
 					"User-agent", "xenopsd"
 				] in
 				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
-				Response.write (fun _ _ -> ()) response this_connection;
+				Response.write (fun _ -> ()) response this_connection;
 			end else begin
 				let context = {
 					Xenops_server.transferred_fd = Some received_fd
