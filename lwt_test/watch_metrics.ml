@@ -46,7 +46,8 @@ let main () =
     	(fun k v -> List.iter (Printf.eprintf "%s: %s\n%!" k) v) headers;
 		Cohttp_lwt_body.to_string body
 		>>= fun s ->
-		Printf.eprintf "chunk: %s\n%!" s;
+		let update = Xen_api_metrics.Updates.parse s in
+		Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
 		return ()
 	finally
 		Session.logout rpc session_id

@@ -38,5 +38,7 @@ module Updates : sig
       If [?cf] is specified then only this consolidation function will be
       provided, otherwise all will be provided. *)
 
-  val parse: string -> string
+  val parse: string -> Rrd_updates.t
+  (** [parse result] converts the result of an HTTP GET of the uri into
+      an Rrd_updates.t *)
 end

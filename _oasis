@@ -20,7 +20,7 @@ Library "xen-api-client"
   Path: lib
   Findlibname: xen-api-client
   Modules: API,	Api_errors, Api_messages, Client, Date, Xen_api, Event_helper, Event_types, Xen_api_metrics, Xen_api_auth
-  BuildDepends:	xmlm, rpclib, cohttp (>= 0.12.0)
+  BuildDepends:	xmlm, rpclib, cohttp (>= 0.12.0), rrd
 
 Library "xen-api-client-lwt"
   CompiledObject:     best

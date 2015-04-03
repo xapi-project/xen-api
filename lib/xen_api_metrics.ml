@@ -42,5 +42,7 @@ module Updates = struct
     | `Session_id s -> ("session_id", [ s ]) :: query in
     Uri.make ~scheme ?userinfo ?host:(Uri.host host) ~port ~path:"/rrd_updates" ~query ()
 
-  let parse x = x
+  let parse x =
+    let input = Xmlm.make_input (`String (0, x)) in
+    Rrd_updates.of_xml input
 end
