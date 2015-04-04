@@ -109,7 +109,7 @@ module Page = struct
 
 	let expose mapping =
 		let buf = Gnttab.Local_mapping.to_buf mapping in
-		Cstruct.of_bigarray buf
+		Io_page.to_cstruct buf
 end
 
 type reader = {
