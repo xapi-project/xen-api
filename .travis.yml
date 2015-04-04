@@ -1,5 +1,6 @@
 language: c
-script: bash -ex .travis-ci.sh
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+sudo: true
 env:
-  - OCAML_VERSION=4.00.1 OPAM_VERSION=1.1.0
-  - OCAML_VERSION=4.01.0 OPAM_VERSION=1.1.0
+        - OCAML_VERSION=4.02 PACKAGE=xapi-rrdd-plugin FORK_USER=djs55 EXTRA_REMOTE=git://github.com/xapi-project/opam-repo-dev
