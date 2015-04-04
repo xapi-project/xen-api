@@ -353,7 +353,9 @@ let process root_dir name x =
     | Storage.D.Types.Tapdisk3 p -> "vbd3", p in
     let attach_info = {
       params;
-      xenstore_data = [ "backend-kind", backend ]
+      xenstore_data = [ "backend-kind", backend ];
+      o_direct = true;
+      o_direct_reason = "";
     } in
     Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
   | { R.name = "VDI.activate"; R.params = [ args ] } ->
