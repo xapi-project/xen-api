@@ -1,3 +1,9 @@
+0.2.0 (4-Apr-2015)
+- Update to SMAPIv2 with o_direct, o_direct_reason
+- Update to using json marshalling for exception backtraces
+- Use modern travis configuration
+- Add opam file for development
+
 0.1.2 (19-Oct-2014)
 - Treat VDI.epoch_{begin,end} as no-ops
 - Write the pidfile when daemonizing
