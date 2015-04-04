@@ -1,3 +1,39 @@
+1.9.60 (2015-04-04):
+ * fix release_version of get_SRs_required_for_recover
+ * support SM backend-kind override via VDI.other_config key
+ * support floppy disk drives
+ * when performing a snapshot, set is_a_snapshot
+ * update API version to 2.4
+ * don't double-count HA-protected VMs when restarting them
+ * don't create refs for snapshots that don't exist on import
+ * expose RDP state, via guest agents, via VM guest metrics
+ * read all paths from the config file
+ * use 'ip' rather than 'ifconfig'
+ * block the pool-join if the joining host has a network bond
+ * use local force_state_reset after cross-pool SMX
+ * correct error text for assert_no_shared_srs_on_me
+ * allow ISO VBDs to be made from any SR
+ * disallow resume while a checkpoint is ongoing
+ * don't pause tapdisk
+ * use oclock rather than Unix.time
+ * import_raw_vdi: pass content-length to vhd-tool
+ * update hostname when it changes
+ * allow WLB servers to have an IPv6 address
+ * make sure we return the task reference when cancelling a task
+ * python: fix compatibility with python 2.7
+ * add a plugin to install supplemental packs
+ * create a PGPU for the system display device
+ * allow PCI vendors to be whitelisted for GPU passthrough
+ * allow passthrough of vga_arbiter device when appropriate
+ * remove VM hooks which are now handled by xenopsd
+ * set the content-length and close the tar header when exporting metadata
+ * handle cancellation of cross-host VDI.copy
+ * prevent VM.revert deleting all VDIs unconditionally
+ * update VDI.snapshot_of links after a VM.revert
+ * support for read-caching
+ * check for enough disk space before installing hotfixes
+ * VM.hard_reboot cancels VM.clean_reboot
+
 1.9.58 (2014-11-20):
  * examples: wrap task.destroy with an exception handler
  * add GC stats reporting
