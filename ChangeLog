@@ -1,3 +1,14 @@
+0.10.0 (4-Apr-2015):
+* update to cohttp.0.15.2
+* update following xcp-rrd renamed to rrd in ocamlfind
+* support read-caching
+* allow block backend-kind to be overridden by SM plugins
+* support IGD passthrough
+* add hooks for post-resume and post-migrate
+* support floppy disk images (useful for packer and cloudinit)
+* allow calling "VM plugins"
+* allow HVM linux VMs to use >4 disks
+
 0.9.46 (20-Nov-2014):
 * add some high-level documentation
 * xl: fix block device handling
