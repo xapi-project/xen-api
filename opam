@@ -15,6 +15,6 @@ depends: [
   "cstruct" {>= "1.0.1"}
   "crc"
   "xapi-idl"
-  "xapi-rrd"
+  "xapi-rrd" {>= "0.10.1"}
   "xen-gnt"
 ]
