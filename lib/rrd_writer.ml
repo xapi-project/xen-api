@@ -88,9 +88,10 @@ module Page = struct
 	 *  the allocator fails. *)
 	let get_allocator share =
 		let alloc_cstruct size =
-			if size > Bigarray.Array1.dim share.Gntshr.mapping then
+			let c = Io_page.to_cstruct share.Gntshr.mapping in
+			if size > Cstruct.len c then
 				failwith "not enough memory";
-			Cstruct.of_bigarray share.Gntshr.mapping
+			c
 		in
 		alloc_cstruct
 end

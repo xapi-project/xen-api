@@ -1,3 +1,8 @@
+0.8.0 (04-04-2015)
+* add opam file
+* update to new rrd interface
+* compatible with io-page.1.5.1
+
 0.7.2 (13-08-2014)
  * Fix build dependencies of main library
  * travis fixes
