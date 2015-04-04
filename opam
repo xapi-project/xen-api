@@ -10,8 +10,8 @@ remove: [
 depends: [
   "xapi-idl" {>= "0.10.0" }
   "xapi-storage"
-  "async"
-  "async_inotify"
+  "async" {= "111.25.00" }
+  "async_inotify" {= "111.28.00" }
   "core"
   "message-switch"
 ]
