@@ -10,6 +10,7 @@ depends: [
   "ocamlfind"
   "xapi-idl"
   "xapi-libs-transitional"
+  "xen-api-client"
   "xapi-netdev"
   "omake"
   "cdrom"
