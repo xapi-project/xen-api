@@ -20,6 +20,7 @@ open Xen_api_lwt_unix
 let uri = ref "http://127.0.0.1/"
 let username = ref "root"
 let password = ref "password"
+let start = ref 0
 
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
@@ -33,22 +34,26 @@ let main () =
 		lwt hosts = Host.get_all rpc session_id in
 		let host = List.hd hosts in
 
-		let open Cohttp_lwt_unix in
-		let uri = Xen_api_metrics.Updates.uri
-			~host:(Uri.of_string !uri) ~authentication:(`UserPassword(!username, !password))
-			~start:0 ~include_host:true () in
-		let b = Cohttp.Auth.string_of_credential (`Basic (!username, !password)) in
-		let headers = Cohttp.Header.of_list ["authorization", b] in
+		let rec loop start =
+			let open Cohttp_lwt_unix in
+			let uri = Xen_api_metrics.Updates.uri
+				~host:(Uri.of_string !uri) ~authentication:(`UserPassword(!username, !password))
+				~start:(Int64.to_int start) ~include_host:true () in
+			let b = Cohttp.Auth.string_of_credential (`Basic (!username, !password)) in
+			let headers = Cohttp.Header.of_list ["authorization", b] in
 
-  	Client.call ~headers `GET uri >>= fun (res, body) ->
-  	let headers = Response.headers res in
-  	Cohttp.Header.iter
-    	(fun k v -> List.iter (Printf.eprintf "%s: %s\n%!" k) v) headers;
-		Cohttp_lwt_body.to_string body
-		>>= fun s ->
-		let update = Xen_api_metrics.Updates.parse s in
-		Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
-		return ()
+			Client.call ~headers `GET uri >>= fun (res, body) ->
+			let headers = Response.headers res in
+			Cohttp.Header.iter
+				(fun k v -> List.iter (Printf.eprintf "%s: %s\n%!" k) v) headers;
+			Cohttp_lwt_body.to_string body
+			>>= fun s ->
+			let update = Xen_api_metrics.Updates.parse s in
+			Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
+			Lwt_unix.sleep 5.
+			>>= fun () ->
+			loop update.Rrd_updates.end_time in
+		loop (Int64.of_int !start)
 	finally
 		Session.logout rpc session_id
 
@@ -57,6 +62,7 @@ let _ =
 		"-uri", Arg.Set_string uri, (Printf.sprintf "URI of server to connect to (default %s)" !uri);
 		"-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
 		"-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
+		"-start", Arg.Set_int start, (Printf.sprintf "Time since epoc to fetch updates from (default %d)" !start);
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Simple example which watches metrics updates from a host";
 
