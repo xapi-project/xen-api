@@ -90,3 +90,9 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 
+.PHONY: release
+release:
+	# remove -warn-error
+	grep -v 'warn-error' _oasis > _oasis.tmp
+	mv _oasis.tmp _oasis
+	oasis setup
