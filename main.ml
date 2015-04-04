@@ -42,18 +42,10 @@ let backend_error name args =
   Exception.rpc_of_exnty exnty
 
 let backend_backtrace_error name args error =
-  match List.zip error.files error.lines with
-  | None -> backend_error "SCRIPT_FAILED" [ "malformed backtrace in error output" ]
-  | Some pairs ->
-    let backtrace =
-      pairs
-      |> List.map ~f:(fun (filename, line) -> { B.Interop.filename; line })
-      |> B.Interop.to_backtrace
-      |> B.sexp_of_t
-      |> Sexplib.Sexp.to_string in
-    let open Storage_interface in
-    let exnty = Exception.Backend_error_with_backtrace(name, backtrace :: args) in
-    Exception.rpc_of_exnty exnty
+  let error = rpc_of_error error |> Jsonrpc.to_string in
+  let open Storage_interface in
+  let exnty = Exception.Backend_error_with_backtrace(name, error :: args) in
+  Exception.rpc_of_exnty exnty
 
 let missing_uri () =
   backend_error "MISSING_URI" [ "Please include a URI in the device-config" ]
@@ -361,7 +353,9 @@ let process root_dir name x =
     | Storage.D.Types.Tapdisk3 p -> "vbd3", p in
     let attach_info = {
       params;
-      xenstore_data = [ "backend-kind", backend ]
+      xenstore_data = [ "backend-kind", backend ];
+      o_direct = true;
+      o_direct_reason = "";
     } in
     Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
   | { R.name = "VDI.activate"; R.params = [ args ] } ->

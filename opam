@@ -1,0 +1,17 @@
+opam-version: "1"
+maintainer: "dave.scott@citrix.com"
+build: [
+  [make]
+  [make "install" "BINDIR=%{bin}%" "MANDIR=%{man}%"]
+]
+remove: [
+  [make "uninstall" "BINDIR=%{bin}%" "MANDIR=%{man}%"]
+]
+depends: [
+  "xapi-idl" {>= "0.10.0" }
+  "xapi-storage"
+  "async" {= "111.25.00" }
+  "async_inotify" {= "111.28.00" }
+  "core"
+  "message-switch"
+]
