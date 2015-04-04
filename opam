@@ -2,10 +2,10 @@ opam-version: "1"
 maintainer: "dave.scott@citrix.com"
 build: [
   [make]
-  [make "install" "BINDIR=%{bin}%"]
+  [make "install" "BINDIR=%{bin}%" "MANDIR=%{man}%"]
 ]
 remove: [
-  [make "uninstall" "BINDIR=%{bin}%"]
+  [make "uninstall" "BINDIR=%{bin}%" "MANDIR=%{man}%"]
 ]
 depends: [
   "xapi-idl" {>= "0.10.0" }
