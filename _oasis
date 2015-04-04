@@ -1,6 +1,6 @@
 OASISFormat:  0.3
 Name:         crc
-Version:      0.5.0
+Version:      0.7.0
 Synopsis:     Plugin library for the XCP RRD daemon
 Authors:      Rok Strnisa, John Else
 License:      LGPL-2.1 with OCaml linking exception
