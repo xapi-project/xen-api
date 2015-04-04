@@ -1,3 +1,11 @@
+0.10.0 (4-Apr-2015):
+* xen: add support for floppy disks (useful for packer, cloudinit)
+* xen: add a VM call plugin mechanism for contacting future guest
+  agents
+* xen: add IGD passthrough
+* storage: add o_direct and o_direct_reason for read caching
+* add standard travis configuration
+
 0.9.21 (20-Nov-2014):
 * storage: add a Backend_failure_with_backtrace exception
 * xen: add a Task.backtrace field
