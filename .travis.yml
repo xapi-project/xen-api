@@ -2,6 +2,5 @@ language: c
 install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
 script: PACKAGE=xapi-rrd-transport FORK_USER=djs55 EXTRA_REMOTE=git://github.com/xapi-project/opam-repo-dev bash -ex .travis-opam.sh
 env:
-  - OCAML_VERSION=4.00
   - OCAML_VERSION=4.01
   - OCAML_VERSION=4.02
