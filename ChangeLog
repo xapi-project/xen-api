@@ -1,3 +1,6 @@
+0.10.1 (7-Apr-2015):
+* update libvirt xenopsd to xapi-idl.0.10.0
+
 0.10.0 (4-Apr-2015):
 * update to cohttp.0.15.2
 * update following xcp-rrd renamed to rrd in ocamlfind
