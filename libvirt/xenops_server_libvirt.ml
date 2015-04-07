@@ -168,7 +168,8 @@ module Domain = struct
 			let open Storage_interface in
 			let virtual_media_type = match vbd.Vbd.ty with
 			| Vbd.CDROM -> ["device", "cdrom"]
-			| Vbd.Disk  -> ["device", "disk"] in
+			| Vbd.Disk  -> ["device", "disk"]
+			| Vbd.Floppy -> ["device", "floppy"] in
 			let physical_media_type = match disk_opt with
 			| Some { xenstore_data } when List.mem ("type", "volume") xenstore_data ->
 				[ "type", "volume" ]
