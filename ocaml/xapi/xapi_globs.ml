@@ -65,7 +65,7 @@ let tools_version = ref tools_version_none
  * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
  * will need to be made in XenCenter *)
 let xencenter_min_verstring = "2.3"
-let xencenter_max_verstring = "2.3"
+let xencenter_max_verstring = "2.4"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
