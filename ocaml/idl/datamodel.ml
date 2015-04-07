@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 83
+let schema_minor_vsn = 84
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -64,7 +64,7 @@ let creedence_release_schema_major_vsn = 5
 let creedence_release_schema_minor_vsn = 72
 
 let cream_release_schema_major_vsn = 5
-let cream_release_schema_minor_vsn = 72
+let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 83
@@ -889,6 +889,8 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
+  error Api_errors.vm_host_incompatible_virtual_hardware_platform_version ["host"; "host_versions"; "vm"; "vm_version"]
+	  ~doc:"You attempted to run a VM on a host that cannot provide the VM's required Virtual Hardware Platform version." ();
   error Api_errors.vm_has_pci_attached ["vm"]
     ~doc:"This operation could not be performed, because the VM has one or more PCI devices passed through." ();
   error Api_errors.vm_has_vgpu ["vm"]
@@ -1691,6 +1693,7 @@ let vm_assert_can_boot_here = call
 		Api_errors.host_not_enough_free_memory;
 		Api_errors.vm_requires_sr;
 		Api_errors.vm_host_incompatible_version;
+		Api_errors.vm_host_incompatible_virtual_hardware_platform_version;
 	]
 	~doc_tags:[Memory]
 	()
@@ -4468,6 +4471,7 @@ let host =
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
 	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
+	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
  ])
 	()
 
@@ -7004,6 +7008,7 @@ let vm =
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
+	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
       ])
 	()
 
