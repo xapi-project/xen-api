@@ -454,6 +454,11 @@ let default_viridian_key_value = "true"
 
 let device_id_key_name = "device_id"
 
+(* Key name for PCI device for Window Update control, goes in platform flags *)
+let pci_pv_key_name = "pci_pv"
+(* Disable if not explicitly set, including the scenario of importing, storage-motion, and host/pool upgrade *)
+let default_pci_pv_key_value = false
+
 (* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
 let machine_address_size_key_name = "machine-address-size"
 let machine_address_size_key_value = "36"
@@ -911,6 +916,32 @@ let other_options = [
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
+
+(* VIRTUAL HARDWARE PLATFORM VERSIONS *)
+
+let pci_for_PV_support = 2L
+
+(* This set is used as an indicator to show the virtual hardware
+   platform versions the current host offers to its guests *)
+let host_virtual_hardware_platform_versions = [
+	(* Zero is the implicit version offered by hosts older than this
+	   versioning concept, and the version implicitly required by old
+	   guests that do not specify a version. *)
+	0L;
+
+	(* Version one is the version in which this versioning concept was
+	   introduced. This Virtual Hardware Platform might not differ
+	   significantly from the immediately preceding version zero, but
+	   it seems prudent to introduce a way to differentiate it from
+	   the whole history of older host versions. *)
+	1L;
+
+	(* Version two which is "pci_for_PV_support" will be the first virtual
+		hardware platform versionto offer the option of an emulated PCI
+		device used to trigger a guest to install or upgrade its PV tools
+		(originally introduced to exploit the Windows Update system). *)
+	pci_for_PV_support;
+]
 
 module Resources = struct
 
