@@ -42,6 +42,7 @@ type feature =
 	| VIF_locking
 	| Storage_motion
 	| VGPU
+	| Integrated_GPU
 	with rpc
 
 type orientation = Positive | Negative
@@ -73,6 +74,7 @@ let keys_of_features =
 		VIF_locking, ("restrict_vif_locking", Negative, "VIFLock");
 		Storage_motion, ("restrict_storage_xen_motion", Negative, "SXM");
 		VGPU, ("restrict_vgpu", Negative, "vGPU");
+		Integrated_GPU, ("restrict_integrated_gpu_passthrough", Negative, "iGPU");
 	]
 
 let string_of_feature f =
