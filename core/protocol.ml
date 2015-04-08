@@ -81,12 +81,12 @@ module In = struct
     | "", `GET, "" :: "admin" :: path     -> Some (Get path)
     | "", `GET, "" :: ((("js" | "css" | "images") :: _) as path) -> Some (Get path)
     | "", `GET, [ ""; "" ]                -> Some Diagnostics
-    | "", `GET, [ ""; "login"; token ]    -> Some (Login token)
-    | "", `GET, [ ""; "persistent"; name ] -> Some (CreatePersistent name)
-    | "", `GET, [ ""; "transient"; name ] -> Some (CreateTransient name)
-    | "", `GET, [ ""; "destroy"; name ]   -> Some (Destroy name)
-    | "", `GET, [ ""; "ack"; name; id ]   -> Some (Ack (name, Int64.of_string id))
-    | "", `GET, [ ""; "list"; prefix ]    -> Some (List prefix)
+    | "", `GET, [ ""; "login"; token ]    -> Some (Login (Uri.pct_decode token))
+    | "", `GET, [ ""; "persistent"; name ] -> Some (CreatePersistent (Uri.pct_decode name))
+    | "", `GET, [ ""; "transient"; name ] -> Some (CreateTransient (Uri.pct_decode name))
+    | "", `GET, [ ""; "destroy"; name ]   -> Some (Destroy (Uri.pct_decode name))
+    | "", `GET, [ ""; "ack"; name; id ]   -> Some (Ack (Uri.pct_decode name, Int64.of_string id))
+    | "", `GET, [ ""; "list"; prefix ]    -> Some (List (Uri.pct_decode prefix))
     | "", `GET, [ ""; "trace"; ack_to; timeout ] ->
       Some (Trace(Int64.of_string ack_to, float_of_string timeout))
     | "", `GET, [ ""; "trace" ] ->
@@ -94,9 +94,9 @@ module In = struct
     | body, `POST, [ ""; "transfer" ] ->
       Some (Transfer(transfer_of_rpc (Jsonrpc.of_string body)))
     | body, `POST, [ ""; "request"; name; reply_to ] ->
-      Some (Send (name, { Message.kind = Message.Request reply_to; payload = body }))
+      Some (Send (Uri.pct_decode name, { Message.kind = Message.Request (Uri.pct_decode reply_to); payload = body }))
     | body, `POST, [ ""; "response"; name; from_q; from_n ] ->
-      Some (Send (name, { Message.kind = Message.Response (from_q, Int64.of_string from_n); payload = body }))
+      Some (Send (Uri.pct_decode name, { Message.kind = Message.Response (from_q, Int64.of_string from_n); payload = body }))
     | _, _, _ -> None
 
   let headers payload =
