@@ -26,15 +26,15 @@ let name = ref "server"
 let process x = return x
 
 let main () =
-	M.connect !port >>= fun c ->
+  M.connect !port >>= fun c ->
   Server.listen process c !name
 
 let _ =
-	Arg.parse [
-		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
-		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-		"Respond to RPCs on a name";
+  Arg.parse [
+    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
+  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name";
 
   let (_: 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())

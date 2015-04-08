@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-  let whoami () = Printf.sprintf "%s:%d"
+let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
 open Core.Std
@@ -79,10 +79,10 @@ module M = struct
       t.m <- true;
       Monitor.protect f
         ~finally:(fun () ->
-          t.m <- false;
-          Condition.broadcast t.c ();
-          return ()
-        )
+            t.m <- false;
+            Condition.broadcast t.c ();
+            return ()
+          )
   end
   module Clock = struct
     type timer = {

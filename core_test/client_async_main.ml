@@ -26,20 +26,20 @@ let payload = ref "hello"
 let timeout = ref None
 
 let (>>|=) m f = m >>= function
-| `Ok x -> f x
-| `Error y -> raise y
+  | `Ok x -> f x
+  | `Error y -> raise y
 
 let main () =
-	Client.connect !port !name >>|= fun c ->
-	let counter = ref 0 in
-	let one () =
-		incr counter;
-		Client.rpc c !payload >>|= fun _ ->
-		return () in
-	let start = Time.now () in
-	( match !timeout with
-  	| None -> one ()
-	  | Some t ->
+  Client.connect !port !name >>|= fun c ->
+  let counter = ref 0 in
+  let one () =
+    incr counter;
+    Client.rpc c !payload >>|= fun _ ->
+    return () in
+  let start = Time.now () in
+  ( match !timeout with
+    | None -> one ()
+    | Some t ->
       let rec loop () =
         let sofar = Time.diff (Time.now()) start in
         if Time.Span.(sofar > (of_sec t))
@@ -50,17 +50,17 @@ let main () =
         end in
       loop ()
   ) >>= fun () ->
-	let t = Time.diff (Time.now()) start in
-	Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
+  let t = Time.diff (Time.now()) start in
+  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
   Shutdown.exit 0
 
 let _ =
-	Arg.parse [
-		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
-		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-		"-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
-		"-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));
-	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-		"Send a message to a name, optionally waiting for a response";
+  Arg.parse [
+    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
+    "-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
+    "-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));
+  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Send a message to a name, optionally waiting for a response";
   let (_: 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())
