@@ -22,16 +22,16 @@ let project_url = "http://github.com/djs55/message_switch"
 open Cmdliner
 
 module Common = struct
-	type t = {
-        verbose: bool;
-        debug: bool;
-        port: int;
-	} with rpc
+  type t = {
+    verbose: bool;
+    debug: bool;
+    port: int;
+  } with rpc
 
-	let make verbose debug port =
-		{ verbose; debug; port }
+  let make verbose debug port =
+    { verbose; debug; port }
 
-	let to_string x = Jsonrpc.to_string (rpc_of_t x)
+  let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
 
 let _common_options = "COMMON OPTIONS"
@@ -54,11 +54,11 @@ let common_options_t =
 
 (* Help sections common to all commands *)
 let help = [
- `S _common_options;
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 (* Commands *)
@@ -86,13 +86,13 @@ let diagnostics common_opts =
       Printf.printf "  %s next update expected: %s\n" name (match queue.Diagnostics.next_transfer_expected with None -> "None" | Some x -> time in_the_future x);
       List.iter
         (fun (id, entry) ->
-          Printf.printf "    %Ld:  from: %s  age: %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
-          let message = entry.Entry.message in
-          let payload = String.escaped message.Message.payload in
-          let len = String.length payload in
-          let max_len = 70 in
-          Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
-          Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
+           Printf.printf "    %Ld:  from: %s  age: %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
+           let message = entry.Entry.message in
+           let payload = String.escaped message.Message.payload in
+           let len = String.length payload in
+           let max_len = 70 in
+           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
+           Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
         ) queue.Diagnostics.queue_contents in
     Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time);
     print_endline "Permanent queues";
@@ -170,17 +170,17 @@ let mscgen common_opts =
     | Error e -> raise e
     | Ok raw -> Out.trace_of_rpc (Jsonrpc.of_string raw) in
   let quote x = "\"" ^ x ^ "\""
- in
+  in
   let module StringSet = Set.Make(struct type t = string let compare = compare end) in
   let queues = List.fold_left (fun acc (_, event) -> StringSet.add event.Event.queue acc) StringSet.empty trace.Out.events in
   let inputs = List.fold_left (fun acc (_, event) -> match event.Event.input with
-    | None -> acc
-    | Some x -> StringSet.add x acc
-  ) StringSet.empty trace.Out.events in
+      | None -> acc
+      | Some x -> StringSet.add x acc
+    ) StringSet.empty trace.Out.events in
   let outputs = List.fold_left (fun acc (_, event) -> match event.Event.output with
-    | None -> acc
-    | Some x -> StringSet.add x acc
-  ) StringSet.empty trace.Out.events in
+      | None -> acc
+      | Some x -> StringSet.add x acc
+    ) StringSet.empty trace.Out.events in
   let print_event (_, e) =
     let body = String.escaped (message ~concise:true e.Event.message) in
     let to_arrow arrow queue connection =
@@ -209,55 +209,55 @@ let tail common_opts follow =
   let widths = [ Some 5; Some 15; Some 4; Some 30; Some 4; Some 15; Some 5; None ] in
   let print_row row =
     List.iter (fun (txt, size) ->
-      let txt = match size with
-      | None -> txt
-      | Some size ->
-      let txt' = String.length txt in
-      if txt' > size then String.sub txt (txt'-size) size else txt ^ (String.make (size - txt') ' ') in
-      print_string txt;
-      print_string " "
-    ) (List.combine row widths);
+        let txt = match size with
+          | None -> txt
+          | Some size ->
+            let txt' = String.length txt in
+            if txt' > size then String.sub txt (txt'-size) size else txt ^ (String.make (size - txt') ' ') in
+        print_string txt;
+        print_string " "
+      ) (List.combine row widths);
     print_endline "" in
   let finished = ref false in
   while not(!finished) do
     match Connection.rpc c (In.Trace (!from, timeout)) with
-      | Error e -> raise e
-      | Ok raw ->
-        let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
-        let endpoint = function
-          | None -> "-"
-          | Some x -> x in
-        let relative_time event = match !start with
-          | None ->
-            start := Some event.Event.time;
-            0.
-          | Some t ->
-            event.Event.time -. t in
-	let secs = function
-          | None -> ""
-          | Some x -> Printf.sprintf "%.1f" (Int64.(to_float (div x 1_000_000_000L)) /. 1000.) in
-        let rows = List.map (fun (id, event) ->
+    | Error e -> raise e
+    | Ok raw ->
+      let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
+      let endpoint = function
+        | None -> "-"
+        | Some x -> x in
+      let relative_time event = match !start with
+        | None ->
+          start := Some event.Event.time;
+          0.
+        | Some t ->
+          event.Event.time -. t in
+      let secs = function
+        | None -> ""
+        | Some x -> Printf.sprintf "%.1f" (Int64.(to_float (div x 1_000_000_000L)) /. 1000.) in
+      let rows = List.map (fun (id, event) ->
           let time = relative_time event in
           let m = event.Event.message in
           [ Printf.sprintf "%.1f" time ] @ (match m with
-            | Event.Message(_, { Message.kind = Message.Response _ }) ->
-              [ endpoint event.Event.output; "<-"; event.Event.queue; "<-"; endpoint event.Event.input ]
-            | Event.Message(_, { Message.kind = Message.Request _ }) ->
-              [ endpoint event.Event.input; "->"; event.Event.queue; "->"; endpoint event.Event.output ]
-            | Event.Ack id ->
-              [ endpoint event.Event.input; "->"; event.Event.queue; ""; "" ]
-          ) @ [ secs event.Event.processing_time; message m ]
+              | Event.Message(_, { Message.kind = Message.Response _ }) ->
+                [ endpoint event.Event.output; "<-"; event.Event.queue; "<-"; endpoint event.Event.input ]
+              | Event.Message(_, { Message.kind = Message.Request _ }) ->
+                [ endpoint event.Event.input; "->"; event.Event.queue; "->"; endpoint event.Event.output ]
+              | Event.Ack id ->
+                [ endpoint event.Event.input; "->"; event.Event.queue; ""; "" ]
+            ) @ [ secs event.Event.processing_time; message m ]
         ) trace.Out.events in
-        List.iter print_row rows;
-        flush stdout;
-        finished := not follow;
-        from :=
-          begin match trace.Out.events with
-            | [] -> !from
-            | (id, _) :: ms -> Int64.add 1L (List.fold_left max id (List.map fst ms))
-          end;
-    done;
-    `Ok ()
+      List.iter print_row rows;
+      flush stdout;
+      finished := not follow;
+      from :=
+        begin match trace.Out.events with
+          | [] -> !from
+          | (id, _) :: ms -> Int64.add 1L (List.fold_left max id (List.map fst ms))
+        end;
+  done;
+  `Ok ()
 
 let diagnostics_cmd =
   let doc = "dump the current switch state" in
@@ -344,23 +344,23 @@ let call common_options_t name body path timeout =
   | None -> `Error(true, "a queue name is required")
   | Some name ->
     begin
-    let txt = match body, path with
-    | None, None ->
-      Printf.printf "Enter body text:\n%!";
-      string_of_ic stdin
-    | Some _, Some _ ->
-      failwith "please supply either a body or a file, not both"
-    | Some x, _ -> x
-    | None, Some x ->
-      let ic = open_in x in
-      let txt = string_of_ic ic in
-      close_in ic;
-      txt in
+      let txt = match body, path with
+        | None, None ->
+          Printf.printf "Enter body text:\n%!";
+          string_of_ic stdin
+        | Some _, Some _ ->
+          failwith "please supply either a body or a file, not both"
+        | Some x, _ -> x
+        | None, Some x ->
+          let ic = open_in x in
+          let txt = string_of_ic ic in
+          close_in ic;
+          txt in
 
-    let c = Client.connect common_options_t.Common.port in
-    let result = Client.rpc c ?timeout ~dest:name txt in
-    print_endline result;
-    `Ok ()
+      let c = Client.connect common_options_t.Common.port in
+      let result = Client.rpc c ?timeout ~dest:name txt in
+      print_endline result;
+      `Ok ()
     end
 
 let call_cmd =
@@ -391,19 +391,19 @@ let serve common_options_t name program =
     `Error(true, "a queue name is required")
   | Some name ->
     Protocol_unix.Server.listen (fun req ->
-      match program with
-      | None ->
-        print_endline "Received:";
-        print_endline req;
-        print_endline "Enter body text: (end with a \".\")";
-        string_of_ic ~end_marker:"." stdin
-      | Some program ->
-        let stdout, stdin, stderr = Unix.open_process_full program [| program |] in
-        output_string stdin req; close_out stdin;
-        let res = string_of_ic stdout in
-        let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
-        res
-    ) common_options_t.Common.port name;
+        match program with
+        | None ->
+          print_endline "Received:";
+          print_endline req;
+          print_endline "Enter body text: (end with a \".\")";
+          string_of_ic ~end_marker:"." stdin
+        | Some program ->
+          let stdout, stdin, stderr = Unix.open_process_full program [| program |] in
+          output_string stdin req; close_out stdin;
+          let res = string_of_ic stdout in
+          let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
+          res
+      ) common_options_t.Common.port name;
     `Ok ()
 
 let serve_cmd =

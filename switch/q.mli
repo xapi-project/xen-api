@@ -24,19 +24,19 @@ val contents: t -> (Protocol.message_id * Protocol.Entry.t) list
 
 module Directory : sig
 
-	val add: string -> unit
-	(** [add name] adds an empty queue with name [name] *)
+  val add: string -> unit
+  (** [add name] adds an empty queue with name [name] *)
 
-	val remove: string -> unit
-	(** [remove name] removes the queue with name [name] *)
+  val remove: string -> unit
+  (** [remove name] removes the queue with name [name] *)
 
-	val find: string -> t
-	(** [find name] returns the queue with name [name].
-	    XXX should we switch to an option type? *)
+  val find: string -> t
+  (** [find name] returns the queue with name [name].
+      	    XXX should we switch to an option type? *)
 
-	val list: string -> string list
-	(** [list prefix] returns the names of non-empty queues whose
-	    names have prefix [prefix] *)
+  val list: string -> string list
+  (** [list prefix] returns the names of non-empty queues whose
+      	    names have prefix [prefix] *)
 end
 
 val queue_of_id: Protocol.message_id -> string

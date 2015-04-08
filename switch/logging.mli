@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
- 
+
 (** Non-blocking logging functions. Note you must start the
     [logging_thread] if you want the output to go somewhere.
     Note the log messages are written to a fixed-length buffer

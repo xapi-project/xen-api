@@ -20,13 +20,13 @@ let name = ref "server"
 let process x = x
 
 let main () =
-	Protocol_unix.Server.listen process !port !name
+  Protocol_unix.Server.listen process !port !name
 
 let _ =
-	Arg.parse [
-		"-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
-		"-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-		"Respond to RPCs on a name";
+  Arg.parse [
+    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
+  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name";
 
-	main ()
+  main ()

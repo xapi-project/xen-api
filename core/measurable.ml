@@ -23,9 +23,9 @@ end
 
 module Measurement = struct
   type v =
-  | Int of int
-  | Bool of bool
-  | Float of float
+    | Int of int
+    | Bool of bool
+    | Float of float
 
   type t = {
     v: v;

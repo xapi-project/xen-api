@@ -26,68 +26,68 @@ let ip = ref "0.0.0.0"
 open Cohttp_lwt_unix
 
 let make_server () =
-	info "Started server on localhost:%d" !port;
+  info "Started server on localhost:%d" !port;
 
-	let (_: 'a) = logging_thread () in
+  let (_: 'a) = logging_thread () in
 
-  	(* (Response.t * Body.t) Lwt.t *)
-	let callback (_, conn_id) req body =
-		let conn_id_s = Cohttp.Connection.to_string conn_id in
-		let open Protocol in
-		lwt body = Cohttp_lwt_body.to_string body in
-		let uri = Cohttp.Request.uri req in
-		let path = Uri.path uri in
-		match In.of_request body (Cohttp.Request.meth req) path with
-		| None ->
-			error "<- [unparsable request; path = %s; body = %s]" path ("\"" ^ body ^ "\"");
-			error "-> 404 [Not_found]";
-			Cohttp_lwt_unix.Server.respond_not_found ~uri ()
-		| Some request ->
-			debug "<- %s [%s]" path body;
-			let session = Connections.get_session conn_id_s in
-			lwt response = process_request conn_id_s session request in
-			let status, body = Out.to_response response in
-			debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
-			Cohttp_lwt_unix.Server.respond_string ~status ~body ()
-		in
-	let conn_closed (_, conn_id) =
-		let conn_id_s = Cohttp.Connection.to_string conn_id in
-		let session = Connections.get_session conn_id_s in
-		Connections.remove conn_id_s;
-		match session with
-		| None -> ()
-		| Some session ->
-			if not(Connections.is_session_active session) then begin
-				info "Session %s cleaning up" session;
-				Transient_queue.remove session
-			end in
+  (* (Response.t * Body.t) Lwt.t *)
+  let callback (_, conn_id) req body =
+    let conn_id_s = Cohttp.Connection.to_string conn_id in
+    let open Protocol in
+    lwt body = Cohttp_lwt_body.to_string body in
+    let uri = Cohttp.Request.uri req in
+    let path = Uri.path uri in
+    match In.of_request body (Cohttp.Request.meth req) path with
+    | None ->
+      error "<- [unparsable request; path = %s; body = %s]" path ("\"" ^ body ^ "\"");
+      error "-> 404 [Not_found]";
+      Cohttp_lwt_unix.Server.respond_not_found ~uri ()
+    | Some request ->
+      debug "<- %s [%s]" path body;
+      let session = Connections.get_session conn_id_s in
+      lwt response = process_request conn_id_s session request in
+      let status, body = Out.to_response response in
+      debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
+      Cohttp_lwt_unix.Server.respond_string ~status ~body ()
+  in
+  let conn_closed (_, conn_id) =
+    let conn_id_s = Cohttp.Connection.to_string conn_id in
+    let session = Connections.get_session conn_id_s in
+    Connections.remove conn_id_s;
+    match session with
+    | None -> ()
+    | Some session ->
+      if not(Connections.is_session_active session) then begin
+        info "Session %s cleaning up" session;
+        Transient_queue.remove session
+      end in
 
-	info "Message switch starting";
-        let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
-	Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port !port)) t
+  info "Message switch starting";
+  let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
+  Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port !port)) t
 
 let _ =
-	let daemonize = ref false in
-	let pidfile = ref None in
-	Arg.parse [
-		"-daemon", Arg.Set daemonize, "run as a background daemon";
-		"-port", Arg.Set_int port, "port to listen on";
-		"-ip", Arg.Set_string ip, "IP to bind to";
-		"-pidfile", Arg.String (fun x -> pidfile := Some x), "write PID to file";
-	] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
-		"A simple message switch";
+  let daemonize = ref false in
+  let pidfile = ref None in
+  Arg.parse [
+    "-daemon", Arg.Set daemonize, "run as a background daemon";
+    "-port", Arg.Set_int port, "port to listen on";
+    "-ip", Arg.Set_string ip, "IP to bind to";
+    "-pidfile", Arg.String (fun x -> pidfile := Some x), "write PID to file";
+  ] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
+    "A simple message switch";
 
-	if !daemonize
-	then Lwt_daemon.daemonize ();
+  if !daemonize
+  then Lwt_daemon.daemonize ();
 
-	let (_ : unit Lwt.t) =
-		match !pidfile with
-		| None -> return ()
-		| Some x ->
-			Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
-			  ~mode:Lwt_io.output x (fun oc ->
-				lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
-				Lwt_io.flush oc
-			) in
+  let (_ : unit Lwt.t) =
+    match !pidfile with
+    | None -> return ()
+    | Some x ->
+      Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
+        ~mode:Lwt_io.output x (fun oc ->
+            lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
+            Lwt_io.flush oc
+          ) in
 
-	Lwt_unix.run (make_server ())
+  Lwt_unix.run (make_server ())

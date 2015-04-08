@@ -13,55 +13,55 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
- 
+
 open Lwt
 open Printf
 
 type logger = {
-	stream: string Lwt_stream.t;
-	push: string -> unit;
-	elements: int ref;
-	max_elements: int;
-	dropped_elements: int ref;
+  stream: string Lwt_stream.t;
+  push: string -> unit;
+  elements: int ref;
+  max_elements: int;
+  dropped_elements: int ref;
 }
 
 let create max_elements =
-	let elements = ref (ref 0) in
-	let dropped_elements = ref (ref 0) in
-	let stream, stream_push = Lwt_stream.create () in
-	let push line =
-		if !(!elements) > max_elements then begin
-			incr !dropped_elements
-		end else begin
-			stream_push (Some line);
-			incr !elements
-		end in
-	{
-		stream = stream;
-		push = push;
-		elements = !elements;
-		max_elements = max_elements;
-		dropped_elements = !dropped_elements;
-	}
+  let elements = ref (ref 0) in
+  let dropped_elements = ref (ref 0) in
+  let stream, stream_push = Lwt_stream.create () in
+  let push line =
+    if !(!elements) > max_elements then begin
+      incr !dropped_elements
+    end else begin
+      stream_push (Some line);
+      incr !elements
+    end in
+  {
+    stream = stream;
+    push = push;
+    elements = !elements;
+    max_elements = max_elements;
+    dropped_elements = !dropped_elements;
+  }
 
 let get (logger: logger) =
-	let return_lines all =
-		logger.elements := !(logger.elements) - (List.length all);
-		let dropped = !(logger.dropped_elements) in
-		logger.dropped_elements := 0;
-		return (if dropped <> 0
-			then Printf.sprintf "<-- dropped %d log lines" dropped :: all
-			else all) in
+  let return_lines all =
+    logger.elements := !(logger.elements) - (List.length all);
+    let dropped = !(logger.dropped_elements) in
+    logger.dropped_elements := 0;
+    return (if dropped <> 0
+            then Printf.sprintf "<-- dropped %d log lines" dropped :: all
+            else all) in
 
-	(* Grab as many elements as we can without blocking *)
-	let all = Lwt_stream.get_available logger.stream in
-	if all <> []
-	then return_lines all
-	else begin
-		(* Block for at least one line *)
-		lwt all = Lwt_stream.nget 1 logger.stream in
-		return_lines all
-	end
+  (* Grab as many elements as we can without blocking *)
+  let all = Lwt_stream.get_available logger.stream in
+  if all <> []
+  then return_lines all
+  else begin
+    (* Block for at least one line *)
+    lwt all = Lwt_stream.nget 1 logger.stream in
+    return_lines all
+  end
 
 let program = Filename.basename Sys.argv.(0)
 
@@ -75,12 +75,12 @@ type level = Debug | Info | Warn | Error | Null
 let log_level = ref Warn
 
 let string_of_level = function
-        | Debug -> "debug" | Info -> "info" | Warn -> "warn"
-        | Error -> "error" | Null -> "null"
+  | Debug -> "debug" | Info -> "info" | Warn -> "warn"
+  | Error -> "error" | Null -> "null"
 
 let log level key (fmt: (_,_,_,_) format4) =
-        let level = string_of_level level in
-        Printf.ksprintf logger.push ("[%5s|%s] " ^^ fmt) level key
+  let level = string_of_level level in
+  Printf.ksprintf logger.push ("[%5s|%s] " ^^ fmt) level key
 
 (* let debug = log Debug key *)
 let debug fmt = ignore_fmt fmt
@@ -89,10 +89,10 @@ let warn fmt = log Warn program fmt
 let error fmt = log Error program fmt
 
 let rec logging_thread () =
-    lwt lines = get logger in
-	lwt () = Lwt_list.iter_s
-            (fun x ->
-                lwt () = Lwt_log.log ~logger:!Lwt_log.default ~level:Lwt_log.Notice x in
-				return ()
-			) lines in
-	logging_thread ()
+  lwt lines = get logger in
+  lwt () = Lwt_list.iter_s
+      (fun x ->
+         lwt () = Lwt_log.log ~logger:!Lwt_log.default ~level:Lwt_log.Notice x in
+         return ()
+      ) lines in
+  logging_thread ()
