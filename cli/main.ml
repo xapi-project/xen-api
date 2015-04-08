@@ -145,9 +145,22 @@ let diagnostics common_opts =
       );
       List.iter
         (fun (id, entry) ->
-           Printf.printf "    %Ld: request from: %s  sent %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
+           Printf.printf "    %Ld: request from: %s sent %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
            payload common_opts entry.Entry.message.Message.payload;
-           Printf.printf "        reply_to: %s\n" (kind entry.Entry.message.Message.kind);
+           match entry.Entry.message.Message.kind with
+           | Message.Response _ -> ()
+           | Message.Request name ->
+             if List.mem_assoc name d.Diagnostics.transient_queues then begin
+               let queue = List.assoc name d.Diagnostics.transient_queues in
+               match classify (name, queue) with
+               | `Not_started ->
+                 Printf.printf "      receiver %s has not started\n" name
+               | `Crashed_or_deadlocked t ->
+                 Printf.printf "      receiver %s crashed or deadlocked %s\n" name (time in_the_past t)
+               | `Ok ->
+                 Printf.printf "      receiver %s is waiting for a response\n" name
+             end else
+               Printf.printf "       receiver %s appears to have crashed\n" name
         ) (snd q).Diagnostics.queue_contents in
     Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time);
     if d.Diagnostics.permanent_queues = []
