@@ -1594,10 +1594,7 @@ module PCI = struct
 				end;
 
 				Device.PCI.bind [ device ] Device.PCI.Pciback;
-				(* If the guest is HVM then we plug via qemu *)
-				if hvm
-				then Device.PCI.plug task ~xc ~xs device frontend_domid
-				else Device.PCI.add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt [ device ] frontend_domid 0
+				Device.PCI.add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt [ device ] frontend_domid 0
 			) Newest vm
 
 	let unplug task vm pci =
