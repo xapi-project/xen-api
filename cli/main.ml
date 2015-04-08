@@ -113,16 +113,16 @@ let diagnostics common_opts =
         if common_opts.Common.verbose || len < max_len then txt else String.sub txt 0 max_len in
       try
         let call = Jsonrpc.call_of_string payload in
-        Printf.printf "      %s\n" call.Rpc.name;
+        Printf.printf "      - %s\n" call.Rpc.name;
         List.iter (fun param ->
           let txt = Jsonrpc.to_string param in
-          Printf.printf "        %s\n" (trim txt)
+          Printf.printf "        - %s\n" (trim txt)
         ) call.params
       with _ ->
         (* parse failure, fall back to basic printing *)
         let payload = String.escaped payload in
         let len = String.length payload in
-        Printf.printf "      %s\n" (trim payload) in
+        Printf.printf "      - %s\n" (trim payload) in
 
     let kind = function
       | Message.Request q -> q
@@ -154,14 +154,21 @@ let diagnostics common_opts =
                let queue = List.assoc name d.Diagnostics.transient_queues in
                match classify (name, queue) with
                | `Not_started ->
-                 Printf.printf "      receiver %s has not started\n" name
+                 Printf.printf "      - %s has not started\n" name
                | `Crashed_or_deadlocked t ->
-                 Printf.printf "      receiver %s crashed or deadlocked %s\n" name (time in_the_past t)
+                 Printf.printf "      - %s crashed or deadlocked %s\n" name (time in_the_past t)
                | `Ok ->
-                 Printf.printf "      receiver %s is waiting for a response\n" name
+                 Printf.printf "      - %s is waiting for a response\n" name
              end else
-               Printf.printf "       receiver %s appears to have crashed\n" name
+               Printf.printf "       - %s appears to have crashed\n" name
         ) (snd q).Diagnostics.queue_contents in
+
+    let expected_transient_queues (name, q) =
+      List.fold_left (fun acc (_, entry) -> match entry.Entry.message.Message.kind with
+        | Message.Response _ -> acc
+        | Message.Request name -> name :: acc
+      ) [] q.Diagnostics.queue_contents in
+
     Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time);
     if d.Diagnostics.permanent_queues = []
     then print_endline "There are no known services (yet)."
@@ -176,7 +183,7 @@ let diagnostics common_opts =
         List.iter queue ok
       end;
       if not_started <> [] then begin
-        print_endline "\nThe following services have never started:";
+        print_endline "\nThe following services have been called but have never started:";
         List.iter queue not_started
       end;
       if crashed <> [] then begin
@@ -184,10 +191,17 @@ let diagnostics common_opts =
         List.iter queue crashed
       end;
     end;
-    print_endline "Transient queues";
-    if d.Diagnostics.transient_queues = []
-    then print_endline "  None"
-    else List.iter queue d.Diagnostics.transient_queues;
+    
+    (* We don't show expected empty transient queues *)
+    let expected = List.concat (List.map expected_transient_queues d.Diagnostics.permanent_queues) in
+    let to_show =
+      List.filter (fun (name, queue) ->
+        not(List.mem name expected) || queue.Diagnostics.queue_contents <> []
+      ) d.Diagnostics.transient_queues in
+    if to_show <> [] then begin
+      print_endline "Temporary queues containing replies:";
+      List.iter queue to_show
+    end;
     `Ok ()
 
 let list common_opts prefix =
