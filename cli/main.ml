@@ -105,6 +105,25 @@ let diagnostics common_opts =
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%s" id
       | Name x -> x in
+
+    let payload common_opts payload =
+      let max_len = 70 in
+      let trim txt =
+        let len = String.length txt in
+        if common_opts.Common.verbose || len < max_len then txt else String.sub payload 0 max_len in
+      try
+        let call = Jsonrpc.call_of_string payload in
+        Printf.printf "      %s\n" call.Rpc.name;
+        List.iter (fun param ->
+          let txt = Jsonrpc.to_string param in
+          Printf.printf "        %s\n" (trim txt)
+        ) call.params
+      with _ ->
+        (* parse failure, fall back to basic printing *)
+        let payload = String.escaped payload in
+        let len = String.length payload in
+        Printf.printf "      %s\n" (trim payload) in
+
     let kind = function
       | Message.Request q -> q
       | Message.Response _ -> "-" in
@@ -126,13 +145,9 @@ let diagnostics common_opts =
       );
       List.iter
         (fun (id, entry) ->
-           Printf.printf "    %Ld:  from: %s  age: %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
-           let message = entry.Entry.message in
-           let payload = String.escaped message.Message.payload in
-           let len = String.length payload in
-           let max_len = 70 in
-           Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
-           Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
+           Printf.printf "    %Ld: request from: %s  sent %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
+           payload common_opts entry.Entry.message.Message.payload;
+           Printf.printf "        reply_to: %s\n" (kind entry.Entry.message.Message.kind);
         ) (snd q).Diagnostics.queue_contents in
     Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time);
     if d.Diagnostics.permanent_queues = []
