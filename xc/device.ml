@@ -1013,7 +1013,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
-let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =
+let xl_pci cmd pcidevs domid =
 	List.iter
 		(fun dev ->
 			try
@@ -1030,8 +1030,8 @@ let add_xl = xl_pci "pci-attach"
 
 let release_xl = xl_pci "pci-detach"
 
-let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
-	try add_xl ~msitranslate ~pci_power_mgmt pcidevs domid
+let add pcidevs domid =
+	try add_xl pcidevs domid
 	with exn -> raise (Cannot_add (pcidevs, exn))
 
 let release ~xc ~xs ~hvm pcidevs domid devid =

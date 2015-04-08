@@ -1584,9 +1584,6 @@ module PCI = struct
 				xs.Xs.write
 					(Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt" frontend_domid)
 					(if non_persistent.VmExtra.pci_power_mgmt then "1" else "0");
-				(* Apply overrides (if provided) *)
-				let msitranslate = if (Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate) then 1 else 0 in
-				let pci_power_mgmt = if (Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt) then 1 else 0 in
 
 				if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then begin
 					error "PCIBack has not been loaded";
@@ -1594,7 +1591,7 @@ module PCI = struct
 				end;
 
 				Device.PCI.bind [ device ] Device.PCI.Pciback;
-				Device.PCI.add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt [ device ] frontend_domid 0
+				Device.PCI.add [ device ] frontend_domid
 			) Newest vm
 
 	let unplug task vm pci =
