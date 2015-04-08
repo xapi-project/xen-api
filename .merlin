@@ -1,4 +1,4 @@
-PKG cmdliner bigarray threads xcp.rrd xcp-rrd cstruct xen-gnt crc oUnit
+PKG cmdliner bigarray threads xcp.rrd rrd cstruct xen-gnt crc oUnit
 S lib
 S test
 S utils
