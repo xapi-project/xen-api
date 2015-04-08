@@ -963,85 +963,6 @@ let query_pci_device domain bus slot func =
 		with _ -> "" in
 	irq, resources, driver
 
-let grant_access_resources xc domid resources v =
-	let action = if v then "add" else "remove" in
-	List.iter (fun (s, e, flags) ->
-		if Int64.logand flags _pci_bar_io = _pci_bar_io then (
-			let first_port = Int64.to_int s in
-			let nr_ports = (Int64.to_int e) - first_port + 1 in
-
-			debug "pci %s io bar %Lx-%Lx" action s e;
-			Xenctrl.domain_ioport_permission xc domid first_port nr_ports v
-		) else (
-			let size = Int64.(add (sub e s) 1L) in
-			let _page_size = 4096L in
-			let to_page_round_down m = Int64.(div m _page_size) in
-			let to_page_round_up m = Int64.(add m (sub _page_size 1L)) |> to_page_round_down in
-			let first_pfn = to_page_round_down s in
-			let nr_pfns = to_page_round_up size in
-
-			debug "pci %s mem bar first_pfn=%Lx nr_pfns=%Lx" action first_pfn nr_pfns;
-			Xenctrl.domain_iomem_permission xc domid (Int64.to_nativeint first_pfn) (Int64.to_nativeint nr_pfns) v
-		)
-	) resources
-
-let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcidevs domid devid =
-	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = query_pci_device domain bus slot func in
-		{ domain = domain; bus = bus; slot = slot; func = func;
-		  irq = irq; resources = resources; driver = driver }
-	) pcidevs in
-
-	let baddevs = List.filter (fun t -> t.driver <> "pciback") pcidevs in
-	if List.length baddevs > 0 then (
-		raise (Cannot_use_pci_with_no_pciback baddevs);
-	);
-
-	List.iter (fun dev ->
-		let d = to_string (dev.domain, dev.bus, dev.slot, dev.func) in
-		debug "Preparing PCI device %s" d;
-		List.iter (fun (s, e, flags) ->
-			debug "PCI device %s has resource %Lx -> %Lx (%Lx%s)" d s e flags
-				(if Int64.logand flags _pci_bar_io = _pci_bar_io then " = PCI_BAR" else "");
-		) dev.resources;
-		debug "PCI device %s has IRQ %d" d dev.irq;
-		if hvm then (
-			ignore_bool (Xenctrl.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
-			()
-		);
-		grant_access_resources xc domid dev.resources true;
-		(* XXX: libxl calls xc_physdev_map_pirq *)
-		if dev.irq > 0 then
-			Xenctrl.domain_irq_permission xc domid dev.irq true
-	) pcidevs;
-
-	let device = {
-		backend = { domid = 0; kind = Pci; devid = devid };
-		frontend = { domid = domid; kind = Pci; devid = devid };
-	} in
-
-	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
-	let xsdevs = snd(List.fold_left (fun (i, acc) dev ->
-		i+1, acc @ [
-			sprintf "key-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
-			sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
-			sprintf "opts-%d" i, "msitranslate=0,power_mgmt=0";
-			sprintf "state-%d" i, "1";
-		]) (0, []) pcidevs) in
-
-	let backendlist = [
-		"frontend-id", sprintf "%u" domid;
-		"online", "1";
-		"num_devs", string_of_int (List.length pcidevs);
-		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-	] and frontendlist = [
-		"backend-id", "0";
-		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-	] in
-
-	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
-	()
-
 (* comment out while we sort out libxenlight
 let pci_info_of ~msitranslate ~pci_power_mgmt = function
     | domain, bus, dev, func ->
@@ -1112,25 +1033,6 @@ let release_xl = xl_pci "pci-detach"
 let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
 	try add_xl ~msitranslate ~pci_power_mgmt pcidevs domid
 	with exn -> raise (Cannot_add (pcidevs, exn))
-
-let release_exn ~xc ~xs ~hvm pcidevs domid devid =
-	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = query_pci_device domain bus slot func in
-		{ domain = domain; bus = bus; slot = slot; func = func;
-		  irq = irq; resources = resources; driver = driver }
-	) pcidevs in
-
-	let baddevs = List.filter (fun t -> t.driver <> "pciback") pcidevs in
-	if List.length baddevs > 0 then (
-		raise (Cannot_use_pci_with_no_pciback baddevs);
-	);
-
-	List.iter (fun dev ->
-		grant_access_resources xc domid dev.resources false;
-		if dev.irq > 0 then
-			Xenctrl.domain_irq_permission xc domid dev.irq false
-	) pcidevs;
-	()
 
 let release ~xc ~xs ~hvm pcidevs domid devid =
 	release_xl pcidevs domid
