@@ -74,8 +74,34 @@ let diagnostics common_opts =
     let in_the_past = Int64.sub d.Diagnostics.current_time in
     let in_the_future x = Int64.sub x d.Diagnostics.current_time in
     let time f x =
-      let ms = Int64.div (f x) 1_000_000L in
-      Printf.sprintf "%Ld ms" ms in
+      let open Int64 in
+      let secs = div (f x) 1_000_000_000L in
+      let secs' = rem secs 60L in
+      let mins = div secs 60L in
+      let mins' = rem mins 60L in
+      let hours = div mins 60L in
+      let hours' = rem hours 24L in
+      let days = div hours 24L in
+      let fragment name = function
+      | 0L -> []
+      | 1L -> [ Printf.sprintf "1 %s" name ]
+      | n  -> [ Printf.sprintf "%Ld %ss" n name ] in
+      let bits = 
+          (fragment "day" days
+      ) @ (fragment "hour" hours'
+      ) @ (fragment "min" mins'
+      ) @ (fragment "second" secs'
+      ) @ [] in
+      let length = List.length bits in
+      let _, rev_bits = List.fold_left (fun (i, acc) x ->
+        i + 1,
+          (if i = length - 2
+          then (x ^ " and ") :: acc
+          else if i = length - 1
+          then (x ^ " ") :: acc
+          else (x ^ ", ") :: acc)
+      ) (0, []) bits in
+      String.concat "" (List.rev rev_bits) ^ "ago" in
     let origin = function
       | Anonymous id -> Printf.sprintf "anonymous-%s" id
       | Name x -> x in
