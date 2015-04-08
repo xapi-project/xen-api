@@ -108,8 +108,22 @@ let diagnostics common_opts =
     let kind = function
       | Message.Request q -> q
       | Message.Response _ -> "-" in
-    let queue (name, queue) =
-      Printf.printf "  %s next update expected: %s\n" name (match queue.Diagnostics.next_transfer_expected with None -> "None" | Some x -> time in_the_future x);
+
+    let classify (_, queue) = match queue.Diagnostics.next_transfer_expected with
+      | None -> `Not_started
+      | Some t ->
+          let assume_dead_after_ns = 30_000_000_000L in
+          if (Int64.add t assume_dead_after_ns) < d.Diagnostics.current_time
+          then `Crashed_or_deadlocked t
+          else `Ok in
+
+    let queue q =
+      Printf.printf "- %s%s\n" (fst q) (match classify q with
+        | `Crashed_or_deadlocked t ->
+          Printf.sprintf ": service crashed or deadlocked %s" (time in_the_past t)
+        | _ ->
+          ""
+      );
       List.iter
         (fun (id, entry) ->
            Printf.printf "    %Ld:  from: %s  age: %s\n" (snd id) (origin entry.Entry.origin) (time in_the_past entry.Entry.time);
@@ -119,12 +133,29 @@ let diagnostics common_opts =
            let max_len = 70 in
            Printf.printf "      %s\n" (if common_opts.Common.verbose || len < max_len then payload else String.sub payload 0 max_len);
            Printf.printf "        reply_to: %s\n" (kind message.Message.kind);
-        ) queue.Diagnostics.queue_contents in
-    Printf.printf "Switch uptime: %s\n" (time in_the_past d.Diagnostics.start_time);
-    print_endline "Permanent queues";
+        ) (snd q).Diagnostics.queue_contents in
+    Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time);
     if d.Diagnostics.permanent_queues = []
-    then print_endline "  None"
-    else List.iter queue d.Diagnostics.permanent_queues;
+    then print_endline "There are no known services (yet)."
+    else begin
+      let not_started = List.filter (fun q -> classify q = `Not_started) d.Diagnostics.permanent_queues in
+      let crashed = List.filter (fun q -> match classify q with `Crashed_or_deadlocked _ -> true | _ -> false) d.Diagnostics.permanent_queues in
+      let ok = List.filter (fun q -> classify q = `Ok) d.Diagnostics.permanent_queues in
+      if ok = []
+      then print_endline "No known services are running."
+      else begin
+        print_endline "\nThe following services are running:";
+        List.iter queue ok
+      end;
+      if not_started <> [] then begin
+        print_endline "\nThe following services have never started:";
+        List.iter queue not_started
+      end;
+      if crashed <> [] then begin
+        print_endline "\nThe following services have crashed or deadlocked:";
+        List.iter queue crashed
+      end;
+    end;
     print_endline "Transient queues";
     if d.Diagnostics.transient_queues = []
     then print_endline "  None"
