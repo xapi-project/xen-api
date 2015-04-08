@@ -22,12 +22,22 @@ open Protocol_async
 
 let port = ref 8080
 let name = ref "server"
-
-let process x = return x
+let shutdown = Ivar.create ()
+let process = function
+  | "shutdown" ->
+    Ivar.fill shutdown ();
+    return "ok"
+  | x ->
+    return x
 
 let main () =
   M.connect !port >>= fun c ->
-  Server.listen process c !name
+  let (_: 'a Deferred.t) = Server.listen process c !name in
+  Ivar.read shutdown
+  >>= fun () ->
+  Clock.after (Time.Span.of_sec 1.)
+  >>= fun () ->
+  exit 0
 
 let _ =
   Arg.parse [

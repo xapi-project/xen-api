@@ -22,6 +22,9 @@ let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
 
+(* Sent to the server to initiate a shutdown *)
+let shutdown = "shutdown"
+
 let main () =
   let c = Client.connect !port in
   let counter = ref 0 in
@@ -38,7 +41,9 @@ let main () =
       done
   end;
   let t = Unix.gettimeofday () -. start in
-  Printf.printf "Finished %d RPCs in %.02f\n" !counter t
+  Printf.printf "Finished %d RPCs in %.02f\n" !counter t;
+  let _ = Client.rpc c ~dest:!name shutdown in
+  ()
 
 let _ =
   Arg.parse [

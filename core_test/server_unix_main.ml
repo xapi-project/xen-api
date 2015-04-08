@@ -17,7 +17,14 @@
 let port = ref 8080
 let name = ref "server"
 
-let process x = x
+let process = function
+  | "shutdown" ->
+    let (_: Thread.t) = Thread.create (fun () ->
+      Thread.delay 1.;
+      exit 0
+    ) () in
+    "ok"
+  | x -> x
 
 let main () =
   Protocol_unix.Server.listen process !port !name
