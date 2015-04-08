@@ -110,7 +110,7 @@ let diagnostics common_opts =
       let max_len = 70 in
       let trim txt =
         let len = String.length txt in
-        if common_opts.Common.verbose || len < max_len then txt else String.sub payload 0 max_len in
+        if common_opts.Common.verbose || len < max_len then txt else String.sub txt 0 max_len in
       try
         let call = Jsonrpc.call_of_string payload in
         Printf.printf "      %s\n" call.Rpc.name;
