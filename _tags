@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 28d3226c7a2db1906dfd0522d2b85263)
+# DO NOT EDIT (digest: c47907064ff169d8511b50c1d980b1dc)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -18,8 +18,32 @@ true: annot, bin_annot
 "lib/xenopsd.cmxs": use_xenopsd
 <lib/xenopsd.{cma,cmxa}>: oasis_library_xenopsd_byte
 <lib/*.ml{,i,y}>: oasis_library_xenopsd_byte
+"lib/sockopt_stubs.c": oasis_library_xenopsd_byte
 <lib/xenopsd.{cma,cmxa}>: oasis_library_xenopsd_native
 <lib/*.ml{,i,y}>: oasis_library_xenopsd_native
+"lib/sockopt_stubs.c": oasis_library_xenopsd_native
+<lib/xenopsd.{cma,cmxa}>: use_libxenopsd_stubs
+"lib/sockopt_stubs.c": pkg_cohttp
+"lib/sockopt_stubs.c": pkg_fd-send-recv
+"lib/sockopt_stubs.c": pkg_forkexec
+"lib/sockopt_stubs.c": pkg_oclock
+"lib/sockopt_stubs.c": pkg_rpclib
+"lib/sockopt_stubs.c": pkg_rpclib.syntax
+"lib/sockopt_stubs.c": pkg_sexplib
+"lib/sockopt_stubs.c": pkg_sexplib.syntax
+"lib/sockopt_stubs.c": pkg_threads
+"lib/sockopt_stubs.c": pkg_threads.posix
+"lib/sockopt_stubs.c": pkg_uri
+"lib/sockopt_stubs.c": pkg_uuidm
+"lib/sockopt_stubs.c": pkg_uutf
+"lib/sockopt_stubs.c": pkg_xcp
+"lib/sockopt_stubs.c": pkg_xcp.storage
+"lib/sockopt_stubs.c": pkg_xcp.xen
+"lib/sockopt_stubs.c": pkg_xenstore
+"lib/sockopt_stubs.c": pkg_xenstore.unix
+"lib/sockopt_stubs.c": pkg_xenstore_transport
+"lib/sockopt_stubs.c": pkg_xenstore_transport.unix
+"lib/sockopt_stubs.c": pkg_xmlm
 # Executable suspend_image_viewer
 <lib/suspend_image_viewer.{native,byte}>: oasis_executable_suspend_image_viewer_byte
 <lib/*.ml{,i,y}>: oasis_executable_suspend_image_viewer_byte

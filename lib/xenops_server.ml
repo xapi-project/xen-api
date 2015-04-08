@@ -1277,6 +1277,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 
 			Open_uri.with_open_uri memory_url
 				(fun mfd ->
+					Sockopt.set_sock_keepalives mfd;
 					let open Xenops_migrate in
 					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
 					let cookies = [
@@ -1320,6 +1321,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			VM_DB.signal id
 		| VM_receive_memory (id, memory_limit, s) ->
 			debug "VM.receive_memory %s" id;
+			Sockopt.set_sock_keepalives s;
 			let open Xenops_migrate in
 (*			let state = B.VM.get_state (VM_DB.read_exn id) in
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)

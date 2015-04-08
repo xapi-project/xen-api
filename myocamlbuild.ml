@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 98b8dbc6ddac3c7688bab791464803c1) *)
+(* DO NOT EDIT (digest: 07dbb8f708985c17d8b9a78102a8a695) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -609,7 +609,11 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("xenopsd", ["lib"], [])];
      lib_c =
-       [("xenopsd_xc_main", "xc", []); ("xenopsd_xenlight_main", "xl", [])];
+       [
+          ("xenopsd", "lib", []);
+          ("xenopsd_xc_main", "xc", []);
+          ("xenopsd_xenlight_main", "xl", [])
+       ];
      flags =
        [
           (["oasis_library_xenopsd_byte"; "ocaml"; "link"; "byte"],
@@ -866,6 +870,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 870 "myocamlbuild.ml"
+# 874 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
