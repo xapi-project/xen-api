@@ -40,6 +40,9 @@ module Client : sig
   val destroy: t -> string -> [ `Ok of unit | `Error of exn ] Lwt.t
   (** [destroy t queue_name] destroys the named queue, and all associated
       messages. *)
+
+  val shutdown: t -> [ `Ok of unit | `Error of exn ] Lwt.t
+  (** [shutdown t] requests that the message switch shuts down *)
 end
 
 module Server : sig

@@ -298,6 +298,14 @@ module Client = struct
          let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
          Out.string_list_of_rpc (Jsonrpc.of_string result)
       )
+
+  let shutdown c =
+    IO.Mutex.with_lock c.requests_m
+      (fun () ->
+        let (_: string) = rpc_exn c.requests_conn In.Shutdown in
+        IO.IO.return ()
+      )
+
 end
 
 module Server = struct

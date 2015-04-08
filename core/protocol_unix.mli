@@ -38,6 +38,8 @@ module Client : sig
   val rpc: t -> ?timeout:int -> dest:string -> string  -> string
 
   val list: t -> string -> string list
+
+  val shutdown: t -> unit
 end
 
 module Server : sig
