@@ -1614,6 +1614,8 @@ let enable_display ~__context ~host =
 	update_display ~__context ~host ~action:`enable
 
 let disable_display ~__context ~host =
+	if not (Pool_features.is_enabled ~__context Features.Integrated_GPU)
+	then raise Api_errors.(Server_error (feature_restricted, []));
 	update_display ~__context ~host ~action:`disable
 
 let sync_display ~__context ~host=

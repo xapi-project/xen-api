@@ -329,4 +329,6 @@ let enable_dom0_access ~__context ~self =
 	update_dom0_access ~__context ~self ~action:`enable
 
 let disable_dom0_access ~__context ~self =
+	if not (Pool_features.is_enabled ~__context Features.Integrated_GPU)
+	then raise Api_errors.(Server_error (feature_restricted, []));
 	update_dom0_access ~__context ~self ~action:`disable
