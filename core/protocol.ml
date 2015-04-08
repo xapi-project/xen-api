@@ -294,10 +294,18 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
         return (`Error Unsuccessful_response)
       end else begin
         let reader = Response.make_body_reader response ic in
-        Response.read_body_chunk reader >>= function
-        | Transfer.Final_chunk x -> return (`Ok x)
-        | Transfer.Chunk x -> return (`Ok x)
-        | Transfer.Done -> return (`Ok "")
+        let results = Buffer.create 128 in
+        let rec read () =
+          Response.read_body_chunk reader >>= function
+          | Transfer.Final_chunk x ->
+            Buffer.add_string results x;
+            return (`Ok (Buffer.contents results))
+          | Transfer.Chunk x ->
+            Buffer.add_string results x;
+            read ()
+          | Transfer.Done ->
+            return (`Ok (Buffer.contents results)) in
+        read ()
       end
     | `Invalid s ->
       Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
