@@ -87,7 +87,11 @@ let test_file_io protocol =
 	bracket
 		(fun () ->
 			let shared_file = make_shared_file () in
-			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			let _, writer =
+				Rrd_writer.FileWriter.create
+					{Rrd_writer.path = shared_file; shared_page_count = 1}
+					protocol
+			in
 			let reader = Rrd_reader.FileReader.create shared_file protocol in
 			writer, reader)
 		(fun (writer, reader) ->
@@ -117,7 +121,11 @@ let test_file_io protocol =
 
 let test_writer_cleanup protocol =
 	let shared_file = make_shared_file () in
-	let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+	let _, writer =
+		Rrd_writer.FileWriter.create
+			{Rrd_writer.path = shared_file; shared_page_count = 1}
+			protocol
+	in
 	writer.Rrd_writer.write_payload test_payload;
 	writer.Rrd_writer.cleanup ();
 	assert_equal
@@ -136,7 +144,11 @@ let test_reader_cleanup protocol =
 	bracket
 		(fun () ->
 			let shared_file = make_shared_file () in
-			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			let _, writer =
+				Rrd_writer.FileWriter.create
+					{Rrd_writer.path = shared_file; shared_page_count = 1}
+					protocol
+			in
 			writer.Rrd_writer.write_payload test_payload;
 			shared_file, writer)
 		(fun (shared_file, writer) ->
@@ -158,7 +170,11 @@ let test_reader_state protocol =
 	bracket
 		(fun () ->
 			let shared_file = make_shared_file () in
-			let _, writer = Rrd_writer.FileWriter.create shared_file protocol in
+			let _, writer =
+				Rrd_writer.FileWriter.create
+					{Rrd_writer.path = shared_file; shared_page_count = 1}
+					protocol
+			in
 			let reader = Rrd_reader.FileReader.create shared_file protocol in
 			writer, reader)
 		(fun (writer, reader) ->

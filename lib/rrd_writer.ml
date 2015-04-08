@@ -33,27 +33,37 @@ module type TRANSPORT = sig
 	val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
+type local_id = {
+	path: string;
+	shared_page_count: int;
+}
+
 module File = struct
+	let page_size = 4096
+
 	(** Filesystem path. *)
-	type id_t = string
+	type id_t = local_id
 	(** Filesystem path is returned to the caller for future reference. *)
 	type info_t = string
 	(** fd for writing to the shared file. *)
-	type state_t = Unix.file_descr
+	type state_t = Cstruct.t
 
-	let init path = path, Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600
+	let init {path; shared_page_count} =
+		let size = shared_page_count * page_size in
+		let fd = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600 in
+		let mapping = Bigarray.(Array1.map_file fd char c_layout true size) in
+		let cstruct = Cstruct.of_bigarray mapping in
+		path, cstruct
 
-	let cleanup path _ fd =
-		Unix.close fd;
+	let cleanup _ path _ =
 		Unix.unlink path
 
 	(** This assumes there's no limit to the size of file which can be used. *)
-	let get_allocator fd =
-		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
-			failwith "lseek";
+	let get_allocator cstruct =
 		let alloc_cstruct size =
-			let mapping = Bigarray.(Array1.map_file fd char c_layout true size) in
-			Cstruct.of_bigarray mapping
+			if size > Cstruct.len cstruct
+			then failwith "not enough memory";
+			cstruct
 		in
 		alloc_cstruct
 end

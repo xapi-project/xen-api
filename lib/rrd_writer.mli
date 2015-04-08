@@ -26,6 +26,11 @@ module type TRANSPORT = sig
 	val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
+type local_id = {
+	path: string;
+	shared_page_count: int;
+}
+
 type interdomain_id = {
 	backend_domid: int;
 	shared_page_count: int;
@@ -41,7 +46,7 @@ module Make (T: TRANSPORT) : sig
 end
 
 module FileWriter : sig
-	val create: string -> Rrd_protocol.protocol -> string * writer
+	val create: local_id -> Rrd_protocol.protocol -> string * writer
 end
 
 module PageWriter : sig

@@ -30,17 +30,18 @@ end
 module File = struct
 	(** Filesystem path. *)
 	type id_t = string
-	type state_t = Unix.file_descr
+	type state_t = Cstruct.t
 
-	let init path = Unix.openfile path [Unix.O_RDONLY] 0o400
-
-	let cleanup _ fd = Unix.close fd
-
-	let expose fd =
+	let init path =
+		let fd = Unix.openfile path [Unix.O_RDONLY] 0o400 in
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 			failwith "lseek";
 		let mapping = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
 		Cstruct.of_bigarray mapping
+
+	let cleanup _ _ = ()
+
+	let expose cstruct = cstruct
 end
 
 type interdomain_id = {
