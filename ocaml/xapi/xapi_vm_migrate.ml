@@ -299,14 +299,13 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
 			let do_mirror = (not snapshot) && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
+			let vm = Db.VBD.get_VM ~__context ~self:vbd in
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 			let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
 			let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
 			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
 			let location = Db.VDI.get_location ~__context ~self:vdi in
-			let device = Db.VBD.get_device ~__context ~self:vbd in
-			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-			let dp = Storage_access.datapath_of_vbd ~domid ~device in
+			let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
 			(* XXX PR-1255: eject any CDROMs for now *)
 			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
 				if not (is_intra_pool && Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null) || snapshot) then begin
@@ -339,14 +338,13 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
 	let suspends_vdis =
 		List.fold_left
-			(fun acc vm_ref ->
-				if Db.VM.get_power_state ~__context ~self:vm_ref = `Suspended
+			(fun acc vm ->
+				if Db.VM.get_power_state ~__context ~self:vm = `Suspended
 				then
-					let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm_ref in
+					let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 					let sr = Db.VDI.get_SR ~__context ~self:vdi in
 					if is_intra_pool && Helpers.host_has_pbd_for_sr ~__context ~host:dest_host_ref ~sr then acc else
-						let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm_ref) in
-						let dp = Storage_access.datapath_of_vbd ~domid ~device:"suspend_VDI" in
+						let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
 						let location = Db.VDI.get_location ~__context ~self:vdi in
 						let sr = Db.SR.get_uuid ~__context ~self:sr in
 						let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
