@@ -467,7 +467,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					location,dest_vdi_ref,"none"
 				else begin
 					let newdp = Printf.sprintf "mirror_%s" dp in
-					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write:false);
+					(* Though we have no intention of "write", here we use the same mode as the
+					   associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
+					   when we need to start/stop the VM along the migration. *)
+					let read_write = true in
+					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write);
 					SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
 					new_dps := newdp :: !new_dps;
 
