@@ -37,6 +37,7 @@ module File = struct
 		if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
 			failwith "lseek";
 		let mapping = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
+		Unix.close fd;
 		Cstruct.of_bigarray mapping
 
 	let cleanup _ _ = ()
