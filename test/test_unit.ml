@@ -211,4 +211,4 @@ let base_suite =
 			(with_each_protocol "test_reader_state" test_reader_state)
 		)
 
-let _ = run_test_tt_main base_suite
+let () = ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main
