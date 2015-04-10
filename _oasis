@@ -29,6 +29,7 @@ Executable writer
   BuildDepends:         cmdliner, threads, rrd-transport
 
 Executable test_unit
+  CompiledObject:       best
   Build$:               flag(tests)
   Path:                 test
   MainIs:               test_unit.ml

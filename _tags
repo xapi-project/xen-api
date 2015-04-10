@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ae090ca5fa069d8a54c55c9294c7f5c3)
+# DO NOT EDIT (digest: 21303db277a7c40b9a26ba1fde701e91)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -57,16 +57,16 @@ true: annot, bin_annot
 <utils/*.ml{,i,y}>: pkg_xen-gnt.unix
 <utils/*.ml{,i,y}>: use_rrd_transport
 # Executable test_unit
-"test/test_unit.byte": pkg_bigarray
-"test/test_unit.byte": pkg_crc
-"test/test_unit.byte": pkg_cstruct
-"test/test_unit.byte": pkg_oUnit
-"test/test_unit.byte": pkg_rrd
-"test/test_unit.byte": pkg_threads
-"test/test_unit.byte": pkg_xcp.rrd
-"test/test_unit.byte": pkg_xen-gnt
-"test/test_unit.byte": pkg_xen-gnt.unix
-"test/test_unit.byte": use_rrd_transport
+<test/test_unit.{native,byte}>: pkg_bigarray
+<test/test_unit.{native,byte}>: pkg_crc
+<test/test_unit.{native,byte}>: pkg_cstruct
+<test/test_unit.{native,byte}>: pkg_oUnit
+<test/test_unit.{native,byte}>: pkg_rrd
+<test/test_unit.{native,byte}>: pkg_threads
+<test/test_unit.{native,byte}>: pkg_xcp.rrd
+<test/test_unit.{native,byte}>: pkg_xen-gnt
+<test/test_unit.{native,byte}>: pkg_xen-gnt.unix
+<test/test_unit.{native,byte}>: use_rrd_transport
 <test/*.ml{,i,y}>: pkg_bigarray
 <test/*.ml{,i,y}>: pkg_crc
 <test/*.ml{,i,y}>: pkg_cstruct
