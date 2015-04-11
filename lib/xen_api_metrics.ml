@@ -50,6 +50,12 @@ module Legend = struct
   (* Example:
     AVERAGE:host:05843b4a-be19-4ea2-9940-be3f31b5e4bb:memory_total_kib
   *)
+
+  let find_data_source dsl (name, _, _, _) =
+    try
+      Some (List.find (fun ds -> ds.API.data_source_name_label = name) dsl)
+    with Not_found ->
+      None
 end
 
 module Updates = struct
