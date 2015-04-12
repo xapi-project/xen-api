@@ -33,6 +33,7 @@ let main () =
 	try_lwt
 		lwt hosts = Host.get_all rpc session_id in
 		let host = List.hd hosts in
+		lwt dsl = Host.get_data_sources rpc session_id host in
 
 		let rec loop start =
 			let open Cohttp_lwt_unix in
@@ -50,6 +51,15 @@ let main () =
 			>>= fun s ->
 			let update = Xen_api_metrics.Updates.parse s in
 			Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
+			Array.iter (fun legend ->
+				match Xen_api_metrics.Legend.of_string legend with
+				| `Ok ((name, cf, `Host, uuid) as legend') ->
+				  if Xen_api_metrics.Legend.find_data_source dsl legend' = None
+					then Printf.fprintf stderr "Failed to find host data source: %s\n" legend
+				| `Ok _ -> ()
+				| `Error (`Msg x) ->
+				  Printf.fprintf stderr "Failed to parse legend: %s\n" x
+			) update.Rrd_updates.legend;
 			Lwt_unix.sleep 5.
 			>>= fun () ->
 			loop update.Rrd_updates.end_time in

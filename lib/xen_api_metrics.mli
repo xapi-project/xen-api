@@ -22,6 +22,19 @@ type cf = [
     should be using. For example, if your concern is peak (as in numerically
     greatest) load, then you should be using the `Max consolidation function. *)
 
+module Legend : sig
+  type cls = [ `VM | `Host | `Other of string ]
+
+  type t = string * cf * cls * Uuidm.t
+  (** A legend identifies a specific data source. *)
+
+  val of_string: string -> [ `Ok of t | `Error of [> `Msg of string ] ]
+
+  val find_data_source: API.data_source_t list -> t -> API.data_source_t option
+  (** Find the data_source record corresponding to a legend. The data source
+      contains useful information such as the units. *)
+end
+
 module Updates : sig
 
   val uri:
