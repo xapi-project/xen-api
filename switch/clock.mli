@@ -15,7 +15,4 @@
  *)
 
 val time: unit -> int64
-(** [time ()] sample a monotonic clock in ns *)
-
-val start_time: int64
-(** the time at which the program started *)
+(** [time ()] time in ns since the program started *)

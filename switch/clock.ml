@@ -14,7 +14,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(* Work around the lack of clock_gettime on OS X *)
-let time () = Int64.of_float (Unix.gettimeofday () *. 1e9)
+let use_mtime () = Mtime.(to_ns_uint64 (elapsed ()))
 
-let start_time = time ()
+let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. 1e9)
+
+let time =
+  if Mtime.available
+  then use_mtime
+  else begin
+    Logging.warn "No monotonic clock source: falling back to calendar time";
+    use_timeofday
+  end
+
