@@ -26,6 +26,7 @@ module Config = struct
     ip: string;
     daemonize: bool;
     pidfile: string option;
+    configfile: string option;
   } with sexp
 
   let default = {
@@ -33,10 +34,20 @@ module Config = struct
     ip = "0.0.0.0";
     daemonize = false;
     pidfile = None;
+    configfile = None;
   }
 
-  let make daemonize port ip pidfile =
-    { daemonize; port; ip; pidfile }
+  let make daemonize port ip pidfile configfile =
+    (* First load any config file *)
+    let config = match configfile with
+    | None -> default
+    | Some filename -> Sexplib.Sexp.load_sexp filename |> t_of_sexp in
+    let d a = function None -> a | Some b -> b in
+    (* Second apply any command-line overrides *)
+    let port = d config.port port in
+    let ip = d config.ip ip in
+    let daemonize = config.daemonize || daemonize in
+    { daemonize; port; ip; pidfile; configfile }
 
   let term =
     let open Cmdliner in
@@ -45,14 +56,17 @@ module Config = struct
       Arg.(value & flag & info [ "daemon" ] ~doc) in
     let port =
       let doc = "Port to listen on" in
-      Arg.(value & opt int default.port & info [ "port" ] ~doc) in
+      Arg.(value & opt (some int) None & info [ "port" ] ~doc) in
     let ip =
       let doc = "IP address to bind to" in
-      Arg.(value & opt string default.ip & info [ "ip" ] ~doc) in
+      Arg.(value & opt (some string) None & info [ "ip" ] ~doc) in
     let pidfile =
       let doc = "PID file to write" in
-      Arg.(value & opt (some string) default.pidfile & info [ "pidfile" ] ~doc) in
-    Term.(pure make $ daemon $ port $ ip $ pidfile)
+      Arg.(value & opt (some string) None & info [ "pidfile" ] ~doc) in
+    let configfile =
+      let doc = "Path to a config file" in
+      Arg.(value & opt (some string) default.configfile & info [ "config" ] ~doc) in
+    Term.(pure make $ daemon $ port $ ip $ pidfile $ configfile)
 end
 
 open Cohttp_lwt_unix
@@ -100,6 +114,8 @@ let make_server config =
   Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port config.port)) t
 
 let main ({ Config.daemonize; port; ip; pidfile } as config) =
+  info "Starting with configuration:";
+  info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config));
   if daemonize
   then Lwt_daemon.daemonize ();
 
