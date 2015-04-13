@@ -98,7 +98,7 @@ let snapshot () =
   let all_queues = queues (List.map (fun n -> n, (Q.Directory.find n)) (Q.Directory.list "")) in
   let transient_queues, permanent_queues = List.partition is_transient all_queues in
   let current_time = time () in
-  { start_time; current_time; permanent_queues; transient_queues }
+  { start_time = 0L; current_time; permanent_queues; transient_queues }
 
 open Protocol
 let process_request conn_id session request = match session, request with
