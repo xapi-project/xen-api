@@ -22,6 +22,8 @@ open Switch
 
 let port = ref 8080
 let ip = ref "0.0.0.0"
+let daemonize = ref false
+let pidfile = ref None
 
 open Cohttp_lwt_unix
 
@@ -66,22 +68,12 @@ let make_server () =
   let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port !port)) t
 
-let _ =
-  let daemonize = ref false in
-  let pidfile = ref None in
-  Arg.parse [
-    "-daemon", Arg.Set daemonize, "run as a background daemon";
-    "-port", Arg.Set_int port, "port to listen on";
-    "-ip", Arg.Set_string ip, "IP to bind to";
-    "-pidfile", Arg.String (fun x -> pidfile := Some x), "write PID to file";
-  ] (fun x -> Printf.fprintf stderr "Ignoring: %s" x)
-    "A simple message switch";
-
-  if !daemonize
+let main daemonize port ip pidfile =
+  if daemonize
   then Lwt_daemon.daemonize ();
 
   let (_ : unit Lwt.t) =
-    match !pidfile with
+    match pidfile with
     | None -> return ()
     | Some x ->
       Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
@@ -90,4 +82,34 @@ let _ =
             Lwt_io.flush oc
           ) in
 
-  Lwt_unix.run (make_server ())
+  Lwt_unix.run (make_server ());
+  `Ok ()
+
+open Cmdliner
+
+let cmd =
+  let doc = "Simple single-host persistent message switch" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "The switch stores a set of named queues, each containing an ordered sequence of messages. Clients may enqueue and acknowledge messages using simple HTTP requests.";
+  ] in
+  let daemon =
+    let doc = "Detach from the terminal and run as a daemon" in
+    Arg.(value & flag & info [ "daemon" ] ~doc) in
+  let port =
+    let doc = "Port to listen on" in
+    Arg.(value & opt int !port & info [ "port" ] ~doc) in
+  let ip =
+    let doc = "IP address to bind to" in
+    Arg.(value & opt string !ip & info [ "ip" ] ~doc) in
+  let pidfile =
+    let doc = "PID file to write" in
+    Arg.(value & opt (some string) !pidfile & info [ "pidfile" ] ~doc) in
+
+  Term.(ret(pure main $ daemon $ port $ ip $ pidfile)),
+  Term.info "main" ~doc ~man
+
+let _ =
+  match Term.eval cmd with
+  | `Error _ -> exit 1
+  | _ -> exit 0
