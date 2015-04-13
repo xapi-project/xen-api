@@ -27,6 +27,7 @@ module Config = struct
     daemonize: bool;
     pidfile: string option;
     configfile: string option;
+    statedir: string option;
   } with sexp
 
   let default = {
@@ -35,9 +36,10 @@ module Config = struct
     daemonize = false;
     pidfile = None;
     configfile = None;
+    statedir = None;
   }
 
-  let make daemonize port ip pidfile configfile =
+  let make daemonize port ip pidfile configfile statedir =
     (* First load any config file *)
     let config = match configfile with
     | None -> default
@@ -47,7 +49,7 @@ module Config = struct
     let port = d config.port port in
     let ip = d config.ip ip in
     let daemonize = config.daemonize || daemonize in
-    { daemonize; port; ip; pidfile; configfile }
+    { daemonize; port; ip; pidfile; configfile; statedir }
 
   let term =
     let open Cmdliner in
@@ -66,7 +68,10 @@ module Config = struct
     let configfile =
       let doc = "Path to a config file" in
       Arg.(value & opt (some string) default.configfile & info [ "config" ] ~doc) in
-    Term.(pure make $ daemon $ port $ ip $ pidfile $ configfile)
+    let statedir =
+      let doc = "Directory containing state files" in
+      Arg.(value & opt (some string) default.statedir & info [ "statedir" ] ~doc) in
+    Term.(pure make $ daemon $ port $ ip $ pidfile $ configfile $ statedir)
 end
 
 open Cohttp_lwt_unix
@@ -113,24 +118,41 @@ let make_server config =
   let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
   Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port config.port)) t
 
+exception Not_a_directory of string
+exception Does_not_exist of string
+
 let main ({ Config.daemonize; port; ip; pidfile } as config) =
   info "Starting with configuration:";
   info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config));
-  if daemonize
-  then Lwt_daemon.daemonize ();
+  try
+    ( match config.Config.statedir with
+      | Some dir ->
+        if Sys.file_exists dir then begin
+          if not(Sys.is_directory dir)
+          then raise (Not_a_directory dir)
+        end else raise (Does_not_exist dir)
+      | _ ->
+        () );
+    if daemonize
+    then Lwt_daemon.daemonize ();
 
-  let (_ : unit Lwt.t) =
-    match pidfile with
-    | None -> return ()
-    | Some x ->
-      Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
-        ~mode:Lwt_io.output x (fun oc ->
-            lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
-            Lwt_io.flush oc
-          ) in
+    let (_ : unit Lwt.t) =
+      match pidfile with
+      | None -> return ()
+      | Some x ->
+        Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
+          ~mode:Lwt_io.output x (fun oc ->
+              lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
+              Lwt_io.flush oc
+            ) in
 
-  Lwt_unix.run (make_server config);
-  `Ok ()
+    Lwt_unix.run (make_server config);
+    `Ok ()
+  with
+  | Not_a_directory dir ->
+    `Error(false, Printf.sprintf "%s is not a directory" dir)
+  | Does_not_exist dir ->
+    `Error(false, Printf.sprintf "%s does not exist" dir)
 
 open Cmdliner
 
