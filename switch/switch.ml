@@ -97,7 +97,7 @@ let snapshot () =
     fun (x, _) -> StringSet.mem x all in
   let all_queues = queues (List.map (fun n -> n, (Q.Directory.find n)) (Q.Directory.list "")) in
   let transient_queues, permanent_queues = List.partition is_transient all_queues in
-  let current_time = time () in
+  let current_time = ns () in
   { start_time = 0L; current_time; permanent_queues; transient_queues }
 
 open Protocol
@@ -140,7 +140,7 @@ let process_request conn_id session request = match session, request with
     let start = Unix.gettimeofday () in
     let from = match from with None -> -1L | Some x -> Int64.of_string x in
     let rec wait () =
-      let time = Int64.add (time ()) (Int64.of_float (timeout *. 1e9)) in
+      let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
       List.iter (record_transfer time) queues;
       let not_seen = Q.transfer from queues in
       if not_seen <> []
@@ -178,7 +178,7 @@ let process_request conn_id session request = match session, request with
            | Message.Request _ -> None
            | Message.Response id' -> begin match Q.entry id' with
                | Some request_entry ->
-                 Some (Int64.sub (time ()) request_entry.Entry.time)
+                 Some (Int64.sub (ns ()) request_entry.Entry.time)
                | None ->
                  None
              end in

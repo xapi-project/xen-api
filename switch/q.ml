@@ -170,7 +170,7 @@ let send origin name data =
          let q' = { q with
                     next_id = Int64.add q.next_id 1L;
                     length = q.length + 1;
-                    q = Int64Map.add q.next_id (Protocol.Entry.make (time ()) origin data) q.q
+                    q = Int64Map.add q.next_id (Protocol.Entry.make (ns ()) origin data) q.q
                   } in
          Hashtbl.replace queues name q';
          Lwt_condition.broadcast q.c ();

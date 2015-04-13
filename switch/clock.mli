@@ -14,5 +14,5 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val time: unit -> int64
-(** [time ()] time in ns since the program started *)
+val ns: unit -> int64
+(** [ns ()] time in ns since the program started *)

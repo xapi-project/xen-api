@@ -18,7 +18,7 @@ let use_mtime () = Mtime.(to_ns_uint64 (elapsed ()))
 
 let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. 1e9)
 
-let time =
+let ns =
   if Mtime.available
   then use_mtime
   else begin
