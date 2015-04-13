@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
+open Sexplib.Std
 open Cohttp
 
 exception Queue_deleted of string
@@ -142,7 +142,7 @@ end
 type origin =
   | Anonymous of string (** An un-named connection, probably a temporary client connection *)
   | Name of string   (** A service with a well-known name *)
-with rpc
+with rpc, sexp
 (** identifies where a message came from *)
 
 module Entry = struct

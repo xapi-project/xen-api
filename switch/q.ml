@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Sexplib.Std
 open Lwt
 open Logging
 open Clock
@@ -52,6 +53,20 @@ module Lengths = struct
     if Hashtbl.mem queues name
     then Some (Measurement.Int (Hashtbl.find queues name).length)
     else None
+end
+
+(* operations which need to be persisted *)
+module Op = struct
+  type directory_operation =
+    | Add of string
+    | Remove of string
+  with sexp
+
+  type operation =
+    | Directory of directory_operation
+    | Ack of string * int64 (* queue * id *)
+    | Send of Protocol.origin * string * int64 * string (* origin * queue * id * body *)
+  with sexp
 end
 
 module Directory = struct
