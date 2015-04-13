@@ -1,16 +1,36 @@
-PREFIX?=/usr/local
+SETUP = ocaml setup.ml
 
-.PHONY: clean install uninstall
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-dist/build/rrddump/rrddump:
-	obuild configure
-	obuild build
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
+
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
+
+all:
+	$(SETUP) -all $(ALLFLAGS)
+
+install: setup.data
+	install rrddump.native $(DESTDIR)/$(PREFIX)/bin/rrddump
+
+uninstall: setup.data
+	rm -f $(PREFIX)/bin/rrddump
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
 clean:
-	rm -rf dist
+	$(SETUP) -clean $(CLEANFLAGS)
 
-install: dist/build/rrddump/rrddump
-	cp dist/build/rrddump/rrddump $(PREFIX)/bin/
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
-uninstall:
-	rm -f $(PREFIX)/bin/rrddump
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
