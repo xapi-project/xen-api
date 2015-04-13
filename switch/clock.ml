@@ -26,3 +26,5 @@ let ns =
     use_timeofday
   end
 
+include Unix
+let time = gettimeofday
