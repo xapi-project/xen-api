@@ -23,6 +23,7 @@ let port = ref 8080
 let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
+let shutdown = "shutdown"
 
 let (>>|=) m f = m >>= function
   | `Ok x -> f x
@@ -44,6 +45,7 @@ let main () =
       done in
   let t = Unix.gettimeofday () -. start in
   Printf.printf "Finished %d RPCs in %.02f\n" !counter t;
+  Client.rpc c shutdown >>|= fun _ ->
   return ()
 
 let _ =

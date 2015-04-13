@@ -521,13 +521,28 @@ let serve_cmd =
   Term.(ret(pure serve $ common_options_t $ qname $ program)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
+let shutdown common_options_t =
+  let c = Client.connect common_options_t.Common.port in
+  Client.shutdown c;
+  `Ok ()
+
+let shutdown_cmd =
+  let doc = "shut down the message switch" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Request that the message switch shut itself down cleanly.";
+  ] @ help in
+  Term.(ret(pure shutdown $ common_options_t)),
+  Term.info "shutdown" ~sdocs:_common_options ~doc ~man
+
 let default_cmd =
   let doc = "interact with an XCP message switch" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
 
-let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; destroy_cmd; call_cmd; serve_cmd; diagnostics_cmd]
+let cmds = [list_cmd; tail_cmd; mscgen_cmd; ack_cmd; destroy_cmd;
+  call_cmd; serve_cmd; diagnostics_cmd; shutdown_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with

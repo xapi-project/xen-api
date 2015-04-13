@@ -24,6 +24,7 @@ let port = ref 8080
 let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
+let shutdown = "shutdown"
 
 let (>>|=) m f = m >>= function
   | `Ok x -> f x
@@ -52,6 +53,7 @@ let main () =
   ) >>= fun () ->
   let t = Time.diff (Time.now()) start in
   Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
+  Client.rpc c shutdown >>|= fun _ ->
   Shutdown.exit 0
 
 let _ =

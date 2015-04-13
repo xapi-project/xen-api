@@ -21,14 +21,17 @@ open Protocol
 let port = ref 8080
 let name = ref "server"
 
-let process x = return x
+let t, u = Lwt.task ()
+
+let process = function
+  | "shutdown" -> Lwt.wakeup u (); return "ok"
+  | x -> return x
 
 let main () =
   lwt c = Protocol_lwt.M.connect !port in
-  Protocol_lwt.Server.listen process c !name >>= fun t ->
-  (* forever *)
-  let t, u = Lwt.task () in
-  t
+  Protocol_lwt.Server.listen process c !name >>= fun _ ->
+  t >>= fun () ->
+  Lwt_unix.sleep 1.
 
 let _ =
   Arg.parse [

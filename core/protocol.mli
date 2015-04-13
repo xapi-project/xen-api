@@ -72,6 +72,7 @@ module In : sig
     | Ack of message_id          (** ACK this particular message *)
     | List of string             (** return a list of queue names with a prefix *)
     | Diagnostics                (** return a diagnostic dump *)
+    | Shutdown                   (** Shut down the switch *)
     | Get of string list         (** return a web interface resource *)
 
   val rpc_of_t : t -> Rpc.t
@@ -148,6 +149,7 @@ module Out : sig
     | Ack
     | List of string list
     | Diagnostics of Diagnostics.t
+    | Shutdown
     | Not_logged_in
     | Get of string
 
@@ -237,4 +239,7 @@ module Client(M: S) : sig
   val destroy: t -> string -> [ `Ok of unit | `Error of exn ] M.IO.t
   (** [destroy t queue_name] destroys the named queue, and all associated
       messages. *)
+
+  val shutdown: t -> [ `Ok of unit | `Error of exn ] M.IO.t
+  (** [shutdown t] request that the switch shuts down *)
 end

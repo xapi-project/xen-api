@@ -70,6 +70,7 @@ module In = struct
     | Ack of message_id          (** ACK this particular message *)
     | List of string             (** return a list of queue names with a prefix *)
     | Diagnostics                (** return a diagnostic dump *)
+    | Shutdown                   (** shutdown the switch *)
     | Get of string list         (** return a web interface resource *)
   with rpc
 
@@ -97,6 +98,7 @@ module In = struct
       Some (Send (Uri.pct_decode name, { Message.kind = Message.Request (Uri.pct_decode reply_to); payload = body }))
     | body, `POST, [ ""; "response"; name; from_q; from_n ] ->
       Some (Send (Uri.pct_decode name, { Message.kind = Message.Response (from_q, Int64.of_string from_n); payload = body }))
+    | "", `POST, [ ""; "shutdown" ]       -> Some Shutdown
     | _, _, _ -> None
 
   let headers payload =
@@ -131,6 +133,8 @@ module In = struct
       Some p, `POST, (Uri.make ~path:(Printf.sprintf "/response/%s/%s/%Ld" name q i) ())
     | Diagnostics ->
       None, `GET, (Uri.make ~path:"/" ())
+    | Shutdown ->
+      None, `POST, (Uri.make ~path:"/shutdown" ())
     | Get path ->
       None, `GET, (Uri.make ~path:(String.concat "/" ("" :: "admin" :: path)) ())
 end
@@ -194,6 +198,7 @@ module Out = struct
     | Ack
     | List of string list
     | Diagnostics of Diagnostics.t
+    | Shutdown
     | Not_logged_in
     | Get of string
 
@@ -201,6 +206,8 @@ module Out = struct
     | Login
     | Ack
     | Destroy ->
+      `OK, ""
+    | Shutdown ->
       `OK, ""
     | Send x ->
       `OK, (Jsonrpc.to_string (rpc_of_message_id_opt x))
@@ -385,6 +392,9 @@ module Client = functor(M: S) -> struct
                        return (`Ok ())
                      end else begin
                        Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
+                       Hashtbl.iter (fun k v ->
+                         Printf.printf "  have wakener id %s, %Ld\n%!" (fst j) (snd j)
+                       ) wakener;
                        return (`Ok ())
                      end
                    | Message.Request _ -> return (`Ok ())
@@ -438,6 +448,10 @@ module Client = functor(M: S) -> struct
 
   let destroy c queue_name =
     Connection.rpc c.requests_conn (In.Destroy queue_name) >>|= fun result ->
+    return (`Ok ())
+
+  let shutdown c =
+    Connection.rpc c.requests_conn In.Shutdown >>|= fun result ->
     return (`Ok ())
 end
 

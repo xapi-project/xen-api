@@ -193,3 +193,10 @@ let process_request conn_id session request = match session, request with
         Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
         return (Out.Send (Some id))
     end
+  | Some session, In.Shutdown ->
+    info "Received shutdown command";
+    let (_: unit Lwt.t) =
+      Lwt_unix.sleep 1.
+      >>= fun () ->
+      exit 0 in
+    return Out.Shutdown
