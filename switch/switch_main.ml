@@ -13,22 +13,53 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
+open Sexplib.Std
 open Lwt
 open Cohttp
 open Logging
 open Clock
 open Switch
 
-let port = ref 8080
-let ip = ref "0.0.0.0"
-let daemonize = ref false
-let pidfile = ref None
+module Config = struct
+  type t = {
+    port: int;
+    ip: string;
+    daemonize: bool;
+    pidfile: string option;
+  } with sexp
+
+  let default = {
+    port = 8080;
+    ip = "0.0.0.0";
+    daemonize = false;
+    pidfile = None;
+  }
+
+  let make daemonize port ip pidfile =
+    { daemonize; port; ip; pidfile }
+
+  let term =
+    let open Cmdliner in
+    let daemon =
+      let doc = "Detach from the terminal and run as a daemon" in
+      Arg.(value & flag & info [ "daemon" ] ~doc) in
+    let port =
+      let doc = "Port to listen on" in
+      Arg.(value & opt int default.port & info [ "port" ] ~doc) in
+    let ip =
+      let doc = "IP address to bind to" in
+      Arg.(value & opt string default.ip & info [ "ip" ] ~doc) in
+    let pidfile =
+      let doc = "PID file to write" in
+      Arg.(value & opt (some string) default.pidfile & info [ "pidfile" ] ~doc) in
+    Term.(pure make $ daemon $ port $ ip $ pidfile)
+end
 
 open Cohttp_lwt_unix
 
-let make_server () =
-  info "Started server on localhost:%d" !port;
+let make_server config =
+  let open Config in
+  info "Started server on localhost:%d" config.port;
 
   let (_: 'a) = logging_thread () in
 
@@ -66,9 +97,9 @@ let make_server () =
 
   info "Message switch starting";
   let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
-  Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port !port)) t
+  Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port config.port)) t
 
-let main daemonize port ip pidfile =
+let main ({ Config.daemonize; port; ip; pidfile } as config) =
   if daemonize
   then Lwt_daemon.daemonize ();
 
@@ -82,7 +113,7 @@ let main daemonize port ip pidfile =
             Lwt_io.flush oc
           ) in
 
-  Lwt_unix.run (make_server ());
+  Lwt_unix.run (make_server config);
   `Ok ()
 
 open Cmdliner
@@ -93,20 +124,8 @@ let cmd =
     `S "DESCRIPTION";
     `P "The switch stores a set of named queues, each containing an ordered sequence of messages. Clients may enqueue and acknowledge messages using simple HTTP requests.";
   ] in
-  let daemon =
-    let doc = "Detach from the terminal and run as a daemon" in
-    Arg.(value & flag & info [ "daemon" ] ~doc) in
-  let port =
-    let doc = "Port to listen on" in
-    Arg.(value & opt int !port & info [ "port" ] ~doc) in
-  let ip =
-    let doc = "IP address to bind to" in
-    Arg.(value & opt string !ip & info [ "ip" ] ~doc) in
-  let pidfile =
-    let doc = "PID file to write" in
-    Arg.(value & opt (some string) !pidfile & info [ "pidfile" ] ~doc) in
 
-  Term.(ret(pure main $ daemon $ port $ ip $ pidfile)),
+  Term.(ret(pure main $ Config.term)),
   Term.info "main" ~doc ~man
 
 let _ =
