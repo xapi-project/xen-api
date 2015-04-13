@@ -16,7 +16,7 @@
 
 exception Queue_deleted of string
 
-type message_id = string * int64
+type message_id = string * int64 with sexp
 (** uniquely identifier for this message *)
 
 val rpc_of_message_id: message_id -> Rpc.t
@@ -29,10 +29,12 @@ module Message : sig
   type kind =
     | Request of string
     | Response of message_id
+  with sexp
   type t = {
     payload: string; (* switch to Rpc.t *)
     kind: kind;
   }
+  with sexp
   val t_of_rpc: Rpc.t -> t
   val rpc_of_t: t -> Rpc.t
 end

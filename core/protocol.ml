@@ -18,20 +18,20 @@ open Cohttp
 
 exception Queue_deleted of string
 
-type message_id = (string * int64) with rpc
+type message_id = (string * int64) with rpc, sexp
 (** uniquely identifier for this message *)
 
-type message_id_opt = message_id option with rpc
+type message_id_opt = message_id option with rpc, sexp
 
 module Message = struct
   type kind =
     | Request of string
     | Response of message_id
-  with rpc
+  with rpc, sexp
   type t = {
     payload: string; (* switch to Rpc.t *)
     kind: kind;
-  } with rpc
+  } with rpc, sexp
 
 end
 

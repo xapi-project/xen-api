@@ -64,8 +64,8 @@ module Op = struct
 
   type t =
     | Directory of directory_operation
-    | Ack of string * int64 (* queue * id *)
-    | Send of Protocol.origin * string * int64 * string (* origin * queue * id * body *)
+    | Ack of Protocol.message_id
+    | Send of Protocol.origin * string * int64 * Protocol.Message.t (* origin * queue * id * body *)
   with sexp
 
   let of_cstruct x =
@@ -83,6 +83,7 @@ end
 
 module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Op)
 
+module Internal = struct
 module Directory = struct
   let waiters = Hashtbl.create 128
 
@@ -174,22 +175,62 @@ let wait from name =
     Directory.wait_for name;
   end
 
-let send origin name data =
+let send origin name id data : unit Lwt.t =
   (* If a queue doesn't exist then drop the message *)
   if Directory.exists name then begin
     let q = Directory.find name in
     Lwt_mutex.with_lock q.m
       (fun () ->
-         let id = q.next_id in
          let q' = { q with
-                    next_id = Int64.add q.next_id 1L;
                     length = q.length + 1;
-                    q = Int64Map.add q.next_id (Protocol.Entry.make (ns ()) origin data) q.q
+                    q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
                   } in
          Hashtbl.replace queues name q';
          Lwt_condition.broadcast q.c ();
-         return (Some (name, id))
+         return ()
       )
-  end else return None
+  end else return ()
 
 let contents q = Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q []
+
+let get_next_id name =
+  if Directory.exists name then begin
+    let q = Directory.find name in
+    Lwt_mutex.with_lock q.m
+      (fun () ->
+        let id = q.next_id in
+        let q' = { q with next_id = Int64.succ q.next_id } in
+        Hashtbl.replace queues name q';
+        return (Some id)
+      )
+  end else return None
+end
+
+let perform_one = function
+  | Op.Directory (Op.Add name) -> Internal.Directory.add name; return ()
+  | Op.Directory (Op.Remove name) -> Internal.Directory.remove name; return ()
+  | Op.Ack id -> Internal.ack id; return ()
+  | Op.Send (origin, name, id, body) -> Internal.send origin name id body
+
+let contents = Internal.contents
+
+module Directory = struct
+  let add = Internal.Directory.add
+  let remove = Internal.Directory.remove
+  let find = Internal.Directory.find
+  let list = Internal.Directory.list
+end
+
+let queue_of_id = Internal.queue_of_id
+let ack = Internal.ack
+let transfer = Internal.transfer
+let wait = Internal.wait
+let entry = Internal.entry
+let send origin name body =
+  Internal.get_next_id name
+  >>= function
+  | None -> return None
+  | Some id ->
+    Internal.send origin name id body
+    >>= fun () ->
+    return (Some (name, id))
