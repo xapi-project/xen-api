@@ -19,6 +19,8 @@ depends: [
   "re"
   "rpc"
   "mtime"
+  "mirage-block-unix"
+  "shared-block-ring"
   "cmdliner"
   "ssl"
   "oasis"
