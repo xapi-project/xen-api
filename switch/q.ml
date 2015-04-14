@@ -18,7 +18,7 @@ open Lwt
 open Logging
 open Clock
 
-module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
+module Int64Map = Map.Make(Int64)
 
 type t = {
   q: Protocol.Entry.t Int64Map.t;
@@ -38,7 +38,11 @@ let make name = {
   m = Lwt_mutex.create ();
 }
 
-let queues : (string, t) Hashtbl.t = Hashtbl.create 128
+module StringMap = Map.Make(String)
+
+type queues = t StringMap.t
+
+let queues = ref StringMap.empty
 
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
@@ -46,12 +50,12 @@ module Lengths = struct
   open Measurable
   let d x =Description.({ description = "length of queue " ^ x; units = "" })
   let list_available () =
-    Hashtbl.fold (fun name _ acc ->
+    StringMap.fold (fun name _ acc ->
         (name, d name) :: acc
-      ) queues []
+      ) !queues []
   let measure name =
-    if Hashtbl.mem queues name
-    then Some (Measurement.Int (Hashtbl.find queues name).length)
+    if StringMap.mem name !queues
+    then Some (Measurement.Int (StringMap.find name !queues).length)
     else None
 end
 
@@ -100,11 +104,11 @@ module Directory = struct
       );
     t
 
-  let exists name = Hashtbl.mem queues name
+  let exists name = StringMap.mem name !queues
 
   let add name =
     if not(exists name) then begin
-      Hashtbl.replace queues name (make name);
+      queues := StringMap.add name (make name) !queues;
       if Hashtbl.mem waiters name then begin
         let threads = Hashtbl.find waiters name in
         Hashtbl.remove waiters name;
@@ -114,16 +118,16 @@ module Directory = struct
 
   let find name =
     if exists name
-    then Hashtbl.find queues name
+    then StringMap.find name !queues
     else make name
 
   let remove name =
-    Hashtbl.remove queues name
+    queues := StringMap.remove name !queues
 
-  let list prefix = Hashtbl.fold (fun name _ acc ->
+  let list prefix = StringMap.fold (fun name _ acc ->
       if startswith prefix name
       then name :: acc
-      else acc) queues []
+      else acc) !queues []
 end
 
 let transfer from names =
@@ -152,7 +156,7 @@ let ack (name, id) =
                  length = q.length - 1;
                  q = Int64Map.remove id q.q
                } in
-      Hashtbl.replace queues name q'
+      queues := StringMap.add name q' !queues
     end
   end
 
@@ -185,7 +189,7 @@ let send origin name id data : unit Lwt.t =
                     length = q.length + 1;
                     q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
                   } in
-         Hashtbl.replace queues name q';
+         queues := StringMap.add name q' !queues;
          Lwt_condition.broadcast q.c ();
          return ()
       )
@@ -200,7 +204,7 @@ let get_next_id name =
       (fun () ->
         let id = q.next_id in
         let q' = { q with next_id = Int64.succ q.next_id } in
-        Hashtbl.replace queues name q';
+        queues := StringMap.add name q' !queues;
         return (Some id)
       )
   end else return None
