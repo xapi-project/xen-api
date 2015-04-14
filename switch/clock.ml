@@ -28,3 +28,5 @@ let ns =
 
 include Unix
 let time = gettimeofday
+
+let s () = Int64.to_float (ns ()) /. 1e9

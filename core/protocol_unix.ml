@@ -213,7 +213,7 @@ module Client = struct
     let requests_m = IO.Mutex.create () in
     let (_ : Thread.t) =
       let rec loop from =
-        let timeout = 5. in
+        let timeout = 30. in
         let transfer = {
           In.from = from;
           timeout = timeout;
@@ -324,13 +324,11 @@ module Server = struct
 
     Connection.rpc request_conn (In.Login token) >>= fun _ ->
     Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
-    Printf.fprintf stdout "Serving requests forever\n%!";
 
     let rec loop from =
-      let timeout = 5. in
       let transfer = {
         In.from = from;
-        timeout = timeout;
+        timeout = Protocol.timeout;
         queues = [ name ];
       } in
       let frame = In.Transfer transfer in

@@ -18,3 +18,6 @@ include V1.CLOCK
 
 val ns: unit -> int64
 (** [ns ()] time in ns since the program started *)
+
+val s: unit -> float
+(** [s ()] time in seconds since the program started *)

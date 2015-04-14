@@ -25,6 +25,8 @@ val message_id_of_rpc: Rpc.t -> message_id
 val rpc_of_message_id_opt: message_id option -> Rpc.t
 val message_id_opt_of_rpc: Rpc.t -> message_id option
 
+val timeout: float
+
 module Message : sig
   type kind =
     | Request of string
@@ -100,7 +102,7 @@ module Entry : sig
     origin: origin;
     time: int64; (** ns *)
     message: Message.t;
-  }
+  } with sexp
   (** an enqueued message *)
 
   val make: int64 -> origin -> Message.t -> t

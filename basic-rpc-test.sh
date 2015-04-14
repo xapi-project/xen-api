@@ -13,7 +13,7 @@ set -x
 echo Checking the switch can start late
 ./server_unix_main.native -port 8081 &
 sleep 1
-./switch_main.native -port 8081 &
+./switch_main.native --port 8081 &
 ./client_unix_main.native -port 8081 -secs 5
 sleep 2
 

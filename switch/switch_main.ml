@@ -82,6 +82,8 @@ let make_server config =
 
   let (_: 'a) = logging_thread () in
 
+  let queues = ref Q.empty in
+
   (* (Response.t * Body.t) Lwt.t *)
   let callback (_, conn_id) req body =
     let conn_id_s = Cohttp.Connection.to_string conn_id in
@@ -97,7 +99,20 @@ let make_server config =
     | Some request ->
       debug "<- %s [%s]" path body;
       let session = Connections.get_session conn_id_s in
-      lwt response = process_request conn_id_s session request in
+
+      (* If it's the "blocking poll", block first and then call the implementation
+         with the new queue state post-blocking *)
+      ( match session, request with
+        | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
+          let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
+          List.iter (Switch.record_transfer time) names;
+          let from = match from with None -> -1L | Some x -> Int64.of_string x in
+          Q.wait !queues from timeout names
+        | _, _ -> return () )
+      >>= fun () ->
+
+      lwt q, response = process_request conn_id_s !queues session request in
+      queues := q;
       let status, body = Out.to_response response in
       debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
       Cohttp_lwt_unix.Server.respond_string ~status ~body ()
@@ -111,7 +126,8 @@ let make_server config =
     | Some session ->
       if not(Connections.is_session_active session) then begin
         info "Session %s cleaning up" session;
-        Transient_queue.remove session
+        let qs = Q.owned_queues !queues session in
+        queues := Q.StringSet.fold (fun x queues -> Q.Directory.remove queues x) qs !queues
       end in
 
   info "Message switch starting";
