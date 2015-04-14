@@ -39,3 +39,19 @@ Executable test_unit
 Test test_unit
   Command:              $test_unit
   WorkingDirectory:     test
+
+Executable test_scale
+  CompiledObject:       best
+  Build$:               flag(tests)
+  Path:                 test
+  MainIs:               test_scale.ml
+  Install:              false
+  BuildDepends:         oUnit, rrd-transport
+
+Test test_scale_v1
+  Command:              $test_scale -p 1
+  WorkingDirectory:     test
+
+Test test_scale_v2
+  Command:              $test_scale -p 2
+  WorkingDirectory:     test
