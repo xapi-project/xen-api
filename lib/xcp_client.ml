@@ -67,15 +67,23 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 			match Response.read ic with
 				| `Eof -> failwith (Printf.sprintf "Failed to read HTTP response from: %s" (url ()))
 				| `Invalid x -> failwith (Printf.sprintf "Failed to read HTTP response from: %s (got '%s')" (url ()) x)
-				| `Ok t ->
-					begin match Cohttp.Response.status t with
-						| `OK ->
-							let reader = Response.make_body_reader t ic in
-							let body = match Response.read_body_chunk reader with
-							| Cohttp.Transfer.Chunk body
-							| Cohttp.Transfer.Final_chunk body -> body
-							| _ -> "" in
-							response_of_string body
+				| `Ok response ->
+					let body = Buffer.create 16 in
+					let reader = Response.make_body_reader response ic in
+					let rec loop () =
+						match Response.read_body_chunk reader with
+						| Cohttp.Transfer.Chunk x ->
+							Buffer.add_string body x;
+							loop()
+						| Cohttp.Transfer.Final_chunk x ->
+							Buffer.add_string body x
+						| Cohttp.Transfer.Done ->
+							()
+					in
+                                        loop ();
+					let body = Buffer.contents body |> response_of_string in
+					begin match Cohttp.Response.status response with
+						| `OK -> body
 						| bad -> failwith (Printf.sprintf "Unexpected HTTP response code: %s" (Cohttp.Code.string_of_status bad))
 					end
 		)
