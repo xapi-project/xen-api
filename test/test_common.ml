@@ -27,6 +27,54 @@ let test_payload = Rrd_protocol.({
 	];
 })
 
+let make_list make_one count =
+	let rec make_list make_one acc = function
+		| count when count <= 0 -> acc
+		| count ->
+			let thing = make_one () in
+			make_list make_one (thing :: acc) (count - 1)
+	in
+	make_list make_one [] count
+
+let make_random_datasource () =
+	let owner =
+		if Random.bool ()
+		then Rrd.Host
+		else begin
+			if Random.bool ()
+			then Rrd.SR "test_sr"
+			else Rrd.VM "test_vm"
+		end
+	in
+	let value =
+		if Random.bool ()
+		then Rrd.VT_Int64 (Random.int64 1048576L)
+		else Rrd.VT_Float (Random.float 1048576.0)
+	in
+	let ty =
+		if Random.bool ()
+		then Rrd.Absolute
+		else begin
+			if Random.bool ()
+			then Rrd.Gauge
+			else Rrd.Derive
+		end
+	in
+	owner,
+	Ds.ds_make ~name:"test_ds"
+		~description:"A datasource"
+		~value
+		~ty
+		~default:true
+		~units:"things" ()
+
+let make_random_payload timestamp datasource_count =
+	let datasources = make_list make_random_datasource datasource_count in
+	Rrd_protocol.({
+		timestamp;
+		datasources;
+	})
+
 let are_value_types_equal value1 value2 =
 	match value1, value2 with
 	| Rrd.VT_Int64 a, Rrd.VT_Int64 b -> a = b

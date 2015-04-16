@@ -22,20 +22,25 @@ let sync sock =
 	then ()
 	else failwith "Didn't get the synchronisation string from the child"
 
-let read_payloads shared_file_names protocol sock =
+type delivery = {
+	shared_file: string;
+	payload: Rrd_protocol.payload;
+}
+
+let read_payloads deliveries protocol sock =
 	let open Rrd_reader in
 	sync sock;
 	print_endline "Reading payloads";
 	print_int 0;
 	let readers =
 		List.mapi
-			(fun index file_name ->
-				Printf.printf "\r%d%!" (index + 1);
-				let reader = FileReader.create file_name protocol in
+			(fun index {shared_file; payload} ->
+				let reader = FileReader.create shared_file protocol in
 				let received_payload = reader.read_payload() in
-				assert_payloads_equal test_payload received_payload;
+				assert_payloads_equal payload received_payload;
+				Printf.printf "\r%d%!" (index + 1);
 				reader)
-		shared_file_names
+		deliveries
 	in
 	print_newline ();
 	print_endline "Payloads read";
@@ -43,21 +48,22 @@ let read_payloads shared_file_names protocol sock =
 	List.iter (fun reader -> reader.cleanup ()) readers;
 	print_endline "Readers cleaned up";
 	send_ready sock;
+	sync sock;
 	print_endline "Reader process done"
 
-let write_payloads shared_file_names protocol sock =
+let write_payloads deliveries protocol sock =
 	let open Rrd_writer in
 	print_endline "Writing payloads";
 	print_int 0;
 	let writers =
 		List.mapi
-			(fun index file_name ->
-				Printf.printf "\r%d%!" (index + 1);
-				let id = {path = file_name; shared_page_count = 1} in
+			(fun index {shared_file; payload} ->
+				let id = {path = shared_file; shared_page_count = 1} in
 				let _, writer = FileWriter.create id protocol in
-				writer.write_payload test_payload;
+				writer.write_payload payload;
+				Printf.printf "\r%d%!" (index + 1);
 				writer)
-			shared_file_names
+			deliveries
 	in
 	print_newline ();
 	print_endline "Payloads written";
@@ -66,20 +72,30 @@ let write_payloads shared_file_names protocol sock =
 	print_endline "Cleaning up writers";
 	List.iter (fun writer -> writer.cleanup ()) writers;
 	print_endline "Writers cleaned up";
+	send_ready sock;
 	print_endline "Writer process done"
 
 let run_tests shared_file_count protocol =
-	let shared_file_names = get_shared_file_names shared_file_count in
+	Random.self_init ();
+	let timestamp = Int64.of_float (Unix.gettimeofday ()) in
+	let deliveries =
+		make_list
+			(fun () -> {
+				shared_file = make_shared_file ();
+				payload = make_random_payload timestamp (Random.int 4);
+			})
+			shared_file_count
+	in
 	let reader_sock, writer_sock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in
 	match Unix.fork () with
 	| 0 ->
 		(* Child - we will be the writer. *)
 		Unix.close reader_sock;
-		write_payloads shared_file_names protocol writer_sock
+		write_payloads deliveries protocol writer_sock
 	| child_pid ->
 		(* Parent - we will be the reader. *)
 		Unix.close writer_sock;
-		read_payloads shared_file_names protocol reader_sock
+		read_payloads deliveries protocol reader_sock
 
 let () =
 	let open Rrd_interface in
