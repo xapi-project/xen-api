@@ -28,28 +28,36 @@ type delivery = {
 }
 
 let read_payloads deliveries protocol sock =
-	let open Rrd_reader in
-	sync sock;
-	print_endline "Reading payloads";
-	print_int 0;
-	let readers =
-		List.mapi
-			(fun index {shared_file; payload} ->
-				let reader = FileReader.create shared_file protocol in
-				let received_payload = reader.read_payload() in
-				assert_payloads_equal payload received_payload;
-				Printf.printf "\r%d%!" (index + 1);
-				reader)
-		deliveries
-	in
-	print_newline ();
-	print_endline "Payloads read";
-	print_endline "Cleaning up readers";
-	List.iter (fun reader -> reader.cleanup ()) readers;
-	print_endline "Readers cleaned up";
-	send_ready sock;
-	sync sock;
-	print_endline "Reader process done"
+	try
+		let open Rrd_reader in
+		sync sock;
+		print_endline "Reading payloads";
+		print_int 0;
+		let readers =
+			List.mapi
+				(fun index {shared_file; payload} ->
+					let reader = FileReader.create shared_file protocol in
+					let received_payload = reader.read_payload() in
+					assert_payloads_equal payload received_payload;
+					Printf.printf "\r%d%!" (index + 1);
+					reader)
+			deliveries
+		in
+		print_newline ();
+		print_endline "Payloads read";
+		print_endline "Cleaning up readers";
+		List.iter (fun reader -> reader.cleanup ()) readers;
+		print_endline "Readers cleaned up";
+		send_ready sock;
+		sync sock;
+		print_endline "Reader process done"
+	with e ->
+		List.iter
+			(fun delivery ->
+				try Unix.unlink delivery.shared_file
+				with Unix.Unix_error (Unix.ENOENT, _, _) -> ())
+			deliveries;
+		raise e
 
 let write_payloads deliveries protocol sock =
 	let open Rrd_writer in
