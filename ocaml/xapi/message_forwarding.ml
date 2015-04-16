@@ -3388,28 +3388,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let vbds = Db.VBD.get_records_where ~__context
 			    ~expr:(Db_filter_types.Eq(Db_filter_types.Field "VDI",
 			                              Db_filter_types.Literal (Ref.string_of vdi))) in
-			let vbds = List.filter (fun (_,vbd) -> vbd.API.vBD_currently_attached) vbds in
-			if List.length vbds <> 1
+			if List.length vbds < 1
 			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 
 			let vm = (snd (List.hd vbds)).API.vBD_VM in
-			let vmr = Db.VM.get_record ~__context ~self:vm in
-			if vmr.API.vM_power_state <> `Running
-			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
+
 			(* hackity hack *)
 			let options = ("__internal__vm",Ref.string_of vm) :: (List.remove_assoc "__internal__vm" options) in
 			let local_fn = Local.VDI.pool_migrate ~vdi ~sr ~options in
 
 			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
-			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
+				(vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
 
 			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
-					(fun () ->
-							let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-							let host = Db.VM.get_resident_on ~__context ~self:vm in
-							VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
-								(fun () ->
-									do_op_on ~local_fn ~__context ~host
+				(fun () ->
+					let snapshot, host =
+						if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+							(Helpers.get_boot_record ~__context ~self:vm,
+							 Db.VM.get_resident_on ~__context ~self:vm)
+						else
+							let snapshot = Db.VM.get_record ~__context ~self:vm in
+							let choose_fn ~host =
+								Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ();
+								Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+							(snapshot, Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn ()) in
+						VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
+							(fun () ->
+								do_op_on ~local_fn ~__context ~host
 									(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
 
 		let resize ~__context ~vdi ~size =

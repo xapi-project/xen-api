@@ -930,7 +930,7 @@ let handler req fd _ =
     )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
-	let localhost = Helpers.get_localhost ~__context in
+
 	(* inserted by message_forwarding *)
 	let vm = Ref.of_string (List.assoc "__internal__vm" options) in
 
@@ -954,6 +954,15 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		(vdi,sr)) vdis in
 	let vdi_map = (vdi,sr) :: vdi_map in
+	let reqd_srs = snd (List.split vdi_map) in
+	let dest_host =
+		(* Prefer to use localhost as the destination too if that is possible. This is more efficient and also less surprising *)
+		let localhost = Helpers.get_localhost ~__context in
+		try
+			Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs ~host:localhost;
+			localhost
+		with _ ->
+			Xapi_vm_helpers.choose_host ~__context ~choose_fn:(Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs) () in
 
 	(* Need a network for the VM migrate *)
 	let management_if =
@@ -966,8 +975,8 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 	in
 	TaskHelper.set_cancellable ~__context;
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		let token = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:localhost ~network ~options in
-		assert_can_migrate ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[];
-		ignore(migrate_send ~__context ~vm ~dest:token ~live:true ~vdi_map ~vif_map:[] ~options:[])
+		let dest = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:dest_host ~network ~options in
+		assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
+		ignore(migrate_send ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[])
 	) ;
 	Db.VBD.get_VDI ~__context ~self:vbd
