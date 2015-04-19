@@ -349,7 +349,8 @@ let send queues origin name body =
       (fun () ->
         Internal.get_next_id queues name
         >>= fun id ->
-        Internal.send queues origin name id body
+        let op = Op.Send(origin, name, id, body) in
+        perform_one queues op
         >>= fun queues ->
         return (Some (queues, (name, id)))
       )
