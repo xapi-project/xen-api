@@ -58,6 +58,17 @@ type t = {
   waiter: waiter;
 } with sexp
 
+let t_of_sexp sexp =
+  let t = t_of_sexp sexp in
+  (* compute a valid next_id *)
+  let highest_id =
+    try
+      fst (Int64Map.max_binding t.q)
+    with Not_found ->
+      -1L in
+  t.waiter.next_id <- Int64.succ highest_id;
+  t
+
 let get_owner t = t.owner
 
 let make owner name =
