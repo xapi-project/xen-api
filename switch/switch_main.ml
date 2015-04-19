@@ -96,7 +96,16 @@ let make_server config =
   let with_file path flags mode f =
     Lwt_unix.openfile path flags mode
     >>= fun fd ->
-    Lwt.catch (fun () -> f fd) (fun e -> Lwt_unix.close fd >>= fun () -> fail e) in
+    Lwt.catch (fun () ->
+      f fd
+      >>= fun result ->
+      Lwt_unix.close fd
+      >>= fun () ->
+      return result
+    ) (fun e ->
+      Lwt_unix.close fd
+      >>= fun () ->
+      fail e) in
 
   let save statedir qs =
     let txt = Sexplib.Sexp.to_string (Q.sexp_of_queues qs) in
@@ -107,6 +116,8 @@ let make_server config =
         let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
         let n = String.length txt in
         Lwt_io.write_from_exactly oc txt 0 n
+        >>= fun () ->
+        Lwt_io.flush oc
       )
     >>= fun () ->
     Lwt_unix.rename temp_path final_path in
@@ -170,7 +181,7 @@ let make_server config =
       let open Lwt_result in
       Block.connect redo_log_path
       >>= fun block ->
-      Redo_log.start block (process_redo_log statedir)
+      Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
       >>= fun redo_log ->
       info "Redo-log playback complete: everything should be in sync";
       queues := !on_disk_queues; (* everything should be in sync *)
