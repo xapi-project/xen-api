@@ -13,25 +13,27 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
+open Sexplib.Std
 open Cohttp
 
 exception Queue_deleted of string
 
-type message_id = (string * int64) with rpc
+type message_id = (string * int64) with rpc, sexp
 (** uniquely identifier for this message *)
 
-type message_id_opt = message_id option with rpc
+type message_id_opt = message_id option with rpc, sexp
+
+let timeout = 30.
 
 module Message = struct
   type kind =
     | Request of string
     | Response of message_id
-  with rpc
+  with rpc, sexp
   type t = {
     payload: string; (* switch to Rpc.t *)
     kind: kind;
-  } with rpc
+  } with rpc, sexp
 
 end
 
@@ -142,7 +144,7 @@ end
 type origin =
   | Anonymous of string (** An un-named connection, probably a temporary client connection *)
   | Name of string   (** A service with a well-known name *)
-with rpc
+with rpc, sexp
 (** identifies where a message came from *)
 
 module Entry = struct
@@ -150,7 +152,7 @@ module Entry = struct
     origin: origin;
     time: int64;
     message: Message.t;
-  } with rpc
+  } with rpc, sexp
   (** an enqueued message *)
 
   let make time origin message =
@@ -369,7 +371,6 @@ module Client = functor(M: S) -> struct
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
     let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
       let rec loop from =
-        let timeout = 5. in
         let transfer = {
           In.from = from;
           timeout = timeout;
@@ -481,7 +482,6 @@ module Server = functor(M: S) -> struct
     let t = { request_shutdown; on_shutdown } in
 
     let rec loop from =
-      let timeout = 5. in
       let transfer = {
         In.from = from;
         timeout = timeout;

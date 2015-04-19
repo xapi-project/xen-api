@@ -50,32 +50,6 @@ module Connections = struct
 
 end
 
-module Transient_queue = struct
-
-  (* Session -> set of queues which will be GCed on session cleanup *)
-  let queues : (string, StringSet.t) Hashtbl.t = Hashtbl.create 128
-
-  let add session name =
-    let existing =
-      if Hashtbl.mem queues session
-      then Hashtbl.find queues session
-      else StringSet.empty in
-    Hashtbl.replace queues session (StringSet.add name existing)
-
-  let remove session =
-    if Hashtbl.mem queues session then begin
-      let qs = Hashtbl.find queues session in
-      StringSet.iter
-        (fun name ->
-           info "Deleting transient queue: %s" name;
-           Q.Directory.remove name;
-        ) qs;
-      Hashtbl.remove queues session
-    end
-
-  let all () = Hashtbl.fold (fun _ set acc -> StringSet.union set acc) queues StringSet.empty
-end
-
 let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
 let get_next_transfer_expected name =
   if Hashtbl.mem next_transfer_expected name
@@ -84,85 +58,60 @@ let get_next_transfer_expected name =
 let record_transfer time name =
   Hashtbl.replace next_transfer_expected name time
 
-let snapshot () =
+let snapshot queues =
   let open Protocol.Diagnostics in
-  let queues =
+  let queues_of =
     List.fold_left (fun acc (n, q)->
         let queue_contents = Q.contents q in
         let next_transfer_expected = get_next_transfer_expected n in
         (n, { queue_contents; next_transfer_expected }) :: acc
       ) [] in
-  let is_transient =
-    let all = Transient_queue.all () in
-    fun (x, _) -> StringSet.mem x all in
-  let all_queues = queues (List.map (fun n -> n, (Q.Directory.find n)) (Q.Directory.list "")) in
-  let transient_queues, permanent_queues = List.partition is_transient all_queues in
-  let current_time = time () in
-  { start_time = 0L; current_time; permanent_queues; transient_queues }
+  let all_queues = List.map (fun n -> n, Q.Directory.find queues n)
+    (Q.Directory.list queues "") in
+  let transient_queues, permanent_queues =
+    List.partition (fun (_, q) -> Q.get_owner q <> None) all_queues in
+  let current_time = ns () in
+  { start_time = 0L; current_time;
+    permanent_queues = queues_of permanent_queues;
+    transient_queues = queues_of transient_queues }
 
 open Protocol
-let process_request conn_id session request = match session, request with
+let process_request conn_id queues session request = match session, request with
   (* Only allow Login, Get, Trace and Diagnostic messages if there is no session *)
   | _, In.Login session ->
     (* associate conn_id with 'session' *)
     Connections.add conn_id session;
-    return Out.Login
+    return (None, Out.Login)
   | _, In.Diagnostics ->
-    return (Out.Diagnostics (snapshot ()))
+    return (None, Out.Diagnostics (snapshot queues))
   | _, In.Trace(from, timeout) ->
     lwt events = Trace.get from timeout in
-    return (Out.Trace {Out.events = events})
+    return (None, Out.Trace {Out.events = events})
   | _, In.Get path ->
     let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
     lwt ic = Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) in
     lwt txt = Lwt_stream.to_string (Lwt_io.read_chars ic) in
     lwt () = Lwt_io.close ic in
-    return (Out.Get txt)
+    return (None, Out.Get txt)
   | None, _ ->
-    return Out.Not_logged_in
+    return (None, Out.Not_logged_in)
   | Some session, In.List prefix ->
-    return (Out.List (Q.Directory.list prefix))
+    return (None, Out.List (Q.Directory.list queues prefix))
   | Some session, In.CreatePersistent name ->
-    Q.Directory.add name;
-    return (Out.Create name)
+    return (Some (Q.Directory.add queues name), Out.Create name)
   | Some session, In.CreateTransient name ->
-    Transient_queue.add session name;
-    Q.Directory.add name;
-    return (Out.Create name)
+    return (Some (Q.Directory.add queues ~owner:session name), Out.Create name)
   | Some session, In.Destroy name ->
-    Q.Directory.remove name;
-    return Out.Destroy
+    return (Some (Q.Directory.remove queues name), Out.Destroy)
   | Some session, In.Ack (name, id) ->
     Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
-    Q.ack (name, id);
-    return Out.Ack
-  | Some session, In.Transfer { In.from = from; timeout = timeout; queues = queues } ->
-    let start = Unix.gettimeofday () in
+    return (Some (Q.ack queues (name, id)), Out.Ack)
+  | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
+    let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
+    List.iter (record_transfer time) names;
     let from = match from with None -> -1L | Some x -> Int64.of_string x in
-    let rec wait () =
-      let time = Int64.add (time ()) (Int64.of_float (timeout *. 1e9)) in
-      List.iter (record_transfer time) queues;
-      let not_seen = Q.transfer from queues in
-      if not_seen <> []
-      then return not_seen
-      else
-        let remaining_timeout = max 0. (start +. timeout -. (Unix.gettimeofday ())) in
-        if remaining_timeout <= 0.
-        then return []
-        else
-          let timeout = Lwt.map (fun () -> `Timeout) (Lwt_unix.sleep remaining_timeout) in
-          let more = List.map (fun name ->
-              Lwt.map (fun () -> `Data) (Q.wait from name)
-            ) queues in
-          try_lwt
-            match_lwt Lwt.pick (timeout :: more) with
-            | `Timeout -> return []
-            | `Data ->
-              wait ()
-          finally
-            return ()
-    in
-    lwt messages = wait () in
+    let messages = Q.transfer queues from names in
+
     let next = match messages with
       | [] -> from
       | x :: xs -> List.fold_left max (snd (fst x)) (List.map (fun x -> snd (fst x)) xs) in
@@ -170,28 +119,27 @@ let process_request conn_id session request = match session, request with
       Out.messages = messages;
       next = Int64.to_string next
     } in
-    let now = Unix.gettimeofday () in
     List.iter
       (fun (id, m) ->
          let name = Q.queue_of_id id in
          let processing_time = match m.Message.kind with
            | Message.Request _ -> None
-           | Message.Response id' -> begin match Q.entry id' with
+           | Message.Response id' -> begin match Q.entry queues id' with
                | Some request_entry ->
-                 Some (Int64.sub (time ()) request_entry.Entry.time)
+                 Some (Int64.sub (ns ()) request_entry.Entry.time)
                | None ->
                  None
              end in
-         Trace.add (Event.({time = now; input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
+         Trace.add (Event.({time = Unix.gettimeofday(); input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
       ) transfer.Out.messages;
-    return (Out.Transfer transfer)
+    return (None, Out.Transfer transfer)
   | Some session, In.Send (name, data) ->
     let origin = Connections.get_origin conn_id in
-    begin match_lwt Q.send origin name data with
-      | None -> return (Out.Send None)
-      | Some id ->
+    begin match Q.send queues origin name data with
+      | None -> return (None, Out.Send None)
+      | Some (id, op) ->
         Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
-        return (Out.Send (Some id))
+        return (Some op, Out.Send (Some id))
     end
   | Some session, In.Shutdown ->
     info "Received shutdown command";
@@ -199,4 +147,4 @@ let process_request conn_id session request = match session, request with
       Lwt_unix.sleep 1.
       >>= fun () ->
       exit 0 in
-    return Out.Shutdown
+    return (None, Out.Shutdown)

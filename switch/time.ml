@@ -14,19 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let use_mtime () = Mtime.(to_ns_uint64 (elapsed ()))
+type +'a io = 'a Lwt.t
 
-let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. 1e9)
-
-let ns =
-  if Mtime.available
-  then use_mtime
-  else begin
-    Logging.warn "No monotonic clock source: falling back to calendar time";
-    use_timeofday
-  end
-
-include Unix
-let time = gettimeofday
-
-let s () = Int64.to_float (ns ()) /. 1e9
+let sleep = Lwt_unix.sleep

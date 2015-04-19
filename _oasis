@@ -20,7 +20,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
-  BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,re,re.str, bisect
+  BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,sexplib,sexplib.syntax,re.str, bisect
 
 Library message_switch_lwt
   Build$:             flag(lwt)
@@ -57,7 +57,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Switch
-  BuildDepends:       lwt,lwt.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
+  BuildDepends:       lwt,lwt.syntax,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix, bisect
 
 Executable m_cli
   CompiledObject:     best
@@ -110,7 +110,7 @@ Executable server
   MainIs:             server_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, bisect
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, cmdliner, bisect
 
 Executable server_async
   Build$:             flag(async)&&flag(tests)
