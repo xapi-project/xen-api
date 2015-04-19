@@ -47,13 +47,9 @@ val do_op: queues -> Op.t -> queues
 
 module Directory : sig
 
-  val add: queues -> ?owner:string -> string -> queues Lwt.t
-  (** [add name] adds an empty queue with name [name].
-      If we want to tie the queue lifetime to an "owner" then
-      supply the owner's name. *)
+  val add: queues -> ?owner:string -> string -> Op.t
 
-  val remove: queues -> string -> queues Lwt.t
-  (** [remove name] removes the queue with name [name] *)
+  val remove: queues -> string -> Op.t
 
   val find: queues -> string -> t
   (** [find name] returns the queue with name [name].
@@ -68,8 +64,7 @@ val queue_of_id: Protocol.message_id -> string
 (** [queue_of_id id] returns the name of the queue containing
     message id [id] *)
 
-val ack: queues -> Protocol.message_id -> queues Lwt.t
-(** [ack id] removes message [id] from whichever queue it is in *)
+val ack: queues -> Protocol.message_id -> Op.t
 
 val transfer: queues -> int64 -> string list -> (Protocol.message_id * Protocol.Message.t) list
 (** [transfer from names] returns all messages which are newer
@@ -82,6 +77,4 @@ val wait: queues -> int64 -> float -> string list -> unit Lwt.t
 val entry: queues -> Protocol.message_id -> Protocol.Entry.t option
 (** [entry id] returns the entry containing message id [id] *)
 
-val send: queues -> Protocol.origin -> string -> Protocol.Message.t -> (queues * Protocol.message_id) option Lwt.t
-(** [send origin name payload] sends a message with contents
-    [payload] to the queue with name [name] *)
+val send: queues -> Protocol.origin -> string -> Protocol.Message.t -> (Protocol.message_id * Op.t) option

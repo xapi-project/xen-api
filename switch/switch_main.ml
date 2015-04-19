@@ -85,6 +85,13 @@ let make_server config =
   let module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Q.Op) in
 
   let queues = ref Q.empty in
+  let m = Lwt_mutex.create () in
+  let perform ops =
+    Lwt_mutex.with_lock m
+      (fun () ->
+        queues := List.fold_left Q.do_op !queues ops;
+        return ()
+      ) in 
 
   (* (Response.t * Body.t) Lwt.t *)
   let callback (_, conn_id) req body =
@@ -113,8 +120,9 @@ let make_server config =
         | _, _ -> return () )
       >>= fun () ->
 
-      lwt q, response = process_request conn_id_s !queues session request in
-      queues := q;
+      process_request conn_id_s !queues session request
+      >>= fun (op_opt, response) ->
+      queues := (match op_opt with None -> !queues | Some op -> Q.do_op !queues op);
       let status, body = Out.to_response response in
       debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
       Cohttp_lwt_unix.Server.respond_string ~status ~body ()
@@ -130,19 +138,8 @@ let make_server config =
         let (_: unit Lwt.t) =
           info "Session %s cleaning up" session;
           let qs = Q.owned_queues !queues session in
-          let rec loop queues remaining =
-            if remaining = Q.StringSet.empty
-            then return queues
-            else begin
-              let one = Q.StringSet.choose remaining in
-              Q.Directory.remove queues one
-              >>= fun queues ->
-              loop queues (Q.StringSet.remove one remaining)
-            end in
-          loop !queues qs
-          >>= fun q ->
-          queues := q;
-          return () in
+          let ops = Q.StringSet.fold (fun x ops -> Q.Directory.remove !queues x :: ops) qs [] in
+          perform ops in
         ()
       end in
 

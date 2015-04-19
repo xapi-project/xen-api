@@ -81,39 +81,31 @@ let process_request conn_id queues session request = match session, request with
   | _, In.Login session ->
     (* associate conn_id with 'session' *)
     Connections.add conn_id session;
-    return (queues, Out.Login)
+    return (None, Out.Login)
   | _, In.Diagnostics ->
-    return (queues, Out.Diagnostics (snapshot queues))
+    return (None, Out.Diagnostics (snapshot queues))
   | _, In.Trace(from, timeout) ->
     lwt events = Trace.get from timeout in
-    return (queues, Out.Trace {Out.events = events})
+    return (None, Out.Trace {Out.events = events})
   | _, In.Get path ->
     let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
     lwt ic = Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) in
     lwt txt = Lwt_stream.to_string (Lwt_io.read_chars ic) in
     lwt () = Lwt_io.close ic in
-    return (queues, Out.Get txt)
+    return (None, Out.Get txt)
   | None, _ ->
-    return (queues, Out.Not_logged_in)
+    return (None, Out.Not_logged_in)
   | Some session, In.List prefix ->
-    return (queues, Out.List (Q.Directory.list queues prefix))
+    return (None, Out.List (Q.Directory.list queues prefix))
   | Some session, In.CreatePersistent name ->
-    Q.Directory.add queues name
-    >>= fun queues ->
-    return (queues, Out.Create name)
+    return (Some (Q.Directory.add queues name), Out.Create name)
   | Some session, In.CreateTransient name ->
-    Q.Directory.add queues ~owner:session name
-    >>= fun queues ->
-    return (queues, Out.Create name)
+    return (Some (Q.Directory.add queues ~owner:session name), Out.Create name)
   | Some session, In.Destroy name ->
-    Q.Directory.remove queues name
-    >>= fun queues ->
-    return (queues, Out.Destroy)
+    return (Some (Q.Directory.remove queues name), Out.Destroy)
   | Some session, In.Ack (name, id) ->
     Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
-    Q.ack queues (name, id)
-    >>= fun queues ->
-    return (queues, Out.Ack)
+    return (Some (Q.ack queues (name, id)), Out.Ack)
   | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
     let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
     List.iter (record_transfer time) names;
@@ -140,14 +132,14 @@ let process_request conn_id queues session request = match session, request with
              end in
          Trace.add (Event.({time = Unix.gettimeofday(); input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
       ) transfer.Out.messages;
-    return (queues, Out.Transfer transfer)
+    return (None, Out.Transfer transfer)
   | Some session, In.Send (name, data) ->
     let origin = Connections.get_origin conn_id in
-    begin match_lwt Q.send queues origin name data with
-      | None -> return (queues, Out.Send None)
-      | Some (queues, id) ->
+    begin match Q.send queues origin name data with
+      | None -> return (None, Out.Send None)
+      | Some (id, op) ->
         Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
-        return (queues, Out.Send (Some id))
+        return (Some op, Out.Send (Some id))
     end
   | Some session, In.Shutdown ->
     info "Received shutdown command";
@@ -155,4 +147,4 @@ let process_request conn_id queues session request = match session, request with
       Lwt_unix.sleep 1.
       >>= fun () ->
       exit 0 in
-    return (queues, Out.Shutdown)
+    return (None, Out.Shutdown)

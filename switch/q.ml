@@ -233,7 +233,7 @@ let get_next_id queues name =
   let q = Directory.find queues name in
   let id = q.waiter.next_id in
   q.waiter.next_id <- Int64.succ id;
-  return id
+  id
 end
 
 (* operations which need to be persisted *)
@@ -308,11 +308,9 @@ let contents q = Internal.(Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc
 
 module Directory = struct
   let add queues ?owner name =
-    let op = Op.Directory (Op.Add (owner, name)) in
-    return (do_op queues op)
+    Op.Directory (Op.Add (owner, name))
   let remove queues name =
-    let op = Op.Directory (Op.Remove name) in
-    return (do_op queues op)
+    Op.Directory (Op.Remove name)
   let find = Internal.Directory.find
   let list = Internal.Directory.list
 end
@@ -320,8 +318,7 @@ end
 let queue_of_id = fst
 
 let ack queues id =
-  let op = Op.Ack(id) in
-  return (do_op queues op)
+  Op.Ack(id)
 
 let transfer queues from names =
   let messages = List.map (fun name ->
@@ -342,12 +339,6 @@ let entry queues (name, id) =
 let send queues origin name body =
   if Internal.Directory.exists queues name then begin
     let q = Directory.find queues name in
-    Lwt_mutex.with_lock q.waiter.m
-      (fun () ->
-        Internal.get_next_id queues name
-        >>= fun id ->
-        let op = Op.Send(origin, name, id, body) in
-        let queues = do_op queues op in
-        return (Some (queues, (name, id)))
-      )
-  end else return None (* drop *)
+    let id = Internal.get_next_id queues name in
+    Some ((name, id), Op.Send(origin, name, id, body))
+  end else None (* drop *)
