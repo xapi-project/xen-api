@@ -216,7 +216,7 @@ let ack queues (name, id) =
     queues
 end
 
-let send queues origin name id data : queues Lwt.t =
+let send queues origin name id data =
   (* If a queue doesn't exist then drop the message *)
   if Directory.exists queues name then begin
     let q = Directory.find queues name in
@@ -226,8 +226,8 @@ let send queues origin name id data : queues Lwt.t =
               } in
      let queues = { queues with queues = StringMap.add name q' queues.queues } in
      Lwt_condition.broadcast q.waiter.c ();
-     return queues
-  end else return queues
+     queues
+  end else queues
 
 let get_next_id queues name =
   let q = Directory.find queues name in
@@ -264,13 +264,13 @@ end
 
 module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Op)
 
-let perform_one queues = function
+let do_op queues = function
   | Op.Directory (Op.Add (owner, name)) ->
-    return (Internal.Directory.add queues ?owner name)
+    Internal.Directory.add queues ?owner name
   | Op.Directory (Op.Remove name) ->
-    return (Internal.Directory.remove queues name)
+    Internal.Directory.remove queues name
   | Op.Ack id ->
-    return (Internal.ack queues id)
+    Internal.ack queues id
   | Op.Send (origin, name, id, body) ->
     Internal.send queues origin name id body
 
@@ -311,10 +311,10 @@ let contents q = Internal.(Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc
 module Directory = struct
   let add queues ?owner name =
     let op = Op.Directory (Op.Add (owner, name)) in
-    perform_one queues op
+    return (do_op queues op)
   let remove queues name =
     let op = Op.Directory (Op.Remove name) in
-    perform_one queues op
+    return (do_op queues op)
   let find = Internal.Directory.find
   let list = Internal.Directory.list
 end
@@ -323,7 +323,7 @@ let queue_of_id = fst
 
 let ack queues id =
   let op = Op.Ack(id) in
-  perform_one queues op
+  return (do_op queues op)
 
 let transfer queues from names =
   let messages = List.map (fun name ->
@@ -349,8 +349,7 @@ let send queues origin name body =
         Internal.get_next_id queues name
         >>= fun id ->
         let op = Op.Send(origin, name, id, body) in
-        perform_one queues op
-        >>= fun queues ->
+        let queues = do_op queues op in
         return (Some (queues, (name, id)))
       )
   end else return None (* drop *)

@@ -36,6 +36,12 @@ module StringSet : Set.S with type elt = string
 val owned_queues: queues -> string -> StringSet.t
 (** [owned_queues owner] returns a list of queue names owned by [owner] *)
 
+module Op : sig
+  type t
+end
+
+val do_op: queues -> Op.t -> queues
+
 module Directory : sig
 
   val add: queues -> ?owner:string -> string -> queues Lwt.t
