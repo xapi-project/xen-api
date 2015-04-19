@@ -38,7 +38,7 @@ val owned_queues: queues -> string -> StringSet.t
 
 module Directory : sig
 
-  val add: queues -> ?owner:string -> string -> queues
+  val add: queues -> ?owner:string -> string -> queues Lwt.t
   (** [add name] adds an empty queue with name [name].
       If we want to tie the queue lifetime to an "owner" then
       supply the owner's name. *)

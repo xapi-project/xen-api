@@ -137,7 +137,7 @@ end
 (* operations which need to be persisted *)
 module Op = struct
   type directory_operation =
-    | Add of string
+    | Add of string option * string
     | Remove of string
   with sexp
 
@@ -317,8 +317,8 @@ let get_next_id queues name =
 end
 
 let perform_one queues = function
-  | Op.Directory (Op.Add name) ->
-    return (Internal.Directory.add queues name)
+  | Op.Directory (Op.Add (owner, name)) ->
+    return (Internal.Directory.add queues ?owner name)
   | Op.Directory (Op.Remove name) ->
     return (Internal.Directory.remove queues name)
   | Op.Ack id ->
@@ -329,7 +329,9 @@ let perform_one queues = function
 let contents = Internal.contents
 
 module Directory = struct
-  let add = Internal.Directory.add
+  let add queues ?owner name =
+    let op = Op.Directory (Op.Add (owner, name)) in
+    perform_one queues op
   let remove = Internal.Directory.remove
   let find = Internal.Directory.find
   let list = Internal.Directory.list

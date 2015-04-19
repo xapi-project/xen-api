@@ -98,10 +98,12 @@ let process_request conn_id queues session request = match session, request with
   | Some session, In.List prefix ->
     return (queues, Out.List (Q.Directory.list queues prefix))
   | Some session, In.CreatePersistent name ->
-    let queues = Q.Directory.add queues name in
+    Q.Directory.add queues name
+    >>= fun queues ->
     return (queues, Out.Create name)
   | Some session, In.CreateTransient name ->
-    let queues = Q.Directory.add queues ~owner:session name in
+    Q.Directory.add queues ~owner:session name
+    >>= fun queues ->
     return (queues, Out.Create name)
   | Some session, In.Destroy name ->
     let queues = Q.Directory.remove queues name in
