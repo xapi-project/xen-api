@@ -262,8 +262,6 @@ module Op = struct
     c
 end
 
-module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Op)
-
 let do_op queues = function
   | Op.Directory (Op.Add (owner, name)) ->
     Internal.Directory.add queues ?owner name

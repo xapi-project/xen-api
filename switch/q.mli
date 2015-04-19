@@ -38,6 +38,9 @@ val owned_queues: queues -> string -> StringSet.t
 
 module Op : sig
   type t
+
+  val of_cstruct: Cstruct.t -> t option
+  val to_cstruct: t -> Cstruct.t
 end
 
 val do_op: queues -> Op.t -> queues

@@ -82,6 +82,8 @@ let make_server config =
 
   let (_: 'a) = logging_thread () in
 
+  let module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Q.Op) in
+
   let queues = ref Q.empty in
 
   (* (Response.t * Body.t) Lwt.t *)
