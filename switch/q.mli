@@ -43,7 +43,7 @@ module Directory : sig
       If we want to tie the queue lifetime to an "owner" then
       supply the owner's name. *)
 
-  val remove: queues -> string -> queues
+  val remove: queues -> string -> queues Lwt.t
   (** [remove name] removes the queue with name [name] *)
 
   val find: queues -> string -> t

@@ -125,9 +125,23 @@ let make_server config =
     | None -> ()
     | Some session ->
       if not(Connections.is_session_active session) then begin
-        info "Session %s cleaning up" session;
-        let qs = Q.owned_queues !queues session in
-        queues := Q.StringSet.fold (fun x queues -> Q.Directory.remove queues x) qs !queues
+        let (_: unit Lwt.t) =
+          info "Session %s cleaning up" session;
+          let qs = Q.owned_queues !queues session in
+          let rec loop queues remaining =
+            if remaining = Q.StringSet.empty
+            then return queues
+            else begin
+              let one = Q.StringSet.choose remaining in
+              Q.Directory.remove queues one
+              >>= fun queues ->
+              loop queues (Q.StringSet.remove one remaining)
+            end in
+          loop !queues qs
+          >>= fun q ->
+          queues := q;
+          return () in
+        ()
       end in
 
   info "Message switch starting";

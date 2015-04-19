@@ -332,7 +332,9 @@ module Directory = struct
   let add queues ?owner name =
     let op = Op.Directory (Op.Add (owner, name)) in
     perform_one queues op
-  let remove = Internal.Directory.remove
+  let remove queues name =
+    let op = Op.Directory (Op.Remove name) in
+    perform_one queues op
   let find = Internal.Directory.find
   let list = Internal.Directory.list
 end

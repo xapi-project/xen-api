@@ -106,7 +106,8 @@ let process_request conn_id queues session request = match session, request with
     >>= fun queues ->
     return (queues, Out.Create name)
   | Some session, In.Destroy name ->
-    let queues = Q.Directory.remove queues name in
+    Q.Directory.remove queues name
+    >>= fun queues ->
     return (queues, Out.Destroy)
   | Some session, In.Ack (name, id) ->
     Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
