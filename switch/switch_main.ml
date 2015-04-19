@@ -74,6 +74,13 @@ module Config = struct
     Term.(pure make $ daemon $ port $ ip $ pidfile $ configfile $ statedir)
 end
 
+(* Let's try to adopt the conventions of Rresult.R *)
+let get_ok, get_error = Shared_block.Result.(get_ok, get_error)
+
+module Lwt_result = struct
+  let (>>=) m f = m >>= fun x -> f (get_ok x)
+end
+
 open Cohttp_lwt_unix
 
 let make_server config =
@@ -82,19 +89,124 @@ let make_server config =
 
   let (_: 'a) = logging_thread () in
 
+  let _dump_file = "queues.sexp" in
+  let _redo_log = "redo-log" in
+  let redo_log_size = 1024 * 1024 in
+
+  let with_file path flags mode f =
+    Lwt_unix.openfile path flags mode
+    >>= fun fd ->
+    Lwt.catch (fun () -> f fd) (fun e -> Lwt_unix.close fd >>= fun () -> fail e) in
+
+  let save statedir qs =
+    let txt = Sexplib.Sexp.to_string (Q.sexp_of_queues qs) in
+    let final_path = Filename.concat statedir _dump_file in
+    let temp_path = final_path ^ ".tmp" in
+    with_file temp_path [ Unix.O_CREAT; Unix.O_TRUNC; Unix.O_WRONLY ] 0o600
+      (fun fd ->
+        let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
+        let n = String.length txt in
+        Lwt_io.write_from_exactly oc txt 0 n
+      )
+    >>= fun () ->
+    Lwt_unix.rename temp_path final_path in
+
+  let load statedir =
+    let final_path = Filename.concat statedir _dump_file in
+    Lwt_unix.stat final_path
+    >>= fun stats ->
+    let txt = String.make stats.Unix.st_size '\000' in
+    with_file final_path [ Unix.O_RDONLY ] 0o600
+      (fun fd ->
+        let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd in
+        Lwt_io.read_into_exactly ic txt 0 stats.Unix.st_size
+      )
+    >>= fun () ->
+    return (Q.queues_of_sexp (Sexplib.Sexp.of_string txt)) in
+
   let module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Q.Op) in
 
+  (* In-memory cache *)
   let queues = ref Q.empty in
-  let m = Lwt_mutex.create () in
+
+  let on_disk_queues = ref Q.empty in
+  let process_redo_log statedir ops =
+    let on_disk_queues' = List.fold_left Q.do_op !on_disk_queues ops in
+    save statedir on_disk_queues'
+    >>= fun () ->
+    on_disk_queues := on_disk_queues';
+    return (`Ok ()) in
+
+  let redo_log = match config.statedir with
+    | None -> return None
+    | Some statedir ->
+      let redo_log_path = Filename.concat statedir _redo_log in
+      let dump_path = Filename.concat statedir _dump_file in
+      ( if not(Sys.file_exists redo_log_path) || (not (Sys.file_exists dump_path)) then begin
+        info "Writing an empty set of queues to %s" dump_path;
+        save statedir Q.empty
+        >>= fun () ->
+        info "Writing an empty redo-log to %s" redo_log_path;
+        Lwt.catch (fun () -> Lwt_unix.unlink redo_log_path) (fun _ -> return ())
+        >>= fun () ->
+        Lwt_unix.openfile redo_log_path [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY; Lwt_unix.O_TRUNC ] 0o0666
+        >>= fun fd ->
+        Lwt_unix.lseek fd (redo_log_size - 1) Lwt_unix.SEEK_CUR >>= fun _ ->
+        let byte = String.make 1 '\000' in
+        Lwt_unix.write fd byte 0 1
+        >>= fun n ->
+        if n <> 1 then begin
+          error "Failed to create redo-log at %s" redo_log_path;
+          fail End_of_file
+        end else begin
+          Lwt_unix.close fd
+        end
+        end else return () ) >>= fun () ->
+      info "Reading the queues from %s" dump_path;
+      load statedir
+      >>= fun qs ->
+      on_disk_queues := qs;
+      info "Reading the redo-log from %s" redo_log_path;
+      let open Lwt_result in
+      Block.connect redo_log_path
+      >>= fun block ->
+      Redo_log.start block (process_redo_log statedir)
+      >>= fun redo_log ->
+      info "Redo-log playback complete: everything should be in sync";
+      queues := !on_disk_queues; (* everything should be in sync *)
+      return (Some redo_log) in
+
   let perform ops =
-    Lwt_mutex.with_lock m
-      (fun () ->
-        queues := List.fold_left Q.do_op !queues ops;
-        return ()
-      ) in 
+    let queues' = List.fold_left Q.do_op !queues ops in
+    redo_log
+    >>= function
+    | None ->
+      queues := queues';
+      return ()
+    | Some redo_log ->
+      let rec loop = function
+        | [] ->
+          return ()
+        | op :: ops ->
+          ( Redo_log.push redo_log op
+            >>= function
+            | `Ok _waiter -> loop ops
+            | `Error (`Msg txt) ->
+              error "Failed to push to redo-log: %s" txt;
+              fail (Failure "Failed to push to redo-log") )in
+      loop ops
+      >>= fun () ->
+      queues := queues';
+      return () in
+
+  (* Held while processing a non-blocking request *)
+  let m = Lwt_mutex.create () in
 
   (* (Response.t * Body.t) Lwt.t *)
   let callback (_, conn_id) req body =
+    (* Make sure we replay the log before processing requests *)
+    redo_log
+    >>= fun _ ->
     let conn_id_s = Cohttp.Connection.to_string conn_id in
     let open Protocol in
     lwt body = Cohttp_lwt_body.to_string body in
@@ -120,9 +232,16 @@ let make_server config =
         | _, _ -> return () )
       >>= fun () ->
 
-      process_request conn_id_s !queues session request
-      >>= fun (op_opt, response) ->
-      queues := (match op_opt with None -> !queues | Some op -> Q.do_op !queues op);
+      Lwt_mutex.with_lock m
+        (fun () ->
+          process_request conn_id_s !queues session request
+          >>= fun (op_opt, response) ->
+          let op = match op_opt with None -> [] | Some x -> [x] in
+          perform op
+          >>= fun () ->
+          return response
+        ) >>= fun response ->
+
       let status, body = Out.to_response response in
       debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body;
       Cohttp_lwt_unix.Server.respond_string ~status ~body ()
@@ -139,7 +258,10 @@ let make_server config =
           info "Session %s cleaning up" session;
           let qs = Q.owned_queues !queues session in
           let ops = Q.StringSet.fold (fun x ops -> Q.Directory.remove !queues x :: ops) qs [] in
-          perform ops in
+          Lwt_mutex.with_lock m
+            (fun () ->
+              perform ops
+            ) in
         ()
       end in
 
