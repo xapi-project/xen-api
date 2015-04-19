@@ -134,34 +134,6 @@ module Lengths = struct
     else None
 end
 
-(* operations which need to be persisted *)
-module Op = struct
-  type directory_operation =
-    | Add of string option * string
-    | Remove of string
-  with sexp
-
-  type t =
-    | Directory of directory_operation
-    | Ack of Protocol.message_id
-    | Send of Protocol.origin * string * int64 * Protocol.Message.t (* origin * queue * id * body *)
-  with sexp
-
-  let of_cstruct x =
-    try
-      Some (Cstruct.to_string x |> Sexplib.Sexp.of_string |> t_of_sexp)
-    with _ ->
-      None
-
-  let to_cstruct t =
-    let s = sexp_of_t t |> Sexplib.Sexp.to_string in
-    let c = Cstruct.create (String.length s) in
-    Cstruct.blit_from_string s 0 c 0 (Cstruct.len c);
-    c
-end
-
-module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Op)
-
 module Internal = struct
 module Directory = struct
   let waiters = Hashtbl.create 128
@@ -228,24 +200,6 @@ module Directory = struct
       else acc) queues.queues []
 end
 
-let transfer queues from names =
-  let messages = List.map (fun name ->
-      let q = Directory.find queues name in
-      let _, _, not_seen = Int64Map.split from q.q in
-      Int64Map.fold (fun id e acc ->
-          ((name, id), e.Protocol.Entry.message) :: acc
-        ) not_seen []
-    ) names in
-  List.concat messages
-
-let queue_of_id = fst
-
-let entry queues (name, id) =
-  let q = Directory.find queues name in
-  if Int64Map.mem id q.q
-  then Some (Int64Map.find id q.q)
-  else None
-
 let ack queues (name, id) =
   if Directory.exists queues name then begin
     let q = Directory.find queues name in
@@ -262,10 +216,68 @@ let ack queues (name, id) =
     queues
 end
 
-let wait_one queues from name =
+let send queues origin name id data : queues Lwt.t =
+  (* If a queue doesn't exist then drop the message *)
   if Directory.exists queues name then begin
-    (* Wait for some messages to turn up *)
     let q = Directory.find queues name in
+    let q' = { q with
+                length = q.length + 1;
+                q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
+              } in
+     let queues = { queues with queues = StringMap.add name q' queues.queues } in
+     Lwt_condition.broadcast q.waiter.c ();
+     return queues
+  end else return queues
+
+let get_next_id queues name =
+  let q = Directory.find queues name in
+  let id = q.waiter.next_id in
+  q.waiter.next_id <- Int64.succ id;
+  return id
+end
+
+(* operations which need to be persisted *)
+module Op = struct
+  type directory_operation =
+    | Add of string option * string
+    | Remove of string
+  with sexp
+
+  type t =
+    | Directory of directory_operation
+    | Ack of Protocol.message_id
+    | Send of Protocol.origin * string * int64 * Protocol.Message.t (* origin * queue * id * body *)
+  with sexp
+
+  let of_cstruct x =
+    try
+      Some (Cstruct.to_string x |> Sexplib.Sexp.of_string |> t_of_sexp)
+    with _ ->
+      None
+
+  let to_cstruct t =
+    let s = sexp_of_t t |> Sexplib.Sexp.to_string in
+    let c = Cstruct.create (String.length s) in
+    Cstruct.blit_from_string s 0 c 0 (Cstruct.len c);
+    c
+end
+
+module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Op)
+
+let perform_one queues = function
+  | Op.Directory (Op.Add (owner, name)) ->
+    return (Internal.Directory.add queues ?owner name)
+  | Op.Directory (Op.Remove name) ->
+    return (Internal.Directory.remove queues name)
+  | Op.Ack id ->
+    return (Internal.ack queues id)
+  | Op.Send (origin, name, id, body) ->
+    Internal.send queues origin name id body
+
+let wait_one queues from name =
+  if Internal.Directory.exists queues name then begin
+    (* Wait for some messages to turn up *)
+    let q = Internal.Directory.find queues name in
     Lwt_mutex.with_lock q.waiter.m
       (fun () ->
         let rec loop () =
@@ -281,7 +293,7 @@ let wait_one queues from name =
       )
   end else begin
     (* Wait for the queue to be created *)
-    Directory.wait_for name;
+    Internal.Directory.wait_for name;
   end
 
 let wait queues from timeout names =
@@ -294,39 +306,7 @@ let wait queues from timeout names =
     let more = List.map (wait_one queues from) names in
     Lwt.pick (timeout :: more)
 
-let send queues origin name id data : queues Lwt.t =
-  (* If a queue doesn't exist then drop the message *)
-  if Directory.exists queues name then begin
-    let q = Directory.find queues name in
-    let q' = { q with
-                length = q.length + 1;
-                q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
-              } in
-     let queues = { queues with queues = StringMap.add name q' queues.queues } in
-     Lwt_condition.broadcast q.waiter.c ();
-     return queues
-  end else return queues
-
-let contents q = Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q []
-
-let get_next_id queues name =
-  let q = Directory.find queues name in
-  let id = q.waiter.next_id in
-  q.waiter.next_id <- Int64.succ id;
-  return id
-end
-
-let perform_one queues = function
-  | Op.Directory (Op.Add (owner, name)) ->
-    return (Internal.Directory.add queues ?owner name)
-  | Op.Directory (Op.Remove name) ->
-    return (Internal.Directory.remove queues name)
-  | Op.Ack id ->
-    return (Internal.ack queues id)
-  | Op.Send (origin, name, id, body) ->
-    Internal.send queues origin name id body
-
-let contents = Internal.contents
+let contents q = Internal.(Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q [])
 
 module Directory = struct
   let add queues ?owner name =
@@ -339,13 +319,28 @@ module Directory = struct
   let list = Internal.Directory.list
 end
 
-let queue_of_id = Internal.queue_of_id
+let queue_of_id = fst
+
 let ack queues id =
   let op = Op.Ack(id) in
   perform_one queues op
-let transfer = Internal.transfer
-let wait = Internal.wait
-let entry = Internal.entry
+
+let transfer queues from names =
+  let messages = List.map (fun name ->
+      let q = Internal.Directory.find queues name in
+      let _, _, not_seen = Int64Map.split from q.q in
+      Int64Map.fold (fun id e acc ->
+          ((name, id), e.Protocol.Entry.message) :: acc
+        ) not_seen []
+    ) names in
+  List.concat messages
+
+let entry queues (name, id) =
+  let q = Internal.Directory.find queues name in
+  if Int64Map.mem id q.q
+  then Some (Int64Map.find id q.q)
+  else None
+
 let send queues origin name body =
   if Internal.Directory.exists queues name then begin
     let q = Directory.find queues name in
