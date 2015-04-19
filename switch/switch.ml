@@ -108,7 +108,8 @@ let process_request conn_id queues session request = match session, request with
     return (queues, Out.Destroy)
   | Some session, In.Ack (name, id) ->
     Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
-    let queues = Q.ack queues (name, id) in
+    Q.ack queues (name, id)
+    >>= fun queues ->
     return (queues, Out.Ack)
   | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
     let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in

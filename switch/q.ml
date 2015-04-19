@@ -336,7 +336,9 @@ module Directory = struct
 end
 
 let queue_of_id = Internal.queue_of_id
-let ack = Internal.ack
+let ack queues id =
+  let op = Op.Ack(id) in
+  perform_one queues op
 let transfer = Internal.transfer
 let wait = Internal.wait
 let entry = Internal.entry

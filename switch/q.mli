@@ -59,7 +59,7 @@ val queue_of_id: Protocol.message_id -> string
 (** [queue_of_id id] returns the name of the queue containing
     message id [id] *)
 
-val ack: queues -> Protocol.message_id -> queues
+val ack: queues -> Protocol.message_id -> queues Lwt.t
 (** [ack id] removes message [id] from whichever queue it is in *)
 
 val transfer: queues -> int64 -> string list -> (Protocol.message_id * Protocol.Message.t) list
