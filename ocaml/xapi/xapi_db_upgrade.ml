@@ -367,35 +367,6 @@ let upgrade_pif_metrics = {
 		) phy_and_bond_pifs
 }
 
-let upgrade_host_editions = {
-	description = "Upgrading host editions";
-	version = (fun x -> x < creedence);
-	fn = fun ~__context ->
-		let hosts = Db.Host.get_all ~__context in
-		let new_sku = function
-				| "advanced" | "enterprise" | "platinum" | "per-socket" -> "enterprise-per-socket"
-				| "free" | "enterprise-xd" | "xendesktop" | _ -> "free" in
-		List.iter
-			(fun host ->
-				(* Modify edition *)
-				let edition = new_sku (Db.Host.get_edition ~__context ~self:host) in
-				Db.Host.set_edition ~__context ~self:host ~value:edition ;
-				(* Modify license_params.sku_type *)
-				let new_license_params =
-					let sku_type_key = "sku_type" in
-					let old_license_params = Db.Host.get_license_params ~__context ~self:host in
-					if List.mem_assoc sku_type_key old_license_params
-					then begin
-						let old_sku_type = List.assoc sku_type_key old_license_params in
-						let new_sku_type = new_sku old_sku_type in
-						(sku_type_key, new_sku_type) ::
-							(List.remove_assoc sku_type_key old_license_params)
-					end
-					else old_license_params
-				in Db.Host.set_license_params ~__context ~self:host ~value:new_license_params)
-			hosts
-}
-
 let remove_vmpp = {
 	description = "Removing VMPP metadata (feature was removed)";
 	version = (fun x -> x <= tampa);
@@ -477,7 +448,6 @@ let rules = [
 	upgrade_cpu_flags;
 	upgrade_auto_poweron;
 	upgrade_pif_metrics;
-	upgrade_host_editions;
 	remove_vmpp;
 	populate_pgpu_vgpu_types;
 	set_vgpu_types;
