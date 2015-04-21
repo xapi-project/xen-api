@@ -298,6 +298,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let (snapshots_vbds,nb_snapshots) = get_snapshots_vbds ~__context ~vm in
 	debug "get_snapshots VMs %d VBDs %d" nb_snapshots (List.length snapshots_vbds);
+
+	let dest_host = List.assoc _host dest in
+	let dest_host_ref = Ref.of_string dest_host in
+	let is_intra_pool = try ignore(Db.Host.get_uuid ~__context ~self:dest_host_ref); true with _ -> false in
+
 	let vdi_filter snapshot vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
@@ -312,7 +317,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let dp = Storage_access.datapath_of_vbd ~domid ~device in
 			(* XXX PR-1255: eject any CDROMs for now *)
 			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
-				if not snapshot then begin
+				if not (is_intra_pool && Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null) || snapshot) then begin
 					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
 					Xapi_xenops.vbd_eject ~__context ~self:vbd;
 				end;
@@ -343,17 +348,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in
 	let module XenopsAPI = (val make_client queue_name : XENOPS) in
-	let dest_host = List.assoc _host dest in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
 	let master = List.assoc _master dest in
 	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = get_ip_from_url xenops in
 	let remote_master_address = get_ip_from_url master in
-
-	let is_intra_pool = 
-		try ignore(Db.Host.get_uuid ~__context ~self:(Ref.of_string dest_host)); true with _ -> false 
-	in
 
 	let mirrors = ref [] in
 	let remote_vdis = ref [] in
@@ -393,7 +393,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				XenAPI.Pool.get_master remote_rpc session_id pool in
 			let pbds = XenAPI.SR.get_PBDs remote_rpc session_id dest_sr_ref in
 			let pbd_host_pair = List.map (fun pbd -> (pbd, XenAPI.PBD.get_host remote_rpc session_id pbd)) pbds in
-			let hosts_to_be_attached = [master_host; Ref.of_string dest_host] in
+			let hosts_to_be_attached = [master_host; dest_host_ref] in
 			let pbds_to_be_plugged = List.filter (fun (_, host) -> 
 				(List.mem host hosts_to_be_attached) && (XenAPI.Host.get_enabled remote_rpc session_id host)) pbd_host_pair in
 			List.iter (fun (pbd, _) ->
@@ -543,7 +543,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			List.iter
 				(fun vm' ->
 					intra_pool_vdi_remap ~__context vm' (snapshots_map @ vdi_map);
-					intra_pool_fix_suspend_sr ~__context (Ref.of_string dest_host) vm')
+					intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
 				vm_and_snapshots
 		end
 		else
@@ -569,7 +569,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let new_vm = XenAPI.VM.get_by_uuid remote_rpc session_id vm_uuid in
 
 		(* Attach networks on remote *)
-		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:(Ref.of_string dest_host) ~vm:new_vm;
+		XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id ~host:dest_host_ref ~vm:new_vm;
 
 		(* Create the vif-map for xenops, linking VIF devices to bridge names on the remote *)
 		let xenops_vif_map =
@@ -608,7 +608,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
-		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm (Ref.of_string dest_host);
+		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm dest_host_ref;
 		
 		(* And we're finished *)
 		List.iter (fun mirror ->
