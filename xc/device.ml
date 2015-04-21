@@ -1510,8 +1510,6 @@ type disp_opt =
 	| NONE
 	| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
 	| SDL of disp_intf_opt * string (* X11 display *)
-	| Passthrough of int option
-	| Intel of disp_intf_opt * int option
 
 type media = Disk | Cdrom
 let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
@@ -1629,18 +1627,10 @@ let cmdline_of_disp info =
 	    | IGD_passthrough -> ["-std-vga"; "-gfx_passthru"]
 	in
 	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
-	let dom0_input_opts = function
-		| None -> []
-		| Some i -> ["-dom0-input"; string_of_int i]
-	in
 	let disp_options, wait_for_port =
 		match info.disp with
 		| NONE -> 
 		    ([], false)
-		| Passthrough dom0_input -> 
-		    let vga_type_opts = ["-vga-passthrough"] in
-		    let dom0_input_opts = dom0_input_opts dom0_input in
-				(vga_type_opts @ dom0_input_opts), false
 		| SDL (opts,x11name) ->
 		    ( [], false)
 		| VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
@@ -1652,10 +1642,6 @@ let cmdline_of_disp info =
 		      else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
 		    in
 				(vga_type_opts @ videoram_opt @ vnc_opts), true
-		| Intel (opt,dom0_input) -> 
-		    let vga_type_opts = vga_type_opts opt in
-		    let dom0_input_opts = dom0_input_opts dom0_input in
-				(["-intel"] @ vga_type_opts @ videoram_opt @ dom0_input_opts), false
 	in
 	disp_options, wait_for_port
 
