@@ -307,16 +307,20 @@ module Vm = struct
 end
 
 module Pci = struct
+	type address = {
+		domain: int;
+		bus: int;
+		dev: int;
+		fn: int;
+	}
+	with sexp
 
 	type id = string * string
 
 	type t = {
 		id: id;
 		position: int;
-		domain: int;
-		bus: int;
-		dev: int;
-		fn: int;
+		address: address;
 		msitranslate: bool option;
 		power_mgmt: bool option;
 	}
