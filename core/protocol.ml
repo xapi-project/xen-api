@@ -340,8 +340,8 @@ module Client = functor(M: S) -> struct
   open M.IO
 
   type t = {
-    requests_conn: (ic * oc);
-    events_conn: (ic * oc);
+    mutable requests_conn: (ic * oc);
+    mutable events_conn: (ic * oc);
     requests_m: M.Mutex.t;
     wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
     dest_queue_name: string;
@@ -360,15 +360,23 @@ module Client = functor(M: S) -> struct
 
   let connect port dest_queue_name =
     let token = M.whoami () in
-    M.connect port >>= fun requests_conn ->
-    Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
-    M.connect port >>= fun events_conn ->
-    Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
+    let rec reconnect () =
+      M.connect port >>= fun requests_conn ->
+      Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
+      M.connect port >>= fun events_conn ->
+      Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
+      return (`Ok (requests_conn, events_conn)) in
+
+    reconnect () >>|= fun (requests_conn, events_conn) ->
 
     let wakener = Hashtbl.create 10 in
     let requests_m = M.Mutex.create () in
 
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
+    Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
+
+    let t = { requests_conn; events_conn; requests_m; wakener; dest_queue_name; reply_queue_name } in
+
     let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
       let rec loop from =
         let transfer = {
@@ -377,7 +385,14 @@ module Client = functor(M: S) -> struct
           queues = [ reply_queue_name ]
         } in
         let frame = In.Transfer transfer in
-        Connection.rpc events_conn frame >>|= fun raw ->
+        Connection.rpc events_conn frame >>= function
+        | `Error _ ->
+          reconnect ()
+          >>|= fun (requests_conn, events_conn) ->
+          t.requests_conn <- requests_conn;
+          t.events_conn <- events_conn;
+          loop from
+        | `Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         match transfer.Out.messages with
         | [] -> loop from
@@ -403,15 +418,7 @@ module Client = functor(M: S) -> struct
             ) transfer.Out.messages >>|= fun () ->
           loop (Some transfer.Out.next) in
       loop None in
-    Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
-    return (`Ok {
-        requests_conn;
-        events_conn;
-        requests_m;
-        wakener = wakener;
-        dest_queue_name;
-        reply_queue_name;
-      })
+    return (`Ok t)
 
   let disconnect c =
     M.disconnect c.requests_conn >>= fun () ->
