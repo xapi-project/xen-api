@@ -324,19 +324,21 @@ module Server = struct
   let listen process port name =
     let open IO.IO in
     let token = IO.whoami () in
-    let request_conn = IO.connect port in
-    let (_: string) = rpc_exn request_conn (In.Login token) in
-    let reply_conn = IO.connect port in
-    let (_: string) = rpc_exn reply_conn (In.Login token) in
+    let reconnect () =
+      let request_conn = IO.connect port in
+      let (_: string) = rpc_exn request_conn (In.Login token) in
+      let reply_conn = IO.connect port in
+      let (_: string) = rpc_exn reply_conn (In.Login token) in
+      Connection.rpc request_conn (In.Login token) >>= fun _ ->
+      request_conn, reply_conn in
 
+    let (request_conn, reply_conn) as connections = reconnect () in
     (* Only allow one reply RPC at a time (no pipelining) *)
-    let m = IO.Mutex.create () in
-    let reply req = IO.Mutex.with_lock m (fun () -> Connection.rpc reply_conn req) in
+    let mutex = IO.Mutex.create () in
 
-    Connection.rpc request_conn (In.Login token) >>= fun _ ->
     Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
 
-    let rec loop from =
+    let rec loop ((request_conn, reply_conn) as connections) from =
       let transfer = {
         In.from = from;
         timeout = Protocol.timeout;
@@ -346,11 +348,12 @@ module Server = struct
       Connection.rpc request_conn frame >>= function
       | Error e ->
         Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
-        return ()
+        let connections = IO.Mutex.with_lock mutex reconnect in
+        loop connections from
       | Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         begin match transfer.Out.messages with
-          | [] -> loop from
+          | [] -> loop connections from
           | m :: ms ->
             List.iter
               (fun (i, m) ->
@@ -369,15 +372,15 @@ module Server = struct
                             return ()
                           | Message.Request reply_to ->
                             let request = In.Send(reply_to, { Message.kind = Message.Response i; payload = response }) in
-                            reply request >>= fun _ ->
+                            IO.Mutex.with_lock mutex (fun () -> Connection.rpc reply_conn request) >>= fun _ ->
                             return ()
                         end >>= fun () ->
                         let request = In.Ack i in
-                        reply request >>= fun _ ->
+                        IO.Mutex.with_lock mutex (fun () -> Connection.rpc reply_conn request) >>= fun _ ->
                         ()
                      ) () in ()
               ) transfer.Out.messages;
-            loop (Some transfer.Out.next)
+            loop connections (Some transfer.Out.next)
         end in
-    loop None
+    loop connections None
 end
