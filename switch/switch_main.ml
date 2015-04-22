@@ -179,7 +179,7 @@ let make_server config =
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
       let open Lwt_result in
-      Block.connect redo_log_path
+      Block.connect ("buffered:" ^ redo_log_path)
       >>= fun block ->
       Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
       >>= fun redo_log ->
