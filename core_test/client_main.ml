@@ -31,11 +31,11 @@ let (>>|=) m f = m >>= function
   | `Error y -> fail y
 
 let main () =
-  Client.connect !port !name >>|= fun c ->
+  Client.connect ~switch:!port ~queue:!name () >>|= fun t ->
   let counter = ref 0 in
   let one () =
     incr counter;
-    Client.rpc c !payload >>|= fun _ ->
+    Client.rpc ~t ~body:!payload () >>|= fun _ ->
     return () in
   let start = Unix.gettimeofday () in
   let rec ints = function
@@ -53,9 +53,9 @@ let main () =
       let threads = List.map thread (ints !nthreads) in
       Lwt.join threads
   ) >>= fun () ->
-  let t = Unix.gettimeofday () -. start in
-  Printf.printf "Finished %d RPCs in %.02f\n" !counter t;
-  Client.rpc c shutdown >>|= fun _ ->
+  let time = Unix.gettimeofday () -. start in
+  Printf.printf "Finished %d RPCs in %.02f\n" !counter time;
+  Client.rpc ~t ~body:shutdown () >>|= fun _ ->
   return ()
 
 let _ =

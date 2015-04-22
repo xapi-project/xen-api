@@ -31,11 +31,11 @@ let (>>|=) m f = m >>= function
   | `Error y -> raise y
 
 let main () =
-  Client.connect !port !name >>|= fun c ->
+  Client.connect ~switch:!port ~queue:!name () >>|= fun t ->
   let counter = ref 0 in
   let one () =
     incr counter;
-    Client.rpc c !payload >>|= fun _ ->
+    Client.rpc ~t ~body:!payload () >>|= fun _ ->
     return () in
   let start = Time.now () in
   ( match !timeout with
@@ -51,9 +51,9 @@ let main () =
         end in
       loop ()
   ) >>= fun () ->
-  let t = Time.diff (Time.now()) start in
-  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
-  Client.rpc c shutdown >>|= fun _ ->
+  let time = Time.diff (Time.now()) start in
+  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec time);
+  Client.rpc ~t ~body:shutdown () >>|= fun _ ->
   Shutdown.exit 0
 
 let _ =

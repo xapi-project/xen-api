@@ -296,20 +296,20 @@ module type CLIENT = sig
 
   type t
 
-  val connect: int -> string -> [ `Ok of t | `Error of exn ] io
+  val connect: switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
-  val disconnect: t -> unit io
+  val disconnect: t:t -> unit -> unit io
   (** [disconnect] closes the connection *)
 
-  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] io
+  val rpc: t:t -> ?timeout: int -> body:string -> unit -> [ `Ok of string | `Error of exn ] io
 
-  val list: t -> string -> [ `Ok of string list | `Error of exn ] io
+  val list: t:t -> prefix:string -> unit -> [ `Ok of string list | `Error of exn ] io
 
-  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] io
+  val destroy: t:t -> queue:string -> unit -> [ `Ok of unit | `Error of exn ] io
   (** [destroy t queue_name] destroys the named queue, and all associated
       messages. *)
 
-  val shutdown: t -> [ `Ok of unit | `Error of exn ] io
+  val shutdown: t:t -> unit -> [ `Ok of unit | `Error of exn ] io
   (** [shutdown t] request that the switch shuts down *)
 end
 
@@ -394,7 +394,7 @@ module Client = functor(M: S) -> struct
       f x >>|= fun () ->
       iter_s f xs
 
-  let connect port dest_queue_name =
+  let connect ~switch:port ~queue:dest_queue_name () =
     let token = M.whoami () in
     let rec reconnect () =
       M.connect port >>= fun requests_conn ->
@@ -468,32 +468,32 @@ module Client = functor(M: S) -> struct
       loop None in
     return (`Ok t)
 
-  let disconnect c =
-    M.disconnect c.requests_conn >>= fun () ->
-    M.disconnect c.events_conn
+  let disconnect ~t () =
+    M.disconnect t.requests_conn >>= fun () ->
+    M.disconnect t.events_conn
 
-  let rpc c ?timeout x =
+  let rpc ~t ?timeout ~body:x () =
     let ivar = M.Ivar.create () in
 
     let timer = Opt.map (fun timeout ->
         M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
       ) timeout in
 
-    let msg = In.Send(c.dest_queue_name, {
+    let msg = In.Send(t.dest_queue_name, {
         Message.payload = x;
-        kind = Message.Request c.reply_queue_name
+        kind = Message.Request t.reply_queue_name
       }) in
     let rec loop () =
-      M.Mutex.with_lock c.requests_m
+      M.Mutex.with_lock t.requests_m
         (fun () ->
-           Connection.rpc c.requests_conn msg >>= function
+           Connection.rpc t.requests_conn msg >>= function
            | `Error e -> return (`Error e)
            | `Ok id ->
              begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
              | None ->
-               return (`Error (Queue_deleted c.dest_queue_name))
+               return (`Error (Queue_deleted t.dest_queue_name))
              | Some mid ->
-               Hashtbl.add c.wakener mid ivar;
+               Hashtbl.add t.wakener mid ivar;
                return (`Ok mid)
              end
         ) >>= function
@@ -508,20 +508,20 @@ module Client = functor(M: S) -> struct
           loop () in
     loop () >>|= fun mid ->
     M.Ivar.read ivar >>|= fun x ->
-    Hashtbl.remove c.wakener mid;
+    Hashtbl.remove t.wakener mid;
     Opt.iter M.Clock.cancel timer;
     return (`Ok x.Message.payload)
 
-  let list c prefix =
-    Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
+  let list ~t ~prefix () =
+    Connection.rpc t.requests_conn (In.List prefix) >>|= fun result ->
     return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 
-  let destroy c queue_name =
-    Connection.rpc c.requests_conn (In.Destroy queue_name) >>|= fun result ->
+  let destroy ~t ~queue:queue_name () =
+    Connection.rpc t.requests_conn (In.Destroy queue_name) >>|= fun result ->
     return (`Ok ())
 
-  let shutdown c =
-    Connection.rpc c.requests_conn In.Shutdown >>|= fun result ->
+  let shutdown ~t () =
+    Connection.rpc t.requests_conn In.Shutdown >>|= fun result ->
     return (`Ok ())
 end
 

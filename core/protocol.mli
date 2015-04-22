@@ -232,20 +232,20 @@ module type CLIENT = sig
 
   type t
 
-  val connect: int -> string -> [ `Ok of t | `Error of exn ] io
+  val connect: switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
-  val disconnect: t -> unit io
+  val disconnect: t:t -> unit -> unit io
   (** [disconnect] closes the connection *)
 
-  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] io
+  val rpc: t:t -> ?timeout: int -> body:string -> unit -> [ `Ok of string | `Error of exn ] io
 
-  val list: t -> string -> [ `Ok of string list | `Error of exn ] io
+  val list: t:t -> prefix:string -> unit -> [ `Ok of string list | `Error of exn ] io
 
-  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] io
+  val destroy: t:t -> queue:string -> unit -> [ `Ok of unit | `Error of exn ] io
   (** [destroy t queue_name] destroys the named queue, and all associated
       messages. *)
 
-  val shutdown: t -> [ `Ok of unit | `Error of exn ] io
+  val shutdown: t:t -> unit -> [ `Ok of unit | `Error of exn ] io
   (** [shutdown t] request that the switch shuts down *)
 end
 
