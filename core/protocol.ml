@@ -339,6 +339,15 @@ module Client = functor(M: S) -> struct
 
   open M.IO
 
+  type t = {
+    requests_conn: (ic * oc);
+    events_conn: (ic * oc);
+    requests_m: M.Mutex.t;
+    wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
+    dest_queue_name: string;
+    reply_queue_name: string;
+  }
+
   let ( >>|= ) m f = m >>= function
     | `Ok x -> f x
     | `Error y -> return (`Error y)
@@ -349,21 +358,7 @@ module Client = functor(M: S) -> struct
       f x >>|= fun () ->
       iter_s f xs
 
-  type connection = {
-    port: int;
-    dest_queue_name: string;
-    reply_queue_name: string;
-    requests_conn: (ic * oc);
-    events_conn: (ic * oc);
-    wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
-  }
-
-  type t = {
-    mutable connection: connection;
-    mutex: M.Mutex.t;
-  }
-
-  let connection mutex port dest_queue_name =
+  let connect port dest_queue_name =
     let token = M.whoami () in
     M.connect port >>= fun requests_conn ->
     Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
@@ -371,6 +366,7 @@ module Client = functor(M: S) -> struct
     Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
 
     let wakener = Hashtbl.create 10 in
+    let requests_m = M.Mutex.create () in
 
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
     let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
@@ -388,7 +384,7 @@ module Client = functor(M: S) -> struct
         | m :: ms ->
           iter_s
             (fun (i, m) ->
-               M.Mutex.with_lock mutex (fun () ->
+               M.Mutex.with_lock requests_m (fun () ->
                    match m.Message.kind with
                    | Message.Response j ->
                      if Hashtbl.mem wakener j then begin
@@ -409,31 +405,17 @@ module Client = functor(M: S) -> struct
       loop None in
     Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
     return (`Ok {
-        port;
-        dest_queue_name;
-        reply_queue_name;
         requests_conn;
         events_conn;
-        wakener;
+        requests_m;
+        wakener = wakener;
+        dest_queue_name;
+        reply_queue_name;
       })
 
-  let connect port dest_queue_name =
-    let mutex = M.Mutex.create () in
-    connection mutex port dest_queue_name
-    >>|= fun connection ->
-    return (`Ok { connection; mutex })
-
-  let disconnect t =
-    M.disconnect t.connection.requests_conn >>= fun () ->
-    M.disconnect t.connection.events_conn
-
-  let reconnect t =
-    disconnect t
-    >>= fun () ->
-    connection t.mutex t.connection.port t.connection.dest_queue_name
-    >>|= fun connection ->
-    t.connection <- connection;
-    return (`Ok ())
+  let disconnect c =
+    M.disconnect c.requests_conn >>= fun () ->
+    M.disconnect c.events_conn
 
   let rpc c ?timeout x =
     let ivar = M.Ivar.create () in
@@ -442,39 +424,35 @@ module Client = functor(M: S) -> struct
         M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
       ) timeout in
 
-    let msg = In.Send(c.connection.dest_queue_name, {
+    let msg = In.Send(c.dest_queue_name, {
         Message.payload = x;
-        kind = Message.Request c.connection.reply_queue_name
+        kind = Message.Request c.reply_queue_name
       }) in
-    M.Mutex.with_lock c.mutex
+    M.Mutex.with_lock c.requests_m
       (fun () ->
-         Connection.rpc c.connection.requests_conn msg
-         >>|= fun (id : string) ->
-         begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+         Connection.rpc c.requests_conn msg >>|= fun (id: string) ->
+         match message_id_opt_of_rpc (Jsonrpc.of_string id) with
          | None ->
-           return (`Error (Queue_deleted c.connection.dest_queue_name))
+           return (`Error (Queue_deleted c.dest_queue_name))
          | Some mid ->
-           Hashtbl.add c.connection.wakener mid ivar;
+           Hashtbl.add c.wakener mid ivar;
            return (`Ok mid)
-         end
       ) >>|= fun mid ->
     M.Ivar.read ivar >>|= fun x ->
-    Hashtbl.remove c.connection.wakener mid;
+    Hashtbl.remove c.wakener mid;
     Opt.iter M.Clock.cancel timer;
     return (`Ok x.Message.payload)
 
-
-
   let list c prefix =
-    Connection.rpc c.connection.requests_conn (In.List prefix) >>|= fun result ->
+    Connection.rpc c.requests_conn (In.List prefix) >>|= fun result ->
     return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 
   let destroy c queue_name =
-    Connection.rpc c.connection.requests_conn (In.Destroy queue_name) >>|= fun result ->
+    Connection.rpc c.requests_conn (In.Destroy queue_name) >>|= fun result ->
     return (`Ok ())
 
   let shutdown c =
-    Connection.rpc c.connection.requests_conn In.Shutdown >>|= fun result ->
+    Connection.rpc c.requests_conn In.Shutdown >>|= fun result ->
     return (`Ok ())
 end
 
