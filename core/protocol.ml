@@ -447,16 +447,29 @@ module Client = functor(M: S) -> struct
         Message.payload = x;
         kind = Message.Request c.reply_queue_name
       }) in
-    M.Mutex.with_lock c.requests_m
-      (fun () ->
-         Connection.rpc c.requests_conn msg >>|= fun (id: string) ->
-         match message_id_opt_of_rpc (Jsonrpc.of_string id) with
-         | None ->
-           return (`Error (Queue_deleted c.dest_queue_name))
-         | Some mid ->
-           Hashtbl.add c.wakener mid ivar;
-           return (`Ok mid)
-      ) >>|= fun mid ->
+    let rec loop () =
+      M.Mutex.with_lock c.requests_m
+        (fun () ->
+           Connection.rpc c.requests_conn msg >>= function
+           | `Error e -> return (`Error e)
+           | `Ok id ->
+             begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+             | None ->
+               return (`Error (Queue_deleted c.dest_queue_name))
+             | Some mid ->
+               Hashtbl.add c.wakener mid ivar;
+               return (`Ok mid)
+             end
+        ) >>= function
+        | `Ok mid -> return (`Ok mid)
+        | `Error _ ->
+          (* we expect the event thread to reconnect for us *)
+          let ivar' = M.Ivar.create () in
+          (* XXX: we don't respect the timeout value here *)
+          M.Clock.run_after 5 (fun () -> M.Ivar.fill ivar' ());
+          M.Ivar.read ivar' >>= fun () ->
+          loop () in
+    loop () >>|= fun mid ->
     M.Ivar.read ivar >>|= fun x ->
     Hashtbl.remove c.wakener mid;
     Opt.iter M.Clock.cancel timer;
