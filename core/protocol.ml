@@ -394,7 +394,7 @@ module Client = functor(M: S) -> struct
                      end else begin
                        Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
                        Hashtbl.iter (fun k v ->
-                         Printf.printf "  have wakener id %s, %Ld\n%!" (fst j) (snd j)
+                         Printf.printf "  have wakener id %s, %Ld\n%!" (fst k) (snd k)
                        ) wakener;
                        return (`Ok ())
                      end
