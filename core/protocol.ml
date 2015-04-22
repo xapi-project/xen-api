@@ -285,9 +285,9 @@ module type SERVER = sig
   type t
   (** A listening server *)
 
-  val listen: (string -> string io) -> int -> string -> [ `Ok of t | `Error of exn ] io
+  val listen: process:(string -> string io) -> switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
-  val shutdown: t -> unit io
+  val shutdown: t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
 end
 
@@ -539,7 +539,7 @@ module Server = functor(M: S) -> struct
     on_shutdown: unit M.Ivar.t;
   }
 
-  let shutdown t =
+  let shutdown ~t () =
     M.Ivar.fill t.request_shutdown ();
     M.Ivar.read t.on_shutdown
 
@@ -547,7 +547,7 @@ module Server = functor(M: S) -> struct
     | `Ok x -> f x
     | `Error y -> return (`Error y)
 
-  let listen process port name =
+  let listen ~process ~switch:port ~queue:name () =
     let token = Printf.sprintf "%d" (Unix.getpid ()) in
     M.connect port >>= fun c ->
     Connection.rpc c (In.Login token) >>|= fun (_: string) ->

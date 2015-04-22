@@ -28,7 +28,7 @@ let process = function
   | x -> return x
 
 let main () =
-  Protocol_lwt.Server.listen process !port !name >>= fun _ ->
+  Protocol_lwt.Server.listen ~process ~switch:!port ~queue:!name () >>= fun _ ->
   t >>= fun () ->
   Lwt_unix.sleep 1.
 

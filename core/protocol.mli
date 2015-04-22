@@ -221,9 +221,9 @@ module type SERVER = sig
   type t
   (** A listening server *)
 
-  val listen: (string -> string io) -> int -> string -> [ `Ok of t | `Error of exn ] io
+  val listen: process:(string -> string io) -> switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
-  val shutdown: t -> unit io
+  val shutdown: t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
 end
 
