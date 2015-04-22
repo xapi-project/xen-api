@@ -10,13 +10,13 @@ set -x
 
 #trap finish EXIT
 
-rm -f /run/switch/*
-#mkdir /run/switch
+rm -f /tmp/switch/*
+mkdir -p /tmp/switch
 
 echo Checking the switch can start late
 ./server_unix_main.native -port 8081 &
 sleep 1
-./switch_main.native --port 8081 --statedir /run/switch &
+./switch_main.native --port 8081 --statedir /tmp/switch &
 ./client_unix_main.native -port 8081 -secs 5
 sleep 2
 
