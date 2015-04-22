@@ -462,6 +462,7 @@ module Client = functor(M: S) -> struct
              end
         ) >>= function
         | `Ok mid -> return (`Ok mid)
+        | `Error (Queue_deleted name) -> return (`Error (Queue_deleted name))
         | `Error _ ->
           (* we expect the event thread to reconnect for us *)
           let ivar' = M.Ivar.create () in
