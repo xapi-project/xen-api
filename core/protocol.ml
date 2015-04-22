@@ -248,7 +248,7 @@ module type S = sig
     val is_determined: 'a t -> bool
   end
 
-  val connect: int -> (IO.ic * IO.oc) IO.t
+  val connect: string -> (IO.ic * IO.oc) IO.t
 
   val disconnect: (IO.ic * IO.oc) -> unit IO.t
 
@@ -285,7 +285,7 @@ module type SERVER = sig
   type t
   (** A listening server *)
 
-  val listen: process:(string -> string io) -> switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
+  val listen: process:(string -> string io) -> switch:string -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
   val shutdown: t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
@@ -296,7 +296,7 @@ module type CLIENT = sig
 
   type t
 
-  val connect: switch:int -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
+  val connect: switch:string -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
 
   val disconnect: t:t -> unit -> unit io
   (** [disconnect] closes the connection *)

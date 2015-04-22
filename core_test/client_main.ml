@@ -19,7 +19,7 @@ open Lwt
 open Protocol
 open Protocol_lwt
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
@@ -31,7 +31,7 @@ let (>>|=) m f = m >>= function
   | `Error y -> fail y
 
 let main () =
-  Client.connect ~switch:!port ~queue:!name () >>|= fun t ->
+  Client.connect ~switch:!path ~queue:!name () >>|= fun t ->
   let counter = ref 0 in
   let one () =
     incr counter;
@@ -43,9 +43,9 @@ let main () =
     | n -> n :: (ints (n - 1)) in
   ( match !timeout with
     | None -> one ()
-    | Some t ->
+    | Some timeout ->
       let rec thread n =
-        if (Unix.gettimeofday () -. start < t) then begin
+        if (Unix.gettimeofday () -. start < timeout) then begin
           one ()
           >>= fun () ->
           thread n
@@ -60,7 +60,7 @@ let main () =
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
     "-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
     "-secs", Arg.String (fun x -> timeout := Some (float_of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> string_of_float x));

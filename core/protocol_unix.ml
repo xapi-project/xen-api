@@ -74,16 +74,15 @@ module IO = struct
     let write oc x =
       output_string oc x; flush oc
 
-    let connect port =
-      let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
+    let connect path =
+      let sockaddr = Unix.ADDR_UNIX(path) in
       let result = ref None in
       while !result = None do
         (* The system may invalidate the socket after a connect failure, therefore
            we must create a fresh fd for every iteration of the loop *)
-        let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+        let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
         try
           let () = Unix.connect fd sockaddr in
-          Unix.setsockopt fd Unix.TCP_NODELAY true;
           let ic = Unix.in_channel_of_descr fd in
           let oc = Unix.out_channel_of_descr fd in
           result := Some (ic, oc)

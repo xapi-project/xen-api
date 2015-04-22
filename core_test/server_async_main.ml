@@ -20,7 +20,7 @@ open Async.Std
 open Protocol
 open Protocol_async
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 let shutdown = Ivar.create ()
 let process = function
@@ -31,7 +31,7 @@ let process = function
     return x
 
 let main () =
-  let (_: 'a Deferred.t) = Server.listen ~process ~switch:!port ~queue:!name () in
+  let (_: 'a Deferred.t) = Server.listen ~process ~switch:!path ~queue:!name () in
   Ivar.read shutdown
   >>= fun () ->
   Clock.after (Time.Span.of_sec 1.)
@@ -40,7 +40,7 @@ let main () =
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
   ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name";

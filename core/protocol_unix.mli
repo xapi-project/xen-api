@@ -22,8 +22,8 @@ module IO : sig
   type ic
   type oc
 
-  val connect : int -> (ic * oc)
-  (** [connect port] connects to a switch listening on [port] *)
+  val connect : string -> (ic * oc)
+  (** [connect path] connects to a switch listening on [path] *)
 end
 
 module Connection : sig
@@ -33,7 +33,7 @@ end
 module Client : sig
   type t
 
-  val connect: int -> t
+  val connect: string -> t
 
   val rpc: t -> ?timeout:int -> dest:string -> string  -> string
 
@@ -44,5 +44,5 @@ end
 
 module Server : sig
 
-  val listen: (string -> string) -> int -> string -> unit
+  val listen: (string -> string) -> string -> string -> unit
 end

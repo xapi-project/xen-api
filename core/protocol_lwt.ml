@@ -32,9 +32,9 @@ module M = struct
     let is_determined t = Lwt.state t <> Lwt.Sleep
   end
 
-  let connect port =
-    let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-    let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+  let connect path =
+    let sockaddr = Lwt_unix.ADDR_UNIX path in
+    let fd = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
     let rec loop () =
       Lwt.catch (fun () ->
           Lwt_unix.connect fd sockaddr >>= fun () ->

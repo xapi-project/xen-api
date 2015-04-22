@@ -17,7 +17,7 @@
 open Protocol
 open Protocol_unix
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
@@ -26,7 +26,7 @@ let timeout = ref None
 let shutdown = "shutdown"
 
 let main () =
-  let c = Client.connect !port in
+  let c = Client.connect !path in
   let counter = ref 0 in
   let one () =
     incr counter;
@@ -47,7 +47,7 @@ let main () =
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path switch listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
     "-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
     "-secs", Arg.String (fun x -> timeout := Some (float_of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> string_of_float x));

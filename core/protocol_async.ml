@@ -37,10 +37,19 @@ module M = struct
     let is_determined = Deferred.is_determined
   end
 
-  let connect port =
+  let connect path =
     let maximum_delay = 30. in
     let connect () =
-      Tcp.connect (Tcp.to_host_and_port "127.0.0.1" port) in
+      let s = Socket.create Socket.Type.unix in
+      Monitor.try_with (fun () -> Socket.connect s (Socket.Address.Unix.create path)) >>= function
+      | Ok x ->
+        let fd = Socket.fd s in
+        let reader = Reader.create fd in
+        let writer = Writer.create fd in
+        return (fd, reader, writer)
+      | Error e ->
+        Socket.shutdown s `Both;
+        raise e in
     let rec retry delay =
       Monitor.try_with connect >>= function
       | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _))->

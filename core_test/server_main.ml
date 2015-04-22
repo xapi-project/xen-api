@@ -18,7 +18,7 @@ open Cohttp_lwt_unix
 open Lwt
 open Protocol
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 
 let t, u = Lwt.task ()
@@ -28,13 +28,13 @@ let process = function
   | x -> return x
 
 let main () =
-  Protocol_lwt.Server.listen ~process ~switch:!port ~queue:!name () >>= fun _ ->
+  Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
   t >>= fun () ->
   Lwt_unix.sleep 1.
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
   ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name";

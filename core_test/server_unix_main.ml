@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 
 let process = function
@@ -27,11 +27,11 @@ let process = function
   | x -> x
 
 let main () =
-  Protocol_unix.Server.listen process !port !name
+  Protocol_unix.Server.listen process !path !name
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path switch listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
   ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name";
