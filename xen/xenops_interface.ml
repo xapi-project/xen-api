@@ -99,12 +99,73 @@ module Network = struct
 	type ts = t list
 end
 
+module Pci = struct
+	type address = {
+		domain: int;
+		bus: int;
+		dev: int;
+		fn: int;
+	}
+	with sexp
+
+	type id = string * string
+
+	type t = {
+		id: id;
+		position: int;
+		address: address;
+		msitranslate: bool option;
+		power_mgmt: bool option;
+	}
+
+	type state = {
+		plugged: bool;
+	}
+end
+
+module Vgpu = struct
+	type gvt_g = {
+		physical_pci_address: Pci.address;
+		low_gm_sz: int64;
+		high_gm_sz: int64;
+		fence_sz: int64;
+	}
+	with sexp
+
+	type nvidia = {
+		physical_pci_address: Pci.address;
+		config_file: string;
+	}
+	with sexp
+
+	type implementation =
+		| GVT_g of gvt_g
+		| Nvidia of nvidia
+
+	type id = string * string
+
+	type t = {
+		id: id;
+		position: int;
+		implementation: implementation;
+	}
+
+	type state = {
+		plugged: bool;
+		emulator_pid: int option;
+	}
+end
+
 module Vm = struct
+	type igd_passthrough =
+		| GVT_d
+	with sexp
+
 	type video_card =
 		| Cirrus
 		| Standard_VGA
 		| Vgpu
-		| IGD_passthrough
+		| IGD_passthrough of igd_passthrough
 	with sexp
 
 	let default_video_card = Cirrus
@@ -306,30 +367,6 @@ module Vm = struct
 
 end
 
-module Pci = struct
-	type address = {
-		domain: int;
-		bus: int;
-		dev: int;
-		fn: int;
-	}
-	with sexp
-
-	type id = string * string
-
-	type t = {
-		id: id;
-		position: int;
-		address: address;
-		msitranslate: bool option;
-		power_mgmt: bool option;
-	}
-
-	type state = {
-		plugged: bool;
-	}
-end
-
 module Vbd = struct
 
 	type mode = ReadOnly | ReadWrite
@@ -411,6 +448,7 @@ module Metadata = struct
 		vbds: Vbd.t list;
 		vifs: Vif.t list;
 		pcis: Pci.t list;
+		vgpus: Vgpu.t list;
 		domains: string option;
 		(** Opaque data describing per-domain state *)
 	}
