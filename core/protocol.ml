@@ -387,10 +387,13 @@ module Client = functor(M: S) -> struct
         let frame = In.Transfer transfer in
         Connection.rpc events_conn frame >>= function
         | `Error _ ->
-          reconnect ()
-          >>|= fun (requests_conn, events_conn) ->
-          t.requests_conn <- requests_conn;
-          t.events_conn <- events_conn;
+          M.Mutex.with_lock requests_m (fun () ->
+            reconnect ()
+            >>|= fun (requests_conn, events_conn) ->
+            t.requests_conn <- requests_conn;
+            t.events_conn <- events_conn;
+            return (`Ok ())
+          ) >>|= fun () ->
           loop from
         | `Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
@@ -403,9 +406,18 @@ module Client = functor(M: S) -> struct
                    match m.Message.kind with
                    | Message.Response j ->
                      if Hashtbl.mem wakener j then begin
-                       Connection.rpc events_conn (In.Ack i) >>|= fun (_: string) ->
-                       M.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
-                       return (`Ok ())
+                       let rec loop events_conn =
+                         Connection.rpc events_conn (In.Ack i) >>= function
+                         | `Ok (_: string) ->
+                           M.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
+                           return (`Ok ())
+                         | `Error _ ->
+                           reconnect ()
+                           >>|= fun (requests_conn, events_conn) ->
+                           t.requests_conn <- requests_conn;
+                           t.events_conn <- events_conn;
+                           loop events_conn in
+                       loop events_conn
                      end else begin
                        Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
                        Hashtbl.iter (fun k v ->
