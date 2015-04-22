@@ -49,7 +49,7 @@ module Server : sig
   type t
   (** A listening server *)
 
-  val listen: (string -> string Lwt.t) -> (M.IO.ic * M.IO.oc) -> string -> t Lwt.t
+  val listen: (string -> string Lwt.t) -> int -> string -> [ `Ok of t | `Error of exn ] Lwt.t
 
   val shutdown: t -> unit Lwt.t
   (** [shutdown t] shutdown a server *)

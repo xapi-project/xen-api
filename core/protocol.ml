@@ -505,10 +505,15 @@ module Server = functor(M: S) -> struct
     M.Ivar.fill t.request_shutdown ();
     M.Ivar.read t.on_shutdown
 
-  let listen process c name =
+  let ( >>|= ) m f = m >>= function
+    | `Ok x -> f x
+    | `Error y -> return (`Error y)
+
+  let listen process port name =
     let token = Printf.sprintf "%d" (Unix.getpid ()) in
-    Connection.rpc c (In.Login token) >>= fun _ ->
-    Connection.rpc c (In.CreatePersistent name) >>= fun _ ->
+    M.connect port >>= fun c ->
+    Connection.rpc c (In.Login token) >>|= fun (_: string) ->
+    Connection.rpc c (In.CreatePersistent name) >>|= fun _ ->
 
     let request_shutdown = M.Ivar.create () in
     let on_shutdown = M.Ivar.create () in
@@ -556,7 +561,7 @@ module Server = functor(M: S) -> struct
           end
       end in
     let (_: unit M.IO.t) = loop None in
-    return t
+    return (`Ok t)
 end
 
 (* The following type is deprecated, used only by legacy Unix clients *)

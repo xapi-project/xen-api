@@ -31,8 +31,7 @@ let process = function
     return x
 
 let main () =
-  M.connect !port >>= fun c ->
-  let (_: 'a Deferred.t) = Server.listen process c !name in
+  let (_: 'a Deferred.t) = Server.listen process !port !name in
   Ivar.read shutdown
   >>= fun () ->
   Clock.after (Time.Span.of_sec 1.)
