@@ -25,32 +25,8 @@ module Connection : sig
   val rpc: (M.IO.ic * M.IO.oc) -> In.t -> [ `Ok of string | `Error of exn ] Lwt.t
 end
 
-module Client : sig
-  type t
+module Client : CLIENT
+  with type 'a io = 'a Lwt.t
 
-  val connect: int -> string -> [ `Ok of t | `Error of exn ] Lwt.t
-
-  val disconnect: t -> unit Lwt.t
-  (** [disconnect] closes the connection *)
-
-  val rpc: t -> ?timeout:int -> string  -> [ `Ok of string | `Error of exn ] Lwt.t
-
-  val list: t -> string -> [ `Ok of string list | `Error of exn ] Lwt.t
-
-  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] Lwt.t
-  (** [destroy t queue_name] destroys the named queue, and all associated
-      messages. *)
-
-  val shutdown: t -> [ `Ok of unit | `Error of exn ] Lwt.t
-  (** [shutdown t] requests that the message switch shuts down *)
-end
-
-module Server : sig
-  type t
-  (** A listening server *)
-
-  val listen: (string -> string Lwt.t) -> int -> string -> [ `Ok of t | `Error of exn ] Lwt.t
-
-  val shutdown: t -> unit Lwt.t
-  (** [shutdown t] shutdown a server *)
-end
+module Server : SERVER
+  with type 'a io = 'a Lwt.t

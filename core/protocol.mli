@@ -215,36 +215,47 @@ module type S = sig
   end
 end
 
+module type SERVER = sig
+  type +'a io
+
+  type t
+  (** A listening server *)
+
+  val listen: (string -> string io) -> int -> string -> [ `Ok of t | `Error of exn ] io
+
+  val shutdown: t -> unit io
+  (** [shutdown t] shutdown a server *)
+end
+
+module type CLIENT = sig
+  type +'a io
+
+  type t
+
+  val connect: int -> string -> [ `Ok of t | `Error of exn ] io
+
+  val disconnect: t -> unit io
+  (** [disconnect] closes the connection *)
+
+  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] io
+
+  val list: t -> string -> [ `Ok of string list | `Error of exn ] io
+
+  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] io
+  (** [destroy t queue_name] destroys the named queue, and all associated
+      messages. *)
+
+  val shutdown: t -> [ `Ok of unit | `Error of exn ] io
+  (** [shutdown t] request that the switch shuts down *)
+end
+
 module Connection(IO: Cohttp.S.IO) : sig
   val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
 end
 
-module Server(M: S) : sig
-  type t
-  (** A listening server *)
+module Server(M: S) : SERVER
+  with type 'a io = 'a M.IO.t
 
-  val listen: (string -> string M.IO.t) -> int -> string -> [ `Ok of t | `Error of exn ] M.IO.t
+module Client(M: S) : CLIENT
+  with type 'a io = 'a M.IO.t
 
-  val shutdown: t -> unit M.IO.t
-  (** [shutdown t] shutdown a server *)
-end
-
-module Client(M: S) : sig
-  type t
-
-  val connect: int -> string -> [ `Ok of t | `Error of exn ] M.IO.t
-
-  val disconnect: t -> unit M.IO.t
-  (** [disconnect] closes the connection *)
-
-  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] M.IO.t
-
-  val list: t -> string -> [ `Ok of string list | `Error of exn ] M.IO.t
-
-  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] M.IO.t
-  (** [destroy t queue_name] destroys the named queue, and all associated
-      messages. *)
-
-  val shutdown: t -> [ `Ok of unit | `Error of exn ] M.IO.t
-  (** [shutdown t] request that the switch shuts down *)
-end

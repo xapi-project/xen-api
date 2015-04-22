@@ -279,6 +279,40 @@ module type S = sig
   end
 end
 
+module type SERVER = sig
+  type +'a io
+
+  type t
+  (** A listening server *)
+
+  val listen: (string -> string io) -> int -> string -> [ `Ok of t | `Error of exn ] io
+
+  val shutdown: t -> unit io
+  (** [shutdown t] shutdown a server *)
+end
+
+module type CLIENT = sig
+  type +'a io
+
+  type t
+
+  val connect: int -> string -> [ `Ok of t | `Error of exn ] io
+
+  val disconnect: t -> unit io
+  (** [disconnect] closes the connection *)
+
+  val rpc: t -> ?timeout: int -> string  -> [ `Ok of string | `Error of exn ] io
+
+  val list: t -> string -> [ `Ok of string list | `Error of exn ] io
+
+  val destroy: t -> string -> [ `Ok of unit | `Error of exn ] io
+  (** [destroy t queue_name] destroys the named queue, and all associated
+      messages. *)
+
+  val shutdown: t -> [ `Ok of unit | `Error of exn ] io
+  (** [shutdown t] request that the switch shuts down *)
+end
+
 module Connection = functor(IO: Cohttp.S.IO) -> struct
   open IO
   module Request = Cohttp.Request.Make(IO)
@@ -338,6 +372,8 @@ module Client = functor(M: S) -> struct
   module Connection = Connection(M.IO)
 
   open M.IO
+
+  type 'a io = 'a M.IO.t
 
   type t = {
     mutable requests_conn: (ic * oc);
@@ -495,6 +531,8 @@ module Server = functor(M: S) -> struct
   module Connection = Connection(M.IO)
 
   open M.IO
+
+  type 'a io = 'a M.IO.t
 
   type t = {
     request_shutdown: unit M.Ivar.t;
