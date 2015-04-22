@@ -176,8 +176,6 @@ sig
 		| NONE
 		| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
 		| SDL of disp_intf_opt * string (* X11 display *)
-		| Passthrough of int option
-		| Intel of disp_intf_opt * int option
 
 	type media = Disk | Cdrom
 
