@@ -192,8 +192,8 @@ let rpc_exn c frame = match Connection.rpc c frame with
 
 module Client = struct
   type t = {
-    requests_conn: (IO.ic * IO.oc);
-    events_conn: (IO.ic * IO.oc);
+    mutable requests_conn: (IO.ic * IO.oc);
+    mutable events_conn: (IO.ic * IO.oc);
     requests_m: IO.Mutex.t;
     wakener: (Protocol.message_id, (Protocol.Message.t, exn) result IO.Ivar.t) Hashtbl.t;
     reply_queue_name: string;
@@ -201,16 +201,19 @@ module Client = struct
 
   let connect port =
     let token = IO.whoami () in
-    let requests_conn = IO.connect port in
-    let (_: string) = rpc_exn requests_conn (In.Login token) in
-    let events_conn = IO.connect port in
-    let (_: string) = rpc_exn events_conn (In.Login token) in
+    let reconnect () =
+      let requests_conn = IO.connect port in
+      let (_: string) = rpc_exn requests_conn (In.Login token) in
+      let events_conn = IO.connect port in
+      let (_: string) = rpc_exn events_conn (In.Login token) in
+      requests_conn, events_conn in
 
+    let requests_conn, events_conn = reconnect () in
     let wakener = Hashtbl.create 10 in
-
     let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
-
     let requests_m = IO.Mutex.create () in
+    let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
+
     let (_ : Thread.t) =
       let rec loop from =
         let timeout = 30. in
@@ -219,34 +222,34 @@ module Client = struct
           timeout = timeout;
           queues = [ reply_queue_name ]
         } in
-        let frame = In.Transfer transfer in
-        let raw = rpc_exn events_conn frame in
-        let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
-        match transfer.Out.messages with
-        | [] -> loop from
-        | m :: ms ->
-          List.iter
-            (fun (i, m) ->
-               (* If the Ack doesn't belong to us then assume it's another thread *)
-               IO.Mutex.with_lock requests_m (fun () ->
-                   match m.Message.kind with
-                   | Message.Response j ->
-                     if Hashtbl.mem wakener j then begin
-                       let (_: string) = rpc_exn events_conn (In.Ack i) in
-                       IO.Ivar.fill (Hashtbl.find wakener j) (Ok m);
-                     end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
-                   | Message.Request _ -> ()
-                 )
-            ) transfer.Out.messages;
-          loop (Some transfer.Out.next) in
+        try
+          let frame = In.Transfer transfer in
+          let raw = rpc_exn t.events_conn frame in
+          let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+          match transfer.Out.messages with
+          | [] -> loop from
+          | m :: ms ->
+            List.iter
+              (fun (i, m) ->
+                 (* If the Ack doesn't belong to us then assume it's another thread *)
+                 IO.Mutex.with_lock requests_m (fun () ->
+                     match m.Message.kind with
+                     | Message.Response j ->
+                       if Hashtbl.mem wakener j then begin
+                         let (_: string) = rpc_exn t.events_conn (In.Ack i) in
+                         IO.Ivar.fill (Hashtbl.find wakener j) (Ok m);
+                       end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
+                     | Message.Request _ -> ()
+                   )
+              ) transfer.Out.messages;
+            loop (Some transfer.Out.next)
+        with _ ->
+          let requests_conn, events_conn = reconnect () in
+          t.requests_conn <- requests_conn;
+          t.events_conn <- events_conn;
+          loop from in
       Thread.create loop None in
-    {
-      requests_conn = requests_conn;
-      events_conn = events_conn;
-      requests_m;
-      wakener = wakener;
-      reply_queue_name = reply_queue_name;
-    }
+    t
 
   (* Maintain at most one connection per process *)
   let connect =
@@ -268,21 +271,29 @@ module Client = struct
         IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (Error Timeout))
       ) timeout in
 
-    let id = with_lock c.requests_m
-        (fun () ->
-           let (_: string) = rpc_exn c.requests_conn (In.CreatePersistent dest_queue_name) in
-           let msg = In.Send(dest_queue_name, {
-               Message.payload = x;
-               kind = Message.Request c.reply_queue_name
-             }) in
-           let (id: string) = rpc_exn c.requests_conn msg in
-           match message_id_opt_of_rpc (Jsonrpc.of_string id) with
-           | None ->
-             raise (Protocol.Queue_deleted dest_queue_name);
-           | Some mid ->
-             Hashtbl.add c.wakener mid t;
-             mid
-        ) in
+    let rec loop () =
+      try
+        with_lock c.requests_m
+          (fun () ->
+             let (_: string) = rpc_exn c.requests_conn (In.CreatePersistent dest_queue_name) in
+             let msg = In.Send(dest_queue_name, {
+                 Message.payload = x;
+                 kind = Message.Request c.reply_queue_name
+               }) in
+             let (id: string) = rpc_exn c.requests_conn msg in
+             match message_id_opt_of_rpc (Jsonrpc.of_string id) with
+             | None ->
+               raise (Protocol.Queue_deleted dest_queue_name);
+             | Some mid ->
+               Hashtbl.add c.wakener mid t;
+               mid
+          )
+      with
+      | Protocol.Queue_deleted _ as e -> raise e
+      | _ ->
+        Thread.delay 5.;
+        loop () in
+    let id = loop () in
     (* now block waiting for our response *)
     match IO.Ivar.read t with
     | Ok response ->
