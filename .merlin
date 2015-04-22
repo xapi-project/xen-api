@@ -1,0 +1,18 @@
+PKG cmdliner cohttp fd-send-recv message_switch.unix lwt.unix oUnit rpclib.syntax re sexplib.syntax uri xapi-backtrace unix xcp-inventory xmlm
+S example
+S lib
+S lib_test
+S memory
+S network
+S rrd
+S storage
+S xen
+
+B _build/example
+B _build/lib
+B _build/lib_test
+B _build/memory
+B _build/network
+B _build/rrd
+B _build/storage
+B _build/xen
