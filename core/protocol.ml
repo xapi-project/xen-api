@@ -519,7 +519,7 @@ module Server = functor(M: S) -> struct
     let on_shutdown = M.Ivar.create () in
     let t = { request_shutdown; on_shutdown } in
 
-    let rec loop from =
+    let rec loop c from =
       let transfer = {
         In.from = from;
         timeout = timeout;
@@ -530,16 +530,18 @@ module Server = functor(M: S) -> struct
       any [ map (fun _ -> ()) message; M.Ivar.read request_shutdown ] >>= fun () ->
       if is_determined (M.Ivar.read request_shutdown) then begin
         M.Ivar.fill on_shutdown ();
-        return ()
+        return (`Ok ())
       end else begin
         message >>= function
         | `Error e ->
           Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
-          return ()
+          M.connect port >>= fun c ->
+          Connection.rpc c (In.Login token) >>|= fun (_: string) ->
+          loop c from
         | `Ok raw ->
           let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
           begin match transfer.Out.messages with
-            | [] -> loop from
+            | [] -> loop c from
             | m :: ms ->
               iter
                 (fun (i, m) ->
@@ -557,10 +559,10 @@ module Server = functor(M: S) -> struct
                    Connection.rpc c request >>= fun _ ->
                    return ()
                 ) transfer.Out.messages >>= fun () ->
-              loop (Some transfer.Out.next)
+              loop c (Some transfer.Out.next)
           end
       end in
-    let (_: unit M.IO.t) = loop None in
+    let _ = loop c None in
     return (`Ok t)
 end
 
