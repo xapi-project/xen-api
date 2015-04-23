@@ -27,7 +27,11 @@ let process = function
   | x -> x
 
 let main () =
-  Protocol_unix.Server.listen process !path !name
+  let _ = Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
+  let rec forever () =
+    Thread.delay 3600.;
+    forever () in
+  forever ()
 
 let _ =
   Arg.parse [

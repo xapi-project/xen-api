@@ -490,7 +490,7 @@ let serve common_options_t name program =
   | None ->
     `Error(true, "a queue name is required")
   | Some name ->
-    Protocol_unix.Server.listen (fun req ->
+    let _ = Protocol_unix.Server.listen ~process:(fun req ->
         match program with
         | None ->
           print_endline "Received:";
@@ -503,8 +503,11 @@ let serve common_options_t name program =
           let res = string_of_ic stdout in
           let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
           res
-      ) common_options_t.Common.path name;
-    `Ok ()
+      ) ~switch:common_options_t.Common.path ~queue:name () in
+    let rec forever () =
+      Thread.delay 3600.;
+      forever () in
+    forever ()
 
 let serve_cmd =
   let doc = "respond to remote procedure calls" in

@@ -209,12 +209,12 @@ module Client = struct
     IO.disconnect t.requests_conn;
     IO.disconnect t.events_conn
 
-  let connect port =
+  let connect switch =
     let token = IO.whoami () in
     let reconnect () =
-      let requests_conn = IO.connect port in
+      let requests_conn = IO.connect switch in
       let (_: string) = rpc_exn requests_conn (In.Login token) in
-      let events_conn = IO.connect port in
+      let events_conn = IO.connect switch in
       let (_: string) = rpc_exn events_conn (In.Login token) in
       requests_conn, events_conn in
 
@@ -357,14 +357,17 @@ module Client = struct
 end
 
 module Server = struct
+  type 'a io = 'a
 
-  let listen process port name =
+  type t = unit
+
+  let listen ~process ~switch ~queue:name () =
     let open IO.IO in
     let token = IO.whoami () in
     let reconnect () =
-      let request_conn = IO.connect port in
+      let request_conn = IO.connect switch in
       let (_: string) = rpc_exn request_conn (In.Login token) in
-      let reply_conn = IO.connect port in
+      let reply_conn = IO.connect switch in
       let (_: string) = rpc_exn reply_conn (In.Login token) in
       Connection.rpc request_conn (In.Login token) >>= fun _ ->
       request_conn, reply_conn in
@@ -419,5 +422,9 @@ module Server = struct
               ) transfer.Out.messages;
             loop connections (Some transfer.Out.next)
         end in
-    loop connections None
+    let (_: Thread.t) = Thread.create (loop connections) None in
+    `Ok ()
+
+  let shutdown ~t () =
+    failwith "Shutdown is unimplemented"
 end

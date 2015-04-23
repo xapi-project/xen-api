@@ -17,7 +17,5 @@
 module Client: S.CLIENT
   with type 'a io = 'a
 
-module Server : sig
-
-  val listen: (string -> string) -> string -> string -> unit
-end
+module Server : S.SERVER
+  with type 'a io = 'a
