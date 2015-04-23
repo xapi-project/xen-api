@@ -278,7 +278,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc
 @OPTDIR@/libexec/logs-download
-@OPTDIR@/libexec/lw-force-domain-leave
+@OPTDIR@/libexec/pbis-force-domain-leave
 @OPTDIR@/libexec/mail-alarm
 @OPTDIR@/libexec/print-custom-templates
 @OPTDIR@/libexec/probe-device-for-file
