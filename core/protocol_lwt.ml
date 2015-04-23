@@ -42,7 +42,7 @@ module M = struct
           let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
           return (ic, oc)
         ) (function
-          | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _) ->
+          | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _) ->
             Lwt_unix.sleep 5. >>= fun () ->
             loop ()
           | e -> fail e

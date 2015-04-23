@@ -52,7 +52,7 @@ module M = struct
         raise e in
     let rec retry delay =
       Monitor.try_with connect >>= function
-      | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _))->
+      | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _))->
         let delay = min maximum_delay delay in
         Clock.after (Time.Span.of_sec delay) >>= fun () ->
         retry (delay +. delay)

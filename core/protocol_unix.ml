@@ -86,7 +86,7 @@ module IO = struct
           let ic = Unix.in_channel_of_descr fd in
           let oc = Unix.out_channel_of_descr fd in
           result := Some (ic, oc)
-        with Unix.Unix_error(Unix.ECONNREFUSED, cmd, _) ->
+        with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ENOENT), cmd, _) ->
           Unix.close fd;
           (* wait for the server to start *)
           Thread.delay 5.
