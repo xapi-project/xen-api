@@ -16,19 +16,8 @@
 open Core.Std
 open Async.Std
 
-open Protocol
-
-val whoami: unit -> string
-
-module M : S
-  with type 'a IO.t = 'a Deferred.t
-
-module Connection : sig
-  val rpc: (M.IO.ic * M.IO.oc) -> In.t -> [ `Ok of string | `Error of exn ] Deferred.t
-end
-
-module Client : CLIENT
+module Client : S.CLIENT
   with type 'a io = 'a Deferred.t
 
-module Server : SERVER
+module Server : S.SERVER
   with type 'a io = 'a Deferred.t

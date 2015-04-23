@@ -14,19 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Protocol
-
-val whoami: unit -> string
-
-module M : S
-  with type 'a IO.t = 'a Lwt.t
-
-module Connection : sig
-  val rpc: (M.IO.ic * M.IO.oc) -> In.t -> [ `Ok of string | `Error of exn ] Lwt.t
-end
-
-module Client : CLIENT
+module Client : S.CLIENT
   with type 'a io = 'a Lwt.t
 
-module Server : SERVER
+module Server : S.SERVER
   with type 'a io = 'a Lwt.t

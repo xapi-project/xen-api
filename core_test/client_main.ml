@@ -31,11 +31,11 @@ let (>>|=) m f = m >>= function
   | `Error y -> fail y
 
 let main () =
-  Client.connect ~switch:!path ~queue:!name () >>|= fun t ->
+  Client.connect ~switch:!path () >>|= fun t ->
   let counter = ref 0 in
   let one () =
     incr counter;
-    Client.rpc ~t ~body:!payload () >>|= fun _ ->
+    Client.rpc ~t ~queue:!name ~body:!payload () >>|= fun _ ->
     return () in
   let start = Unix.gettimeofday () in
   let rec ints = function
@@ -55,7 +55,7 @@ let main () =
   ) >>= fun () ->
   let time = Unix.gettimeofday () -. start in
   Printf.printf "Finished %d RPCs in %.02f\n" !counter time;
-  Client.rpc ~t ~body:shutdown () >>|= fun _ ->
+  Client.rpc ~t ~queue:!name ~body:shutdown () >>|= fun _ ->
   return ()
 
 let _ =

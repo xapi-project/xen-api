@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Sexplib.Std
-open Cohttp
 
 exception Queue_deleted of string
 
@@ -104,7 +103,7 @@ module In = struct
     | _, _, _ -> None
 
   let headers payload =
-    Header.of_list [
+    Cohttp.Header.of_list [
       "user-agent", "cohttp";
       "content-length", string_of_int (String.length payload);
       "connection", "keep-alive";
@@ -235,84 +234,6 @@ exception Unsuccessful_response
 
 exception Timeout
 
-module type S = sig
-  val whoami: unit -> string
-
-  module IO: sig
-    include Cohttp.S.IO
-
-    val map: ('a -> 'b) -> 'a t -> 'b t
-
-    val any: 'a t list -> 'a t
-
-    val is_determined: 'a t -> bool
-  end
-
-  val connect: string -> (IO.ic * IO.oc) IO.t
-
-  val disconnect: (IO.ic * IO.oc) -> unit IO.t
-
-  module Ivar : sig
-    type 'a t
-
-    val create: unit -> 'a t
-
-    val fill: 'a t -> 'a -> unit
-
-    val read: 'a t -> 'a IO.t
-  end
-
-  module Mutex : sig
-    type t
-
-    val create: unit -> t
-
-    val with_lock: t -> (unit -> 'a IO.t) -> 'a IO.t
-  end
-
-  module Clock : sig
-    type timer
-
-    val run_after: int -> (unit-> unit) -> timer
-
-    val cancel: timer -> unit
-  end
-end
-
-module type SERVER = sig
-  type +'a io
-
-  type t
-  (** A listening server *)
-
-  val listen: process:(string -> string io) -> switch:string -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
-
-  val shutdown: t:t -> unit -> unit io
-  (** [shutdown t] shutdown a server *)
-end
-
-module type CLIENT = sig
-  type +'a io
-
-  type t
-
-  val connect: switch:string -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
-
-  val disconnect: t:t -> unit -> unit io
-  (** [disconnect] closes the connection *)
-
-  val rpc: t:t -> ?timeout: int -> body:string -> unit -> [ `Ok of string | `Error of exn ] io
-
-  val list: t:t -> prefix:string -> unit -> [ `Ok of string list | `Error of exn ] io
-
-  val destroy: t:t -> queue:string -> unit -> [ `Ok of unit | `Error of exn ] io
-  (** [destroy t queue_name] destroys the named queue, and all associated
-      messages. *)
-
-  val shutdown: t:t -> unit -> [ `Ok of unit | `Error of exn ] io
-  (** [shutdown t] request that the switch shuts down *)
-end
-
 module Connection = functor(IO: Cohttp.S.IO) -> struct
   open IO
   module Request = Cohttp.Request.Make(IO)
@@ -340,13 +261,13 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
         let results = Buffer.create 128 in
         let rec read () =
           Response.read_body_chunk reader >>= function
-          | Transfer.Final_chunk x ->
+          | Cohttp.Transfer.Final_chunk x ->
             Buffer.add_string results x;
             return (`Ok (Buffer.contents results))
-          | Transfer.Chunk x ->
+          | Cohttp.Transfer.Chunk x ->
             Buffer.add_string results x;
             read ()
-          | Transfer.Done ->
+          | Cohttp.Transfer.Done ->
             return (`Ok (Buffer.contents results)) in
         read ()
       end
@@ -367,7 +288,7 @@ module Opt = struct
     | Some x -> Some (f x)
 end
 
-module Client = functor(M: S) -> struct
+module Client = functor(M: S.BACKEND) -> struct
 
   module Connection = Connection(M.IO)
 
@@ -380,7 +301,6 @@ module Client = functor(M: S) -> struct
     mutable events_conn: (ic * oc);
     requests_m: M.Mutex.t;
     wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
-    dest_queue_name: string;
     reply_queue_name: string;
   }
 
@@ -394,7 +314,7 @@ module Client = functor(M: S) -> struct
       f x >>|= fun () ->
       iter_s f xs
 
-  let connect ~switch:port ~queue:dest_queue_name () =
+  let connect ~switch:port () =
     let token = M.whoami () in
     let rec reconnect () =
       M.connect port >>= fun requests_conn ->
@@ -409,9 +329,8 @@ module Client = functor(M: S) -> struct
     let requests_m = M.Mutex.create () in
 
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
-    Connection.rpc requests_conn (In.CreatePersistent dest_queue_name) >>|= fun (_: string) ->
 
-    let t = { requests_conn; events_conn; requests_m; wakener; dest_queue_name; reply_queue_name } in
+    let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
 
     let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
       let rec loop from =
@@ -472,26 +391,28 @@ module Client = functor(M: S) -> struct
     M.disconnect t.requests_conn >>= fun () ->
     M.disconnect t.events_conn
 
-  let rpc ~t ?timeout ~body:x () =
+  let rpc ~t ~queue ?timeout ~body:x () =
     let ivar = M.Ivar.create () in
 
     let timer = Opt.map (fun timeout ->
         M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
       ) timeout in
 
-    let msg = In.Send(t.dest_queue_name, {
+    let msg = In.Send(queue, {
         Message.payload = x;
         kind = Message.Request t.reply_queue_name
       }) in
     let rec loop () =
       M.Mutex.with_lock t.requests_m
         (fun () ->
+           Connection.rpc t.requests_conn (In.CreatePersistent queue)
+           >>|= fun (_: string) ->
            Connection.rpc t.requests_conn msg >>= function
            | `Error e -> return (`Error e)
            | `Ok id ->
              begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
              | None ->
-               return (`Error (Queue_deleted t.dest_queue_name))
+               return (`Error (Queue_deleted queue))
              | Some mid ->
                Hashtbl.add t.wakener mid ivar;
                return (`Ok mid)
@@ -526,7 +447,7 @@ module Client = functor(M: S) -> struct
 end
 
 
-module Server = functor(M: S) -> struct
+module Server = functor(M: S.BACKEND) -> struct
 
   module Connection = Connection(M.IO)
 
