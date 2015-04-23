@@ -51,7 +51,7 @@ Library message_switch_unix
   CompiledObject:     best
   ByteOpt:            -warn-error +a
   NativeOpt:          -warn-error +a
-  Path:               core
+  Path:               unix
   Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix, Protocol_unix_scheduler
