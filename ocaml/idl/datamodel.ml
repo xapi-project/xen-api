@@ -694,7 +694,8 @@ let _ =
     ~doc:"An error occured while saving the memory image of the specified virtual machine" ();
   error Api_errors.vm_checkpoint_resume_failed [ "vm" ]
     ~doc:"An error occured while restoring the memory image of the specified virtual machine" ();
-
+  error Api_errors.vm_pv_drivers_in_use [ "vm" ]
+    ~doc:"VM PV drivers still in use" ();
 	(* VM appliance errors *)
 	error Api_errors.operation_partially_failed [ "operation" ]
 		~doc:"Some VMs belonging to the appliance threw an exception while carrying out the specified operation" ();
@@ -2387,6 +2388,23 @@ let vm_call_plugin = call
 	~allowed_roles:_R_VM_OP
 	()
 
+let vm_set_auto_update_drivers = call
+	~name:"set_auto_update_drivers"
+	~in_product_since:rel_dundee
+	~doc:"Enable or disable PV auto update on Windows vm"
+	~params:[Ref _vm, "vm", "The vm";
+			 Bool, "enable", "true if the Windows Update feature is enabled on the VM; false otherwise"]
+	~allowed_roles:_R_VM_OP
+	()
+
+let vm_assert_can_set_auto_update_drivers = call
+	~name:"assert_can_set_auto_update_drivers"
+	~in_product_since:rel_dundee
+	~doc:"Check wether PV auto update can be set on Windows vm"
+	~params:[Ref _vm, "vm", "The vm";]
+	~allowed_roles:_R_VM_OP
+	~doc_tags:[Windows]
+	()
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -6849,6 +6867,7 @@ let vm_operations =
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger;
 		vm_query_services;vm_shutdown;
 		vm_call_plugin;
+		vm_set_auto_update_drivers;vm_assert_can_set_auto_update_drivers
 	  ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
@@ -6933,6 +6952,8 @@ let vm =
 		vm_set_appliance;
 		vm_query_services;
 		vm_call_plugin;
+		vm_set_auto_update_drivers;
+		vm_assert_can_set_auto_update_drivers;
 		]
       ~contents:
       ([ uid _vm;
