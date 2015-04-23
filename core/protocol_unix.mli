@@ -16,7 +16,6 @@
 
 module Client: S.CLIENT
   with type 'a io = 'a
-   and type error = exn
 
 module Server : S.SERVER
   with type 'a io = 'a

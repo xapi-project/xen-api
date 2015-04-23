@@ -20,7 +20,12 @@ open Protocol_unix
 let project_url = "http://github.com/djs55/message_switch"
 
 let (>>|=) m f = match m with
-  | `Error exn -> `Error(false, Printexc.to_string exn)
+  | `Error e ->
+    let b = Buffer.create 16 in
+    let fmt = Format.formatter_of_buffer b in
+    Client.pp_error fmt e;
+    Format.pp_print_flush fmt ();
+    `Error (false, (Buffer.contents b))
   | `Ok x -> f x
 
 open Cmdliner
@@ -317,7 +322,7 @@ let tail common_opts follow =
   let finished = ref false in
   while not(!finished) do
     match Client.trace ~t:c ~from:!from ~timeout () with
-    | `Error exn -> raise exn
+    | `Error _ -> failwith "Trace failed"
     | `Ok trace ->
       let endpoint = function
         | None -> "-"

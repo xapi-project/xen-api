@@ -170,8 +170,6 @@ let whoami = IO.whoami
 
 module Connection = Make.Connection(IO)
 
-exception Timeout
-
 module Opt = struct
   let iter f = function
     | None -> ()
@@ -181,17 +179,49 @@ module Opt = struct
     | Some x -> Some (f x)
 end
 
-
-let rpc_exn c frame = match Connection.rpc c frame with
-  | `Error e -> raise e
-  | `Ok raw -> raw
+let (>>|=) m f = match m with
+  | `Error e -> `Error e
+  | `Ok x -> f x
 
 module Client = struct
 
   type 'a io = 'a
 
-  type error = exn
-  type 'a result = ('a, error) Result.result
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+    | `Timeout
+    | `Queue_deleted of string
+  ]
+
+  let (>>|=) m f = match m with
+    | `Ok x -> f x
+    | `Error (`Message_switch `Failed_to_read_response) -> `Error (`Message_switch `Failed_to_read_response)
+    | `Error (`Message_switch `Unsuccessful_response) -> `Error (`Message_switch `Unsuccessful_response)
+    | `Error (`Message_switch `Timeout) -> `Error (`Message_switch `Timeout)
+    | `Error (`Message_switch (`Queue_deleted name)) -> `Error (`Message_switch (`Queue_deleted name))
+
+  type 'a result = ('a, [ `Message_switch of error]) Result.result
+
+  let pp_error fmt = function
+    | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
+    | `Message_switch `Failed_to_read_response ->
+      Format.pp_print_string fmt "Failed to read response from the message-switch"
+    | `Message_switch `Unsuccessful_response ->
+      Format.pp_print_string fmt "Received an unexpected failure from the message-switch"
+    | `Message_switch `Timeout ->
+      Format.pp_print_string fmt "Timeout"
+    | `Message_switch (`Queue_deleted name) ->
+      Format.fprintf fmt "The queue %s has been deleted" name
+
+  let error_to_msg = function
+    | `Ok x -> `Ok x
+    | `Error y ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      pp_error fmt y;
+      Format.pp_print_flush fmt ();
+      `Error (`Msg (Buffer.contents b))
 
   type t = {
     mutable requests_conn: (IO.ic * IO.oc);
@@ -209,14 +239,18 @@ module Client = struct
     let token = IO.whoami () in
     let reconnect () =
       let requests_conn = IO.connect switch in
-      let (_: string) = rpc_exn requests_conn (In.Login token) in
+      Connection.rpc requests_conn (In.Login token)
+      >>|= fun (_: string) ->
       let events_conn = IO.connect switch in
-      let (_: string) = rpc_exn events_conn (In.Login token) in
-      requests_conn, events_conn in
+      Connection.rpc events_conn (In.Login token)
+      >>|= fun (_: string) ->
+      `Ok (requests_conn, events_conn) in
 
-    let requests_conn, events_conn = reconnect () in
+    reconnect ()
+    >>|= fun (requests_conn, events_conn) ->
     let wakener = Hashtbl.create 10 in
-    let reply_queue_name = rpc_exn requests_conn (In.CreateTransient token) in
+    Connection.rpc requests_conn (In.CreateTransient token)
+    >>|= fun reply_queue_name ->
     let requests_m = IO.Mutex.create () in
     let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
 
@@ -228,34 +262,46 @@ module Client = struct
           timeout = timeout;
           queues = [ reply_queue_name ]
         } in
-        try
+        match (
           let frame = In.Transfer transfer in
-          let raw = rpc_exn t.events_conn frame in
+          Connection.rpc t.events_conn frame
+          >>|= fun raw ->
           let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
           match transfer.Out.messages with
           | [] -> loop from
           | m :: ms ->
-            List.iter
-              (fun (i, m) ->
+            begin match List.fold_left (fun acc (i, m) -> match acc, i, m with
+              | `Error e, _, _ -> `Error e
+              | `Ok (), i, m ->
                  (* If the Ack doesn't belong to us then assume it's another thread *)
                  IO.Mutex.with_lock requests_m (fun () ->
                      match m.Message.kind with
                      | Message.Response j ->
                        if Hashtbl.mem wakener j then begin
-                         let (_: string) = rpc_exn t.events_conn (In.Ack i) in
+                         Connection.rpc t.events_conn (In.Ack i)
+                         >>|= fun (_: string) ->
                          IO.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
-                       end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
-                     | Message.Request _ -> ()
+                         `Ok ()
+                       end else begin
+                         Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i);
+                         `Ok ()
+                       end
+                     | Message.Request _ -> `Ok ()
                    )
-              ) transfer.Out.messages;
-            loop (Some transfer.Out.next)
-        with _ ->
-          let requests_conn, events_conn = reconnect () in
+              ) (`Ok ()) transfer.Out.messages with
+              | `Ok () -> loop (Some transfer.Out.next)
+              | `Error _ -> loop from (* repeat *)
+              end
+        ) with
+        | `Ok _ -> assert false
+        | `Error _ ->
+          reconnect ()
+          >>|= fun (requests_conn, events_conn) ->
           t.requests_conn <- requests_conn;
           t.events_conn <- events_conn;
           loop from in
       Thread.create loop None in
-    t
+    `Ok t
 
   (* Maintain at most one connection per process *)
   let connect =
@@ -266,7 +312,8 @@ module Client = struct
           match !c with
           | Some x -> `Ok x
           | None ->
-            let c' = connect switch in
+            connect switch
+            >>|= fun c' ->
             c := Some c';
             `Ok c'
         )
@@ -274,32 +321,35 @@ module Client = struct
   let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = IO.Ivar.create () in
     let timer = Opt.map (fun timeout ->
-        IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (`Error Timeout))
+        IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (`Error (`Message_switch `Timeout)))
       ) timeout in
 
     let rec loop () =
-      try
-        with_lock c.requests_m
+      match with_lock c.requests_m
           (fun () ->
-             let (_: string) = rpc_exn c.requests_conn (In.CreatePersistent dest_queue_name) in
+             Connection.rpc c.requests_conn (In.CreatePersistent dest_queue_name)
+             >>|= fun (_: string) ->
              let msg = In.Send(dest_queue_name, {
                  Message.payload = x;
                  kind = Message.Request c.reply_queue_name
                }) in
-             let (id: string) = rpc_exn c.requests_conn msg in
+             Connection.rpc c.requests_conn msg
+             >>|= fun (id: string) ->
              match message_id_opt_of_rpc (Jsonrpc.of_string id) with
              | None ->
-               raise (Protocol.Queue_deleted dest_queue_name);
+               `Error (`Message_switch (`Queue_deleted dest_queue_name))
              | Some mid ->
                Hashtbl.add c.wakener mid t;
-               mid
+               `Ok mid
           )
       with
-      | Protocol.Queue_deleted _ as e -> raise e
-      | _ ->
+      | `Ok x -> `Ok x
+      | `Error (`Message_switch (`Queue_deleted _)) as e -> e
+      | `Error _ ->
         Thread.delay 5.;
         loop () in
-    let id = loop () in
+    loop ()
+    >>|= fun id ->
     (* now block waiting for our response *)
     match IO.Ivar.read t with
     | `Ok response ->
@@ -307,53 +357,82 @@ module Client = struct
       Opt.iter IO.Clock.cancel timer;
       IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
       `Ok response.Message.payload
-    | `Error exn -> raise exn
+    | `Error e -> `Error e
 
   let list ~t:c ~prefix () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-         let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
+         Connection.rpc c.requests_conn (In.List prefix)
+         >>|= fun result ->
          `Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
       )
 
   let ack ~t:c ~message:(name, id) () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-         let (_: string) = rpc_exn c.requests_conn (In.Ack(name, id)) in
+         Connection.rpc c.requests_conn (In.Ack(name, id))
+         >>|= fun (_: string) ->
          `Ok ()
       )
 
   let diagnostics ~t:c () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-         let (result: string) = rpc_exn c.requests_conn In.Diagnostics in
+         Connection.rpc c.requests_conn In.Diagnostics
+         >>|= fun (result: string) ->
          `Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
       )
 
   let trace ~t:c ~from ?(timeout=0.) () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-         let (result: string) = rpc_exn c.requests_conn (In.Trace(from, timeout)) in
+         Connection.rpc c.requests_conn (In.Trace(from, timeout))
+         >>|= fun (result: string) ->
          `Ok (Out.trace_of_rpc (Jsonrpc.of_string result))
       )
 
   let shutdown ~t:c () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-        let (_: string) = rpc_exn c.requests_conn In.Shutdown in
+        Connection.rpc c.requests_conn In.Shutdown
+        >>|= fun (_: string) ->
         IO.IO.return (`Ok ())
       )
 
   let destroy ~t ~queue:queue_name () =
     IO.Mutex.with_lock t.requests_m
       (fun () ->
-        let (_: string) = rpc_exn t.requests_conn (In.Destroy queue_name) in
+        Connection.rpc t.requests_conn (In.Destroy queue_name)
+        >>|= fun (_: string) ->
         IO.IO.return (`Ok ())
       )
 end
 
 module Server = struct
   type 'a io = 'a
+
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+  ]
+
+  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+
+  let pp_error fmt = function
+    | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
+    | `Message_switch `Failed_to_read_response ->
+      Format.pp_print_string fmt "Failed to read response from the message-switch"
+    | `Message_switch `Unsuccessful_response ->
+      Format.pp_print_string fmt "Received an unexpected failure from the message-switch"
+
+  let error_to_msg = function
+    | `Ok x -> `Ok x
+    | `Error y ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      pp_error fmt y;
+      Format.pp_print_flush fmt ();
+      `Error (`Msg (Buffer.contents b))
 
   type t = unit
 
@@ -362,17 +441,22 @@ module Server = struct
     let token = IO.whoami () in
     let reconnect () =
       let request_conn = IO.connect switch in
-      let (_: string) = rpc_exn request_conn (In.Login token) in
+      Connection.rpc request_conn (In.Login token)
+      >>|= fun (_: string) ->
       let reply_conn = IO.connect switch in
-      let (_: string) = rpc_exn reply_conn (In.Login token) in
-      Connection.rpc request_conn (In.Login token) >>= fun _ ->
-      request_conn, reply_conn in
+      Connection.rpc reply_conn (In.Login token)
+      >>|= fun (_: string) ->
+      Connection.rpc request_conn (In.Login token)
+      >>|= fun (_: string) ->
+      `Ok (request_conn, reply_conn) in
 
-    let (request_conn, reply_conn) as connections = reconnect () in
+    reconnect ()
+    >>|= fun ((request_conn, reply_conn) as connections) ->
     (* Only allow one reply RPC at a time (no pipelining) *)
     let mutex = IO.Mutex.create () in
 
-    Connection.rpc request_conn (In.CreatePersistent name) >>= fun _ ->
+    Connection.rpc request_conn (In.CreatePersistent name)
+    >>|= fun (_: string) ->
 
     let rec loop ((request_conn, reply_conn) as connections) from =
       let transfer = {
@@ -383,8 +467,8 @@ module Server = struct
       let frame = In.Transfer transfer in
       Connection.rpc request_conn frame >>= function
       | `Error e ->
-        Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
-        let connections = IO.Mutex.with_lock mutex reconnect in
+        IO.Mutex.with_lock mutex reconnect
+        >>|= fun connections ->
         loop connections from
       | `Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in

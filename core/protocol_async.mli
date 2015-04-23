@@ -18,7 +18,6 @@ open Async.Std
 
 module Client : S.CLIENT
   with type 'a io = 'a Deferred.t
-   and type error = exn
 
 module Server : S.SERVER
   with type 'a io = 'a Deferred.t

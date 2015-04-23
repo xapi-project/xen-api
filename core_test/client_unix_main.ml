@@ -27,7 +27,12 @@ let shutdown = "shutdown"
 
 let (>>|=) m f = match m with
   | `Ok x -> f x
-  | `Error exn -> raise exn
+  | `Error y ->
+    let b = Buffer.create 16 in
+    let fmt = Format.formatter_of_buffer b in
+    Client.pp_error fmt y;
+    Format.pp_print_flush fmt ();
+    raise (Failure (Buffer.contents b))
 
 let main () =
   Client.connect ~switch:!path ()

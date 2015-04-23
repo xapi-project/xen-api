@@ -85,7 +85,5 @@ end
 
 let whoami = M.whoami
 
-module Connection = Make.Connection(M.IO)
-
 module Client = Make.Client(M)
 module Server = Make.Server(M)

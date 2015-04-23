@@ -16,12 +16,6 @@
 open Sexplib.Std
 open Protocol
 
-exception Failed_to_read_response
-
-exception Unsuccessful_response
-
-exception Timeout
-
 module Connection = functor(IO: Cohttp.S.IO) -> struct
   open IO
   module Request = Cohttp.Request.Make(IO)
@@ -43,7 +37,7 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
       if Cohttp.Response.status response <> `OK then begin
         Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
         (* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
-        return (`Error Unsuccessful_response)
+        return (`Error (`Message_switch `Unsuccessful_response))
       end else begin
         let reader = Response.make_body_reader response ic in
         let results = Buffer.create 128 in
@@ -61,10 +55,10 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
       end
     | `Invalid s ->
       Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
-      return (`Error Failed_to_read_response)
+      return (`Error (`Message_switch `Failed_to_read_response))
     | `Eof ->
       Printf.fprintf stderr "Empty response\n%!";
-      return (`Error Failed_to_read_response)
+      return (`Error (`Message_switch `Failed_to_read_response))
 end
 
 module Opt = struct
@@ -78,8 +72,34 @@ end
 
 module Client = functor(M: S.BACKEND) -> struct
 
-  type error = exn
-  type 'a result = ('a, error) Result.result
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+    | `Timeout
+    | `Queue_deleted of string
+  ]
+
+  type 'a result = ('a, [ `Message_switch of error]) Result.result
+
+  let pp_error fmt = function
+    | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
+    | `Message_switch `Failed_to_read_response ->
+      Format.pp_print_string fmt "Failed to read response from the message-switch"
+    | `Message_switch `Unsuccessful_response ->
+      Format.pp_print_string fmt "Received an unexpected failure from the message-switch"
+    | `Message_switch `Timeout ->
+      Format.pp_print_string fmt "Timeout"
+    | `Message_switch (`Queue_deleted name) ->
+      Format.fprintf fmt "The queue %s has been deleted" name
+
+  let error_to_msg = function
+    | `Ok x -> `Ok x
+    | `Error y ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      pp_error fmt y;
+      Format.pp_print_flush fmt ();
+      `Error (`Msg (Buffer.contents b))
 
   module Connection = Connection(M.IO)
 
@@ -91,7 +111,7 @@ module Client = functor(M: S.BACKEND) -> struct
     mutable requests_conn: (ic * oc);
     mutable events_conn: (ic * oc);
     requests_m: M.Mutex.t;
-    wakener: (message_id, [ `Ok of Message.t | `Error of exn ] M.Ivar.t) Hashtbl.t;
+    wakener: (message_id, Message.t result M.Ivar.t) Hashtbl.t;
     reply_queue_name: string;
   }
 
@@ -123,7 +143,7 @@ module Client = functor(M: S.BACKEND) -> struct
 
     let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
 
-    let (_ : [ `Ok of unit | `Error of exn ] M.IO.t) =
+    let (_ : unit result M.IO.t) =
       let rec loop from =
         let transfer = {
           In.from = from;
@@ -186,7 +206,7 @@ module Client = functor(M: S.BACKEND) -> struct
     let ivar = M.Ivar.create () in
 
     let timer = Opt.map (fun timeout ->
-        M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error Timeout))
+        M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error (`Message_switch `Timeout)))
       ) timeout in
 
     let msg = In.Send(queue, {
@@ -203,14 +223,14 @@ module Client = functor(M: S.BACKEND) -> struct
            | `Ok id ->
              begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
              | None ->
-               return (`Error (Queue_deleted queue))
+               return (`Error (`Message_switch (`Queue_deleted queue)))
              | Some mid ->
                Hashtbl.add t.wakener mid ivar;
                return (`Ok mid)
              end
         ) >>= function
         | `Ok mid -> return (`Ok mid)
-        | `Error (Queue_deleted name) -> return (`Error (Queue_deleted name))
+        | `Error (`Message_switch (`Queue_deleted name)) -> return (`Error (`Message_switch (`Queue_deleted name)))
         | `Error _ ->
           (* we expect the event thread to reconnect for us *)
           let ivar' = M.Ivar.create () in
@@ -258,6 +278,29 @@ module Server = functor(M: S.BACKEND) -> struct
 
   type 'a io = 'a M.IO.t
 
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+  ]
+
+  type 'a result = ('a, [ `Message_switch of error]) Result.result
+
+  let pp_error fmt = function
+    | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
+    | `Message_switch `Failed_to_read_response ->
+      Format.pp_print_string fmt "Failed to read response from the message-switch"
+    | `Message_switch `Unsuccessful_response ->
+      Format.pp_print_string fmt "Received an unexpected failure from the message-switch"
+
+  let error_to_msg = function
+    | `Ok x -> `Ok x
+    | `Error y ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      pp_error fmt y;
+      Format.pp_print_flush fmt ();
+      `Error (`Msg (Buffer.contents b))
+
   type t = {
     request_shutdown: unit M.Ivar.t;
     on_shutdown: unit M.Ivar.t;
@@ -296,7 +339,6 @@ module Server = functor(M: S.BACKEND) -> struct
       end else begin
         message >>= function
         | `Error e ->
-          Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
           M.connect port >>= fun c ->
           Connection.rpc c (In.Login token) >>|= fun (_: string) ->
           loop c from

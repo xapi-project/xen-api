@@ -14,16 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Protocol
-
-exception Failed_to_read_response
-
-exception Unsuccessful_response
-
-exception Timeout
-
 module Connection(IO: Cohttp.S.IO) : sig
-  val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
+  val rpc: (IO.ic * IO.oc) -> Protocol.In.t -> [ `Ok of string | `Error of [ `Message_switch of [ `Failed_to_read_response | `Unsuccessful_response ] ] ] IO.t
 end
 
 module Server(M: S.BACKEND) : S.SERVER
@@ -31,5 +23,4 @@ module Server(M: S.BACKEND) : S.SERVER
 
 module Client(M: S.BACKEND) : S.CLIENT
   with type 'a io = 'a M.IO.t
-   and type error = exn
 

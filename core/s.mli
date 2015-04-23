@@ -61,10 +61,20 @@ end
 module type SERVER = sig
   type +'a io
 
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+  ]
+
+  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+
+  val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Result.result
+
   type t
   (** A listening server *)
 
-  val listen: process:(string -> string io) -> switch:string -> queue:string -> unit -> [ `Ok of t | `Error of exn ] io
+  val listen: process:(string -> string io) -> switch:string -> queue:string -> unit -> t result io
 
   val shutdown: t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
@@ -75,8 +85,17 @@ module type CLIENT = sig
 
   type t
 
-  type error
-  type 'a result = ('a, error) Result.result
+  type error = [
+    | `Failed_to_read_response
+    | `Unsuccessful_response
+    | `Timeout
+    | `Queue_deleted of string
+  ]
+
+  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+
+  val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Result.result
 
   val connect: switch:string -> unit -> t result io
 
