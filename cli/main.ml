@@ -432,6 +432,10 @@ let string_of_ic ?end_marker ic =
     ""
   with End_of_file -> String.concat "\n" (List.rev !lines)
 
+let (>>|=) m f = match m with
+  | `Error exn -> `Error(false, Printexc.to_string exn)
+  | `Ok x -> f x
+
 let call common_options_t name body path timeout =
   match name with
   | None -> `Error(true, "a queue name is required")
@@ -450,8 +454,10 @@ let call common_options_t name body path timeout =
           close_in ic;
           txt in
 
-      let c = Client.connect common_options_t.Common.path in
-      let result = Client.rpc c ?timeout ~dest:name txt in
+      Client.connect ~switch:common_options_t.Common.path ()
+      >>|= fun t ->
+      Client.rpc ~t ?timeout ~queue:name ~body:txt ()
+      >>|= fun result ->
       print_endline result;
       `Ok ()
     end
@@ -516,8 +522,10 @@ let serve_cmd =
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let shutdown common_options_t =
-  let c = Client.connect common_options_t.Common.path in
-  Client.shutdown c;
+  Client.connect ~switch:common_options_t.Common.path ()
+  >>|= fun t ->
+  Client.shutdown ~t ()
+  >>|= fun () ->
   `Ok ()
 
 let shutdown_cmd =

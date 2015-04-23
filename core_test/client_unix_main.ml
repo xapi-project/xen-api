@@ -25,12 +25,18 @@ let timeout = ref None
 (* Sent to the server to initiate a shutdown *)
 let shutdown = "shutdown"
 
+let (>>|=) m f = match m with
+  | `Ok x -> f x
+  | `Error exn -> raise exn
+
 let main () =
-  let c = Client.connect !path in
+  Client.connect ~switch:!path ()
+  >>|= fun c ->
   let counter = ref 0 in
   let one () =
     incr counter;
-    let _ = Client.rpc c ~dest:!name !payload in
+    Client.rpc ~t:c ~queue:!name ~body:!payload ()
+    >>|= fun _ ->
     () in
   let start = Unix.gettimeofday () in
   begin match !timeout with
@@ -42,7 +48,8 @@ let main () =
   end;
   let t = Unix.gettimeofday () -. start in
   Printf.printf "Finished %d RPCs in %.02f\n" !counter t;
-  let _ = Client.rpc c ~dest:!name shutdown in
+  Client.rpc ~t:c ~queue:!name ~body:shutdown ()
+  >>|= fun _ ->
   ()
 
 let _ =

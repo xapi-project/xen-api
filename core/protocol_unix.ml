@@ -98,6 +98,10 @@ module IO = struct
       | None -> assert false
       | Some x -> x
 
+    let disconnect (ic, oc) =
+      close_in ic;
+      close_out oc
+
     let flush oc = ()
   end
   include IO
@@ -190,6 +194,9 @@ let rpc_exn c frame = match Connection.rpc c frame with
   | Ok raw -> raw
 
 module Client = struct
+
+  type 'a io = 'a
+
   type t = {
     mutable requests_conn: (IO.ic * IO.oc);
     mutable events_conn: (IO.ic * IO.oc);
@@ -197,6 +204,10 @@ module Client = struct
     wakener: (Protocol.message_id, (Protocol.Message.t, exn) result IO.Ivar.t) Hashtbl.t;
     reply_queue_name: string;
   }
+
+  let disconnect ~t () =
+    IO.disconnect t.requests_conn;
+    IO.disconnect t.events_conn
 
   let connect port =
     let token = IO.whoami () in
@@ -254,17 +265,17 @@ module Client = struct
   let connect =
     let c = ref None in
     let m = Mutex.create () in
-    fun port ->
+    fun ~switch () ->
       IO.Mutex.with_lock m (fun () ->
           match !c with
-          | Some x -> x
+          | Some x -> `Ok x
           | None ->
-            let c' = connect port in
+            let c' = connect switch in
             c := Some c';
-            c'
+            `Ok c'
         )
 
-  let rpc c ?timeout ~dest:dest_queue_name x =
+  let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = IO.Ivar.create () in
     let timer = Opt.map (fun timeout ->
         IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (Error Timeout))
@@ -299,23 +310,29 @@ module Client = struct
       (* release resources *)
       Opt.iter IO.Clock.cancel timer;
       IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
-      response.Message.payload
+      `Ok response.Message.payload
     | Error exn -> raise exn
 
-  let list c prefix =
+  let list ~t:c ~prefix () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
          let (result: string) = rpc_exn c.requests_conn (In.List prefix) in
-         Out.string_list_of_rpc (Jsonrpc.of_string result)
+         `Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
       )
 
-  let shutdown c =
+  let shutdown ~t:c () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
         let (_: string) = rpc_exn c.requests_conn In.Shutdown in
-        IO.IO.return ()
+        IO.IO.return (`Ok ())
       )
 
+  let destroy ~t ~queue:queue_name () =
+    IO.Mutex.with_lock t.requests_m
+      (fun () ->
+        let (_: string) = rpc_exn t.requests_conn (In.Destroy queue_name) in
+        IO.IO.return (`Ok ())
+      )
 end
 
 module Server = struct

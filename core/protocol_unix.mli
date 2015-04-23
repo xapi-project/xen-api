@@ -30,17 +30,8 @@ module Connection : sig
   val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result
 end
 
-module Client : sig
-  type t
-
-  val connect: string -> t
-
-  val rpc: t -> ?timeout:int -> dest:string -> string  -> string
-
-  val list: t -> string -> string list
-
-  val shutdown: t -> unit
-end
+module Client: S.CLIENT
+  with type 'a io = 'a
 
 module Server : sig
 
