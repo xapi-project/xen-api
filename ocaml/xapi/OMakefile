@@ -121,8 +121,7 @@ XAPI_MODULES = $(COMMON) \
 	../auth/auth_signature \
 	../auth/authx \
 	../auth/extauth \
-	../auth/extauth_plugin_ADlikewise \
-	../auth/parse_likewise \
+	../auth/extauth_plugin_ADpbis \
 	xapi_subject \
 	audit_log \
 	xapi_xenops \

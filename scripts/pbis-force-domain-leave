@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# do a manual clean-up of pbis
+/opt/pbis/bin/domainjoin-cli configure --disable pam
+/opt/pbis/bin/domainjoin-cli configure --disable nsswitch
+/opt/pbis/bin/domainjoin-cli configure --disable krb5
+#/etc/init.d/lwsmd stop
+#chkconfig --del lwsmd
+#rm -f /var/lib/pbis/db/*
+#rm -f /var/lib/pbis/.registry-initialized
