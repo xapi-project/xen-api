@@ -31,4 +31,5 @@ module Server(M: S.BACKEND) : S.SERVER
 
 module Client(M: S.BACKEND) : S.CLIENT
   with type 'a io = 'a M.IO.t
+   and type error = exn
 

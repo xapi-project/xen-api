@@ -78,6 +78,9 @@ end
 
 module Client = functor(M: S.BACKEND) -> struct
 
+  type error = exn
+  type 'a result = ('a, error) Result.result
+
   module Connection = Connection(M.IO)
 
   open M.IO

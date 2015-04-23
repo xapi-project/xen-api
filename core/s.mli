@@ -75,25 +75,28 @@ module type CLIENT = sig
 
   type t
 
-  val connect: switch:string -> unit -> [ `Ok of t | `Error of exn ] io
+  type error
+  type 'a result = ('a, error) Result.result
+
+  val connect: switch:string -> unit -> t result io
 
   val disconnect: t:t -> unit -> unit io
   (** [disconnect] closes the connection *)
 
-  val rpc: t:t -> queue:string -> ?timeout: int -> body:string -> unit -> [ `Ok of string | `Error of exn ] io
+  val rpc: t:t -> queue:string -> ?timeout: int -> body:string -> unit -> string result io
 
-  val list: t:t -> prefix:string -> unit -> [ `Ok of string list | `Error of exn ] io
+  val list: t:t -> prefix:string -> unit -> string list result io
 
-  val diagnostics: t:t -> unit -> [ `Ok of Protocol.Diagnostics.t | `Error of exn ] io
+  val diagnostics: t:t -> unit -> Protocol.Diagnostics.t result io
 
-  val trace: t:t -> from:int64 -> ?timeout:float -> unit -> [ `Ok of Protocol.Out.trace | `Error of exn ] io
+  val trace: t:t -> from:int64 -> ?timeout:float -> unit -> Protocol.Out.trace result io
 
-  val ack: t:t -> message:(string * int64) -> unit -> [ `Ok of unit | `Error of exn ] io
+  val ack: t:t -> message:(string * int64) -> unit -> unit result io
 
-  val destroy: t:t -> queue:string -> unit -> [ `Ok of unit | `Error of exn ] io
+  val destroy: t:t -> queue:string -> unit -> unit result io
   (** [destroy t queue_name] destroys the named queue, and all associated
       messages. *)
 
-  val shutdown: t:t -> unit -> [ `Ok of unit | `Error of exn ] io
+  val shutdown: t:t -> unit -> unit result io
   (** [shutdown t] request that the switch shuts down *)
 end

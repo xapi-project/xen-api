@@ -186,17 +186,18 @@ let rpc_exn c frame = match Connection.rpc c frame with
   | `Error e -> raise e
   | `Ok raw -> raw
 
-type ('a, 'b) result = [ `Ok of 'a | `Error of 'b ]
-
 module Client = struct
 
   type 'a io = 'a
+
+  type error = exn
+  type 'a result = ('a, error) Result.result
 
   type t = {
     mutable requests_conn: (IO.ic * IO.oc);
     mutable events_conn: (IO.ic * IO.oc);
     requests_m: IO.Mutex.t;
-    wakener: (Protocol.message_id, (Protocol.Message.t, exn) result IO.Ivar.t) Hashtbl.t;
+    wakener: (Protocol.message_id, Protocol.Message.t result IO.Ivar.t) Hashtbl.t;
     reply_queue_name: string;
   }
 
