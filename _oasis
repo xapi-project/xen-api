@@ -17,6 +17,8 @@ Flag lwt
 
 Library message_switch
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol
@@ -25,6 +27,8 @@ Library message_switch
 Library message_switch_lwt
   Build$:             flag(lwt)
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core
   Findlibparent:      message_switch
   Findlibname:        lwt
@@ -34,6 +38,8 @@ Library message_switch_lwt
 Library message_switch_async
   Build$:             flag(async)
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core
   Findlibparent:      message_switch
   Findlibname:        async
@@ -42,6 +48,8 @@ Library message_switch_async
 
 Library message_switch_unix
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core
   Findlibparent:      message_switch
   Findlibname:        unix
@@ -50,6 +58,8 @@ Library message_switch_unix
 
 Library message_switch_server
   Build$:             flag(lwt)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Pack:               true
   Install:            false
@@ -61,6 +71,8 @@ Library message_switch_server
 
 Executable m_cli
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               cli
   MainIs:             main.ml
   Custom:             true
@@ -69,6 +81,8 @@ Executable m_cli
 
 Executable link_test
   Build$:             flag(lwt)&&flag(tests)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               core_test
   MainIs:             link_test_main.ml
@@ -78,6 +92,8 @@ Executable link_test
 
 Executable client
   Build$:             flag(lwt)&&flag(tests)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               core_test
   MainIs:             client_main.ml
@@ -87,6 +103,8 @@ Executable client
 
 Executable client_async
   Build$:             flag(async)&&flag(tests)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               core_test
   MainIs:             client_async_main.ml
@@ -96,6 +114,8 @@ Executable client_async
 
 Executable client_unix
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core_test
   MainIs:             client_unix_main.ml
   Build$:             flag(tests)
@@ -105,6 +125,8 @@ Executable client_unix
 
 Executable server
   Build$:             flag(lwt)&&flag(tests)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               core_test
   MainIs:             server_main.ml
@@ -114,6 +136,8 @@ Executable server
 
 Executable server_async
   Build$:             flag(async)&&flag(tests)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               core_test
   MainIs:             server_async_main.ml
@@ -123,6 +147,8 @@ Executable server_async
 
 Executable server_unix
   CompiledObject:     best
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   Path:               core_test
   MainIs:             server_unix_main.ml
   Build$:             flag(tests)
@@ -132,6 +158,8 @@ Executable server_unix
 
 Executable switch
   Build$:             flag(lwt)
+  ByteOpt:            -warn-error +a
+  NativeOpt:          -warn-error +a
   CompiledObject:     best
   Path:               switch
   MainIs:             switch_main.ml
