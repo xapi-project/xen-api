@@ -30,7 +30,7 @@ Library message_switch_lwt
   CompiledObject:     best
   ByteOpt:            -warn-error +a
   NativeOpt:          -warn-error +a
-  Path:               core
+  Path:               lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt

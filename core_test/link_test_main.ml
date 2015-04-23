@@ -16,6 +16,7 @@
 
 open Cohttp_lwt_unix
 open Lwt
+open Message_switch
 open Protocol
 open Protocol_lwt
 
