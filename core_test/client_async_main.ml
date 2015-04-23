@@ -20,7 +20,7 @@ open Async.Std
 open Protocol
 open Protocol_async
 
-let port = ref 8080
+let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
 let payload = ref "hello"
 let timeout = ref None
@@ -28,14 +28,19 @@ let shutdown = "shutdown"
 
 let (>>|=) m f = m >>= function
   | `Ok x -> f x
-  | `Error y -> raise y
+  | `Error y ->
+    let b = Buffer.create 16 in
+    let fmt = Format.formatter_of_buffer b in
+    Client.pp_error fmt y;
+    Format.pp_print_flush fmt ();
+    raise (Failure (Buffer.contents b))
 
 let main () =
-  Client.connect !port !name >>|= fun c ->
+  Client.connect ~switch:!path () >>|= fun t ->
   let counter = ref 0 in
   let one () =
     incr counter;
-    Client.rpc c !payload >>|= fun _ ->
+    Client.rpc ~t ~queue:!name ~body:!payload () >>|= fun _ ->
     return () in
   let start = Time.now () in
   ( match !timeout with
@@ -51,14 +56,14 @@ let main () =
         end in
       loop ()
   ) >>= fun () ->
-  let t = Time.diff (Time.now()) start in
-  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec t);
-  Client.rpc c shutdown >>|= fun _ ->
+  let time = Time.diff (Time.now()) start in
+  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec time);
+  Client.rpc ~t ~queue:!name ~body:shutdown () >>|= fun _ ->
   Shutdown.exit 0
 
 let _ =
   Arg.parse [
-    "-port", Arg.Set_int port, (Printf.sprintf "port broker listens on (default %d)" !port);
+    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
     "-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
     "-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));

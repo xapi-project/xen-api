@@ -14,30 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let path = ref "/var/run/message-switch/sock"
-let name = ref "server"
+module Connection(IO: Cohttp.S.IO) : sig
+  val rpc: (IO.ic * IO.oc) -> Protocol.In.t -> [ `Ok of string | `Error of [ `Message_switch of [ `Failed_to_read_response | `Unsuccessful_response ] ] ] IO.t
+end
 
-let process = function
-  | "shutdown" ->
-    let (_: Thread.t) = Thread.create (fun () ->
-      Thread.delay 1.;
-      exit 0
-    ) () in
-    "ok"
-  | x -> x
+module Server(M: S.BACKEND) : S.SERVER
+  with type 'a io = 'a M.IO.t
 
-let main () =
-  let _ = Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
-  let rec forever () =
-    Thread.delay 3600.;
-    forever () in
-  forever ()
+module Client(M: S.BACKEND) : S.CLIENT
+  with type 'a io = 'a M.IO.t
 
-let _ =
-  Arg.parse [
-    "-path", Arg.Set_string path, (Printf.sprintf "path switch listens on (default %s)" !path);
-    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-    "Respond to RPCs on a name";
-
-  main ()

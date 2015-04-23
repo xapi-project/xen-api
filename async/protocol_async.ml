@@ -19,7 +19,7 @@ let whoami () = Printf.sprintf "%s:%d"
 
 open Core.Std
 open Async.Std
-
+open Message_switch
 open Protocol
 open Cohttp
 open Cohttp_async
@@ -37,13 +37,22 @@ module M = struct
     let is_determined = Deferred.is_determined
   end
 
-  let connect port =
+  let connect path =
     let maximum_delay = 30. in
     let connect () =
-      Tcp.connect (Tcp.to_host_and_port "127.0.0.1" port) in
+      let s = Socket.create Socket.Type.unix in
+      Monitor.try_with (fun () -> Socket.connect s (Socket.Address.Unix.create path)) >>= function
+      | Ok x ->
+        let fd = Socket.fd s in
+        let reader = Reader.create fd in
+        let writer = Writer.create fd in
+        return (fd, reader, writer)
+      | Error e ->
+        Socket.shutdown s `Both;
+        raise e in
     let rec retry delay =
       Monitor.try_with connect >>= function
-      | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _))->
+      | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _))->
         let delay = min maximum_delay delay in
         Clock.after (Time.Span.of_sec delay) >>= fun () ->
         retry (delay +. delay)
@@ -53,8 +62,7 @@ module M = struct
     retry 1.
 
   let disconnect (_, writer) =
-    Writer.close writer;
-    return ()
+    Writer.close writer
 
   module Ivar = struct
     include Ivar
@@ -105,7 +113,5 @@ end
 
 let whoami = M.whoami
 
-module Connection = Protocol.Connection(M.IO)
-
-module Client = Protocol.Client(M)
-module Server = Protocol.Server(M)
+module Client = Make.Client(M)
+module Server = Make.Server(M)

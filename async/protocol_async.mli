@@ -13,31 +13,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Core.Std
+open Async.Std
+open Message_switch
 
-let path = ref "/var/run/message-switch/sock"
-let name = ref "server"
+module Client : S.CLIENT
+  with type 'a io = 'a Deferred.t
 
-let process = function
-  | "shutdown" ->
-    let (_: Thread.t) = Thread.create (fun () ->
-      Thread.delay 1.;
-      exit 0
-    ) () in
-    "ok"
-  | x -> x
-
-let main () =
-  let _ = Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
-  let rec forever () =
-    Thread.delay 3600.;
-    forever () in
-  forever ()
-
-let _ =
-  Arg.parse [
-    "-path", Arg.Set_string path, (Printf.sprintf "path switch listens on (default %s)" !path);
-    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-    "Respond to RPCs on a name";
-
-  main ()
+module Server : S.SERVER
+  with type 'a io = 'a Deferred.t

@@ -338,7 +338,6 @@ let entry queues (name, id) =
 
 let send queues origin name body =
   if Internal.Directory.exists queues name then begin
-    let q = Directory.find queues name in
     let id = Internal.get_next_id queues name in
     Some ((name, id), Op.Send(origin, name, id, body))
   end else None (* drop *)

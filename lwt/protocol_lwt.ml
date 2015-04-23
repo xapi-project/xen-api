@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Message_switch
 open Protocol
 open Lwt
 open Cohttp
@@ -32,9 +33,9 @@ module M = struct
     let is_determined t = Lwt.state t <> Lwt.Sleep
   end
 
-  let connect port =
-    let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port) in
-    let fd = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+  let connect path =
+    let sockaddr = Lwt_unix.ADDR_UNIX path in
+    let fd = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
     let rec loop () =
       Lwt.catch (fun () ->
           Lwt_unix.connect fd sockaddr >>= fun () ->
@@ -42,7 +43,7 @@ module M = struct
           let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
           return (ic, oc)
         ) (function
-          | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED), _, _) ->
+          | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _) ->
             Lwt_unix.sleep 5. >>= fun () ->
             loop ()
           | e -> fail e
@@ -85,7 +86,5 @@ end
 
 let whoami = M.whoami
 
-module Connection = Protocol.Connection(M.IO)
-
-module Client = Protocol.Client(M)
-module Server = Protocol.Server(M)
+module Client = Make.Client(M)
+module Server = Make.Server(M)

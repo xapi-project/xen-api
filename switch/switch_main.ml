@@ -22,8 +22,7 @@ open Switch
 
 module Config = struct
   type t = {
-    port: int;
-    ip: string;
+    path: string;
     daemonize: bool;
     pidfile: string option;
     configfile: string option;
@@ -31,37 +30,32 @@ module Config = struct
   } with sexp
 
   let default = {
-    port = 8080;
-    ip = "0.0.0.0";
+    path = "/var/run/message-switch/sock";
     daemonize = false;
     pidfile = None;
     configfile = None;
     statedir = None;
   }
 
-  let make daemonize port ip pidfile configfile statedir =
+  let make daemonize path pidfile configfile statedir =
     (* First load any config file *)
     let config = match configfile with
     | None -> default
     | Some filename -> Sexplib.Sexp.load_sexp filename |> t_of_sexp in
     let d a = function None -> a | Some b -> b in
     (* Second apply any command-line overrides *)
-    let port = d config.port port in
-    let ip = d config.ip ip in
+    let path = d config.path path in
     let daemonize = config.daemonize || daemonize in
-    { daemonize; port; ip; pidfile; configfile; statedir }
+    { daemonize; path; pidfile; configfile; statedir }
 
   let term =
     let open Cmdliner in
     let daemon =
       let doc = "Detach from the terminal and run as a daemon" in
       Arg.(value & flag & info [ "daemon" ] ~doc) in
-    let port =
-      let doc = "Port to listen on" in
-      Arg.(value & opt (some int) None & info [ "port" ] ~doc) in
-    let ip =
-      let doc = "IP address to bind to" in
-      Arg.(value & opt (some string) None & info [ "ip" ] ~doc) in
+    let path =
+      let doc = "Path to create the listening Unix domain socket" in
+      Arg.(value & opt (some string) None & info [ "path" ] ~doc) in
     let pidfile =
       let doc = "PID file to write" in
       Arg.(value & opt (some string) None & info [ "pidfile" ] ~doc) in
@@ -71,7 +65,7 @@ module Config = struct
     let statedir =
       let doc = "Directory containing state files" in
       Arg.(value & opt (some string) default.statedir & info [ "statedir" ] ~doc) in
-    Term.(pure make $ daemon $ port $ ip $ pidfile $ configfile $ statedir)
+    Term.(pure make $ daemon $ path $ pidfile $ configfile $ statedir)
 end
 
 (* Let's try to adopt the conventions of Rresult.R *)
@@ -85,7 +79,7 @@ open Cohttp_lwt_unix
 
 let make_server config =
   let open Config in
-  info "Started server on localhost:%d" config.port;
+  info "Started server on %s" config.path;
 
   let (_: 'a) = logging_thread () in
 
@@ -179,7 +173,7 @@ let make_server config =
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
       let open Lwt_result in
-      Block.connect redo_log_path
+      Block.connect ("buffered:" ^ redo_log_path)
       >>= fun block ->
       Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
       >>= fun redo_log ->
@@ -278,12 +272,18 @@ let make_server config =
 
   info "Message switch starting";
   let t = Cohttp_lwt_unix.Server.make ~conn_closed ~callback () in
-  Cohttp_lwt_unix.Server.create ~mode:(`TCP(`Port config.port)) t
+  Lwt.catch
+    (fun () -> Lwt_unix.unlink config.path)
+    (function
+     | Unix.Unix_error(Unix.ENOENT, _, _) -> return ()
+     | e -> fail e)
+  >>= fun () ->
+  Cohttp_lwt_unix.Server.create ~mode:(`Unix_domain_socket (`File config.path)) t
 
 exception Not_a_directory of string
 exception Does_not_exist of string
 
-let main ({ Config.daemonize; port; ip; pidfile } as config) =
+let main ({ Config.daemonize; path; pidfile } as config) =
   info "Starting with configuration:";
   info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config));
   try

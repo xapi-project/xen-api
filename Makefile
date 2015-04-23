@@ -49,6 +49,7 @@ install: setup.bin
 #test: setup.bin build
 #	@./setup.bin -test
 test:
+	rm -f bisect* # stale results
 	./basic-rpc-test.sh
 
 
@@ -63,6 +64,9 @@ release:
 	sed -i -r s'/\"bisect\"//g' opam
 	sed -i -r s'/\"oasis\"//g' opam
 	sed -i -r s'/\"ocveralls\"//g' opam
+	# Switch off -warn-error
+	grep -v 'warn-error' _oasis > _oasis.tmp
+	mv _oasis.tmp _oasis
 	# Remove our aversion to OASIS autogen
 	sed -i -r s'/setup.ml//g' .gitignore
 	sed -i -r s'/myocamlbuild.ml//g' .gitignore

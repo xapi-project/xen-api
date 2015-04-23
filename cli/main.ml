@@ -13,11 +13,20 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
+open Message_switch
 open Protocol
 open Protocol_unix
 
 let project_url = "http://github.com/djs55/message_switch"
+
+let (>>|=) m f = match m with
+  | `Error e ->
+    let b = Buffer.create 16 in
+    let fmt = Format.formatter_of_buffer b in
+    Client.pp_error fmt e;
+    Format.pp_print_flush fmt ();
+    `Error (false, (Buffer.contents b))
+  | `Ok x -> f x
 
 open Cmdliner
 
@@ -25,11 +34,11 @@ module Common = struct
   type t = {
     verbose: bool;
     debug: bool;
-    port: int;
+    path: string;
   } with rpc
 
-  let make verbose debug port =
-    { verbose; debug; port }
+  let make verbose debug path =
+    { verbose; debug; path }
 
   let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
@@ -46,10 +55,10 @@ let common_options_t =
     let doc = "Give verbose output." in
     let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
     Arg.(last & vflag_all [false] [verbose]) in
-  let port =
-    let doc = Printf.sprintf "Specify port to connect to the message switch." in
-    Arg.(value & opt int 8080 & info ["port"] ~docs ~doc) in
-  Term.(pure Common.make $ debug $ verb $ port)
+  let path =
+    let doc = Printf.sprintf "Specify path to connect to the message switch." in
+    Arg.(value & opt string "/var/run/message-switch/sock" & info ["path"] ~docs ~doc) in
+  Term.(pure Common.make $ debug $ verb $ path)
 
 
 (* Help sections common to all commands *)
@@ -64,15 +73,12 @@ let help = [
 (* Commands *)
 
 let diagnostics common_opts =
-  let c = IO.connect common_opts.Common.port in
-  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-  match Connection.rpc c In.Diagnostics with
-  | Error e -> `Error(true, Printexc.to_string e)
-  | Ok raw ->
-    let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.diagnostics ~t ()
+  >>|= fun d ->
     let open Protocol in
     let in_the_past = Int64.sub d.Diagnostics.current_time in
-    let in_the_future x = Int64.sub x d.Diagnostics.current_time in
     let time f x =
       let open Int64 in
       let secs = div (f x) 1_000_000_000L in
@@ -117,16 +123,11 @@ let diagnostics common_opts =
         List.iter (fun param ->
           let txt = Jsonrpc.to_string param in
           Printf.printf "        - %s\n" (trim txt)
-        ) call.params
+        ) call.Rpc.params
       with _ ->
         (* parse failure, fall back to basic printing *)
         let payload = String.escaped payload in
-        let len = String.length payload in
         Printf.printf "      - %s\n" (trim payload) in
-
-    let kind = function
-      | Message.Request q -> q
-      | Message.Response _ -> "-" in
 
     let classify (_, queue) = match queue.Diagnostics.next_transfer_expected with
       | None -> `Not_started
@@ -205,20 +206,19 @@ let diagnostics common_opts =
     `Ok ()
 
 let list common_opts prefix =
-  let c = IO.connect common_opts.Common.port in
-  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-  match Connection.rpc c (In.List prefix) with
-  | Error e -> `Error(true, Printexc.to_string e)
-  | Ok raw ->
-    let all = Out.string_list_of_rpc (Jsonrpc.of_string raw) in
-    List.iter print_endline all;
-    `Ok ()
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.list ~t ~prefix ()
+  >>|= fun all ->
+  List.iter print_endline all;
+  `Ok ()
 
 let ack common_opts name id = match name, id with
   | Some name, Some id ->
-    let c = IO.connect common_opts.Common.port in
-    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-    let _ = Connection.rpc c (In.Ack (name, id)) in
+    Client.connect ~switch:common_opts.Common.path ()
+    >>|= fun t ->
+    Client.ack ~t ~message:(name,id) ()
+    >>|= fun _ ->
     `Ok ()
   | _, _ ->
     `Error(true, "Please supply both a queue name and message ID")
@@ -227,9 +227,10 @@ let destroy common_opts name = match name with
   | None ->
     `Error(true, "Please supply a queue name")
   | Some name ->
-    let c = IO.connect common_opts.Common.port in
-    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-    let _ = Connection.rpc c (In.Destroy name) in
+    Client.connect ~switch:common_opts.Common.path ()
+    >>|= fun t ->
+    Client.destroy ~t ~queue:name ()
+    >>|= fun _ ->
     `Ok ()
 
 module Opt = struct
@@ -264,10 +265,10 @@ let message ?(concise=false) = function
   | Event.Ack id -> Printf.sprintf "%s.%Ld:ack" (fst id) (snd id)
 
 let mscgen common_opts =
-  let c = IO.connect common_opts.Common.port in
-  let trace = match Connection.rpc c (In.Trace(0L, 0.)) with
-    | Error e -> raise e
-    | Ok raw -> Out.trace_of_rpc (Jsonrpc.of_string raw) in
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.trace ~t ~from:0L ()
+  >>|= fun trace ->
   let quote x = "\"" ^ x ^ "\""
   in
   let module StringSet = Set.Make(struct type t = string let compare = compare end) in
@@ -301,7 +302,8 @@ let mscgen common_opts =
   `Ok ()
 
 let tail common_opts follow =
-  let c = IO.connect common_opts.Common.port in
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun c ->
   let from = ref 0L in
   let timeout = 5. in
   let start = ref None in
@@ -319,10 +321,9 @@ let tail common_opts follow =
     print_endline "" in
   let finished = ref false in
   while not(!finished) do
-    match Connection.rpc c (In.Trace (!from, timeout)) with
-    | Error e -> raise e
-    | Ok raw ->
-      let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
+    match Client.trace ~t:c ~from:!from ~timeout () with
+    | `Error _ -> failwith "Trace failed"
+    | `Ok trace ->
       let endpoint = function
         | None -> "-"
         | Some x -> x in
@@ -456,8 +457,10 @@ let call common_options_t name body path timeout =
           close_in ic;
           txt in
 
-      let c = Client.connect common_options_t.Common.port in
-      let result = Client.rpc c ?timeout ~dest:name txt in
+      Client.connect ~switch:common_options_t.Common.path ()
+      >>|= fun t ->
+      Client.rpc ~t ?timeout ~queue:name ~body:txt ()
+      >>|= fun result ->
       print_endline result;
       `Ok ()
     end
@@ -489,7 +492,7 @@ let serve common_options_t name program =
   | None ->
     `Error(true, "a queue name is required")
   | Some name ->
-    Protocol_unix.Server.listen (fun req ->
+    let _ = Protocol_unix.Server.listen ~process:(fun req ->
         match program with
         | None ->
           print_endline "Received:";
@@ -502,8 +505,11 @@ let serve common_options_t name program =
           let res = string_of_ic stdout in
           let (_: Unix.process_status) = Unix.close_process_full (stdout, stdin, stderr) in
           res
-      ) common_options_t.Common.port name;
-    `Ok ()
+      ) ~switch:common_options_t.Common.path ~queue:name () in
+    let rec forever () =
+      Thread.delay 3600.;
+      forever () in
+    forever ()
 
 let serve_cmd =
   let doc = "respond to remote procedure calls" in
@@ -522,8 +528,10 @@ let serve_cmd =
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let shutdown common_options_t =
-  let c = Client.connect common_options_t.Common.port in
-  Client.shutdown c;
+  Client.connect ~switch:common_options_t.Common.path ()
+  >>|= fun t ->
+  Client.shutdown ~t ()
+  >>|= fun () ->
   `Ok ()
 
 let shutdown_cmd =
