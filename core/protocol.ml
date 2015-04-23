@@ -437,6 +437,18 @@ module Client = functor(M: S.BACKEND) -> struct
     Connection.rpc t.requests_conn (In.List prefix) >>|= fun result ->
     return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 
+  let diagnostics ~t () =
+    Connection.rpc t.requests_conn In.Diagnostics >>|= fun result ->
+    return (`Ok result)
+
+  let trace ~t ~from ?(timeout=0.) () =
+    Connection.rpc t.requests_conn (In.Trace(from, timeout)) >>|= fun result ->
+    return (`Ok result)
+
+  let ack ~t ~message:(name, id) () =
+    Connection.rpc t.requests_conn (In.Ack (name, id)) >>|= fun _ ->
+    return (`Ok ())
+
   let destroy ~t ~queue:queue_name () =
     Connection.rpc t.requests_conn (In.Destroy queue_name) >>|= fun result ->
     return (`Ok ())

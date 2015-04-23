@@ -19,6 +19,10 @@ open Protocol_unix
 
 let project_url = "http://github.com/djs55/message_switch"
 
+let (>>|=) m f = match m with
+  | `Error exn -> `Error(false, Printexc.to_string exn)
+  | `Ok x -> f x
+
 open Cmdliner
 
 module Common = struct
@@ -64,11 +68,10 @@ let help = [
 (* Commands *)
 
 let diagnostics common_opts =
-  let c = IO.connect common_opts.Common.path in
-  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-  match Connection.rpc c In.Diagnostics with
-  | Error e -> `Error(true, Printexc.to_string e)
-  | Ok raw ->
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.diagnostics ~t ()
+  >>|= fun raw ->
     let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
     let open Protocol in
     let in_the_past = Int64.sub d.Diagnostics.current_time in
@@ -199,20 +202,19 @@ let diagnostics common_opts =
     `Ok ()
 
 let list common_opts prefix =
-  let c = IO.connect common_opts.Common.path in
-  let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-  match Connection.rpc c (In.List prefix) with
-  | Error e -> `Error(true, Printexc.to_string e)
-  | Ok raw ->
-    let all = Out.string_list_of_rpc (Jsonrpc.of_string raw) in
-    List.iter print_endline all;
-    `Ok ()
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.list ~t ~prefix ()
+  >>|= fun all ->
+  List.iter print_endline all;
+  `Ok ()
 
 let ack common_opts name id = match name, id with
   | Some name, Some id ->
-    let c = IO.connect common_opts.Common.path in
-    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-    let _ = Connection.rpc c (In.Ack (name, id)) in
+    Client.connect ~switch:common_opts.Common.path ()
+    >>|= fun t ->
+    Client.ack ~t ~message:(name,id) ()
+    >>|= fun _ ->
     `Ok ()
   | _, _ ->
     `Error(true, "Please supply both a queue name and message ID")
@@ -221,9 +223,10 @@ let destroy common_opts name = match name with
   | None ->
     `Error(true, "Please supply a queue name")
   | Some name ->
-    let c = IO.connect common_opts.Common.path in
-    let _ = Connection.rpc c (In.Login (Protocol_unix.whoami ())) in
-    let _ = Connection.rpc c (In.Destroy name) in
+    Client.connect ~switch:common_opts.Common.path ()
+    >>|= fun t ->
+    Client.destroy ~t ~queue:name ()
+    >>|= fun _ ->
     `Ok ()
 
 module Opt = struct
@@ -258,10 +261,11 @@ let message ?(concise=false) = function
   | Event.Ack id -> Printf.sprintf "%s.%Ld:ack" (fst id) (snd id)
 
 let mscgen common_opts =
-  let c = IO.connect common_opts.Common.path in
-  let trace = match Connection.rpc c (In.Trace(0L, 0.)) with
-    | Error e -> raise e
-    | Ok raw -> Out.trace_of_rpc (Jsonrpc.of_string raw) in
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun t ->
+  Client.trace ~t ~from:0L ()
+  >>|= fun raw ->
+  let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
   let quote x = "\"" ^ x ^ "\""
   in
   let module StringSet = Set.Make(struct type t = string let compare = compare end) in
@@ -295,7 +299,8 @@ let mscgen common_opts =
   `Ok ()
 
 let tail common_opts follow =
-  let c = IO.connect common_opts.Common.path in
+  Client.connect ~switch:common_opts.Common.path ()
+  >>|= fun c ->
   let from = ref 0L in
   let timeout = 5. in
   let start = ref None in
@@ -313,9 +318,9 @@ let tail common_opts follow =
     print_endline "" in
   let finished = ref false in
   while not(!finished) do
-    match Connection.rpc c (In.Trace (!from, timeout)) with
-    | Error e -> raise e
-    | Ok raw ->
+    match Client.trace ~t:c ~from:!from ~timeout () with
+    | `Error exn -> raise exn
+    | `Ok raw ->
       let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
       let endpoint = function
         | None -> "-"
@@ -431,10 +436,6 @@ let string_of_ic ?end_marker ic =
     done;
     ""
   with End_of_file -> String.concat "\n" (List.rev !lines)
-
-let (>>|=) m f = match m with
-  | `Error exn -> `Error(false, Printexc.to_string exn)
-  | `Ok x -> f x
 
 let call common_options_t name body path timeout =
   match name with

@@ -320,6 +320,27 @@ module Client = struct
          `Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
       )
 
+  let ack ~t:c ~message:(name, id) () =
+    IO.Mutex.with_lock c.requests_m
+      (fun () ->
+         let (_: string) = rpc_exn c.requests_conn (In.Ack(name, id)) in
+         `Ok ()
+      )
+
+  let diagnostics ~t:c () =
+    IO.Mutex.with_lock c.requests_m
+      (fun () ->
+         let (result: string) = rpc_exn c.requests_conn In.Diagnostics in
+         `Ok result
+      )
+
+  let trace ~t:c ~from ?(timeout=0.) () =
+    IO.Mutex.with_lock c.requests_m
+      (fun () ->
+         let (result: string) = rpc_exn c.requests_conn (In.Trace(from, timeout)) in
+         `Ok result
+      )
+
   let shutdown ~t:c () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->

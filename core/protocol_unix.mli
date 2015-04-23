@@ -14,22 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Protocol
-
-val whoami : unit -> string
-
-module IO : sig
-  type ic
-  type oc
-
-  val connect : string -> (ic * oc)
-  (** [connect path] connects to a switch listening on [path] *)
-end
-
-module Connection : sig
-  val rpc: (IO.ic * IO.oc) -> In.t -> (string, exn) result
-end
-
 module Client: S.CLIENT
   with type 'a io = 'a
 
