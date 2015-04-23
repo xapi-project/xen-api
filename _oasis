@@ -41,11 +41,11 @@ Library message_switch_async
   CompiledObject:     best
   ByteOpt:            -warn-error +a
   NativeOpt:          -warn-error +a
-  Path:               core
+  Path:               async
   Findlibparent:      message_switch
   Findlibname:        async
   Modules:            Protocol_async
-  BuildDepends:       async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
+  BuildDepends:       threads,async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch, bisect
 
 Library message_switch_unix
   CompiledObject:     best
