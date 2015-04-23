@@ -75,7 +75,7 @@ module Delay = struct
                   pipe_out) in
            let r, _, _ = Unix.select [ pipe_out ] [] [] seconds in
            (* flush the single byte from the pipe *)
-           if r <> [] then ignore(Unix.read pipe_out (String.create 1) 0 1);
+           if r <> [] then ignore(Unix.read pipe_out (Bytes.create 1) 0 1);
            (* return true if we waited the full length of time, false if we were woken *)
            r = []
          with Pre_signalled -> false

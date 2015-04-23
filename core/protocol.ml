@@ -503,7 +503,7 @@ module Client = functor(M: S) -> struct
           (* we expect the event thread to reconnect for us *)
           let ivar' = M.Ivar.create () in
           (* XXX: we don't respect the timeout value here *)
-          M.Clock.run_after 5 (fun () -> M.Ivar.fill ivar' ());
+          let (_: M.Clock.timer) = M.Clock.run_after 5 (fun () -> M.Ivar.fill ivar' ()) in
           M.Ivar.read ivar' >>= fun () ->
           loop () in
     loop () >>|= fun mid ->

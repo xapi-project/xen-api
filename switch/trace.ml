@@ -18,7 +18,7 @@ open Lwt
 
 let size = 128
 
-let buffer : (int64 * Protocol.Event.t) option array = Array.create size None
+let buffer : (int64 * Protocol.Event.t) option array = Array.make size None
 let c = Lwt_condition.create ()
 
 let next_id = ref 0L

@@ -59,7 +59,7 @@ module IO = struct
         really_input ic buf ofs len; true
       with _ -> false
     let read_exactly ic len =
-      let buf = String.create len in
+      let buf = Bytes.create len in
       read_into_exactly ic buf 0 len >>= function
       | true -> return (Some buf)
       | false -> return None

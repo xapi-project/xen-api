@@ -72,7 +72,6 @@ let diagnostics common_opts =
     let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
     let open Protocol in
     let in_the_past = Int64.sub d.Diagnostics.current_time in
-    let in_the_future x = Int64.sub x d.Diagnostics.current_time in
     let time f x =
       let open Int64 in
       let secs = div (f x) 1_000_000_000L in
@@ -117,16 +116,11 @@ let diagnostics common_opts =
         List.iter (fun param ->
           let txt = Jsonrpc.to_string param in
           Printf.printf "        - %s\n" (trim txt)
-        ) call.params
+        ) call.Rpc.params
       with _ ->
         (* parse failure, fall back to basic printing *)
         let payload = String.escaped payload in
-        let len = String.length payload in
         Printf.printf "      - %s\n" (trim payload) in
-
-    let kind = function
-      | Message.Request q -> q
-      | Message.Response _ -> "-" in
 
     let classify (_, queue) = match queue.Diagnostics.next_transfer_expected with
       | None -> `Not_started
