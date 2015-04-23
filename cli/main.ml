@@ -71,8 +71,7 @@ let diagnostics common_opts =
   Client.connect ~switch:common_opts.Common.path ()
   >>|= fun t ->
   Client.diagnostics ~t ()
-  >>|= fun raw ->
-    let d = Diagnostics.t_of_rpc (Jsonrpc.of_string raw) in
+  >>|= fun d ->
     let open Protocol in
     let in_the_past = Int64.sub d.Diagnostics.current_time in
     let time f x =

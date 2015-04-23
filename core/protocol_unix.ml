@@ -326,7 +326,7 @@ module Client = struct
     IO.Mutex.with_lock c.requests_m
       (fun () ->
          let (result: string) = rpc_exn c.requests_conn In.Diagnostics in
-         `Ok result
+         `Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
       )
 
   let trace ~t:c ~from ?(timeout=0.) () =

@@ -84,7 +84,7 @@ module type CLIENT = sig
 
   val list: t:t -> prefix:string -> unit -> [ `Ok of string list | `Error of exn ] io
 
-  val diagnostics: t:t -> unit -> [ `Ok of string | `Error of exn ] io
+  val diagnostics: t:t -> unit -> [ `Ok of Protocol.Diagnostics.t | `Error of exn ] io
 
   val trace: t:t -> from:int64 -> ?timeout:float -> unit -> [ `Ok of string | `Error of exn ] io
 
