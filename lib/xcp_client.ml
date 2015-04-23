@@ -19,13 +19,22 @@ module Response = Cohttp.Response.Make(Cohttp_posix_io.Buffered_IO)
     
 let get_user_agent () = Sys.argv.(0)
 
-let switch_port = ref 8080
+let switch_path = ref "/var/run/message-switch/sock"
 let use_switch = ref true 
 
+let get_ok = function
+  | `Ok x -> x
+  | `Error e ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      Protocol_unix.Client.pp_error fmt e;
+      Format.pp_print_flush fmt ();
+      failwith (Buffer.contents b)
+
 let switch_rpc queue_name string_of_call response_of_string =
-	let c = Protocol_unix.Client.connect !switch_port in
+	let t = get_ok (Protocol_unix.Client.connect ~switch:!switch_path ()) in
 	fun call ->
-		response_of_string (Protocol_unix.Client.rpc c ~dest:queue_name (string_of_call call))
+		response_of_string (get_ok (Protocol_unix.Client.rpc ~t ~queue:queue_name ~body:(string_of_call call) ()))
 
 let split_colon str =
   try 
