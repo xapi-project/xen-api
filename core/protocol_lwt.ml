@@ -85,7 +85,7 @@ end
 
 let whoami = M.whoami
 
-module Connection = Protocol.Connection(M.IO)
+module Connection = Make.Connection(M.IO)
 
-module Client = Protocol.Client(M)
-module Server = Protocol.Server(M)
+module Client = Make.Client(M)
+module Server = Make.Server(M)

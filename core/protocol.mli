@@ -160,24 +160,3 @@ module Out : sig
 
   val to_response : t -> Cohttp.Code.status_code * string
 end
-
-type ('a, 'b) result =
-  | Ok of 'a
-  | Error of 'b
-
-exception Failed_to_read_response
-
-exception Unsuccessful_response
-
-exception Timeout
-
-module Connection(IO: Cohttp.S.IO) : sig
-  val rpc: (IO.ic * IO.oc) -> In.t -> [ `Ok of string | `Error of exn] IO.t
-end
-
-module Server(M: S.BACKEND) : S.SERVER
-  with type 'a io = 'a M.IO.t
-
-module Client(M: S.BACKEND) : S.CLIENT
-  with type 'a io = 'a M.IO.t
-

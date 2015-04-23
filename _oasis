@@ -22,7 +22,7 @@ Library message_switch
   NativeOpt:          -warn-error +a
   Path:               core
   Findlibname:        message_switch
-  Modules:            Protocol, S
+  Modules:            Protocol, Make, S
   BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,sexplib,sexplib.syntax,re.str, bisect
 
 Library message_switch_lwt

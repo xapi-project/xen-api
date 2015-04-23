@@ -168,14 +168,7 @@ end
 
 let whoami = IO.whoami
 
-module Connection = struct
-  module C = Protocol.Connection(IO)
-
-  let rpc t msg = match C.rpc t msg with
-    | `Ok x -> Ok x
-    | `Error y -> Error y
-
-end
+module Connection = Make.Connection(IO)
 
 exception Timeout
 
@@ -190,8 +183,10 @@ end
 
 
 let rpc_exn c frame = match Connection.rpc c frame with
-  | Error e -> raise e
-  | Ok raw -> raw
+  | `Error e -> raise e
+  | `Ok raw -> raw
+
+type ('a, 'b) result = [ `Ok of 'a | `Error of 'b ]
 
 module Client = struct
 
@@ -247,7 +242,7 @@ module Client = struct
                      | Message.Response j ->
                        if Hashtbl.mem wakener j then begin
                          let (_: string) = rpc_exn t.events_conn (In.Ack i) in
-                         IO.Ivar.fill (Hashtbl.find wakener j) (Ok m);
+                         IO.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
                        end else Printf.printf "no wakener for id %s,%Ld\n%!" (fst i) (snd i)
                      | Message.Request _ -> ()
                    )
@@ -278,7 +273,7 @@ module Client = struct
   let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = IO.Ivar.create () in
     let timer = Opt.map (fun timeout ->
-        IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (Error Timeout))
+        IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (`Error Timeout))
       ) timeout in
 
     let rec loop () =
@@ -306,12 +301,12 @@ module Client = struct
     let id = loop () in
     (* now block waiting for our response *)
     match IO.Ivar.read t with
-    | Ok response ->
+    | `Ok response ->
       (* release resources *)
       Opt.iter IO.Clock.cancel timer;
       IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
       `Ok response.Message.payload
-    | Error exn -> raise exn
+    | `Error exn -> raise exn
 
   let list ~t:c ~prefix () =
     IO.Mutex.with_lock c.requests_m
@@ -386,11 +381,11 @@ module Server = struct
       } in
       let frame = In.Transfer transfer in
       Connection.rpc request_conn frame >>= function
-      | Error e ->
+      | `Error e ->
         Printf.fprintf stderr "Server.listen.loop: %s\n%!" (Printexc.to_string e);
         let connections = IO.Mutex.with_lock mutex reconnect in
         loop connections from
-      | Ok raw ->
+      | `Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         begin match transfer.Out.messages with
           | [] -> loop connections from
