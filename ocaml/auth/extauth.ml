@@ -48,8 +48,12 @@ struct
 	(* our "local" authentication plugin *)
 	| "PAM" -> (*pam/nss unix services*)
 		Authx.AuthX.methods
+	(* the PBIS authentication plugin *)
+	| "AD"
+	| "AD:PBIS" -> (*windows active directory*)
+		Extauth_plugin_ADpbis.AuthADlw.methods
 	(* the Likewise authentication plugin *)
-	| "AD" -> (*windows active directory*)
+	| "AD:LIKEWISE" -> (*windows active directory*)
 		Extauth_plugin_ADlikewise.AuthADlw.methods
 	(* if no other auth_type fits, then we don't know what to do *) 
 	| _ as uat -> (*error*)
