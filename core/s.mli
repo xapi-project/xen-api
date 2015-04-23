@@ -15,7 +15,12 @@
  *)
 
 module type BACKEND = sig
+  (** This is the input type for the Client/Server functor: implement this
+      and you can create a Client and a Server module *)
+
   val whoami: unit -> string
+  (** An identifier for this process: my temporary queue names will be
+      based on this identifier *)
 
   module IO: sig
     include Cohttp.S.IO
@@ -75,6 +80,8 @@ module type SERVER = sig
   (** A listening server *)
 
   val listen: process:(string -> string io) -> switch:string -> queue:string -> unit -> t result io
+  (** Connect to [switch] and start processing messages on [queue] via function
+      [process] *)
 
   val shutdown: t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
@@ -98,19 +105,32 @@ module type CLIENT = sig
   val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Result.result
 
   val connect: switch:string -> unit -> t result io
+  (** [connect switch] connects to a named switch *)
 
   val disconnect: t:t -> unit -> unit io
   (** [disconnect] closes the connection *)
 
   val rpc: t:t -> queue:string -> ?timeout: int -> body:string -> unit -> string result io
+  (** Performs a remote-procedure call via destinatino queue [queue] with
+      payload [body]. If a [timeout] is provided then the call will return before
+      the timeout expires *)
 
   val list: t:t -> prefix:string -> unit -> string list result io
+  (** List queues on the switch starting with string [prefix] *)
 
   val diagnostics: t:t -> unit -> Protocol.Diagnostics.t result io
+  (** Download a diagnostics dump from the switch *)
 
-  val trace: t:t -> from:int64 -> ?timeout:float -> unit -> Protocol.Out.trace result io
+  val trace: t:t -> ?from:int64 -> ?timeout:float -> unit -> Protocol.Out.trace result io
+  (** Download event trace records from the server. The trace starts from
+      the earliest recorded, unless overridden with a newer message id using
+      the [from] parameter. If a [timeout] is given then the call will return
+      before the timeout expires. *)
 
   val ack: t:t -> message:(string * int64) -> unit -> unit result io
+  (** Acknowledge the processing has completed of a particular message. The
+      switch will purge the message from the queue. Note it is not necessary
+      to acknowledge messages in any particular order. *)
 
   val destroy: t:t -> queue:string -> unit -> unit result io
   (** [destroy t queue_name] destroys the named queue, and all associated

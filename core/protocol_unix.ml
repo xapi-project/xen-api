@@ -383,7 +383,7 @@ module Client = struct
          `Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
       )
 
-  let trace ~t:c ~from ?(timeout=0.) () =
+  let trace ~t:c ?(from=0L) ?(timeout=0.) () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
          Connection.rpc c.requests_conn (In.Trace(from, timeout))

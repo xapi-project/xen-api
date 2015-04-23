@@ -252,7 +252,7 @@ module Client = functor(M: S.BACKEND) -> struct
     Connection.rpc t.requests_conn In.Diagnostics >>|= fun result ->
     return (`Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result)))
 
-  let trace ~t ~from ?(timeout=0.) () =
+  let trace ~t ?(from=0L) ?(timeout=0.) () =
     Connection.rpc t.requests_conn (In.Trace(from, timeout)) >>|= fun result ->
     return (`Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
 
