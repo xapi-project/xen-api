@@ -127,7 +127,7 @@ module type CLIENT = sig
       the [from] parameter. If a [timeout] is given then the call will return
       before the timeout expires. *)
 
-  val ack: t:t -> message:(string * int64) -> unit -> unit result io
+  val ack: t:t -> message:Protocol.message_id -> unit -> unit result io
   (** Acknowledge the processing has completed of a particular message. The
       switch will purge the message from the queue. Note it is not necessary
       to acknowledge messages in any particular order. *)
