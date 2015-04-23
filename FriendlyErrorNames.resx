@@ -487,7 +487,7 @@
     <value>XenServer build number ({1}) is incompatible with the update build number ({2}).</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION" xml:space="preserve">
-    <value>XenServer version number ({1}) is incompatible with the update version number ({2}).</value>
+    <value>XenServer version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
   </data>
   <data name="PBD_EXISTS" xml:space="preserve">
     <value>A PBD already exists connecting the SR to the server</value>
