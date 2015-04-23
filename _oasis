@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        message_switch
-Version:     0.10.4
+Version:     0.11.0
 Synopsis:    A simple store-and-forward message switch
 Authors:     Dave Scott
 License:     ISC
