@@ -263,8 +263,7 @@ let mscgen common_opts =
   Client.connect ~switch:common_opts.Common.path ()
   >>|= fun t ->
   Client.trace ~t ~from:0L ()
-  >>|= fun raw ->
-  let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
+  >>|= fun trace ->
   let quote x = "\"" ^ x ^ "\""
   in
   let module StringSet = Set.Make(struct type t = string let compare = compare end) in
@@ -319,8 +318,7 @@ let tail common_opts follow =
   while not(!finished) do
     match Client.trace ~t:c ~from:!from ~timeout () with
     | `Error exn -> raise exn
-    | `Ok raw ->
-      let trace = Out.trace_of_rpc (Jsonrpc.of_string raw) in
+    | `Ok trace ->
       let endpoint = function
         | None -> "-"
         | Some x -> x in

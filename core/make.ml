@@ -231,7 +231,7 @@ module Client = functor(M: S.BACKEND) -> struct
 
   let trace ~t ~from ?(timeout=0.) () =
     Connection.rpc t.requests_conn (In.Trace(from, timeout)) >>|= fun result ->
-    return (`Ok result)
+    return (`Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
 
   let ack ~t ~message:(name, id) () =
     Connection.rpc t.requests_conn (In.Ack (name, id)) >>|= fun _ ->

@@ -333,7 +333,7 @@ module Client = struct
     IO.Mutex.with_lock c.requests_m
       (fun () ->
          let (result: string) = rpc_exn c.requests_conn (In.Trace(from, timeout)) in
-         `Ok result
+         `Ok (Out.trace_of_rpc (Jsonrpc.of_string result))
       )
 
   let shutdown ~t:c () =
