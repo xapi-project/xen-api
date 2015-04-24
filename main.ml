@@ -450,24 +450,38 @@ let process root_dir name x =
 (* Active servers, one per sub-directory of the root_dir *)
 let servers = String.Table.create () ~size:4
 
-let create switch_port root_dir name =
+(* XXX: need a better error-handling strategy *)
+let get_ok = function
+  | `Ok x -> x
+  | `Error e ->
+    let b = Buffer.create 16 in
+    let fmt = Format.formatter_of_buffer b in
+    Protocol_unix.Server.pp_error fmt e;
+    Format.pp_print_flush fmt ();
+    failwith (Buffer.contents b)
+
+let create switch_path root_dir name =
   if Hashtbl.mem servers name
   then return ()
   else begin
     info "Adding %s" name
     >>= fun () ->
-    Protocol_async.M.connect switch_port >>= fun c ->
-    let server = Protocol_async.Server.listen (process root_dir name) c (Filename.basename name) in
+    Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
+    >>= fun result ->
+    let server = get_ok result in
     Hashtbl.add_exn servers name server;
     return ()
   end
 
-let destroy switch_port name =
+let destroy switch_path name =
   info "Removing %s" name
   >>= fun () ->
-  Protocol_async.M.connect switch_port >>= fun c ->
-  Hashtbl.remove servers name;
-  return ()
+  if Hashtbl.mem servers name then begin
+    let t = Hashtbl.find_exn servers name in
+    Protocol_async.Server.shutdown ~t () >>= fun () ->
+    Hashtbl.remove servers name;
+    return ()
+  end else return ()
 
 let rec diff a b = match a with
   | [] -> []
@@ -475,21 +489,21 @@ let rec diff a b = match a with
     if List.mem b a then diff aa b else a :: (diff aa b)
 
 (* Ensure the right servers are started *)
-let sync ~root_dir ~switch_port =
+let sync ~root_dir ~switch_path =
   Sys.readdir root_dir
   >>= fun names ->
   let needed : string list = Array.to_list names in
   let got_already : string list = Hashtbl.keys servers in
-  Deferred.all_ignore (List.map ~f:(create switch_port root_dir) (diff needed got_already))
+  Deferred.all_ignore (List.map ~f:(create switch_path root_dir) (diff needed got_already))
   >>= fun () ->
-  Deferred.all_ignore (List.map ~f:(destroy switch_port) (diff got_already needed))
+  Deferred.all_ignore (List.map ~f:(destroy switch_path) (diff got_already needed))
 
-let main ~root_dir ~switch_port =
+let main ~root_dir ~switch_path =
   (* We watch and create queues for the Volume plugins only *)
   let root_dir = Filename.concat root_dir "volume" in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
   >>= fun (watch, _) ->
-  sync ~root_dir ~switch_port
+  sync ~root_dir ~switch_path
   >>= fun () ->
   let pipe = Async_inotify.pipe watch in
   let open Async_inotify.Event in
@@ -501,24 +515,24 @@ let main ~root_dir ~switch_port =
       Shutdown.exit 1
     | `Ok (Created path)
     | `Ok (Moved (Into path)) ->
-      create switch_port root_dir (Filename.basename path)
+      create switch_path root_dir (Filename.basename path)
     | `Ok (Unlinked path)
     | `Ok (Moved (Away path)) ->
-      destroy switch_port (Filename.basename path)
+      destroy switch_path (Filename.basename path)
     | `Ok (Modified _) ->
       return ()
     | `Ok (Moved (Move (path_a, path_b))) ->
-      destroy switch_port (Filename.basename path_a)
+      destroy switch_path (Filename.basename path_a)
       >>= fun () ->
-      create switch_port root_dir (Filename.basename path_b)
+      create switch_path root_dir (Filename.basename path_b)
     | `Ok Queue_overflow ->
-      sync ~root_dir ~switch_port
+      sync ~root_dir ~switch_path
     ) >>= fun () ->
     loop () in
   loop ()
 
-let main ~root_dir ~switch_port =
-  let (_: unit Deferred.t) = main ~root_dir ~switch_port in
+let main ~root_dir ~switch_path =
+  let (_: unit Deferred.t) = main ~root_dir ~switch_path in
   never_returns (Scheduler.go ())
 
 open Xcp_service
@@ -558,5 +572,5 @@ let _ =
     use_syslog := true;
     Core.Syslog.openlog ~id:"xapi-storage-script" ~facility:Core.Syslog.Facility.DAEMON ();
   end;
-  main ~root_dir:!root_dir ~switch_port:!Xcp_client.switch_port
+  main ~root_dir:!root_dir ~switch_path:!Xcp_client.switch_path
 
