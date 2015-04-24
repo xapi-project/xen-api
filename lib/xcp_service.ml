@@ -146,7 +146,7 @@ let setify =
 
 let common_options = [
 	"use-switch", Arg.Bool (fun b -> Xcp_client.use_switch := b), (fun () -> string_of_bool !Xcp_client.use_switch), "true if the message switch is to be enabled";
-	"switch-port", Arg.Set_int Xcp_client.switch_port, (fun () -> string_of_int !Xcp_client.switch_port), "port on localhost where the message switch is listening";
+	"switch-path", Arg.Set_string Xcp_client.switch_path, (fun () -> !Xcp_client.switch_path), "Unix domain socket path on localhost where the message switch is listening";
 	"search-path", Arg.String (fun s -> extra_search_path := (split_c ':' s) @ !extra_search_path), (fun () -> String.concat ":" !extra_search_path), "Search path for resources";
 	"pidfile", Arg.Set_string pidfile, (fun () -> !pidfile), "Filename to write process PID";
 	"log", Arg.Set_string log_destination, (fun () -> !log_destination), "Where to write log messages";
@@ -495,7 +495,11 @@ let serve_forever = function
 		done
 	| Queue(queue_name, fn) ->
 		let process x = Jsonrpc.string_of_response (fn (Jsonrpc.call_of_string x)) in
-		Protocol_unix.Server.listen process !Xcp_client.switch_port queue_name
+		let _ = Protocol_unix.Server.listen ~process ~switch:!Xcp_client.switch_path ~queue:queue_name () in
+		let rec forever () =
+			Thread.delay 3600.;
+			forever () in
+		forever ()
 
 let pidfile_write filename =
 	let fd = Unix.openfile filename
