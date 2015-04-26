@@ -49,6 +49,9 @@ type interval = [
 val seconds_of_interval: interval -> int
 (** The length of the interval in seconds *)
 
+val archive_length_of_interval: interval -> int
+(** The length of the archive associated with the interval *)
+
 module Updates : sig
 
   val uri:

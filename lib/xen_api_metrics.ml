@@ -73,6 +73,20 @@ let seconds_of_interval = function
   | `Day -> 24 * 60 * 60
   | `Other x -> x
 
+let rec archive_length_of_interval = function
+  | `Seconds -> 10 * 60
+  | `Minute  -> 2 * 60 * 60
+  | `Hour    -> 7 * 24 * 60 * 60
+  | `Day     -> 365 * 7 * 24 * 60 * 60
+  | `Other x ->
+    if x <= (seconds_of_interval `Seconds)
+    then (archive_length_of_interval `Seconds)
+    else if x <= (seconds_of_interval `Minute)
+    then (archive_length_of_interval `Minute)
+    else if x <= (seconds_of_interval `Hour)
+    then (archive_length_of_interval `Hour)
+    else archive_length_of_interval `Day
+
 module Updates = struct
 
   let uri ~host ~authentication ~start ?(include_host=false) ?interval ?cf () =
