@@ -21,6 +21,7 @@ let uri = ref "http://127.0.0.1/"
 let username = ref "root"
 let password = ref "password"
 let start = ref 0
+let interval = ref 5
 
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
@@ -39,7 +40,8 @@ let main () =
 			let open Cohttp_lwt_unix in
 			let uri = Xen_api_metrics.Updates.uri
 				~host:(Uri.of_string !uri) ~authentication:(`UserPassword(!username, !password))
-				~start:(Int64.to_int start) ~include_host:true () in
+				~start:(Int64.to_int start) ~interval:(`Other !interval)
+				~include_host:true () in
 			let b = Cohttp.Auth.string_of_credential (`Basic (!username, !password)) in
 			let headers = Cohttp.Header.of_list ["authorization", b] in
 
@@ -73,6 +75,7 @@ let _ =
 		"-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
 		"-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
 		"-start", Arg.Set_int start, (Printf.sprintf "Time since epoc to fetch updates from (default %d)" !start);
+    "-interval", Arg.Set_int interval, (Printf.sprintf "Preferred sampling interval (default %d)" !interval);
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Simple example which watches metrics updates from a host";
 
