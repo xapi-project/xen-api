@@ -66,12 +66,26 @@ type interval = [
   | `Other of int
 ]
 
-let int_of_interval = function
+let seconds_of_interval = function
   | `Seconds -> 5
   | `Minute -> 60
   | `Hour -> 60 * 60
   | `Day -> 24 * 60 * 60
   | `Other x -> x
+
+let rec archive_length_of_interval = function
+  | `Seconds -> 10 * 60
+  | `Minute  -> 2 * 60 * 60
+  | `Hour    -> 7 * 24 * 60 * 60
+  | `Day     -> 365 * 7 * 24 * 60 * 60
+  | `Other x ->
+    if x <= (seconds_of_interval `Seconds)
+    then (archive_length_of_interval `Seconds)
+    else if x <= (seconds_of_interval `Minute)
+    then (archive_length_of_interval `Minute)
+    else if x <= (seconds_of_interval `Hour)
+    then (archive_length_of_interval `Hour)
+    else archive_length_of_interval `Day
 
 module Updates = struct
 
@@ -86,7 +100,7 @@ module Updates = struct
     let query = [
       "start", [ string_of_int start ];
       "host", [ string_of_bool include_host ]
-    ] @ (match interval with None -> [] | Some x -> [ "interval", [ string_of_int (int_of_interval x) ] ])
+    ] @ (match interval with None -> [] | Some x -> [ "interval", [string_of_int (seconds_of_interval x) ] ])
       @ (match cf with None -> [] | Some x -> [ "cf", [ string_of_cf x ] ]) in
     let userinfo = match authentication with
     | `UserPassword (user, pass) -> Some (user ^ ":" ^ pass)
