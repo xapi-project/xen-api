@@ -35,12 +35,23 @@ module Legend : sig
       contains useful information such as the units. *)
 end
 
+type interval = [
+  | `Seconds (** every 5 seconds for 10 minutes *)
+  | `Minute  (** every minute for 2 hours *)
+  | `Hour    (** every hour for one week *)
+  | `Day     (** every day for one year *)
+  | `Other of int
+]
+(** Points are averaged over an interval and stored in separate 'archives'.
+    The server will automatically select an interval given a start time but
+    you can manually select the interval if you want a particular resolution. *)
+
 module Updates : sig
 
   val uri:
        host:Uri.t -> authentication:Xen_api_auth.t
     -> start:int -> ?include_host:bool
-    -> ?interval:int -> ?cf:cf
+    -> ?interval:interval -> ?cf:cf
     -> unit
     -> Uri.t
   (** [updates ~host ~authentication ~start ?include_host ?interval ?cf ()]
