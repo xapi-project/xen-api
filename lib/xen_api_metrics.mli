@@ -46,6 +46,9 @@ type interval = [
     The server will automatically select an interval given a start time but
     you can manually select the interval if you want a particular resolution. *)
 
+val seconds_of_interval: interval -> int
+(** The length of the interval in seconds *)
+
 module Updates : sig
 
   val uri:

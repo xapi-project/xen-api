@@ -66,7 +66,7 @@ type interval = [
   | `Other of int
 ]
 
-let int_of_interval = function
+let seconds_of_interval = function
   | `Seconds -> 5
   | `Minute -> 60
   | `Hour -> 60 * 60
@@ -86,7 +86,7 @@ module Updates = struct
     let query = [
       "start", [ string_of_int start ];
       "host", [ string_of_bool include_host ]
-    ] @ (match interval with None -> [] | Some x -> [ "interval", [ string_of_int (int_of_interval x) ] ])
+    ] @ (match interval with None -> [] | Some x -> [ "interval", [string_of_int (seconds_of_interval x) ] ])
       @ (match cf with None -> [] | Some x -> [ "cf", [ string_of_cf x ] ]) in
     let userinfo = match authentication with
     | `UserPassword (user, pass) -> Some (user ^ ":" ^ pass)
