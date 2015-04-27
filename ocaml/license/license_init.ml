@@ -44,22 +44,6 @@ let initialise ~__context ~host =
 
 	try
 		let edition = Db.Host.get_edition ~__context ~self:host in
-		let allowed_editions = V6client.get_editions "License_init" in
-
-		(* If we change the editions names in a later version of
-		   XenServer, and this xapi restarts during an upgrade, we may
-		   have an invalid edition in the database. *)
-		let edition =
-			if List.mem edition (List.map fst4 allowed_editions)
-			then edition
-			else
-				begin
-					let default_edition = find_min_edition allowed_editions in
-					warn "Edition %s not available on this host, defaulting \
-					      to %s edition instead" edition default_edition;
-					default_edition
-				end in
-
 		let edition', features, additional =
 			V6client.apply_edition ~__context edition ["force", "true"] in
 		set_licensing edition' features additional
