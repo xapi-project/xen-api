@@ -2,6 +2,7 @@
 * opam: generate a $NAME.install file
 * make: fix conditional compilation when --disable-xenserver set
 * now compatible with tar-format.0.2.1 and tar-format.0.3.0
+* travis: use new opam 1.2 workflow
 
 0.7.6 (2014-11-04)
 * Upgrade to cohttp 0.12.0 API
