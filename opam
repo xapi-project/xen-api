@@ -5,11 +5,9 @@ tags: [
   "org:xapi-project"
 ]
 build: [
-  ["./configure" "--bindir=%{bin}%"]
+  ["./configure" "--bindir=%{bin}%" "--etcdir=%{etc}%" "--libexecdir=%{bin}%"]
   [make]
-  [make "install"]
 ]
-remove: [[make "uninstall"]]
 depends: [
   "ocamlfind"
   "lwt" {>= "2.4.3"}
