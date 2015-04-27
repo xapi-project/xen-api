@@ -641,6 +641,7 @@ module VM = struct
 			xsdata = vm.xsdata;
 			platformdata = platformdata @ vcpus;
 			bios_strings = vm.bios_strings;
+			auto_update_drivers = vm.auto_update_drivers;
 		} in
 		{
 			VmExtra.create_info = create_info;

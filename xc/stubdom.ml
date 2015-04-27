@@ -38,6 +38,7 @@ let create ~xc ~xs domid =
  		Domain.platformdata = [];
  		Domain.xsdata = [];
 		Domain.bios_strings = [];
+                Domain.auto_update_drivers = false;
 	} in
     let stubdom_domid = Domain.make ~xc ~xs info stubdom_uuid in
     debug "jjd27: created stubdom with domid %d" stubdom_domid;
