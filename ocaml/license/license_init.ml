@@ -38,6 +38,7 @@ let initialise ~__context ~host =
 	let module V6client = (val !v6client : V6clientS) in
 
 	let set_licensing edition features additional =
+		debug "Setting license to %s" edition;
 		Db.Host.set_edition ~__context ~self:host ~value:edition;
 		(* Copy resulting license to the database *)
 		Xapi_host.copy_license_to_db ~__context ~host ~features ~additional in
