@@ -886,6 +886,8 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> (x ()).API.vM_generation_id) ();
 			make_field ~name:"hardware-platform-version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_hardware_platform_version) ();
+			make_field ~name:"auto-update-drivers"
+				~get:(fun () -> string_of_bool (x ()).API.vM_auto_update_drivers) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 

@@ -526,7 +526,7 @@ let string_of_doc_tag = function
 	| Snapshots -> "snapshots"
 	| Networking -> "networking"
 	| Memory -> "memory"
-        | Windows -> "windows"
+    | Windows -> "windows-vm"
 
 let string_of_lifecycle_transition = function
 	| Prototyped -> "prototyped"

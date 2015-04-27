@@ -108,7 +108,6 @@ module Platform = struct
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
-	let pci_pv = Xapi_globs.pci_pv_key_name
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -136,7 +135,6 @@ module Platform = struct
 		vgpu_pci_id;
 		vgpu_config;
 		vgpu_extra_args;
-		pci_pv;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -666,6 +664,7 @@ module MD = struct
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
+			auto_update_drivers = vm.API.vM_auto_update_drivers
 		}		
 
 
