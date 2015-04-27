@@ -2393,14 +2393,14 @@ let vm_set_auto_update_drivers = call
 	~in_product_since:rel_dundee
 	~doc:"Enable or disable PV auto update on Windows vm"
 	~params:[Ref _vm, "vm", "The vm";
-			 Bool, "enable", "true if the Windows Update feature is enabled on the VM; false otherwise"]
+			 Bool, "enable", "True if the Windows Update feature is enabled on the VM; false otherwise"]
 	~allowed_roles:_R_VM_OP
 	()
 
 let vm_assert_can_set_auto_update_drivers = call
 	~name:"assert_can_set_auto_update_drivers"
 	~in_product_since:rel_dundee
-	~doc:"Check wether PV auto update can be set on Windows vm"
+	~doc:"Check if PV auto update can be set on Windows vm"
 	~params:[Ref _vm, "vm", "The vm";]
 	~allowed_roles:_R_VM_OP
 	~doc_tags:[Windows]
@@ -7030,7 +7030,8 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-      ])
+	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
+    ])
 	()
 
 let vm_memory_metrics = 

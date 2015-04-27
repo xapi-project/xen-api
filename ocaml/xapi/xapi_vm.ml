@@ -979,14 +979,4 @@ let assert_can_set_auto_update_drivers ~__context ~vm =
 
 let set_auto_update_drivers ~__context ~vm ~enable=	
 	assert_can_set_auto_update_drivers ~__context ~vm;
-	let platform = Db.VM.get_platform ~__context ~self:vm in
-	let value = match enable with
-		| true -> "true"
-		| _ -> "false"
-	in
-	info "Updating VM %s platform:%s <- %s" (Ref.string_of vm) Xapi_globs.pci_pv_key_name value;
-	if List.mem_assoc Xapi_globs.pci_pv_key_name platform then
-		(try
-			Db.VM.remove_from_platform ~__context ~self:vm ~key:Xapi_globs.pci_pv_key_name
-		with _ -> ());
-	Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.pci_pv_key_name ~value:value
+	Db.VM.set_auto_update_drivers ~__context ~self:vm ~value:enable
