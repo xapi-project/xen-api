@@ -2,7 +2,7 @@ open Types
 
 let api =
   {
-    Interfaces.name = "p";
+    Interfaces.name = "plugin";
     title = "The Plugin interface";
     description =
       String.concat " " [

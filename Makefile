@@ -5,6 +5,7 @@ default: build
 build:
 	(cd generator; make)
 	mkdir -p ocaml/examples
+	mkdir -p python/xapi
 	./generator/main.native
 	make -C ocaml
 	make -C python

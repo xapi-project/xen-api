@@ -12,7 +12,7 @@ Library storage
   Path: lib
   Pack: true
   Findlibname: xapi-storage
-  Modules: S, P, V, D, Channel, Cmdliner_helpers
+  Modules: S, Plugin, Volume, Datapath, Channel, Cmdliner_helpers
   BuildDepends:	rpclib, cmdliner, re.str
 
 #Executable storage_test

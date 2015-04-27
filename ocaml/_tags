@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 981a17adb69acea4d217dab9d80b662d)
+# DO NOT EDIT (digest: 7ce3683c57cc639f2702ca55b0dd5506)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -16,14 +17,14 @@
 # Library storage
 "lib/storage.cmxs": use_storage
 "lib/s.cmx": for-pack(Storage)
-"lib/p.cmx": for-pack(Storage)
-"lib/v.cmx": for-pack(Storage)
-"lib/d.cmx": for-pack(Storage)
+"lib/plugin.cmx": for-pack(Storage)
+"lib/volume.cmx": for-pack(Storage)
+"lib/datapath.cmx": for-pack(Storage)
 "lib/channel.cmx": for-pack(Storage)
 "lib/cmdliner_helpers.cmx": for-pack(Storage)
-<lib/*.ml{,i}>: pkg_cmdliner
-<lib/*.ml{,i}>: pkg_re.str
-<lib/*.ml{,i}>: pkg_rpclib
+<lib/*.ml{,i,y}>: pkg_cmdliner
+<lib/*.ml{,i,y}>: pkg_re.str
+<lib/*.ml{,i,y}>: pkg_rpclib
 # OASIS_STOP
 <lib/*.ml>: syntax_camlp4o, pkg_rpclib.syntax
 <proxy/*.ml>: syntax_camlp4o, pkg_lwt.syntax
