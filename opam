@@ -5,7 +5,7 @@ tags: [
   "org:xapi-project"
 ]
 build: [
-  ["./configure" "--bindir=%{bin}%"]
+  ["./configure" "--bindir=%{bin}%" "--etcdir=%{etc}%" "--libexecdir=%{bin}%"]
   [make]
   [make "install"]
 ]
