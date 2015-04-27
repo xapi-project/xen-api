@@ -4,6 +4,14 @@ include config.mk
 build: setup.data
 	rm -f configure.cmo configure.cmi
 	ocaml setup.ml -build
+	rm -f vhd-tool
+	ln -s main.native vhd-tool
+	./vhd-tool --help=groff > vhd-tool.1
+ifeq ($(ENABLE_XENSERVER), "--enable-xenserver")
+	rm -f sparse_dd
+	ln -s sparse_dd.native sparse_dd
+	./sparse_dd --help=groff > sparse_dd.1
+endif
 
 setup.data: setup.ml
 	rm -f configure.cmo configure.cmi
@@ -13,6 +21,8 @@ setup.data: setup.ml
 clean: setup.data
 	rm -f configure.cmo configure.cmi
 	ocaml setup.ml -clean
+	rm -f vhd-tool
+	rm -f sparse_dd
 
 install: build
 	mkdir -p ${BINDIR}

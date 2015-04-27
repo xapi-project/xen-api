@@ -12,3 +12,8 @@ _build
 *.swp
 setup.data
 setup.log
+*.install
+vhd-tool
+sparse_dd
+*.1
+config.mk
