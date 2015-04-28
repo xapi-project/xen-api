@@ -2033,10 +2033,12 @@ module VM = struct
 								nested_hvm = Some true;
 								vnc = vnc_info;
 								keymap = hvm_info.Xenops_interface.Vm.keymap;
-								serial = hvm_info.Xenops_interface.Vm.serial;
+								serial = None;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
-								usbdevice_list = [ "tablet" ];
+								usbdevice_list = [ "tablet" ];	
+								serial_list = match hvm_info.Xenops_interface.Vm.serial with 
+								| Some x -> [x] | None -> [];
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->
