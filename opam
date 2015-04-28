@@ -13,5 +13,5 @@ depends: [
   "async" {= "111.25.00" }
   "async_inotify" {= "111.28.00" }
   "core"
-  "message-switch"
+  "message-switch" {>= "0.11.0" }
 ]
