@@ -962,3 +962,21 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 
 let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
+
+let assert_can_set_auto_update_drivers ~__context ~vm = 
+	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	if power_state <> `Halted
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
+				[Ref.string_of vm; Record_util.power_to_string `Halted;
+				Record_util.power_to_string power_state]));
+	
+	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+	let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
+	let storage_optimized = try Db.VM_guest_metrics.get_storage_paths_optimized ~__context ~self:vm_gm with _ -> false in
+	if storage_optimized || network_optimized
+	then
+		raise (Api_errors.Server_error(Api_errors.vm_pv_drivers_in_use, [ Ref.string_of vm ]))
+
+let set_auto_update_drivers ~__context ~vm ~enable=	
+	assert_can_set_auto_update_drivers ~__context ~vm;
+	Db.VM.set_auto_update_drivers ~__context ~self:vm ~value:enable

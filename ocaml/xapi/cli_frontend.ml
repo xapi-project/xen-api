@@ -1362,6 +1362,24 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[];
     };
 
+    "vm-set-auto-update-drivers",
+    {
+      reqd=["uuid"; "enable"];
+      optn=[];
+      help="Enable or disbale PV auto update on the given vm.";
+      implementation=No_fd Cli_operations.vm_set_auto_update_drivers;
+      flags=[];
+    };
+
+    "vm-assert-can-set-auto-update-drivers",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Assert if PV auto update status can be set on the given vm.";
+      implementation=No_fd Cli_operations.vm_assert_can_set_auto_update_drivers;
+      flags=[];
+    };
+
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];

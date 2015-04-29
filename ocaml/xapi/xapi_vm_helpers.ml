@@ -164,6 +164,7 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
+		~auto_update_drivers:false
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -1058,15 +1059,12 @@ let vm_fresh_genid ~__context ~self =
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
 
-let is_pci_pv_enabled ~platformdata =
-	Helpers.is_true ~key:(Xapi_globs.pci_pv_key_name) ~pairlist:platformdata ~default:(Xapi_globs.default_pci_pv_key_value)
-
 let update_vm_virtual_hardware_platform_version ~__context ~vm =
 	let vm_record = Db.VM.get_record ~__context ~self:vm in
 	(* Deduce what we can, but the guest VM might need a higher version. *)
 	let visibly_required_version =
-		if is_pci_pv_enabled vm_record.API.vM_platform then
-			Xapi_globs.pci_for_PV_support
+		if Db.VM.get_auto_update_drivers ~__context ~self:vm then
+			Xapi_globs.auto_update_drivers
 		else
 			0L
 	in

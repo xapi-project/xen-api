@@ -108,7 +108,6 @@ module Platform = struct
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
-	let pci_pv = Xapi_globs.pci_pv_key_name
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -136,7 +135,6 @@ module Platform = struct
 		vgpu_pci_id;
 		vgpu_config;
 		vgpu_extra_args;
-		pci_pv;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -1981,6 +1979,18 @@ let set_memory_dynamic_range ~__context ~self min max =
 			Events_from_xenopsd.wait queue_name dbg id ()
 		)
 
+let set_auto_update_drivers ~__context ~self enabled =
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context queue_name
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.set_auto_update_drivers %s %b" id enabled;
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VM.set_auto_update_drivers dbg id enabled |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg id ()
+		)
+
 let start ~__context ~self paused =
 	let dbg = Context.string_of_task __context in
 	let queue_name = queue_of_vm ~__context ~self in
@@ -2040,6 +2050,8 @@ let start ~__context ~self paused =
 							raise e
 					);
 				set_resident_on ~__context ~self;
+				let enable = Db.VM.get_auto_update_drivers ~__context ~self in
+				set_auto_update_drivers ~__context ~self enable;
 				Events_from_xapi.wait ~__context ~self;
 			with e ->
 				error "Caught exception starting VM: %s" (string_of_exn e);
