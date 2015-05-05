@@ -509,7 +509,7 @@ module Blktap3_stats_wrapper = struct
 		List.iter (fun (domid_devid, stat) ->
 			if List.mem_assoc domid_devid domid_devid_to_sr then
 				let sr = List.assoc domid_devid domid_devid_to_sr in
-				Hashtbl.add sr_to_domid_devid_to_stats_blktap3 sr ((domid_devid, stat) ::
+				Hashtbl.replace sr_to_domid_devid_to_stats_blktap3 sr ((domid_devid, stat) ::
 					if Hashtbl.mem sr_to_domid_devid_to_stats_blktap3 sr then
 						Hashtbl.find sr_to_domid_devid_to_stats_blktap3 sr
 					else
