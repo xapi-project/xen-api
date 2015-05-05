@@ -9,7 +9,7 @@ def get_extauth_handler(args):
     # Return an object that can handle the external_auth_type use by Host
     auth_type = args['auth_type']
     try:
-        return __import__('extauth-hook-%s' % auth_type)
+        return __import__('extauth-hook-%s' % auth_type.split(':')[0])
     except:
         return None
 
