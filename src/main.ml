@@ -347,6 +347,7 @@ let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; 
             tasks_cmd; task_cancel_cmd; cd_eject_cmd ]
 
 let _ =
+  Xcp_client.use_switch := false;
   match Term.eval_choice default_cmd cmds with 
   | `Error _ -> exit 1
   | _ -> exit 0
