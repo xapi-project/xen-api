@@ -27,9 +27,7 @@ OCAMLPACKS    = stdext uuid gzip
 	vncproxy \
 	xsh \
 	perftest \
-	lvhdrt \
 	mpathalert \
-	multipathrt \
 	doc \
 	test
 
