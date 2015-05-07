@@ -322,15 +322,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files tests
 %defattr(-,root,root,-)
-/etc/xapi.d/plugins/lvhdrt-helper
-/etc/xapi.d/plugins/lvhdrt-trash-vdi
-/etc/xapi.d/plugins/multipathrt-helper
 @OPTDIR@/debug/cli-rt-domu-shar.sh
 @OPTDIR@/debug/cli_test
 @OPTDIR@/debug/install-debian-pv-inside.sh
 @OPTDIR@/debug/install-debian-pv.sh
-@OPTDIR@/debug/lvhdrt
-@OPTDIR@/debug/multipathrt
 @OPTDIR@/debug/myfirstpatch.asc
 @OPTDIR@/debug/perftest
 @OPTDIR@/debug/quicktest
