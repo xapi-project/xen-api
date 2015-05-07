@@ -70,7 +70,7 @@ let localhost_handler rpc session_id vdi (req: Request.t) (s: Unix.file_descr) =
 					raise e)
 
 let import vdi (req: Request.t) (s: Unix.file_descr) _ =
-	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
+	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req s;
 
 	(* Perform the SR reachability check using a fresh context/task because
 	   we don't want to complete the task in the forwarding case *)
@@ -91,7 +91,7 @@ let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 
 
 let handler (req: Request.t) (s: Unix.file_descr) _ =
-	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
+	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req s;
 
 	(* Using a fresh context/task because we don't want to complete the
 	   task in the forwarding case *)

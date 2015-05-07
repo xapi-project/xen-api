@@ -535,7 +535,7 @@ let handler (req: Request.t) s _ =
 
   (* First things first, let's make sure that the request has a valid session or username/password *)
   
-  Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req;
+  Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req s;
     
   let use_compression = List.mem_assoc Constants.use_compression req.Request.query && List.assoc Constants.use_compression req.Request.query = "true" in
   debug "Using compression: %b" use_compression;

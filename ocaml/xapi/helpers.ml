@@ -1113,6 +1113,25 @@ let i_am_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   (Pool_role.is_master () && shared) || not(shared)
 
+let get_srmaster ~__context ~sr =
+  let shared = Db.SR.get_shared ~__context ~self:sr in
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  let pool = get_pool ~__context in
+  if shared
+  then Db.Pool.get_master ~__context ~self:pool
+  else begin
+    match List.length pbds with
+    | 0 ->
+      raise (Api_errors.Server_error
+	       (Api_errors.sr_no_pbds, []))
+    | 1 ->
+      Db.PBD.get_host ~__context ~self:(List.hd pbds)
+    | n ->
+      raise (Api_errors.Server_error
+	       (Api_errors.sr_has_multiple_pbds,
+		List.map (fun pbd -> Db.PBD.get_uuid ~__context ~self:pbd) pbds))
+  end
+
 (* Copy the snapshot metadata from [src_record] to the VM whose reference is [dst_ref]. *)
 (* If a lookup table is provided, then the field 'snapshot_of' is translated using this *)
 (* lookup table. *)
