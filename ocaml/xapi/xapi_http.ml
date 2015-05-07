@@ -85,7 +85,7 @@ let rbac_audit_params_of (req: Request.t) =
 	all
 	([],[])
 
-let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Request.t) =
+let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Request.t) ic =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.Request.cookie @ req.Request.query in
   let subtask_of =
@@ -119,6 +119,9 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
 			 | e -> rbac_raise http_permission (ExnHelper.string_of_exn e) e
 		)
 	in
+  if Context.is_unix_socket ic
+  then () (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
+  else
   if List.mem_assoc "session_id" all
   then
     (* Session ref has been passed in - check that it's OK *)
@@ -171,6 +174,9 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
   let localhost = Server_helpers.exec_with_new_task "with_context" (fun __context -> Helpers.get_localhost ~__context) in
   try
     let session_id,must_logout = 
+      if Context.is_unix_socket s
+      then Client.Session.slave_login inet_rpc localhost !Xapi_globs.pool_secret, true
+      else 
       if List.mem_assoc "session_id" all
       then Ref.of_string (List.assoc "session_id" all), false
       else 
@@ -275,7 +281,7 @@ let add_handler (name, handler) =
 				if check_rbac 
 				then (* rbac checks *)
 			   (try
-					assert_credentials_ok name req ~fn:(fun () -> callback req ic context)
+					assert_credentials_ok name req ~fn:(fun () -> callback req ic context) (Buf_io.fd_of ic)
 			    with e ->
 			      debug "Leaving RBAC-handler in xapi_http after: %s" (ExnHelper.string_of_exn e);
 			      raise e
@@ -291,7 +297,7 @@ let add_handler (name, handler) =
 	| Http_svr.FdIO callback ->
 		Http_svr.FdIO (fun req ic context ->
 			(try 
-				(if check_rbac then assert_credentials_ok name req); (* session and rbac checks *)
+				(if check_rbac then assert_credentials_ok name req ic); (* session and rbac checks *)
 				callback req ic context
 			with
 			| Api_errors.Server_error(name, params) as e ->
