@@ -116,15 +116,31 @@ let http_proxy_to req from addr =
 			Http_proxy.one req from s)
 		(fun () -> Unix.close s)
 
-let http_proxy_to_plugin req from name =
-	let path = Filename.concat "/var/lib/xcp" (Printf.sprintf "plugin/%s" name) in
-	if not (Sys.file_exists path) then begin
-		req.Http.Request.close <- true;
-		error "There is no Unix domain socket %s for plugin %s" path name;
+let http_proxy_to_unix_sock req from path name =
+  if not (Sys.file_exists path) then begin
+    req.Http.Request.close <- true;
+      error "There is no Unix domain socket %s for %s" path name;
 		Http_svr.headers from (Http.http_404_missing ~version:"1.0" ())
 	end else
 		http_proxy_to req from (Unix.ADDR_UNIX path)
 
+let http_proxy_to_plugin req from name =
+  let path = Filename.concat "/var/lib/xcp" (Printf.sprintf "plugin/%s" name) in
+  http_proxy_to_unix_sock req from path (Printf.sprintf "plugin %s" name)
+
+let call_xenvmd_on_srmaster __context req from sr_uuid =
+  let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+  if Helpers.i_am_srmaster ~__context ~sr
+  then begin
+    let path = Filename.concat "/var/lib/xenvmd" sr_uuid in
+    http_proxy_to_unix_sock req from path "xenvmd"
+  end else begin
+    let sr_master = Helpers.get_srmaster ~__context ~sr in
+    let address = Db.Host.get_address ~__context ~self:sr_master in
+    http_proxy_to req from (Unix.ADDR_INET ((Unix.inet_addr_of_string address),80))
+  end
+		  
+		  
 let post_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
@@ -138,6 +154,8 @@ let post_handler (req: Http.Request.t) s _ =
 					http_proxy_to_plugin req s name
 				| [ ""; services; "SM" ] when services = _services ->
 					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
+				| [ ""; services; "xenvmd"; sr_uuid ] when services = _services ->
+				        call_xenvmd_on_srmaster __context req s sr_uuid
 				| _ ->
 					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 					req.Http.Request.close <- true
