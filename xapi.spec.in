@@ -48,6 +48,7 @@ BuildRequires: ocaml-xcp-rrd-devel
 BuildRequires: ocaml-tar-devel
 BuildRequires: python2-devel
 BuildRequires: ocaml-rrdd-plugin-devel
+BuildRequires: ocaml-pci-devel
 Requires: hwdata
 Requires: ocaml-xcp-inventory
 Requires: redhat-lsb-core
