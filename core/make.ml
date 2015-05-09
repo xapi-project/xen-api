@@ -244,8 +244,8 @@ module Client = functor(M: S.BACKEND) -> struct
     Opt.iter M.Clock.cancel timer;
     return (`Ok x.Message.payload)
 
-  let list ~t ~prefix () =
-    Connection.rpc t.requests_conn (In.List prefix) >>|= fun result ->
+  let list ~t ~prefix ?(filter=`All) () =
+    Connection.rpc t.requests_conn (In.List (prefix, filter)) >>|= fun result ->
     return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 
   let diagnostics ~t () =

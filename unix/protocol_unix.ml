@@ -359,10 +359,10 @@ module Client = struct
       `Ok response.Message.payload
     | `Error e -> `Error e
 
-  let list ~t:c ~prefix () =
+  let list ~t:c ~prefix ?(filter=`All) () =
     IO.Mutex.with_lock c.requests_m
       (fun () ->
-         Connection.rpc c.requests_conn (In.List prefix)
+         Connection.rpc c.requests_conn (In.List(prefix, filter))
          >>|= fun result ->
          `Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
       )

@@ -69,7 +69,8 @@ module In = struct
     | Transfer of transfer       (** blocking wait for new messages *)
     | Trace of int64 * float     (** blocking wait for trace data *)
     | Ack of message_id          (** ACK this particular message *)
-    | List of string             (** return a list of queue names with a prefix *)
+    | List of string * [ `All | `Alive ]
+                                (** return a list of queue names with a prefix *)
     | Diagnostics                (** return a diagnostic dump *)
     | Shutdown                   (** shutdown the switch *)
     | Get of string list         (** return a web interface resource *)
@@ -88,7 +89,8 @@ module In = struct
     | "", `GET, [ ""; "transient"; name ] -> Some (CreateTransient (Uri.pct_decode name))
     | "", `GET, [ ""; "destroy"; name ]   -> Some (Destroy (Uri.pct_decode name))
     | "", `GET, [ ""; "ack"; name; id ]   -> Some (Ack (Uri.pct_decode name, Int64.of_string id))
-    | "", `GET, [ ""; "list"; prefix ]    -> Some (List (Uri.pct_decode prefix))
+    | "", `GET, [ ""; "list"; prefix ]    -> Some (List (Uri.pct_decode prefix, `All))
+    | "", `GET, [ ""; "list"; "alive"; prefix ]    -> Some (List (Uri.pct_decode prefix, `Alive))
     | "", `GET, [ ""; "trace"; ack_to; timeout ] ->
       Some (Trace(Int64.of_string ack_to, float_of_string timeout))
     | "", `GET, [ ""; "trace" ] ->
@@ -121,8 +123,10 @@ module In = struct
       None, `GET, (Uri.make ~path:(Printf.sprintf "/destroy/%s" name) ())
     | Ack (name, x) ->
       None, `GET, (Uri.make ~path:(Printf.sprintf "/ack/%s/%Ld" name x) ())
-    | List x ->
+    | List (x, `All) ->
       None, `GET, (Uri.make ~path:(Printf.sprintf "/list/%s" x) ())
+    | List (x, `Alive) ->
+      None, `GET, (Uri.make ~path:(Printf.sprintf "/list/alive/%s" x) ())
     | Transfer t ->
       let body = Jsonrpc.to_string (rpc_of_transfer t) in
       Some body, `POST, (Uri.make ~path:"/transfer" ())

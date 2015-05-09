@@ -115,7 +115,7 @@ module type CLIENT = sig
       payload [body]. If a [timeout] is provided then the call will return before
       the timeout expires *)
 
-  val list: t:t -> prefix:string -> unit -> string list result io
+  val list: t:t -> prefix:string -> ?filter:[`All | `Alive] -> unit -> string list result io
   (** List queues on the switch starting with string [prefix] *)
 
   val diagnostics: t:t -> unit -> Protocol.Diagnostics.t result io
