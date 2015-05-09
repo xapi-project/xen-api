@@ -74,7 +74,8 @@ module In : sig
     | Transfer of transfer       (** blocking wait for new messages *)
     | Trace of int64 * float     (** blocking wait for trace data *)
     | Ack of message_id          (** ACK this particular message *)
-    | List of string             (** return a list of queue names with a prefix *)
+    | List of string * [ `All | `Alive ]
+                                 (** return a list of queue names with a prefix *)
     | Diagnostics                (** return a diagnostic dump *)
     | Shutdown                   (** Shut down the switch *)
     | Get of string list         (** return a web interface resource *)

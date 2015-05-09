@@ -95,8 +95,13 @@ let process_request conn_id queues session request = match session, request with
     return (None, Out.Get txt)
   | None, _ ->
     return (None, Out.Not_logged_in)
-  | Some session, In.List prefix ->
+  | Some session, In.List (prefix, `All) ->
     return (None, Out.List (Q.Directory.list queues prefix))
+  | Some session, In.List (prefix, `Alive) ->
+    return (None, Out.List (
+      Q.Directory.list queues prefix
+      |> List.filter (fun n -> get_next_transfer_expected n <> None)
+    ))
   | Some session, In.CreatePersistent name ->
     return (Some (Q.Directory.add queues name), Out.Create name)
   | Some session, In.CreateTransient name ->
