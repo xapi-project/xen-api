@@ -205,10 +205,10 @@ let diagnostics common_opts =
     end;
     `Ok ()
 
-let list common_opts prefix =
+let list common_opts prefix all =
   Client.connect ~switch:common_opts.Common.path ()
   >>|= fun t ->
-  Client.list ~t ~prefix ()
+  Client.list ~t ~prefix ~filter:(if all then `All else `Alive) ()
   >>|= fun all ->
   List.iter print_endline all;
   `Ok ()
@@ -372,12 +372,15 @@ let list_cmd =
   let doc = "list the currently-known queues" in
   let man = [
     `S "DESCRIPTION";
-    `P "Print a list of all queues registered with the message switch";
+    `P "Print a list of all queues registered with the message switch. By default this only shows queues which have had a process start listening. If you want to see all queues, see the 'all' flag.";
   ] @ help in
   let prefix =
     let doc = Printf.sprintf "List queues with a specific prefix." in
     Arg.(value & opt string "" & info ["prefix"] ~docv:"PREFIX" ~doc) in
-  Term.(ret(pure list $ common_options_t $ prefix)),
+  let all =
+    let doc = "List all queues, even if no-one is listening." in
+    Arg.(value & flag & info [ "all" ] ~docv:"ALL" ~doc) in
+  Term.(ret(pure list $ common_options_t $ prefix $ all)),
   Term.info "list" ~sdocs:_common_options ~doc ~man
 
 let tail_cmd =
