@@ -148,7 +148,13 @@ let post_handler (req: Http.Request.t) s _ =
 				| "" :: services :: "xenops" :: _ when services = _services ->
 					(* over the network we still use XMLRPC *)
 					let request = Http_svr.read_body req (Buf_io.of_fd s) in
-					let response = Xcp_client.http_rpc (fun x -> x) (fun x -> x) ~srcstr:"remote" ~dststr:"xenops" Xenops_interface.default_uri request in
+					let response =
+						if !Xcp_client.use_switch then begin
+							let req = Xmlrpc.call_of_string request in
+							let res = Xcp_client.switch_rpc !Xapi_globs.default_xenopsd Jsonrpc.string_of_call Jsonrpc.response_of_string req in
+							Xmlrpc.string_of_response res
+						end else
+							Xcp_client.http_rpc (fun x -> x) (fun x -> x) ~srcstr:"remote" ~dststr:"xenops" Xenops_interface.default_uri request in
 					Http_svr.response_str req ~hdrs:[] s response
 				| "" :: services :: "plugin" :: name :: _ when services = _services ->
 					http_proxy_to_plugin req s name
