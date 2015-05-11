@@ -567,6 +567,11 @@ let unplugged_vif = {
      media_present = false;
 }
 
+let unplugged_vgpu = {
+	Vgpu.plugged = false;
+	Vgpu.emulator_pid = None;
+}
+
 let remap_vdi vdi_map = function 
 	| Xenops_interface.VDI vdi -> 
 		if List.mem_assoc vdi vdi_map 
