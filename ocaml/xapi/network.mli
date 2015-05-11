@@ -13,6 +13,7 @@ module Net :
 				val exists : string -> name:Network_interface.iface -> bool
 				val get_mac : string -> name:Network_interface.iface -> string
 				val is_up : string -> name:Network_interface.iface -> bool
+				val get_capabilities: string -> name:Network_interface.iface -> string list
 				val get_ipv4_addr :
 					string ->
 					name:Network_interface.iface -> (Unix.inet_addr * int) list

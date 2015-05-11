@@ -4896,6 +4896,7 @@ let pif =
 		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
 		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
 	field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
+	field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
       ]
 	()
 
