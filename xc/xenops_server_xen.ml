@@ -1589,6 +1589,20 @@ module PCI = struct
 
 end
 
+module VGPU = struct
+	open Vgpu
+
+	let id_of vgpu = snd vgpu.id
+
+	let get_state vm vgpu =
+		on_frontend
+			(fun _ xs frontend_domid _ ->
+				match Device.Vgpu.pid ~xs frontend_domid with
+				| Some pid -> {plugged = true; emulator_pid = Some pid}
+				| None -> {plugged = false; emulator_pid = None})
+			Newest vm
+end
+
 let set_active_device path active =
 	with_xs
 		(fun xs ->
