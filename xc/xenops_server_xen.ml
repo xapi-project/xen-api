@@ -895,7 +895,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vm vmextra vbds vifs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs vgpus = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -1001,7 +1001,7 @@ module VM = struct
                 with No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
-	let build_domain_exn xc xs domid task vm vbds vifs =
+	let build_domain_exn xc xs domid task vm vbds vifs vgpus =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
@@ -1066,12 +1066,12 @@ module VM = struct
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
-	let build_domain vm vbds vifs xc xs task _ di =
+	let build_domain vm vbds vifs vgpus xc xs task _ di =
 		let domid = di.Xenctrl.domid in
                 finally
                     (fun () ->
                             try
-                                    build_domain_exn xc xs domid task vm vbds vifs;
+                                    build_domain_exn xc xs domid task vm vbds vifs vgpus;
                             with
                                     | Bootloader.Bad_sexpr x ->
                                             let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
@@ -1098,9 +1098,9 @@ module VM = struct
                                             raise e
                     ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-	let build ?restore_fd task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
+	let build ?restore_fd task vm vbds vifs vgpus = on_domain (build_domain vm vbds vifs vgpus) Newest task vm
 
-        let create_device_model_exn vbds vifs saved_state xc xs task vm di =
+	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
@@ -1122,12 +1122,12 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
-		) (create_device_model_config vm vmextra vbds vifs);
+		) (create_device_model_config vm vmextra vbds vifs vgpus);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
 
-	let create_device_model task vm vbds vifs saved_state = on_domain (create_device_model_exn vbds vifs saved_state) Newest task vm
+	let create_device_model task vm vbds vifs vgpus saved_state = on_domain (create_device_model_exn vbds vifs vgpus saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in

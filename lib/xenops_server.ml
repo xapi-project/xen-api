@@ -768,6 +768,9 @@ let vif_plug_order vifs =
 let pci_plug_order pcis =
 	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
 
+let vgpu_plug_order vgpus =
+	List.sort (fun a b -> compare a.Vgpu.position b.Vgpu.position) vgpus
+
 let simplify f =
 	let module B = (val get_backend () : S) in
 	if B.simplified then [] else f
@@ -1074,7 +1077,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.create_device_model %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
-			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs save_state
+			let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus save_state
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
@@ -1088,7 +1092,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs
+			let vgpus : Vgpu.t list = VGPU_DB.vgpus id |> vgpu_plug_order in
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
 			let vm = VM_DB.read_exn id in
