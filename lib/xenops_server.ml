@@ -292,6 +292,41 @@ module VIF_DB = struct
 			)
 end
 
+module VGPU_DB = struct
+	include TypedTable(struct
+		include Vgpu
+		let namespace = "VM"
+		type key = id
+		let key k = [ fst k; "vgpu." ^ (snd k) ]
+	end)
+	let vm_of = fst
+	let string_of_id (a, b) = a ^ "." ^ b
+
+	let ids vm : Vgpu.id list =
+		list [ vm ] |> (filter_prefix "vgpu.") |> List.map (fun id -> (vm, id))
+	let vgpus vm = ids vm |> List.map read |> dropnone
+	let list vm =
+		debug "VGPU.list";
+		let xs = vgpus vm in
+		let module B = (val get_backend () : S) in
+		let states = List.map (B.VGPU.get_state vm) xs in
+		List.combine xs states
+	let m = Mutex.create ()
+	let signal id =
+		debug "VGPU_DB.signal %s" (string_of_id id);
+		Mutex.execute m
+			(fun () ->
+				if exists id
+				then Updates.add (Dynamic.Vgpu id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vgpu id) updates;
+				remove id
+			)
+end
+
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
 let push_with_coalesce should_keep item queue =
