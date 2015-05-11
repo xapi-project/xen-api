@@ -200,6 +200,7 @@ module Interface = struct
 	external set_mtu : debug_info -> name:iface -> mtu:int -> unit = ""
 	external set_ethtool_settings : debug_info -> name:iface -> params:(string * string) list -> unit = ""
 	external set_ethtool_offload : debug_info -> name:iface -> params:(string * string) list -> unit = ""
+	external get_capabilities : debug_info -> name:iface -> string list = ""
 	external is_connected : debug_info -> name:iface -> bool = ""
 	external is_physical : debug_info -> name:iface -> bool = ""
 	external bring_up : debug_info -> name:iface -> unit = ""
