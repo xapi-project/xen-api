@@ -107,6 +107,8 @@ module Vm = struct
 		| IGD_passthrough
 	with sexp
 
+	let default_video_card = Cirrus
+ 
 	type hvm_info = {
 		hap: bool;
 		shadow_multiplier: float;
@@ -125,12 +127,35 @@ module Vm = struct
 	}
 	with sexp
 
+	let default_hvm_info = {
+		hap = true;
+		shadow_multiplier = 1.0;
+		timeoffset = "";
+		video_mib = 4;
+		video = default_video_card;
+		acpi = true;
+		serial = None;
+		keymap = None;
+		vnc_ip = None;
+		pci_emulations = [];
+		pci_passthrough = false;
+		boot_order = "";
+		qemu_disk_cmdline = false;
+		qemu_stubdom = false;
+	}
+
 	type pv_direct_boot = {
 		kernel: string;
 		cmdline: string;
 		ramdisk: string option;
 	}
 	with sexp
+
+	let default_pv_direct_boot = {
+		kernel = "";
+		cmdline = "";
+		ramdisk = None;
+	}
 
 	type pv_indirect_boot = {
 		bootloader: string;
@@ -141,10 +166,20 @@ module Vm = struct
 	}
 	with sexp
 
+	let default_pv_indirect_boot = {
+		bootloader = "";
+		extra_args = "";
+		legacy_args = "";
+		bootloader_args = "";
+		devices = [];
+	}
+
 	type pv_boot =
 		| Direct of pv_direct_boot
 		| Indirect of pv_indirect_boot
 	with sexp
+
+	let default_pv_boot = Direct default_pv_direct_boot
 
 	type pv_info = {
 		boot: pv_boot;
@@ -155,12 +190,24 @@ module Vm = struct
 	}
 	with sexp
 
+	let default_pv_info = {
+		boot = default_pv_boot;
+		framebuffer = true;
+		framebuffer_ip = None;
+		vncterm = true;
+		vncterm_ip = None;
+	}
+
 	type builder_info =
 	| HVM of hvm_info
 	| PV of pv_info
 	with sexp
 
+	let default_builder_info = HVM default_hvm_info
+
 	type id = string with sexp
+
+	let default_id = ""
 
 	type action =
 		| Coredump
@@ -169,10 +216,17 @@ module Vm = struct
 		| Pause
 	with sexp
 
+	let default_action = Coredump
+
 	type scheduler_params = {
 		priority: (int * int) option; (* weight, cap *)
 		affinity: int list list (* vcpu -> pcpu list *)
 	} with sexp
+
+	let default_scheduler_params = {
+		priority = None;
+		affinity = [];
+	}
 
 	type t = {
 		id: id;
@@ -196,6 +250,31 @@ module Vm = struct
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 	} with sexp
+
+	let default_t = {
+		id = default_id;
+		name = "";
+		ssidref = 0l;
+		xsdata = [];
+		platformdata = [];
+		bios_strings = [];
+		ty = default_builder_info;
+		suppress_spurious_page_faults = false;
+		machine_address_size = None;
+		memory_static_max = 0L;
+		memory_dynamic_max = 0L;
+		memory_dynamic_min = 0L;
+		vcpu_max = 0;
+		vcpus = 0;
+		scheduler_params = default_scheduler_params;
+		on_crash = [];
+		on_shutdown = [];
+		on_reboot = [];
+		pci_msitranslate = false;
+		pci_power_mgmt = false;
+	}
+
+	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
 
 	type console_protocol =
 		| Rfb
