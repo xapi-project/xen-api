@@ -1952,7 +1952,8 @@ module UPDATES = struct
 						| Dynamic.Vm id 
 						| Dynamic.Vbd (id,_) 
 						| Dynamic.Vif (id,_) 
-						| Dynamic.Pci (id,_) -> id=vm_id
+						| Dynamic.Pci (id,_)
+						| Dynamic.Vgpu (id,_) -> id=vm_id
 				in
 				Updates.inject_barrier id filter updates
 			) ()
@@ -1972,6 +1973,7 @@ module UPDATES = struct
 				List.iter VBD_DB.signal (VBD_DB.ids id);
 				List.iter VIF_DB.signal (VIF_DB.ids id);
 				List.iter PCI_DB.signal (PCI_DB.ids id);
+				List.iter VGPU_DB.signal (VGPU_DB.ids id);
 				()
 			) ()
 end
