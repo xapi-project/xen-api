@@ -253,7 +253,7 @@ module Vm = struct
 
 	let default_t = {
 		id = default_id;
-		name = "";
+		name = "unnamed";
 		ssidref = 0l;
 		xsdata = [];
 		platformdata = [];
