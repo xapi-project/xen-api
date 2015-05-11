@@ -486,6 +486,7 @@ module Dynamic = struct
 		| Vbd of Vbd.id
 		| Vif of Vif.id
 		| Pci of Pci.id
+		| Vgpu of Vgpu.id
 		| Task of Task.id
 	type barrier = int * (id list)
 	type t =
@@ -493,6 +494,7 @@ module Dynamic = struct
 		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
 		| Vif_t of Vif.id * ((Vif.t * Vif.state) option)
 		| Pci_t of Pci.id * ((Pci.t * Pci.state) option)
+		| Vgpu_t of Vgpu.id * ((Vgpu.t * Vgpu.state) option)
 		| Task_t of Task.id * (Task.t option)
 end
 
