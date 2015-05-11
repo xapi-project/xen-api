@@ -2032,6 +2032,7 @@ let register_objects () =
 			List.iter VBD_DB.signal (VBD_DB.ids vm);
 			List.iter VBD_DB.signal (VIF_DB.ids vm);
 			List.iter PCI_DB.signal (PCI_DB.ids vm);
+			List.iter VGPU_DB.signal (VGPU_DB.ids vm);
 		) (VM_DB.ids ())
 
 module Diagnostics = struct
