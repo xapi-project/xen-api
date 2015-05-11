@@ -1478,7 +1478,6 @@ type disp_intf_opt =
     | Cirrus
     | Vgpu
     | IGD_passthrough
-with rpc
 
 (* Display output / keyboard input *)
 type disp_opt =
