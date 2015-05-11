@@ -28,10 +28,6 @@ let mandir =
   let doc = "Set the directory for installing manpages" in
   Arg.(value & opt string "/usr/share/man" & info ["mandir"] ~docv:"MANDIR" ~doc)
 
-let xen45 =
-  let doc = "Use the xen-4.5 xenlight API" in
-  Arg.(value & opt bool false & info ["xen45"] ~docv:"ENABLED" ~doc)
-
 let info =
   let doc = "Configures a package" in
   Term.info "configure" ~version:"0.1" ~doc 
@@ -72,6 +68,9 @@ let find_ml_val verbose name libs =
   Printf.printf "Looking for %s: %s\n" name (if found then "ok" else "missing");
   found
 
+let find_seriallist () =
+  find_ml_val false "(Obj.magic 1 : Xenlight.Domain_build_info.type_hvm).Xenlight.Domain_build_info.serial_list" ["xenlight"]
+
 let expand start finish input output =
   let command = Printf.sprintf "cat %s | sed -r 's=%s=%s=g' > %s" input start finish output in
   if Sys.command command <> 0
@@ -81,10 +80,11 @@ let expand start finish input output =
     exit 1;
   end
 
-let configure bindir sbindir libexecdir scriptsdir etcdir mandir xen45 =
+let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let libvirt = find_ocamlfind false "libvirt" in
+  let xen45 = find_seriallist () in
 
   Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\tmandir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir mandir xenctrl xenlight libvirt;
 
@@ -113,7 +113,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir xen45 =
     ] in
   output_file config_ml configmllines
 
-let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ xen45)
+let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir)
 
 let () = 
   match 
