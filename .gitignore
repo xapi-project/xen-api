@@ -1,4 +1,5 @@
 lib/version.ml
+config.ml
 xenopsd-xenlight
 xenopsd-libvirt
 xenopsd-simulator

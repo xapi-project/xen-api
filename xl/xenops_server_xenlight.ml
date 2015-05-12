@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+#include "../config.ml"
+
 open Xenops_interface
 open Xenops_utils
 open Xenops_server_plugin
@@ -2033,10 +2035,18 @@ module VM = struct
 								nested_hvm = Some true;
 								vnc = vnc_info;
 								keymap = hvm_info.Xenops_interface.Vm.keymap;
-								serial = hvm_info.Xenops_interface.Vm.serial;
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
 								usbdevice_list = [ "tablet" ];
+#if xen45
+								serial_list = begin
+									match hvm_info.Xenops_interface.Vm.serial with 
+									| Some x -> [x] | None -> []
+								end;
+								serial = None;
+#else
+								serial = hvm_info.Xenops_interface.Vm.serial
+#endif
 							}
 						}
 					| PV { Xenops_interface.Vm.boot = Direct direct } ->

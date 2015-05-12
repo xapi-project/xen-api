@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c47907064ff169d8511b50c1d980b1dc)
+# DO NOT EDIT (digest: d57ec38dd1ab64266c81400bbc575d18)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -357,6 +357,7 @@ true: annot, bin_annot
 <xl/xenops_xl_main.{native,byte}>: pkg_fd-send-recv
 <xl/xenops_xl_main.{native,byte}>: pkg_forkexec
 <xl/xenops_xl_main.{native,byte}>: pkg_oclock
+<xl/xenops_xl_main.{native,byte}>: pkg_optcomp
 <xl/xenops_xl_main.{native,byte}>: pkg_rpclib
 <xl/xenops_xl_main.{native,byte}>: pkg_rpclib.syntax
 <xl/xenops_xl_main.{native,byte}>: pkg_sexplib
@@ -384,6 +385,7 @@ true: annot, bin_annot
 <xl/*.ml{,i,y}>: pkg_fd-send-recv
 <xl/*.ml{,i,y}>: pkg_forkexec
 <xl/*.ml{,i,y}>: pkg_oclock
+<xl/*.ml{,i,y}>: pkg_optcomp
 <xl/*.ml{,i,y}>: pkg_rpclib
 <xl/*.ml{,i,y}>: pkg_rpclib.syntax
 <xl/*.ml{,i,y}>: pkg_sexplib
@@ -411,6 +413,7 @@ true: annot, bin_annot
 "xl/fsync_stubs.c": pkg_fd-send-recv
 "xl/fsync_stubs.c": pkg_forkexec
 "xl/fsync_stubs.c": pkg_oclock
+"xl/fsync_stubs.c": pkg_optcomp
 "xl/fsync_stubs.c": pkg_rpclib
 "xl/fsync_stubs.c": pkg_rpclib.syntax
 "xl/fsync_stubs.c": pkg_sexplib
@@ -438,6 +441,7 @@ true: annot, bin_annot
 "xl/poll_stubs.c": pkg_fd-send-recv
 "xl/poll_stubs.c": pkg_forkexec
 "xl/poll_stubs.c": pkg_oclock
+"xl/poll_stubs.c": pkg_optcomp
 "xl/poll_stubs.c": pkg_rpclib
 "xl/poll_stubs.c": pkg_rpclib.syntax
 "xl/poll_stubs.c": pkg_sexplib
