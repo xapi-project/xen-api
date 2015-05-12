@@ -54,6 +54,13 @@ Library xcp_xen
   Modules:            Xenops_interface, Xenops_client, Device_number
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Executable xcp_xen_test
+  CompiledObject:     best
+  Path:               xen
+  MainIs:             xen_test.ml
+  Install:            false
+  BuildDepends:       xcp, xcp.xen, oUnit
+  
 Library xcp_memory
   CompiledObject:     best
   Path:               memory
