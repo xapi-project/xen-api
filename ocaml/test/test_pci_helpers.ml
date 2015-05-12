@@ -30,7 +30,7 @@ let print_host_pcis () =
 				let x_to_str = Printf.sprintf "%04Lx" in
 				Printf.printf "%s " (String.concat " "
 					[
-						p.pci_id;
+						p.address;
 						x_to_str p.vendor.id;
 						p.vendor.name;
 						x_to_str p.device.id;

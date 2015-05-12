@@ -18,7 +18,7 @@ type pci_property = {
 }
 
 type pci = {
-	pci_id: string;
+	address: string;
 	vendor: pci_property;
 	device: pci_property;
 	pci_class: pci_property;
@@ -51,7 +51,7 @@ let get_host_pcis _ =
 			List.filter (fun d' ->
 				func d' <> func d && List.for_all (fun f -> f d' = f d) [domain; bus; dev]
 			) devs in
-		{ pci_id = address_of_dev d;
+		{ address = address_of_dev d;
 			vendor; device; subsystem_vendor; subsystem_device; pci_class;
 			related = List.map address_of_dev related_devs;
 		}
