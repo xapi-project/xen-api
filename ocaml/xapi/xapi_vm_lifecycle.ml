@@ -42,7 +42,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `make_into_template
 	| `provision
 	| `start
-	| `set_auto_update_drivers
 	| `start_on
 	                                -> [`Halted]
 	| `unpause
@@ -91,7 +90,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `snapshot
 	| `update_allowed_operations
 	| `query_services
-	| `assert_can_set_auto_update_drivers
 	                                -> all_power_states
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)

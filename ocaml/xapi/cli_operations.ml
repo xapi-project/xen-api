@@ -1975,9 +1975,9 @@ let vm_call_plugin printer rpc session_id params =
 
 let vm_set_auto_update_drivers printer rpc session_id params =
 	let vm_uuid = List.assoc "uuid" params in
-	let enable = get_bool_param params "enable" in
+	let value = get_bool_param params "enable" in
 	let vm = Client.VM.get_by_uuid rpc session_id vm_uuid in
-	Client.VM.set_auto_update_drivers rpc session_id vm enable
+	Client.VM.set_auto_update_drivers rpc session_id vm value
 
 let vm_assert_can_set_auto_update_drivers printer rpc session_id params =
 	let vm_uuid = List.assoc "uuid" params in

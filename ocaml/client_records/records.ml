@@ -887,7 +887,8 @@ let vm_record rpc session_id vm =
 			make_field ~name:"hardware-platform-version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_hardware_platform_version) ();
 			make_field ~name:"auto-update-drivers"
-				~get:(fun () -> string_of_bool (x ()).API.vM_auto_update_drivers) ();
+				~get:(fun () -> string_of_bool (x ()).API.vM_auto_update_drivers)
+				~set:(fun x -> Client.VM.set_auto_update_drivers rpc session_id vm (safe_bool_of_string "auto-update-drivers" x)) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 

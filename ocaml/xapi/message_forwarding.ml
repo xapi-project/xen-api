@@ -1314,20 +1314,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
-		let set_auto_update_drivers ~__context ~vm ~enable =
-			info "VM.set_auto_update_drivers: VM = '%s' to %b" (vm_uuid ~__context vm) enable;
-			let local_fn = Local.VM.set_auto_update_drivers ~vm ~enable in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.set_auto_update_drivers" ~op:`set_auto_update_drivers
-				(fun () ->
-					forward_to_access_srs ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.set_auto_update_drivers rpc session_id vm enable))
-
-		let assert_can_set_auto_update_drivers ~__context ~vm =
-			info "VM.assert_can_set_auto_update_drivers: VM = '%s'" (vm_uuid ~__context vm);
-			let local_fn = Local.VM.assert_can_set_auto_update_drivers ~vm in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.assert_can_set_auto_update_drivers" ~op:`assert_can_set_auto_update_drivers
-				(fun () ->
-					forward_to_access_srs ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.assert_can_set_auto_update_drivers rpc session_id vm))
-
+		let set_auto_update_drivers ~__context ~self ~value =
+			info "VM.set_auto_update_drivers: VM = '%s' to %b" (vm_uuid ~__context self) value;
+			Local.VM.set_auto_update_drivers ~__context ~self ~value
+			
+		let assert_can_set_auto_update_drivers ~__context ~self =
+			info "VM.assert_can_set_auto_update_drivers: VM = '%s'" (vm_uuid ~__context self);
+			Local.VM.assert_can_set_auto_update_drivers ~__context ~self
+			
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
 			Db.VM.set_xenstore_data ~__context ~self ~value;
