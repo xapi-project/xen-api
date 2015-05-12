@@ -65,7 +65,6 @@ let update_pcis ~__context ~host =
 	in
 
 	let open Xapi_pci_helpers in
-	let pci_db = Pci_db.open_default () in
 	let strings_of_pci_property = function
 		| None -> "", ""
 		| Some property -> id_of_int property.id, property.name
@@ -124,7 +123,7 @@ let update_pcis ~__context ~host =
 			in
 			update_or_create ((obj, pci) :: cur) remaining_pcis
 	in
-	let host_pcis = Xapi_pci_helpers.get_host_pcis pci_db in
+	let host_pcis = Xapi_pci_helpers.get_host_pcis () in
 	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class host_pcis cls) managed_classes) in
 	let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
 	let deps = List.map (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis) deps in

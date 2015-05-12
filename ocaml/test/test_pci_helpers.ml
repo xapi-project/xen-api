@@ -22,9 +22,8 @@ let skip = true
 let print_host_pcis () =
 	skip_if skip "Generates lots of text...";
 	try
-		let db = Pci_db.of_file Pci_db.base_pci_ids_path in
 		print_string "===== Host PCIs =====\n\n";
-		let pcis = get_host_pcis db in
+		let pcis = get_host_pcis () in
 		List.iter
 			(fun p ->
 				let x_to_str = Printf.sprintf "%04Lx" in
@@ -44,15 +43,6 @@ let print_host_pcis () =
 	with e ->
 		print_string (Printexc.to_string e);
 		assert_equal 0 1
-
-let pci_db_cache = ref None
-let get_cached_pci_db () =
-	match !pci_db_cache with
-	| Some pci_db -> pci_db
-	| None ->
-		let pci_db = Pci_db.of_file "ocaml/test/data/base-pci.ids" in
-		pci_db_cache := Some pci_db;
-		pci_db
 
 let test =
 	"test_pci_helpers" >:::

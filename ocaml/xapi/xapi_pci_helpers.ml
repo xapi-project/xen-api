@@ -27,7 +27,7 @@ type pci = {
 	related: string list;
 }
 
-let get_host_pcis _ =
+let get_host_pcis () =
 	let open Pci in
 	let pci_access = alloc () in
 	init pci_access;
