@@ -134,6 +134,8 @@ cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-%{version}/ocaml/idl
 %build
 ./configure
 COMPILE_JAVA=no %{__make}
+
+%check
 COMPILE_JAVA=no %{__make} test
 
 %install
