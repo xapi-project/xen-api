@@ -249,6 +249,7 @@ module Vm = struct
 		on_reboot: action list;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
+		auto_update_drivers: bool;
 	} with sexp
 
 	let default_t = {
@@ -272,6 +273,7 @@ module Vm = struct
 		on_reboot = [];
 		pci_msitranslate = false;
 		pci_power_mgmt = false;
+		auto_update_drivers = false;
 	}
 
 	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
