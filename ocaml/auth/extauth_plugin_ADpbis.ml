@@ -128,16 +128,25 @@ let pbis_common (pbis_cmd:string) (pbis_args:string list) =
         let errcode = List.hd (List.filter (fun w -> String.startswith "LW_ERROR_" w) (split_to_words errcodeline)) in
         debug "Pbis raised an error for cmd %s: (%s) %s" debug_cmd errcode errmsg;
         begin
-            match errcode with
-                | "LW_ERROR_INVALID_GROUP_INFO_LEVEL" ->
-                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode))
-                | "LW_ERROR_INVALID_ACCOUNT"
-                | "LW_ERROR_INVALID_MESSAGE"
+        match errcode with
+                | "LW_ERROR_INVALID_GROUP_INFO_LEVEL"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode)) (* For pbis_get_all_byid *)
+                | "LW_ERROR_NO_SUCH_USER"
+                | "LW_ERROR_NO_SUCH_GROUP"
+                | "LW_ERROR_NO_SUCH_OBJECT"
+                    -> raise Not_found (* Subject_cannot_be_resolved *)
+                | "LW_ERROR_KRB5_CALL_FAILED"
                 | "LW_ERROR_PASSWORD_MISMATCH"
-                | "LW_ERROR_ACCOUNT_DISABLED" ->
-                    raise (Auth_signature.Auth_failure errmsg)
+                | "LW_ERROR_ACCOUNT_DISABLED"
+                | "LW_ERROR_NOT_HANDLED"
+                    -> raise (Auth_signature.Auth_failure errmsg)
+                | "LW_ERROR_INVALID_OU"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_INVALID_OU, errmsg))
+                | "LW_ERROR_INVALID_DOMAIN"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
+                | "LW_ERROR_LSA_SERVER_UNREACHABLE"
                 | _ ->
-                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
+                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "(%s) %s" errcode errmsg)))
         end
     | e ->
         error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
