@@ -40,7 +40,6 @@ OCAML_OBJS = \
 	test_platformdata \
 	test_sm_features \
 	test_gpu_group \
-	test_pci_db \
 	test_pci_helpers \
 	test_vgpu_type \
 	test_vgpu_common \
