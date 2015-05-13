@@ -69,7 +69,7 @@ let harness_init () =
 
 let harness_destroy () = ()
 
-let _ =
+let () =
 	harness_init ();
 	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
 	harness_destroy ();
