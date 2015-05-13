@@ -963,7 +963,7 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
 
-let assert_can_set_auto_update_drivers ~__context ~self = 
+let assert_can_set_auto_update_drivers ~__context ~self ~value= 
 	let power_state = Db.VM.get_power_state ~__context ~self in
 	if power_state <> `Halted
 	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
@@ -978,5 +978,5 @@ let assert_can_set_auto_update_drivers ~__context ~self =
 		raise (Api_errors.Server_error(Api_errors.vm_pv_drivers_in_use, [ Ref.string_of self ]))
 
 let set_auto_update_drivers ~__context ~self ~value=	
-	assert_can_set_auto_update_drivers ~__context ~self;
+	assert_can_set_auto_update_drivers ~__context ~self ~value;
 	Db.VM.set_auto_update_drivers ~__context ~self ~value

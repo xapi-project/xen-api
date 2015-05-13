@@ -2402,7 +2402,8 @@ let vm_assert_can_set_auto_update_drivers = call
 	~name:"assert_can_set_auto_update_drivers"
 	~in_product_since:rel_dundee
 	~doc:"Check if PV auto update can be set on Windows vm"
-	~params:[Ref _vm, "self", "The vm to check if auto update drivers can be set";]
+	~params:[Ref _vm, "self", "The vm to check if auto update drivers can be set";
+			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
 	~allowed_roles:_R_VM_OP
 	~doc_tags:[Windows]
 	()
