@@ -452,6 +452,17 @@ module Metadata = struct
 		domains: string option;
 		(** Opaque data describing per-domain state *)
 	}
+
+	let default_t = {
+		vm = Vm.default_t;
+		vbds = [];
+		vifs = [];
+		pcis = [];
+		vgpus = [];
+		domains = None;
+	}
+
+	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
 end
 
 module Task = struct
