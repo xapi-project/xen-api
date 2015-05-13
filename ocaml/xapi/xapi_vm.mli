@@ -250,3 +250,6 @@ val request_rdp_on : __context:Context.t -> vm:API.ref_VM -> unit
 val request_rdp_off: __context:Context.t -> vm:API.ref_VM -> unit
 
 val call_plugin : __context:Context.t -> vm:API.ref_VM -> plugin:string -> fn:string -> args:(string * string) list -> string
+
+val set_auto_update_drivers : __context:Context.t -> self:API.ref_VM -> value:bool -> unit
+val assert_can_set_auto_update_drivers : __context:Context.t -> self:API.ref_VM -> value:bool -> unit
