@@ -17,17 +17,16 @@ open D
 open Listext
 open Xstringext
 
-type managed_class = Display_controller | Network_controller
+type base_class = Display_controller | Network_controller
 
-let lookup_class_id = function
-	| Display_controller -> 03L
-	| Network_controller -> 02L
+let is_class_of_kind kind id =
+	let base_class_id_of_kind = function
+	| Display_controller -> 0x0300
+	| Network_controller -> 0x0200 in
+	(* The base_class is the most-significant byte of the class ID *)
+	Int64.to_int id land 0xff00 = base_class_id_of_kind kind
 
 let managed_classes = [Display_controller]
-
-let get_pcis_by_class pcis cls =
-	let open Xapi_pci_helpers in
-	List.filter (fun pci -> pci.pci_class.id = lookup_class_id cls) pcis
 
 let string_of_pci ~__context ~self =
 	let pci = Db.PCI.get_record_internal ~__context ~self in
@@ -124,7 +123,10 @@ let update_pcis ~__context ~host =
 			update_or_create ((obj, pci) :: cur) remaining_pcis
 	in
 	let host_pcis = Xapi_pci_helpers.get_host_pcis () in
-	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class host_pcis cls) managed_classes) in
+	let class_pcis =
+		List.filter (fun pci ->
+			List.exists (fun k -> is_class_of_kind k pci.pci_class.id) managed_classes
+		) host_pcis in
 	let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
 	let deps = List.map (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis) deps in
 	let managed_pcis = List.setify (class_pcis @ deps) in

@@ -15,10 +15,10 @@
  *)
 
 (** Types of PCI devices. *)
-type managed_class = Display_controller | Network_controller
+type base_class = Display_controller | Network_controller
 
-(** Get the PCI class ID for a given class. *)
-val lookup_class_id : managed_class -> int64
+(* Check if an class ID is of a given base class *)
+val is_class_of_kind : base_class -> int64 -> bool
 
 (** Get int value for PCI {class, vendor, device}_id *)
 val int_of_id : string -> int64
