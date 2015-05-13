@@ -71,5 +71,5 @@ let harness_destroy () = ()
 
 let _ =
 	harness_init ();
-	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main |> ignore;
+	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
 	harness_destroy ();
