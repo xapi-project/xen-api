@@ -24,7 +24,7 @@ let is_class_of_kind kind id =
 	| Display_controller -> 0x0300
 	| Network_controller -> 0x0200 in
 	(* The base_class is the most-significant byte of the class ID *)
-	Int64.to_int id land 0xff00 = base_class_id_of_kind kind
+	id land 0xff00 = base_class_id_of_kind kind
 
 let managed_classes = [Display_controller]
 
@@ -34,10 +34,10 @@ let string_of_pci ~__context ~self =
 
 (* We use ints within code but schema uses hex strings _without_ leading '0x' *)
 let int_of_id string_id =
-	let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
+	let int_of_hex_str = fun s -> Scanf.sscanf s "%x" (fun x -> x) in
 	int_of_hex_str string_id
 let id_of_int hex_id =
-	Printf.sprintf "%04Lx" hex_id
+	Printf.sprintf "%04x" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config

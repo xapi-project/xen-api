@@ -18,10 +18,10 @@
 type base_class = Display_controller | Network_controller
 
 (* Check if an class ID is of a given base class *)
-val is_class_of_kind : base_class -> int64 -> bool
+val is_class_of_kind : base_class -> int -> bool
 
 (** Get int value for PCI {class, vendor, device}_id *)
-val int_of_id : string -> int64
+val int_of_id : string -> int
 
 (** Get an identifier for this PCI device **)
 val string_of_pci : __context:Context.t -> self:API.ref_PCI -> string

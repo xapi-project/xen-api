@@ -26,7 +26,7 @@ let print_host_pcis () =
 		let pcis = get_host_pcis () in
 		List.iter
 			(fun p ->
-				let x_to_str = Printf.sprintf "%04Lx" in
+				let x_to_str = Printf.sprintf "%04x" in
 				Printf.printf "%s " (String.concat " "
 					[
 						p.address;

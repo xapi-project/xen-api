@@ -13,7 +13,7 @@
  *)
 
 type pci_property = {
-	id: int64;
+	id: int;
 	name: string;
 }
 
@@ -37,16 +37,16 @@ let get_host_pcis () =
 		let (_: int) = fill_info d [ FILL_IDENT; FILL_BASES; FILL_CLASS ] in
 		let open Pci_dev in
 		let address_of_dev x = Printf.sprintf "%04x:%02x:%02x.%d" (domain x) (bus x) (dev x) (func x) in
-		let vendor = { id = Int64.of_int @@ vendor_id d; name = lookup_vendor_name pci_access (vendor_id d) } in
-		let device = { id = Int64.of_int @@ device_id d; name = lookup_device_name pci_access (vendor_id d) (device_id d) } in
+		let vendor = { id = vendor_id d; name = lookup_vendor_name pci_access (vendor_id d) } in
+		let device = { id = device_id d; name = lookup_device_name pci_access (vendor_id d) (device_id d) } in
 		let (subsystem_vendor, subsystem_device) = match subsystem_id d with
 		| None -> None, None
 		| Some (sv_id, sd_id) ->
 			let sv_name = lookup_subsystem_vendor_name pci_access sv_id in
 			let sd_name = lookup_subsystem_device_name pci_access (vendor_id d) (device_id d) sv_id sd_id in
-			Some { id = Int64.of_int @@ sv_id; name = sv_name }, Some { id = Int64.of_int @@ sd_id; name = sd_name }
+			Some { id = sv_id; name = sv_name }, Some { id = sd_id; name = sd_name }
 		in
-		let pci_class = { id = Int64.of_int @@ device_class d; name = lookup_class_name pci_access (device_class d) } in
+		let pci_class = { id = device_class d; name = lookup_class_name pci_access (device_class d) } in
 		let related_devs =
 			List.filter (fun d' ->
 				func d' <> func d && List.for_all (fun f -> f d' = f d) [domain; bus; dev]
