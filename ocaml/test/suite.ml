@@ -70,6 +70,7 @@ let harness_init () =
 let harness_destroy () = ()
 
 let () =
+	Inventory.inventory_filename := "/tmp/xapi-test/xcp-inventory";
 	harness_init ();
 	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
 	harness_destroy ();
