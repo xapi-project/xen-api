@@ -672,11 +672,11 @@ let common_http_handlers = [
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
 ]
 
-let listen_unix_socket () =
+let listen_unix_socket sock_path =
 	(* Always listen on the Unix domain socket first *)
-	Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
-	Unixext.unlink_safe Xapi_globs.unix_domain_socket;
-	let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
+	Unixext.mkdir_safe (Filename.dirname sock_path) 0o700;
+	Unixext.unlink_safe sock_path;
+	let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(sock_path)) in
 	ignore(Http_svr.start Xapi_http.server domain_sock)
 
 let set_stunnel_timeout () =
@@ -806,7 +806,7 @@ let server_init() =
 	"Starting SM xapi event service", [], Storage_access.events_from_sm;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
-    "Listening unix socket", [], listen_unix_socket;
+    "Listening unix socket", [], (fun () -> listen_unix_socket Xapi_globs.unix_domain_socket);
     "Metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop ());
     "Checking HA configuration", [], start_ha;
 	"Checking for non-HA redo-log", [], start_redo_log;

@@ -58,7 +58,7 @@ let handlers = [
 
 let start_server handlers =
 	List.iter Xapi_http.add_handler handlers;
-	Xapi.listen_unix_socket ()
+	Xapi.listen_unix_socket "/tmp/xapi-test/xapi-unit-test-socket"
 
 let harness_init () =
 	Printexc.record_backtrace true;
