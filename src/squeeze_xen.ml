@@ -186,7 +186,7 @@ module Domain = struct
 			let process_one_watch xc xs (path, token) =
 				if path = _introduceDomain || path = _releaseDomain
 				then look_for_different_domains ()
-				else match List.filter (fun x -> x <> "") (String.split '/' path) with
+				else match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
 					| "local" :: "domain" :: domid :: rest when List.mem rest interesting_paths ->
 						let value = try Some (Client.read xs path) with _ -> None in
 						let domid = int_of_string domid in
