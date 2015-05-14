@@ -5,6 +5,7 @@ build: [
   [make]
   ["install" "-m" "0755" "ocaml/xapi/xapi.opt" "%{bin}%/xapi"]
 ]
+build-test: [make "test" ]
 remove: ["rm" "%{bin}%/xapi"]
 depends: [
   "ocamlfind"
