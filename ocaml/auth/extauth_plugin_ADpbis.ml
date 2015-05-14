@@ -89,14 +89,124 @@ let ensure_pbis_configured () =
     pbis_config "CacheEntryExpiry" "300";
     ()
 
-let pbis_common (pbis_cmd:string) (pbis_args:string list) =
+let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:string list) =
     let debug_cmd = pbis_cmd ^ " " ^ (List.fold_left (fun p pp -> p^" "^pp) " " pbis_args) in
     let debug_cmd = if String.has_substr debug_cmd "--password" then "(omitted for security)" else debug_cmd in
-    try
+
+    (* stuff to clean up on the way out of the function: *)
+    let fds_to_close = ref [] in
+    let files_to_unlink = ref [] in
+    (* take care to close an fd only once *)
+    let close_fd fd =
+      if List.mem fd !fds_to_close then begin
+        Unix.close fd;
+        fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close
+      end in
+    (* take care to unlink a file only once *)
+    let unlink_file filename =
+      if List.mem filename !files_to_unlink then begin
+        Unix.unlink filename;
+        files_to_unlink := List.filter (fun x -> x <> filename) !files_to_unlink
+      end in
+
+    (* guarantee to release all resources (files, fds) *)
+    let finalize () =
+      List.iter close_fd !fds_to_close;
+      List.iter unlink_file !files_to_unlink in
+    let finally_finalize f = finally f finalize in
+
+    let exited_code = ref 0 in
+    let output = ref "" in
+    finally_finalize (fun () ->
+    let _ = try
         debug "execute %s" debug_cmd;
-        let output, _ = Forkhelpers.execute_command_get_output pbis_cmd pbis_args in
-        debug "execute %s: output=[%s]" debug_cmd (String.replace "\n" ";" output);
-        let lines = List.filter (fun l-> String.length l > 0) (splitlines output) in
+        (* creates pipes between xapi and pbis process *)
+        let (in_readme, in_writeme) = Unix.pipe () in
+        fds_to_close := in_readme :: in_writeme :: !fds_to_close;
+        let out_tmpfile = Filename.temp_file "pbis" ".out" in
+        files_to_unlink := out_tmpfile :: !files_to_unlink;
+        let err_tmpfile = Filename.temp_file "pbis" ".err" in
+        files_to_unlink := err_tmpfile :: !files_to_unlink;
+        let out_writeme = Unix.openfile out_tmpfile [ Unix.O_WRONLY] 0o0 in
+        fds_to_close := out_writeme :: !fds_to_close;
+        let err_writeme = Unix.openfile err_tmpfile [ Unix.O_WRONLY] 0o0 in
+        fds_to_close := err_writeme :: !fds_to_close;
+
+        let pid = Forkhelpers.safe_close_and_exec (Some in_readme) (Some out_writeme) (Some err_writeme) [] pbis_cmd pbis_args in
+        finally
+            (fun () ->
+                debug "Created process pid %s for cmd %s" (Forkhelpers.string_of_pidty pid) debug_cmd;
+                (* Insert this delay to reproduce the cannot write to stdin bug:
+                   Thread.delay 5.; *)
+                (* WARNING: we don't close the in_readme because otherwise in the case where the pbis
+                   binary doesn't expect any input there is a race between it finishing (and closing the last
+                   reference to the in_readme) and us attempting to write to in_writeme. If pbis wins the
+                   race then our write will fail with EPIPE (Unix.error 31 in ocamlese). If we keep a reference
+                   to in_readme then our write of "\n" will succeed.
+
+                   An alternative fix would be to not write anything when stdin_string = "" *)
+
+                (* push stdin_string to recently created process' STDIN *)
+                begin
+                    (* usually, STDIN contains some sensitive data such as passwords that we do not want showing up in ps *)
+                    (* or in the debug log via debug_cmd *)
+                    try
+                        let stdin_string = stdin_string ^ "\n" in (*HACK:without \n, the pbis scripts don't return!*)
+                        let (_: int) = Unix.write in_writeme stdin_string 0 (String.length stdin_string) in
+                        close_fd in_writeme; (* we need to close stdin, otherwise the unix cmd waits forever *)
+                    with e -> begin
+                        (* in_string is usually the password or other sensitive param, so never write it to debug or exn *)
+                        debug "Error writing to stdin for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e);
+                        raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,ExnHelper.string_of_exn e))
+                    end
+                end;
+            )
+            (fun () ->
+                match Forkhelpers.waitpid pid with
+                | (_, Unix.WEXITED n) ->
+                    exited_code := n;
+                    output := (Unixext.string_of_file out_tmpfile) ^ (Unixext.string_of_file err_tmpfile)
+                | _ ->
+                    error "PBIS %s exit with WSTOPPED or WSIGNALED" debug_cmd;
+                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
+            )
+    with e ->
+        error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
+        raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
+    in
+
+    if !exited_code <> 0 then
+        begin
+            error "execute '%s': exit_code=[%d] output=[%s]" debug_cmd !exited_code (String.replace "\n" ";" !output);
+            let split_to_words = fun s -> String.split_f (fun c -> c = '(' || c = ')' || c = '.' || c = ' ') s in
+            let revlines = List.rev (List.filter (fun l-> String.length l > 0) (splitlines !output)) in
+            let errmsg = List.hd revlines in
+            let errcodeline = if (List.length revlines) > 1 then (List.nth revlines 1) else errmsg in
+            let errcode = List.hd (List.filter (fun w -> String.startswith "LW_ERROR_" w) (split_to_words errcodeline)) in
+            debug "Pbis raised an error for cmd %s: (%s) %s" debug_cmd errcode errmsg;
+            match errcode with
+                | "LW_ERROR_INVALID_GROUP_INFO_LEVEL"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode)) (* For pbis_get_all_byid *)
+                | "LW_ERROR_NO_SUCH_USER"
+                | "LW_ERROR_NO_SUCH_GROUP"
+                | "LW_ERROR_NO_SUCH_OBJECT"
+                    -> raise Not_found (* Subject_cannot_be_resolved *)
+                | "LW_ERROR_KRB5_CALL_FAILED"
+                | "LW_ERROR_PASSWORD_MISMATCH"
+                | "LW_ERROR_ACCOUNT_DISABLED"
+                | "LW_ERROR_NOT_HANDLED"
+                    -> raise (Auth_signature.Auth_failure errmsg)
+                | "LW_ERROR_INVALID_OU"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_INVALID_OU, errmsg))
+                | "LW_ERROR_INVALID_DOMAIN"
+                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
+                | "LW_ERROR_LSA_SERVER_UNREACHABLE"
+                | _ ->
+                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "(%s) %s" errcode errmsg)))
+        end
+    else
+        debug "execute %s: output length=[%d]" debug_cmd (String.length !output);
+        let lines = List.filter (fun l-> String.length l > 0) (splitlines !output) in
         let parse_line = (fun (acc, currkey) line ->
                             let slices = String.split ~limit:2 ':' line in
                             debug "parse %s: currkey=[%s] line=[%s]" debug_cmd currkey line;
@@ -118,39 +228,7 @@ let pbis_common (pbis_cmd:string) (pbis_args:string list) =
                         ) in
         let attrs, _ = List.fold_left parse_line ([], "") lines in
         attrs
-    with
-    | Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-        error "execute '%s' exited with code %d [stdout = '%s'; stderr = '%s']" debug_cmd n stdout stderr;
-        let split_to_words = fun s -> String.split_f (fun c -> c = '(' || c = ')' || c = '.' || c = ' ') s in
-        let revlines = List.rev (List.filter (fun l-> String.length l > 0) (splitlines (stdout ^ stderr))) in
-        let errmsg = List.hd revlines in
-        let errcodeline = if (List.length revlines) > 1 then (List.nth revlines 1) else errmsg in
-        let errcode = List.hd (List.filter (fun w -> String.startswith "LW_ERROR_" w) (split_to_words errcodeline)) in
-        debug "Pbis raised an error for cmd %s: (%s) %s" debug_cmd errcode errmsg;
-        begin
-        match errcode with
-                | "LW_ERROR_INVALID_GROUP_INFO_LEVEL"
-                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode)) (* For pbis_get_all_byid *)
-                | "LW_ERROR_NO_SUCH_USER"
-                | "LW_ERROR_NO_SUCH_GROUP"
-                | "LW_ERROR_NO_SUCH_OBJECT"
-                    -> raise Not_found (* Subject_cannot_be_resolved *)
-                | "LW_ERROR_KRB5_CALL_FAILED"
-                | "LW_ERROR_PASSWORD_MISMATCH"
-                | "LW_ERROR_ACCOUNT_DISABLED"
-                | "LW_ERROR_NOT_HANDLED"
-                    -> raise (Auth_signature.Auth_failure errmsg)
-                | "LW_ERROR_INVALID_OU"
-                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_INVALID_OU, errmsg))
-                | "LW_ERROR_INVALID_DOMAIN"
-                    -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
-                | "LW_ERROR_LSA_SERVER_UNREACHABLE"
-                | _ ->
-                    raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "(%s) %s" errcode errmsg)))
-        end
-    | e ->
-        error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
-        raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
+    )
 
 let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
