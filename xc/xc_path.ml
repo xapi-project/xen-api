@@ -25,7 +25,7 @@ let ionice = ref "ionice"
 let setup_vif_rules = ref "setup-vif-rules"
 let vgpu = ref "vgpu"
 
-let alternatives = ref "/usr/lib/xcp/alternatives"
+let alternatives = ref "/usr/lib/xapi/alternatives"
 
 open Unix
 
