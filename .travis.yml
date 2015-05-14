@@ -3,4 +3,4 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/ma
 script: bash -ex .travis-opam.sh
 sudo: true
 env:
-        - OCAML_VERSION=4.02 PACKAGE=xapi-rrdd-plugin FORK_USER=djs55 EXTRA_REMOTE=git://github.com/xapi-project/opam-repo-dev
+        - OCAML_VERSION=4.02 PACKAGE=xapi-rrdd-plugin FORK_USER=xapi-project EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
