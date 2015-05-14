@@ -178,22 +178,12 @@ let parse_sysfs_balloon () =
 		_requested_target;
 		_low_mem_balloon;
 		_high_mem_balloon] in
-	let string_of_file filename =
-		let results = ref [] in
-		let ic = open_in filename in
-		try
-			while true do
-				let line = input_line ic in
-				results := line :: !results
-			done;
-			"" (* this will never occur... *)
-		with End_of_file -> String.concat "" (List.rev !results) in
 	let r = Re_str.regexp "[ \t\n]+" in
 	let strip line = match Re_str.split_delim r line with
 		| x :: _ -> x
 		| [] -> "" in
 	List.map (fun key ->
-		let s = string_of_file (sysfs_stem ^ key) in
+		let s = Unixext.string_of_file (sysfs_stem ^ key) in
 		key, Int64.of_string (strip s)
 	) keys
 
