@@ -334,7 +334,7 @@ set_api_version(xen_session *session)
         if (minor_version == (int64_t)5)
             session->api_version = xen_api_version_2_5;
 
-        if (minor_version == (int64_t)4)
+        else if (minor_version == (int64_t)4)
             session->api_version = xen_api_version_2_4;
 
         else if (minor_version == (int64_t)3)
