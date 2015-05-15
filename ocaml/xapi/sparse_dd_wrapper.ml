@@ -26,6 +26,15 @@ type progress =
 		| Continuing of float
 		| Finished of exn option
 
+type t = {
+  m : Mutex.t;
+  c : Condition.t;
+  pid : Forkhelpers.pidty;
+  finished : bool ref;
+  cancelled : bool ref;
+  exn : exn option ref;
+}
+
 exception Cancelled
 
 (** Use the new external sparse_dd program *)
@@ -112,25 +121,25 @@ let start ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 		done);
 	match (!pid,!exn) with
 		| Some pid, None -> 
-			(m,c,pid,finished,cancelled,exn)
+			{m; c; pid; finished; cancelled; exn}
 		| _, Some e ->
 			raise e
 		| _ ->
 			failwith "Unexpected error in start_dd"
-		
-let wait (m,c,pid,finished,cancelled,exn) =
-	Mutex.execute m (fun () ->
-		while (!finished = false) do
-			Condition.wait c m
+
+let wait t =
+	Mutex.execute t.m (fun () ->
+		while (!(t.finished) = false) do
+			Condition.wait t.c t.m
 		done);
-	if !cancelled then raise Cancelled;
-	match !exn with 
+	if !(t.cancelled) then raise Cancelled;
+	match !(t.exn) with 
 		| Some exn -> raise exn
 		| None -> ()
 
-let cancel (m,c,pid,finished,cancelled,exn) =
-	cancelled := true;
-	let pid = Forkhelpers.getpid pid in
+let cancel t =
+	t.cancelled := true;
+	let pid = Forkhelpers.getpid t.pid in
 	try Unix.kill pid Sys.sigkill with _ -> () 
 
 		
