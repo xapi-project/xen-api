@@ -28,6 +28,7 @@ depends: [
   "qmp"
   "oclock"
   "xapi-inventory"
+  "optcomp"
 ]
 depopts: "libvirt" {> "0.6.1.2"}
 ocaml-version: [>= "4.01.0"]
