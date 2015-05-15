@@ -54,13 +54,6 @@ Library xcp_xen
   Modules:            Xenops_interface, Xenops_client, Device_number
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
-Executable xcp_xen_test
-  CompiledObject:     best
-  Path:               lib_test
-  MainIs:             xen_test.ml
-  Install:            false
-  BuildDepends:       xcp, xcp.xen, oUnit
-
 Library xcp_memory
   CompiledObject:     best
   Path:               memory
@@ -83,10 +76,10 @@ Executable lib_test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, xcp, threads, rpclib, oUnit
+  BuildDepends:       lwt, lwt.unix, xcp, xcp.xen, threads, rpclib, oUnit
 
-Test channel_test
-  Command:            ./channel_test.native
+Test lib_test
+  Command:            ./test.native
   Run:                true
 
 Executable example

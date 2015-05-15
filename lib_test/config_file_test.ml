@@ -17,6 +17,8 @@ let test_config_file () =
 	] in
 	List.iter (fun (x,y) -> assert_equal ~printer:(function | Some (x,y) -> Printf.sprintf "key: '%s', val: '%s'" x y | None -> "Nothing found") (parse_line x) y) tests
 
-let tests = [
-  "check config file parsing" >:: test_config_file
-]
+let tests =
+  "xcp-config-file" >:::
+    [
+      "check config file parsing" >:: test_config_file;
+    ]

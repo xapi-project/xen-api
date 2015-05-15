@@ -1,16 +1,12 @@
 open OUnit
 
-let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test channel passing";
+let suite =
+  "xcp" >:::
+    [
+      Channel_test.tests;
+      Config_file_test.tests;
+      Xen_test.tests;
+    ]
 
-  let tests = Channel_test.tests 
-    @ Config_file_test.tests
-  in
-
-  let suite = "xcp-idl" >::: tests in
-
-  run_test_tt ~verbose:!verbose suite
+let () =
+  OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
