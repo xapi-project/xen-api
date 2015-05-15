@@ -58,7 +58,7 @@ let handlers = [
 
 let start_server handlers =
 	List.iter Xapi_http.add_handler handlers;
-	Xapi.listen_unix_socket ()
+	Xapi.listen_unix_socket "/tmp/xapi-test/xapi-unit-test-socket"
 
 let harness_init () =
 	Printexc.record_backtrace true;
@@ -69,7 +69,8 @@ let harness_init () =
 
 let harness_destroy () = ()
 
-let _ =
+let () =
+	Inventory.inventory_filename := "/tmp/xapi-test/xcp-inventory";
 	harness_init ();
-	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main |> ignore;
+	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
 	harness_destroy ();
