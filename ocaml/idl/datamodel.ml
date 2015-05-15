@@ -1091,8 +1091,8 @@ let _ =
     ~doc:"This patch has already been applied" ();
   error Api_errors.patch_apply_failed [ "output" ]
     ~doc:"The patch apply failed.  Please see attached output." ();
-  error Api_errors.patch_apply_failed_backup_files_exists [ "output" ]
-    ~doc:"The patch apply failed" ();
+  error Api_errors.patch_apply_failed_backup_files_exist [ "output" ]
+  ~doc:"The patch apply failed: there are backup files created while applying patch. Please remove these backup files before applying patch again." ();
   error Api_errors.patch_precheck_failed_unknown_error [ "patch"; "info" ]
     ~doc:"The patch precheck stage failed with an unknown error.  See attached info for more details." ();
   error Api_errors.patch_precheck_failed_prerequisite_missing [ "patch"; "prerequisite_patch_uuid_list" ]
