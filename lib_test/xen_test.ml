@@ -15,10 +15,8 @@ let test_upgrade_rules () =
 	let vm_t = Xenops_interface.Vm.t_of_rpc rpc in
 	assert_equal vm_t.Xenops_interface.Vm.name "unnamed" (* this value is the default in xenops_interface.ml *)
 
-let tests = [
-  "check upgrade rule" >:: test_upgrade_rules
-]
-
-let () =
-  let suite = "xcp-xen" >::: tests in
-  OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
+let tests =
+  "xcp-xen" >:::
+    [
+      "check upgrade rule" >:: test_upgrade_rules
+    ]

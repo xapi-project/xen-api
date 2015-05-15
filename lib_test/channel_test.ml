@@ -59,7 +59,8 @@ let check_for_leak_proxy () =
   let after' = count_fds () in
   assert_equal ~printer:string_of_int before after'
 
-let tests = 
+let tests =
+  "xcp-channel-test" >:::
     [
       "check_for_leak with automatic selection" >:: (check_for_leak dup_automatic);
       "check_for_leak with sendmsg" >:: (check_for_leak dup_sendmsg);

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 30d5f173de0e71958ac7588ab3d72172)
+# DO NOT EDIT (digest: 81cad0ff981440e9ded0e9f52c8ea879)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -120,33 +120,11 @@ true: annot, bin_annot
 <rrd/*.ml{,i,y}>: use_xcp
 # Library xcp_xen
 "xen/xcp_xen.cmxs": use_xcp_xen
-# Executable xcp_xen_test
-<xen/xen_test.{native,byte}>: pkg_cmdliner
-<xen/xen_test.{native,byte}>: pkg_cohttp
-<xen/xen_test.{native,byte}>: pkg_fd-send-recv
-<xen/xen_test.{native,byte}>: pkg_message_switch
-<xen/xen_test.{native,byte}>: pkg_message_switch.unix
-<xen/xen_test.{native,byte}>: pkg_oUnit
-<xen/xen_test.{native,byte}>: pkg_re
-<xen/xen_test.{native,byte}>: pkg_rpclib
-<xen/xen_test.{native,byte}>: pkg_rpclib.syntax
-<xen/xen_test.{native,byte}>: pkg_rpclib.xml
-<xen/xen_test.{native,byte}>: pkg_sexplib
-<xen/xen_test.{native,byte}>: pkg_sexplib.syntax
-<xen/xen_test.{native,byte}>: pkg_threads
-<xen/xen_test.{native,byte}>: pkg_unix
-<xen/xen_test.{native,byte}>: pkg_uri
-<xen/xen_test.{native,byte}>: pkg_xapi-backtrace
-<xen/xen_test.{native,byte}>: pkg_xcp-inventory
-<xen/xen_test.{native,byte}>: pkg_xmlm
-<xen/xen_test.{native,byte}>: use_xcp
-<xen/xen_test.{native,byte}>: use_xcp_xen
 <xen/*.ml{,i,y}>: pkg_cmdliner
 <xen/*.ml{,i,y}>: pkg_cohttp
 <xen/*.ml{,i,y}>: pkg_fd-send-recv
 <xen/*.ml{,i,y}>: pkg_message_switch
 <xen/*.ml{,i,y}>: pkg_message_switch.unix
-<xen/*.ml{,i,y}>: pkg_oUnit
 <xen/*.ml{,i,y}>: pkg_re
 <xen/*.ml{,i,y}>: pkg_rpclib
 <xen/*.ml{,i,y}>: pkg_rpclib.syntax
@@ -160,7 +138,6 @@ true: annot, bin_annot
 <xen/*.ml{,i,y}>: pkg_xcp-inventory
 <xen/*.ml{,i,y}>: pkg_xmlm
 <xen/*.ml{,i,y}>: use_xcp
-<xen/*.ml{,i,y}>: use_xcp_xen
 # Library xcp_memory
 "memory/xcp_memory.cmxs": use_xcp_memory
 <memory/*.ml{,i,y}>: pkg_cmdliner
@@ -245,6 +222,7 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: pkg_xcp-inventory
 <lib_test/test.{native,byte}>: pkg_xmlm
 <lib_test/test.{native,byte}>: use_xcp
+<lib_test/test.{native,byte}>: use_xcp_xen
 <lib_test/*.ml{,i,y}>: pkg_cmdliner
 <lib_test/*.ml{,i,y}>: pkg_cohttp
 <lib_test/*.ml{,i,y}>: pkg_fd-send-recv
@@ -266,6 +244,7 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: pkg_xcp-inventory
 <lib_test/*.ml{,i,y}>: pkg_xmlm
 <lib_test/*.ml{,i,y}>: use_xcp
+<lib_test/*.ml{,i,y}>: use_xcp_xen
 <lib_test/test.{native,byte}>: custom
 # Executable example
 <example/example.{native,byte}>: pkg_cmdliner
