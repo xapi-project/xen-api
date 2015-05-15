@@ -51,7 +51,7 @@ let with_migrate f =
 	
 
 module XenAPI = Client
-module SMAPI = Storage_interface.Client(struct let rpc = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" Storage_migrate.local_url end)
+module SMAPI = Storage_interface.Client(struct let rpc call = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" (Storage_migrate.local_url ()) call end)
 
 open Storage_interface
 open Listext
