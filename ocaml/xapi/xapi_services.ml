@@ -137,6 +137,8 @@ let call_xenvmd_on_srmaster __context req from sr_uuid =
   end else begin
     let sr_master = Helpers.get_srmaster ~__context ~sr in
     let address = Db.Host.get_address ~__context ~self:sr_master in
+    let session_id = Context.get_session_id __context in
+    let req = { req with Http.Request.query = req.Http.Request.query @ [ "session_id", Ref.string_of session_id ] } in
     http_proxy_to req from (Unix.ADDR_INET ((Unix.inet_addr_of_string address),80))
   end
 		  
