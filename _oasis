@@ -56,11 +56,11 @@ Library xcp_xen
 
 Executable xcp_xen_test
   CompiledObject:     best
-  Path:               xen
+  Path:               lib_test
   MainIs:             xen_test.ml
   Install:            false
   BuildDepends:       xcp, xcp.xen, oUnit
-  
+
 Library xcp_memory
   CompiledObject:     best
   Path:               memory
