@@ -19,14 +19,6 @@ let tests = [
   "check upgrade rule" >:: test_upgrade_rules
 ]
 
-let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test xcp.xen";
-
+let () =
   let suite = "xcp-xen" >::: tests in
-
-  run_test_tt ~verbose:!verbose suite
-
+  OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)

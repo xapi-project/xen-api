@@ -12,12 +12,12 @@ depends: [ "uri"
            "cmdliner"
            "cohttp"
            "xmlm"
-           "rpc" {> "1.4.0"}
+           "rpc" {>= "1.5.3"}
            "ocamlfind"
            "cohttp" {>= "0.15.0"}
            "message-switch"
            "xapi-stdext"
-	   "xapi-rrd"
+           "xapi-rrd"
            "xapi-inventory"
            "xapi-backtrace"
           ]
