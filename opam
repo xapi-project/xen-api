@@ -4,6 +4,9 @@ build: [
   [make "all"]
   [make "install"]
 ]
+build-test: [
+  [make "test"]
+]
 remove: [
   ["ocamlfind" "remove" "xcp"]
 ]
