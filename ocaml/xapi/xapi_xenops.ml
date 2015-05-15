@@ -108,6 +108,7 @@ module Platform = struct
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
+	let pci_pv = Xapi_globs.pci_pv_key_name
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -135,6 +136,7 @@ module Platform = struct
 		vgpu_pci_id;
 		vgpu_config;
 		vgpu_extra_args;
+		pci_pv;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
