@@ -52,7 +52,8 @@ namespace XenAPI
         API_2_2 = 13, // XenServer 6.2 Hotfix XS62ESP1004 (Felton)
         API_2_3 = 14, // XenServer Creedence
         API_2_4 = 15, // XenServer Cream
-        LATEST = 15,
+        API_2_5 = 16, // XenServer Dundee
+        LATEST = 16,
         // Don't forget to change LATEST above, and APIVersionString below.
         UNKNOWN = 99
     }
@@ -95,6 +96,8 @@ namespace XenAPI
                     return "2.3";
                 case API_Version.API_2_4:
                     return "2.4";
+                case API_Version.API_2_5:
+                    return "2.5";
                 default:
                     return "Unknown";
             }
