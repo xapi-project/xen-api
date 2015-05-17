@@ -3129,6 +3129,7 @@ let vm_import fd printer rpc session_id params =
 	let vm_metadata_only = get_bool_param params "metadata" in
 	let force = get_bool_param params "force" in
 	let dry_run = get_bool_param params "dry-run" in
+	let vdi_map = read_map_params "vdi" params in
 	if List.mem_assoc "url" params && List.mem_assoc "filename" params then begin
 	  marshal fd (Command (PrintStderr "Invalid arguments. The 'url' and 'filename' parameters should not both be specified.\n"));
 	  raise (ExitWithError 1)
@@ -3146,7 +3147,6 @@ let vm_import fd printer rpc session_id params =
 		marshal fd (Command (Print (String.concat "," uuids)))
 	end else begin
 		let filename = List.assoc "filename" params in
-
 		if not vm_metadata_only && dry_run then begin
 			marshal fd (Command (PrintStderr "Only metadata import function support dry-run\n"));
 			raise (ExitWithError 1)
@@ -3312,11 +3312,13 @@ let vm_import fd printer rpc session_id params =
 			(* possibly a Rio import *)
 					let make_command task_id =
 						let prefix = uri_of_someone rpc session_id Master in
-						let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&restore=%b&force=%b&dry_run=%b%s"
+						let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&restore=%b&force=%b&dry_run=%b%s%s"
 							prefix
 							(if vm_metadata_only then Constants.import_metadata_uri else Constants.import_uri)
 							(Ref.string_of session_id) (Ref.string_of task_id) full_restore force dry_run
-							(if sr <> Ref.null then "&sr_id=" ^ (Ref.string_of sr) else "") in
+							(if sr <> Ref.null then "&sr_id=" ^ (Ref.string_of sr) else "")
+							(String.concat "" (List.map (fun (a, b) -> "&vdi:" ^ a ^ "=" ^ b) vdi_map))
+						in
 						debug "requesting HttpPut('%s','%s')" filename uri;
 						HttpPut (filename, uri) in
 					let importtask =

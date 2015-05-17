@@ -195,6 +195,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
 	let metadata_options = {
 		Import.dry_run = false;
 		Import.live = false;
+		vdi_map = []; (* we expect the VDI metadata to be present *)
 	} in
 	let config = {
 		Import.import_type = Import.Metadata_import metadata_options;
