@@ -345,7 +345,9 @@ module VM : HandlerTools = struct
 		match precheck_result with
 		| Skip -> ()
 		| Fail e -> raise e
-		| Default_template template -> state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
+		| Default_template template -> 
+			state.table <- (x.cls, x.id, Ref.string_of template) :: state.table;
+			state.created_vms <- (x.cls, x.id, Ref.string_of template) :: state.created_vms
 		| Clean_import _ | Replace _  ->
 			let dummy_vm = Ref.make () in
 			state.table <- (x.cls, x.id, Ref.string_of dummy_vm) :: state.table
