@@ -2509,7 +2509,7 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
 			failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
 
 let vm_migrate_sxm_params = ["remote-master"; "remote-username"; "vif"; "remote-password";
-							 "remote-network"; "destination-sr-uuid"; "vdi"]
+							 "remote-network"; "vdi"]
 
 let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
@@ -2570,15 +2570,10 @@ let vm_migrate printer rpc session_id params =
 						vdi,sr) (read_map_params "vdi" params) in
 
 					let default_sr =
-						if List.mem_assoc "destination-sr-uuid" params
-						then let sr_uuid = List.assoc "destination-sr-uuid" params in
-							 try Some (Client.SR.get_by_uuid remote_rpc remote_session sr_uuid)
-							 with _ -> failwith (Printf.sprintf "Couldn't find destination SR: %s" sr_uuid)
-						else try let pools = Client.Pool.get_all remote_rpc remote_session in
-								 printer (Cli_printer.PMsg "Selecting remote pool's default SR for migrating VDIs") ;
-								 Some (Client.Pool.get_default_SR remote_rpc remote_session
-										   (List.hd pools))
-						     with _ -> None in
+						try let pools = Client.Pool.get_all remote_rpc remote_session in
+							printer (Cli_printer.PMsg "Selecting remote pool's default SR for migrating VDIs") ;
+							Some (Client.Pool.get_default_SR remote_rpc remote_session (List.hd pools))
+						with _ -> None in
 
 					let vdi_map = match default_sr with
 						| None -> vdi_map
