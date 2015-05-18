@@ -165,6 +165,21 @@ let cancel t =
 	let pid = Forkhelpers.getpid t.pid in
 	try Unix.kill pid Sys.sigkill with _ -> () 
 
-		
-				
-		
+(* This function will kill all sparse_dd pids that have been started by xapi *)
+(* Only to be used on xapi restart *)
+let killall () =
+	let pids = State.list () in
+	List.iter (fun pid ->
+		try
+			Pervasiveext.finally 
+				(fun () -> 
+					let exe = Unix.readlink (Printf.sprintf "/proc/%d/exe" pid) in
+					debug "checking pid %d exe=%s globs=%s" pid exe !Xapi_globs.sparse_dd;
+					if Filename.basename exe = Filename.basename !Xapi_globs.sparse_dd
+					then Unix.kill pid Sys.sigkill
+					else ())
+				(fun () ->
+					State.remove pid)
+		with _ -> ()
+	) pids
+
