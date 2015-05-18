@@ -1,3 +1,13 @@
+0.11.2 (18-May-2015):
+* Update to message-switch.0.11.0
+* Unit test tidy up and travis fixes
+
+0.11.1 (15-Apr-2015):
+* Xcp_client reads the whole of the HTTP request, not just the first chunk
+
+0.11.0 (7-Apr-2015):
+* memory: Add query_reservation_of_domain
+
 0.10.0 (4-Apr-2015):
 * xen: add support for floppy disks (useful for packer, cloudinit)
 * xen: add a VM call plugin mechanism for contacting future guest
