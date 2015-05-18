@@ -818,6 +818,7 @@ let server_init() =
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
     "XAPI SERVER STARTING", [], print_server_starting_message;
+    "Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Config (from file) for outgoing stunnels", [], set_stunnel_legacy_inv;
     "Setting stunnel timeout", [], set_stunnel_timeout;
