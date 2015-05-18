@@ -30,11 +30,11 @@ let update_configuration_from_master () =
 		let new_use_min_max = (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) &&
 			(List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true") in
 		log_and_ignore_exn (Rrdd.update_use_min_max ~value:new_use_min_max);
-		let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier oc) &&
-			(List.assoc Xapi_globs.pass_through_pif_carrier oc = "true") in
-		if !Xapi_xenops.pass_through_pif_carrier <> carrier
+		let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier_key oc) &&
+			(List.assoc Xapi_globs.pass_through_pif_carrier_key oc = "true") in
+		if !Xapi_globs.pass_through_pif_carrier <> carrier
 		then debug "Updating pass_through_pif_carrier: New value=%b" carrier;
-		Xapi_xenops.pass_through_pif_carrier := carrier
+		Xapi_globs.pass_through_pif_carrier := carrier
 	)
 
 let set_vm_metrics ~__context ~vm ~memory ~cpus =
@@ -217,7 +217,7 @@ let update_pifs ~__context host pifs =
 			let pcibuspath = pif_stats.pif_pci_bus_path in
 
 			(* 1. Update corresponding VIF carrier flags *)
-			if !Xapi_xenops.pass_through_pif_carrier then begin
+			if !Xapi_globs.pass_through_pif_carrier then begin
 				try
 					(* Go from physical interface -> bridge -> vif devices.
 					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
