@@ -173,7 +173,7 @@ let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config 
 
 let cd_tray_ejector = "cd_tray_ejector"
 
-let host_console_vncport = 5900 (* guaranteed by the startup scripts *)
+let host_console_vncport = 5900L (* guaranteed by the startup scripts *)
 
 let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 
