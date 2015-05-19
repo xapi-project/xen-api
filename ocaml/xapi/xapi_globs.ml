@@ -173,7 +173,14 @@ let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config 
 
 let cd_tray_ejector = "cd_tray_ejector"
 
-let host_console_vncport = 5900L (* guaranteed by the startup scripts *)
+(* These ports are both served up by vncterm the ports used for the RFB and
+   text consoles are p+5900 and p+9500 respectively where p is the port
+   specified on the vncterm command line:
+     -T, --text            provide telnet access too
+     -v, --vnclisten       listen for VNC connection at a given address:port
+   The init scripts in dom0 spawn vncterm with -T -v 127.0.0.1:0  *)
+let host_console_vncport = 5900L
+let host_console_textport = 9500L
 
 let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 

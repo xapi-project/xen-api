@@ -153,6 +153,7 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 		| [rfb], [vt100] ->
 			debug "1 RFB, 1 VT100 console found... ensuring correct port numbers";
 			Db.Console.set_port ~__context ~self:rfb ~value:Xapi_globs.host_console_vncport;
+			Db.Console.set_port ~__context ~self:vt100 ~value:Xapi_globs.host_console_textport;
 		| _ ->
 			(* if there's not more than one console of each type then something strange is happening*)
 			create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
@@ -222,13 +223,16 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref 
 	let console_ref = Ref.make () in
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
+	let port = match dom0_console_protocol with
+	|`rfb -> Xapi_globs.host_console_vncport
+	|`vt100 -> Xapi_globs.host_console_textport in
 	Db.Console.create ~__context ~ref: console_ref
 		~uuid: (Uuid.to_string (Uuid.make_uuid ()))
 		~protocol: dom0_console_protocol
 		~location 
 		~vM: domain_zero_ref
 		~other_config:[]
-		~port: Xapi_globs.host_console_vncport
+		~port
 
 and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100 =
 	if List.length console_records_rfb <> 1
