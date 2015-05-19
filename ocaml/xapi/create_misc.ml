@@ -229,19 +229,16 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref 
 		~port: (Int64.of_int Xapi_globs.host_console_vncport)
 
 and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100 =
-	if List.length console_records_rfb = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
-	if List.length console_records_vt100 = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
-
-	if List.length console_records_rfb > 1 then
-		begin
-			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_rfb ;
-			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
-		end;
-	if List.length console_records_vt100 > 1 then
-		begin
-			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_vt100 ;
-			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
-		end
+	if List.length console_records_rfb <> 1
+	then begin
+		List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_rfb ;
+		create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
+	end;
+	if List.length console_records_vt100 <> 1
+	then begin
+		List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_vt100 ;
+		create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
+	end
 
 and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
 	let rec mkints = function
