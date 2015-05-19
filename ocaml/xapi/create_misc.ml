@@ -149,8 +149,10 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	let console_records_rfb = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `rfb) dom0_consoles in
 	let console_records_vt100 = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `vt100) dom0_consoles in
 
-	match List.length console_records_rfb, List.length console_records_vt100 with
-		| 1, 1 -> debug "1 RFB, 1 VT100 console found";
+	match console_records_rfb, console_records_vt100 with
+		| [rfb], [vt100] ->
+			debug "1 RFB, 1 VT100 console found... ensuring correct port numbers";
+			Db.Console.set_port ~__context ~self:rfb ~value:(Int64.of_int Xapi_globs.host_console_vncport);
 		| _ ->
 			(* if there's not more than one console of each type then something strange is happening*)
 			create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
