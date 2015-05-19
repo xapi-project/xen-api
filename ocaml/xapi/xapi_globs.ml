@@ -741,7 +741,7 @@ let busybox = ref "busybox"
 
 let xe_path = ref "xe"
 
-let lw_force_domain_leave_script = ref "lw-force-domain-leave"
+let pbis_force_domain_leave_script = ref "pbis-force-domain-leave"
 
 let redo_log_block_device_io = ref "block_device_io"
 
@@ -945,7 +945,7 @@ module Resources = struct
 	let essential_executables = [
 		"xapissl", xapissl_path, "Script for starting stunnel";
 		"busybox", busybox, "Swiss army knife executable - used as DHCP server";
-		"lw-force-domain-leave-script", lw_force_domain_leave_script, "Executed when likewise domain-leave fails";
+		"pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
 		"redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";
 		"sparse_dd", sparse_dd, "Path to sparse_dd";
 		"vhd-tool", vhd_tool, "Path to vhd-tool";
