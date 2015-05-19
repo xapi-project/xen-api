@@ -24,7 +24,7 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
-let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 open Storage_interface
@@ -69,7 +69,7 @@ module State = struct
 	end
 
 	type operation =
-		| Send of Send_state.t		
+		| Send of Send_state.t
 		| Receive of Receive_state.t
 		| Copy of Copy_state.t with rpc
 
@@ -103,24 +103,29 @@ module State = struct
 
 	let load () =
 		let load path hashtbl = Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace hashtbl) in
-		try load (path OSend) active_send; load (path OReceive) active_recv; load (path OCopy) active_copy with _ -> ()
+		List.iter (fun (ty, tbl) -> try load (path ty) tbl with _ -> ()) [ OSend, active_send; OReceive, active_recv; OCopy, active_copy ];
+		loaded := true
+
 	let save () = 
 	  to_string active_send |> Unixext.write_string_to_file (path OSend);
 	  to_string active_recv |> Unixext.write_string_to_file (path OReceive);
-	  to_string active_recv |> Unixext.write_string_to_file (path OCopy)
+	  to_string active_copy |> Unixext.write_string_to_file (path OCopy)
 
 	let op s f h = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f h in if s then save (); r)
 	let map_of () =	
 		let m1 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h []) active_send in
-		op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m1) active_recv
+		let m2 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m1) active_recv in
+		let m3 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m2) active_copy in
+		m3
 
 	let add id h s = op true (fun a -> Hashtbl.replace a id s) h
 	let find id h = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None) h
 	let remove id h = op true (fun a ->	Hashtbl.remove a id) h
+	let clear h = op true Hashtbl.clear h
 
 	let add_to_active_local_mirrors id alm =
 	    add id active_send $ Send alm; alm
-			
+
 	let add_to_active_receive_mirrors id arm =
 	    add id active_recv $ Receive arm; arm
 
@@ -185,7 +190,7 @@ let tapdisk_of_attach_info attach_info =
 			None
 		| _ -> 
 			debug "Device %s has an unknown driver" path;
-			None 
+			None
 
 
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
@@ -280,7 +285,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 			debug "activating RW datapath %s on remote=%s/%s" remote_dp dest dest_vdi;
 			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp:remote_dp ~read_write:true);
 			Remote.VDI.activate ~dbg ~dp:remote_dp ~sr:dest ~vdi:dest_vdi;
-			
+
 			with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
 				(fun base_path ->
 					with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp
@@ -337,6 +342,16 @@ let stop ~dbg ~id =
 			(* Disable mirroring on the local machine *)
 			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
+			(* Destroy the snapshot, if it still exists *)
+			let snap = try Some (List.find (fun x -> List.mem_assoc "base_mirror" x.sm_config && List.assoc "base_mirror" x.sm_config = id) vdis) with _ -> None in
+			begin
+				match snap with
+				| Some s ->
+					debug "Found snapshot VDI: %s" s.vdi;
+					Local.VDI.destroy ~dbg ~sr ~vdi:s.vdi
+				| None ->
+					debug "Snapshot VDI already cleaned up"
+			end;
 			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
 			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
@@ -506,12 +521,42 @@ let stat ~dbg ~id =
 	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
 	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
 	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
-	
+
 let list ~dbg =
 	let m = State.map_of () in
 	let ids = List.map fst m |> Listext.List.setify in
 	List.map (fun id ->
 		(id,stat dbg id)) ids
+
+let killall ~dbg =
+	let m = State.map_of () in
+	List.iter (function
+		| (id, State.Send x) ->
+			begin
+				debug "Send in progress: %s" id;
+				List.iter log_and_ignore_exn
+					[ (fun () -> stop dbg id);
+					  (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Send_state.local_dp ~allow_leak:true) ]
+			end
+		| (id, State.Copy x) ->
+			 begin
+				 debug "Copy in progress: %s" id;
+				 List.iter log_and_ignore_exn
+					 [ (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Copy_state.leaf_dp ~allow_leak:true);
+					   (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Copy_state.base_dp ~allow_leak:true) ];
+				 let remote_url = Http.Url.of_string x.State.Copy_state.remote_url in
+				 let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+				 List.iter log_and_ignore_exn
+					 [ (fun () -> Remote.DP.destroy ~dbg ~dp:x.State.Copy_state.remote_dp ~allow_leak:true);
+					   (fun () -> Remote.VDI.destroy ~dbg ~sr:x.State.Copy_state.dest_sr ~vdi:x.State.Copy_state.copy_vdi) ]
+			 end
+		| (id, State.Receive x) ->
+			 begin
+				 debug "Receive in progress: %s" id;
+				 log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel ~dbg ~id)
+			 end
+	) m;
+	List.iter State.clear [State.active_send; State.active_recv; State.active_copy]
 
 let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -575,9 +620,6 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 		List.iter (fun op -> try op () with e -> debug "Caught exception in on_fail: %s" (Printexc.to_string e)) !on_fail;
 		raise e
 
-let log_exn_and_continue s f =
-	try f () with e -> debug "Ignorning exception '%s' while %s" (Printexc.to_string e) s
-
 let receive_finalize ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
 	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false) record;
@@ -586,9 +628,9 @@ let receive_finalize ~dbg ~id =
 let receive_cancel ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
 	let open State.Receive_state in Opt.iter (fun r ->
-		log_exn_and_continue "cancelling receive" (fun () -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false);
+		log_and_ignore_exn (fun () -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false);
 		List.iter (fun v -> 
-			log_exn_and_continue "cancelling receive" (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
+			log_and_ignore_exn (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
 		) [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
 	) record;
 	State.remove id State.active_recv
@@ -642,7 +684,7 @@ let post_detach_hook ~sr ~vdi ~dp =
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 				let t = Thread.create (fun () ->
 					debug "Calling receive_finalize";
-					log_exn_and_continue "in detach hook" 
+					log_and_ignore_exn
 						(fun () -> Remote.DATA.MIRROR.receive_finalize ~dbg:"Mirror-cleanup" ~id);
 					debug "Finished calling receive_finalize";
 					State.remove id State.active_send;
@@ -742,7 +784,7 @@ let wrap ~dbg f =
 			signal task.Storage_task.id
 		)) () in
 	task.Storage_task.id
-		
+
 let start ~dbg ~sr ~vdi ~dp ~url ~dest = 
 	wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
 
