@@ -207,13 +207,11 @@ let relevant_vgpu_types pci_dev_id subsystem_device_id =
 				c.vsubdev_id
 				c.framebufferlength)
 			relevant_vgpu_confs));
-	let rec build_vgpu_types ac = function
+	let rec build_vgpu_types pci_access ac = function
 		| [] -> ac
 		| conf::tl ->
 			debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
 				nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
-			let pci_access = Pci.alloc () in
-			Pci.init pci_access;
 			let vendor_name = Pci.lookup_vendor_name pci_access nvidia_vendor_id
 			and model_name =
 				Pci.lookup_subsystem_device_name pci_access nvidia_vendor_id
@@ -228,9 +226,9 @@ let relevant_vgpu_types pci_dev_id subsystem_device_id =
 				vendor_name; model_name; framebuffer_size; max_heads;
 				max_resolution_x; max_resolution_y; size; internal_config}
 			in
-			build_vgpu_types (vgpu_type :: ac) tl
+			build_vgpu_types pci_access (vgpu_type :: ac) tl
 	in
-	build_vgpu_types [] relevant_vgpu_confs
+	Pci.with_access (fun a -> build_vgpu_types a [] relevant_vgpu_confs)
 
 let find_or_create_supported_types ~__context pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
