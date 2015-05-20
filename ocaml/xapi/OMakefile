@@ -179,6 +179,7 @@ XAPI_MODULES = $(COMMON) \
 	monitor_types \
 	monitor_master \
 	monitor_dbcalls \
+	monitor_dbcalls_cache \
 	api_server \
 	create_misc \
 	xapi_host \

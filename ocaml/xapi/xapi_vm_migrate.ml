@@ -162,7 +162,7 @@ let pool_migrate_complete ~__context ~vm ~host =
 		Xapi_xenops.set_resident_on ~__context ~self:vm;
 		Xapi_xenops.add_caches id;
 		Xapi_xenops.refresh_vm ~__context ~self:vm;
-		Monitor_dbcalls.clear_cache_for_vm ~vm_uuid:id
+		Monitor_dbcalls_cache.clear_cache_for_vm ~vm_uuid:id
 	end
 
 type mirror_record = {

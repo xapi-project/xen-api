@@ -26,18 +26,6 @@
  * fresh information into the database.
  *)
 
-(** [clear_cache_for_pif] removes any current cache for PIF with [pif_name],
- * which forces fresh properties for the PIF into xapi's database. *)
-val clear_cache_for_pif : pif_name:string -> unit
-
-(** [clear_cache_for_vm] removes any current cache for VM with [vm_uuid],
- * which forces fresh properties for the VM into xapi's database. *)
-val clear_cache_for_vm : vm_uuid:string -> unit
-
-(** Clear the whole cache. This forces fresh properties to be written into
- * xapi's database. *)
-val clear_cache : unit -> unit
-
 (** The function to be executed as a stand-alone thread as xapi starts. This
  * thread is responsible for continually gathering fresh properties and
  * pushing changes to xapi's database. *)

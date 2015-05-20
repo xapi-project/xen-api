@@ -376,7 +376,7 @@ let introduce_internal
 	 * carrier and vendor etc.) will eventually get updated [and that
 	 * subsequent changes to this PIFs' device's dom0 configuration
 	 * will be reflected accordingly]. *)
-	Monitor_dbcalls.clear_cache_for_pif ~pif_name:device;
+	Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name:device;
 
 	(* return ref of newly created pif record *)
 	pif
@@ -593,7 +593,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 			 * we are not getting a host-signal-networking-change callback. *)
 			Helpers.update_pif_address ~__context ~self
 	end;
-	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self);
+	Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self);
 	if ((old_mode == `None && mode <> `None) || (old_mode <> `None && mode == `None)) then
 	begin
 		debug "IPv6 mode has changed - updating management interface";
@@ -655,7 +655,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 * PIF.reconfigure_ip to set mode=dhcp, but you have already got an IP on
 	 * the dom0 device (e.g. because it's a management i/f that was brought up
 	 * independently by init scripts) *)
-	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
+	Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let set_primary_address_type ~__context ~self ~primary_address_type =
 	assert_no_protection_enabled ~__context ~self;
@@ -664,7 +664,7 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
 	if management then raise (Api_errors.Server_error(Api_errors.pif_is_management_iface, [ Ref.string_of self ]));
 
 	Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type;
-	Monitor_dbcalls.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
+	Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let set_property ~__context ~self ~name ~value =
 	let fail () = raise (Api_errors.Server_error
