@@ -149,8 +149,11 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	let console_records_rfb = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `rfb) dom0_consoles in
 	let console_records_vt100 = List.filter (fun x -> Db.Console.get_protocol ~__context ~self:x = `vt100) dom0_consoles in
 
-	match List.length console_records_rfb, List.length console_records_vt100 with
-		| 1, 1 -> debug "1 RFB, 1 VT100 console found";
+	match console_records_rfb, console_records_vt100 with
+		| [rfb], [vt100] ->
+			debug "1 RFB, 1 VT100 console found... ensuring correct port numbers";
+			Db.Console.set_port ~__context ~self:rfb ~value:Xapi_globs.host_console_vncport;
+			Db.Console.set_port ~__context ~self:vt100 ~value:Xapi_globs.host_console_textport;
 		| _ ->
 			(* if there's not more than one console of each type then something strange is happening*)
 			create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
@@ -220,28 +223,28 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref 
 	let console_ref = Ref.make () in
 	let address = Db.Host.get_address ~__context ~self: (Helpers.get_localhost ~__context) in
 	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of domain_zero_ref) in
+	let port = match dom0_console_protocol with
+	|`rfb -> Xapi_globs.host_console_vncport
+	|`vt100 -> Xapi_globs.host_console_textport in
 	Db.Console.create ~__context ~ref: console_ref
 		~uuid: (Uuid.to_string (Uuid.make_uuid ()))
 		~protocol: dom0_console_protocol
 		~location 
 		~vM: domain_zero_ref
 		~other_config:[]
-		~port: (Int64.of_int Xapi_globs.host_console_vncport)
+		~port
 
 and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100 =
-	if List.length console_records_rfb = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
-	if List.length console_records_vt100 = 0 then create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
-
-	if List.length console_records_rfb > 1 then
-		begin
-			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_rfb ;
-			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
-		end;
-	if List.length console_records_vt100 > 1 then
-		begin
-			List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_vt100 ;
-			create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
-		end
+	if List.length console_records_rfb <> 1
+	then begin
+		List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_rfb ;
+		create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `rfb ;
+	end;
+	if List.length console_records_vt100 <> 1
+	then begin
+		List.iter (fun console -> Db.Console.destroy ~__context ~self: console ) console_records_vt100 ;
+		create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
+	end
 
 and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
 	let rec mkints = function
