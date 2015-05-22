@@ -873,6 +873,9 @@ let server_init() =
             Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
             Db_cache_impl.initialise ();
             Sm.register ();
+            Startup.run ~__context [
+              "Starting SMAPIv1 proxies", [Startup.OnlySlave], Storage_access.start_smapiv1_servers;
+            ];
             Dbsync.setup ()
           with e ->
             begin
@@ -887,7 +890,6 @@ let server_init() =
 
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context -> 
     Startup.run ~__context [
-      "Starting SMAPIv1 proxies", [Startup.OnlySlave], Storage_access.start_smapiv1_servers;
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
       "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
