@@ -1,0 +1,25 @@
+opam-version: "1"
+maintainer: "dave.scott@citrix.com"
+build: [
+  ["oasis" "setup"]
+  ["./configure" "--prefix" prefix]
+  [make]
+  [make "install" "BINDIR=%{bin}%"]
+]
+remove: [
+  [make "uninstall" "BINDIR=%{bin}%"]
+  ["ocamlfind" "remove" "nbd"]
+]
+depends: [
+  "oasis"
+  "ocamlfind"
+  "lwt"
+  "cstruct" {> "1.0.0"}
+  "cmdliner"
+  "sexplib"
+  "mirage-block-unix"
+  "io-page"
+  "mirage"
+  "nbd"
+]
+tags: [ "org:mirage" "org:xapi-project" ]

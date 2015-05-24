@@ -1,0 +1,20 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+sudo: false
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - ocaml
+    - ocaml-base
+    - ocaml-native-compilers
+    - ocaml-compiler-libs
+    - ocaml-interp
+    - ocaml-base-nox
+    - ocaml-nox
+    - camlp4
+    - camlp4-extra
+env:
+  - FORK_USER=talex5 FORK_BRANCH=containers OPAMYES=true OCAML_VERSION=4.01 TESTS=true PINS="nbd:git://github.com/xapi-project/nbd" POST_INSTALL_HOOK="bash -eux .travis-post-install.sh"
