@@ -1,4 +1,18 @@
 language: c
-script: bash -ex .travis-ci.sh
-env:
-  - OCAML_VERSION=4.01.0 OPAM_VERSION=1.2.0
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+sudo: false
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - ocaml
+    - ocaml-base
+    - ocaml-native-compilers
+    - ocaml-compiler-libs
+    - ocaml-interp
+    - ocaml-base-nox
+    - ocaml-nox
+    - camlp4
+    - camlp4-extra
