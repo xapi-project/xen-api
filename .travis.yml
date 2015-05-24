@@ -16,3 +16,5 @@ addons:
     - ocaml-nox
     - camlp4
     - camlp4-extra
+env:
+  - FORK_USER=talex5 FORK_BRANCH=containers OPAMYES=true OCAML_VERSION=4.01 TESTS=true PINS="nbd:git://github.com/xapi-project/nbd" POST_INSTALL_HOOK="bash -eux .travis-post-install.sh"
