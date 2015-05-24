@@ -1,0 +1,15 @@
+OASISFormat: 0.3
+Name: xapi-nbd
+Version: 1.0.0
+Synopsis: Expose VDIs over NBD
+Authors: Jonathan Ludlam, Dave Scott
+License: LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.3), DevFiles (0.3)
+BuildTools:  ocamlbuild
+
+Executable "xapi-nvd"
+  CompiledObject: best
+  Path: src
+  MainIs: main.ml
+  Install: true
+  BuildDepends: nbd.lwt, cmdliner, lwt, lwt.unix, lwt.syntax, mirage-block-unix
