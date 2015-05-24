@@ -18,3 +18,12 @@ _build/
 # oasis generated files
 setup.data
 setup.log
+
+# more oasis autogen
+_tags
+configure
+myocamlbuild.ml
+setup.ml
+
+# vim
+*.swp
