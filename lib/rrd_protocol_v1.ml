@@ -69,7 +69,7 @@ let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
 				(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs)
 		in
 		let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
-			~default:true () in
+			~default:!Rrd_protocol.ds_default () in
 		owner, ds
 	with e -> raise e
 
