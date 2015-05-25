@@ -7,9 +7,9 @@ License: LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.3), DevFiles (0.3)
 BuildTools:  ocamlbuild
 
-Executable "xapi-nvd"
+Executable "xapi-nbd"
   CompiledObject: best
   Path: src
   MainIs: main.ml
   Install: true
-  BuildDepends: nbd.lwt, cmdliner, lwt, lwt.unix, lwt.syntax, mirage-block-unix, uri, xen-api-client.lwt
+  BuildDepends: nbd.lwt, cmdliner, lwt, lwt.unix, lwt.syntax, mirage-block-unix, uri, xen-api-client.lwt, xcp.storage, threads, message_switch.lwt, message_switch

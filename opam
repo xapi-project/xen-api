@@ -23,5 +23,7 @@ depends: [
   "nbd"
   "xen-api-client"
   "uri"
+  "xapi-idl"
+  "message-switch"
 ]
 tags: [ "org:mirage" "org:xapi-project" ]
