@@ -8,7 +8,6 @@ build: [
 ]
 remove: [
   [make "uninstall" "BINDIR=%{bin}%"]
-  ["ocamlfind" "remove" "nbd"]
 ]
 depends: [
   "oasis"
