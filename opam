@@ -8,7 +8,6 @@ build: [
 ]
 remove: [
   [make "uninstall" "BINDIR=%{bin}%"]
-  ["ocamlfind" "remove" "nbd"]
 ]
 depends: [
   "oasis"
@@ -21,5 +20,9 @@ depends: [
   "io-page"
   "mirage"
   "nbd"
+  "xen-api-client"
+  "uri"
+  "xapi-idl"
+  "message-switch"
 ]
 tags: [ "org:mirage" "org:xapi-project" ]
