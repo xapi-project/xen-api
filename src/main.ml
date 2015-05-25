@@ -20,6 +20,14 @@ open Xen_api_lwt_unix
 
 let uri = ref "http://127.0.0.1/"
 
+let with_block filename f =
+  let open Lwt in
+  Block.connect filename
+  >>= function
+  | `Error _ -> fail (Failure (Printf.sprintf "Unable to read %s" filename))
+  | `Ok x ->
+    Lwt.catch (fun () -> f x) (fun e -> Block.disconnect x >>= fun () -> fail e)
+
 let handle_connection fd =
   let rpc = make !uri in
   let channel = Nbd_lwt_channel.of_fd fd in
@@ -42,13 +50,7 @@ let handle_connection fd =
       let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
       (* FIXME: attach VDI *)
       let filename = "/dev/null" in
-      Block.connect filename
-      >>= function
-      | `Error _ ->
-        Printf.fprintf stderr "Failed to open %s\n%!" filename;
-        fail (Failure filename)
-      | `Ok b ->
-        Nbd_lwt_server.serve t (module Block) b
+      with_block filename (Nbd_lwt_server.serve t (module Block))
     finally
       if need_to_logout
       then Session.logout rpc session_id
