@@ -12,4 +12,4 @@ Executable "xapi-nvd"
   Path: src
   MainIs: main.ml
   Install: true
-  BuildDepends: nbd.lwt, cmdliner, lwt, lwt.unix, lwt.syntax, mirage-block-unix
+  BuildDepends: nbd.lwt, cmdliner, lwt, lwt.unix, lwt.syntax, mirage-block-unix, uri, xen-api-client.lwt
