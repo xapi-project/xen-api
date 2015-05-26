@@ -15,6 +15,7 @@
 open Db_filter_types
 open Listext
 open Monitor_types
+open Monitor_dbcalls_cache
 open Xstringext
 open Threadext
 
@@ -35,41 +36,6 @@ let get_updates ~before ~after ~f =
 	) after []
 let get_updates_map = get_updates ~f:(fun k v acc -> (k, v)::acc)
 let get_updates_values = get_updates ~f:(fun _ v acc -> v::acc)
-
-(* A cache mapping PIF names to PIF structures. *)
-let pifs_cached_m : Mutex.t = Mutex.create ()
-let pifs_cached : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
-let pifs_tmp    : (string, Monitor_types.pif) Hashtbl.t = Hashtbl.create 10
-(* A cache mapping PIF names to bond.links_up. *)
-let bonds_links_up_cached_m : Mutex.t = Mutex.create ()
-let bonds_links_up_cached : (string, int) Hashtbl.t = Hashtbl.create 10
-let bonds_links_up_tmp    : (string, int) Hashtbl.t = Hashtbl.create 10
-(* A cache mapping vm_uuids to actual memory. *)
-let vm_memory_cached_m : Mutex.t = Mutex.create ()
-let vm_memory_cached : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
-let vm_memory_tmp    : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
-(* A cache for host's free/total memory. *)
-let host_memory_m : Mutex.t = Mutex.create ()
-let host_memory_free_cached : Int64.t ref = ref Int64.zero
-let host_memory_total_cached : Int64.t ref = ref Int64.zero
-
-let clear_cache_for_pif ~pif_name =
-	Mutex.execute pifs_cached_m (fun _ -> Hashtbl.remove pifs_cached pif_name)
-
-let clear_cache_for_vm ~vm_uuid =
-	Mutex.execute vm_memory_cached_m
-		(fun _ -> Hashtbl.remove vm_memory_cached vm_uuid)
-
-let clear_cache () =
-	let safe_clear ~cache ~lock =
-		Mutex.execute lock (fun _ -> Hashtbl.clear cache) in
-	safe_clear ~cache:pifs_cached ~lock:pifs_cached_m;
-	safe_clear ~cache:bonds_links_up_cached ~lock:bonds_links_up_cached_m;
-	safe_clear ~cache:vm_memory_cached ~lock:vm_memory_cached_m;
-	Mutex.execute host_memory_m (fun _ ->
-		host_memory_free_cached := Int64.zero;
-		host_memory_total_cached := Int64.zero;
-	)
 
 let get_host_memory_changes xc =
 	let physinfo = Xenctrl.physinfo xc in

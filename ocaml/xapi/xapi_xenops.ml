@@ -1383,7 +1383,7 @@ let update_vif ~__context id =
 				else begin
 					let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 					let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
-					let vif, _ = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
+					let vif, vifr = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
 					Opt.iter
 						(fun (vf, state) ->
 							if not (state.plugged || state.active) then begin
@@ -1397,13 +1397,22 @@ let update_vif ~__context id =
 
 							if state.plugged then begin
 								(* sync MTU *)
-								try
+								(try
 									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
 									let dbg = Context.string_of_task __context in
 									let mtu = Net.Interface.get_mtu dbg ~name:device in
 									Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
 								with _ ->
-									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id)
+									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
+
+								(* Clear monitor cache for associated PIF if pass_through_pif_carrier is set *)
+								if !Xapi_globs.pass_through_pif_carrier then
+									let host = Helpers.get_localhost ~__context in
+									let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vifr.API.vIF_network ~host in
+									List.iter (fun pif ->
+										let pif_name = Db.PIF.get_device ~__context ~self:pif in
+										Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name
+									) pifs
 							end;
 							debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) (state.plugged || state.active);
 							Db.VIF.set_currently_attached ~__context ~self:vif ~value:(state.plugged || state.active)
