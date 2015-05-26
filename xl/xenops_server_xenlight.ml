@@ -658,6 +658,12 @@ module PCI = struct
 		) Oldest vm
 end
 
+module VGPU = struct
+	let id_of vgpu = failwith "Not implemented"
+
+	let get_state vm vgpu = failwith "Not implemented"
+end
+
 let set_active_device path active =
 	with_xs
 		(fun xs ->
