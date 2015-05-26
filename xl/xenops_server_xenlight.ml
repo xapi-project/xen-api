@@ -592,7 +592,10 @@ module PCI = struct
 				| None -> [] in
 			{
 				plugged = List.filter (function {Device_pci.domain; Device_pci.bus; Device_pci.dev; Device_pci.func} ->
-					domain = pci.domain && bus = pci.bus && dev = pci.dev && func = pci.fn) all <> []
+					domain = pci.address.domain
+					&& bus = pci.address.bus
+					&& dev = pci.address.dev
+					&& func = pci.address.fn) all <> []
 			}
 		)
 
@@ -606,10 +609,10 @@ module PCI = struct
 		debug "PCI.pre_plug";
 		let vm_t = DB.read_exn vm in
 		let non_persistent = vm_t.VmExtra.non_persistent in
-		let func = pci.fn in
-		let dev = pci.dev in
-		let bus = pci.bus in
-		let domain = pci.domain in
+		let func = pci.address.fn in
+		let dev = pci.address.dev in
+		let bus = pci.address.bus in
+		let domain = pci.address.domain in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
 		let open Xenlight.Device_pci in
@@ -634,10 +637,10 @@ module PCI = struct
 	let unplug task vm pci =
 		let vm_t = DB.read_exn vm in
 		let non_persistent = vm_t.VmExtra.non_persistent in
-		let func = pci.fn in
-		let dev = pci.dev in
-		let bus = pci.bus in
-		let domain = pci.domain in
+		let func = pci.address.fn in
+		let dev = pci.address.dev in
+		let bus = pci.address.bus in
+		let domain = pci.address.domain in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
 		on_frontend (fun _ _ frontend_domid _ ->
