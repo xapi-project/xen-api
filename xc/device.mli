@@ -121,18 +121,14 @@ end
 
 module PCI :
 sig
+	open Xenops_interface.Pci
+
 	type t = {
-		domain: int;
-		bus: int;
-		slot: int;
-		func: int;
+		address: address;
 		irq: int;
 		resources: (int64 * int64 * int64) list;
 		driver: string;
 	}
-	type dev = int * int * int * int
-	val to_string: dev -> string
-	val of_string: string -> dev
 
 	type supported_driver =
 		| Nvidia
@@ -140,14 +136,14 @@ sig
 
 	exception Cannot_use_pci_with_no_pciback of t list
 
-	val add : dev list -> Xenctrl.domid -> unit
+	val add : address list -> Xenctrl.domid -> unit
 	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
-		-> dev list -> Xenctrl.domid -> int -> unit
-	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
-	val bind : dev list -> supported_driver -> unit
-	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
-	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
-	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * dev) list
+		-> address list -> Xenctrl.domid -> int -> unit
+	val reset : xs:Xenstore.Xs.xsh -> address -> unit
+	val bind : address list -> supported_driver -> unit
+	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
+	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
+	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 end
 
 module Vfs :

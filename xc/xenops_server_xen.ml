@@ -1560,8 +1560,9 @@ module PCI = struct
 				let all = match domid_of_uuid ~xc ~xs Newest (uuid_of_string vm) with
 					| Some domid -> Device.PCI.list ~xc ~xs domid |> List.map snd
 					| None -> [] in
+				let address = pci.address in
 				{
-					plugged = List.mem (pci.domain, pci.bus, pci.dev, pci.fn) all
+					plugged = List.mem address all
 				}
 			)
 
@@ -1572,7 +1573,6 @@ module PCI = struct
 		if not state.plugged then Some Needs_unplug else None
 
 	let plug task vm pci =
-		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				(* Make sure the backend defaults are set *)
@@ -1590,18 +1590,17 @@ module PCI = struct
 					raise PCIBack_not_loaded;
 				end;
 
-				Device.PCI.bind [ device ] Device.PCI.Pciback;
-				Device.PCI.add [ device ] frontend_domid
+				Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
+				Device.PCI.add [ pci.address ] frontend_domid
 			) Newest vm
 
 	let unplug task vm pci =
-		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		try
 			on_frontend
 				(fun xc xs frontend_domid hvm ->
 					try
 						if hvm
-						then Device.PCI.unplug task ~xc ~xs device frontend_domid
+						then Device.PCI.unplug task ~xc ~xs pci.address frontend_domid
 						else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
 					with Not_found ->
 						debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)

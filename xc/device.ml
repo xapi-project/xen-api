@@ -913,21 +913,13 @@ module Vgpu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/v
 module PCI = struct
 
 type t = {
-	domain: int;
-	bus: int;
-	slot: int;
-	func: int;
+	address: Xenops_interface.Pci.address;
 	irq: int;
 	resources: (int64 * int64 * int64) list;
 	driver: string;
 }
 
-type dev = int * int * int * int
-
-let to_string (domain, bus, dev, func) = Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev func
-let of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c, d)) 
-
-exception Cannot_add of dev list * exn (* devices, reason *)
+exception Cannot_add of Xenops_interface.Pci.address list * exn (* devices, reason *)
 exception Cannot_use_pci_with_no_pciback of t list
 
 (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
@@ -991,7 +983,11 @@ let xl_pci cmd pcidevs domid =
 			try
 				let (_, _) = Forkhelpers.execute_command_get_output
 					"/usr/sbin/xl"
-					[ cmd; string_of_int domid; to_string dev ] in
+					[
+						cmd;
+						string_of_int domid;
+						Xenops_interface.Pci.string_of_address dev
+					] in
 				()
 			with e ->
 				debug "xl %s: %s" cmd (Printexc.to_string e);
@@ -1132,7 +1128,7 @@ let bind devices new_driver =
 	Mutex.execute bind_lock (fun () ->
 		List.iter
 			(fun device ->
-				let devstr = to_string device in
+				let devstr = Xenops_interface.Pci.string_of_address device in
 				let old_driver = get_driver devstr in
 				match old_driver, new_driver with
 				| None, Nvidia ->
@@ -1169,7 +1165,7 @@ let enumerate_devs ~xs (x: device) =
 	do
 		try
 			let devstr = xs.Xs.read (backend_path ^ "/dev-" ^ (string_of_int i)) in
-			let dev = of_string devstr in
+			let dev = Xenops_interface.Pci.address_of_string devstr in
 			devs.(i) <- Some dev
 		with _ ->
 			()
@@ -1180,8 +1176,8 @@ let enumerate_devs ~xs (x: device) =
 		| Some dev -> dev :: acc
 	) [] (Array.to_list devs))
 
-let reset ~xs (x: dev) =
-	let devstr = to_string x in
+let reset ~xs address =
+	let devstr = Xenops_interface.Pci.string_of_address address in
 	debug "Device.Pci.reset %s" devstr;
 	do_flr devstr
 
@@ -1249,7 +1245,12 @@ let read_pcidir ~xc ~xs domid =
   let device_number_of_string x =
     (* remove the silly prefix *)
     int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  let pairs = List.map (fun x -> device_number_of_string x, of_string (xs.Xs.read (path ^ "/" ^ x))) all in
+  let pairs = List.map
+    (fun x ->
+      device_number_of_string x,
+      Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x)))
+    all
+  in
   (* Sort into the order the devices were plugged *)
   List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
@@ -1280,12 +1281,12 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		end
 	)
 
-let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
+let plug (task: Xenops_task.t) ~xc ~xs address domid = 
 	try
 		let current = read_pcidir ~xc ~xs domid in
 		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 
-		let pci = to_string (domain, bus, dev, func) in
+		let pci = Xenops_interface.Pci.string_of_address address in
 		signal_device_model ~xc ~xs domid "pci-ins" pci;
 
 		let () = match wait_device_model task ~xc ~xs domid with
@@ -1298,17 +1299,18 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 				failwith
 					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" (Opt.default "None" x)) in
 		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
-		Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
+		Xenctrl.domain_assign_device xc domid
+			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
 	with e ->
 		error "Device.Pci.plug: %s" (Printexc.to_string e);
 		raise e
 
-let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
+let unplug (task: Xenops_task.t) ~xc ~xs address domid =
 	try
 		let current = read_pcidir ~xc ~xs domid in
 
-		let pci = to_string (domain, bus, dev, func) in
-		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
+		let pci = Xenops_interface.Pci.string_of_address address in
+		let idx = fst (List.find (fun x -> snd x = address) current) in
 		signal_device_model ~xc ~xs domid "pci-rem" pci;
 
 		begin match wait_device_model task ~xc ~xs domid with
@@ -1325,7 +1327,8 @@ let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 		(* CA-62028: tell the device to stop whatever it's doing *)
 		do_flr pci;
 		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
-		Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
+		Xenctrl.domain_deassign_device xc domid
+			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
 	with e ->
 		error "Device.Pci.unplug: %s" (Printexc.to_string e);
 		raise e
