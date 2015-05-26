@@ -544,10 +544,7 @@ module MD = struct
 			(fun (idx, (domain, bus, dev, fn)) -> {
 				id = (vm.API.vM_uuid, Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn);
 				position = idx;
-				domain = domain;
-				bus = bus;
-				dev = dev;
-				fn = fn;
+				address = {domain; bus; dev; fn};
 				msitranslate = None;
 				power_mgmt = None;
 			})
