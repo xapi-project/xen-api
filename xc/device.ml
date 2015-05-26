@@ -1675,16 +1675,14 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-let vgpu_args_of_info info domid =
-	match info.vgpu with
-		| Some vgpu ->
-			[
-				"--domain=" ^ (string_of_int domid);
-				"--vcpus=" ^ (string_of_int info.vcpus);
-				"--gpu=" ^ vgpu.pci_id;
-				"--config=" ^ vgpu.config;
-			]
-		| None -> []
+let vgpu_args_of_nvidia domid vcpus vgpu =
+	let open Xenops_interface.Vgpu in
+	[
+		"--domain=" ^ (string_of_int domid);
+		"--vcpus=" ^ (string_of_int vcpus);
+		"--gpu=" ^ (Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
+		"--config=" ^ vgpu.config_file;
+	]
 
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: "--syslog" :: args
@@ -1732,19 +1730,25 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
 	(* start vgpu emulation if appropriate *)
-	let _ = match info.vgpu with
-		| Some vgpu ->
-			(* The below line does nothing if the device is already bound to the
-			 * nvidia driver. We rely on xapi to refrain from attempting to run
-			 * a vGPU on a device which is passed through to a guest. *)
-			PCI.bind [PCI.of_string vgpu.pci_id] PCI.Nvidia;
-			let args = vgpu_args_of_info info domid in
-			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
-			let cancel = Cancel_utils.Vgpu domid in
-			let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
-				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
-			Forkhelpers.dontwaitpid vgpu_pid
-		| None -> () in
+	let open Xenops_interface.Vgpu in
+	let () = match info.disp with
+	| VNC (Vgpu [{implementation = Nvidia vgpu}], _, _, _, _)
+	| SDL (Vgpu [{implementation = Nvidia vgpu}], _) -> begin
+		(* The below line does nothing if the device is already bound to the
+		 * nvidia driver. We rely on xapi to refrain from attempting to run
+		 * a vGPU on a device which is passed through to a guest. *)
+		PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
+		let args = vgpu_args_of_nvidia domid info.vcpus vgpu in
+		let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
+		let cancel = Cancel_utils.Vgpu domid in
+		let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
+			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
+		Forkhelpers.dontwaitpid vgpu_pid
+	end
+	| VNC (Vgpu _, _, _, _, _)
+	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
+	| _ -> ()
+	in
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 	let args = (prepend_wrapper_args domid l) in
