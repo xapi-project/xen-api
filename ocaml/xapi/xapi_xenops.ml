@@ -296,7 +296,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 			~key:Platform.igd_passthru_key
 			~platformdata:vm.API.vM_platform
 			~default:false)
-		then IGD_passthrough
+		then (IGD_passthrough GVT_d)
 		else
 			match string vm.API.vM_platform "cirrus" Platform.vga with
 			| "std" -> Standard_VGA
