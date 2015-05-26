@@ -935,34 +935,6 @@ let _proc_pci_num_resources = 7
 (* same as libxl_internal: PCI_BAR_IO *)
 let _pci_bar_io = 0x01L
 
-let query_pci_device domain bus slot func =
-	let map_resource file =
-		let resources = Array.create _proc_pci_num_resources (0L, 0L, 0L) in
-		let i = ref 0 in
-		Unixext.readfile_line (fun line ->
-			if !i < Array.length resources then (
-				Scanf.sscanf line "0x%Lx 0x%Lx 0x%Lx" (fun s e f ->
-					resources.(!i) <- (s, e, f));
-				incr i
-			)
-		) file;
-		List.filter (fun (s, _, _) -> s <> 0L) (Array.to_list resources);
-		in
-	let map_irq file =
-		let irq = ref (-1) in
-		try Unixext.readfile_line (fun line -> irq := int_of_string line) file; !irq
-		with _ -> -1
-		in
-		
-	let name = to_string (domain, bus, slot, func) in
-	let dir = "/sys/bus/pci/devices/" ^ name in
-	let resources = map_resource (dir ^ "/resource") in
-	let irq = map_irq (dir ^ "/irq") in
-	let driver =
-		try Filename.basename (Unix.readlink (dir ^ "/driver"))
-		with _ -> "" in
-	irq, resources, driver
-
 (* comment out while we sort out libxenlight
 let pci_info_of ~msitranslate ~pci_power_mgmt = function
     | domain, bus, dev, func ->
