@@ -905,38 +905,18 @@ module VM = struct
 			VmExtra.qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null") 
-					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
+					?(nics=[]) ?(disks=[]) ?(vgpus=[])
+					?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
-				let video, vgpu = match video with
-					| Cirrus -> Device.Dm.Cirrus, None
-					| Standard_VGA -> Device.Dm.Std_vga, None
-					| IGD_passthrough -> Device.Dm.IGD_passthrough, None
-					| Vgpu ->
-						let vgpu =
-							try
-								let open Xenops_interface in
-								let vgpu_pci = List.assoc vgpu_pci_key vm.Vm.platformdata
-								and vgpu_config =
-									let config_file =
-										List.assoc vgpu_config_key vm.Vm.platformdata in
-									if List.mem_assoc vgpu_extra_args_key vm.Vm.platformdata
-									then
-										Printf.sprintf "%s,%s" config_file
-											(List.assoc vgpu_extra_args_key vm.Vm.platformdata)
-									else config_file
-								in
-								debug "VGPU config: %s -> %s; %s -> %s"
-									vgpu_pci_key vgpu_pci
-									vgpu_config_key vgpu_config;
-								Some {
-									Device.Dm.pci_id = vgpu_pci;
-									config = vgpu_config;
-								}
-							with Not_found -> failwith "Missing vGPU config in platform data" in
-						Device.Dm.Vgpu, vgpu
+				let video = match video, vgpus with
+					| Cirrus, [] -> Device.Dm.Cirrus
+					| Standard_VGA, [] -> Device.Dm.Std_vga
+					| IGD_passthrough GVT_d, [] -> Device.Dm.GVT_d
+					| Vgpu, [] -> raise (Internal_error "Vgpu mode specified but no vGPUs")
+					| Vgpu, vgpus -> Device.Dm.Vgpu vgpus
+					| _ -> raise (Internal_error "Invalid graphics mode")
 				in
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
@@ -952,7 +932,6 @@ module VM = struct
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
-					vgpu = vgpu;
 					xenclient_enabled=false;
 					hvm=hvm;
 					sound=None;
@@ -1013,7 +992,7 @@ module VM = struct
 						?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
-						~boot_order:hvm_info.boot_order ~nics ~disks ())
+						~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ())
 
         let clean_memory_reservation task domid =
                 try

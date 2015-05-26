@@ -1476,8 +1476,8 @@ type usb_opt =
 type disp_intf_opt =
     | Std_vga
     | Cirrus
-    | Vgpu
-    | IGD_passthrough
+    | Vgpu of Xenops_interface.Vgpu.t list
+    | GVT_d
 
 (* Display output / keyboard input *)
 type disp_opt =
@@ -1487,11 +1487,6 @@ type disp_opt =
 
 type media = Disk | Cdrom
 let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
-
-type vgpu_t = {
-	pci_id: string;
-	config: string;
-}
 
 type info = {
 	memory: int64;
@@ -1507,7 +1502,6 @@ type info = {
 	disp: disp_opt;
 	pci_emulations: string list;
 	pci_passthrough: bool;
-	vgpu: vgpu_t option;
 
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
@@ -1593,12 +1587,14 @@ let get_state ~xs ~qemu_domid domid =
 	with _ -> None
 
 let cmdline_of_disp info =
-	let vga_type_opts x = 
-	  match x with
-	    | Vgpu -> ["-vgpu"]
-	    | Std_vga -> ["-std-vga"]
-	    | Cirrus -> []
-	    | IGD_passthrough -> ["-std-vga"; "-gfx_passthru"]
+	let vga_type_opts x =
+		let open Xenops_interface.Vgpu in
+		match x with
+		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
+		| Vgpu _ -> failwith "Unsupported vGPU configuration"
+		| Std_vga -> ["-std-vga"]
+		| Cirrus -> []
+		| GVT_d -> ["-std-vga"; "-gfx_passthru"]
 	in
 	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
 	let disp_options, wait_for_port =

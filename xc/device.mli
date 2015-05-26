@@ -167,10 +167,10 @@ sig
 		| Enabled of string list
 		| Disabled
 	type disp_intf_opt =
-	    | Std_vga
-	    | Cirrus
-	    | Vgpu
-	    | IGD_passthrough
+		| Std_vga
+		| Cirrus
+		| Vgpu of Xenops_interface.Vgpu.t list
+		| GVT_d
 
 	type disp_opt =
 		| NONE
@@ -178,14 +178,6 @@ sig
 		| SDL of disp_intf_opt * string (* X11 display *)
 
 	type media = Disk | Cdrom
-
-	type vgpu_t = {
-		(* The PCI device on which the vGPU will run. *)
-		pci_id: string;
-		(* Path to the vGPU config file, plus comma-separated extra arguments. *)
-		config: string;
-	}
-
 
 	type info = {
 		memory: int64;
@@ -201,7 +193,6 @@ sig
 		disp: disp_opt;
 		pci_emulations: string list;
 		pci_passthrough: bool;
-		vgpu: vgpu_t option;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;
