@@ -117,6 +117,10 @@ install:
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	$(IDATA) license-check $(DESTDIR)/etc/cron.daily/
+	mkdir -p $(DESTDIR)/opt/xensource/gpg
+	$(IDATA) gpg/secring.gpg $(DESTDIR)/opt/xensource/gpg/
+	$(IDATA) gpg/pubring.gpg $(DESTDIR)/opt/xensource/gpg/
+	$(IDATA) gpg/trustdb.gpg $(DESTDIR)/opt/xensource/gpg/
 
 sdk-install: install
 	mkdir -p $(SDK)
