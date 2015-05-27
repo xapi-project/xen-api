@@ -115,7 +115,8 @@ install:
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
-
+	mkdir -p $(DESTDIR)/etc/cron.daily
+	$(IDATA) license-check $(DESTDIR)/etc/cron.daily/
 
 sdk-install: install
 	mkdir -p $(SDK)
