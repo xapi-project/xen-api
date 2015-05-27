@@ -122,7 +122,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		?(ha_enabled=false) ?(ha_configuration=[]) ?(ha_statefiles=[])
 		?(ha_host_failures_to_tolerate=0L) ?(ha_plan_exists_for=0L)
 		?(ha_allow_overcommit=false) ?(ha_overcommitted=false) ?(blobs=[]) ?(tags=[])
-		?(gui_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
+		?(gui_config=[]) ?(health_check_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
 		?(wlb_enabled=false) ?(wlb_verify_cert=false) ?(redo_log_enabled=false)
 		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
 		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]) () =
@@ -132,7 +132,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~master ~default_SR ~suspend_image_SR ~crash_dump_SR ~ha_enabled
 		~ha_configuration ~ha_statefiles ~ha_host_failures_to_tolerate
 		~ha_plan_exists_for ~ha_allow_overcommit ~ha_overcommitted ~blobs ~tags
-		~gui_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
+		~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
 		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
 		~restrictions ~other_config;
 	pool_ref
