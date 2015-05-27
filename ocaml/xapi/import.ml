@@ -1431,7 +1431,8 @@ let stream_import __context rpc session_id s content_length refresh_session conf
 				end
 			in
 			complete_import ~__context vmrefs;
-			debug "import successful"
+			debug "import successful";
+			vmrefs
 		)
 
 
@@ -1527,7 +1528,7 @@ let handler (req: Request.t) s _ =
 										content_type ] in
 									Http_svr.headers s headers;
 									debug "Reading XML";
-								stream_import __context rpc session_id s content_length refresh_session config;
+								ignore(stream_import __context rpc session_id s content_length refresh_session config);
 							with
 							| IFailure failure ->
 								begin
