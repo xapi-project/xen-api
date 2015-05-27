@@ -1,0 +1,56 @@
+#!/bin/bash
+#########################################################################
+# Script to switch IPv6 on or off on a host
+#
+# Usage:
+#   xe-enable-ipv6  <option>
+#
+# where <option> is either:
+#   enabled      - Interfaces can acquire IPv6 addresses
+#   disabled     - Interfaces cannot acquire IPv6 addresses
+#
+#########################################################################
+
+function syntax {
+	echo "Syntax: $0 [enable|disable]"
+	exit 1
+}
+
+if [ $# != 1 ]; then
+	syntax
+fi
+
+. /etc/xensource-inventory
+
+if [ $1 = "enable" ]; then
+	rm /etc/modprobe.d/disable-ipv6 
+	
+	# Enable IPv6 networking
+	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
+	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
+	echo "NETWORKING_IPV6=YES" >> /etc/sysconfig/network
+	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
+	chkconfig ip6tables on
+	
+	echo "IPv6 enabled.  You may now need to reboot the host"
+elif [ $1 = "disable" ]; then
+	all_ifaces=`xe pif-list minimal=true`
+	no_ipv6_ifaces=`xe pif-list IPv6-configuration-mode=None minimal=true`
+	
+	if [ ${#all_ifaces} -ne ${#no_ipv6_ifaces} ]; then
+		echo "Please re-configure all pool interfaces to disable IPv6 before disabling it on the host."
+		exit 1
+	fi
+
+	chkconfig ip6tables off
+ 	echo "alias ipv6 no" > /etc/modprobe.d/disable-ipv6
+	echo "alias net-pf-10 off" >> /etc/modprobe.d/disable-ipv6
+	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
+	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
+	echo "NETWORKING_IPV6=NO" >> /etc/sysconfig/network
+	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
+		
+	echo "IPv6 disabled.  You may now need to reboot the host"
+else
+	syntax
+fi
