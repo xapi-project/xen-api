@@ -1358,6 +1358,83 @@ let metadata_handler (req: Request.t) s _ =
 						raise e
 				)))
 
+let stream_import __context rpc session_id s content_length refresh_session config =
+	let sr = match config.import_type with
+	| Full_import sr -> sr 
+	| _ -> failwith "Internal error: stream_import called without correct import_type"
+	in
+	with_open_archive s ?length:content_length
+		(fun metadata s ->
+			debug "Got XML";
+			let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in
+			let vmrefs =
+				if old_zurich_or_geneva
+				then Import_xva.from_xml refresh_session s __context rpc session_id sr metadata
+				else begin
+					debug "importing new style VM";
+					let header = header_of_xmlrpc metadata in
+					assert_compatable ~__context header.version;
+					if config.full_restore then assert_can_restore_backup ~__context rpc session_id header;
+
+					(* objects created here: *)
+					let state = handle_all __context config rpc session_id header.objects in
+					let table, on_cleanup_stack = state.table, state.cleanup in
+
+					(* signal to GUI that object have been created and they can now go off and remapp networks *)
+					TaskHelper.add_to_other_config ~__context "object_creation" "complete";
+
+					try
+						List.iter (fun (cls, id, r) ->
+							debug "Imported object type %s: external ref: %s internal ref: %s" cls id r)
+						table;
+
+						(* now stream the disks. We expect not to stream CDROMs *)
+						let all_vdis = non_cdrom_vdis header in
+						(* some CDROMs might be in as disks, don't stream them either *)
+						let all_vdis = List.filter (fun x -> exists (Ref.of_string x.id) table) all_vdis in
+						let vdis = List.map (fun x ->
+							let vdir = API.Legacy.From.vDI_t "" (find_in_export x.id state.export) in
+							x.id, lookup (Ref.of_string x.id) table, vdir.API.vDI_virtual_size) all_vdis in
+						List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
+						let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version config.force vdis in
+
+						(* CA-48768: Stream_vdi.recv_all only checks for task cancellation
+						   every ten seconds, so we need to check again now. After this
+						   point, we disable cancellation for this task. *)
+						TaskHelper.exn_if_cancelling ~__context;
+						TaskHelper.set_not_cancellable ~__context;
+
+						(* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
+						(* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
+						if header.version.export_vsn < 2 then begin
+							let xml = Tar_unix.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
+							let expected_checksums = checksum_table_of_xmlrpc xml in
+							if not(compare_checksums checksum_table expected_checksums) then begin
+								error "Some data checksums were incorrect: VM may be corrupt";
+								if not(config.force)
+								then raise (IFailure Some_checksums_failed)
+								else error "Ignoring incorrect checksums since 'force' flag was supplied"
+							end;
+						end;
+						(* return vmrefs *)
+						Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
+
+					with e ->
+						error "Caught exception during import: %s" (ExnHelper.string_of_exn e);
+						if config.force
+						then warn "Not cleaning up after import failure since --force provided: %s" (ExnHelper.string_of_exn e)
+						else begin
+							debug "Cleaning up after import failure: %s" (ExnHelper.string_of_exn e);
+							cleanup on_cleanup_stack;
+						end;
+						raise e
+				end
+			in
+			complete_import ~__context vmrefs;
+			debug "import successful"
+		)
+
+
 let handler (req: Request.t) s _ =
 	req.Request.close <- true;
 
@@ -1450,78 +1527,7 @@ let handler (req: Request.t) s _ =
 										content_type ] in
 									Http_svr.headers s headers;
 									debug "Reading XML";
-									with_open_archive s ?length:content_length
-										(fun metadata s ->
-											debug "Got XML";
-											let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in
-											let vmrefs =
-												if old_zurich_or_geneva
-												then Import_xva.from_xml refresh_session s __context rpc session_id sr metadata
-												else begin
-													debug "importing new style VM";
-													let header = header_of_xmlrpc metadata in
-													assert_compatable ~__context header.version;
-													if full_restore then assert_can_restore_backup ~__context rpc session_id header;
-
-													(* objects created here: *)
-													let state = handle_all __context config rpc session_id header.objects in
-													let table, on_cleanup_stack = state.table, state.cleanup in
-
-													(* signal to GUI that object have been created and they can now go off and remapp networks *)
-													TaskHelper.add_to_other_config ~__context "object_creation" "complete";
-
-													try
-														List.iter (fun (cls, id, r) ->
-															debug "Imported object type %s: external ref: %s internal ref: %s" cls id r)
-															table;
-
-															(* now stream the disks. We expect not to stream CDROMs *)
-															let all_vdis = non_cdrom_vdis header in
-															(* some CDROMs might be in as disks, don't stream them either *)
-															let all_vdis = List.filter (fun x -> exists (Ref.of_string x.id) table) all_vdis in
-															let vdis = List.map
-																(fun x ->
-																	let vdir = API.Legacy.From.vDI_t "" (find_in_export x.id state.export) in
-																	x.id, lookup (Ref.of_string x.id) table, vdir.API.vDI_virtual_size) all_vdis in
-															List.iter (fun (extid, intid, size) -> debug "Expecting to import VDI %s into %s (size=%Ld)" extid (Ref.string_of intid) size) vdis;
-															let checksum_table = Stream_vdi.recv_all refresh_session s __context rpc session_id header.version force vdis in
-
-															(* CA-48768: Stream_vdi.recv_all only checks for task cancellation
-															   every ten seconds, so we need to check again now. After this
-															   point, we disable cancellation for this task. *)
-															TaskHelper.exn_if_cancelling ~__context;
-															TaskHelper.set_not_cancellable ~__context;
-
-															(* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
-															(* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
-															if header.version.export_vsn < 2 then
-																begin
-																	let xml = Tar_unix.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
-																	let expected_checksums = checksum_table_of_xmlrpc xml in
-																	if not(compare_checksums checksum_table expected_checksums) then begin
-																		error "Some data checksums were incorrect: VM may be corrupt";
-																		if not(force)
-																		then raise (IFailure Some_checksums_failed)
-																		else error "Ignoring incorrect checksums since 'force' flag was supplied"
-																	end;
-																end;
-																(* return vmrefs *)
-																Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
-
-													with e ->
-														error "Caught exception during import: %s" (ExnHelper.string_of_exn e);
-														if force
-														then warn "Not cleaning up after import failure since --force provided: %s" (ExnHelper.string_of_exn e)
-														else begin
-															debug "Cleaning up after import failure: %s" (ExnHelper.string_of_exn e);
-															cleanup on_cleanup_stack;
-														end;
-														raise e
-												end
-											in
-											complete_import ~__context vmrefs;
-											debug "import successful"
-										)
+								stream_import __context rpc session_id s content_length refresh_session config;
 							with
 							| IFailure failure ->
 								begin
