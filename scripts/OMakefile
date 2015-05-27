@@ -108,6 +108,7 @@ install:
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/iovirt $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
@@ -115,6 +116,9 @@ install:
 	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(BINDIR)
+	$(IPROG) hfx_filename $(DESTDIR)$(BINDIR)
+	$(IPROG) pv2hvm $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	$(IDATA) license-check $(DESTDIR)/etc/cron.daily/
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
