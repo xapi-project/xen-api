@@ -1,0 +1,35 @@
+From a9b490309edf1bc7c86daf1a307c610f9bcb8aef Mon Sep 17 00:00:00 2001
+From: Si Beaumont <simon.beaumont@citrix.com>
+Date: Wed, 27 May 2015 17:05:31 +0100
+Subject: [PATCH] Workaround for NVIDIA-130
+
+Signed-off-by: Si Beaumont <simon.beaumont@citrix.com>
+---
+ ocaml/xapi/xapi.ml | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/ocaml/xapi/xapi.ml b/ocaml/xapi/xapi.ml
+index c9919df..98eaf6d 100644
+--- a/ocaml/xapi/xapi.ml
++++ b/ocaml/xapi/xapi.ml
+@@ -787,8 +787,17 @@ let server_init() =
+ 
+   try
+     Server_helpers.exec_with_new_task "server_init" (fun __context ->
++    let nvidia_130_workaround () =
++      let source = "/usr/share/nvidia/pci.ids" in
++      let dest = "/usr/share/hwdata/pci.ids.d/nvidia.ids" in
++      debug "Creating symlink: %s -> %s" dest source;
++      let ignore_exists f = try f () with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
++      ignore_exists (fun () -> Unix.mkdir (Filename.dirname dest) 0o700);
++      ignore_exists (fun () -> Unix.symlink source dest)
++    in
+     Startup.run ~__context [
+     "XAPI SERVER STARTING", [], print_server_starting_message;
++    "NVIDIA-130 workaround", [], nvidia_130_workaround;
+     "Parsing inventory file", [], Xapi_inventory.read_inventory;
+     "Setting stunnel timeout", [], set_stunnel_timeout;
+     "Initialising local database", [], init_local_database;
+-- 
+1.9.1
+

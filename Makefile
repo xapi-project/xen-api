@@ -137,6 +137,8 @@ srpm: xapi.spec
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
+	rm -f $(RPM_SOURCESDIR)/0001-Workaround-for-NVIDIA-330.patch
+	cp scripts/0001-Workaround-for-NVIDIA-330.patch $(RPM_SOURCESDIR)/0001-Workaround-for-NVIDIA-330.patch
 	cp -f xapi.spec $(RPM_SPECSDIR)/
 	chown root.root $(RPM_SPECSDIR)/xapi.spec || true
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
