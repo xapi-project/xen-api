@@ -182,6 +182,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/logrotate.d/v6d
 /etc/logrotate.d/xapi
 /etc/pam.d/xapi
+/etc/cron.daily/license-check
 /etc/rc.d/init.d/management-interface
 /etc/rc.d/init.d/perfmon
 /etc/rc.d/init.d/xapi
@@ -213,6 +214,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/wlan.pyc
 /etc/xapi.d/plugins/iovirt
 /etc/xapi.d/plugins/install-supp-pack
+/etc/xapi.d/plugins/disk-space
 %config(noreplace) /etc/xensource/db.conf
 %config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
@@ -238,8 +240,14 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-switch-network-backend
 @OPTDIR@/bin/xe-enable-all-plugin-metrics
 @OPTDIR@/bin/xe-install-supplemental-pack
+@OPTDIR@/bin/hfx_filename
+@OPTDIR@/bin/pv2hvm
+@OPTDIR@/bin/xe-enable-ipv6
 /etc/bash_completion.d/xe-switch-network-backend
 @OPTDIR@/bin/xsh
+@OPTDIR@/gpg/pubring.gpg
+@OPTDIR@/gpg/secring.gpg
+@OPTDIR@/gpg/trustdb.gpg
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
 /etc/xensource/bugtool/xenopsd.xml
