@@ -550,6 +550,25 @@ module MD = struct
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
 
+	let vgpus_of_vm ~__context (vmref, vm) =
+		let open Vgpu in
+		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
+		then begin
+			let implementation =
+				Nvidia {
+					physical_pci_address =
+						Xenops_interface.Pci.address_of_string
+							(List.assoc Platform.vgpu_pci_id vm.API.vM_platform);
+					config_file = List.assoc Platform.vgpu_config vm.API.vM_platform;
+				}
+			in [{
+				id = (vm.API.vM_uuid, "0");
+				position = 0;
+				implementation;
+			}]
+		end else []
+
 	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
 			| `preserve -> [ Vm.Pause ]
@@ -694,6 +713,7 @@ let create_metadata ~__context ~upgrade ~self =
 		(List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
 	let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
+	let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
 		if vm.API.vM_power_state = `Suspended || upgrade then begin
@@ -705,6 +725,7 @@ let create_metadata ~__context ~upgrade ~self =
 		vbds = vbds';
 		vifs = vifs';
 		pcis = pcis;
+		vgpus = vgpus;
 		domains = domains
 	}
 
