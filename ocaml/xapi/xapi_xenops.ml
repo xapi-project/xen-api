@@ -783,12 +783,14 @@ module Xenops_cache = struct
 		vbds: (Vbd.id * Vbd.state) list;
 		vifs: (Vif.id * Vif.state) list;
 		pcis: (Pci.id * Pci.state) list;
+		vgpus: (Vgpu.id * Vgpu.state) list;
 	}
 	let empty = {
 		vm = None;
 		vbds = [];
 		vifs = [];
 		pcis = [];
+		vgpus = [];
 	}
 			
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
@@ -838,6 +840,14 @@ module Xenops_cache = struct
 				else None
 			| _ -> None
 
+	let find_vgpu id : Vgpu.state option =
+		match find (fst id) with
+			| Some { vgpus = vgpus } ->
+				if List.mem_assoc id vgpus
+				then Some (List.assoc id vgpus)
+				else None
+			| _ -> None
+
 	let update id t =
 		Mutex.execute metadata_m
 			(fun () ->
@@ -860,6 +870,11 @@ module Xenops_cache = struct
 		let existing = Opt.default empty (find (fst id)) in
 		let pcis' = List.filter (fun (pci_id, _) -> pci_id <> id) existing.pcis in
 		update (fst id) { existing with pcis = Opt.default pcis' (Opt.map (fun info -> (id, info) :: pcis') info) }
+
+	let update_vgpu id info =
+		let existing = Opt.default empty (find (fst id)) in
+		let vgpus' = List.filter (fun (vgpu_id, _) -> vgpu_id <> id) existing.vgpus in
+		update (fst id) { existing with vgpus = Opt.default vgpus' (Opt.map (fun info -> (id, info) :: vgpus') info) }
 
 	let update_vm id info =
 		let existing = Opt.default empty (find id) in
