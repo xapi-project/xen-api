@@ -324,7 +324,11 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
   end
-  else if (data_updated && other_cached <> other) then (
+  else if (data_updated && 
+           (other_cached <> other || 
+            network_paths_optimized_cached <> network_paths_optimized ||
+            storage_paths_optimized_cached <> storage_paths_optimized ||
+            networks_cached <> networks)) then (
 	  (* For HVM Linux without guest agent we need to update "other" even if nothing else has changed. *)
 	  (* The code to below is based on a copy of the block above, but updates only
 	   * the "other" map. TODO consider refactoring rather than have this block similar to the one above. *)
@@ -333,12 +337,12 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (
 		  pv_drivers_version_cached,
 		  os_version_cached,
-		  networks_cached,
+		  networks,
 		  other, (* not the cached version *)
 		  memory_cached,
 		  device_id_cached,
-		  network_paths_optimized_cached,
-		  storage_paths_optimized_cached,
+		  network_paths_optimized,
+		  storage_paths_optimized,
 		  pv_drivers_up_to_date_cached,
 		  last_updated)); (* not a cached version *)
 
@@ -355,10 +359,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 				  ~pV_drivers_up_to_date:false
 				  ~memory:[]
 				  ~disks:[]
-				  ~networks:networks_cached
+				  ~networks:networks
 				  ~other:other
-				  ~storage_paths_optimized:false
-				  ~network_paths_optimized:false
+				  ~storage_paths_optimized:storage_paths_optimized
+				  ~network_paths_optimized:network_paths_optimized
 				  ~last_updated:(Date.of_float last_updated)
 				  ~other_config:[]
 				  ~live:false;
@@ -371,20 +375,29 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 			  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (
 				  pv_drivers_version_cached,
 				  os_version_cached,
-				  networks_cached,
+				  networks,
 				  other, (* current version *)
 				  [], (* memory *)
 				  device_id_cached,
-				  network_paths_optimized_cached,
-				  storage_paths_optimized_cached,
+				  network_paths_optimized,
+				  storage_paths_optimized,
 				  pv_drivers_up_to_date_cached,
 				  last_updated)); (* not a cached version *)
 			  new_ref
 	  in
 
-	  Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
-	  (* We base some of our allowed-operations decisions on the feature-flags in the "other" map *)
-	  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+	  if(networks_cached <> networks) then
+	    Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks;
+	  if(other_cached <> other) then begin
+	    Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
+	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+	  end;
+	  if(network_paths_optimized_cached <> network_paths_optimized) then begin
+	  	Db.VM_guest_metrics.set_network_paths_optimized ~__context ~self:gm ~value:network_paths_optimized;
+	  end;
+	  if(storage_paths_optimized_cached <> storage_paths_optimized) then begin
+	  	Db.VM_guest_metrics.set_storage_paths_optimized ~__context ~self:gm ~value:storage_paths_optimized;
+	  end;
 
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
 	  ()
