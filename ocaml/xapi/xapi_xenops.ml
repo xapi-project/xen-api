@@ -1512,6 +1512,55 @@ let update_pci ~__context id =
 	with e ->
 		error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
+let update_vgpu ~__context id =
+	try
+		if events_suppressed (fst id)
+		then debug "xenopsd event: ignoring event for VGPU (VM %s migrating away)" (fst id)
+		else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+			then debug "xenopsd event: ignoring event for VGPU (VM %s not resident)" (fst id)
+			else
+				let open Vgpu in
+				let previous = Xenops_cache.find_vgpu id in
+				let dbg = Context.string_of_task __context in
+				let module Client =
+					(val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
+				in
+				let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
+				if Opt.map snd info = previous
+				then debug "xenopsd event: ignoring event for VGPU %s.%s: metadata has not changed" (fst id) (snd id)
+				else begin
+					let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+					let vgpu_records =
+						List.map
+							(fun self -> self, Db.VGPU.get_record ~__context ~self)
+							vgpus
+					in
+					let vgpu, vgpu_record =
+						List.find
+							(fun (_, vgpu_record) -> vgpu_record.API.vGPU_device = (snd id))
+							vgpu_records
+					in
+					Opt.iter
+						(fun (xenopsd_vgpu, state) ->
+							if state.plugged then begin
+								if not vgpu_record.API.vGPU_currently_attached
+								then Db.VGPU.set_currently_attached ~__context
+									~self:vgpu ~value:true
+							end else begin
+								if vgpu_record.API.vGPU_currently_attached
+								then Db.VGPU.set_currently_attached ~__context
+									~self:vgpu ~value:false;
+								try Client.VGPU.remove dbg id
+								with e -> debug "VGPU.remove failed: %s" (Printexc.to_string e)
+							end) info;
+					Xenops_cache.update_vgpu id (Opt.map snd info)
+				end
+	with e ->
+		error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
+
 exception Not_a_xenops_task
 let wrap queue_name id = TaskHelper.Xenops (queue_name, id)
 let unwrap x = match x with | TaskHelper.Xenops (queue_name, id) -> queue_name, id | _ -> raise Not_a_xenops_task
@@ -1580,6 +1629,13 @@ let rec events_watch ~__context queue_name from =
 							else begin
 								debug "xenops event on PCI %s.%s" (fst id) (snd id);
 								update_pci ~__context id
+							end
+						| Vgpu id ->
+							if events_suppressed (fst id)
+							then debug "ignoring xenops event on VGPU %s.%s" (fst id) (snd id)
+							else begin
+								debug "xenops event on VGPU %s.%s" (fst id) (snd id);
+								update_vgpu ~__context id
 							end
 						| Task id ->
 							debug "xenops event on Task %s" id;
