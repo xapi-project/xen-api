@@ -1568,6 +1568,51 @@ module PCI = struct
 				DB.list vm) ()
 end
 
+module VGPU = struct
+	open Vgpu
+	module DB = VGPU_DB
+
+	let string_of_id (a, b) = a ^ "." ^ b
+	let add' x =
+		debug "VGPU.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists vm) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Does_not_exist ("VM", vm));
+		end;
+		DB.write x.id x;
+		x.id
+	let add _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> add' x) ()
+
+	let remove' id =
+		debug "VGPU.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.VGPU.get_state (DB.vm_of id) (VGPU_DB.read_exn id)).Vgpu.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
+	let remove _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> remove' x) ()
+
+	let stat' id =
+		debug "VGPU.stat %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		let vgpu_t = VGPU_DB.read_exn id in
+		let state = B.VGPU.get_state (DB.vm_of id) vgpu_t in
+		vgpu_t, state
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				(stat' id)) ()
+
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VGPU.list %s" vm;
+				DB.list vm) ()
+end
+
 module VBD = struct
 	open Vbd
 	module DB = VBD_DB
