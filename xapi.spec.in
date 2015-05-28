@@ -317,6 +317,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
+/etc/udev/rules.d/58-xapi.rules
 %{_unitdir}/cdrommon@.service
 
 %files xe

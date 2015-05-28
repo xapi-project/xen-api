@@ -1,0 +1,52 @@
+# Quickly skip stuff we don't care about at all:
+
+# Skip block devices - no networks in here
+SUBSYSTEM!="block", GOTO="end_xapi"
+
+# srX are not partitions, go check if it's a cdrom. handle remove specially.
+ACTION=="remove", KERNEL=="sr[0-9]", GOTO="usb_symlink"
+KERNEL=="sr[0-9]", GOTO="maybe_cdrom"
+
+# Skip partitions - whole disks only please
+KERNEL=="*[0-9]", GOTO="end_xapi"
+
+# Split on device type: ##############################################################
+LABEL="maybe_cdrom"
+
+# Is it a CDROM?
+PROGRAM=="/bin/grep '^drive name:.*\W%k\(\W\|$$\)' /proc/sys/dev/cdrom/info", GOTO="usb_cdrom_symlink"
+# Is it USB?
+SUBSYSTEMS=="usb", GOTO="usb_symlink"
+# If neither of those, ignore
+GOTO="end_xapi"
+
+# Handle all CDROM devices here: #####################################################
+LABEL="usb_cdrom_symlink"
+
+# For CDs, create a symlink and start the corresponding cdrommon service
+# This is done on the "change" action as well as "add" because devices that exist from
+# boot are only triggered with the "change" action.
+ACTION=="add|change", SYMLINK+="xapi/cd/%k"
+ACTION=="add|change", TAG+="systemd", ENV{SYSTEMD_WANTS}+="cdrommon@$name.service"
+
+ACTION=="add", RUN+="/bin/sh -c '/opt/xensource/libexec/local-device-change %k 2>&1 >/dev/null&'"
+ACTION=="remove", RUN+="/bin/sh -c '/opt/xensource/libexec/local-device-change %k 2>&1 >/dev/null&'"
+
+GOTO="end_xapi"
+
+# Handle all non-CDROM USB devices here: #############################################
+LABEL="usb_symlink"
+
+# Skip devices which fail the local sharing check (to filter out root/mounted devices)
+ACTION=="add", PROGRAM!="/opt/xensource/libexec/check-device-sharing %k", GOTO="end_xapi"
+
+ACTION=="add", SYMLINK+="xapi/block/%k"
+
+ACTION=="add", RUN+="/bin/sh -c '/opt/xensource/libexec/local-device-change %k 2>&1 >/dev/null&'"
+ACTION=="remove", RUN+="/bin/sh -c '/opt/xensource/libexec/local-device-change %k 2>&1 >/dev/null&'"
+
+GOTO="end_xapi"
+
+######################################################################################
+
+LABEL="end_xapi"
