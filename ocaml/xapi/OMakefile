@@ -2,7 +2,7 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              http-svr xen-utils netdev tapctl rpclib xenstore-compat	\
              uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
-             rrdd-plugin
+             rrdd-plugin pci
 
 OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
@@ -261,7 +261,6 @@ XAPI_MODULES = $(COMMON) \
 	pool_features \
 	../license/license_init \
 	xapi_pci \
-	pci_db \
 	xapi_pci_helpers \
 	xapi_pgpu \
 	xapi_pgpu_helpers \

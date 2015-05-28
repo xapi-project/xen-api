@@ -19,10 +19,10 @@ open Test_vgpu_common
 open Xapi_vgpu_type
 
 let string_of_vgpu_conf conf =
-	Printf.sprintf "%04Lx %s %04Lx %04Lx %Ld"
+	Printf.sprintf "%04x %s %04x %04x %Ld"
 		conf.pdev_id
 		(match conf.psubdev_id with
-			| Some id -> Printf.sprintf "Some %04Lx" id
+			| Some id -> Printf.sprintf "Some %04x" id
 			| None -> "None")
 		conf.vdev_id
 		conf.vsubdev_id
@@ -45,10 +45,10 @@ module OfConfFile = Generic.Make(struct
 	let tests = [
 		"ocaml/test/data/test_vgpu_subdevid.conf",
 		{
-			pdev_id = 0x3333L;
-			psubdev_id = Some 0x4444L;
-			vdev_id = 0x1111L;
-			vsubdev_id = 0x2222L;
+			pdev_id = 0x3333;
+			psubdev_id = Some 0x4444;
+			vdev_id = 0x1111;
+			vsubdev_id = 0x2222;
 			framebufferlength = 0x10000000L;
 			num_heads = 2L;
 			max_instance = 8L;
@@ -58,10 +58,10 @@ module OfConfFile = Generic.Make(struct
 		};
 		"ocaml/test/data/test_vgpu_nosubdevid.conf",
 		{
-			pdev_id = 0x3333L;
+			pdev_id = 0x3333;
 			psubdev_id = None;
-			vdev_id = 0x1111L;
-			vsubdev_id = 0x2222L;
+			vdev_id = 0x1111;
+			vsubdev_id = 0x2222;
 			framebufferlength = 0x10000000L;
 			num_heads = 2L;
 			max_instance = 8L;

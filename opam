@@ -31,6 +31,7 @@ depends: [
   "tar-format"
   "opasswd" {>= "0.9.3"}
   "xapi-rrdd-plugin"
+  "pci" {>= "0.2.0"}
 ]
 depexts: [
   [["centos"] ["pam-devel"]]

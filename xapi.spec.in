@@ -11,6 +11,7 @@ Source0: xapi-%{version}.tar.bz2
 Source1: jquery-1.1.3.1.pack.js
 Source2: jquery.treeview.zip
 Patch0: xapi-version.patch
+Patch1: scripts/0001-Workaround-for-NVIDIA-330.patch
 BuildRequires: ocaml
 BuildRequires: ocaml-camlp4-devel
 BuildRequires: ocaml-findlib
@@ -48,6 +49,7 @@ BuildRequires: ocaml-xcp-rrd-devel
 BuildRequires: ocaml-tar-devel
 BuildRequires: python2-devel
 BuildRequires: ocaml-rrdd-plugin-devel
+BuildRequires: ocaml-pci-devel >= 0.2.0
 Requires: hwdata
 Requires: ocaml-xcp-inventory
 Requires: redhat-lsb-core
@@ -128,6 +130,7 @@ This package contains Xen-API documentation and examples in several programming 
 %prep 
 %setup -q
 %patch0 -p0 -b xapi-version.patch
+%patch1 -p1
 cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-%{version}/ocaml/idl
 
 

@@ -47,7 +47,7 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
 	debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
 	pgpu
 
-let find_or_create_supported_VGPU_types ~__context ~pci_db ~pci
+let find_or_create_supported_VGPU_types ~__context ~pci
 		~is_system_display_device
 		~host_display
 		~igd_is_whitelisted
@@ -66,19 +66,19 @@ let find_or_create_supported_VGPU_types ~__context ~pci_db ~pci
 	 * must be whitelisted for passthrough. *)
 	| true, `disabled, true, true
 	| true, `enable_on_reboot, true, true ->
-		Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci_db pci
+		Xapi_vgpu_type.find_or_create_supported_types ~__context pci
 	(* In any other case, we can't do anything with this GPU. *)
 	| _, _, _, _ -> []
 
 let update_gpus ~__context ~host =
 	let system_display_device = Xapi_pci.get_system_display_device () in
 	let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
-	let class_id = Xapi_pci.lookup_class_id Xapi_pci.Display_controller in
-	let pcis = List.filter (fun self ->
-		Xapi_pci.int_of_id (Db.PCI.get_class_id ~__context ~self) = class_id &&
-		Db.PCI.get_host ~__context ~self = host) (Db.PCI.get_all ~__context)
-	in
-	let pci_db = Pci_db.open_default () in
+	let pcis =
+		List.filter (fun self ->
+			let class_id = Db.PCI.get_class_id ~__context ~self in
+			Db.PCI.get_host ~__context ~self = host
+			&& Xapi_pci.(is_class_of_kind Display_controller (int_of_id class_id))
+		) (Db.PCI.get_all ~__context) in
 	let host_display = Db.Host.get_display ~__context ~self:host in
 	let rec find_or_create cur = function
 		| [] -> cur
@@ -117,7 +117,7 @@ let update_gpus ~__context ~host =
 					(* Now we've determined whether the PCI is hidden, we can work out the
 					 * list of supported VGPU types. *)
 					let supported_VGPU_types =
-						find_or_create_supported_VGPU_types ~__context ~pci_db ~pci
+						find_or_create_supported_VGPU_types ~__context ~pci
 							~is_system_display_device
 							~host_display
 							~igd_is_whitelisted
@@ -164,7 +164,7 @@ let update_gpus ~__context ~host =
 					 * boot config. *)
 					let is_pci_hidden = Pciops.is_pci_hidden ~__context pci in
 					let supported_VGPU_types =
-						find_or_create_supported_VGPU_types ~__context ~pci_db ~pci
+						find_or_create_supported_VGPU_types ~__context ~pci
 							~is_system_display_device
 							~host_display
 							~igd_is_whitelisted

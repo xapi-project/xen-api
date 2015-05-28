@@ -17,17 +17,16 @@ open D
 open Listext
 open Xstringext
 
-type managed_class = Display_controller | Network_controller
+type base_class = Display_controller | Network_controller
 
-let lookup_class_id = function
-	| Display_controller -> 03L
-	| Network_controller -> 02L
+let is_class_of_kind kind id =
+	let base_class_id_of_kind = function
+	| Display_controller -> 0x0300
+	| Network_controller -> 0x0200 in
+	(* The base_class is the most-significant byte of the class ID *)
+	id land 0xff00 = base_class_id_of_kind kind
 
 let managed_classes = [Display_controller]
-
-let get_pcis_by_class pcis cls =
-	let open Xapi_pci_helpers in
-	List.filter (fun pci -> pci.pci_class.id = lookup_class_id cls) pcis
 
 let string_of_pci ~__context ~self =
 	let pci = Db.PCI.get_record_internal ~__context ~self in
@@ -35,10 +34,10 @@ let string_of_pci ~__context ~self =
 
 (* We use ints within code but schema uses hex strings _without_ leading '0x' *)
 let int_of_id string_id =
-	let int_of_hex_str = fun s -> Scanf.sscanf s "%Lx" (fun x -> x) in
+	let int_of_hex_str = fun s -> Scanf.sscanf s "%x" (fun x -> x) in
 	int_of_hex_str string_id
 let id_of_int hex_id =
-	Printf.sprintf "%04Lx" hex_id
+	Printf.sprintf "%04x" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 		~device_name ~host ~pci_id ~functions ~dependencies ~other_config
@@ -65,7 +64,6 @@ let update_pcis ~__context ~host =
 	in
 
 	let open Xapi_pci_helpers in
-	let pci_db = Pci_db.open_default () in
 	let strings_of_pci_property = function
 		| None -> "", ""
 		| Some property -> id_of_int property.id, property.name
@@ -76,7 +74,7 @@ let update_pcis ~__context ~host =
 			let obj =
 				try
 					let (rf, rc) = List.find (fun (rf, rc) ->
-						rc.Db_actions.pCI_pci_id = pci.pci_id &&
+						rc.Db_actions.pCI_pci_id = pci.address &&
 						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id &&
 						rc.Db_actions.pCI_device_id = id_of_int pci.device.id)
 						existing in
@@ -116,7 +114,7 @@ let update_pcis ~__context ~host =
 						~vendor_id:(id_of_int pci.vendor.id)
 						~vendor_name:pci.vendor.name
 						~device_id:(id_of_int pci.device.id)
-						~device_name:pci.device.name ~host ~pci_id:pci.pci_id
+						~device_name:pci.device.name ~host ~pci_id:pci.address
 						~functions:1L ~dependencies:[] ~other_config:[]
 						~subsystem_vendor_id ~subsystem_vendor_name
 						~subsystem_device_id ~subsystem_device_name in
@@ -124,10 +122,13 @@ let update_pcis ~__context ~host =
 			in
 			update_or_create ((obj, pci) :: cur) remaining_pcis
 	in
-	let host_pcis = Xapi_pci_helpers.get_host_pcis pci_db in
-	let class_pcis = List.flatten (List.map (fun cls -> get_pcis_by_class host_pcis cls) managed_classes) in
+	let host_pcis = Xapi_pci_helpers.get_host_pcis () in
+	let class_pcis =
+		List.filter (fun pci ->
+			List.exists (fun k -> is_class_of_kind k pci.pci_class.id) managed_classes
+		) host_pcis in
 	let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
-	let deps = List.map (fun dep -> List.find (fun pci -> pci.pci_id = dep) host_pcis) deps in
+	let deps = List.map (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis) deps in
 	let managed_pcis = List.setify (class_pcis @ deps) in
 	let current = update_or_create [] managed_pcis in
 
@@ -136,8 +137,8 @@ let update_pcis ~__context ~host =
 		| [] -> ()
 		| ((pref, prec), pci) :: remaining ->
 			let dependencies = List.map
-				(fun pci_id ->
-					let (r, _), _ = List.find (fun ((_, rc), _) -> rc.Db_actions.pCI_pci_id = pci_id) current
+				(fun address ->
+					let (r, _), _ = List.find (fun ((_, rc), _) -> rc.Db_actions.pCI_pci_id = address) current
 					in r)
 				pci.related
 			in

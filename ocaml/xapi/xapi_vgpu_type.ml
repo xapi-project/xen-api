@@ -20,13 +20,13 @@ open Xstringext
 exception Parse_error of exn
 
 let nvidia_conf_dir = "/usr/share/nvidia/vgx"
-let nvidia_vendor_id = 0x10deL
+let nvidia_vendor_id = 0x10de
 
 type vgpu_conf = {
-	pdev_id : int64;
-	psubdev_id : int64 option;
-	vdev_id : int64;
-	vsubdev_id : int64;
+	pdev_id : int;
+	psubdev_id : int option;
+	vdev_id : int;
+	vsubdev_id : int;
 	framebufferlength : int64;
 	num_heads : int64;
 	max_instance : int64;
@@ -135,14 +135,14 @@ let of_conf_file file_path =
 		let pdev_id, psubdev_id =
 			let pdev_id_data = (List.assoc "plugin0.pdev_id" args) in
 			try
-				Scanf.sscanf pdev_id_data "\"0x%Lx:0x%Lx\""
+				Scanf.sscanf pdev_id_data "\"0x%x:0x%x\""
 					(fun pdev_id psubdev_id -> pdev_id, Some psubdev_id)
 			with Scanf.Scan_failure _ ->
-				Scanf.sscanf pdev_id_data "\"0x%Lx\""
+				Scanf.sscanf pdev_id_data "\"0x%x\""
 					(fun pdev_id -> pdev_id, None)
 		in
 		(* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
-		Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%Lx:0x%Lx\"" (fun vdev_id vsubdev_id ->
+		Scanf.sscanf (List.assoc "plugin0.vdev_id" args) "\"0x%x:0x%x\"" (fun vdev_id vsubdev_id ->
 			Scanf.sscanf (List.assoc "plugin0.max_resolution" args) "%Ldx%Ld" (fun max_x max_y ->
 				let framebufferlength = Int64.of_string
 					(List.assoc "plugin0.framebufferlength" args) in
@@ -174,7 +174,7 @@ let read_config_dir conf_dir =
 	read_configs []
 		(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
-let relevant_vgpu_types pci_db pci_dev_id subsystem_device_id =
+let relevant_vgpu_types pci_dev_id subsystem_device_id =
 	let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 	let relevant_vgpu_confs =
 		List.filter
@@ -198,51 +198,47 @@ let relevant_vgpu_types pci_db pci_dev_id subsystem_device_id =
 	debug "Relevant confs = [ %s ]"
 		(String.concat "; " (List.map (fun c ->
 			Printf.sprintf
-				"{pdev_id:%04Lx; psubdev_id:%s; vdev_id:%04Lx; vsubdev_id:%04Lx; framebufferlength:0x%Lx}"
+				"{pdev_id:%04x; psubdev_id:%s; vdev_id:%04x; vsubdev_id:%04x; framebufferlength:0x%Lx}"
 				c.pdev_id
 				(match c.psubdev_id with
 					| None -> "Any"
-					| Some id -> Printf.sprintf "%04Lx" id)
+					| Some id -> Printf.sprintf "%04x" id)
 				c.vdev_id
 				c.vsubdev_id
 				c.framebufferlength)
 			relevant_vgpu_confs));
-	let rec build_vgpu_types pci_db ac = function
+	let rec build_vgpu_types pci_access ac = function
 		| [] -> ac
 		| conf::tl ->
-			debug "Pci_db lookup: get_sub_device_names vendor=%04Lx device=%04Lx subdev=%04Lx"
+			debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
 				nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
-			try
-				let vendor_name = Pci_db.get_vendor_name pci_db nvidia_vendor_id
-				and model_name = List.hd
-					(Pci_db.get_subdevice_names_by_id pci_db nvidia_vendor_id
-						conf.vdev_id conf.vsubdev_id)
-				and framebuffer_size = conf.framebufferlength
-				and max_heads = conf.num_heads
-				and max_resolution_x = conf.max_x
-				and max_resolution_y = conf.max_y
-				and size = Int64.div Constants.pgpu_default_size conf.max_instance
-				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
-				let vgpu_type = {
-					vendor_name; model_name; framebuffer_size; max_heads;
-					max_resolution_x; max_resolution_y; size; internal_config}
-				in
-				build_vgpu_types pci_db (vgpu_type :: ac) tl
-			with Not_found | Failure "hd" ->
-				warn "Ignoring Pci_db sub-device lookup failure.";
-				build_vgpu_types pci_db ac tl
+			let vendor_name = Pci.lookup_vendor_name pci_access nvidia_vendor_id
+			and model_name =
+				Pci.lookup_subsystem_device_name pci_access nvidia_vendor_id
+					conf.vdev_id nvidia_vendor_id conf.vsubdev_id
+			and framebuffer_size = conf.framebufferlength
+			and max_heads = conf.num_heads
+			and max_resolution_x = conf.max_x
+			and max_resolution_y = conf.max_y
+			and size = Int64.div Constants.pgpu_default_size conf.max_instance
+			and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
+			let vgpu_type = {
+				vendor_name; model_name; framebuffer_size; max_heads;
+				max_resolution_x; max_resolution_y; size; internal_config}
+			in
+			build_vgpu_types pci_access (vgpu_type :: ac) tl
 	in
-	build_vgpu_types pci_db [] relevant_vgpu_confs
+	Pci.with_access (fun a -> build_vgpu_types a [] relevant_vgpu_confs)
 
-let find_or_create_supported_types ~__context ~pci_db pci =
+let find_or_create_supported_types ~__context pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
 	let subsystem_dev_id =
 		match Db.PCI.get_subsystem_device_id ~__context ~self:pci with
 		| "" -> None
 		| id_string -> Some (Xapi_pci.int_of_id id_string)
 	in
-	debug "dev_id = %s" (Printf.sprintf "%04Lx" dev_id);
-	let relevant_types = relevant_vgpu_types pci_db dev_id subsystem_dev_id in
+	debug "dev_id = %s" (Printf.sprintf "%04x" dev_id);
+	let relevant_types = relevant_vgpu_types dev_id subsystem_dev_id in
 	debug "Relevant vGPU configurations for pgpu = [ %s ]"
 		(String.concat "; "
 			(List.map (fun vt -> vt.model_name) relevant_types));
