@@ -620,6 +620,13 @@ module VIF = struct
 	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> Task.id = ""
 end
 
+module VGPU = struct
+	external add: debug_info -> Vgpu.t -> Vgpu.id = ""
+	external remove: debug_info -> Vgpu.id -> unit = ""
+	external stat: debug_info -> Vgpu.id -> (Vgpu.t * Vgpu.state) = ""
+	external list: debug_info -> Vm.id -> (Vgpu.t * Vgpu.state) list = ""
+end
+
 module UPDATES = struct
 	external get: debug_info -> int option -> int option -> Dynamic.barrier list * Dynamic.id list * int = ""
 	external last_id: debug_info -> int = ""
