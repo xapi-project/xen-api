@@ -20,6 +20,8 @@ exception No_update
 exception Payload_too_large
 exception Read_error
 
+let ds_default = ref false
+
 type payload = {
 	timestamp: int64;
 	datasources : (Rrd.ds_owner * Ds.ds) list;

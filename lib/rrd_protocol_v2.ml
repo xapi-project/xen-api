@@ -183,7 +183,7 @@ let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 			(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs)
 	in
 	let ds = Ds.ds_make ~name ~description ~units
-		~ty ~value ~min ~max ~default:true () in
+		~ty ~value ~min ~max ~default:!Rrd_protocol.ds_default () in
 	owner, ds
 
 let parse_metadata metadata =
