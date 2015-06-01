@@ -1,0 +1,71 @@
+#!/bin/bash
+
+#########################################################################
+# Script to convert a VM booting as PV to instead boot as HVM
+#
+# Usage:
+#   pv2hvm --uuid=VM-uuid | --name="VM-label"
+#
+#########################################################################
+
+die()
+{
+  echo "$@" >&2
+  exit 1
+}
+
+usage()
+{
+  die "Usage: $0 --uuid=uuid | --name=\"label\""
+}
+
+while [ -n "$1" ]
+do
+  case "$1" in
+    --uuid=*)
+      uuid=${1#--uuid=};;
+    --name=*)
+      name=${1#--name=}
+      uuid=$(xe vm-list name-label="$name" params=uuid --minimal);;
+    -*)
+      usage;;
+    *)
+      break;;
+  esac
+  shift
+done
+
+[ -z "$name" -a -z "$uuid" ] && usage
+[ -z "$uuid" ] && die "Unable to locate VM"
+
+printf '\nConverting to HVM...'
+
+xe vm-param-set PV-bootloader='' uuid=$uuid
+xe vm-param-set PV-args='' uuid=$uuid
+
+xe vm-param-set HVM-boot-policy='BIOS order' uuid=$uuid
+xe vm-param-clear param-name=HVM-boot-params uuid=$uuid
+xe vm-param-set HVM-boot-params:order=cdn uuid=$uuid
+
+for vbd in $(xe vbd-list vm-uuid=$uuid type=Disk --minimal | sed 's/,/ /g')
+do
+    xe vbd-param-set bootable=false uuid=$vbd
+done
+
+printf 'Done!'
+
+pv_bootloader=$(xe vm-param-get param-name=PV-bootloader uuid=$uuid)
+pv_args=$(xe vm-param-get param-name=PV-args uuid=$uuid)
+hvm_boot_policy=$(xe vm-param-get param-name=HVM-boot-policy uuid=$uuid)
+hvm_boot_params=$(xe vm-param-get param-name=HVM-boot-params uuid=$uuid)
+name_label=$(xe vm-param-get param-name=name-label uuid=$uuid)
+
+printf '\n\nNew VM params:\n\n'
+
+echo 'vm-uuid           : ' $uuid
+echo 'name-label        : ' $name_label
+echo 'PV-bootloader     : ' $pv_bootloader
+echo 'PV-args           : ' $pv_args
+echo 'HVM-boot-policy   : ' $hvm_boot_policy
+echo 'HVM-boot-params   : ' $hvm_boot_params
+echo ''

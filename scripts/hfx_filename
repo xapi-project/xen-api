@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2015 Citrix, Inc.
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+import sys, os, socket, urllib2, urlparse, XenAPI, traceback, xmlrpclib
+
+db_url = "/remote_db_access"
+
+def rpc(session_id, request):
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(("127.0.0.1", 80))
+    try:
+        # HTTP/1.0 with no transfer-encoding
+        headers = [
+          "POST %s?session_id=%s HTTP/1.0" % (db_url, session_id),
+          "Connection:close",
+          "content-length:%d" % (len(request)),
+          ""
+        ]
+        #print "Sending HTTP request:"
+        for h in headers:
+          s.send("%s\r\n" % h)
+          #print "%s\r\n" % h,
+        s.send(request)
+
+        result = s.recv(1024)
+        #print "Received HTTP response:"
+        #print result
+        if "200 OK" not in result:
+          print >>sys.stderr, "Expected an HTTP 200, got %s" % result
+          return
+        id = result.find("\r\n\r\n")
+        headers = result[:id]
+        for line in headers.split("\r\n"):
+          cl = "content-length:"
+          if line.lower().startswith(cl):
+             length = int(line[len(cl):].strip())
+        body = result[id+4:]
+        return body
+    finally:
+        s.close()
+
+def parse_string(txt):
+    prefix = "<value><array><data><value>success</value><value>"
+    if not txt.startswith(prefix):
+        raise "Unable to parse string response"
+    txt = txt[len(prefix):]
+    suffix = "</value></data></array></value>"
+    if not txt.endswith(suffix):
+        raise "Unable to parse string response"
+    txt = txt[:len(txt)-len(suffix)]
+    return txt
+
+def db_get_by_uuid(session_id, table, uuid):
+    request = "<value><array><data><value>db_get_by_uuid</value><value/><value><array><data><value>%s</value><value>%s</value></data></array></value></data></array></value>" % (table, uuid)
+    response = parse_string(rpc(session_id, request))
+    return response
+
+def read_field(session_id, table, fld, rf):
+    request = "<value><array><data><value>read_field</value><value/><value><array><data><value>%s</value><value>%s</value><value>%s</value></data></array></value></data></array></value>" % (table, fld, rf)
+    response = parse_string(rpc(session_id, request))
+    return response
+
+if __name__ == "__main__":
+    import XenAPI
+    xapi = XenAPI.xapi_local()
+    xapi.xenapi.login_with_password('root', '')
+    session_id = xapi._session
+    try:
+        rf = db_get_by_uuid(session_id, "pool_patch", sys.argv[1])
+        filename = read_field(session_id, "pool_patch", "filename", rf)
+        print filename
+    finally:
+        xapi.xenapi.logout()
