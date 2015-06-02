@@ -230,6 +230,25 @@ let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:str
         attrs
     )
 
+(* assoc list for caching pbis_common results,
+   item value is ((stdin_string, pbis_cmd, pbis_args), (unix_time, pbis_common_result))
+*)
+let cache_of_pbis_common : ((string * string * (string list)) * (float * ((string * string) list))) list ref = ref []
+
+let pbis_common_with_cache ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:string list) =
+    let expired = 120.0 in
+    let now = Unix.time () in
+    let cache_key = (stdin_string, pbis_cmd, pbis_args) in
+    cache_of_pbis_common := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !cache_of_pbis_common;
+    try
+        let _, result = List.assoc cache_key !cache_of_pbis_common in
+        debug "pbis_common_with_cache hit \"%s\" cache." pbis_cmd;
+        result
+    with Not_found ->
+        let result = pbis_common ~stdin_string:stdin_string pbis_cmd pbis_args in
+        cache_of_pbis_common := !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))];
+        result
+
 let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
         (fun __context ->
@@ -286,14 +305,14 @@ let convert_upn_to_nt_username subject_name =
 
 let pbis_get_all_byid subject_id =
     try
-        pbis_common "/opt/pbis/bin/find-by-sid" ["--level";"2";subject_id]
+        pbis_common_with_cache "/opt/pbis/bin/find-by-sid" ["--level";"2";subject_id]
     with Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, "LW_ERROR_INVALID_GROUP_INFO_LEVEL") ->
-        pbis_common "/opt/pbis/bin/find-by-sid" ["--level";"1";subject_id]
+        pbis_common_with_cache "/opt/pbis/bin/find-by-sid" ["--level";"1";subject_id]
 
 let pbis_get_group_sids_byname _subject_name =
     let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 
-    let subject_attrs = pbis_common "/opt/pbis/bin/list-groups-for-user" ["--show-sid";subject_name] in
+    let subject_attrs = pbis_common_with_cache "/opt/pbis/bin/list-groups-for-user" ["--show-sid";subject_name] in
     (* PBIS list-groups-for-user raw output like
         Number of groups found for user 'test@testdomain' : 2
         Group[1 of 2] name = testdomain\dnsadmins (gid = 580912206, sid = S-1-5-21-791009147-1041474540-2433379237-1102)
@@ -309,22 +328,6 @@ let pbis_get_group_sids_byname _subject_name =
                 debug "pbis_get_group_sids_byname %s get sid=[%s]" _subject_name sid;
                 sid
             ) (List.filter (fun (n,v)->n="") subject_attrs)
-
-(* assoc list for caching group_sids of subject, element is (subject_name, (unix_time, group_sids) *)
-let group_sids_cache : (string * (float * string list)) list ref = ref []
-
-let pbis_get_group_sids_byname_with_cache _subject_name =
-    let expired = 120.0 in
-    let now = Unix.time () in
-    group_sids_cache := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !group_sids_cache;
-    try
-        let _, result = List.assoc _subject_name !group_sids_cache in
-        debug "pbis_get_group_sids_byname_with_cache hit \"%s\" cache." _subject_name;
-        result
-    with Not_found ->
-        let result = pbis_get_group_sids_byname _subject_name in
-        group_sids_cache := !group_sids_cache @ [(_subject_name, (Unix.time (), result))];
-        result
 
 let pbis_get_sid_bygid gid =
 
@@ -476,7 +479,7 @@ let query_group_membership subject_identifier =
     else (* subject is a user, list-groups and therefore get_group_sids_byname work fine *)
     let subject_name = List.assoc "subject-name" subject_info in (* CA-27744: always use NT-style names *)
 
-    let subject_sid_membership_list = pbis_get_group_sids_byname_with_cache subject_name in
+    let subject_sid_membership_list = pbis_get_group_sids_byname subject_name in
     debug "Resolved %i group sids for subject %s (%s): %s"
         (List.length subject_sid_membership_list)
         subject_name
@@ -669,7 +672,7 @@ let on_enable config_params =
                 Db.Host.set_external_auth_configuration ~__context ~self:host ~value:extauthconf;
                 debug "added external_auth_configuration for host %s" (Db.Host.get_name_label ~__context ~self:host)
             );
-        group_sids_cache := [];
+        cache_of_pbis_common := [];
         ensure_pbis_configured ()
 
     with e -> (*ERROR, we didn't join the AD domain*)
