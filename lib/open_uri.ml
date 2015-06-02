@@ -26,8 +26,8 @@ let handle_socket f s =
     raise e
 
 let open_tcp f host port =
-      let inet_addr = Unix.inet_addr_of_string host in
-      let sockaddr = Unix.ADDR_INET(inet_addr, port) in
+      let host_entry = Unix.gethostbyname host in
+      let sockaddr = Unix.ADDR_INET(host_entry.Unix.h_addr_list.(0), port) in
       let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
       Unix.connect s sockaddr;
       handle_socket f s
