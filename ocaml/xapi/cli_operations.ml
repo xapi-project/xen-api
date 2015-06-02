@@ -3625,9 +3625,9 @@ let vlan_destroy printer rpc session_id params =
 	with
 		| Api_errors.Server_error(s,_) as e when s=Api_errors.handle_invalid || s=Api_errors.host_offline ->
 			raise e
-		| _ ->
-			let pif = Client.PIF.get_by_uuid rpc session_id uuid in
-			Client.PIF.destroy rpc session_id pif
+		| e ->
+			let pif = try Some (Client.PIF.get_by_uuid rpc session_id uuid) with _ -> None in
+			match pif with | Some pif -> Client.PIF.destroy rpc session_id pif | None -> raise e
 
 let tunnel_create printer rpc session_id params =
 	let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
