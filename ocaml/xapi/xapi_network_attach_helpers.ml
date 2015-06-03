@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
+
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
@@ -21,15 +21,33 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
   (* Check if there are any active VIFs on VMs resident on me *)
   let vifs = Db.Network.get_VIFs ~__context ~self:network in
   List.iter (fun self ->
-	       if Db.VIF.get_currently_attached ~__context ~self then
-		 begin
-		   let vm = Db.VIF.get_VM ~__context ~self in 
-		   let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-		   if resident_on=host then
-		     let powerstate = Db.VM.get_power_state ~__context ~self:vm in
-		     if powerstate=`Running || powerstate=`Paused then
-		       raise (Api_errors.Server_error(Api_errors.vif_in_use, [ Ref.string_of network; Ref.string_of self ]))
-		 end)
+
+      (* Note this doesn't happen too often, I hope! *)
+      let ops = Db.VIF.get_current_operations ~__context ~self in
+      List.iter (fun (task,op) ->
+          match op with
+          | `attach ->
+            (* Let's see if the VM is either resident here or scheduled to
+               be resident here *)
+            let vm = Db.VIF.get_VM ~__context ~self in
+            let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+            let scheduled_to_be_resident_on = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+            if resident_on=host || scheduled_to_be_resident_on=host
+            then begin
+              debug "Network contains VIF with attach in progress";
+              raise (Api_errors.Server_error(Api_errors.vif_in_use, [ Ref.string_of network; Ref.string_of self ]))
+	    end
+          | _ -> ()) ops;
+
+      if Db.VIF.get_currently_attached ~__context ~self then
+        begin
+          let vm = Db.VIF.get_VM ~__context ~self in
+          let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+          if resident_on=host then
+            let powerstate = Db.VM.get_power_state ~__context ~self:vm in
+            if powerstate=`Running || powerstate=`Paused then
+              raise (Api_errors.Server_error(Api_errors.vif_in_use, [ Ref.string_of network; Ref.string_of self ]))
+        end)
     vifs
 
 (* nice triple negative ;) *)
