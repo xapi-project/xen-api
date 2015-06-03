@@ -54,6 +54,14 @@ fi
 IP="/sbin/ip"
 vsctl="/usr/bin/ovs-vsctl"
 
+handle_error()
+{
+    local msg=$1
+    logger -t scripts-vif "${msg}"
+    xenstore-write "${HOTPLUG_ERROR}" "${msg}"
+    exit 1
+}
+
 # Lets have a bunch of helper functions
 handle_promiscuous()
 {
@@ -95,9 +103,7 @@ handle_mtu()
         logger -t scripts-vif "Setting ${dev} MTU ${mtu}"
         ${IP} link set "${dev}" mtu ${mtu} || logger -t scripts-vif "Failed to ip link set ${dev} mtu ${mtu}. Error code $?"
     else
-        logger -t scripts-vif "Failed to read ${PRIVATE}/MTU"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/MTU"
-        exit 1
+        handle_error "Failed to read ${PRIVATE}/MTU"
     fi
 }
 
@@ -117,25 +123,19 @@ handle_vswitch_vif_details()
     if [ $? -eq 0 -a -n "${vm}" ] ; then
         local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
     else
-        logger -t scripts-vif "Failed to read /local/domain/$DOMID/vm"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read /local/domain/$DOMID/vm"
-        exit 1
+        handle_error "Failed to read /local/domain/$DOMID/vm"
     fi
     if [ -n "${vm_uuid}" ] ; then
         set_vif_external_id "xs-vm-uuid" "${vm_uuid}"
     else
-        logger -t scripts-vif "Failed to read $vm/uuid"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read $vm/uuid"
-        exit 1
+        handle_error "Failed to read $vm/uuid"
     fi
 
     local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
     if [ -n "${vif_uuid}" ] ; then
 	set_vif_external_id "xs-vif-uuid" "${vif_uuid}"
     else
-        logger -t scripts-vif "Failed to read ${PRIVATE}/vif-uuid"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/vif-uuid"
-        exit 1
+        handle_error "Failed to read ${PRIVATE}/vif-uuid"
     fi
 
     local vif_details=
@@ -143,17 +143,13 @@ handle_vswitch_vif_details()
     if [ -n "${net_uuid}" ] ; then
 	set_vif_external_id "xs-network-uuid" "${net_uuid}"
     else
-        logger -t scripts-vif "Failed to read ${PRIVATE}/network-uuid"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/network-uuid"
-        exit 1
+        handle_error "Failed to read ${PRIVATE}/network-uuid"
     fi
     local address=$(xenstore-read "/local/domain/$DOMID/device/vif/$DEVID/mac" 2>/dev/null)
     if [ -n "${address}" ] ; then
         set_vif_external_id "attached-mac" "${address}"
     else
-        logger -t scripts-vif "Failed to read /local/domain/$DOMID/device/vif/$DEVID/mac"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read /local/domain/$DOMID/device/vif/$DEVID/mac"
-        exit 1
+        handle_error "Failed to read /local/domain/$DOMID/device/vif/$DEVID/mac"
     fi
 }
 
@@ -161,9 +157,7 @@ add_to_bridge()
 {
     local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
     if [ $? -ne 0 -o -z "${address}" ]; then
-        logger -t scripts-vif "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
-        xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
-        exit 1
+        handle_error "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
     fi
 
     local bridge=$(xenstore-read "backend/vif/$DOMID/$DEVID/bridge")
@@ -171,9 +165,7 @@ add_to_bridge()
         logger -t scripts-vif "Failed to read backend/vif/$DOMID/$DEVID/bridge from xenstore. Trying ${PRIVATE}/bridge"
         local bridge=$(xenstore-read "${PRIVATE}/bridge")
         if [ $? -ne 0 -o -z "${bridge}" ]; then
-            logger -t scripts-vif "Failed to read ${PRIVATE}/bridge from xenstore"
-            xenstore-write "${HOTPLUG_ERROR}" "Failed to read ${PRIVATE}/bridge from xenstore"
-            exit 1
+	    handle_error "Failed to read ${PRIVATE}/bridge from xenstore"
         fi
     fi
 
@@ -188,14 +180,14 @@ add_to_bridge()
     case $NETWORK_MODE in
     bridge)
         ${BRCTL} setfd "${bridge}" 0                    || logger -t scripts-vif "Failed to brctl setfd ${bridge} 0"
-        ${BRCTL} addif "${bridge}" "${dev}"             || logger -t scripts-vif "Failed to brctl addif ${bridge} ${dev}"
+        ${BRCTL} addif "${bridge}" "${dev}"             || handle_error "Failed to brctl addif ${bridge} ${dev}"
         ;;
     openvswitch)
         if [ "$TYPE" = "vif" ] ; then
             local vif_details=$(handle_vswitch_vif_details $bridge)
         fi
 
-        $vsctl --timeout=30 -- --if-exists del-port $dev -- add-port $bridge $dev $vif_details
+        $vsctl --timeout=30 -- --if-exists del-port $dev -- add-port $bridge $dev $vif_details || handle_error "Failed to vsctl add-port ${bridge} ${dev} ${vif_details}"
         ;;
     esac
 
