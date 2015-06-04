@@ -857,6 +857,8 @@ let options_of_xapi_globs_spec =
 
 let xapissl_path = ref "xapissl"
 
+let xenvmd_path = ref "xenvmd"
+
 let xenopsd_queues = ref ([
   "org.xen.xcp.xenops.classic";
   "org.xen.xcp.xenops.simulator";
@@ -984,6 +986,7 @@ module Resources = struct
 		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
+		"xenvmd", xenvmd_path, "Xenvmd executable for thin-provisioned block storage";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
