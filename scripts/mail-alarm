@@ -327,30 +327,36 @@ class XapiMessage:
     def get_obj_uuid(self):
         return self.obj_uuid
 
+    def get_message(self, msg):
+        # Extract the current level of the variable
+        # (this will raise an exception if the 1st line of <body> is not in the correct format, namely "value: %f\n")
+        value_line = msg.split("\n",2)[0]
+        key, val = value_line.split(':', 2)
+        assert(key == 'value')
+        value = float(val)
+
+        # Extract a few key config elements
+        config_xml_escaped = msg.split("config:")[1]
+        config_xml = config_xml_escaped.replace('&gt;','>').replace('&lt;','<').replace('&quot;','"')
+        config_xmldoc = minidom.parseString(config_xml)
+        def get_alarm_config(tag, cast):
+            try:   return cast(config_xmldoc.getElementsByTagName(tag)[0].getAttribute('value'))
+            except:return None
+        name                  = get_alarm_config('name',str)
+        alarm_trigger_level   = get_alarm_config('alarm_trigger_level',float)
+        alarm_trigger_period  = get_alarm_config('alarm_trigger_period',int)
+
+        return (value,name,alarm_trigger_level,alarm_trigger_period)
+
     def __get_email_text_generator(self):
         """Returns an EmailTextGenerator object appropriate to this XapiMessage or None if none found"""
         if hasattr(self,'cached_etg'):
             return self.cached_etg
 
         if self.name == 'ALARM':
-            # Extract the current level of the variable
-            # (this will raise an exception if the 1st line of <body> is not in the correct format, namely "value: %f\n")
-            value_line = self.body.split("\n",2)[0]
-            key, val = value_line.split(':', 2)
-            assert(key == 'value')
-            value = float(val)
 
-            # Extract a few key config elements
-            config_xml_escaped = self.body.split("config:")[1]
-            config_xml = config_xml_escaped.replace('&gt;','>').replace('&lt;','<').replace('&quot;','"')
-            config_xmldoc = minidom.parseString(config_xml)
-            def get_alarm_config(tag, cast):
-                try:   return cast(config_xmldoc.getElementsByTagName(tag)[0].getAttribute('value'))
-                except:return None
-            name                  = get_alarm_config('name',str)
-            alarm_trigger_level   = get_alarm_config('alarm_trigger_level',float)
-            alarm_trigger_period  = get_alarm_config('alarm_trigger_period',int)
-            
+            value, name, alarm_trigger_level, alarm_trigger_period = self.get_message(self.body)
+
             # Set the alarm text generator
             if name == 'cpu_usage':
                 etg = CpuUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
@@ -392,10 +398,12 @@ class XapiMessage:
         if generator:
             return generator.generate_body()
         else:
+            value, name, alarm_trigger_level, alarm_trigger_period = self.get_message(self.body)
             return \
                 "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-                "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t\t%s\n" % \
-                (self.name,self.priority,self.cls,self.obj_uuid,self.timestamp,self.uuid,self.pool_name,self.body)
+                "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nMessage:\n" \
+                "Parameter=%s\nValue=%f\nAlarm trigger value=%s\nAlarm trigger period=%s" % \
+                (self.name,self.priority,self.cls,self.obj_uuid,self.timestamp,self.uuid,self.pool_name,name,value,alarm_trigger_level,alarm_trigger_period)
 
 
 def main():
