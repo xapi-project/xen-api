@@ -234,20 +234,24 @@ let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:str
    item value is ((stdin_string, pbis_cmd, pbis_args), (unix_time, pbis_common_result))
 *)
 let cache_of_pbis_common : ((string * string * (string list)) * (float * ((string * string) list))) list ref = ref []
+let cache_of_pbis_common_m = Mutex.create ()
 
 let pbis_common_with_cache ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:string list) =
     let expired = 120.0 in
     let now = Unix.time () in
     let cache_key = (stdin_string, pbis_cmd, pbis_args) in
-    cache_of_pbis_common := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !cache_of_pbis_common;
-    try
-        let _, result = List.assoc cache_key !cache_of_pbis_common in
-        debug "pbis_common_with_cache hit \"%s\" cache." pbis_cmd;
-        result
-    with Not_found ->
-        let result = pbis_common ~stdin_string:stdin_string pbis_cmd pbis_args in
-        cache_of_pbis_common := !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))];
-        result
+    let f = fun () -> 
+        cache_of_pbis_common := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !cache_of_pbis_common;
+        try
+            let _, result = List.assoc cache_key !cache_of_pbis_common in
+            debug "pbis_common_with_cache hit \"%s\" cache." pbis_cmd;
+            result
+        with Not_found ->
+            let result = pbis_common ~stdin_string:stdin_string pbis_cmd pbis_args in
+            cache_of_pbis_common := !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))];
+            result
+    in
+    Threadext.Mutex.execute cache_of_pbis_common_m f
 
 let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
@@ -672,7 +676,7 @@ let on_enable config_params =
                 Db.Host.set_external_auth_configuration ~__context ~self:host ~value:extauthconf;
                 debug "added external_auth_configuration for host %s" (Db.Host.get_name_label ~__context ~self:host)
             );
-        cache_of_pbis_common := [];
+        Threadext.Mutex.execute cache_of_pbis_common_m (fun _ -> cache_of_pbis_common := []);
         ensure_pbis_configured ()
 
     with e -> (*ERROR, we didn't join the AD domain*)
