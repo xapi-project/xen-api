@@ -41,7 +41,9 @@ let restart_stunnel ~__context ~accept =
 	let xapissl_args = [ "restart"; accept ] @ 
 		if Helpers.rolling_upgrade_in_progress ~__context
 		then [ "back_compat_6_5" ]
-		else []
+(*		else [] *)
+(*		TODO use line above when trunk no longer needs back-compat mode *)
+		else [ "back_compat_6_5" ]
 	in
 	let (_ : Thread.t) = Thread.create (fun () ->
 		Mutex.execute management_m (fun () ->
