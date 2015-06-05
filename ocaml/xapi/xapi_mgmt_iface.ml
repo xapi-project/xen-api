@@ -36,11 +36,18 @@ let update_mh_info interface =
 
 let stunnel_m = Mutex.create ()
 
-let restart_stunnel accept =
+let restart_stunnel ~__context ~accept =
 	info "Restarting stunnel (accepting connections on %s)" accept;
+	let xapissl_args = [ "restart"; accept ] @ 
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then [ "back_compat_6_5" ]
+(*		else [] *)
+(*		TODO use line above when trunk no longer needs back-compat mode *)
+		else [ "back_compat_6_5" ]
+	in
 	let (_ : Thread.t) = Thread.create (fun () ->
 		Mutex.execute management_m (fun () ->
-			Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path [ "restart"; accept ]
+			Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args
 		)
 	) () in
 	()
@@ -83,7 +90,7 @@ let start ~__context ?addr () =
 	Http_svr.start Xapi_http.server socket;
 	management_interface_server := socket :: !management_interface_server;
 
-	restart_stunnel accept;
+	restart_stunnel ~__context ~accept;
 	if Pool_role.is_master () && !listening_all then begin
 		(* NB if we synchronously bring up the management interface on a master with a blank
 		   database this can fail... this is ok because the database will be synchronised later *)
