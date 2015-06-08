@@ -2799,10 +2799,11 @@ let rec parse_params_2 xs =
 		  q::qs -> (convert_switch p,q)::parse_params_2 qs
 		| _ -> failwith (Printf.sprintf "Switch %s requires a parameter\n" p)
 	    else
-	      let list = String.split '=' p in
-	      let param_name=List.hd list in
-	      let rest = String.concat "=" (List.tl list) in
-	      (param_name,rest)::parse_params_2 ps
+              let param_name, rest = match String.split ~limit:2 '=' p with
+                | h1 :: h2 :: _ -> h1, Scanf.unescaped h2
+                | h1 :: _ -> h1, ""
+                | _ -> assert false in
+              (param_name,rest)::parse_params_2 ps
 	  end
     | [] -> []
 
