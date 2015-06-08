@@ -1934,8 +1934,9 @@ module VM = struct
 				in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
+				let vgpus = List.map (fun x -> {x with Vgpu.id = (vm, snd x.Vgpu.id) }) md.Metadata.vgpus in
 
-				(* Remove any VBDs, VIFs and PCIs not passed in - they must have been destroyed in the higher level *)
+				(* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have been destroyed in the higher level *)
 
 				let gc old cur remove =
 					let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
@@ -1946,10 +1947,12 @@ module VM = struct
 				gc (VBD_DB.ids id) (List.map (fun x -> x.Vbd.id) vbds) (VBD.remove');
 				gc (VIF_DB.ids id) (List.map (fun x -> x.Vif.id) vifs) (VIF.remove');
 				gc (PCI_DB.ids id) (List.map (fun x -> x.Pci.id) pcis) (PCI.remove');
+				gc (VGPU_DB.ids id) (List.map (fun x -> x.Vgpu.id) vgpus) (VGPU.remove');
 
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
 				let (_: Pci.id list) = List.map PCI.add' pcis in
+				let (_: Vgpu.id list) = List.map VGPU.add' vgpus in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
 				vm 
 			) ()
