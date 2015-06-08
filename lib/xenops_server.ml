@@ -1032,6 +1032,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
 					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
 					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id);
+					List.iter (fun vgpu -> VGPU_DB.remove vgpu.Vgpu.id) (VGPU_DB.vgpus id);
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
