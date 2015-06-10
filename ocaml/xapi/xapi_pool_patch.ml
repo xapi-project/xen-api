@@ -20,6 +20,7 @@ open Xstringext
 open Http
 open Forkhelpers
 open Xml
+open Client
 open Helpers
 open Listext
 
@@ -220,21 +221,22 @@ let read_in_and_check_patch length s path =
     Unixext.unlink_safe path;
     raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
 
-let create_patch_record ~__context ?path patch_info =
+let create_patch_record ~__context ?vdi ?(size=0L) ?(legacy_path="") patch_info =
+  ( match vdi with
+  | None -> ()
+  | Some vdi ->
+    let name_label = Printf.sprintf "Patch %s (%s)" patch_info.uuid patch_info.name_label in
+    let name_description = patch_info.name_description in
+    Db.VDI.set_name_label ~__context ~self:vdi ~value:name_label;
+    Db.VDI.set_name_description ~__context ~self:vdi ~value:name_description );
   let r = Ref.make () in
-  let path, size = 
-    match path with
-      | None -> "", Int64.zero
-      | Some path ->
-          let stat = Unix.stat path in
-            path, Int64.of_int stat.Unix.st_size
- in
   Db.Pool_patch.create ~__context ~ref:r 
     ~uuid:patch_info.uuid
 	~name_label:patch_info.name_label 
     ~name_description:patch_info.name_description
 	~version:patch_info.version
-    ~filename:path 
+    ~filename:legacy_path
+    ~vDI:(match vdi with None -> Ref.null | Some x -> x)
     ~size
     ~pool_applied:false
     ~after_apply_guidance:patch_info.after_apply_guidance
@@ -276,7 +278,6 @@ let pool_patch_upload_handler (req: Request.t) s _ =
       debug "Patch Upload Handler - Authenticated...";
 
       let _ = Unixext.mkdir_safe patch_dir 0o755 in
-      let new_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.make_uuid ())) in
       let task_id = Context.get_task_id __context in
       begin
        
@@ -284,36 +285,47 @@ let pool_patch_upload_handler (req: Request.t) s _ =
 
         Http_svr.headers s (Http.http_200_ok ());
 
-        (match req.Request.content_length with
-         | None -> ()
-         | Some size -> assert_space_available size);
+        let size = match req.Request.content_length with
+        | Some size -> size
+        | None ->
+          warn "no content-length HTTP header, I'm assuming this patch is 1GiB in size.";
+          Int64.(mul 1024L (mul 1024L 1024L)) in
 
-        read_in_and_check_patch req.Request.content_length s new_path;
-	
-        try
-          let r = create_patch_record ~__context ~path:new_path (get_patch_info new_path) in
-          Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of r)   
-        with Db_exn.Uniqueness_constraint_violation (_, _, uuid) ->
-          (* patch already uploaded.  if the patch file has been cleaned, then put this one in its place. 
-             otherwise, error *)
-          debug "duplicate patch with uuid %s found." uuid;
-          let patch_ref = Db.Pool_patch.get_by_uuid ~__context ~uuid in
-          let old_path = Db.Pool_patch.get_filename ~__context ~self:patch_ref in
-          debug "checking for file %s.  If it doesn't exist new patch will replace it." old_path;
-          if Sys.file_exists old_path
-          then
-            begin
-              Unixext.unlink_safe new_path;
-              raise (Api_errors.Server_error(Api_errors.patch_already_exists, [uuid])) 
-            end
-          else
-            begin
-              let stat = Unix.stat new_path in
-              let size = Int64.of_int stat.Unix.st_size in
-                Db.Pool_patch.set_filename ~__context ~self:patch_ref ~value:new_path;
-                Db.Pool_patch.set_size ~__context ~self:patch_ref ~value:size;
-                Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of patch_ref)   
-            end
+        (* Slaves without VDI support will write the patch to Pool_patch.filename
+           in their local filesystem, so it needs to be a sensible path. *)
+        let legacy_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.make_uuid ())) in
+
+        (* Ensure we have 1x the space for the upload, 1x the space for the
+           de-signatured patch, 1x for unpacking and 1x for luck *)
+        let required_space = Int64.mul 4L size in
+        let sR = Helpers.choose_patch_sr ~__context ~host:(Helpers.get_localhost ~__context) in
+        Sm_fs_ops.with_new_fs_vdi __context ~name_label:"Unknown patch"
+          ~name_description:"" ~sR ~required_space ~_type:`user ~sm_config:[]
+        (fun vdi patch_dir ->
+          let new_path = patch_dir ^ "/patch" in
+          read_in_and_check_patch req.Request.content_length s new_path;
+	  (* Set the path to the VDI ref rather than a filesystem path *)
+          try
+            let r = create_patch_record ~__context ~vdi ~legacy_path ~size (get_patch_info new_path) in
+            Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of r)   
+          with Db_exn.Uniqueness_constraint_violation (_, _, uuid) ->
+            (* This patch has already been uploaded. We'll use the new contents
+               but keep the old reference to make life easier for clients. *)
+            debug "duplicate patch with uuid %s found." uuid;
+            let patch_ref = Db.Pool_patch.get_by_uuid ~__context ~uuid in
+            let old_vdi = Db.Pool_patch.get_VDI ~__context ~self:patch_ref in
+            Helpers.call_api_functions ~__context
+              (fun rpc session_id ->
+                 try
+                   Client.VDI.destroy rpc session_id old_vdi;
+                   debug "successfully destroyed old VDI %s" (Ref.string_of old_vdi)
+                 with _ ->
+                   debug "old VDI %s was not found" (Ref.string_of old_vdi));
+            Db.Pool_patch.set_filename ~__context ~self:patch_ref ~value:legacy_path;
+            Db.Pool_patch.set_VDI ~__context ~self:patch_ref ~value:vdi;
+            Db.Pool_patch.set_size ~__context ~self:patch_ref ~value:size;
+            Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of patch_ref)
+         ) 
       end            
     )
 
@@ -335,6 +347,8 @@ let sync () =
 let patch_header_length = 8
 
 let pool_patch_download_handler (req: Request.t) s _ =
+  (* This should only be used by hosts which don't natively
+     understand that patches can be contained within VDIs *)
   Xapi_http.with_context "Downloading pool patch" req s
     (fun __context ->     
       if not(List.mem_assoc "uuid" req.Request.query) then begin
@@ -345,11 +359,28 @@ let pool_patch_download_handler (req: Request.t) s _ =
         (* ensure its a valid uuid *)
         let r = Db.Pool_patch.get_by_uuid ~__context ~uuid in
         let path = Db.Pool_patch.get_filename ~__context ~self:r in
-  
-        if not (Sys.file_exists path)
-        then raise (Api_errors.Server_error (Api_errors.cannot_find_patch, []));
-  
-        Http_svr.response_file s path;
+
+        if Sys.file_exists path
+        then Http_svr.response_file s path
+        else begin
+          let vdi = Db.Pool_patch.get_VDI ~__context ~self:r in
+          if Db.is_valid_ref __context vdi then begin
+            Helpers.call_api_functions ~__context
+              (fun rpc session_id ->
+                let vdi = Client.VDI.clone rpc session_id vdi [] in
+                finally
+                  (fun () ->
+                    Sm_fs_ops.with_fs_vdi __context vdi
+                      (fun path ->
+                        let file = path ^ "/patch" in
+                        if Sys.file_exists file
+                        then Http_svr.response_file s file
+                        else raise (Api_errors.Server_error (Api_errors.cannot_find_patch, []))
+                       )
+                  ) (fun () -> Client.VDI.destroy rpc session_id vdi)
+              )
+          end
+        end
       end;
       req.Request.close <- true
     )
@@ -400,6 +431,27 @@ let get_patch_to_local ~__context ~self =
 	   end)
     end
 
+let with_local_patch ~__context ~self f =
+  let vdi = Db.Pool_patch.get_VDI ~__context ~self in
+  if Db.is_valid_ref __context vdi then begin
+    (* Patch is in a VDI, copy it to local *)
+    let sr = Helpers.choose_patch_sr ~__context ~host:(Helpers.get_localhost ~__context) in
+    let copy = Helpers.call_api_functions ~__context
+      (fun rpc session_id -> Client.VDI.copy rpc session_id vdi sr Ref.null Ref.null) in
+    finally
+      (fun () -> Sm_fs_ops.with_fs_vdi __context copy 
+        (fun root -> f (root ^ "/patch")))
+      (fun () -> Helpers.call_api_functions ~__context
+        (fun rpc session_id -> Client.VDI.destroy rpc session_id copy))
+  end else begin
+    (* Legacy patches are in the filesystem *)
+    get_patch_to_local ~__context ~self;
+    let filename = Db.Pool_patch.get_filename ~__context ~self in
+    finally
+      (fun () -> f filename)
+      (fun () -> Unixext.unlink_safe filename)
+  end
+
 open Db_filter
 open Db_filter_types
 
@@ -413,10 +465,9 @@ let patch_is_applied_to ~__context ~patch ~host =
 
 let patch_applied_dir = "/var/patch/applied"
 
-let write_patch_applied ~__context ~self = 
+let write_patch_applied ~__context ~self path = 
   (* This will write a small file containing xml to /var/patch/applied/ detailing what patches have been applied*)
   (* This allows the agent to remember what patches have been applied across pool-ejects *)
-  let path = Db.Pool_patch.get_filename ~__context ~self in
   let _ = Unixext.mkdir_safe patch_applied_dir 0o755 in
     match execute_patch path [ "info" ] with
       | Success(output, _) ->
@@ -584,8 +635,7 @@ let throw_patch_precheck_error patch s =
   | Bad_precheck_xml error ->
       raise (Api_errors.Server_error (Api_errors.invalid_patch_with_log, [error]))
 
-let run_precheck ~__context ~self ~host =
-  let path = Db.Pool_patch.get_filename ~__context ~self in
+let run_precheck ~self path =
     match execute_patch path [ "precheck" ] with
       | Success(output, _) -> output
       | Failure(xml, Subprocess_failed 1) ->
@@ -597,49 +647,27 @@ let run_precheck ~__context ~self ~host =
           debug "%s" msg;
           raise (Api_errors.Server_error(Api_errors.patch_precheck_failed_unknown_error, [Ref.string_of self; msg]))
 
-(* precheck API call entrypoint *)
 let precheck ~__context ~self ~host =
-  (* check we're not on oem *)
-  if on_oem ~__context
-    then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-precheck"]));
-
-  (* get the patch from the master (no-op if we're the master) *)
-  get_patch_to_local ~__context ~self;
-
-  finally 
-	  (fun () -> run_precheck ~__context ~self ~host)
-	  (fun () ->
-		   (* This prevents leaking space on the slave if the patch is repeatedly uploaded, prechecked and then destroyed *)
-		   if not (Pool_role.is_master ()) then begin		   
-			 let path = Db.Pool_patch.get_filename ~__context ~self in
-			 Unixext.unlink_safe path;		   
-		   end
-	  )
+  with_local_patch ~__context ~self (run_precheck ~self)
 
 let apply ~__context ~self ~host = 
-  (* 0th, check we're not on oem *)
-  if on_oem ~__context
-  then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-apply"]));
-
   (* 1st, check patch isn't already applied *)
   if patch_is_applied_to ~__context ~patch:self ~host
   then raise (Api_errors.Server_error(Api_errors.patch_already_applied, [ Ref.string_of self ]));
 
   (* 2nd, get the patch from the master (no-op if we're the master) *)
-  get_patch_to_local ~__context ~self;
-  
-  let path = Db.Pool_patch.get_filename ~__context ~self in
-    (* 3rd, run prechecks *)
-    let (_: string) = run_precheck ~__context ~self ~host in
+  with_local_patch ~__context ~self
+    (fun path ->
+      (* 3rd, run prechecks *)
+      let (_: string) = run_precheck ~self path in
  
-    (* 4th, apply the patch *)
-    begin
+      (* 4th, apply the patch *)
       match execute_patch path [ "apply" ] with
         | Success(output, _) ->
 	        debug "executing patch successful";
             write_patch_applied_db ~__context ~self ~host ();
             (* 5th, write out patch applied file to hd *)
-            write_patch_applied ~__context ~self;
+            write_patch_applied ~__context ~self path;
 	    (* CA-27145: to handle rolled-up patches, rescan the patch applied directory *)
 	    begin
 	      try update_db ~__context
@@ -662,7 +690,7 @@ let apply ~__context ~self ~host =
                		| _ ->
                    		raise (Bad_precheck_xml "Could not find element info")
            	end
-    end
+    )
     
 let pool_apply ~__context ~self =
   let hosts =
@@ -674,20 +702,28 @@ let pool_apply ~__context ~self =
     List.map 
       (fun host ->
          Helpers.call_api_functions ~__context
-           (fun rpc session_id -> Client.Client.Pool_patch.apply ~rpc ~session_id ~self ~host)
+           (fun rpc session_id -> Client.Pool_patch.apply ~rpc ~session_id ~self ~host)
       )
       hosts 
   in
   let _ = Db.Pool_patch.set_pool_applied ~__context ~self ~value:true in
     ()
   
-let clean ~__context ~self = 
-  let path = Db.Pool_patch.get_filename ~__context ~self in
-	Unixext.unlink_safe path
-
 let clean_on_host ~__context ~self ~host = 
 	debug "pool_patch.clean_on_host";
-	clean ~__context ~self
+	(* It only makes sense to clean "on a host" for the legacy patch files *)
+	let path = Db.Pool_patch.get_filename ~__context ~self in
+	Unixext.unlink_safe path
+
+let clean ~__context ~self =
+	clean_on_host ~__context ~self ~host:Ref.null;
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			try
+				Client.VDI.destroy rpc session_id (Db.Pool_patch.get_VDI ~__context ~self)
+			with _ -> ()
+		);
+	Db.Pool_patch.set_VDI ~__context ~self ~value:Ref.null
 
 let pool_clean ~__context ~self = 
 	debug "pool_patch.pool_clean";
@@ -695,10 +731,11 @@ let pool_clean ~__context ~self =
 	List.iter 
 		(fun host ->
 			Helpers.call_api_functions ~__context
-				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
+				(fun rpc session_id -> Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
 		)
 		hosts; 
-	Db.Pool_patch.set_filename ~__context ~self ~value:""
+	Db.Pool_patch.set_filename ~__context ~self ~value:"";
+	clean ~__context ~self
 
 let destroy ~__context ~self = 
   let hosts = Db.Host.get_all ~__context in
@@ -706,11 +743,5 @@ let destroy ~__context ~self =
 
   if applied
   then raise (Api_errors.Server_error(Api_errors.patch_is_applied, []));
-
-	List.iter 
-		(fun host ->
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
-		)
-		hosts; 
-	Db.Pool_patch.destroy ~__context ~self
+  pool_clean ~__context ~self;
+  Db.Pool_patch.destroy ~__context ~self

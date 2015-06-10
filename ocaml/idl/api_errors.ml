@@ -321,6 +321,7 @@ let task_cancelled = "TASK_CANCELLED"
 let too_many_pending_tasks = "TOO_MANY_PENDING_TASKS"
 let too_busy = "TOO_BUSY"
 
+let host_no_patch_sr = "HOST_HAS_NO_PATCH_SR"
 let out_of_space = "OUT_OF_SPACE"
 let invalid_patch = "INVALID_PATCH"
 let invalid_patch_with_log = "INVALID_PATCH_WITH_LOG"

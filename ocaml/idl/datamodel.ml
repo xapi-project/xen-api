@@ -1075,6 +1075,8 @@ let _ =
     ~doc:"The request was rejected because the server is too busy." ();
 
   (* Patch errors *)
+  error Api_errors.host_no_patch_sr [ "host" ]
+    ~doc:"There is no suitable SR to upload the patch to on this host." ();
   error Api_errors.out_of_space ["location"]
     ~doc:"There is not enough space to upload the update" ();
   error Api_errors.invalid_patch []
@@ -1084,7 +1086,7 @@ let _ =
   error Api_errors.cannot_find_patch []
     ~doc:"The requested update could not be found.  This can occur when you designate a new master or xe patch-clean.  Please upload the update again" ();
   error Api_errors.cannot_fetch_patch ["uuid"]
-    ~doc:"The requested update could to be obtained from the master." ();
+    ~doc:"The requested update could not be obtained from the master." ();
   error Api_errors.patch_already_exists [ "uuid" ]
     ~doc:"The uploaded patch file already exists" ();
   error Api_errors.patch_is_applied [ ]
@@ -3747,6 +3749,7 @@ let pool_patch_clean = call
   ~doc:"Removes the patch's files from the server"
   ~in_oss_since:None
   ~in_product_since:rel_miami
+  ~internal_deprecated_since:rel_dundee
   ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3756,6 +3759,7 @@ let pool_patch_clean_on_host = call
   ~doc:"Removes the patch's files from the specified host"
   ~in_oss_since:None
   ~in_product_since:rel_tampa
+  ~internal_deprecated_since:rel_dundee
   ~params:[ Ref _pool_patch, "self", "The patch to clean up"; Ref _host, "host", "The host on which to clean the patch"  ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3765,6 +3769,7 @@ let pool_patch_pool_clean = call
   ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
   ~in_oss_since:None
   ~in_product_since:rel_tampa
+  ~internal_deprecated_since:rel_dundee
   ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3812,6 +3817,7 @@ let pool_patch =
       field     ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "host_patches" "This hosts this patch is applied to.";
       field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set pool_patch_after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
       field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
+      field     ~in_product_since:rel_dundee ~default_value:(Some (VRef Ref.(string_of null))) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _vdi) "VDI" "A VDI containing the patch data.";
     ] 
 	()
 
