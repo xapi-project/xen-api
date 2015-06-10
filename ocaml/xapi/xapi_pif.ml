@@ -485,15 +485,30 @@ let scan ~__context ~host =
 			(List.map fst t.device_to_mac_table)
 			(List.map snd t.pif_to_device_table) in
 
+	let non_managed_devices =
+		if Sys.file_exists !Xapi_globs.non_managed_pifs then
+			try
+				let output, _ = Forkhelpers.execute_command_get_output !Xapi_globs.non_managed_pifs [] in
+				String.split_f String.isspace output
+			with e ->
+				warn "Error when executing script %s: %s; ignoring" !Xapi_globs.non_managed_pifs (Printexc.to_string e);
+				[]
+		else begin
+			debug "Script %s not found; ignoring" !Xapi_globs.non_managed_pifs;
+			[]
+		end
+	in
+
 	(* Create PIF records for the new interfaces *)
 	List.iter
 		(fun device ->
 			let mAC = List.assoc device t.device_to_mac_table in
 			let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
+			let managed = not (List.mem device non_managed_devices) in
 			let (_: API.ref_PIF) =
 				introduce_internal
 					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device ~managed:true () in
+					~vLAN_master_of:Ref.null ~device ~managed () in
 			())
 		(devices_not_yet_represented_by_pifs);
 

@@ -796,6 +796,11 @@ let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
 
+(* The ibft-to-ignore script returns NICs listed in the ISCSI Boot Firmware Table.
+ * These NICs (probably just one for now) are used to boot from, and should be marked
+ * with PIF.managed = false during a PIF.scan. *)
+let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -974,6 +979,7 @@ module Resources = struct
 		"startup-script-hook", startup_script_hook, "Executed during startup";
 		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
+		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
