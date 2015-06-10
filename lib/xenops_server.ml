@@ -1073,12 +1073,14 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_set_domain_action_request (id, dar) ->
 			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
-		| VM_create_device_model (id, save_state) ->
+		| VM_create_device_model (id, save_state) -> begin
 			debug "VM.create_device_model %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
 			let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
-			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus save_state
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus save_state;
+			List.iter VGPU_DB.signal  (VGPU_DB.ids id)
+		end
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
