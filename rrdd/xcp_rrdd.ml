@@ -797,8 +797,8 @@ let monitor_loop () =
 
 let options = [
 	"plugin-default",
-		Arg.Set Rrdd_server.plugin_default,
-		(fun () -> string_of_bool !Rrdd_server.plugin_default),
+		Arg.Set Rrd_protocol.ds_default,
+		(fun () -> string_of_bool !Rrd_protocol.ds_default),
 		"True if datasources provided by plugins should be exported by default";
 ]
 

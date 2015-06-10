@@ -25,8 +25,6 @@ open Rrdd_shared
 module D = Debug.Make(struct let name="rrdd_server" end)
 open D
 
-let plugin_default = ref false
-
 let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
