@@ -734,6 +734,7 @@ let export_metadata vdi_map vif_map id =
 	let vbds = VBD_DB.vbds id in
 	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
+	let vgpus = VGPU_DB.vgpus id in
 	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
@@ -747,6 +748,7 @@ let export_metadata vdi_map vif_map id =
 		vbds = vbds;
 		vifs = vifs;
 		pcis = pcis;
+		vgpus = vgpus;
 		domains = Some domains;
 	} |> Metadata.rpc_of_t |> Jsonrpc.to_string
 
