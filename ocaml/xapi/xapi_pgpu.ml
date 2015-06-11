@@ -70,6 +70,26 @@ let find_or_create_supported_VGPU_types ~__context ~pci
 	(* In any other case, we can't do anything with this GPU. *)
 	| _, _, _, _ -> []
 
+let sync_pci_hidden ~__context ~pgpu ~pci =
+	(* Determine whether dom0 can access the GPU. On boot, we determine
+	 * this from the boot config and put the result in the database.
+	 * Otherwise, we determine this from the database. *)
+	if !Xapi_globs.on_system_boot
+	then begin
+		let is_pci_hidden = Pciops.is_pci_hidden ~__context pci in
+		let dom0_access =
+			if is_pci_hidden
+			then `disabled
+			else `enabled
+		in
+		Db.PGPU.set_dom0_access ~__context ~self:pgpu ~value:dom0_access;
+		is_pci_hidden
+	end else begin
+		match Db.PGPU.get_dom0_access ~__context ~self:pgpu with
+		| `disabled | `enable_on_reboot -> true
+		| _ -> false
+	end
+
 let update_gpus ~__context ~host =
 	let system_display_device = Xapi_pci.get_system_display_device () in
 	let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
@@ -91,29 +111,7 @@ let update_gpus ~__context ~host =
 			let pgpu =
 				try
 					let (rf, rc) = List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus in
-					(* Determine whether dom0 can access the GPU. On boot, we determine
-					 * this from the boot config and put the result in the database.
-					 * Otherwise, we determine this from the database. *)
-					let is_pci_hidden_ref = ref false in
-					if !Xapi_globs.on_system_boot
-					then begin
-						let is_pci_hidden = Pciops.is_pci_hidden ~__context pci in
-						is_pci_hidden_ref := is_pci_hidden;
-						let dom0_access =
-							if is_pci_hidden
-							then `disabled
-							else `enabled
-						in
-						Db.PGPU.set_dom0_access ~__context ~self:rf ~value:dom0_access
-					end else begin
-						let is_pci_hidden =
-							match Db.PGPU.get_dom0_access ~__context ~self:rf with
-							| `disabled | `enable_on_reboot -> true
-							| _ -> false
-						in
-						is_pci_hidden_ref := is_pci_hidden
-					end;
-					let is_pci_hidden = !is_pci_hidden_ref in
+					let is_pci_hidden = sync_pci_hidden ~__context ~pgpu:rf ~pci in
 					(* Now we've determined whether the PCI is hidden, we can work out the
 					 * list of supported VGPU types. *)
 					let supported_VGPU_types =
