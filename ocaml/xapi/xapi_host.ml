@@ -606,6 +606,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~power_on_mode:""
 	~power_on_config:[]
 	~local_cache_sr
+	~ssl_legacy:true
 	~guest_VCPUs_params:[]
 	~display:`enabled
 	~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
@@ -879,6 +880,10 @@ let set_hostname_live ~__context ~host ~hostname =
   Db.Host.set_hostname ~__context ~self:host ~value:hostname;
   Helpers.update_domain_zero_name ~__context host hostname
   )
+
+let set_ssl_legacy ~__context ~host ~enabled =
+	info "Xapi_host.set_ssl_legacy is about to set the Db state to %b" enabled;
+	Db.Host.set_ssl_legacy ~__context ~self:host ~value:enabled
 
 let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode
