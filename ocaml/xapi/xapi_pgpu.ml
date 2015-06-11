@@ -87,7 +87,7 @@ let sync_pci_hidden ~__context ~pgpu ~pci =
 	end else begin
 		match Db.PGPU.get_dom0_access ~__context ~self:pgpu with
 		| `disabled | `enable_on_reboot -> true
-		| _ -> false
+		| `enabled | `disable_on_reboot -> false
 	end
 
 let update_gpus ~__context ~host =
