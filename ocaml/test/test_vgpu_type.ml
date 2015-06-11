@@ -19,6 +19,7 @@ open Test_vgpu_common
 open Xapi_vgpu_type
 
 let string_of_vgpu_conf conf =
+	let open Nvidia in
 	Printf.sprintf "%04x %s %04x %04x %Ld"
 		conf.pdev_id
 		(match conf.psubdev_id with
@@ -34,18 +35,18 @@ let print_vgpu_conf conf =
 module OfConfFile = Generic.Make(struct
 	module Io = struct
 		type input_t = string
-		type output_t = vgpu_conf
+		type output_t = Nvidia.vgpu_conf
 
 		let string_of_input_t x = x
 		let string_of_output_t = string_of_vgpu_conf
 	end
 
-	let transform = of_conf_file
+	let transform = Nvidia.of_conf_file
 
 	let tests = [
 		"ocaml/test/data/test_vgpu_subdevid.conf",
 		{
-			pdev_id = 0x3333;
+			Nvidia.pdev_id = 0x3333;
 			psubdev_id = Some 0x4444;
 			vdev_id = 0x1111;
 			vsubdev_id = 0x2222;
@@ -58,7 +59,7 @@ module OfConfFile = Generic.Make(struct
 		};
 		"ocaml/test/data/test_vgpu_nosubdevid.conf",
 		{
-			pdev_id = 0x3333;
+			Nvidia.pdev_id = 0x3333;
 			psubdev_id = None;
 			vdev_id = 0x1111;
 			vsubdev_id = 0x2222;
@@ -78,6 +79,7 @@ let skip = true
 let print_nv_types () =
 	skip_if skip "Generates print...";
 	try
+		let open Nvidia in
 		if (Sys.file_exists nvidia_conf_dir
 			&& Sys.is_directory nvidia_conf_dir) then
 			begin
