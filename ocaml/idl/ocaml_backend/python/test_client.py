@@ -12,7 +12,7 @@ server = xmlrpclib.Server(url);
 
 # Call the server and get our result.
 print "Logging in... ",
-session = server.Session.do_login_with_password("user", "passwd")
+session = server.Session.do_login_with_password("user", "passwd", "1.0", "xen-api-test-client.py")
 print "OK"
 print "Session ID: \""+session+"\""
 vm_list = server.VM.do_list(session)

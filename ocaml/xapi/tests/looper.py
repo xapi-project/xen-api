@@ -17,7 +17,7 @@ server = xapi.Server(url);
 
 # Call the server and get our result.
 print "Logging in... ",
-session = server.Session.login_with_password("user", "passwd")
+session = server.Session.login_with_password("user", "passwd", "1.0", "xen-api-tests-looper")
 print "OK"
 print "Session ID: \""+session+"\""
 vm_list = server.VM.get_all(session)

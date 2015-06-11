@@ -56,7 +56,7 @@ filename = <B><FONT COLOR="#BC8F8F">&quot;license&quot;</FONT></B> <I><FONT COLO
     password = sys.argv[3]
     <I><FONT COLOR="#B22222"># First acquire a valid session by logging in:
 </FONT></I>    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password)
+    session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-license.py')
     main(session)
     session.xenapi.session.logout()
 

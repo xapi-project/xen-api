@@ -122,7 +122,7 @@ if __name__ == "__main__":
   vdi_uuid = sys.argv[4]
   # First acquire a valid session by logging in:
   xapi = XenAPI.Session(url)
-  xapi.xenapi.login_with_password(username, password)
+  xapi.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-exportimport.py')
   dst_vdi = None
   try:
     src_vdi = xapi.xenapi.VDI.get_by_uuid(vdi_uuid)

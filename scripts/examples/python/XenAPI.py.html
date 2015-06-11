@@ -127,7 +127,7 @@ _RECONNECT_AND_RETRY = (<B><FONT COLOR="#A020F0">lambda</FONT></B> _ : ())
     Example:
 
     session = Session('http://localhost/')
-    session.login_with_password('me', 'mypassword')
+    session.login_with_password('me', 'mypassword', '1.0', 'xen-api-scripts-xenapi.py')
     session.xenapi.VM.start(vm_uuid)
     session.xenapi.session.logout()
     &quot;&quot;&quot;</FONT></B>

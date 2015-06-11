@@ -159,7 +159,7 @@ def renameif(session):
 
 if __name__ == "__main__":
     session = XenAPI.xapi_local()
-    session.login_with_password("", "")
+    session.login_with_password("", "", "1.0", "xen-api-scripts-renameifs.py")
     try:
         renameif(session)
     finally:

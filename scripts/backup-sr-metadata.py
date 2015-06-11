@@ -28,7 +28,7 @@ def set_if_exists(xml, record, key):
    
 def main(argv):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-backup-sr-metadata")
 
     try:
         opts, args = getopt.getopt(argv, "hf:", [])

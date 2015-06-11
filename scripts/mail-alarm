@@ -35,7 +35,7 @@ def log_err(err):
 
 def get_pool_name():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password(ma_username, "", "1.0", "xen-api-scripts-mail-alarm")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         pool_name = session.xenapi.pool.get_name_label(opaque_ref)
@@ -50,7 +50,7 @@ def get_pool_name():
 
 def get_pool_other_config():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password(ma_username, "", "1.0", "xen-api-scripts-mail-alarm")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         return session.xenapi.pool.get_other_config(opaque_ref)
@@ -59,7 +59,7 @@ def get_pool_other_config():
 
 def get_VM_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password(ma_username, "", "1.0", "xen-api-scripts-mail-alarm")
     try:
         try:
             opaque_ref = session.xenapi.VM.get_by_uuid(uuid)
@@ -71,7 +71,7 @@ def get_VM_params(uuid):
 
 def get_host_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password(ma_username, "", "1.0", "xen-api-scripts-mail-alarm")
     try:
         try:
             opaque_ref = session.xenapi.host.get_by_uuid(uuid)

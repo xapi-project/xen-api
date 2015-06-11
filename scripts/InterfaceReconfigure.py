@@ -494,7 +494,7 @@ class DatabaseCache(object):
 
             if not session_ref:
                 log("No session ref given on command line, logging in.")
-                session.xenapi.login_with_password("root", "")
+                session.xenapi.login_with_password("root", "", "1.0", "xen-api-scripts-interface-reconfigure.py")
             else:
                 session._session = session_ref
 

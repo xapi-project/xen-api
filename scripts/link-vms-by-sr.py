@@ -20,7 +20,7 @@ def usage():
    
 def main(argv):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-linkvmsbysr.py")
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hd:", [])

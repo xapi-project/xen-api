@@ -88,7 +88,7 @@ if len(args) != 1 :
 
 #connection
 s = XenAPI.Session('http://localhost')
-s.login_with_password('root', 'xenroot')
+s.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
 
 #Getting all the installed and running VMs with dom-id > 0
 slaves = []
@@ -107,14 +107,14 @@ for k, v in vmrecords.iteritems() :
 #finding out which one is the master
 svm = XenAPI.Session("http://" +  slaves[0][1])
 try :
-    svm.login_with_password('root', 'xenroot')
+    svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
     masterref = svm.xenapi.pool.get_all_records().values()[0]['master']
     masterrecord = svm.xenapi.host.get_record(masterref)
     masterip = masterrecord['address']
 except XenAPI.Failure, inst:
     masterip = inst.details[1]
     svm = XenAPI.Session("http://" +  masterip)
-    svm.login_with_password('root', 'xenroot')
+    svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
     masterref = svm.xenapi.pool.get_all_records().values()[0]['master']
 for i in slaves :
     if masterip == i[1] :
@@ -235,7 +235,7 @@ for k, ip in slaves :
 print "Connecting to " + master[1] + "..."
 svm = XenAPI.Session("http://" +  master[1])
 try :
-    svm.login_with_password('root', 'xenroot')
+    svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
     check(svm, master[1])
 except XenAPI.Failure, inst:
     if inst.details[0] == "HOST_IS_SLAVE" :
@@ -247,7 +247,7 @@ for slave in slaves :
     print "Connecting to " + slave[1] + "..."
     svm = XenAPI.Session("http://" +  slave[1])
     try:
-        svm.login_with_password('root', 'xenroot')
+        svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
         print "Connection succeeded! Is %s still a slave?" % slave[1]
         check(svm, slave[1])
     except XenAPI.Failure, inst:

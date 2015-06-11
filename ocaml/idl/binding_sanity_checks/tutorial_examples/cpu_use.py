@@ -21,7 +21,7 @@ def print_metrics(sx):
 def main(url, username, password):
     while True:
         session = XenAPI.Session(url)
-        session.login_with_password(username, password)
+        session.login_with_password(username, password, '1.0' ,'xen-api-tutorial-cpu-use.py'
         print_metrics(session.xenapi)
         session.logout()
         time.sleep(5)

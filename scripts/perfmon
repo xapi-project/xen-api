@@ -103,7 +103,7 @@ class XapiSession(XenAPI.Session):
     """
     def __init__(self):
         XenAPI.Session.__init__(self, "http://_var_xapi_xapi", transport=XenAPI.UDSTransport())
-        self.xenapi.login_with_password("", "")
+        self.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-perfmon")
     def __del__ (self):
         self.xenapi.session.logout()
     def id(self):
