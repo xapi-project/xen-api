@@ -44,7 +44,7 @@ Client applications who wish to invoke operations on this custom service
 should first use the XenAPI to acquire a valid *session_id*, for example
 using the XenAPI
 
-    session.login_with_password(username, password)
+    session.login_with_password(username, password, version, originator)
 
 Once a valid session_id has been acquired, a client may issue
   1. HTTP GET
