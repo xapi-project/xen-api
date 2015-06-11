@@ -1599,6 +1599,14 @@ let cmdline_of_disp info =
 		let open Xenops_interface.Vgpu in
 		match x with
 		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
+		| Vgpu [{implementation = GVT_g gvt_g}] ->
+			[
+				"-xengt";
+				"-vgt_low_gm_sz"; Int64.to_string gvt_g.low_gm_sz;
+				"-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
+				"-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
+				"-priv"
+			]
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
 		| Std_vga -> ["-std-vga"]
 		| Cirrus -> []
