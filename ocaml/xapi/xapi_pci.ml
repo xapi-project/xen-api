@@ -73,10 +73,16 @@ let update_pcis ~__context ~host =
 		| pci :: remaining_pcis ->
 			let obj =
 				try
+					let (subsystem_vendor_id, subsystem_vendor_name) =
+						strings_of_pci_property pci.subsystem_vendor in
+					let (subsystem_device_id, subsystem_device_name) =
+						strings_of_pci_property pci.subsystem_device in
 					let (rf, rc) = List.find (fun (rf, rc) ->
 						rc.Db_actions.pCI_pci_id = pci.address &&
 						rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id &&
-						rc.Db_actions.pCI_device_id = id_of_int pci.device.id)
+						rc.Db_actions.pCI_device_id = id_of_int pci.device.id &&
+						rc.Db_actions.pCI_subsystem_vendor_id = subsystem_vendor_id &&
+						rc.Db_actions.pCI_subsystem_device_id = subsystem_device_id)
 						existing in
 					(* sync the vendor name. *)
 					if rc.Db_actions.pCI_vendor_name <> pci.vendor.name
@@ -84,20 +90,17 @@ let update_pcis ~__context ~host =
 					(* sync the device name. *)
 					if rc.Db_actions.pCI_device_name <> pci.device.name
 					then Db.PCI.set_device_name ~__context ~self:rf ~value:pci.device.name;
-					(* sync the subsystem vendor fields. *)
-					let subsystem_vendor_id, subsystem_vendor_name =
-						strings_of_pci_property pci.subsystem_vendor in
-					if rc.Db_actions.pCI_subsystem_vendor_id <> subsystem_vendor_id
-					then Db.PCI.set_subsystem_vendor_id ~__context ~self:rf ~value:subsystem_vendor_id;
+					(* sync the subsystem vendor name. *)
 					if rc.Db_actions.pCI_subsystem_vendor_name <> subsystem_vendor_name
 					then Db.PCI.set_subsystem_vendor_name ~__context ~self:rf ~value:subsystem_vendor_name;
-					(* sync the subsystem device fields. *)
-					let subsystem_device_id, subsystem_device_name =
-						strings_of_pci_property pci.subsystem_device in
-					if rc.Db_actions.pCI_subsystem_device_id <> subsystem_device_id
-					then Db.PCI.set_subsystem_device_id ~__context ~self:rf ~value:subsystem_device_id;
+					(* sync the subsystem device name. *)
 					if rc.Db_actions.pCI_subsystem_device_name <> subsystem_device_name
 					then Db.PCI.set_subsystem_device_name ~__context ~self:rf ~value:subsystem_device_name;
+					(* sync the class information. *)
+					if rc.Db_actions.pCI_class_id <> id_of_int pci.pci_class.id
+					then Db.PCI.set_class_id ~__context ~self:rf ~value:(id_of_int pci.pci_class.id);
+					if rc.Db_actions.pCI_class_name <> pci.pci_class.name
+					then Db.PCI.set_class_name ~__context ~self:rf ~value:pci.pci_class.name;
 					(* sync the attached VMs. *)
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
