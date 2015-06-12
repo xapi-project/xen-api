@@ -266,9 +266,11 @@ module Client = struct
           let frame = In.Transfer transfer in
           Connection.rpc t.events_conn frame
           >>|= fun raw ->
-          let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
+          (try `Ok (Out.transfer_of_rpc (Jsonrpc.of_string raw))
+           with e -> `Error (`Message_switch `Failed_to_read_response))
+          >>|= fun transfer ->
           match transfer.Out.messages with
-          | [] -> loop from
+          | [] -> `Ok from
           | m :: ms ->
             begin match List.fold_left (fun acc (i, m) -> match acc, i, m with
               | `Error e, _, _ -> `Error e
@@ -289,11 +291,12 @@ module Client = struct
                      | Message.Request _ -> `Ok ()
                    )
               ) (`Ok ()) transfer.Out.messages with
-              | `Ok () -> loop (Some transfer.Out.next)
-              | `Error _ -> loop from (* repeat *)
+              | `Ok () -> `Ok (Some transfer.Out.next)
+              | `Error _ -> `Ok from (* repeat *)
               end
         ) with
-        | `Ok _ -> assert false
+        | `Ok from ->
+          loop from
         | `Error _ ->
           reconnect ()
           >>|= fun (requests_conn, events_conn) ->
