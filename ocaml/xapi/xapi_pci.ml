@@ -98,6 +98,11 @@ let update_pcis ~__context ~host =
 					then Db.PCI.set_subsystem_device_id ~__context ~self:rf ~value:subsystem_device_id;
 					if rc.Db_actions.pCI_subsystem_device_name <> subsystem_device_name
 					then Db.PCI.set_subsystem_device_name ~__context ~self:rf ~value:subsystem_device_name;
+					(* sync the class information. *)
+					if rc.Db_actions.pCI_class_id <> id_of_int pci.pci_class.id
+					then Db.PCI.set_class_id ~__context ~self:rf ~value:(id_of_int pci.pci_class.id);
+					if rc.Db_actions.pCI_class_name <> pci.pci_class.name
+					then Db.PCI.set_class_name ~__context ~self:rf ~value:pci.pci_class.name;
 					(* sync the attached VMs. *)
 					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
 					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
