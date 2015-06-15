@@ -46,8 +46,6 @@ end
 
 type waiter = {
   mutable next_id: int64;
-  c: unit Lwt_condition.t;
-  m: Lwt_mutex.t
 } with sexp
 
 type t = {
@@ -74,8 +72,6 @@ let get_owner t = t.owner
 let make owner name =
   let waiter = {
     next_id = 0L;
-    c = Lwt_condition.create ();
-    m = Lwt_mutex.create ();
  } in {
   q = Int64Map.empty;
   name = name;
@@ -136,30 +132,10 @@ end
 
 module Internal = struct
 module Directory = struct
-  let waiters = Hashtbl.create 128
-
-  let wait_for name =
-    let t, u = Lwt.task () in
-    let existing = if Hashtbl.mem waiters name then Hashtbl.find waiters name else [] in
-    Hashtbl.replace waiters name (u :: existing);
-    Lwt.on_cancel t
-      (fun () ->
-         if Hashtbl.mem waiters name then begin
-           let existing = Hashtbl.find waiters name in
-           Hashtbl.replace waiters name (List.filter (fun x -> x <> u) existing)
-         end
-      );
-    t
-
   let exists queues name = StringMap.mem name queues.queues
 
   let add queues ?owner name =
     if not(exists queues name) then begin
-      if Hashtbl.mem waiters name then begin
-        let threads = Hashtbl.find waiters name in
-        Hashtbl.remove waiters name;
-        List.iter (fun u -> Lwt.wakeup_later u ()) threads
-      end;
       let queues' = StringMap.add name (make owner name) queues.queues in
       let by_owner = match owner with
         | None -> queues.by_owner
@@ -225,7 +201,6 @@ let send queues origin name id data =
                 q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
               } in
      let queues = { queues with queues = StringMap.add name q' queues.queues } in
-     Lwt_condition.broadcast q.waiter.c ();
      queues
   end else queues
 
@@ -271,38 +246,6 @@ let do_op queues = function
     Internal.ack queues id
   | Op.Send (origin, name, id, body) ->
     Internal.send queues origin name id body
-
-let wait_one queues from name =
-  if Internal.Directory.exists queues name then begin
-    (* Wait for some messages to turn up *)
-    let q = Internal.Directory.find queues name in
-    Lwt_mutex.with_lock q.waiter.m
-      (fun () ->
-        let rec loop () =
-          (* q.next_id - 1 is the last id in use *)
-          if from < (Int64.pred q.waiter.next_id)
-          then return ()
-          else begin
-            Lwt_condition.wait ~mutex:q.waiter.m q.waiter.c
-            >>= fun () ->
-            loop ()
-          end in
-        loop ()
-      )
-  end else begin
-    (* Wait for the queue to be created *)
-    Internal.Directory.wait_for name;
-  end
-
-let wait queues from timeout names =
-  let start = Clock.s () in 
-  let remaining_timeout = max 0. (start +. timeout -. (Clock.s ())) in
-  if remaining_timeout <= 0.
-  then return ()
-  else
-    let timeout = Lwt_unix.sleep remaining_timeout in
-    let more = List.map (wait_one queues from) names in
-    Lwt.pick (timeout :: more)
 
 let contents q = Internal.(Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q [])
 

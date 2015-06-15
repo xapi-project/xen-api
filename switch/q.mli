@@ -70,10 +70,6 @@ val transfer: queues -> int64 -> string list -> (Protocol.message_id * Protocol.
 (** [transfer from names] returns all messages which are newer
     than [from] from all queues in [names] *)
 
-val wait: queues -> int64 -> float -> string list -> unit Lwt.t
-(** [wait queues from timeout names] returns a thread which blocks until a message
-    newer than [from] is added to any of the queues with names [names]. *)
-
 val entry: queues -> Protocol.message_id -> Protocol.Entry.t option
 (** [entry id] returns the entry containing message id [id] *)
 
