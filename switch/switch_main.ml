@@ -134,6 +134,10 @@ let make_server config =
   (* In-memory cache *)
   let queues = ref Q.empty in
 
+  (* We'll wake up all threads blocked in transfer on every queue update.
+     Not very scalable, but at least it is correct. *)
+  let queues_c = Lwt_condition.create () in
+
   let on_disk_queues = ref Q.empty in
   let process_redo_log statedir ops =
     let on_disk_queues' = List.fold_left Q.do_op !on_disk_queues ops in
@@ -183,26 +187,26 @@ let make_server config =
 
   let perform ops =
     let queues' = List.fold_left Q.do_op !queues ops in
-    redo_log
-    >>= function
-    | None ->
-      queues := queues';
-      return ()
-    | Some redo_log ->
-      let rec loop = function
-        | [] ->
-          return ()
-        | op :: ops ->
-          ( Redo_log.push redo_log op
-            >>= function
-            | `Ok _waiter -> loop ops
-            | `Error (`Msg txt) ->
-              error "Failed to push to redo-log: %s" txt;
-              fail (Failure "Failed to push to redo-log") )in
-      loop ops
-      >>= fun () ->
-      queues := queues';
-      return () in
+    ( redo_log
+      >>= function
+      | None ->
+        return ()
+      | Some redo_log ->
+        let rec loop = function
+          | [] ->
+            return ()
+          | op :: ops ->
+            ( Redo_log.push redo_log op
+              >>= function
+              | `Ok _waiter -> loop ops
+              | `Error (`Msg txt) ->
+                error "Failed to push to redo-log: %s" txt;
+                fail (Failure "Failed to push to redo-log") )in
+        loop ops
+    )  >>= fun () ->
+    queues := queues';
+    Lwt_condition.broadcast queues_c ();
+    return () in
 
   (* Held while processing a non-blocking request *)
   let m = Lwt_mutex.create () in
@@ -233,7 +237,13 @@ let make_server config =
           let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
           List.iter (Switch.record_transfer time) names;
           let from = match from with None -> -1L | Some x -> Int64.of_string x in
-          Q.wait !queues from timeout names
+          let rec wait () =
+            if Q.transfer !queues from names = [] then begin
+              Lwt_condition.wait queues_c
+              >>= fun () ->
+              wait ()
+            end else return () in
+          wait ()
         | _, _ -> return () )
       >>= fun () ->
 
