@@ -28,6 +28,7 @@ let management_interface_server = ref []
 let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
+let stunnel_accept = ref None
 let management_m = Mutex.create ()
 
 let update_mh_info interface =
@@ -36,21 +37,34 @@ let update_mh_info interface =
 
 let stunnel_m = Mutex.create ()
 
-let restart_stunnel ~__context ~accept =
+let restart_stunnel_nomutex ~__context ~accept =
 	info "Restarting stunnel (accepting connections on %s)" accept;
-	let xapissl_args = [ "restart"; accept ] @ 
-		if Helpers.rolling_upgrade_in_progress ~__context
+	let back_compat ~__context =
+		let localhost = Helpers.get_localhost ~__context in
+		if Db.Host.get_ssl_legacy ~__context ~self:localhost
 		then [ "back_compat_6_5" ]
-(*		else [] *)
-(*		TODO use line above when trunk no longer needs back-compat mode *)
-		else [ "back_compat_6_5" ]
+		else []
 	in
+	let xapissl_args = [ "restart"; accept ] @ (back_compat ~__context) in
 	let (_ : Thread.t) = Thread.create (fun () ->
 		Mutex.execute management_m (fun () ->
 			Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args
 		)
 	) () in
 	()
+
+let restart_stunnel ~__context ~accept =
+	Mutex.execute stunnel_m (fun () ->
+		stunnel_accept := Some accept;
+		restart_stunnel_nomutex ~__context ~accept
+	)
+
+let reconfigure_stunnel ~__context =
+	Mutex.execute stunnel_m (fun () ->
+		match !stunnel_accept with
+			| None -> () (* We've not yet started stunnel; no action needed *)
+			| Some accept -> restart_stunnel_nomutex ~__context ~accept
+	)
 
 let stop () =
 	debug "Shutting down the old management interface (if any)";

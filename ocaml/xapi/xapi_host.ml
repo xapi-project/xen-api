@@ -883,7 +883,12 @@ let set_hostname_live ~__context ~host ~hostname =
 
 let set_ssl_legacy ~__context ~host ~enabled =
 	info "Xapi_host.set_ssl_legacy is about to set the Db state to %b" enabled;
-	Db.Host.set_ssl_legacy ~__context ~self:host ~value:enabled
+	let old = Db.Host.get_ssl_legacy ~__context ~self:host in
+	Db.Host.set_ssl_legacy ~__context ~self:host ~value:enabled;
+	if old <> enabled then (
+		(* TODO change outgoing stunnels as well *)
+		Xapi_mgmt_iface.reconfigure_stunnel ~__context
+	)
 
 let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode

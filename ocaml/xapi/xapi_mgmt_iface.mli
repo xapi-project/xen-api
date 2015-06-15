@@ -38,3 +38,5 @@ val rebind : __context:Context.t -> unit
 (** Start a server thread on the given HIMN address if the server is not yet running *)
 val enable_himn : __context:Context.t -> addr:string -> unit
 
+(** Restart stunnel to make it pick up a change to host.ssl_legacy *)
+val reconfigure_stunnel : __context:Context.t -> unit
