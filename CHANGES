@@ -1,3 +1,11 @@
+0.10.1 (15-Jun-2015):
+* Fix setting of plugins as default
+
+0.10.0 (02-Apr-2015):
+* Add blktap3 stats collection
+* Improve error reporting
+* Update to use new Rrd signatures
+
 0.9.9 (20-Nov-2014):
 * remove GC stats reporting
 * add opam file
