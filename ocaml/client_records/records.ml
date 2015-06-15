@@ -852,6 +852,10 @@ let vm_record rpc session_id vm =
 			make_field ~name:"networks"
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
+			make_field ~name:"network-paths-optimized"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_network_paths_optimized) (xgm ()) )) ();
+			make_field ~name:"storage-paths-optimized"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_storage_paths_optimized) (xgm ()) )) ();
 			make_field ~name:"other"
 				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) ))
 				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
@@ -886,6 +890,9 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> (x ()).API.vM_generation_id) ();
 			make_field ~name:"hardware-platform-version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_hardware_platform_version) ();
+			make_field ~name:"auto-update-drivers"
+				~get:(fun () -> string_of_bool (x ()).API.vM_auto_update_drivers)
+				~set:(fun x -> Client.VM.set_auto_update_drivers rpc session_id vm (safe_bool_of_string "auto-update-drivers" x)) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 

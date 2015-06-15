@@ -164,6 +164,7 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
+		~auto_update_drivers:false
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -936,6 +937,8 @@ let copy_guest_metrics ~__context ~vm =
 			~memory:all.API.vM_guest_metrics_memory
 			~disks:all.API.vM_guest_metrics_disks
 			~networks:all.API.vM_guest_metrics_networks
+			~network_paths_optimized:all.API.vM_guest_metrics_network_paths_optimized
+			~storage_paths_optimized:all.API.vM_guest_metrics_storage_paths_optimized
 			~other:all.API.vM_guest_metrics_other
 			~last_updated:all.API.vM_guest_metrics_last_updated
 			~other_config:all.API.vM_guest_metrics_other_config
@@ -1056,3 +1059,15 @@ let vm_fresh_genid ~__context ~self =
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
 
+let update_vm_virtual_hardware_platform_version ~__context ~vm =
+	let vm_record = Db.VM.get_record ~__context ~self:vm in
+	(* Deduce what we can, but the guest VM might need a higher version. *)
+	let visibly_required_version =
+		if vm_record.API.vM_auto_update_drivers then
+			Xapi_globs.auto_update_drivers
+		else
+			0L
+	in
+	let current_version = vm_record.API.vM_hardware_platform_version in
+	if visibly_required_version > current_version then
+		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
