@@ -143,7 +143,9 @@ let print_pci x =
 		| None -> ""
 		| Some true -> Printf.sprintf ",%s=1" _power_mgmt
 		| Some false -> Printf.sprintf ",%s=0" _power_mgmt in
-	Printf.sprintf "%04x:%02x:%02x.%01x%s%s" x.domain x.bus x.dev x.fn msi power
+	Printf.sprintf
+		"%04x:%02x:%02x.%01x%s%s"
+		x.address.domain x.address.bus x.address.dev x.address.fn msi power
 
 let parse_pci vm_id (x, idx) = match Re_str.split_delim (Re_str.regexp "[,]") x with
 	| bdf :: options ->
@@ -175,13 +177,16 @@ let parse_pci vm_id (x, idx) = match Re_str.split_delim (Re_str.regexp "[,]") x 
 		let open Xn_cfg_types in
 		let msitranslate = bool_opt _msitranslate options in
 		let power_mgmt = bool_opt _power_mgmt options in
-		{
-			Pci.id = vm_id, string_of_int idx;
-			position = idx;
-			domain = domain;
+		let address = {
+			Pci.domain = domain;
 			bus = bus;
 			dev = dev;
 			fn = fn;
+		} in
+		{
+			Pci.id = vm_id, string_of_int idx;
+			position = idx;
+			address = address;
 			msitranslate = msitranslate;
 			power_mgmt = power_mgmt
 		}
@@ -953,13 +958,16 @@ let pci_add x idx bdf =
 	let vm, _ = find_by_name x in
 	let open Pci in
 	let domain, bus, dev, fn = Scanf.sscanf bdf "%04x:%02x:%02x.%1x" (fun a b c d -> a, b, c, d) in
-	let id = Client.PCI.add dbg {
-		id = (vm.Vm.id, idx);
-		position = int_of_string idx;
+	let address = {
 		domain = domain;
 		bus = bus;
 		dev = dev;
 		fn = fn;
+	} in
+	let id = Client.PCI.add dbg {
+		id = (vm.Vm.id, idx);
+		position = int_of_string idx;
+		address = address;
 		msitranslate = None;
 		power_mgmt = None
 	} in
@@ -979,7 +987,11 @@ let pci_list x =
 		(fun (pci, state) ->
 			let open Pci in
 			let id = snd pci.id in
-			let bdf = Printf.sprintf "%04x:%02x:%02x.%01x" pci.domain pci.bus pci.dev pci.fn in
+			let bdf =
+				Printf.sprintf
+					"%04x:%02x:%02x.%01x"
+					pci.address.domain pci.address.bus pci.address.dev pci.address.fn
+			in
 			line id (string_of_int pci.position) bdf
 		) pcis in
 	List.iter print_endline (header :: lines)
