@@ -895,7 +895,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vm vmextra vbds vifs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs vgpus = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -905,38 +905,18 @@ module VM = struct
 			VmExtra.qemu_vbds = qemu_vbds
 		} ->
 			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null") 
-					?(nics=[])
-					?(disks=[]) ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
+					?(nics=[]) ?(disks=[]) ?(vgpus=[])
+					?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
 					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
-				let video, vgpu = match video with
-					| Cirrus -> Device.Dm.Cirrus, None
-					| Standard_VGA -> Device.Dm.Std_vga, None
-					| IGD_passthrough -> Device.Dm.IGD_passthrough, None
-					| Vgpu ->
-						let vgpu =
-							try
-								let open Xenops_interface in
-								let vgpu_pci = List.assoc vgpu_pci_key vm.Vm.platformdata
-								and vgpu_config =
-									let config_file =
-										List.assoc vgpu_config_key vm.Vm.platformdata in
-									if List.mem_assoc vgpu_extra_args_key vm.Vm.platformdata
-									then
-										Printf.sprintf "%s,%s" config_file
-											(List.assoc vgpu_extra_args_key vm.Vm.platformdata)
-									else config_file
-								in
-								debug "VGPU config: %s -> %s; %s -> %s"
-									vgpu_pci_key vgpu_pci
-									vgpu_config_key vgpu_config;
-								Some {
-									Device.Dm.pci_id = vgpu_pci;
-									config = vgpu_config;
-								}
-							with Not_found -> failwith "Missing vGPU config in platform data" in
-						Device.Dm.Vgpu, vgpu
+				let video = match video, vgpus with
+					| Cirrus, [] -> Device.Dm.Cirrus
+					| Standard_VGA, [] -> Device.Dm.Std_vga
+					| IGD_passthrough GVT_d, [] -> Device.Dm.GVT_d
+					| Vgpu, [] -> raise (Internal_error "Vgpu mode specified but no vGPUs")
+					| Vgpu, vgpus -> Device.Dm.Vgpu vgpus
+					| _ -> raise (Internal_error "Invalid graphics mode")
 				in
 				let open Device.Dm in {
 					memory = build_info.Domain.memory_max;
@@ -952,7 +932,6 @@ module VM = struct
 					acpi = acpi;
 					disp = VNC (video, vnc_ip, true, 0, keymap);
 					pci_passthrough = pci_passthrough;
-					vgpu = vgpu;
 					xenclient_enabled=false;
 					hvm=hvm;
 					sound=None;
@@ -1013,7 +992,7 @@ module VM = struct
 						?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
-						~boot_order:hvm_info.boot_order ~nics ~disks ())
+						~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ())
 
         let clean_memory_reservation task domid =
                 try
@@ -1022,7 +1001,7 @@ module VM = struct
                 with No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
-	let build_domain_exn xc xs domid task vm vbds vifs =
+	let build_domain_exn xc xs domid task vm vbds vifs vgpus =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
@@ -1087,12 +1066,12 @@ module VM = struct
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
-	let build_domain vm vbds vifs xc xs task _ di =
+	let build_domain vm vbds vifs vgpus xc xs task _ di =
 		let domid = di.Xenctrl.domid in
                 finally
                     (fun () ->
                             try
-                                    build_domain_exn xc xs domid task vm vbds vifs;
+                                    build_domain_exn xc xs domid task vm vbds vifs vgpus;
                             with
                                     | Bootloader.Bad_sexpr x ->
                                             let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
@@ -1119,9 +1098,9 @@ module VM = struct
                                             raise e
                     ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-	let build ?restore_fd task vm vbds vifs = on_domain (build_domain vm vbds vifs) Newest task vm
+	let build ?restore_fd task vm vbds vifs vgpus = on_domain (build_domain vm vbds vifs vgpus) Newest task vm
 
-        let create_device_model_exn vbds vifs saved_state xc xs task vm di =
+	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
@@ -1143,12 +1122,12 @@ module VM = struct
 					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
-		) (create_device_model_config vm vmextra vbds vifs);
+		) (create_device_model_config vm vmextra vbds vifs vgpus);
 		match vm.Vm.ty with
 			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 			| _ -> ()
 
-	let create_device_model task vm vbds vifs saved_state = on_domain (create_device_model_exn vbds vifs saved_state) Newest task vm
+	let create_device_model task vm vbds vifs vgpus saved_state = on_domain (create_device_model_exn vbds vifs vgpus saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1560,8 +1539,9 @@ module PCI = struct
 				let all = match domid_of_uuid ~xc ~xs Newest (uuid_of_string vm) with
 					| Some domid -> Device.PCI.list ~xc ~xs domid |> List.map snd
 					| None -> [] in
+				let address = pci.address in
 				{
-					plugged = List.mem (pci.domain, pci.bus, pci.dev, pci.fn) all
+					plugged = List.mem address all
 				}
 			)
 
@@ -1572,7 +1552,6 @@ module PCI = struct
 		if not state.plugged then Some Needs_unplug else None
 
 	let plug task vm pci =
-		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				(* Make sure the backend defaults are set *)
@@ -1590,18 +1569,17 @@ module PCI = struct
 					raise PCIBack_not_loaded;
 				end;
 
-				Device.PCI.bind [ device ] Device.PCI.Pciback;
-				Device.PCI.add [ device ] frontend_domid
+				Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
+				Device.PCI.add [ pci.address ] frontend_domid
 			) Newest vm
 
 	let unplug task vm pci =
-		let device = pci.domain, pci.bus, pci.dev, pci.fn in
 		try
 			on_frontend
 				(fun xc xs frontend_domid hvm ->
 					try
 						if hvm
-						then Device.PCI.unplug task ~xc ~xs device frontend_domid
+						then Device.PCI.unplug task ~xc ~xs pci.address frontend_domid
 						else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
 					with Not_found ->
 						debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
@@ -1609,6 +1587,20 @@ module PCI = struct
 		with (Does_not_exist(_,_)) ->
 			debug "VM = %s; PCI = %s; Ignoring missing domain" vm (id_of pci)
 
+end
+
+module VGPU = struct
+	open Vgpu
+
+	let id_of vgpu = snd vgpu.id
+
+	let get_state vm vgpu =
+		on_frontend
+			(fun _ xs frontend_domid _ ->
+				match Device.Vgpu.pid ~xs frontend_domid with
+				| Some pid -> {plugged = true; emulator_pid = Some pid}
+				| None -> {plugged = false; emulator_pid = None})
+			Newest vm
 end
 
 let set_active_device path active =

@@ -913,55 +913,19 @@ module Vgpu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/v
 module PCI = struct
 
 type t = {
-	domain: int;
-	bus: int;
-	slot: int;
-	func: int;
+	address: Xenops_interface.Pci.address;
 	irq: int;
 	resources: (int64 * int64 * int64) list;
 	driver: string;
 }
 
-type dev = int * int * int * int
-
-let to_string (domain, bus, dev, func) = Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev func
-let of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c, d)) 
-
-exception Cannot_add of dev list * exn (* devices, reason *)
+exception Cannot_add of Xenops_interface.Pci.address list * exn (* devices, reason *)
 exception Cannot_use_pci_with_no_pciback of t list
 
 (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
 let _proc_pci_num_resources = 7
 (* same as libxl_internal: PCI_BAR_IO *)
 let _pci_bar_io = 0x01L
-
-let query_pci_device domain bus slot func =
-	let map_resource file =
-		let resources = Array.create _proc_pci_num_resources (0L, 0L, 0L) in
-		let i = ref 0 in
-		Unixext.readfile_line (fun line ->
-			if !i < Array.length resources then (
-				Scanf.sscanf line "0x%Lx 0x%Lx 0x%Lx" (fun s e f ->
-					resources.(!i) <- (s, e, f));
-				incr i
-			)
-		) file;
-		List.filter (fun (s, _, _) -> s <> 0L) (Array.to_list resources);
-		in
-	let map_irq file =
-		let irq = ref (-1) in
-		try Unixext.readfile_line (fun line -> irq := int_of_string line) file; !irq
-		with _ -> -1
-		in
-		
-	let name = to_string (domain, bus, slot, func) in
-	let dir = "/sys/bus/pci/devices/" ^ name in
-	let resources = map_resource (dir ^ "/resource") in
-	let irq = map_irq (dir ^ "/irq") in
-	let driver =
-		try Filename.basename (Unix.readlink (dir ^ "/driver"))
-		with _ -> "" in
-	irq, resources, driver
 
 (* comment out while we sort out libxenlight
 let pci_info_of ~msitranslate ~pci_power_mgmt = function
@@ -1019,7 +983,11 @@ let xl_pci cmd pcidevs domid =
 			try
 				let (_, _) = Forkhelpers.execute_command_get_output
 					"/usr/sbin/xl"
-					[ cmd; string_of_int domid; to_string dev ] in
+					[
+						cmd;
+						string_of_int domid;
+						Xenops_interface.Pci.string_of_address dev
+					] in
 				()
 			with e ->
 				debug "xl %s: %s" cmd (Printexc.to_string e);
@@ -1160,7 +1128,7 @@ let bind devices new_driver =
 	Mutex.execute bind_lock (fun () ->
 		List.iter
 			(fun device ->
-				let devstr = to_string device in
+				let devstr = Xenops_interface.Pci.string_of_address device in
 				let old_driver = get_driver devstr in
 				match old_driver, new_driver with
 				| None, Nvidia ->
@@ -1197,7 +1165,7 @@ let enumerate_devs ~xs (x: device) =
 	do
 		try
 			let devstr = xs.Xs.read (backend_path ^ "/dev-" ^ (string_of_int i)) in
-			let dev = of_string devstr in
+			let dev = Xenops_interface.Pci.address_of_string devstr in
 			devs.(i) <- Some dev
 		with _ ->
 			()
@@ -1208,8 +1176,8 @@ let enumerate_devs ~xs (x: device) =
 		| Some dev -> dev :: acc
 	) [] (Array.to_list devs))
 
-let reset ~xs (x: dev) =
-	let devstr = to_string x in
+let reset ~xs address =
+	let devstr = Xenops_interface.Pci.string_of_address address in
 	debug "Device.Pci.reset %s" devstr;
 	do_flr devstr
 
@@ -1277,7 +1245,12 @@ let read_pcidir ~xc ~xs domid =
   let device_number_of_string x =
     (* remove the silly prefix *)
     int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  let pairs = List.map (fun x -> device_number_of_string x, of_string (xs.Xs.read (path ^ "/" ^ x))) all in
+  let pairs = List.map
+    (fun x ->
+      device_number_of_string x,
+      Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x)))
+    all
+  in
   (* Sort into the order the devices were plugged *)
   List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
@@ -1308,12 +1281,12 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		end
 	)
 
-let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid = 
+let plug (task: Xenops_task.t) ~xc ~xs address domid = 
 	try
 		let current = read_pcidir ~xc ~xs domid in
 		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 
-		let pci = to_string (domain, bus, dev, func) in
+		let pci = Xenops_interface.Pci.string_of_address address in
 		signal_device_model ~xc ~xs domid "pci-ins" pci;
 
 		let () = match wait_device_model task ~xc ~xs domid with
@@ -1326,17 +1299,18 @@ let plug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 				failwith
 					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" (Opt.default "None" x)) in
 		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
-		Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
+		Xenctrl.domain_assign_device xc domid
+			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
 	with e ->
 		error "Device.Pci.plug: %s" (Printexc.to_string e);
 		raise e
 
-let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
+let unplug (task: Xenops_task.t) ~xc ~xs address domid =
 	try
 		let current = read_pcidir ~xc ~xs domid in
 
-		let pci = to_string (domain, bus, dev, func) in
-		let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
+		let pci = Xenops_interface.Pci.string_of_address address in
+		let idx = fst (List.find (fun x -> snd x = address) current) in
 		signal_device_model ~xc ~xs domid "pci-rem" pci;
 
 		begin match wait_device_model task ~xc ~xs domid with
@@ -1353,7 +1327,8 @@ let unplug (task: Xenops_task.t) ~xc ~xs (domain, bus, dev, func) domid =
 		(* CA-62028: tell the device to stop whatever it's doing *)
 		do_flr pci;
 		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
-		Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
+		Xenctrl.domain_deassign_device xc domid
+			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
 	with e ->
 		error "Device.Pci.unplug: %s" (Printexc.to_string e);
 		raise e
@@ -1501,9 +1476,8 @@ type usb_opt =
 type disp_intf_opt =
     | Std_vga
     | Cirrus
-    | Vgpu
-    | IGD_passthrough
-with rpc
+    | Vgpu of Xenops_interface.Vgpu.t list
+    | GVT_d
 
 (* Display output / keyboard input *)
 type disp_opt =
@@ -1513,11 +1487,6 @@ type disp_opt =
 
 type media = Disk | Cdrom
 let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
-
-type vgpu_t = {
-	pci_id: string;
-	config: string;
-}
 
 type info = {
 	memory: int64;
@@ -1533,7 +1502,6 @@ type info = {
 	disp: disp_opt;
 	pci_emulations: string list;
 	pci_passthrough: bool;
-	vgpu: vgpu_t option;
 
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
@@ -1619,12 +1587,14 @@ let get_state ~xs ~qemu_domid domid =
 	with _ -> None
 
 let cmdline_of_disp info =
-	let vga_type_opts x = 
-	  match x with
-	    | Vgpu -> ["-vgpu"]
-	    | Std_vga -> ["-std-vga"]
-	    | Cirrus -> []
-	    | IGD_passthrough -> ["-std-vga"; "-gfx_passthru"]
+	let vga_type_opts x =
+		let open Xenops_interface.Vgpu in
+		match x with
+		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
+		| Vgpu _ -> failwith "Unsupported vGPU configuration"
+		| Std_vga -> ["-std-vga"]
+		| Cirrus -> []
+		| GVT_d -> ["-std-vga"; "-gfx_passthru"]
 	in
 	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
 	let disp_options, wait_for_port =
@@ -1705,16 +1675,14 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-let vgpu_args_of_info info domid =
-	match info.vgpu with
-		| Some vgpu ->
-			[
-				"--domain=" ^ (string_of_int domid);
-				"--vcpus=" ^ (string_of_int info.vcpus);
-				"--gpu=" ^ vgpu.pci_id;
-				"--config=" ^ vgpu.config;
-			]
-		| None -> []
+let vgpu_args_of_nvidia domid vcpus vgpu =
+	let open Xenops_interface.Vgpu in
+	[
+		"--domain=" ^ (string_of_int domid);
+		"--vcpus=" ^ (string_of_int vcpus);
+		"--gpu=" ^ (Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
+		"--config=" ^ vgpu.config_file;
+	]
 
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: "--syslog" :: args
@@ -1762,19 +1730,25 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
 	(* start vgpu emulation if appropriate *)
-	let _ = match info.vgpu with
-		| Some vgpu ->
-			(* The below line does nothing if the device is already bound to the
-			 * nvidia driver. We rely on xapi to refrain from attempting to run
-			 * a vGPU on a device which is passed through to a guest. *)
-			PCI.bind [PCI.of_string vgpu.pci_id] PCI.Nvidia;
-			let args = vgpu_args_of_info info domid in
-			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
-			let cancel = Cancel_utils.Vgpu domid in
-			let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
-				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
-			Forkhelpers.dontwaitpid vgpu_pid
-		| None -> () in
+	let open Xenops_interface.Vgpu in
+	let () = match info.disp with
+	| VNC (Vgpu [{implementation = Nvidia vgpu}], _, _, _, _)
+	| SDL (Vgpu [{implementation = Nvidia vgpu}], _) -> begin
+		(* The below line does nothing if the device is already bound to the
+		 * nvidia driver. We rely on xapi to refrain from attempting to run
+		 * a vGPU on a device which is passed through to a guest. *)
+		PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
+		let args = vgpu_args_of_nvidia domid info.vcpus vgpu in
+		let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
+		let cancel = Cancel_utils.Vgpu domid in
+		let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
+			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
+		Forkhelpers.dontwaitpid vgpu_pid
+	end
+	| VNC (Vgpu _, _, _, _, _)
+	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
+	| _ -> ()
+	in
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 	let args = (prepend_wrapper_args domid l) in

@@ -371,14 +371,18 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let _, all_pci_devices = List.split (Device.PCI.list xc xs domid) in
 	List.iter
 		(fun pcidev ->
+			let open Xenops_interface.Pci in
 			log_exn_continue
-				("Deassign PCI device " ^ Device.PCI.to_string pcidev)
-				(fun () -> Xenctrl.domain_deassign_device xc domid pcidev) ())
+				("Deassign PCI device " ^ string_of_address pcidev)
+				(fun () ->
+					Xenctrl.domain_deassign_device xc domid
+						(pcidev.domain, pcidev.bus, pcidev.dev, pcidev.fn)) ())
 		all_pci_devices;
 	List.iter
 		(fun pcidev ->
+			let open Xenops_interface.Pci in
 			log_exn_continue
-				("Reset PCI device " ^ Device.PCI.to_string pcidev)
+				("Reset PCI device " ^ string_of_address pcidev)
 				(fun () -> Device.PCI.reset ~xs pcidev) ())
 		all_pci_devices;
 

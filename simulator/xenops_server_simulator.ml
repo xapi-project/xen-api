@@ -38,6 +38,7 @@ module Domain = struct
 		vbds: Vbd.t list; (* maintained in reverse-plug order *)
 		vifs: Vif.t list;
 		pcis: Pci.t list;
+		vgpus: Vgpu.t list;
 		xsdata: (string * string) list;
 		last_create_time: float;
 	} with rpc
@@ -95,6 +96,7 @@ let create_nolock _ vm () =
 			vifs = [];
 			vbds = [];
 			pcis = [];
+			vgpus = [];
 			xsdata = vm.Vm.xsdata;
 			last_create_time = Unix.gettimeofday ();
 		} in
@@ -123,7 +125,7 @@ let destroy_nolock vm () =
 	(* Idempotent *)
 	if DB.exists vm.Vm.id then DB.delete vm.Vm.id
 
-let build_nolock vm vbds vifs () =
+let build_nolock vm vbds vifs vgpus () =
 	debug "Domain.build vm=%s" vm.Vm.id;
 	debug "setting built <- true";
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.built = true }
@@ -239,6 +241,21 @@ let pci_state vm pci () =
 			| [] -> unplugged_pci
 			| _ -> assert false (* at most one *)
 
+let vgpu_state vm vgpu () =
+	if not (DB.exists vm)
+	then unplugged_vgpu
+	else
+		let d = DB.read_exn vm in
+		let this_one x = x.Vgpu.id = vgpu.Vgpu.id in
+		match List.filter this_one d.Domain.vgpus with
+			| [ vgpu ] ->
+				{
+					unplugged_vgpu with
+						Vgpu.plugged = true;
+				}
+			| [] -> unplugged_vgpu
+			| _ -> assert false (* at most one *)
+
 let vbd_state vm vbd () =
 	if not (DB.exists vm)
 	then unplugged_vbd
@@ -330,8 +347,8 @@ module VM = struct
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
-	let build ?restore_fd _ vm vbds vifs = Mutex.execute m (build_nolock vm vbds vifs)
-	let create_device_model _ vm vbds vifs _ = Mutex.execute m (create_device_model_nolock vm)
+	let build ?restore_fd _ vm vbds vifs vgpus = Mutex.execute m (build_nolock vm vbds vifs vgpus)
+	let create_device_model _ vm vbds vifs vgpus _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true
@@ -367,6 +384,10 @@ module PCI = struct
 	let get_state vm pci = Mutex.execute m (pci_state vm pci)
 
 	let get_device_action_request vm pci = None
+end
+
+module VGPU = struct
+	let get_state vm vgpu = Mutex.execute m (vgpu_state vm vgpu)
 end
 
 module VBD = struct

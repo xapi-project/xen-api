@@ -113,20 +113,22 @@ sig
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 end
 
+module Vgpu :
+sig
+	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+	val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
+end
+
 module PCI :
 sig
+	open Xenops_interface.Pci
+
 	type t = {
-		domain: int;
-		bus: int;
-		slot: int;
-		func: int;
+		address: address;
 		irq: int;
 		resources: (int64 * int64 * int64) list;
 		driver: string;
 	}
-	type dev = int * int * int * int
-	val to_string: dev -> string
-	val of_string: string -> dev
 
 	type supported_driver =
 		| Nvidia
@@ -134,14 +136,14 @@ sig
 
 	exception Cannot_use_pci_with_no_pciback of t list
 
-	val add : dev list -> Xenctrl.domid -> unit
+	val add : address list -> Xenctrl.domid -> unit
 	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
-		-> dev list -> Xenctrl.domid -> int -> unit
-	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
-	val bind : dev list -> supported_driver -> unit
-	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
-	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
-	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * dev) list
+		-> address list -> Xenctrl.domid -> int -> unit
+	val reset : xs:Xenstore.Xs.xsh -> address -> unit
+	val bind : address list -> supported_driver -> unit
+	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
+	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
+	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 end
 
 module Vfs :
@@ -165,12 +167,10 @@ sig
 		| Enabled of string list
 		| Disabled
 	type disp_intf_opt =
-	    | Std_vga
-	    | Cirrus
-	    | Vgpu
-	    | IGD_passthrough
-	val disp_intf_opt_of_rpc: Rpc.t -> disp_intf_opt
-	val rpc_of_disp_intf_opt: disp_intf_opt -> Rpc.t
+		| Std_vga
+		| Cirrus
+		| Vgpu of Xenops_interface.Vgpu.t list
+		| GVT_d
 
 	type disp_opt =
 		| NONE
@@ -178,14 +178,6 @@ sig
 		| SDL of disp_intf_opt * string (* X11 display *)
 
 	type media = Disk | Cdrom
-
-	type vgpu_t = {
-		(* The PCI device on which the vGPU will run. *)
-		pci_id: string;
-		(* Path to the vGPU config file, plus comma-separated extra arguments. *)
-		config: string;
-	}
-
 
 	type info = {
 		memory: int64;
@@ -201,7 +193,6 @@ sig
 		disp: disp_opt;
 		pci_emulations: string list;
 		pci_passthrough: bool;
-		vgpu: vgpu_t option;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;

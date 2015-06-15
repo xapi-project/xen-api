@@ -105,6 +105,9 @@ module VIF = struct
 	let get_state _ _ = unplugged_vif
 	let get_device_action_request _ _ = None
 end
+module VGPU = struct
+	let get_state _ _ = unplugged_vgpu
+end
 module UPDATES  = struct
 	let get _ _ = while true do Thread.delay 5. done; assert false
 end

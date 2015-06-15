@@ -592,7 +592,10 @@ module PCI = struct
 				| None -> [] in
 			{
 				plugged = List.filter (function {Device_pci.domain; Device_pci.bus; Device_pci.dev; Device_pci.func} ->
-					domain = pci.domain && bus = pci.bus && dev = pci.dev && func = pci.fn) all <> []
+					domain = pci.address.domain
+					&& bus = pci.address.bus
+					&& dev = pci.address.dev
+					&& func = pci.address.fn) all <> []
 			}
 		)
 
@@ -606,10 +609,10 @@ module PCI = struct
 		debug "PCI.pre_plug";
 		let vm_t = DB.read_exn vm in
 		let non_persistent = vm_t.VmExtra.non_persistent in
-		let func = pci.fn in
-		let dev = pci.dev in
-		let bus = pci.bus in
-		let domain = pci.domain in
+		let func = pci.address.fn in
+		let dev = pci.address.dev in
+		let bus = pci.address.bus in
+		let domain = pci.address.domain in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
 		let open Xenlight.Device_pci in
@@ -634,10 +637,10 @@ module PCI = struct
 	let unplug task vm pci =
 		let vm_t = DB.read_exn vm in
 		let non_persistent = vm_t.VmExtra.non_persistent in
-		let func = pci.fn in
-		let dev = pci.dev in
-		let bus = pci.bus in
-		let domain = pci.domain in
+		let func = pci.address.fn in
+		let dev = pci.address.dev in
+		let bus = pci.address.bus in
+		let domain = pci.address.domain in
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
 		on_frontend (fun _ _ frontend_domid _ ->
@@ -653,6 +656,12 @@ module PCI = struct
 				assignable_remove ctx pci' true;
 			)
 		) Oldest vm
+end
+
+module VGPU = struct
+	let id_of vgpu = failwith "Not implemented"
+
+	let get_state vm vgpu = failwith "Not implemented"
 end
 
 let set_active_device path active =
@@ -1940,7 +1949,7 @@ module VM = struct
 	) Newest task vm
 
 	(*let create task memory_upper_bound vm vbds =*)
-	let build ?restore_fd task vm vbds vifs =
+	let build ?restore_fd task vm vbds vifs vgpus =
 		let memory_upper_bound = None in
 		let k = vm.Vm.id in
 
@@ -2446,7 +2455,7 @@ module VM = struct
 					error "VM = %s; read invalid save file signature: \"%s\"" vm.Vm.id read_signature;
 					raise Restore_signature_mismatch
 				end;
-				build ~restore_fd:fd task vm vbds vifs
+				build ~restore_fd:fd task vm vbds vifs []
 			)
 		)
 

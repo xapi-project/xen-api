@@ -292,6 +292,41 @@ module VIF_DB = struct
 			)
 end
 
+module VGPU_DB = struct
+	include TypedTable(struct
+		include Vgpu
+		let namespace = "VM"
+		type key = id
+		let key k = [ fst k; "vgpu." ^ (snd k) ]
+	end)
+	let vm_of = fst
+	let string_of_id (a, b) = a ^ "." ^ b
+
+	let ids vm : Vgpu.id list =
+		list [ vm ] |> (filter_prefix "vgpu.") |> List.map (fun id -> (vm, id))
+	let vgpus vm = ids vm |> List.map read |> dropnone
+	let list vm =
+		debug "VGPU.list";
+		let xs = vgpus vm in
+		let module B = (val get_backend () : S) in
+		let states = List.map (B.VGPU.get_state vm) xs in
+		List.combine xs states
+	let m = Mutex.create ()
+	let signal id =
+		debug "VGPU_DB.signal %s" (string_of_id id);
+		Mutex.execute m
+			(fun () ->
+				if exists id
+				then Updates.add (Dynamic.Vgpu id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vgpu id) updates;
+				remove id
+			)
+end
+
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
 let push_with_coalesce should_keep item queue =
@@ -699,6 +734,7 @@ let export_metadata vdi_map vif_map id =
 	let vbds = VBD_DB.vbds id in
 	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
+	let vgpus = VGPU_DB.vgpus id in
 	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
@@ -712,6 +748,7 @@ let export_metadata vdi_map vif_map id =
 		vbds = vbds;
 		vifs = vifs;
 		pcis = pcis;
+		vgpus = vgpus;
 		domains = Some domains;
 	} |> Metadata.rpc_of_t |> Jsonrpc.to_string
 
@@ -732,6 +769,9 @@ let vif_plug_order vifs =
 
 let pci_plug_order pcis =
 	List.sort (fun a b -> compare a.Pci.position b.Pci.position) pcis
+
+let vgpu_plug_order vgpus =
+	List.sort (fun a b -> compare a.Vgpu.position b.Vgpu.position) vgpus
 
 let simplify f =
 	let module B = (val get_backend () : S) in
@@ -992,6 +1032,7 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
 					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
 					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id);
+					List.iter (fun vgpu -> VGPU_DB.remove vgpu.Vgpu.id) (VGPU_DB.vgpus id);
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
@@ -1035,11 +1076,14 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 		| VM_set_domain_action_request (id, dar) ->
 			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
-		| VM_create_device_model (id, save_state) ->
+		| VM_create_device_model (id, save_state) -> begin
 			debug "VM.create_device_model %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
-			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs save_state
+			let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus save_state;
+			List.iter VGPU_DB.signal  (VGPU_DB.ids id)
+		end
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
 			B.VM.destroy_device_model t (VM_DB.read_exn id)
@@ -1053,7 +1097,8 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs
+			let vgpus : Vgpu.t list = VGPU_DB.vgpus id |> vgpu_plug_order in
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
 			let vm = VM_DB.read_exn id in
@@ -1524,6 +1569,51 @@ module PCI = struct
 				DB.list vm) ()
 end
 
+module VGPU = struct
+	open Vgpu
+	module DB = VGPU_DB
+
+	let string_of_id (a, b) = a ^ "." ^ b
+	let add' x =
+		debug "VGPU.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists vm) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Does_not_exist ("VM", vm));
+		end;
+		DB.write x.id x;
+		x.id
+	let add _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> add' x) ()
+
+	let remove' id =
+		debug "VGPU.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.VGPU.get_state (DB.vm_of id) (VGPU_DB.read_exn id)).Vgpu.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
+	let remove _ dbg x =
+		Debug.with_thread_associated dbg (fun () -> remove' x) ()
+
+	let stat' id =
+		debug "VGPU.stat %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		let vgpu_t = VGPU_DB.read_exn id in
+		let state = B.VGPU.get_state (DB.vm_of id) vgpu_t in
+		vgpu_t, state
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				(stat' id)) ()
+
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VGPU.list %s" vm;
+				DB.list vm) ()
+end
+
 module VBD = struct
 	open Vbd
 	module DB = VBD_DB
@@ -1845,8 +1935,9 @@ module VM = struct
 				in
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
+				let vgpus = List.map (fun x -> {x with Vgpu.id = (vm, snd x.Vgpu.id) }) md.Metadata.vgpus in
 
-				(* Remove any VBDs, VIFs and PCIs not passed in - they must have been destroyed in the higher level *)
+				(* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have been destroyed in the higher level *)
 
 				let gc old cur remove =
 					let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
@@ -1857,10 +1948,12 @@ module VM = struct
 				gc (VBD_DB.ids id) (List.map (fun x -> x.Vbd.id) vbds) (VBD.remove');
 				gc (VIF_DB.ids id) (List.map (fun x -> x.Vif.id) vifs) (VIF.remove');
 				gc (PCI_DB.ids id) (List.map (fun x -> x.Pci.id) pcis) (PCI.remove');
+				gc (VGPU_DB.ids id) (List.map (fun x -> x.Vgpu.id) vgpus) (VGPU.remove');
 
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
 				let (_: Pci.id list) = List.map PCI.add' pcis in
+				let (_: Vgpu.id list) = List.map VGPU.add' vgpus in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
 				vm 
 			) ()
@@ -1910,7 +2003,8 @@ module UPDATES = struct
 						| Dynamic.Vm id 
 						| Dynamic.Vbd (id,_) 
 						| Dynamic.Vif (id,_) 
-						| Dynamic.Pci (id,_) -> id=vm_id
+						| Dynamic.Pci (id,_)
+						| Dynamic.Vgpu (id,_) -> id=vm_id
 				in
 				Updates.inject_barrier id filter updates
 			) ()
@@ -1930,6 +2024,7 @@ module UPDATES = struct
 				List.iter VBD_DB.signal (VBD_DB.ids id);
 				List.iter VIF_DB.signal (VIF_DB.ids id);
 				List.iter PCI_DB.signal (PCI_DB.ids id);
+				List.iter VGPU_DB.signal (VGPU_DB.ids id);
 				()
 			) ()
 end
@@ -1988,6 +2083,7 @@ let register_objects () =
 			List.iter VBD_DB.signal (VBD_DB.ids vm);
 			List.iter VBD_DB.signal (VIF_DB.ids vm);
 			List.iter PCI_DB.signal (PCI_DB.ids vm);
+			List.iter VGPU_DB.signal (VGPU_DB.ids vm);
 		) (VM_DB.ids ())
 
 module Diagnostics = struct
