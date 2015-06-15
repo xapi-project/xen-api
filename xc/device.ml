@@ -1825,7 +1825,15 @@ let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
 	| Some vgpu_pid -> begin
 		let tag = Printf.sprintf "(domid = %d pid = %d)" domid vgpu_pid in
 		debug "vgpu: suspending vgpu with SIGHUP %s" tag;
-		Unix.kill vgpu_pid Sys.sighup
+		try
+			Unixext.kill_and_wait
+				~signal:Sys.sighup ~timeout:(!Xenopsd.vgpu_suspend_timeout) vgpu_pid;
+			debug "vgpu: suspended successfully %s" tag
+		with Unixext.Process_still_alive ->
+			debug "vgpu: didn't die within the timeout %s" tag;
+			let open Generic in
+			best_effort "killing vgpu" (fun () -> really_kill vgpu_pid);
+			failwith "vgpu suspend timed out"
 	end in
 	suspend_vgpu ();
 	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
