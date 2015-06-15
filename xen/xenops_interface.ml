@@ -31,11 +31,6 @@ let set_sockets_dir x =
 let default_uri () = "file:" ^ !default_path
 let json_url () = Printf.sprintf "file:%s.json" !default_path
 
-(* Global keys used when sending vGPU config information to xenopsd. *)
-let vgpu_pci_key = "vgpu_pci_id"
-let vgpu_config_key = "vgpu_config"
-let vgpu_extra_args_key = "vgpu_extra_args"
-
 type power_state =
 	| Running
 	| Halted
@@ -99,12 +94,81 @@ module Network = struct
 	type ts = t list
 end
 
+module Pci = struct
+	type address = {
+		domain: int;
+		bus: int;
+		dev: int;
+		fn: int;
+	}
+	with sexp
+
+	let address_of_string str =
+		Scanf.sscanf str "%04x:%02x:%02x.%02x"
+			(fun domain bus dev fn -> {domain; bus; dev; fn})
+
+	let string_of_address address =
+		Printf.sprintf "%04x:%02x:%02x.%01x"
+			address.domain address.bus address.dev address.fn
+
+	type id = string * string
+
+	type t = {
+		id: id;
+		position: int;
+		address: address;
+		msitranslate: bool option;
+		power_mgmt: bool option;
+	}
+
+	type state = {
+		plugged: bool;
+	}
+end
+
+module Vgpu = struct
+	type gvt_g = {
+		physical_pci_address: Pci.address;
+		low_gm_sz: int64;
+		high_gm_sz: int64;
+		fence_sz: int64;
+	}
+	with sexp
+
+	type nvidia = {
+		physical_pci_address: Pci.address;
+		config_file: string;
+	}
+	with sexp
+
+	type implementation =
+		| GVT_g of gvt_g
+		| Nvidia of nvidia
+
+	type id = string * string
+
+	type t = {
+		id: id;
+		position: int;
+		implementation: implementation;
+	}
+
+	type state = {
+		plugged: bool;
+		emulator_pid: int option;
+	}
+end
+
 module Vm = struct
+	type igd_passthrough =
+		| GVT_d
+	with sexp
+
 	type video_card =
 		| Cirrus
 		| Standard_VGA
 		| Vgpu
-		| IGD_passthrough
+		| IGD_passthrough of igd_passthrough
 	with sexp
 
 	let default_video_card = Cirrus
@@ -306,26 +370,6 @@ module Vm = struct
 
 end
 
-module Pci = struct
-
-	type id = string * string
-
-	type t = {
-		id: id;
-		position: int;
-		domain: int;
-		bus: int;
-		dev: int;
-		fn: int;
-		msitranslate: bool option;
-		power_mgmt: bool option;
-	}
-
-	type state = {
-		plugged: bool;
-	}
-end
-
 module Vbd = struct
 
 	type mode = ReadOnly | ReadWrite
@@ -407,9 +451,21 @@ module Metadata = struct
 		vbds: Vbd.t list;
 		vifs: Vif.t list;
 		pcis: Pci.t list;
+		vgpus: Vgpu.t list;
 		domains: string option;
 		(** Opaque data describing per-domain state *)
 	}
+
+	let default_t = {
+		vm = Vm.default_t;
+		vbds = [];
+		vifs = [];
+		pcis = [];
+		vgpus = [];
+		domains = None;
+	}
+
+	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
 end
 
 module Task = struct
@@ -444,6 +500,7 @@ module Dynamic = struct
 		| Vbd of Vbd.id
 		| Vif of Vif.id
 		| Pci of Pci.id
+		| Vgpu of Vgpu.id
 		| Task of Task.id
 	type barrier = int * (id list)
 	type t =
@@ -451,6 +508,7 @@ module Dynamic = struct
 		| Vbd_t of Vbd.id * ((Vbd.t * Vbd.state) option)
 		| Vif_t of Vif.id * ((Vif.t * Vif.state) option)
 		| Pci_t of Pci.id * ((Pci.t * Pci.state) option)
+		| Vgpu_t of Vgpu.id * ((Vgpu.t * Vgpu.state) option)
 		| Task_t of Task.id * (Task.t option)
 end
 
@@ -563,6 +621,13 @@ module VIF = struct
 	external remove: debug_info -> Vif.id -> unit = ""
 	external set_carrier: debug_info -> Vif.id -> bool -> Task.id = ""
 	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> Task.id = ""
+end
+
+module VGPU = struct
+	external add: debug_info -> Vgpu.t -> Vgpu.id = ""
+	external remove: debug_info -> Vgpu.id -> unit = ""
+	external stat: debug_info -> Vgpu.id -> (Vgpu.t * Vgpu.state) = ""
+	external list: debug_info -> Vm.id -> (Vgpu.t * Vgpu.state) list = ""
 end
 
 module UPDATES = struct
