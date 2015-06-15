@@ -641,6 +641,7 @@ module VM = struct
 			xsdata = vm.xsdata;
 			platformdata = platformdata @ vcpus;
 			bios_strings = vm.bios_strings;
+			auto_update_drivers = vm.auto_update_drivers;
 		} in
 		{
 			VmExtra.create_info = create_info;
@@ -1392,7 +1393,7 @@ module VM = struct
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data"; "control" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat |> List.map (fun (k,v) -> (k,Xenops_utils.utf8_recode v)) in
+							[ "drivers"; "attr"; "data"; "control"; "device" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat |> List.map (fun (k,v) -> (k,Xenops_utils.utf8_recode v)) in
 						let xsdata_state =
 							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
 						let shadow_multiplier_target =

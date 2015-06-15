@@ -117,7 +117,9 @@ type attached_vdi = {
 	attach_info: Storage_interface.attach_info;
 } with rpc
 
-(* The following module contains left-overs from the "classic" domain.ml *)
+(* The following module contains left-overs from the "classic" domain.ml 
+   Note: "auto_update_drivers" parameter won't do anything for the libxl backend
+	(i.e. the xenstore key won't be written) *)
 module Domain = struct
 	type create_info = {
 		ssidref: int32;
@@ -127,6 +129,7 @@ module Domain = struct
 		xsdata: (string * string) list;
 		platformdata: (string * string) list;
 		bios_strings: (string * string) list;
+		auto_update_drivers: bool;
 	} with rpc
 
 	type build_hvm_info = {
@@ -1732,6 +1735,7 @@ module VM = struct
 			xsdata = vm.xsdata;
 			platformdata = vm.platformdata @ vcpus;
 			bios_strings = vm.bios_strings;
+			auto_update_drivers = vm.auto_update_drivers;
 		} in
 		{
 			VmExtra.create_info = create_info;
@@ -2518,7 +2522,7 @@ module VM = struct
 							let subdirs = try List.map (fun x -> dir ^ "/" ^ x) (xs.Xs.directory (root ^ "/" ^ dir)) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data"; "control" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
+							[ "drivers"; "attr"; "data"; "control"; "device" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let xsdata_state =
 							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let shadow_multiplier_target =
