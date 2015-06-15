@@ -296,7 +296,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
 			~key:Platform.igd_passthru_key
 			~platformdata:vm.API.vM_platform
 			~default:false)
-		then IGD_passthrough
+		then (IGD_passthrough GVT_d)
 		else
 			match string vm.API.vM_platform "cirrus" Platform.vga with
 			| "std" -> Standard_VGA
@@ -544,14 +544,30 @@ module MD = struct
 			(fun (idx, (domain, bus, dev, fn)) -> {
 				id = (vm.API.vM_uuid, Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn);
 				position = idx;
-				domain = domain;
-				bus = bus;
-				dev = dev;
-				fn = fn;
+				address = {domain; bus; dev; fn};
 				msitranslate = None;
 				power_mgmt = None;
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
+
+	let vgpus_of_vm ~__context (vmref, vm) =
+		let open Vgpu in
+		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
+		then begin
+			let implementation =
+				Nvidia {
+					physical_pci_address =
+						Xenops_interface.Pci.address_of_string
+							(List.assoc Platform.vgpu_pci_id vm.API.vM_platform);
+					config_file = List.assoc Platform.vgpu_config vm.API.vM_platform;
+				}
+			in [{
+				id = (vm.API.vM_uuid, "0");
+				position = 0;
+				implementation;
+			}]
+		end else []
 
 	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
@@ -697,6 +713,7 @@ let create_metadata ~__context ~upgrade ~self =
 		(List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
 	let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
 	let pcis = MD.pcis_of_vm ~__context (self, vm) in
+	let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
 	let domains =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
 		if vm.API.vM_power_state = `Suspended || upgrade then begin
@@ -708,6 +725,7 @@ let create_metadata ~__context ~upgrade ~self =
 		vbds = vbds';
 		vifs = vifs';
 		pcis = pcis;
+		vgpus = vgpus;
 		domains = domains
 	}
 
@@ -765,12 +783,14 @@ module Xenops_cache = struct
 		vbds: (Vbd.id * Vbd.state) list;
 		vifs: (Vif.id * Vif.state) list;
 		pcis: (Pci.id * Pci.state) list;
+		vgpus: (Vgpu.id * Vgpu.state) list;
 	}
 	let empty = {
 		vm = None;
 		vbds = [];
 		vifs = [];
 		pcis = [];
+		vgpus = [];
 	}
 			
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
@@ -820,6 +840,14 @@ module Xenops_cache = struct
 				else None
 			| _ -> None
 
+	let find_vgpu id : Vgpu.state option =
+		match find (fst id) with
+			| Some { vgpus = vgpus } ->
+				if List.mem_assoc id vgpus
+				then Some (List.assoc id vgpus)
+				else None
+			| _ -> None
+
 	let update id t =
 		Mutex.execute metadata_m
 			(fun () ->
@@ -842,6 +870,11 @@ module Xenops_cache = struct
 		let existing = Opt.default empty (find (fst id)) in
 		let pcis' = List.filter (fun (pci_id, _) -> pci_id <> id) existing.pcis in
 		update (fst id) { existing with pcis = Opt.default pcis' (Opt.map (fun info -> (id, info) :: pcis') info) }
+
+	let update_vgpu id info =
+		let existing = Opt.default empty (find (fst id)) in
+		let vgpus' = List.filter (fun (vgpu_id, _) -> vgpu_id <> id) existing.vgpus in
+		update (fst id) { existing with vgpus = Opt.default vgpus' (Opt.map (fun info -> (id, info) :: vgpus') info) }
 
 	let update_vm id info =
 		let existing = Opt.default empty (find id) in
@@ -1479,6 +1512,55 @@ let update_pci ~__context id =
 	with e ->
 		error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
+let update_vgpu ~__context id =
+	try
+		if events_suppressed (fst id)
+		then debug "xenopsd event: ignoring event for VGPU (VM %s migrating away)" (fst id)
+		else
+			let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+			let localhost = Helpers.get_localhost ~__context in
+			if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+			then debug "xenopsd event: ignoring event for VGPU (VM %s not resident)" (fst id)
+			else
+				let open Vgpu in
+				let previous = Xenops_cache.find_vgpu id in
+				let dbg = Context.string_of_task __context in
+				let module Client =
+					(val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
+				in
+				let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
+				if Opt.map snd info = previous
+				then debug "xenopsd event: ignoring event for VGPU %s.%s: metadata has not changed" (fst id) (snd id)
+				else begin
+					let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+					let vgpu_records =
+						List.map
+							(fun self -> self, Db.VGPU.get_record ~__context ~self)
+							vgpus
+					in
+					let vgpu, vgpu_record =
+						List.find
+							(fun (_, vgpu_record) -> vgpu_record.API.vGPU_device = (snd id))
+							vgpu_records
+					in
+					Opt.iter
+						(fun (xenopsd_vgpu, state) ->
+							if state.plugged then begin
+								if not vgpu_record.API.vGPU_currently_attached
+								then Db.VGPU.set_currently_attached ~__context
+									~self:vgpu ~value:true
+							end else begin
+								if vgpu_record.API.vGPU_currently_attached
+								then Db.VGPU.set_currently_attached ~__context
+									~self:vgpu ~value:false;
+								try Client.VGPU.remove dbg id
+								with e -> debug "VGPU.remove failed: %s" (Printexc.to_string e)
+							end) info;
+					Xenops_cache.update_vgpu id (Opt.map snd info)
+				end
+	with e ->
+		error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
+
 exception Not_a_xenops_task
 let wrap queue_name id = TaskHelper.Xenops (queue_name, id)
 let unwrap x = match x with | TaskHelper.Xenops (queue_name, id) -> queue_name, id | _ -> raise Not_a_xenops_task
@@ -1547,6 +1629,13 @@ let rec events_watch ~__context queue_name from =
 							else begin
 								debug "xenops event on PCI %s.%s" (fst id) (snd id);
 								update_pci ~__context id
+							end
+						| Vgpu id ->
+							if events_suppressed (fst id)
+							then debug "ignoring xenops event on VGPU %s.%s" (fst id) (snd id)
+							else begin
+								debug "xenops event on VGPU %s.%s" (fst id) (snd id);
+								update_vgpu ~__context id
 							end
 						| Task id ->
 							debug "xenops event on Task %s" id;
