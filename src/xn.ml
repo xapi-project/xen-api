@@ -412,6 +412,7 @@ let add' copts x () = match x with
 				let vcpus = if mem _vcpus then find _vcpus |> int else 1 in
 				let pci_msitranslate = if mem _vm_pci_msitranslate then find _vm_pci_msitranslate |> bool else true in
 				let pci_power_mgmt = if mem _vm_pci_power_mgmt then find _vm_pci_power_mgmt |> bool else false in
+				let auto_update_drivers = if mem _vm_auto_update_drivers then find _vm_auto_update_drivers |> bool else false in
 				let vm = {
 					id = uuid;
 					name = name;
@@ -439,6 +440,7 @@ let add' copts x () = match x with
 					on_reboot = [ Vm.Start ];
 					pci_msitranslate = pci_msitranslate;
 					pci_power_mgmt = pci_power_mgmt;
+					auto_update_drivers = auto_update_drivers;
 				} in
 				let (id: Vm.id) = Client.VM.add dbg vm in
 
