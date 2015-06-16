@@ -742,6 +742,8 @@ let request_rdp_off ~__context ~vm =
 
 let run_script ~__context ~vm ~args =
 	(* Args can be any key value pair, which include "username", "password", "script", "interpreter" (optional), and "arguments" (optional). *)
+	if not (Helpers.guest_agent_run_script_enabled ~__context)
+	then raise (Api_errors.Server_error(Api_errors.feature_restricted, []));
 	let required = [ "username"; "password"; "script" ] in
 	(* let optional = [ "interpreter"; "arguments" ] in *)
 	List.iter (fun a -> if not (List.mem_assoc a args) then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["missing argument"; ""; Printf.sprintf "Argument %s is required." a]))) required;

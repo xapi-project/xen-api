@@ -294,6 +294,9 @@ let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
+(* Indicates whether we should allow run-script inside VM *)
+let pool_allow_guest_agent_run_script = "allow_guest_agent_run_script"
+
 (* Size of a VDI to store the shared database on *)
 let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
 

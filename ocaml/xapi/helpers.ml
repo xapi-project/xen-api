@@ -962,6 +962,15 @@ let clone_suspended_vm_enabled ~__context =
       && (List.assoc Xapi_globs.pool_allow_clone_suspended_vm other_config = "true")
   with _ -> false
 
+(** Indicate whether run-script should be allowed on VM plugin guest-agent-operation *)
+let guest_agent_run_script_enabled ~__context =
+	try
+		let pool = get_pool ~__context in
+		let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+		List.mem_assoc Xapi_globs.pool_allow_guest_agent_run_script other_config
+		&& (List.assoc Xapi_globs.pool_allow_guest_agent_run_script other_config = "true")
+	with _ -> false
+
 (* OEM Related helper functions *)
 let is_oem ~__context ~host =
   let software_version = Db.Host.get_software_version ~__context ~self:host in
