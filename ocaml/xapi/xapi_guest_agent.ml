@@ -204,21 +204,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	dead_domains := IntSet.add domid !dead_domains;
       ([],[],[],[],[],[],false,false,false,0.0)) in
 
-  (* Consider the data valid IF the data/updated key exists AND the pv_drivers_version map
-     contains a major and minor version-- this prevents a migration mid-way through an update
-     making us think the PV drivers are missing. Note we may still experience glitches in other
-     fields like IP addresses. Alternatives to this include:
-     * insist guest agents write everything transactionally
-     * copy the xenstore tree in the critical downtime period during a migration
-     * chmod RO the xenstore tree pre-migration, copy pre-migration and be prepared to unwind
-  *)
+  (* Consider the data valid IF the data/updated key exists *)
   let data_updated = lookup "data/updated" <> None in
-  if (
-	  true
-	  && data_updated
-	  && List.mem_assoc "major" pv_drivers_version
-	  && List.mem_assoc "minor" pv_drivers_version
-  )
+  if data_updated
   then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
@@ -324,71 +312,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
   end
-  else if (data_updated && other_cached <> other) then (
-	  (* For HVM Linux without guest agent we need to update "other" even if nothing else has changed. *)
-	  (* The code to below is based on a copy of the block above, but updates only
-	   * the "other" map. TODO consider refactoring rather than have this block similar to the one above. *)
-
-	  (* Update only the "other" and "last_updated" fields of the cache *)
-	  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (
-		  pv_drivers_version_cached,
-		  os_version_cached,
-		  networks_cached,
-		  other, (* not the cached version *)
-		  memory_cached,
-		  device_id_cached,
-		  network_paths_optimized_cached,
-		  storage_paths_optimized_cached,
-		  pv_drivers_up_to_date_cached,
-		  last_updated)); (* not a cached version *)
-
-	  let gm =
-		  let existing = Db.VM.get_guest_metrics ~__context ~self in
-		  if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
-		  then existing
-		  else
-			  (* if it doesn't exist, make a fresh one using cached or blank data except for "other" map *)
-			  let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-			  Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
-				  ~os_version:os_version_cached
-				  ~pV_drivers_version:pv_drivers_version_cached
-				  ~pV_drivers_up_to_date:false
-				  ~memory:[]
-				  ~disks:[]
-				  ~networks:networks_cached
-				  ~other:other
-				  ~storage_paths_optimized:false
-				  ~network_paths_optimized:false
-				  ~last_updated:(Date.of_float last_updated)
-				  ~other_config:[]
-				  ~live:false;
-			  Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
-			  (* We've just set the thing to dead (no guest agent). Now ensure it's in the dead list *)
-			  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
-			  info "Received initial update (but no PV driver version) about VM %s; os_version = [ %s]; other = [ %s ]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl other) (sl pv_drivers_version) (sl networks);
-			  Mutex.execute mutex (fun () -> dead_domains := IntSet.add domid !dead_domains);
-			  (* Update cache with the empty memory item we've just put into the new guest metrics record. *)
-			  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (
-				  pv_drivers_version_cached,
-				  os_version_cached,
-				  networks_cached,
-				  other, (* current version *)
-				  [], (* memory *)
-				  device_id_cached,
-				  network_paths_optimized_cached,
-				  storage_paths_optimized_cached,
-				  pv_drivers_up_to_date_cached,
-				  last_updated)); (* not a cached version *)
-			  new_ref
-	  in
-
-	  Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
-	  (* We base some of our allowed-operations decisions on the feature-flags in the "other" map *)
-	  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
-
-	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
-	  ()
-  )
 
 (* XXX This function was previously called in the monitoring loop of the
  * RRD-related code, but that code has now been moved into rrdd, so there
