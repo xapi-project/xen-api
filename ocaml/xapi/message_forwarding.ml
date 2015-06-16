@@ -1541,6 +1541,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
 				(fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
 					(fun () ->
+						(* first of all, destroy the domain if needed. *)
+						if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
+							debug "VM %s (domid %Ld) which is reverted is not halted: shutting it down first"
+								(Db.VM.get_uuid __context vm)
+								(Db.VM.get_domid __context vm);
+							Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VM.hard_shutdown rpc session_id vm);
+						end;
+
 						Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm;
 						if Db.VM.get_power_state __context vm = `Running then
 							forward_vm_op ~local_fn ~__context ~vm forward_fn
