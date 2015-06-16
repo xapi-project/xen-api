@@ -4217,8 +4217,8 @@ let host_set_ssl_legacy = call
 	~lifecycle:[Prototyped, rel_dundee, ""]
 	~doc:"Enable/disable SSLv3 for interoperability with older versions of XenServer"
 	~params:[
-		Ref _host, "host", "The host";
-		Bool, "enabled", "True to allow SSLv3 and ciphersuites as used in old XenServer versions";
+		Ref _host, "self", "The host";
+		Bool, "value", "True to allow SSLv3 and ciphersuites as used in old XenServer versions";
 	]
 	~allowed_roles:_R_POOL_OP
 	()

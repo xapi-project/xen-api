@@ -4044,13 +4044,6 @@ let host_reset_cpu_features printer rpc session_id params =
 			get_host_from_session rpc session_id in
 	Client.Host.reset_cpu_features rpc session_id host
 
-let host_set_ssl_legacy printer rpc session_id params =
-	let key = "enabled" in
-	let enabled = bool_of_string key (List.assoc key params) in
-	ignore(do_host_op rpc session_id (fun _ host ->
-		Client.Host.set_ssl_legacy rpc session_id (host.getref ()) enabled)
-		params [key])
-
 let host_enable_display printer rpc session_id params =
 	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let result = Client.Host.enable_display rpc session_id host in

@@ -801,15 +801,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
-   "host-set-ssl-legacy",
-    {
-      reqd=["enabled"];
-      optn=[];
-      help="Enable/disable SSLv3 backward-compatibility mode for communication with older versions of XenServer and of XenAPI client software.";
-      implementation=No_fd Cli_operations.host_set_ssl_legacy;
-      flags=[Host_selectors]
-    };
-
    "host-enable-display",
     {
       reqd=["uuid"];
