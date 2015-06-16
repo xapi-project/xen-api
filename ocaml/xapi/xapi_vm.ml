@@ -759,10 +759,41 @@ let run_script ~__context ~vm ~args =
 	with Xenops_interface.Failed_to_run_script reason -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ reason ]))
 
 
+(* A temporal database holding the latest calling log for each VM. It's fine for it to be host local as a VM won't be resident on two hosts at the same time, nor does it migrate that frequently *)
+
+let call_plugin_latest = Hashtbl.create 37
+let call_plugin_latest_m = Mutex.create ()
+
+let record_call_plugin_latest vm =
+	let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
+	Mutex.execute call_plugin_latest_m (fun () ->
+		let now = Oclock.gettime Oclock.monotonic in
+		(* First do a round of GC *)
+		let to_gc = ref [] in
+		Hashtbl.iter
+			(fun v t ->
+				if Int64.sub now t > interval
+				then to_gc := v :: !to_gc)
+			call_plugin_latest;
+		List.iter (Hashtbl.remove call_plugin_latest) !to_gc;
+		(* Then calculate the schedule *)
+		let to_wait =
+			if Hashtbl.mem call_plugin_latest vm then
+				let t = Hashtbl.find call_plugin_latest vm in
+				Int64.sub (Int64.add t interval) now
+			else 0L in
+		if to_wait > 0L then
+			raise (Api_errors.Server_error (Api_errors.vm_call_plugin_rate_limit, [ Ref.string_of vm; string_of_float !Xapi_globs.vm_call_plugin_interval; string_of_float (Int64.to_float to_wait /. 1e9) ]))
+		else
+			Hashtbl.replace call_plugin_latest vm now
+	)
+
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~vm ~plugin ~fn ~args =
 	if plugin <> "guest-agent-operation" then
 		raise (Api_errors.Server_error(Api_errors.xenapi_missing_plugin, [ plugin ]));
+	(* throttle plugin calls, hold a call if there are frequent attempts *)
+	record_call_plugin_latest vm;
 	try
 		match fn with
 		| "request-rdp-on" ->

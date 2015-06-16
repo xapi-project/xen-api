@@ -754,6 +754,9 @@ let default_vbd3_polling_duration = ref 1000
 (** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
 let default_vbd3_polling_idle_threshold = ref 50
 
+(** The minimal time gap between attempts to call plugin on a particular VM *)
+let vm_call_plugin_interval = ref 10.
+
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
@@ -884,6 +887,7 @@ let xapi_globs_spec =
 	  "redo_log_connect_delay", Float redo_log_connect_delay;
 	  "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
 	  "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
+	  "vm_call_plugin_interval", Float vm_call_plugin_interval;
 	]
 
 let options_of_xapi_globs_spec = 

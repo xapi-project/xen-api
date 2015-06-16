@@ -1287,7 +1287,10 @@ let _ =
 		~doc:"This operation is not allowed as the VM is part of an appliance." ();
 
 	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
-		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ()
+		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ();
+
+	error Api_errors.vm_call_plugin_rate_limit ["VM"; "interval"; "wait"]
+		~doc:"There is a minimal interval required between consecutive plugin calls made on the same VM, please wait before retry." ()
 
 
 let _ =
