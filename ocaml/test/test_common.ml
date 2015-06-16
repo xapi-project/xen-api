@@ -125,7 +125,8 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		?(gui_config=[]) ?(health_check_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
 		?(wlb_enabled=false) ?(wlb_verify_cert=false) ?(redo_log_enabled=false)
 		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
-		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]) 
+		?(current_operations=[]) ?(allowed_operations=[])
+		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
 		?(ha_cluster_stack="xhad") () =
 	let pool_ref = Ref.make () in
 	Db.Pool.create ~__context ~ref:pool_ref
@@ -135,6 +136,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~ha_plan_exists_for ~ha_allow_overcommit ~ha_overcommitted ~blobs ~tags
 		~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
 		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
+		~current_operations ~allowed_operations
 		~restrictions ~other_config ~ha_cluster_stack;
 	pool_ref
 

@@ -480,6 +480,12 @@ let pool_record rpc session_id pool =
 				~add_to_map:(fun k v -> Client.Pool.add_to_other_config rpc session_id pool k v)
 				~remove_from_map:(fun k -> Client.Pool.remove_from_other_config rpc session_id pool k)
 				~get_map:(fun () -> (x ()).API.pool_other_config) ();
+			make_field ~name:"allowed-operations" 
+				~get:(fun () -> String.concat "; " (List.map Record_util.pool_operation_to_string (x ()).API.pool_allowed_operations))
+				~get_set:(fun () -> List.map Record_util.pool_operation_to_string (x ()).API.pool_allowed_operations) ();
+			make_field ~name:"current-operations"
+				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.pool_operation_to_string b) (x ()).API.pool_current_operations))
+				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.pool_operation_to_string b) (x ()).API.pool_current_operations) ();
 			make_field ~name:"ha-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_enabled) ();
 			make_field ~name:"ha-configuration"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_ha_configuration) ();
 			make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.pool_ha_statefiles)) ();
