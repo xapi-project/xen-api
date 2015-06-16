@@ -1522,25 +1522,24 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.revert ~snapshot in
 			let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
 
-			(* We need to do a best-effort check that any suspend_VDI referenced by
-			   the snapshot (not the current VM) is currently accessible. This is because
-			   the revert code first clears space by deleting current VDIs before cloning
-			   the suspend VDI: we want to minimise the probability that the operation fails
-			   part-way through. *)
-			if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
-				let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
-				let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
-				let pbd = choose_pbd_for_sr ~__context ~self:sr () in
-				let host = Db.PBD.get_host ~__context ~self:pbd in
-				let metrics = Db.Host.get_metrics ~__context ~self:host in
-				let live = Db.is_valid_ref __context metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
-				if not live
-				then raise (Api_errors.Server_error(Api_errors.host_not_live, [ Ref.string_of host ]))
-			end;
-
 			with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
 				(fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
 					(fun () ->
+						(* We need to do a best-effort check that any suspend_VDI referenced by
+							the snapshot (not the current VM) is currently accessible. This is because
+							the revert code first clears space by deleting current VDIs before cloning
+							the suspend VDI: we want to minimise the probability that the operation fails
+							part-way through. *)
+						if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
+							let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
+							let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
+							let pbd = choose_pbd_for_sr ~__context ~self:sr () in
+							let host = Db.PBD.get_host ~__context ~self:pbd in
+							let metrics = Db.Host.get_metrics ~__context ~self:host in
+							let live = Db.is_valid_ref __context metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
+							if not live
+							then raise (Api_errors.Server_error(Api_errors.host_not_live, [ Ref.string_of host ]))
+						end;
 						(* first of all, destroy the domain if needed. *)
 						if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
 							debug "VM %s (domid %Ld) which is reverted is not halted: shutting it down first"
