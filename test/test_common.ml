@@ -8,21 +8,21 @@ let test_payload = Rrd_protocol.({
 			~description:"A test integer"
 			~value:(Rrd.VT_Int64 1234L)
 			~ty:Rrd.Gauge
-			~default:true
+			~default:false
 			~units:"things" ();
 		Rrd.SR "test_sr",
 		Ds.ds_make ~name:"test_int2"
 			~description:"A test integer"
 			~value:(Rrd.VT_Int64 5678L)
 			~ty:Rrd.Gauge
-			~default:true
+			~default:false
 			~units:"things" ();
 		Rrd.VM "test_vm",
 		Ds.ds_make ~name:"test_float1"
 			~description:"A test float"
 			~value:(Rrd.VT_Float 987.654)
 			~ty:Rrd.Gauge
-			~default:true
+			~default:false
 			~units:"things" ();
 	];
 })
@@ -65,7 +65,7 @@ let make_random_datasource () =
 		~description:"A datasource"
 		~value
 		~ty
-		~default:true
+		~default:false
 		~units:"things" ()
 
 let make_random_payload timestamp datasource_count =
