@@ -801,6 +801,8 @@ let igd_passthru_vendor_whitelist = ref []
  * with PIF.managed = false during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
+let manage_xenvmd = ref false
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -927,7 +929,10 @@ let other_options = [
     (fun s -> s) igd_passthru_vendor_whitelist;
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
-    (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
+  (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
+
+  "manage_xenvmd", Arg.Set manage_xenvmd,
+  (fun () -> string_of_bool !manage_xenvmd), "Start and stop xenvmd instances on behalf of the SM backends";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
