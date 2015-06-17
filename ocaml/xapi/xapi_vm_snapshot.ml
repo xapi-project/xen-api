@@ -442,14 +442,6 @@ let revert ~__context ~snapshot ~vm =
 	try
 		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 
-		(* first of all, destroy the domain if needed. *)
-		if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
-			debug "VM %s (domid %Ld) which is reverted is not halted: shutting it down first"
-				(Db.VM.get_uuid __context vm)
-				(Db.VM.get_domid __context vm);
-			Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VM.hard_shutdown rpc session_id vm);
-		end;
-	
 		update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm;
 		update_guest_metrics ~__context ~snapshot ~vm;
 		update_parent ~__context ~snapshot ~vm;
