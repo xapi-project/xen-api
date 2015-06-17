@@ -131,6 +131,7 @@ sig
 	}
 
 	type supported_driver =
+		| I915
 		| Nvidia
 		| Pciback
 
