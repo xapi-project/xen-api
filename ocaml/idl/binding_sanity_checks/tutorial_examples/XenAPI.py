@@ -106,7 +106,7 @@ class Session(xmlrpclib.ServerProxy):
     Example:
 
     session = Session('http://localhost/')
-    session.login_with_password('me', 'mypassword')
+    session.login_with_password('me', 'mypassword', '1.0', 'xen-api-tutorial-xenapi.py')
     session.xenapi.VM.start(vm_uuid)
     session.xenapi.session.logout()
     """

@@ -258,7 +258,7 @@ if __name__ == "__main__":
         reopenlog(settings["log"])
 
     server = xmlrpclib.Server(settings["server"])
-    session = value(server.session.login_with_password(settings["username"], settings["password"]))
+    session = value(server.session.login_with_password(settings["username"], settings["password"], "1.0", "xen-api-scripts-import-boxgrinder"))
     try:
         (vm, vdis) = import_metadata(server, session, args[0])
         for filename in vdis.keys():

@@ -19,7 +19,7 @@ test_vm_name='sanitycheck VM'
 
 def gs(server, username, password):
     session = XenAPI.Session('http://'+server)
-    session.login_with_password(username, password)
+    session.login_with_password(username, password, '1.0', 'xen-api-sanity-check')
     return session
 
 def getsession():

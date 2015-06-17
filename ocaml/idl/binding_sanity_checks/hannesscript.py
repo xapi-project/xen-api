@@ -16,7 +16,7 @@ def dictionary_list_partial_print(title, dictionary_list, keys ):
 
 #log in to the master
 session=XenAPI.Session(SERVER)
-session.login_with_password(USERNAME, PASSWORD)
+session.login_with_password(USERNAME, PASSWORD, '1.0', 'xen-api-hannesscript.py')
 sx=session.xenapi
 
 #first, we'll find all the hosts, and get the information we care about from each

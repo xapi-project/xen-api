@@ -175,10 +175,13 @@ The following transport layers are currently supported:
 The XML-RPC interface is session-based; before you can make arbitrary RPC calls
 you must login and initiate a session. For example:
 \begin{verbatim}
-   session_id    session.login_with_password(string uname, string pwd)
+   session_id    session.login_with_password(string uname, string pwd, string version, string originator)
 \end{verbatim}
 Where {\tt uname} and {\tt password} refer to your username and password
+while {\tt version} and {\tt originator} are optional and refer to the api version and client name 
 respectively, as defined by the Xen administrator.
+(The {\tt version} is ignored at present though. A client that doesn't want to specify it can 
+send uname, pwd, '', originator)
 The {\tt session\_id} returned by {\tt session.login\_with\_password} is passed
 to subequent RPC calls as an authentication token.
 
@@ -247,7 +250,7 @@ Acquire a session reference by logging in with a username and password
 key {\tt 'Value'} in the resulting dictionary)
 
 \begin{verbatim}
->>> session = xen.session.login_with_password("user", "passwd")['Value']
+>>> session = xen.session.login_with_password("user", "passwd", "version", "originator")['Value']
 \end{verbatim}
 
 When serialised, this call looks like the following:
@@ -262,6 +265,12 @@ When serialised, this call looks like the following:
     </param>
     <param>
       <value><string>passwd</string></value>
+    </param>
+    <param>
+      <value><string>version</string></value>
+    </param>
+    <param>
+      <value><string>originator</string></value>
     </param>
   </params>
 </methodCall>

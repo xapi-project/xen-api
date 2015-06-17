@@ -2,7 +2,7 @@
 
 import xmlrpclib
 server = xmlrpclib.Server("http://melton:8086");
-session = server.session.login_with_password("root", "xenroot")['Value']
+session = server.session.login_with_password("root", "xenroot", "1.0", "xen-api-list-vms.py")['Value']
 print session
 vms = server.VM.get_all(session)['Value']
 print vms

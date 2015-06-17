@@ -137,7 +137,7 @@ if __name__ == "__main__":
         sys.exit(1)
     # First acquire a valid session by logging in:
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-timevmboots.py")
 
     # We start watching all Halted VMs
     all = session.xenapi.VM.get_all_records()

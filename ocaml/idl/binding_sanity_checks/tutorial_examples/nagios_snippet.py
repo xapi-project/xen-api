@@ -4,7 +4,7 @@ hostname, username, password = "ivory", "root", "password"
 
 import XenAPI
 session=XenAPI.Session('https://'+hostname)
-session.login_with_password(username, password)
+session.login_with_password(username, password, '1.0' ,'xen-api-tutorial-snippet.py')
 sx=session.xenapi
  
 # partition the hosts according to whether they're alive or not

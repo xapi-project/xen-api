@@ -92,11 +92,11 @@ if __name__ == "__main__":
         username = sys.argv[2]
         password = sys.argv[3]
         session = XenAPI.Session(url)
-        session.xenapi.login_with_password(username, password)
+        session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-shell.py")
         cmdAt = 4
     else:
         session = XenAPI.xapi_local()
-        session.xenapi.login_with_password("", "")
+        session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-shell.py")
         cmdAt = 2
 
     # We want to support directly executing the cmd line,

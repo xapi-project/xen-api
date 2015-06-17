@@ -21,7 +21,7 @@ if __name__ == "__main__":
         sys.exit(1)
     name = sys.argv[1]
     x = XenAPI.xapi_local()
-    x.xenapi.login_with_password("root", "")
+    x.xenapi.login_with_password("root", "", "1.0", "xen-api-scripts-lvhd-api-test.py")
     try:
         go(x, name)
     finally:

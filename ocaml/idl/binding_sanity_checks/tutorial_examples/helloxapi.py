@@ -20,6 +20,6 @@ if __name__ == "__main__":
 
     print "List of non-template VMs on %s" % url
     session = XenAPI.Session(url)
-    session.login_with_password(username, password)
+    session.login_with_password(username, password, '1.0', 'xen-api-tutorial-helloxapi.py')
     main(session.xenapi)
     session.logout()

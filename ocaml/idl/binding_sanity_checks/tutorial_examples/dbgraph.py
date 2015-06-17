@@ -142,7 +142,7 @@ def main(url, username, password):
     global object_database
 
     session = XenAPI.Session(url)
-    session.login_with_password(username, password)
+    session.login_with_password(username, password, '1.0', 'xen-api-tutorial-dbgraph.py')
     sx=session.xenapi
 
     #read all the objects we're interested in from Xapi.

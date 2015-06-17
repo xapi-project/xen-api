@@ -7,7 +7,7 @@ if len(sys.argv) <> 4:
     raise "Expected arguments: <url> <username> <password>"
 
 server = xmlrpclib.Server(sys.argv[1]);
-session = server.session.login_with_password(sys.argv[2], sys.argv[3])['Value']
+session = server.session.login_with_password(sys.argv[2], sys.argv[3], "1.0", "xen-api-event-listen.py")['Value']
 
 server.event.register(session, ["*"])
 while True:

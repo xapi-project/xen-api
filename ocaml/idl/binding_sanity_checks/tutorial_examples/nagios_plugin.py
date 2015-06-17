@@ -55,11 +55,11 @@ try:
     host_is_slave=False
     try:
         session=XenAPI.Session('https://'+options.hostname)
-        session.login_with_password(options.username, options.password)
+        session.login_with_password(options.username, options.password,, '1.0' ,'xen-api-tutorial-plugin.py')
     except XenAPI.Failure, e:
         if e.details[0]=='HOST_IS_SLAVE':
             session=XenAPI.Session('https://'+e.details[1])
-            session.login_with_password(options.username, options.password)
+            session.login_with_password(options.username, options.password, '1.0' ,'xen-api-tutorial-plugin.py')
             host_is_slave=True
         else:
             raise

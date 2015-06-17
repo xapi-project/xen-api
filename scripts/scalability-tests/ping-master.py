@@ -33,7 +33,7 @@ if __name__ == "__main__":
     password = sys.argv[3]
     
     session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password)
+    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-pingmaster.py")
     try:
         main(session)
     finally:

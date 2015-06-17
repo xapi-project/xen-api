@@ -26,7 +26,7 @@ def list_paused_domains():
 def should_domain_be_somewhere_else(localhost_uuid, (domid, uuid)):
     try:
         x = XenAPI.xapi_local()
-        x.xenapi.login_with_password("root", "")
+        x.xenapi.login_with_password("root", "", "1.0", "xen-api-scripts-monitor-unwanted-domains.py")
         try:
             try:
                 vm = x.xenapi.VM.get_by_uuid(uuid)

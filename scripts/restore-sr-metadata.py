@@ -25,7 +25,7 @@ def usage():
 
 def main(argv):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-restore-sr-metadata")
 
     try:
         opts, args = getopt.getopt(argv, "hf:u:", [])

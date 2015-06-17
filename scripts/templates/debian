@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     server = xapi_local ()
     try:
-        session_id = server.session.login_with_password('','')['Value']
+        session_id = server.session.login_with_password('','','1.0','xen-api-scripts-debian')['Value']
         uuid = server.VM.get_uuid(session_id, vm)['Value']
         mountpoint = "/tmp/installer/%s" % (uuid)
     finally:
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         run("/usr/bin/unzip -p %s swap.img | dd of=%s oflag=direct bs=1M", xgt, xvdb)
 
         try:
-            session_id = server.session.login_with_password('','')['Value']
+            session_id = server.session.login_with_password('','','1.0','xen-api-scripts-debian')['Value']
             vbds = server.VM.get_VBDs(session_id, vm)['Value']
             for i in vbds:
                 dev = server.VBD.get_userdevice(session_id, i)['Value']

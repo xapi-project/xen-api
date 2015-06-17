@@ -110,7 +110,7 @@ if __name__ == "__main__":
     
     x = xmlrpclib.Server(sys.argv[1])
     key = sys.argv[2]
-    session = x.session.login_with_password("root", "xenroot")["Value"]
+    session = x.session.login_with_password("root", "xenroot", "1.0", "xen-api-scripts-minixenrt.py")["Value"]
     vms = x.VM.get_all_records(session)["Value"]
 
     workers = []
