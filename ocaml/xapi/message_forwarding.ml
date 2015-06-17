@@ -2067,6 +2067,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.set_license_params: host = '%s'; license_params = [ %s ]" (host_uuid ~__context self) (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) value));
 			Local.Host.set_license_params ~__context ~self ~value
 
+		let set_ssl_legacy ~__context ~self ~value =
+			info "Host.set_ssl_legacy: host = '%s'; value = %b" (host_uuid ~__context self) value;
+			let	local_fn = Local.Host.set_ssl_legacy ~self ~value in
+			do_op_on ~local_fn ~__context ~host:self (fun session_id rpc -> Client.Host.set_ssl_legacy rpc session_id self value)
+
 		let ha_disable_failover_decisions ~__context ~host =
 			info "Host.ha_disable_failover_decisions: host = '%s'" (host_uuid ~__context  host);
 			let local_fn = Local.Host.ha_disable_failover_decisions ~host in

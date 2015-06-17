@@ -131,6 +131,9 @@ val get_diagnostic_timing_stats :
 val set_hostname_live :
   __context:Context.t -> host:[ `host ] Ref.t -> hostname:string -> unit
 val is_in_emergency_mode : __context:'a -> bool
+
+val set_ssl_legacy :
+  __context:Context.t -> self:[ `host ] API.Ref.t -> value:bool -> unit
 val compute_free_memory :
   __context:Context.t -> host:[ `host ] Ref.t -> int64
 val compute_memory_overhead :
