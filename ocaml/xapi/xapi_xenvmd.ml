@@ -1,9 +1,26 @@
-exception NoConfigFile
-exception XenvmdFailed
+(* 
+ * Code to manage xenvmd
+ *
+ * This is a little bit of a layering violation.
+ *
+ *)
 
 module D=Debug.Make(struct let name="xapi_xenvmd" end)
 open D
 
+let rpc x =
+  if !Xcp_client.use_switch
+  then Xcp_client.json_switch_rpc !(Storage_interface.queue_name) x
+  else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Storage_interface.uri x
+			  
+(* We need to be able to talk SMAPIv2 *)
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+module SM = Storage_interface.Client(struct let rpc = rpc end)
+
+exception NoConfigFile
+exception XenvmdFailed
+
+(* The storage backends know about these paths *)
 let lockfile sr = Printf.sprintf "/var/lib/xenvmd/%s.lock" sr
 let configfile sr = Printf.sprintf "/etc/xenvm.d/VG_XenStorage-%s.xenvmd.config" sr
 
@@ -18,9 +35,9 @@ let is_running sr =
       (fun () -> Unix.close fd);
     false
   with
-  | Unix.Unix_error (Unix.ENOENT, _, _) -> false
-  | Unix.Unix_error (Unix.EAGAIN, _, _) -> true
-  | Unix.Unix_error (Unix.EACCES, _, _) -> true
+  | Unix.Unix_error (Unix.ENOENT, _, _) -> false (* Lockfile missing *)
+  | Unix.Unix_error (Unix.EAGAIN, _, _) -> true  (* Locked by xenvmd *)
+  | Unix.Unix_error (Unix.EACCES, _, _) -> true  (* Locked by xenvmd *)
   | e -> raise e
 
 let assert_config_present sr =
@@ -31,7 +48,7 @@ let assert_config_present sr =
   | Unix.Unix_error (Unix.ENOENT, _, _) -> raise NoConfigFile
   | e -> raise e
            
-let start sr =
+let really_start sr =
   assert_config_present sr;
   try
     let output, stderr = Forkhelpers.execute_command_get_output !Xapi_globs.xenvmd_path
@@ -45,12 +62,13 @@ let start sr =
     debug "Failed to execute xenvmd. log='%s' output='%s'" log output;
     raise XenvmdFailed
 
-let ensure_running sr =
+(* Idempotent *)
+let start sr =
   let rec retry n =
     if n >= 5 then raise XenvmdFailed;
     try
       if not (is_running sr)
-      then start sr
+      then really_start sr
     with
     | XenvmdFailed ->
       Thread.delay 5.0;
@@ -60,6 +78,7 @@ let ensure_running sr =
 
 (* Let's try _really hard_ and _really carefully_ to kill xenvmd *)
 let stop sr =
+  info "Stopping xenvmd for SR uuid: %s" sr;
   let open Opt.Monad in
   let rec inner n =
     let signal = if n > 2 then Sys.sigkill else Sys.sigquit in
@@ -81,4 +100,18 @@ let stop sr =
   in
   ignore (inner 0)
 
-  
+let operate_on_shared_srs op =
+  let attached_srs = SM.SR.list ~dbg:"xapi_xenvmd" in
+  Server_helpers.exec_with_new_task "Xapi_xenvmd: Managing xenvmd instances" (fun __context ->
+    List.iter (fun uuid ->
+      let self = Db.SR.get_by_uuid ~__context ~uuid in
+      let shared = Db.SR.get_shared ~__context ~self in
+      if shared then op uuid) attached_srs)
+    
+(* Called on transition to slave, on the way down *)
+(* We must assume we're a slave, so not the SR master for any shared SRs *)
+let kill_non_sr_master_xenvmds () = operate_on_shared_srs stop
+
+(* Start xenvmd for shared SRs *)
+let start_xenvmds_for_shared_srs () = operate_on_shared_srs start
+    

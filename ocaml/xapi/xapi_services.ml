@@ -134,7 +134,7 @@ let call_xenvmd_on_srmaster __context req from sr_uuid =
   then begin
     let path = Filename.concat "/var/lib/xenvmd" sr_uuid in
     if !Xapi_globs.manage_xenvmd then
-      Xapi_xenvmd.ensure_running sr_uuid;
+      Xapi_xenvmd.start sr_uuid;
     http_proxy_to_unix_sock req from path "xenvmd"
   end else begin
     let sr_master = Helpers.get_srmaster ~__context ~sr in
