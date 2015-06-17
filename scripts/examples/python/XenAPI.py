@@ -197,6 +197,8 @@ class Session(xmlrpclib.ServerProxy):
             return _Dispatcher(self.API_version, self.xenapi_request, None)
         elif name.startswith('login') or name.startswith('slave_local'):
             return lambda *params: self._login(name, params)
+        elif name == 'logout':
+            return _Dispatcher(self.API_version, self.xenapi_request, "logout")
         else:
             return xmlrpclib.ServerProxy.__getattr__(self, name)
 
