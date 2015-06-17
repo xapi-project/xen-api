@@ -1721,7 +1721,9 @@ let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeo
 						error "%s: unexpected signal: %d" name n;
 						raise (Ioemu_failed (Printf.sprintf "%s exited unexpectedly" name))
 				end
-		done
+		done;
+		if not !finished then
+			raise (Ioemu_failed (Printf.sprintf "Timeout reached while starting daemon %s" path))
 	end;
 	debug "Daemon initialised: %s" (Printf.sprintf "%s-%d" name domid);
 	pid
