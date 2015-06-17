@@ -244,6 +244,8 @@ let check_no_other_masters() =
 	       (* transition to slave and restart *)
 	       begin
 		 try
+		   (* Belt-n-braces *)
+		   if !Xapi_globs.manage_xenvmd then Xapi_xenvmd.kill_non_sr_master_xenvmds ();
 		   (* now become a slave of the new master we found... *)
 		   Pool_role.set_role (Pool_role.Slave master_address);
 		 with
@@ -909,7 +911,8 @@ let server_init() =
       "executing startup scripts", [ Startup.NoExnRaising], startup_script;
 
       "considering executing on-master-start script", [],
-        (fun () -> Xapi_pool_transition.run_external_scripts (Pool_role.is_master ()));
+      (fun () -> Xapi_pool_transition.run_external_scripts (Pool_role.is_master ()));
+      "starting xenvmd daemons", [ Startup.OnlyMaster], (fun () -> if !Xapi_globs.manage_xenvmd then Xapi_xenvmd.start_xenvmds_for_shared_srs ());
       "creating networks", [ Startup.OnlyMaster ], Create_networks.create_networks_localhost;
       "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context)); 
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing

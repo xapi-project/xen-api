@@ -159,7 +159,8 @@ let become_another_masters_slave master_address =
   if Pool_role.get_role () = new_role then begin
     debug "We are already a slave of %s; nothing to do" master_address;
   end else begin
-	  debug "Setting pool.conf to point to %s" master_address;
+    debug "Setting pool.conf to point to %s" master_address;
+    if !Xapi_globs.manage_xenvmd then Xapi_xenvmd.kill_non_sr_master_xenvmds ();
     Pool_role.set_role new_role;
     run_external_scripts false;
     Xapi_fuse.light_fuse_and_run ()
