@@ -402,14 +402,14 @@ class XapiMessage:
                 value, name, alarm_trigger_level, alarm_trigger_period = self.get_message(self.body)
                 return \
                     "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nMessage:\n" \
+                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\n" \
                     "Parameter=%s\nValue=%f\nAlarm trigger value=%s\nAlarm trigger period=%s" % \
                     (self.name,self.priority,self.cls,self.obj_uuid,self.timestamp,self.uuid,self.pool_name,name,value,alarm_trigger_level,alarm_trigger_period)
             except:
                 msg = self.body.replace('&gt;','>').replace('&lt;','<').replace('&quot;','"')
                 return \
                     "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nMessage:\n%s\n" % \
+                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\n%s\n" % \
                     (self.name,self.priority,self.cls,self.obj_uuid,self.timestamp,self.uuid,self.pool_name,msg)
 
 
