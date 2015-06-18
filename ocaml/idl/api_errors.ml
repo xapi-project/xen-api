@@ -237,7 +237,8 @@ let sr_device_in_use = "SR_DEVICE_IN_USE"
 let sr_operation_not_supported = "SR_OPERATION_NOT_SUPPORTED"
 let sr_not_sharable = "SR_NOT_SHARABLE"
 let sr_indestructible = "SR_INDESTRUCTIBLE"
-
+let sr_detached_on_master = "SR_DETACHED_ON_MASTER"
+  
 let sm_plugin_communication_failure = "SM_PLUGIN_COMMUNICATION_FAILURE"
 
 let pbd_exists = "PBD_EXISTS"
