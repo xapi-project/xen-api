@@ -13,6 +13,9 @@
  *)
 (* Copyright (C) 2007 XenSource Inc *)
 
+module D=Debug.Make(struct let name="stunnel" end)
+open D
+
 open Printf
 open Pervasiveext
 open Xstringext
@@ -32,6 +35,11 @@ let cached_stunnel_path = ref None
 let stunnel_logger = ref ignore
 
 let timeoutidle = ref None
+
+let legacy_protocol_and_ciphersuites_allowed = ref true
+
+let is_legacy_protocol_and_ciphersuites_allowed () =
+	!legacy_protocol_and_ciphersuites_allowed
 
 let init_stunnel_path () =
 	try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
@@ -116,32 +124,56 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
 	   unique_id: int option;
 	   mutable logfile: string;
 	   verified: bool;
+	   legacy: bool;
 	 }
 
-let config_file verify_cert extended_diagnosis host port = 
-	let lines = ["client=yes"; "foreground=yes"; "socket = r:TCP_NODELAY=1"; "socket = r:SO_KEEPALIVE=1"; "socket = a:SO_KEEPALIVE=1";
-							 (match !timeoutidle with None -> "" | Some x -> Printf.sprintf "TIMEOUTidle = %d" x);
-							 Printf.sprintf "connect=%s:%d" host port] @
-    (if extended_diagnosis then
-       ["debug=4"]
-     else
-       []) @
-    (if verify_cert then
-       ["verify=2";
-        sprintf "CApath=%s" certificate_path;
-        sprintf "CRLpath=%s" crl_path]
-     else
-       [])
+let config_file verify_cert extended_diagnosis host port legacy =
+
+    let good_ciphers = "!EXPORT:TLSv1.2" in
+    let back_compat_ciphers = "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA" in
+
+	let lines = [
+		"client=yes"; "foreground=yes"; "socket = r:TCP_NODELAY=1"; "socket = r:SO_KEEPALIVE=1"; "socket = a:SO_KEEPALIVE=1";
+		(match !timeoutidle with None -> "" | Some x -> Printf.sprintf "TIMEOUTidle = %d" x);
+		Printf.sprintf "connect=%s:%d" host port;
+		"fips = no"; (* stunnel fips-mode stops us using sslVersion other than TLSv1 which means 1.0 only. *)
+	] @	(if extended_diagnosis then
+			["debug=4"]
+		else
+			[]
+	) @ (
+		if verify_cert then
+			["verify=2";
+			sprintf "CApath=%s" certificate_path;
+			sprintf "CRLpath=%s" crl_path]
+		else
+			[]
+	) @ (
+		if legacy then [
+			"sslVersion = all";
+			"options = NO_SSLv2";
+			"options = NO_SSLv3";
+			"ciphers = " ^ good_ciphers ^ ":" ^ back_compat_ciphers;
+		] else [
+			"sslVersion = TLSv1.2";
+			"ciphers = " ^ good_ciphers;
+		]
+	)
   in
     String.concat "" (List.map (fun x -> x ^ "\n") lines)
 
+let set_legacy_protocol_and_ciphersuites_allowed b =
+	legacy_protocol_and_ciphersuites_allowed := b;
+	info "legacy-config %B; example: %s" b
+		(String.escaped (config_file false false "dummyhost" 443 b))
+
 let ignore_exn f x = try f x with _ -> ()
 
-let rec disconnect ?(wait = true) ?(force = false) x = 
+let rec disconnect ?(wait = true) ?(force = false) x =
   List.iter (ignore_exn Unix.close) [ x.fd ];
 
   let do_disc waiter pid =
-    let res = 
+    let res =
       try waiter ()
       with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
     match res with
@@ -151,18 +183,24 @@ let rec disconnect ?(wait = true) ?(force = false) x =
         disconnect ~wait:wait ~force:force x
     | _ -> ()
   in
+  let verbose = x.legacy && not (!legacy_protocol_and_ciphersuites_allowed) in
   match x.pid with
-    | FEFork pid -> do_disc
-        (fun () -> 
-           (if wait then Forkhelpers.waitpid 
-            else Forkhelpers.waitpid_nohang) pid)
-        (Forkhelpers.getpid pid)
-    | StdFork pid -> do_disc
-        (fun () -> 
-           (if wait then Unix.waitpid [] 
-            else Unix.waitpid [Unix.WNOHANG]) pid)
-        pid
-    | Nopid -> ()
+    | FEFork fpid ->
+        let pid_int = Forkhelpers.getpid fpid in
+        if verbose then info "Disconnecting FEFork %d" pid_int;
+        do_disc
+          (fun () ->
+             (if wait then Forkhelpers.waitpid 
+              else Forkhelpers.waitpid_nohang) fpid)
+          pid_int
+    | StdFork pid ->
+        if verbose then info "Disconnecting StdFork %d" pid;
+        do_disc
+          (fun () ->
+             (if wait then Unix.waitpid []
+              else Unix.waitpid [Unix.WNOHANG]) pid)
+          pid
+    | Nopid -> if verbose then info "Disconnecting Nopid"
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -192,10 +230,13 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
       ["-fd"; if use_fork_exec_helper then config_out_uuid else config_out_fd]
     end in
   let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+  (* Dereference just once to ensure we are consistent in t and config_file *)
+  let legacy = !legacy_protocol_and_ciphersuites_allowed in
   let t = 
     { pid = Nopid; fd = data_out; host = host; port = port; 
       connected_time = Unix.gettimeofday (); unique_id = unique_id; 
-      logfile = ""; verified = verify_cert } in
+      logfile = ""; verified = verify_cert;
+	  legacy = legacy } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
     ~delete:(not extended_diagnosis)
     (fun logfd ->
@@ -221,7 +262,7 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
 	       (fun () ->
             match config_in with
             | Some fd -> begin
-	              let config = config_file verify_cert extended_diagnosis host port in
+	              let config = config_file verify_cert extended_diagnosis host port legacy in
 	              (* Catch the occasional initialisation failure of stunnel: *)
 	              try
 	                let n = Unix.write fd config 0 (String.length config) in
