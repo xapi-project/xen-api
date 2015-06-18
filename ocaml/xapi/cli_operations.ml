@@ -3109,7 +3109,10 @@ let vm_import fd printer rpc session_id params =
 	let vm_metadata_only = get_bool_param params "metadata" in
 	let force = get_bool_param params "force" in
 	let dry_run = get_bool_param params "dry-run" in
-
+	if List.mem_assoc "url" params && List.mem_assoc "filename" params then begin
+	  marshal fd (Command (PrintStderr "Invalid arguments. The 'url' and 'filename' parameters should not both be specified.\n"));
+	  raise (ExitWithError 1)
+	end;
 	if (Vpx.serverType_of_string _type) <> Vpx.XenServer then begin
 		let username = List.assoc "host-username" params in
 		let password = List.assoc "host-password" params in
