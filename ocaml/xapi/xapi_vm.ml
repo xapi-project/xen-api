@@ -960,6 +960,49 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
 	let call = Rpc.call "job.get" [ r_cred; r_jobId ] in
 	loop call vpx_ip
 
+exception Retry of string (* Redirect *)
+let max_redirects = 5
+
+let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
+	if n > max_redirects
+        then raise (Api_errors.Server_error(Api_errors.import_error_generic, ["Maximum redirect limit reached"]))
+        else begin
+	let uri = Uri.of_string url in
+	try
+		Open_uri.with_open_uri uri (fun fd ->
+			let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+			let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+			let request = Cohttp.Request.make ~meth:`GET uri in
+			let ic = {Cohttp_posix_io.Unbuffered_IO.header_buffer=None; header_buffer_idx=0; fd} in
+			Request.write (fun _ -> ()) request fd;
+			match Response.read ic with
+			| `Eof -> raise (Api_errors.Server_error(Api_errors.import_error_premature_eof, []))
+			| `Invalid x -> raise (Api_errors.Server_error(Api_errors.import_error_generic, [x]))
+			| `Ok r ->
+				match r.Cohttp.Response.status with
+				| `OK ->
+					let rpc = Helpers.make_rpc ~__context in
+					let session_id = Context.get_session_id __context in
+					Import.stream_import __context rpc session_id fd None (fun () -> ())
+					    Import.({import_type = Full_import sr;
+						     full_restore;
+						     force})
+				| e when Cohttp.Code.is_redirection (Cohttp.Code.code_of_status e) ->
+					begin match Cohttp.Header.get (Cohttp.Response.headers r) "Location" with
+						| Some l -> raise (Retry l)
+						| None -> raise (Api_errors.Server_error(Api_errors.import_error_generic, ["Redirect with no new location"])) 
+    end
+				| e ->
+					raise (Api_errors.Server_error(Api_errors.import_error_generic, [Cohttp.Code.string_of_status e]))
+		)
+	with
+	| Retry redirect -> import_inner (n+1) ~__context ~url:redirect ~sr ~full_restore ~force
+	| e -> raise e
+	end
+
+let import ~__context ~url ~sr ~full_restore ~force =
+	import_inner 0 ~__context ~url ~sr ~full_restore ~force
+
 let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
 

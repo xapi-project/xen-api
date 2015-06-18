@@ -2409,6 +2409,20 @@ let vm_assert_can_set_auto_update_drivers = call
 	~allowed_roles:_R_VM_OP
 	~doc_tags:[Windows]
 	()
+
+let vm_import = call
+	~name:"import"
+	~in_product_since:rel_dundee
+	~doc:"Import an XVA from a URI"
+	~params:[String, "url", "The URL of the XVA file";
+		Ref _sr, "sr", "The destination SR for the disks";
+		Bool, "full_restore", "Perform a full restore";
+		Bool, "force", "Force the import"
+         ]
+	~result:(Set(Ref _vm), "Imported VM reference")
+	~allowed_roles:_R_POOL_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -6972,6 +6986,7 @@ let vm =
 		vm_call_plugin;
 		vm_set_auto_update_drivers;
 		vm_assert_can_set_auto_update_drivers;
+		vm_import;
 		]
       ~contents:
       ([ uid _vm;

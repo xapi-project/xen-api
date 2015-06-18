@@ -3105,18 +3105,28 @@ let vm_import fd printer rpc session_id params =
 	let _type = if List.mem_assoc "type" params
 		then List.assoc "type" params
 		else "default" in
+	let full_restore = get_bool_param params "preserve" in
+	let vm_metadata_only = get_bool_param params "metadata" in
+	let force = get_bool_param params "force" in
+	let dry_run = get_bool_param params "dry-run" in
+	if List.mem_assoc "url" params && List.mem_assoc "filename" params then begin
+	  marshal fd (Command (PrintStderr "Invalid arguments. The 'url' and 'filename' parameters should not both be specified.\n"));
+	  raise (ExitWithError 1)
+	end;
 	if (Vpx.serverType_of_string _type) <> Vpx.XenServer then begin
 		let username = List.assoc "host-username" params in
 		let password = List.assoc "host-password" params in
 		let remote_config = read_map_params "remote-config" params in
 		Client.VM.import_convert rpc session_id _type username password sr remote_config
 		end
-	else begin
+	else if List.mem_assoc "url" params then begin
+		let url = List.assoc "url" params in
+		let vm_refs = Client.VM.import ~rpc ~session_id ~url ~sr ~full_restore ~force in
+		let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vm_refs in
+		marshal fd (Command (Print (String.concat "," uuids)))
+	end else begin
 		let filename = List.assoc "filename" params in
-		let full_restore = get_bool_param params "preserve" in
-		let vm_metadata_only = get_bool_param params "metadata" in
-		let force = get_bool_param params "force" in
-		let dry_run = get_bool_param params "dry-run" in
+
 		if not vm_metadata_only && dry_run then begin
 			marshal fd (Command (PrintStderr "Only metadata import function support dry-run\n"));
 			raise (ExitWithError 1)

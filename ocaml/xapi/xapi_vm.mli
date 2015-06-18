@@ -253,3 +253,6 @@ val call_plugin : __context:Context.t -> vm:API.ref_VM -> plugin:string -> fn:st
 
 val set_auto_update_drivers : __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 val assert_can_set_auto_update_drivers : __context:Context.t -> self:API.ref_VM -> value:bool -> unit
+
+val import : __context:Context.t -> url:string -> sr:API.ref_SR -> full_restore:bool -> force:bool -> API.ref_VM list
+
