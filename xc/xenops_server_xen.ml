@@ -1571,7 +1571,7 @@ module PCI = struct
 				end;
 
 				Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
-				Device.PCI.add [ pci.address ] frontend_domid
+				Device.PCI.add xc xs [ pci.address ] frontend_domid
 			) Newest vm
 
 	let unplug task vm pci =

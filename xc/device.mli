@@ -136,7 +136,7 @@ sig
 
 	exception Cannot_use_pci_with_no_pciback of t list
 
-	val add : address list -> Xenctrl.domid -> unit
+	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address list -> Xenctrl.domid -> unit
 	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
 		-> address list -> Xenctrl.domid -> int -> unit
 	val reset : xs:Xenstore.Xs.xsh -> address -> unit

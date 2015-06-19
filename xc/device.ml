@@ -998,8 +998,40 @@ let add_xl = xl_pci "pci-attach"
 
 let release_xl = xl_pci "pci-detach"
 
-let add pcidevs domid =
-	try add_xl pcidevs domid
+let device_model_pci_device_path xs be_domid fe_domid =
+	let be_path = xs.Xs.getdomainpath be_domid in
+	Printf.sprintf "%s/backend/pci/%d/0" be_path fe_domid
+
+(* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
+   which the device was plugged. *)
+let read_pcidir ~xc ~xs domid =
+	let path = device_model_pci_device_path xs 0 domid in
+	let prefix = "dev-" in
+	let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
+	(* The values are the PCI device (domain, bus, dev, func) strings *)
+	let device_number_of_string x =
+		(* remove the silly prefix *)
+		int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
+	let pairs = List.map
+		(fun x ->
+			device_number_of_string x,
+			Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x)))
+		all
+	in
+	(* Sort into the order the devices were plugged *)
+	List.sort (fun a b -> compare (fst a) (fst b)) pairs
+
+let add ~xc ~xs pcidevs domid =
+	try
+		let current = read_pcidir ~xc ~xs domid in
+		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
+		add_xl pcidevs domid;
+		List.iteri
+			(fun count address ->
+				xs.Xs.write
+					(device_model_pci_device_path xs 0 domid ^ "/dev-" ^ string_of_int (next_idx + count))
+					(Xenops_interface.Pci.string_of_address address))
+			pcidevs
 	with exn -> raise (Cannot_add (pcidevs, exn))
 
 let release ~xc ~xs ~hvm pcidevs domid devid =
@@ -1202,11 +1234,6 @@ let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 let device_model_state_path xs be_domid fe_domid =
   Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
 
-let device_model_pci_device_path xs be_domid fe_domid =
-  let be_path = xs.Xs.getdomainpath be_domid in
-  Printf.sprintf "%s/backend/pci/%d/0" be_path fe_domid
-
-
 let signal_device_model ~xc ~xs domid cmd parameter = 
 	debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
 	let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
@@ -1234,25 +1261,6 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
 	  info "wait_device_model: qemu has shutdown";
 	  None
   end
-							
-(* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
-   which the device was plugged. *)
-let read_pcidir ~xc ~xs domid = 
-  let path = device_model_pci_device_path xs 0 domid in
-  let prefix = "dev-" in
-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
-  (* The values are the PCI device (domain, bus, dev, func) strings *)
-  let device_number_of_string x =
-    (* remove the silly prefix *)
-    int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  let pairs = List.map
-    (fun x ->
-      device_number_of_string x,
-      Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x)))
-    all
-  in
-  (* Sort into the order the devices were plugged *)
-  List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
 (* Return a list of PCI devices *)
 let list ~xc ~xs domid = 
