@@ -139,27 +139,30 @@ let ignore_exn f x = try f x with _ -> ()
 
 let rec disconnect ?(wait = true) ?(force = false) x = 
   List.iter (ignore_exn Unix.close) [ x.fd ];
-  let waiter, pid = match x.pid with
-    | FEFork pid ->
+
+  let do_disc waiter pid =
+    let res = 
+      try waiter ()
+      with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
+    match res with
+    | 0, _ when force ->
+        (try Unix.kill pid Sys.sigkill 
+         with Unix.Unix_error (Unix.ESRCH, _, _) ->());
+        disconnect ~wait:wait ~force:force x
+    | _ -> ()
+  in
+  match x.pid with
+    | FEFork pid -> do_disc
         (fun () -> 
            (if wait then Forkhelpers.waitpid 
-            else Forkhelpers.waitpid_nohang) pid),
-        Forkhelpers.getpid pid
-    | StdFork pid -> 
+            else Forkhelpers.waitpid_nohang) pid)
+        (Forkhelpers.getpid pid)
+    | StdFork pid -> do_disc
         (fun () -> 
            (if wait then Unix.waitpid [] 
-            else Unix.waitpid [Unix.WNOHANG]) pid),
-        pid in
-  let res = 
-    try waiter ()
-    with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
-  match res with
-  | 0, _ when force ->
-      (try Unix.kill pid Sys.sigkill 
-       with Unix.Unix_error (Unix.ESRCH, _, _) ->());
-      disconnect ~wait:wait ~force:force x
-  | _ -> ()
-
+            else Unix.waitpid [Unix.WNOHANG]) pid)
+        pid
+    | Nopid -> ()
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
