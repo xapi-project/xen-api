@@ -77,6 +77,7 @@ let reserved_words = function
   | "clone" -> "createClone"
   | "param-name" -> "param_name"
   | "interface" -> "iface"
+  | "import" -> "import_"
   | s -> s
 
 (* Given a XenAPI on-the-wire representation of an enum value, return the Java enum *)
