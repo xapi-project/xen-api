@@ -883,9 +883,10 @@ let set_hostname_live ~__context ~host ~hostname =
 
 let set_ssl_legacy ~__context ~self ~value =
 	let old = Db.Host.get_ssl_legacy ~__context ~self in
+	info "set_ssl_legacy %B where old=%B" value old;
 	Db.Host.set_ssl_legacy ~__context ~self ~value;
 	if old <> value then (
-		(* TODO change outgoing stunnels as well *)
+		Stunnel.set_legacy_protocol_and_ciphersuites_allowed value;
 		Xapi_mgmt_iface.reconfigure_stunnel ~__context
 	)
 
