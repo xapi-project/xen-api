@@ -1021,8 +1021,17 @@ let read_pcidir ~xc ~xs domid =
 	(* Sort into the order the devices were plugged *)
 	List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
-let add pcidevs domid =
-	try add_xl pcidevs domid
+let add ~xc ~xs pcidevs domid =
+	try
+		let current = read_pcidir ~xc ~xs domid in
+		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
+		add_xl pcidevs domid;
+		List.iteri
+			(fun count address ->
+				xs.Xs.write
+					(device_model_pci_device_path xs 0 domid ^ "/dev-" ^ string_of_int (next_idx + count))
+					(Xenops_interface.Pci.string_of_address address))
+			pcidevs
 	with exn -> raise (Cannot_add (pcidevs, exn))
 
 let release ~xc ~xs ~hvm pcidevs domid devid =
