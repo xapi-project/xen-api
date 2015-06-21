@@ -181,7 +181,13 @@ let create_multi prefixandrrds start interval cfopt =
   (* Sanity - make sure the RRDs are homogeneous *)
   let prefixandrrds = List.filter (fun (prefix,rrd) -> rrd.timestep = first_rrd.timestep) prefixandrrds in
 
-  let rras = 
+  (* Treat -ve start values as relative to the latest update. *)
+  let start =
+    prefixandrrds
+    |> List.map (fun (_, rrd) -> if start < 0L then Int64.(add start (of_float rrd.last_updated)) else start)
+    |> List.fold_left min Int64.max_int in
+
+  let rras =
     (List.map
        (fun (prefix,rrd) ->
           (* Find the rrds that satisfy the requirements *)
