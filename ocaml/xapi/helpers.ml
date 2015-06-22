@@ -1336,6 +1336,7 @@ module type POLICY = sig
 		(** Used by operations like VM.start which want to paper over transient glitches but want to fail
 		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
 	val fail_quickly : t
+	val fail_immediately: t
 	val wait : __context:Context.t -> t -> exn -> t
 end
 
@@ -1390,6 +1391,12 @@ module Repeat_with_uniform_backoff : POLICY = struct
 		maximum_delay = 2.;
 		max_total_wait = 120.;
 		wait_so_far = 0.
+	}
+	let fail_immediately = {
+		minimum_delay = 0.;
+		maximum_delay = 3.;
+		max_total_wait = min_float;
+		wait_so_far = 0.;
 	}
 	let wait ~__context (state: t) (e: exn) =
 		if state.wait_so_far >= state.max_total_wait then raise e;
