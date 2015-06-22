@@ -1217,7 +1217,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let call_plugin ~__context ~vm ~plugin ~fn ~args =
 			info "VM.call_plugin: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin
+			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
