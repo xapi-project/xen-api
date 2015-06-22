@@ -70,6 +70,7 @@ let vm_operation_table =
     `power_state_reset, "power_state_reset";
     `csvm, "csvm";
     `xenprep, "xenprep";
+    `call_plugin, "call_plugin";
   ]
 
 let vm_operation_to_string x = 
