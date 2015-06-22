@@ -90,8 +90,13 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 		end else begin
 			(* For virtual VGPUs, we calculate the number of times the VGPU_type's
 			 * size fits into the PGPU's (size - utilisation). *)
+			let open Db_filter_types in
 			let pgpu_size = Db.PGPU.get_size ~__context ~self in
 			let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
+			let scheduled_VGPUs =
+				Db.VGPU.get_refs_where ~__context ~expr:(Eq
+						(Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
+			in
 			let utilisation =
 				List.fold_left
 					(fun acc vgpu ->
@@ -100,7 +105,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 							Db.VGPU_type.get_size ~__context ~self:_type
 						in
 						Int64.add acc vgpu_size)
-					0L resident_VGPUs
+					0L (resident_VGPUs @ scheduled_VGPUs)
 			in
 			let new_vgpu_size =
 				Db.VGPU_type.get_size ~__context ~self:vgpu_type
