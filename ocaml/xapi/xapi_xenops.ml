@@ -550,11 +550,80 @@ module MD = struct
 			})
 			(List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
 
+	let get_target_pci_address ~__context vgpu =
+		let pgpu =
+			if Db.is_valid_ref __context
+				vgpu.Db_actions.vGPU_scheduled_to_be_resident_on
+			then vgpu.Db_actions.vGPU_scheduled_to_be_resident_on
+			else vgpu.Db_actions.vGPU_resident_on
+		in
+		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+		let pci_address = Db.PCI.get_pci_id ~__context ~self:pci in
+		Xenops_interface.Pci.address_of_string pci_address
+
+	let of_nvidia_vgpu ~__context vm vgpu =
+		let open Vgpu in
+		(* Get the PCI address. *)
+		let physical_pci_address = get_target_pci_address ~__context vgpu in
+		(* Get the vGPU config. *)
+		let vgpu_type = vgpu.Db_actions.vGPU_type in
+		let internal_config =
+			Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
+		let config_file =
+			try List.assoc Xapi_globs.vgpu_config_key internal_config
+			with Not_found -> failwith "NVIDIA vGPU config file not specified"
+		in
+		let implementation =
+			Nvidia {
+				physical_pci_address;
+				config_file;
+			}
+		in {
+			id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
+			position = int_of_string vgpu.Db_actions.vGPU_device;
+			implementation;
+		}
+
+	let of_gvt_g_vgpu ~__context vm vgpu =
+		let open Vgpu in
+		(* Get the PCI address. *)
+		let physical_pci_address = get_target_pci_address ~__context vgpu in
+		(* Get the vGPU config. *)
+		let vgpu_type = vgpu.Db_actions.vGPU_type in
+		let internal_config =
+			Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
+		try
+			let implementation =
+				GVT_g {
+					physical_pci_address;
+					low_gm_sz =
+						List.assoc Xapi_globs.vgt_low_gm_sz internal_config
+						|> Int64.of_string;
+					high_gm_sz =
+						List.assoc Xapi_globs.vgt_high_gm_sz internal_config
+						|> Int64.of_string;
+					fence_sz =
+						List.assoc Xapi_globs.vgt_fence_sz internal_config
+						|> Int64.of_string;
+				}
+			in {
+				id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
+				position = int_of_string vgpu.Db_actions.vGPU_device;
+				implementation;
+			}
+		with
+			| Not_found -> failwith "Intel GVT-g settings not specified"
+			| Failure "int_of_string" ->
+				failwith "Intel GVT-g settings invalid"
+
 	let vgpus_of_vm ~__context (vmref, vm) =
 		let open Vgpu in
-		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
+		if Vgpuops.vgpu_manual_setup_of_vm vm
+			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
 			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
 		then begin
+			(* We're using the vGPU manual setup mode, so get the vGPU configuration
+			 * from the VM platform keys. *)
 			let implementation =
 				Nvidia {
 					physical_pci_address =
@@ -567,7 +636,22 @@ module MD = struct
 				position = 0;
 				implementation;
 			}]
-		end else []
+		end else
+			List.fold_left
+				(fun acc vgpu ->
+					let vgpu_record = Db.VGPU.get_record_internal ~__context ~self:vgpu in
+					let implementation =
+						Db.VGPU_type.get_implementation ~__context
+							~self:vgpu_record.Db_actions.vGPU_type
+					in
+					match implementation with
+					(* Passthrough VGPUs are dealt with in pcis_of_vm. *)
+					| `passthrough -> acc
+					| `nvidia ->
+						(of_nvidia_vgpu ~__context vm vgpu_record) :: acc
+					| `gvt_g ->
+						(of_gvt_g_vgpu ~__context vm vgpu_record) :: acc)
+				[] vm.API.vM_VGPUs
 
 	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
 		let on_crash_behaviour = function
