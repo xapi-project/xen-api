@@ -8263,6 +8263,13 @@ let vgpu =
 
 (** Virtual GPU types (i.e. preset sizes) *)
 
+let vgpu_type_implementation =
+	Enum ("vgpu_type_implementation", [
+		"passthrough", "Pass through an entire physical GPU to a guest";
+		"nvidia", "vGPU using NVIDIA hardware";
+		"gvt_g", "vGPU using Intel GVT-g";
+	])
+
 let vgpu_type =
 	create_obj
 		~name:_vgpu_type
@@ -8291,6 +8298,7 @@ let vgpu_type =
 			field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use.";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
+			field ~qualifier:StaticRO ~ty:vgpu_type_implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
 		]
 	()
 

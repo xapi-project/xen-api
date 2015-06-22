@@ -28,6 +28,7 @@ type vgpu_type = {
 	max_resolution_y : int64;
 	size : int64;
 	internal_config : (string * string) list;
+	implementation : API.vgpu_type_implementation;
 }
 
 let entire_gpu = {
@@ -39,6 +40,7 @@ let entire_gpu = {
 	max_resolution_y = 0L;
 	size = 0L;
 	internal_config = [];
+	implementation = `passthrough;
 }
 
 module Nvidia = struct
@@ -162,10 +164,12 @@ module Nvidia = struct
 				and max_resolution_x = conf.max_x
 				and max_resolution_y = conf.max_y
 				and size = Int64.div Constants.pgpu_default_size conf.max_instance
-				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path] in
+				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path]
+				and implementation = `nvidia in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
-					max_resolution_x; max_resolution_y; size; internal_config}
+					max_resolution_x; max_resolution_y; size; internal_config;
+					implementation}
 				in
 				build_vgpu_types pci_access (vgpu_type :: ac) tl
 		in
@@ -173,12 +177,12 @@ module Nvidia = struct
 end
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
-		~max_resolution_x ~max_resolution_y ~size ~internal_config =
+		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
 	let ref = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-		~size ~internal_config;
+		~size ~internal_config ~implementation;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -229,6 +233,7 @@ let find_or_create ~__context vgpu_type =
 			~max_resolution_y:vgpu_type.max_resolution_y
 			~size:vgpu_type.size
 			~internal_config:vgpu_type.internal_config
+			~implementation:vgpu_type.implementation
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
 

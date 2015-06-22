@@ -223,8 +223,8 @@ let make_vgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(vM=Ref.null)
 let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 		?(vendor_name="") ?(model_name="") ?(framebuffer_size=0L) ?(max_heads=0L)
 		?(max_resolution_x=0L) ?(max_resolution_y=0L) ?(size=0L)
-		?(internal_config=[]) () =
+		?(internal_config=[]) ?(implementation=`passthrough) () =
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
-		~internal_config;
+		~internal_config ~implementation;
 	ref
