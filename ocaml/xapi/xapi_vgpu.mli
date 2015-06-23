@@ -26,6 +26,14 @@ val create :
 (** Destroy a VGPU. *)
 val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit
 
+(** Clear a VGPU's scheduled_to_be_resident_on field and set its resident_on
+ *  field. This should always run on the pool master. *)
+val atomic_set_resident_on :
+	__context:Context.t ->
+	self:[ `VGPU ] Ref.t ->
+	value:[ `PGPU ] Ref.t ->
+	unit
+
 (** Duplicate a VGPU. *)
 val copy :
   __context:Context.t ->

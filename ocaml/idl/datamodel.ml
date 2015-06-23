@@ -8237,6 +8237,18 @@ let vgpu =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
+	let atomic_set_resident_on = call
+		~name:"atomic_set_resident_on"
+		~lifecycle:[Published, rel_dundee, ""]
+		~params:[
+			Ref _vgpu, "self", "The vGPU to modify";
+			Ref _pgpu, "value", "The pGPU on which the vGPU is running";
+		]
+		~allowed_roles:_R_LOCAL_ROOT_ONLY
+		~hide_from_docs:true
+		~pool_internal:true
+		()
+	in
 	create_obj
 		~name:_vgpu
 		~descr:"A virtual GPU (vGPU)"
@@ -8245,7 +8257,7 @@ let vgpu =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[create; destroy]
+		~messages:[create; destroy; atomic_set_resident_on]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
