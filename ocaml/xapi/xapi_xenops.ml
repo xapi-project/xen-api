@@ -1629,6 +1629,16 @@ let update_vgpu ~__context id =
 					Opt.iter
 						(fun (xenopsd_vgpu, state) ->
 							if state.plugged then begin
+								let scheduled =
+									Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+								in
+								if Db.is_valid_ref __context scheduled
+								then begin
+									Helpers.call_api_functions ~__context
+										(fun rpc session_id ->
+											XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+												~self:vgpu ~value:scheduled)
+								end;
 								if not vgpu_record.API.vGPU_currently_attached
 								then Db.VGPU.set_currently_attached ~__context
 									~self:vgpu ~value:true
