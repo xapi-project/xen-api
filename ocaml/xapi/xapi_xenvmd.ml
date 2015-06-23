@@ -33,11 +33,12 @@ let is_running sr =
     Pervasiveext.finally
       (fun () -> Unix.lockf fd Unix.F_TEST 1)
       (fun () -> Unix.close fd);
+    debug "Locked successfully: xenvmd not running";
     false
   with
-  | Unix.Unix_error (Unix.ENOENT, _, _) -> false (* Lockfile missing *)
-  | Unix.Unix_error (Unix.EAGAIN, _, _) -> true  (* Locked by xenvmd *)
-  | Unix.Unix_error (Unix.EACCES, _, _) -> true  (* Locked by xenvmd *)
+  | Unix.Unix_error (Unix.ENOENT, _, _) -> debug "Caught ENOENT (xenvmd not running)"; false (* Lockfile missing *)
+  | Unix.Unix_error (Unix.EAGAIN, _, _) -> debug "Caught EAGAIN (xenvmd running)"; true  (* Locked by xenvmd *)
+  | Unix.Unix_error (Unix.EACCES, _, _) -> debug "Caught EACCESS (xenvmd running)"; true  (* Locked by xenvmd *)
   | e -> raise e
 
 let assert_config_present sr =
@@ -73,6 +74,8 @@ let start sr =
     | XenvmdFailed ->
       Thread.delay 5.0;
       retry (n+1)
+    | NoConfigFile ->
+      debug "No config file for SR=%s - assuming not thin-lvhd" sr;
   in
   retry 0
 
@@ -82,10 +85,13 @@ let stop sr =
   let open Opt.Monad in
   let rec inner n =
     let signal = if n > 2 then Sys.sigkill else Sys.sigquit in
+    debug "Getting pid";
     let pidopt = try lockfile sr |> Unixext.string_of_file |> int_of_string |> return with _ -> None in
+    debug "Pid is: %d" (match pidopt with Some d -> d | None -> -1);
     pidopt >>= fun pid ->
     let cmdopt = try Some (Unix.readlink (Printf.sprintf "/proc/%d/exe" pid) |> Filename.basename) with _ -> None in
     cmdopt >>= fun cmd -> 
+    debug "Got cmd: %s" cmd;
     if cmd="xenvmd" then begin
       Unix.kill pid signal;
       Thread.delay 0.5;
