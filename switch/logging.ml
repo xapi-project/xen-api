@@ -13,7 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-
+open Sexplib.Std
 open Lwt
 open Printf
 
@@ -87,6 +87,15 @@ let debug fmt = ignore_fmt fmt
 let info fmt = log Info program fmt
 let warn fmt = log Warn program fmt
 let error fmt = log Error program fmt
+
+type traced_operation = [
+  | `Set of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+  | `Get of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+] with sexp
+type traced_operation_list = traced_operation list with sexp
+let trace _ = ()
 
 let rec logging_thread () =
   lwt lines = get logger in
