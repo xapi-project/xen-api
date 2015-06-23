@@ -25,6 +25,15 @@ val info:  ('a, unit, string, unit) format4 -> 'a
 val warn:  ('a, unit, string, unit) format4 -> 'a
 val error: ('a, unit, string, unit) format4 -> 'a
 
+type traced_operation = [
+  | `Set of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+  | `Get of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+] with sexp
+type traced_operation_list = traced_operation list with sexp
+val trace: traced_operation_list -> unit
+
 val logging_thread: unit -> unit Lwt.t
 (** starts the background logging thread: this reads from a
     fixed-size logging buffer and writes to the physical log.
