@@ -1782,8 +1782,9 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
 		Forkhelpers.dontwaitpid vgpu_pid
 	end
-	| VNC (Vgpu _, _, _, _, _)
-	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
+	| VNC (Vgpu [{implementation = GVT_g vgpu}], _, _, _, _)
+	| SDL (Vgpu [{implementation = GVT_g vgpu}], _) ->
+		PCI.bind [vgpu.physical_pci_address] PCI.I915
 	| _ -> ()
 	in
 
