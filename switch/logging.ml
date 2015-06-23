@@ -88,6 +88,15 @@ let info fmt = log Info program fmt
 let warn fmt = log Warn program fmt
 let error fmt = log Error program fmt
 
+type traced_operation = [
+  | `Set of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+  | `Get of string * string * [ `Producer | `Consumer | `Suspend |
+    `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
+] with sexp
+type traced_operation_list = traced_operation list with sexp
+let trace _ = ()
+
 let rec logging_thread () =
   lwt lines = get logger in
   lwt () = Lwt_list.iter_s
