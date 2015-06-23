@@ -283,15 +283,11 @@ let is_boot_file_whitelisted filename =
 		(* avoid ..-style attacks and other weird things *)
 	&&(safe_str filename)
 
-let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough =
+let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 	let open Vm in
 
 	let video_mode =
-		(* If the vgpu keys are present for this VM, this overrides
-		 * the value of platform:vgpu. *)
-		if (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
-			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
-		then Vgpu
+		if vgpu then Vgpu
 		else if (Platform.is_true
 			~key:Platform.igd_passthru_key
 			~platformdata:vm.API.vM_platform
@@ -653,7 +649,7 @@ module MD = struct
 						(of_gvt_g_vgpu ~__context vm vgpu_record) :: acc)
 				[] vm.API.vM_VGPUs
 
-	let of_vm ~__context (vmref, vm) vbds pci_passthrough =
+	let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
 		let on_crash_behaviour = function
 			| `preserve -> [ Vm.Pause ]
 			| `coredump_and_restart -> [ Vm.Coredump; Vm.Start ]
@@ -748,7 +744,7 @@ module MD = struct
 			xsdata = vm.API.vM_xenstore_data;
 			platformdata = platformdata;
 			bios_strings = vm.API.vM_bios_strings;
-			ty = builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough;
+			ty = builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu;
 			suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
 			machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
 			memory_static_max = vm.API.vM_memory_static_max;
@@ -773,7 +769,7 @@ open Fun
 
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
 (* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
-let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
+let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus =
 	try
 		let vm_to_resume = {
 			(Helpers.parse_boot_record vm.API.vM_last_booted_record) with
@@ -781,7 +777,9 @@ let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis =
 		} in
 		debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
 		let module Client = (val make_client (queue_of_vmr vm): XENOPS) in
-		let vm = MD.of_vm ~__context (self, vm_to_resume) vbds (pcis <> []) in
+		let vm = MD.of_vm ~__context
+			(self, vm_to_resume) vbds (pcis <> []) (vgpus <> [])
+		in
 		let dbg = Context.string_of_task __context in
 		Client.VM.generate_state_string dbg vm
 	with Xml.Error _ ->
@@ -803,10 +801,10 @@ let create_metadata ~__context ~upgrade ~self =
 		(* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
 		if vm.API.vM_power_state = `Suspended || upgrade then begin
 			(* We need to recall the currently_attached devices *)
-			Some(generate_xenops_state ~__context ~self ~vm ~vbds ~pcis)
+			Some(generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus)
 		end else None in
 	let open Metadata in {
-		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []);
+		vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []) (vgpus <> []);
 		vbds = vbds';
 		vifs = vifs';
 		pcis = pcis;
