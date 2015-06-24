@@ -15,6 +15,7 @@
 open Pervasiveext
 open Fun
 open Network_utils
+open Xstringext
 
 module D = Debug.Make(struct let name = "networkd" end)
 open D
@@ -40,6 +41,10 @@ let resources = [
     path = Network_utils.ethtool;
     perms = [ Unix.X_OK ];
   }
+]
+
+let options = [
+	"monitor_blacklist", Arg.String (fun x -> Network_monitor_thread.monitor_blacklist := String.split ',' x), (fun () -> String.concat "," !Network_monitor_thread.monitor_blacklist), "List of prefixes of interface names that are not to be monitored";
 ]
 
 let start server =
@@ -70,7 +75,7 @@ let _ =
 	begin match Xcp_service.configure2
 		~name:Sys.argv.(0)
 		~version:Version.version
-		~doc ~resources () with
+		~doc ~options ~resources () with
 	| `Ok () -> ()
 	| `Error m ->
 		Printf.fprintf stderr "%s\n" m;

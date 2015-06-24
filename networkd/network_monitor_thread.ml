@@ -25,6 +25,14 @@ open D
 (** Table for bonds status. *)
 let bonds_status : (string, (int * int)) Hashtbl.t = Hashtbl.create 10
 
+let monitor_blacklist = ref [
+	"dummy";
+	"xenbr";
+	"xapi";
+	"ovs-system";
+	"xenapi";
+]
+
 let xapi_rpc request =
 	Rpc_client.do_rpc_unix
 		~content_type:(Rpc_client.content_type_of_string "text/xml")
@@ -98,8 +106,17 @@ let get_link_stats () =
 
 	let cache = Link.cache_alloc s in
 	let links = Link.cache_to_list cache in
-	let devs = List.map (fun link ->
-		let name = standardise_name (Link.get_name link) in
+	let links =
+		List.map (fun link ->
+			(standardise_name (Link.get_name link)), link
+		) links |>
+		List.filter (fun (name,link) ->
+			let is_monitor_blacklisted = List.exists (fun s -> String.startswith s name) !monitor_blacklist ||
+						(String.startswith "eth" name && String.contains name '.') in
+			not is_monitor_blacklisted
+		) in
+
+	let devs = List.map (fun (name,link) ->
 		let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
 		let eth_stat = {default_stats with
 			rx_bytes = Link.get_stat link Link.RX_BYTES |> convert;
@@ -111,13 +128,6 @@ let get_link_stats () =
 		} in
 		name, eth_stat
 	) links in
-	let devs = List.filter (fun (name, _) ->
-		not(String.startswith "dummy" name) &&
-			not(String.startswith "xenbr" name) &&
-			not(String.startswith "xapi" name) &&
-			not(String.startswith "eth" name && String.contains name '.') &&
-			name <> "ovs-system"
-	) devs in
 
 	Cache.free cache;
 	Socket.close s;
