@@ -224,12 +224,9 @@ module Deprecated = struct
 		try int_of_string (List.assoc Constants.rrd_update_interval other_config)
 		with _ -> 0
 
-	let load_rrd ~__context ~uuid ~is_host =
-		let domid =
-			match is_host with
-			| true -> 0
-			| false -> vm_uuid_to_domid ~__context ~uuid
-		in
+	let load_rrd ~__context ~uuid =
+		let master_address = Pool_role.get_master_address () in
+		let is_master = Pool_role.is_master () in
 		let timescale = get_timescale ~__context in
-		log_and_ignore_exn (Rrdd.Deprecated.load_rrd ~uuid ~domid ~is_host ~timescale)
+		log_and_ignore_exn (Rrdd.Deprecated.load_rrd ~uuid ~master_address ~is_master ~timescale)
 end
