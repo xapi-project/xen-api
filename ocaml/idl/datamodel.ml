@@ -6508,6 +6508,28 @@ let pool_apply_edition = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_enable_ssl_legacy = call
+	~name:"enable_ssl_legacy"
+	~in_oss_since:None
+	~lifecycle:[
+		Prototyped, rel_dundee, "Sets ssl_legacy true on each host.";
+	]
+	~params:[Ref _pool, "self", "(ignored)";]
+	~doc:"Sets ssl_legacy true on each host: see Host.ssl_legacy"
+	~allowed_roles:_R_POOL_OP
+	()
+
+let pool_disable_ssl_legacy = call
+	~name:"disable_ssl_legacy"
+	~in_oss_since:None
+	~lifecycle:[
+		Prototyped, rel_dundee, "Sets ssl_legacy false on each host.";
+	]
+	~params:[Ref _pool, "self", "(ignored)";]
+	~doc:"Sets ssl_legacy true on each host: see Host.ssl_legacy"
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6574,6 +6596,8 @@ let pool =
 			; pool_disable_local_storage_caching
 			; pool_get_license_state
 			; pool_apply_edition
+			; pool_enable_ssl_legacy
+			; pool_disable_ssl_legacy
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool

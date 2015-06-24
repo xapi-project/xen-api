@@ -1798,3 +1798,15 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
 	if not(StringSet.is_empty problem_mac_seeds) then
 		raise (Api_errors.Server_error
 			(Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))
+
+let disable_ssl_legacy ~__context ~self =
+	let f ~rpc ~session_id ~host =
+		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:false
+	in
+	call_fn_on_hosts ~__context f
+
+let enable_ssl_legacy ~__context ~self =
+	let f ~rpc ~session_id ~host =
+		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:true
+	in
+	call_fn_on_hosts ~__context f
