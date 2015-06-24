@@ -223,6 +223,10 @@ let find_or_create ~__context vgpu_type =
 			Db.VGPU_type.set_internal_config ~__context
 				~self:vgpu_type_ref
 				~value:vgpu_type.internal_config;
+		if vgpu_type.implementation <> rc.Db_actions.vGPU_type_implementation then
+			Db.VGPU_type.set_implementation ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.implementation;
 		vgpu_type_ref
 	| [] ->
 		create ~__context ~vendor_name:vgpu_type.vendor_name
