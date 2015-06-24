@@ -202,7 +202,11 @@ let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
 let push_rrd ~__context ~(vm_uuid : string) : unit =
 	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
 	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-	log_and_ignore_exn (Rrdd.push_rrd ~vm_uuid ~domid ~is_on_localhost)
+	if is_on_localhost then
+		log_and_ignore_exn (Rrdd.push_rrd_local ~vm_uuid ~domid )
+	else
+		let master = Pool_role.get_master_address () in
+		log_and_ignore_exn (Rrdd.push_rrd_remote ~vm_uuid ~remote_address:master)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 	let remote_address = match remote_address with
