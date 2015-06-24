@@ -43,6 +43,71 @@ let entire_gpu = {
 	implementation = `passthrough;
 }
 
+let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
+		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
+	let ref = Ref.make () in
+	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
+		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
+		~size ~internal_config ~implementation;
+	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
+		(Ref.string_of ref) vendor_name model_name;
+	ref
+
+let find_or_create ~__context vgpu_type =
+	let open Db_filter_types in
+	let existing_types =
+		Db.VGPU_type.get_internal_records_where ~__context
+			~expr:(And
+				(Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
+				(Eq (Field "model_name", Literal vgpu_type.model_name))))
+	in
+	match existing_types with
+	| [vgpu_type_ref, rc] ->
+		(* Update anything about the VGPU type which might have changed since we
+		 * last read the config file. *)
+		if vgpu_type.framebuffer_size <> rc.Db_actions.vGPU_type_framebuffer_size then
+			Db.VGPU_type.set_framebuffer_size ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.framebuffer_size;
+		if vgpu_type.max_heads <> rc.Db_actions.vGPU_type_max_heads then
+			Db.VGPU_type.set_max_heads ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.max_heads;
+		if vgpu_type.max_resolution_x <> rc.Db_actions.vGPU_type_max_resolution_x then
+			Db.VGPU_type.set_max_resolution_x ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.max_resolution_x;
+		if vgpu_type.max_resolution_y <> rc.Db_actions.vGPU_type_max_resolution_x then
+			Db.VGPU_type.set_max_resolution_y ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.max_resolution_y;
+		if vgpu_type.size <> rc.Db_actions.vGPU_type_size then
+			Db.VGPU_type.set_size ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.size;
+		if vgpu_type.internal_config <> rc.Db_actions.vGPU_type_internal_config then
+			Db.VGPU_type.set_internal_config ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.internal_config;
+		if vgpu_type.implementation <> rc.Db_actions.vGPU_type_implementation then
+			Db.VGPU_type.set_implementation ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.implementation;
+		vgpu_type_ref
+	| [] ->
+		create ~__context ~vendor_name:vgpu_type.vendor_name
+			~model_name:vgpu_type.model_name
+			~framebuffer_size:vgpu_type.framebuffer_size
+			~max_heads:vgpu_type.max_heads
+			~max_resolution_x:vgpu_type.max_resolution_x
+			~max_resolution_y:vgpu_type.max_resolution_y
+			~size:vgpu_type.size
+			~internal_config:vgpu_type.internal_config
+			~implementation:vgpu_type.implementation
+	| _ ->
+		failwith "Error: Multiple vGPU types exist with the same configuration."
+
 module Nvidia = struct
 	let nvidia_conf_dir = "/usr/share/nvidia/vgx"
 	let nvidia_vendor_id = 0x10de
@@ -175,71 +240,6 @@ module Nvidia = struct
 		in
 		Pci.with_access (fun a -> build_vgpu_types a [] relevant_vgpu_confs)
 end
-
-let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
-		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
-	let ref = Ref.make () in
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
-		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-		~size ~internal_config ~implementation;
-	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
-		(Ref.string_of ref) vendor_name model_name;
-	ref
-
-let find_or_create ~__context vgpu_type =
-	let open Db_filter_types in
-	let existing_types =
-		Db.VGPU_type.get_internal_records_where ~__context
-			~expr:(And
-				(Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
-				(Eq (Field "model_name", Literal vgpu_type.model_name))))
-	in
-	match existing_types with
-	| [vgpu_type_ref, rc] ->
-		(* Update anything about the VGPU type which might have changed since we
-		 * last read the config file. *)
-		if vgpu_type.framebuffer_size <> rc.Db_actions.vGPU_type_framebuffer_size then
-			Db.VGPU_type.set_framebuffer_size ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.framebuffer_size;
-		if vgpu_type.max_heads <> rc.Db_actions.vGPU_type_max_heads then
-			Db.VGPU_type.set_max_heads ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.max_heads;
-		if vgpu_type.max_resolution_x <> rc.Db_actions.vGPU_type_max_resolution_x then
-			Db.VGPU_type.set_max_resolution_x ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.max_resolution_x;
-		if vgpu_type.max_resolution_y <> rc.Db_actions.vGPU_type_max_resolution_x then
-			Db.VGPU_type.set_max_resolution_y ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.max_resolution_y;
-		if vgpu_type.size <> rc.Db_actions.vGPU_type_size then
-			Db.VGPU_type.set_size ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.size;
-		if vgpu_type.internal_config <> rc.Db_actions.vGPU_type_internal_config then
-			Db.VGPU_type.set_internal_config ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.internal_config;
-		if vgpu_type.implementation <> rc.Db_actions.vGPU_type_implementation then
-			Db.VGPU_type.set_implementation ~__context
-				~self:vgpu_type_ref
-				~value:vgpu_type.implementation;
-		vgpu_type_ref
-	| [] ->
-		create ~__context ~vendor_name:vgpu_type.vendor_name
-			~model_name:vgpu_type.model_name
-			~framebuffer_size:vgpu_type.framebuffer_size
-			~max_heads:vgpu_type.max_heads
-			~max_resolution_x:vgpu_type.max_resolution_x
-			~max_resolution_y:vgpu_type.max_resolution_y
-			~size:vgpu_type.size
-			~internal_config:vgpu_type.internal_config
-			~implementation:vgpu_type.implementation
-	| _ ->
-		failwith "Error: Multiple vGPU types exist with the same configuration."
 
 let find_or_create_supported_types ~__context pci =
 	let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
