@@ -48,12 +48,12 @@ type interdomain_info = {
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
-external push_rrd_local : vm_uuid:string -> domid:int -> unit -> unit = ""
-external push_rrd_remote : vm_uuid:string -> remote_address:string -> unit -> unit = ""
-external remove_rrd : uuid:string -> unit -> unit = ""
+external push_rrd_local : vm_uuid:string -> domid:int -> unit = ""
+external push_rrd_remote : vm_uuid:string -> remote_address:string -> unit = ""
+external remove_rrd : uuid:string -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
-	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
-external send_host_rrd_to_master : master_address:string -> unit -> unit = ""
+	vm_uuid:string -> host_uuid:string -> unit = ""
+external send_host_rrd_to_master : master_address:string -> unit = ""
 external backup_rrds : ?remote_address:string option -> unit -> unit = ""
 
 external add_host_ds : ds_name:string -> unit = ""
@@ -66,11 +66,11 @@ external forget_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
 external query_possible_vm_dss : vm_uuid:string -> Data_source.t list = ""
 external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
 
-external update_use_min_max : value:bool -> unit -> unit = ""
+external update_use_min_max : value:bool -> unit = ""
 
 external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
 
-external set_cache_sr : sr_uuid:string -> unit -> unit = ""
+external set_cache_sr : sr_uuid:string -> unit = ""
 external unset_cache_sr : unit -> unit = ""
 
 module Plugin = struct
@@ -101,12 +101,12 @@ end
 module HA = struct
 	external enable_and_update :
 		statefile_latencies:Rrd.Statefile_latency.t list ->
-		heartbeat_latency:float -> xapi_latency:float -> unit -> unit = ""
+		heartbeat_latency:float -> xapi_latency:float -> unit = ""
 	external disable : unit -> unit = ""
 end
 
 module Deprecated = struct
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
 	external load_rrd : uuid:string -> master_address:string -> is_master:bool ->
-		timescale:int -> unit -> unit = ""
+		timescale:int -> unit = ""
 end
