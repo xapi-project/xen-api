@@ -1598,9 +1598,14 @@ module VGPU = struct
 	let get_state vm vgpu =
 		on_frontend
 			(fun _ xs frontend_domid _ ->
-				match Device.Vgpu.pid ~xs frontend_domid with
-				| Some pid -> {plugged = true; emulator_pid = Some pid}
-				| None -> {plugged = false; emulator_pid = None})
+				let emulator_pid =
+					match vgpu.implementation with
+					| GVT_g _ -> Device.Qemu.pid ~xs frontend_domid
+					| Nvidia _ -> Device.Vgpu.pid ~xs frontend_domid
+				in
+				match emulator_pid with
+				| Some pid -> {plugged = true; emulator_pid}
+				| None -> {plugged = false; emulator_pid})
 			Newest vm
 end
 
