@@ -49,12 +49,12 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
 
 let find_or_create_supported_VGPU_types ~__context ~pci
 		~is_system_display_device
-		~host_display
+		~is_host_display_enabled
 		~igd_is_whitelisted
 		~is_pci_hidden =
 	match
 		is_system_display_device,
-		host_display,
+		is_host_display_enabled,
 		is_pci_hidden,
 		igd_is_whitelisted
 	with
@@ -64,8 +64,7 @@ let find_or_create_supported_VGPU_types ~__context ~pci
 	(* If we are dealing with the system display device, then the host display
 	 * must be disabled, the device must be hidden from dom0, and the device
 	 * must be whitelisted for passthrough. *)
-	| true, `disabled, true, true
-	| true, `enable_on_reboot, true, true ->
+	| true, false, true, true ->
 		Xapi_vgpu_type.find_or_create_supported_types ~__context pci
 	(* In any other case, we can't do anything with this GPU. *)
 	| _, _, _, _ -> []
@@ -99,7 +98,11 @@ let update_gpus ~__context ~host =
 			Db.PCI.get_host ~__context ~self = host
 			&& Xapi_pci.(is_class_of_kind Display_controller (int_of_id class_id))
 		) (Db.PCI.get_all ~__context) in
-	let host_display = Db.Host.get_display ~__context ~self:host in
+	let is_host_display_enabled =
+		match Db.Host.get_display ~__context ~self:host with
+		| `enabled | `disable_on_reboot -> true
+		| `disabled | `enable_on_reboot -> false
+	in
 	let rec find_or_create cur = function
 		| [] -> cur
 		| pci :: remaining_pcis ->
@@ -117,7 +120,7 @@ let update_gpus ~__context ~host =
 					let supported_VGPU_types =
 						find_or_create_supported_VGPU_types ~__context ~pci
 							~is_system_display_device
-							~host_display
+							~is_host_display_enabled
 							~igd_is_whitelisted
 							~is_pci_hidden
 					in
@@ -164,7 +167,7 @@ let update_gpus ~__context ~host =
 					let supported_VGPU_types =
 						find_or_create_supported_VGPU_types ~__context ~pci
 							~is_system_display_device
-							~host_display
+							~is_host_display_enabled
 							~igd_is_whitelisted
 							~is_pci_hidden
 					in
