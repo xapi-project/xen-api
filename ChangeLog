@@ -1,5 +1,10 @@
-trunk (unreleased):
-* switch build to OASIS
+0.12.0 (25-Jun-2015):
+* rrd_updates: interpret a -ve start as relative to now
+* add a concept of rrd_timescales
+
+0.10.1 (2-Apr-2015):
+* remove dependency on xapi libraries
+* remove Unix dependency
 
 0.9.1 (26-Sep-2014):
 * CA-102285: Use the stream API to read the XML RRD file

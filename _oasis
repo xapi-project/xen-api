@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xcp-rrd
-Version:     0.9.0
+Version:     0.12.0
 Synopsis:    RRD manipulation library
 Authors:     Jonathan Ludlam, David Scott, John Else
 License:     ISC
