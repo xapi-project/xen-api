@@ -225,7 +225,7 @@ module Deprecated = struct
 		with _ -> 0
 
 	let load_rrd ~__context ~uuid =
-		let master_address = Pool_role.get_master_address () in
+		let master_address = try Pool_role.get_master_address () with _ -> None in
 		let is_master = Pool_role.is_master () in
 		let timescale = get_timescale ~__context in
 		log_and_ignore_exn (fun () -> Rrdd.Deprecated.load_rrd ~uuid ~master_address ~is_master ~timescale)

@@ -940,7 +940,7 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(Some (Pool_role.get_master_address ())))
+		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
 	)
 
 let get_servertime ~__context ~host =
