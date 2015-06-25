@@ -2,7 +2,7 @@
 
 # Rewrite the VDI.sm_config:SCSIid fields in XVA metadata
 
-import tarfile, xmlrpclib, argparse, StringIO
+import tarfile, xmlrpclib, optparse, StringIO, sys
 
 class Object(object):
     """Represents an XVA metadata object, for example a VM, VBD, VDI, SR, VIF or Network.
@@ -69,25 +69,48 @@ class XVA(object):
             output.addfile(member, self._input.extractfile(member))
         output.close()
 
-def open(fileobj):
-    t = tarfile.open(fileobj=fileobj)
+def open_xva(name):
+    t = tarfile.open(name = name)
     ova_txt = t.extractfile("ova.xml").read()
     ova = xmlrpclib.loads("<params><param>" + ova_txt + "</param></params>")[0][0]
     return XVA(t, ova)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description = "Rewrite VDI SCSIids in XVA archives")
-    parser.add_argument('input', type=argparse.FileType('r'), help="Filename of the input XVA")
-    parser.add_argument('output', type=argparse.FileType('w'), help="Filename of the output XVA")
-    parser.add_argument('oldprefix', help="SCSIid prefix to replace")
-    parser.add_argument('newprefix', help="Replacement SCSIid prefix")
-    args = parser.parse_args()
+    parser = optparse.OptionParser()
+    parser.add_option("-i", "--input", dest="input", help="Filename of the input XVA", metavar="FILE")
+    parser.add_option("-o", "--output", dest="output", help="Filename of the output CVA")
+    parser.add_option("--oldprefix", dest="oldprefix", help="SCSIid prefix to replace")
+    parser.add_option("--newprefix", dest="newprefix", help="Replacement SCSIid prefix")
+    parser.add_option("--test", dest="test", action="store_true", default=False, help="Developer testing mode (disabled by default)")
+    (options, args) = parser.parse_args()
 
-    xva = open(args.input)
+    if options.input is None:
+        print "Please supply an --input <filename> argument"
+        parser.print_help()
+        sys.exit(1)
+    if options.output is None:
+        print "Please supply an --output <filename> argument"
+        parser.print_help()
+        sys.exit(1)
+    if options.oldprefix is None:
+        print "Please supply an --oldprefix <SCSIid> argument"
+        parser.print_help()
+        sys.exit(1)
+    if options.newprefix is None:
+        print "Please supply a --newprefix <SCSIid> argument"
+        parser.print_help()
+        sys.exit(1)
+
+    fields = [ "SCSIid" ]
+    if options.test:
+        fields = [ "other_config", "SCSIid" ]
+
+    xva = open_xva(options.input)
     for o in xva.list():
         try:
-            if o.sm_config["SCSIid"].startswith(args.oldprefix):
-                o.sm_config["SCSIid"] = args.newprefix + o.sm_config["SCSIid"][len(args.oldprefix):]
+            for f in fields:
+                if o.__getattribute__(f)["SCSIid"].startswith(options.oldprefix):
+                    o.__getattribute__(f)["SCSIid"] = options.newprefix + o.__getattribute__(f)["SCSIid"][len(options.oldprefix):]
         except:
             pass
-    xva.save(args.output)
+    xva.save(open(options.output, "w"))
