@@ -9,7 +9,7 @@ build-test: [make "test" ]
 remove: ["rm" "%{bin}%/xapi"]
 depends: [
   "ocamlfind"
-  "xapi-idl"
+  "xapi-idl" {= "0.12.0"}
   "xapi-libs-transitional"
   "xen-api-client"
   "xapi-netdev"
@@ -23,7 +23,7 @@ depends: [
   "ounit"
   "rpc"
   "ssl"
-  "xapi-stdext"
+  "xapi-stdext" {>= "0.13.0"}
   "xapi-tapctl"
   "xenctrl"
   "xenstore"
