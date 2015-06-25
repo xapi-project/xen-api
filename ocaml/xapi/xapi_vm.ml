@@ -266,15 +266,22 @@ let clean_shutdown ~__context ~vm =
 
 let shutdown ~__context ~vm =
 	begin
+		let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 		try
 			let db_timeout = Db.VM.get_shutdown_delay ~__context ~self:vm in
 			clean_shutdown_with_timeout ~__context ~vm
 				(if db_timeout > 0L
 				 then Int64.to_float db_timeout
-				 else !Xapi_globs.domain_shutdown_total_timeout)
+				 else !Xapi_globs.domain_shutdown_total_timeout);
+			log_and_ignore_exn (fun () ->
+				Rrdd.archive_rrd1 ~vm_uuid ~remote_address:(Some (Pool_role.get_master_address ()))
+			)
 		with e ->
 			warn "Failed to perform clean_shutdown on VM:%s due to exception %s. Now attempting hard_shutdown." (Ref.string_of vm) (Printexc.to_string e);
-			hard_shutdown ~__context ~vm
+			hard_shutdown ~__context ~vm;
+			log_and_ignore_exn (fun () ->
+				Rrdd.archive_rrd1 ~vm_uuid ~remote_address:(Some (Pool_role.get_master_address ()))
+			)
 	end 	
 
 (***************************************************************************************)
@@ -336,7 +343,9 @@ let power_state_reset ~__context ~vm =
 
 let suspend ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
-	Xapi_xenops.suspend ~__context ~self:vm
+	Xapi_xenops.suspend ~__context ~self:vm;
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+	log_and_ignore_exn (fun () -> Rrdd.archive_rrd1 ~vm_uuid ~remote_address:(Some (Pool_role.get_master_address ())))
 
 let resume ~__context ~vm ~start_paused ~force = 
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
