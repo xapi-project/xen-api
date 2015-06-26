@@ -853,11 +853,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Read resisdent-on field from vm to determine who to forward to  *)
 		let forward_vm_op ~local_fn ~__context ~vm op =
-			if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
-				do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
-			else
-				let state = Db.VM.get_power_state ~__context ~self:vm in
-				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
+			Xapi_vm_lifecycle.assert_power_state_in ~__context ~self:vm
+				~allowed:[`Running; `Paused];
+			do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
 
 		(* Notes on memory checking/reservation logic:
 		   When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -3282,11 +3280,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let vbds = Db.VDI.get_VBDs ~__context ~self in
 			List.iter (fun vbd ->
 				let vm = Db.VBD.get_VM ~__context ~self:vbd in
-				let state = Db.VM.get_power_state ~__context ~self:vm in
-				match state with
-				| `Halted -> ()
-				| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state,
-				  [Ref.string_of vm; "halted"; Record_util.power_to_string state]))) vbds
+				Xapi_vm_lifecycle.assert_power_state_is ~__context ~self:vm ~expected:`Halted
+			) vbds
 
 		let set_on_boot ~__context ~self ~value =
 			ensure_vdi_not_on_running_vm ~__context ~self;

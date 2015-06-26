@@ -506,10 +506,12 @@ let is_live ~__context ~self =
 	power_state = `Running || power_state = `Paused
 
 type power_state = [ `Halted | `Paused | `Running | `Suspended ]
-let assert_power_state_is ~__context ~self ~(expected:power_state) =
+let assert_power_state_in ~__context ~self ~(allowed:power_state list) =
 	let actual = Db.VM.get_power_state ~__context ~self in
-	if actual <> expected
+	if not (List.mem actual allowed)
 	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [
 								Ref.string_of self;
-								Record_util.power_to_string expected;
+                List.map Record_util.power_to_string allowed |> String.concat ";";
 								Record_util.power_to_string actual ]))
+
+let assert_power_state_is ~expected = assert_power_state_in ~allowed:[expected]
