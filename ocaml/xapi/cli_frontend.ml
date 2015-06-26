@@ -404,6 +404,24 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.pool_set_vswitch_controller;
       flags=[Hidden];
    };
+
+   "pool-enable-ssl-legacy",
+   {
+      reqd=[];
+      optn=["uuid"];
+      help="Set ssl-legacy to True on each host.";
+      implementation=No_fd Cli_operations.pool_enable_ssl_legacy;
+      flags=[];
+   };
+
+   "pool-disable-ssl-legacy",
+   {
+      reqd=[];
+      optn=["uuid"];
+      help="Set ssl-legacy to False on each host.";
+      implementation=No_fd Cli_operations.pool_disable_ssl_legacy;
+      flags=[];
+   };
    
    "host-is-in-emergency-mode",
     {
