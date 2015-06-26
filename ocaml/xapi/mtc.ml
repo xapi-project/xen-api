@@ -276,12 +276,6 @@ let update_vm_state_if_necessary ~__context ~vm =
       raise e
   end
 
-(* Raises an exception if the destination VM is not in the expected power state:  halted *)
-let verify_dest_vm_power_state ~__context ~vm =
-  let actual = Db.VM.get_power_state ~__context ~self:vm in
-  if actual != `Halted then
-    raise(Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "halted"; (Record_util.power_to_string actual)]))
-
 (* Returns true if VDI is accessed by an MTC-protected VM *)
 let is_vdi_accessed_by_protected_VM ~__context ~vdi =
 

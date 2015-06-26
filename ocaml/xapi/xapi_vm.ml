@@ -664,9 +664,7 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 
 (** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	let power_state = Db.VM.get_power_state ~__context ~self in
-	if power_state <> `Running
-	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of self; "running"; (Record_util.power_to_string power_state)]));
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 
 	validate_HVM_shadow_multiplier multiplier;
 
@@ -847,10 +845,7 @@ let recover ~__context ~self ~session_to ~force =
 	ignore (Xapi_dr.recover_vms ~__context ~vms:[self] ~session_to ~force)
 
 let set_suspend_VDI ~__context ~self ~value =
-	let vm_state =  Db.VM.get_power_state ~__context ~self in
-	if vm_state <> `Suspended then
-		raise (Api_errors.Server_error(Api_errors.vm_bad_power_state,
-			[Ref.string_of self; "suspended"; Record_util.power_to_string vm_state]));
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Suspended;
 	let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
 	let dst_vdi = value in
 	if src_vdi <> dst_vdi then
@@ -996,13 +991,8 @@ let import ~__context ~url ~sr ~full_restore ~force =
 let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
 
-let assert_can_set_auto_update_drivers ~__context ~self ~value= 
-	let power_state = Db.VM.get_power_state ~__context ~self in
-	if power_state <> `Halted
-	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-				[Ref.string_of self; Record_util.power_to_string `Halted;
-				Record_util.power_to_string power_state]));
-	
+let assert_can_set_auto_update_drivers ~__context ~self ~value =
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self in
 	let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
 	let storage_optimized = try Db.VM_guest_metrics.get_storage_paths_optimized ~__context ~self:vm_gm with _ -> false in
