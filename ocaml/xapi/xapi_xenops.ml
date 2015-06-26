@@ -1847,6 +1847,7 @@ let transform_xenops_exn ~__context queue_name f =
 	try
 		f ()
 	with e ->
+		Backtrace.is_important e;
 		let reraise code params =
 			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
 			let e' = Api_errors.Server_error(code, params) in
