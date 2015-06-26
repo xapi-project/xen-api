@@ -66,17 +66,6 @@ val set_memory_limits :
   self:[ `VM ] Ref.t ->
   static_min:Int64.t ->
   static_max:Int64.t -> dynamic_min:Int64.t -> dynamic_max:Int64.t -> unit
-val assert_power_state_is :
-  __context:Context.t ->
-  vm:[ `VM ] Ref.t ->
-  expected:[< `Halted
-            | `Migrating
-            | `Paused
-            | `Running
-            | `ShuttingDown
-            | `Suspended
-            > `Halted `Paused `Running `Suspended ] ->
-  unit
 val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
 val pause : __context:Context.t -> vm:API.ref_VM -> unit
 val unpause : __context:Context.t -> vm:API.ref_VM -> unit

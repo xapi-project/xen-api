@@ -504,3 +504,12 @@ let get_operation_error ~__context ~self ~op ~strict =
 let is_live ~__context ~self =
 	let power_state = Db.VM.get_power_state ~__context ~self in
 	power_state = `Running || power_state = `Paused
+
+type power_state = [ `Halted | `Paused | `Running | `Suspended ]
+let assert_power_state_is ~__context ~self ~(expected:power_state) =
+	let actual = Db.VM.get_power_state ~__context ~self in
+	if actual <> expected
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [
+								Ref.string_of self;
+								Record_util.power_to_string expected;
+								Record_util.power_to_string actual ]))

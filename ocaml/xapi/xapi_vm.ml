@@ -161,15 +161,6 @@ let set_memory_limits ~__context ~self
 	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
 	update_memory_overhead ~__context ~vm:self
 
-(* CA-12940: sanity check to make sure this never happens again *)
-let assert_power_state_is ~__context ~vm ~expected =
-	let actual = Db.VM.get_power_state ~__context ~self:vm in
-	if actual <> expected
-	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [
-								Ref.string_of vm;
-								Record_util.power_to_string expected;
-								Record_util.power_to_string actual ]))
-
 (* If HA is enabled on the Pool and the VM is marked as always_run then block the action *)
 let assert_not_ha_protected ~__context ~vm =
 	let pool = Helpers.get_pool ~__context in
