@@ -917,7 +917,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
 					host) in
 			finally
-				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op; suitable_host)
+				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
 				(fun () ->
 					with_global_lock
 						(fun () ->
@@ -1203,7 +1203,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
 										Xapi_vm_helpers.consider_generic_bios_strings ~__context ~vm;
 										let snapshot = Db.VM.get_record ~__context ~self:vm in
-										let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
+										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
 										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
@@ -1587,7 +1587,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
 							(fun vbds ->
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-								let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
+								let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
 								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
@@ -1697,7 +1697,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				| _ ->
 					 let snapshot = Db.VM.get_record ~__context ~self:vm in
 					 (fun ~local_fn ~__context ~vm op ->
-						 ignore (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
+						 fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
 					Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
