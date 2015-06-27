@@ -563,7 +563,7 @@ let possible_hosts ~__context ?vm ~choose_fn () =
 	let all_hosts = Db.Host.get_all ~__context in
 	let choices = List.filter
 		(fun host ->
-			try choose_fn ~host; assert_host_is_live ~__context ~host; true
+			try (choose_fn ~host : unit); assert_host_is_live ~__context ~host; true
 			with _ -> false
 		)
 		all_hosts in
@@ -623,7 +623,7 @@ let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
 function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 	possible_hosts ~__context ~vm
-		~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot) ()
+		~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot ()) ()
 
 (** Performs an expensive and comprehensive check to determine whether the
 given [guest] can run on the given [host]. Returns true if and only if the
