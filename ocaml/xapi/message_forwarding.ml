@@ -911,12 +911,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ?host_op op =
 			let suitable_host = with_global_lock
 				(fun () ->
-					let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
-					(* HA overcommit protection: we can either perform 'n' HA plans by including this in
-					   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
-					check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
-					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
-					host) in
+					let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+					if host <> Ref.null then host else
+						let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
+						(* HA overcommit protection: we can either perform 'n' HA plans by including this in
+						   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
+						check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
+						allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
+						host) in
 			finally
 				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
 				(fun () ->
@@ -3408,14 +3410,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							 Db.VM.get_resident_on ~__context ~self:vm)
 						else
 							let snapshot = Db.VM.get_record ~__context ~self:vm in
-							let choose_fn ~host =
-								Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ();
-								Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
-							(snapshot, Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn ()) in
-						VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
-							(fun () ->
-								do_op_on ~local_fn ~__context ~host
-									(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
+							let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+							let host =
+								if host <> Ref.null then host else
+									let choose_fn ~host =
+										Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ();
+										Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+									Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn () in
+							(snapshot, host) in
+					VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
+						(fun () ->
+							do_op_on ~local_fn ~__context ~host
+								(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

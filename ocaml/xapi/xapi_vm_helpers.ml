@@ -622,8 +622,10 @@ let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
 (** Returns the subset of all hosts on which the given [vm] can boot. This
 function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
-	possible_hosts ~__context ~vm
-		~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot ()) ()
+	let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+	if host <> Ref.null then [ host ] else
+		possible_hosts ~__context ~vm
+			~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot ()) ()
 
 (** Performs an expensive and comprehensive check to determine whether the
 given [guest] can run on the given [host]. Returns true if and only if the
