@@ -1,10 +1,10 @@
 OASISFormat:  0.3
 Name:         xen-api-libs-transitional
-Version:      0.9.7
+Version:      0.9.8
 Synopsis:     Temporary set of to-be-deprecated libraries
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
-Copyrights:   (C) 2012 Citrix
+Copyrights:   (C) 2012-2015 Citrix
 BuildTools:   ocamlbuild
 Plugins:      DevFiles (0.3), META (0.3)
 
