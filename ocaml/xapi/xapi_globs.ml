@@ -801,6 +801,8 @@ let igd_passthru_vendor_whitelist = ref []
  * with PIF.managed = false during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
+let manage_xenvmd = ref false
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -856,6 +858,8 @@ let options_of_xapi_globs_spec =
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
 let xapissl_path = ref "xapissl"
+
+let xenvmd_path = ref "xenvmd"
 
 let xenopsd_queues = ref ([
   "org.xen.xcp.xenops.classic";
@@ -925,7 +929,10 @@ let other_options = [
     (fun s -> s) igd_passthru_vendor_whitelist;
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
-    (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
+  (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
+
+  "manage_xenvmd", Arg.Set manage_xenvmd,
+  (fun () -> string_of_bool !manage_xenvmd), "Start and stop xenvmd instances on behalf of the SM backends";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -984,6 +991,7 @@ module Resources = struct
 		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
+		"xenvmd", xenvmd_path, "Xenvmd executable for thin-provisioned block storage";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";
