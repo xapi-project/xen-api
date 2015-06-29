@@ -1,0 +1,8 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+sudo: true
+env:
+        - OCAML_VERSION=4.02 PACKAGE=xen-api-libs-transitional FORK_USER=xapi-project EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
+notifications:
+    slack: citrix:BHYQZbI8m036ELU21gZil75Y
