@@ -113,6 +113,12 @@ sig
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 end
 
+module Qemu :
+sig
+	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+	val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
+end
+
 module Vgpu :
 sig
 	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
@@ -131,6 +137,7 @@ sig
 	}
 
 	type supported_driver =
+		| I915
 		| Nvidia
 		| Pciback
 

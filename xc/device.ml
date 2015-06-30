@@ -1061,6 +1061,7 @@ let do_flr device =
 	callscript "flr-post" device
 
 type supported_driver =
+	| I915
 	| Nvidia
 	| Pciback
 
@@ -1069,19 +1070,22 @@ type driver =
 	| Unsupported of string
 
 let string_of_driver = function
+	| Supported I915 -> "i915"
 	| Supported Nvidia -> "nvidia"
 	| Supported Pciback -> "pciback"
 	| Unsupported driver -> driver
 
 let driver_of_string = function
+	| "i915" -> Supported I915
 	| "nvidia" -> Supported Nvidia
 	| "pciback" -> Supported Pciback
 	| driver -> Unsupported driver
 
 let sysfs_devices = "/sys/bus/pci/devices"
 let sysfs_drivers = "/sys/bus/pci/drivers"
-let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
+let sysfs_i915 = Filename.concat sysfs_drivers "i915"
 let sysfs_nvidia = Filename.concat sysfs_drivers "nvidia"
+let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
 
 let get_driver devstr =
 	try
@@ -1097,6 +1101,11 @@ let bind_to_pciback devstr =
 	let new_slot = Filename.concat sysfs_pciback "new_slot" in
 	let bind = Filename.concat sysfs_pciback "bind" in
 	write_string_to_file new_slot devstr;
+	write_string_to_file bind devstr
+
+let bind_to_i915 devstr =
+	debug "pci: binding device %s to i915" devstr;
+	let bind = Filename.concat sysfs_i915 "bind" in
 	write_string_to_file bind devstr
 
 let bind_to_nvidia devstr =
@@ -1183,7 +1192,17 @@ let bind devices new_driver =
 					bind_to_pciback devstr
 				| Some driver, Pciback ->
 					unbind devstr driver;
-					bind_to_pciback devstr)
+					bind_to_pciback devstr
+				| None, I915 ->
+					bind_to_i915 devstr
+				| Some (Supported Nvidia), I915 ->
+					unbind_from_nvidia devstr;
+					bind_to_i915 devstr
+				| Some (Supported I915), I915 ->
+					debug "pci: device %s already bound to i915; doing nothing" devstr
+				| Some driver, I915 ->
+					unbind devstr driver;
+					bind_to_i915 devstr)
 			devices)
 
 let enumerate_devs ~xs (x: device) =
@@ -1599,6 +1618,14 @@ let cmdline_of_disp info =
 		let open Xenops_interface.Vgpu in
 		match x with
 		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
+		| Vgpu [{implementation = GVT_g gvt_g}] ->
+			[
+				"-xengt";
+				"-vgt_low_gm_sz"; Int64.to_string gvt_g.low_gm_sz;
+				"-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
+				"-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
+				"-priv"
+			]
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
 		| Std_vga -> ["-std-vga"]
 		| Cirrus -> []
@@ -1755,6 +1782,9 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
 		Forkhelpers.dontwaitpid vgpu_pid
 	end
+	| VNC (Vgpu [{implementation = GVT_g vgpu}], _, _, _, _)
+	| SDL (Vgpu [{implementation = GVT_g vgpu}], _) ->
+		PCI.bind [vgpu.physical_pci_address] PCI.I915
 	| VNC (Vgpu _, _, _, _, _)
 	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
 	| _ -> ()
