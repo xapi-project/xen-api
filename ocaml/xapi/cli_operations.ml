@@ -833,6 +833,15 @@ let message_destroy printer rpc session_id params =
 
 (* Pool operations *)
 
+let get_pool_with_default rpc session_id params key =
+	if List.mem_assoc key params then
+		(* User provided a pool uuid. *)
+		let pool_uuid = List.assoc key params in
+		Client.Pool.get_by_uuid rpc session_id pool_uuid
+	else
+		(* User didn't provide a pool uuid: let's fetch the default pool. *)
+		List.hd (Client.Pool.get_all rpc session_id)
+
 let pool_enable_binary_storage printer rpc session_id params =
 	Client.Pool.enable_binary_storage rpc session_id
 
@@ -1072,6 +1081,14 @@ let pool_disable_redo_log printer rpc session_id params =
 let pool_set_vswitch_controller printer rpc session_id params =
 	let address = List.assoc "address" params in
 	Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
+
+let pool_enable_ssl_legacy printer rpc session_id params =
+	let self = get_pool_with_default rpc session_id params "uuid" in
+	Client.Pool.enable_ssl_legacy ~rpc ~session_id ~self
+
+let pool_disable_ssl_legacy printer rpc session_id params =
+	let self = get_pool_with_default rpc session_id params "uuid" in
+	Client.Pool.disable_ssl_legacy ~rpc ~session_id ~self
 
 let vdi_type_of_string = function
 	| "system" -> `system
@@ -3798,15 +3815,6 @@ let pool_enable_local_storage_caching printer rpc session_id params =
 let pool_disable_local_storage_caching printer rpc session_id params =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
 	Client.Pool.disable_local_storage_caching rpc session_id pool
-
-let get_pool_with_default rpc session_id params key =
-	if List.mem_assoc key params then
-		(* User provided a pool uuid. *)
-		let pool_uuid = List.assoc key params in
-		Client.Pool.get_by_uuid rpc session_id pool_uuid
-	else
-		(* User didn't provide a pool uuid: let's fetch the default pool. *)
-		List.hd (Client.Pool.get_all rpc session_id)
 
 let pool_apply_edition printer rpc session_id params =
 	let pool = get_pool_with_default rpc session_id params "uuid" in

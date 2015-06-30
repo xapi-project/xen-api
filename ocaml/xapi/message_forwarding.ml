@@ -729,6 +729,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let apply_edition ~__context ~self ~edition =
 			info "Pool.apply_edition: pool = '%s'; edition = '%s'" (pool_uuid ~__context self) edition;
 			Local.Pool.apply_edition ~__context ~self ~edition
+
+		let enable_ssl_legacy ~__context ~self =
+			info "Pool.enable_ssl_legacy: pool = '%s'" (pool_uuid ~__context self);
+			Local.Pool.enable_ssl_legacy ~__context ~self
+
+		let disable_ssl_legacy ~__context ~self =
+			info "Pool.disable_ssl_legacy: pool = '%s'" (pool_uuid ~__context self);
+			Local.Pool.disable_ssl_legacy ~__context ~self
 	end
 
 	module VM = struct

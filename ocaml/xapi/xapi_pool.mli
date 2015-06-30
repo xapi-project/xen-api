@@ -197,3 +197,6 @@ val get_license_state : __context:Context.t -> self:API.ref_pool -> (string * st
 val apply_edition : __context:Context.t -> self:API.ref_pool -> edition:string -> unit
 
 val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> seeds:string list -> unit
+
+val disable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
+val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
