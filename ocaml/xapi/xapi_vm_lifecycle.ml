@@ -58,7 +58,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `changing_shadow_memory_live
 	| `changing_VCPUs_live
 	| `data_source_op
-	| `migrate_send
 	| `pause
 	| `pool_migrate
 	| `send_sysrq
@@ -82,6 +81,8 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `shutdown
 	| `hard_shutdown
 	                                -> [`Paused; `Suspended; `Running]
+	| `migrate_send
+	                                -> [`Halted; `Suspended; `Running]
 	| `assert_operation_valid
 	| `metadata_export
 	| `power_state_reset
@@ -166,8 +167,8 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
 			| _ -> None
 
-(* templates support clone operations, destroy (if not default),
-   export, provision and memory settings change *)
+(* templates support clone operations, destroy and cross-pool migrate (if not default),
+   export, provision, and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
 	let default_template = 
 		bool_of_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config in
@@ -185,7 +186,7 @@ let check_template ~vmr ~op ~ref_str =
 	] in
 	if false
 		|| List.mem op allowed_operations
-		|| (op = `destroy && not default_template)
+		|| ((op = `destroy || op = `migrate_send) && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 
@@ -498,3 +499,8 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 let get_operation_error ~__context ~self ~op ~strict =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
 	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
+
+(* VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
+let is_live ~__context ~self =
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	power_state = `Running || power_state = `Paused

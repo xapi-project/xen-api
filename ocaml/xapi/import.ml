@@ -223,7 +223,8 @@ let assert_can_live_import __context rpc session_id vm_record =
 					Int64.to_string host_mem_available;
 				]))
 	in
-	assert_memory_available ()
+	if vm_record.API.vM_power_state = `Running || vm_record.API.vM_power_state = `Paused
+	then assert_memory_available ()
 
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig

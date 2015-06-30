@@ -717,7 +717,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 		on with the join *)
 		try
 			update_non_vm_metadata ~__context ~rpc ~session_id;
-			Importexport.remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address:master_address `All
+			ignore(Importexport.remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address:master_address ~restore:true `All)
 		with e ->
 			debug "Error whilst importing db objects into master; aborted: %s" (Printexc.to_string e);
 			warn "Error whilst importing db objects to master. The pool-join operation will continue, but some of the slave's VMs may not be available on the master.")

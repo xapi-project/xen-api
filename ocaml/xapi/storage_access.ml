@@ -1032,6 +1032,19 @@ let start () =
 let datapath_of_vbd ~domid ~device =
 	Printf.sprintf "vbd/%d/%s" domid device
 
+let presentative_datapath_of_vbd ~__context ~vm ~vdi =
+	try
+		let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
+		let vbd = List.find (fun self -> Db.VBD.get_VM ~__context ~self = vm) vbds in
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		let device = Db.VBD.get_device ~__context ~self:vbd in
+		if domid < 0 || device = "" then raise Not_found;
+		datapath_of_vbd ~domid ~device
+	with Not_found ->
+		let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+		let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+		Printf.sprintf "vbd/%s/%s" vm_uuid vdi_uuid
+
 let of_vbd ~__context ~vbd ~domid =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	let location = Db.VDI.get_location ~__context ~self:vdi in

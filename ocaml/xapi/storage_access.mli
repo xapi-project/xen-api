@@ -48,6 +48,12 @@ val rpc: Rpc.call -> Rpc.response
     to device [userdevice] on domain [domid] *)
 val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
 
+(** [presentative_datapath_of_vbd vm vdi] gives a presentative datapath for a potential
+    vbd. If there is such datapath established (or can be established, given
+    the VM is running), the result is the same as datapath_of_vbd; otherwise,
+    it's a string artificially constructed based on VM uuid and VDI uuid. *)
+val presentative_datapath_of_vbd: __context:Context.t -> vm:API.ref_VM -> vdi:API.ref_VDI -> Storage_interface.dp
+
 (** [reset __context vm] declares that [vm] has reset and if it's a driver
     domain, we expect it to lose all state. *)
 val reset: __context:Context.t -> vm:API.ref_VM -> unit

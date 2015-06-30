@@ -853,10 +853,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Read resisdent-on field from vm to determine who to forward to  *)
 		let forward_vm_op ~local_fn ~__context ~vm op =
-			let state = Db.VM.get_power_state ~__context ~self:vm in
-			match state with
-			| `Running | `Paused ->  do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
-			| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
+			if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+				do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
+			else
+				let state = Db.VM.get_power_state ~__context ~self:vm in
+				raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
 
 		(* Notes on memory checking/reservation logic:
 		   When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -918,14 +919,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ?host_op op =
 			let suitable_host = with_global_lock
 				(fun () ->
-					let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
-					(* HA overcommit protection: we can either perform 'n' HA plans by including this in
-					   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
-					check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
-					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
-					host) in
+					let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+					if host <> Ref.null then host else
+						let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
+						(* HA overcommit protection: we can either perform 'n' HA plans by including this in
+						   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
+						check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
+						allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
+						host) in
 			finally
-				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op; suitable_host)
+				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
 				(fun () ->
 					with_global_lock
 						(fun () ->
@@ -1211,7 +1214,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
 										Xapi_vm_helpers.consider_generic_bios_strings ~__context ~vm;
 										let snapshot = Db.VM.get_record ~__context ~self:vm in
-										let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
+										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
 										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
@@ -1595,7 +1598,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
 							(fun vbds ->
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-								let host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
+								let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
 								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
@@ -1699,10 +1702,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
+			let forwarder =
+				if Xapi_vm_lifecycle.is_live ~__context ~self:vm then forward_vm_op else
+					let snapshot = Db.VM.get_record ~__context ~self:vm in
+					(fun ~local_fn ~__context ~vm op ->
+						fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
 				(fun () ->
 					Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
-					forward_vm_op ~local_fn ~__context ~vm
+					forwarder ~local_fn ~__context ~vm
 						(fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options)
 				)
 
@@ -3390,29 +3398,38 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let vbds = Db.VBD.get_records_where ~__context
 			    ~expr:(Db_filter_types.Eq(Db_filter_types.Field "VDI",
 			                              Db_filter_types.Literal (Ref.string_of vdi))) in
-			let vbds = List.filter (fun (_,vbd) -> vbd.API.vBD_currently_attached) vbds in
-			if List.length vbds <> 1
+			if List.length vbds < 1
 			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
 
 			let vm = (snd (List.hd vbds)).API.vBD_VM in
-			let vmr = Db.VM.get_record ~__context ~self:vm in
-			if vmr.API.vM_power_state <> `Running
-			then raise (Api_errors.Server_error(Api_errors.vdi_needs_vm_for_migrate,[Ref.string_of vdi]));
+
 			(* hackity hack *)
 			let options = ("__internal__vm",Ref.string_of vm) :: (List.remove_assoc "__internal__vm" options) in
 			let local_fn = Local.VDI.pool_migrate ~vdi ~sr ~options in
 
 			info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
-			    (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
+				(vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
 
 			VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
-					(fun () ->
-							let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-							let host = Db.VM.get_resident_on ~__context ~self:vm in
-							VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
-								(fun () ->
-									do_op_on ~local_fn ~__context ~host
-									(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
+				(fun () ->
+					let snapshot, host =
+						if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+							(Helpers.get_boot_record ~__context ~self:vm,
+							 Db.VM.get_resident_on ~__context ~self:vm)
+						else
+							let snapshot = Db.VM.get_record ~__context ~self:vm in
+							let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+							let host =
+								if host <> Ref.null then host else
+									let choose_fn ~host =
+										Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ();
+										Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+									Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn () in
+							(snapshot, host) in
+					VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
+						(fun () ->
+							do_op_on ~local_fn ~__context ~host
+								(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

@@ -2531,7 +2531,7 @@ let vm_migrate_sxm_params = ["remote-master"; "remote-username"; "vif"; "remote-
 let vm_migrate printer rpc session_id params =
 	(* Hack to match host-uuid and host-name for backwards compatibility *)
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"] params) in
+	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "copy"] params) in
 	(* If we specify all of: remote-master, remote-username, remote-password
 	   then we're using the new codepath *)
 	if List.mem_assoc "remote-master" params && (List.mem_assoc "remote-username" params)
@@ -2595,8 +2595,8 @@ let vm_migrate printer rpc session_id params =
 					let vdi_map = match default_sr with
 						| None -> vdi_map
 						| Some default_sr ->
-							  let vms = select_vms rpc session_id params
-								  ( "host" :: "host-uuid" :: "host-name" :: "live"
+							  let vms = select_vms ~include_template_vms:true rpc session_id params
+								  ( "host" :: "host-uuid" :: "host-name" :: "live" :: "force" :: "copy"
 									:: vm_migrate_sxm_params ) in
 							  if vms = [] then failwith "No matching VMs found" ;
 							  let vbds = Client.VM.get_VBDs rpc session_id ((List.hd vms).getref ()) in
@@ -2623,8 +2623,11 @@ let vm_migrate printer rpc session_id params =
 						                           (Client.SR.get_uuid remote_rpc remote_session sr))))
 						vdi_map ;
 					let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
-					ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
-						params (["host"; "host-uuid"; "host-name"; "live"] @ vm_migrate_sxm_params))
+					let new_vm =
+						do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
+							params (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"] @ vm_migrate_sxm_params) |> List.hd in
+					if get_bool_param params "copy" then
+						printer (Cli_printer.PList [Client.VM.get_uuid remote_rpc remote_session new_vm])
 				)
 				(fun () -> Client.Session.logout remote_rpc remote_session)
 		end else begin
