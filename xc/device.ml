@@ -1785,6 +1785,8 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	| VNC (Vgpu [{implementation = GVT_g vgpu}], _, _, _, _)
 	| SDL (Vgpu [{implementation = GVT_g vgpu}], _) ->
 		PCI.bind [vgpu.physical_pci_address] PCI.I915
+	| VNC (Vgpu _, _, _, _, _)
+	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
 	| _ -> ()
 	in
 
