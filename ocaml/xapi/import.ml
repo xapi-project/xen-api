@@ -672,7 +672,17 @@ module VDI : HandlerTools = struct
 							| None -> None
 							end
 						end
-					| None -> None in
+					| None ->
+						(match scsiid_of vdi_record with
+						| None -> None
+						| Some x ->
+							begin match find_by_scsiid x with
+							| Some (rf, rc) ->
+								info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Opt.default "None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Opt.default "None" (scsiid_of rc));
+								Some rf
+							| None -> None
+							end
+						) in
 				match by_vdi_map with
 				| Some vdi ->
 					Found_disk vdi
