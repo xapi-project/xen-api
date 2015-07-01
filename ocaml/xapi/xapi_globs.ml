@@ -489,6 +489,10 @@ let vgpu_extra_args_key = "vgpu_extra_args"
 
 let igd_passthru_key = "igd_passthrough"
 
+let vgt_low_gm_sz = "vgt_low_gm_sz"
+let vgt_high_gm_sz = "vgt_high_gm_sz"
+let vgt_fence_sz = "vgt_fence_sz"
+
 let dev_zero = "/dev/zero"
 
 let wlb_timeout = "wlb_timeout"

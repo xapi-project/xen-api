@@ -142,27 +142,15 @@ let create_virtual_vgpu ~__context vm vgpu =
 				Ref.string_of vgpu.type_ref
 			]))
 		| Some pgpu ->
-			Db.VGPU.set_resident_on ~__context ~self:vgpu.vgpu_ref ~value:pgpu;
-			Db.PGPU.get_PCI ~__context ~self:pgpu
+			Db.VGPU.set_scheduled_to_be_resident_on ~__context
+				~self:vgpu.vgpu_ref ~value:pgpu;
 	)
 
 let add_vgpus_to_vm ~__context vm vgpus =
-	(* Update VM platform for xenops to use *)
-	List.iter
-		(fun key ->
-			try Db.VM.remove_from_platform ~__context ~self:vm ~key with _ -> ())
-		[Xapi_globs.vgpu_pci_key; Xapi_globs.vgpu_config_key];
 	(* Only support a maximum of one virtual GPU per VM for now. *)
 	match vgpus with
 	| [] -> ()
-	| vgpu :: _ ->
-		let vgpu_type = Db.VGPU_type.get_record_internal ~__context ~self:vgpu.type_ref in
-		let internal_config = vgpu_type.Db_actions.vGPU_type_internal_config in
-		let config_path = List.assoc Xapi_globs.vgpu_config_key internal_config in
-		let vgpu_pci = create_virtual_vgpu ~__context vm vgpu in
-		let pci_id = Db.PCI.get_pci_id ~__context ~self:vgpu_pci in
-		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_config_key ~value:config_path;
-		Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.vgpu_pci_key ~value:pci_id
+	| vgpu :: _ -> create_virtual_vgpu ~__context vm vgpu
 
 let vgpu_manual_setup_of_vm vm_r =
 	List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&

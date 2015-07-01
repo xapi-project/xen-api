@@ -23,6 +23,7 @@ let k100 = {
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
+	implementation = `nvidia;
 }
 
 let k140q = {
@@ -34,6 +35,7 @@ let k140q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
+	implementation = `nvidia;
 }
 
 let k200 = {
@@ -45,6 +47,7 @@ let k200 = {
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
+	implementation = `nvidia;
 }
 
 let k240q = {
@@ -56,6 +59,7 @@ let k240q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
+	implementation = `nvidia;
 }
 
 let k260q = {
@@ -67,19 +71,20 @@ let k260q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 2L;
 	internal_config = [];
+	implementation = `nvidia;
 }
 
 let k1_vgpu_types = [
 	k100;
 	k140q;
-	entire_gpu;
+	passthrough_gpu;
 ]
 
 let k2_vgpu_types = [
 	k200;
 	k240q;
 	k260q;
-	entire_gpu;
+	passthrough_gpu;
 ]
 
 (* Represents the state of a PGPU, its supported and enabled VGPU types, and

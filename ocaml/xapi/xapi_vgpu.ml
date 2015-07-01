@@ -36,7 +36,7 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 	(* For backwards compatibility, convert Ref.null into the passthrough type. *)
 	let _type =
 		if _type = Ref.null
-		then Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.entire_gpu
+		then Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.passthrough_gpu
 		else begin
 			if Db.is_valid_ref __context _type
 			then _type
@@ -53,7 +53,8 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 			raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 
 		Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
-			~currently_attached:false ~other_config ~_type ~resident_on:Ref.null;
+			~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
+			~scheduled_to_be_resident_on:Ref.null;
 	);
 	debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
 	vgpu
@@ -63,6 +64,13 @@ let destroy ~__context ~self =
 	if Helpers.is_running ~__context ~self:vm then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["vGPU currently attached to a running VM"]));
 	Db.VGPU.destroy ~__context ~self
+
+let resident_mutex = Mutex.create ()
+let atomic_set_resident_on ~__context ~self ~value =
+	Threadext.Mutex.execute resident_mutex
+		(fun () ->
+			Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
+			Db.VGPU.set_resident_on ~__context ~self ~value)
 
 let copy ~__context ~vm vgpu =
 	let all = Db.VGPU.get_record ~__context ~self:vgpu in

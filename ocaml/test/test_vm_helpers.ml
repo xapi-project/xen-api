@@ -80,7 +80,7 @@ let test_gpus_available_fails_no_capacity () =
 		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
 		(* Fill up all the PGPUs *)
 		List.iter (fun p ->
-			ignore (make_vgpu ~__context p Xapi_vgpu_type.entire_gpu))
+			ignore (make_vgpu ~__context p Xapi_vgpu_type.passthrough_gpu))
 			pgpus;
 		let vm = make_vm_with_vgpu_in_group ~__context k100 group in
 		assert_raises_api_error Api_errors.vm_requires_gpu

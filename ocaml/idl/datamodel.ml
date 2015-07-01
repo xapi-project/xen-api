@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 85
+let schema_minor_vsn = 86
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -67,7 +67,7 @@ let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 85
+let dundee_release_schema_minor_vsn = 86
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = creedence_release_schema_major_vsn
@@ -8262,6 +8262,18 @@ let vgpu =
 		~allowed_roles:_R_POOL_OP
 		()
 	in
+	let atomic_set_resident_on = call
+		~name:"atomic_set_resident_on"
+		~lifecycle:[Published, rel_dundee, ""]
+		~params:[
+			Ref _vgpu, "self", "The vGPU to modify";
+			Ref _pgpu, "value", "The pGPU on which the vGPU is running";
+		]
+		~allowed_roles:_R_LOCAL_ROOT_ONLY
+		~hide_from_docs:true
+		~pool_internal:true
+		()
+	in
 	create_obj
 		~name:_vgpu
 		~descr:"A virtual GPU (vGPU)"
@@ -8270,7 +8282,7 @@ let vgpu =
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[create; destroy]
+		~messages:[create; destroy; atomic_set_resident_on]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
@@ -8283,10 +8295,18 @@ let vgpu =
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] ~internal_only:true "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
 			]
 		()
 
 (** Virtual GPU types (i.e. preset sizes) *)
+
+let vgpu_type_implementation =
+	Enum ("vgpu_type_implementation", [
+		"passthrough", "Pass through an entire physical GPU to a guest";
+		"nvidia", "vGPU using NVIDIA hardware";
+		"gvt_g", "vGPU using Intel GVT-g";
+	])
 
 let vgpu_type =
 	create_obj
@@ -8316,6 +8336,7 @@ let vgpu_type =
 			field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use.";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
+			field ~qualifier:StaticRO ~ty:vgpu_type_implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
 		]
 	()
 

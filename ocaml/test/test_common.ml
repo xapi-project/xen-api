@@ -215,16 +215,17 @@ let make_gpu_group ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 
 let make_vgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(vM=Ref.null)
 		?(gPU_group=Ref.null) ?(device="0") ?(currently_attached=false)
-		?(other_config=[]) ?(_type=Ref.null) ?(resident_on=Ref.null) () =
+		?(other_config=[]) ?(_type=Ref.null) ?(resident_on=Ref.null)
+		?(scheduled_to_be_resident_on=Ref.null) () =
 	Db.VGPU.create ~__context ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
-		~other_config ~_type ~resident_on;
+		~other_config ~_type ~resident_on ~scheduled_to_be_resident_on;
 	ref
 
 let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 		?(vendor_name="") ?(model_name="") ?(framebuffer_size=0L) ?(max_heads=0L)
 		?(max_resolution_x=0L) ?(max_resolution_y=0L) ?(size=0L)
-		?(internal_config=[]) () =
+		?(internal_config=[]) ?(implementation=`passthrough) () =
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
-		~internal_config;
+		~internal_config ~implementation;
 	ref

@@ -38,11 +38,13 @@ let load_vm_config __context conf =
 		()
 	in ()
 
-let run_builder_of_vm __context =
+let run_create_metadata ~__context =
+	let localhost_uuid = Helpers.get_localhost_uuid () in
+	let host = make_host ~__context ~uuid:localhost_uuid () in
+	let (_: API.ref_pool) = make_pool ~__context ~master:host () in
 	let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
 	let vm = List.nth vms 0 in
-	let vm_record = Db.VM.get_record ~__context ~self:vm in
-	Xapi_xenops.builder_of_vm ~__context (vm, vm_record) "0" false
+	Xapi_xenops.create_metadata ~__context ~upgrade:false ~self:vm
 
 (* Test the behaviour of the "hvm_serial" other_config/platform key. *)
 module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
@@ -61,7 +63,8 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 	let load_input = load_vm_config
 
 	let extract_output __context _ =
-		match run_builder_of_vm __context with
+		let metadata = run_create_metadata ~__context in
+		match metadata.Metadata.vm.Vm.ty with
 		| Vm.HVM {Vm.serial = serial} -> serial
 		| _ -> failwith "expected HVM metadata"
 
@@ -112,10 +115,12 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		]
 end))
 
-let vgpu_pci_id = "vgpu_pci_id", "0000:0a:00.0"
-let vgpu_config = "vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"
+let vgpu_manual_setup = Xapi_globs.vgpu_manual_setup_key, "true"
+let vgpu_pci_id = Xapi_globs.vgpu_pci_key, "0000:0a:00.0"
+let vgpu_config =
+	Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k100.conf"
 
-let vgpu_platform_data = [vgpu_pci_id; vgpu_config]
+let vgpu_platform_data = [vgpu_manual_setup; vgpu_pci_id; vgpu_config]
 
 module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
@@ -135,7 +140,8 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 	let load_input = load_vm_config
 
 	let extract_output __context _ =
-		match run_builder_of_vm __context with
+		let metadata = run_create_metadata ~__context in
+		match metadata.Metadata.vm.Vm.ty with
 		| Vm.HVM {Vm.video = video_mode} -> video_mode
 		| _ -> failwith "expected HVM metadata"
 
@@ -158,20 +164,32 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 			oc=[];
 			platform=["igd_passthrough", "true"; "vga", "std"]
 		}, Vm.(IGD_passthrough GVT_d);
-		(* We should be able to enable vGPU mode. *)
+		(* We should be able to enable vGPU via the manual setup mode. *)
 		{oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
 		(* vGPU mode should override whatever's set for the "vga" key. *)
 		{oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
 		{oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
 		(* If somehow only one of the vGPU keys is set, this shouldn't
 		 * trigger vGPU mode. This should only ever happen if a user is
-		 * experimenting with vgpu_manual_setup. *)
-		{oc=[]; platform=[vgpu_pci_id]}, Vm.Cirrus;
-		{oc=[]; platform=["vga", "cirrus"; vgpu_pci_id]}, Vm.Cirrus;
-		{oc=[]; platform=["vga", "std"; vgpu_pci_id]}, Vm.Standard_VGA;
-		{oc=[]; platform=[vgpu_config]}, Vm.Cirrus;
-		{oc=[]; platform=["vga", "cirrus"; vgpu_config]}, Vm.Cirrus;
-		{oc=[]; platform=["vga", "std"; vgpu_config]}, Vm.Standard_VGA;
+		 * experimenting with vgpu_manual_setup and has got things wrong. *)
+		{oc=[]; platform=[vgpu_manual_setup; vgpu_pci_id]}, Vm.Cirrus;
+		{
+			oc=[];
+			platform=["vga", "cirrus"; vgpu_manual_setup; vgpu_pci_id]
+		}, Vm.Cirrus;
+		{
+			oc=[];
+			platform=["vga", "std"; vgpu_manual_setup; vgpu_pci_id]
+		}, Vm.Standard_VGA;
+		{oc=[]; platform=[vgpu_manual_setup; vgpu_config]}, Vm.Cirrus;
+		{
+			oc=[];
+			platform=["vga", "cirrus"; vgpu_manual_setup; vgpu_config]
+		}, Vm.Cirrus;
+		{
+			oc=[];
+			platform=["vga", "std"; vgpu_manual_setup; vgpu_config]
+		}, Vm.Standard_VGA;
 	]
 end))
 
@@ -189,7 +207,8 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	let load_input = load_vm_config
 
 	let extract_output __context _ =
-		match run_builder_of_vm __context with
+		let metadata = run_create_metadata ~__context in
+		match metadata.Metadata.vm.Vm.ty with
 		| Vm.HVM {Vm.video_mib = video_mib} -> video_mib
 		| _ -> failwith "expected HVM metadata"
 

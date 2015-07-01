@@ -3847,6 +3847,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let destroy ~__context ~self =
 			info "VGPU.destroy: VGPU = '%s'" (vgpu_uuid ~__context self);
 			Local.VGPU.destroy ~__context ~self
+
+		let atomic_set_resident_on ~__context ~self ~value =
+			info "VGPU.atomic_set_resident_on: VGPU = '%s'; PGPU = '%s'"
+				(vgpu_uuid ~__context self) (pgpu_uuid ~__context value);
+			Local.VGPU.atomic_set_resident_on ~__context ~self ~value
 	end
 
 	module VGPU_type = struct end

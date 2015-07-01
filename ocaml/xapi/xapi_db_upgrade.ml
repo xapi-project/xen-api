@@ -395,11 +395,19 @@ let populate_pgpu_vgpu_types = {
 	version = (fun x -> x <= clearwater);
 	fn = fun ~__context ->
 		let pgpus = Db.PGPU.get_all ~__context in
+		let system_display_device = Xapi_pci.get_system_display_device () in
 		List.iter
 			(fun pgpu ->
 				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+				let pci_addr = Some (Db.PCI.get_pci_id ~__context ~self:pci) in
+				let is_system_display_device = (pci_addr = system_display_device) in
+				let is_host_display_enabled = true in
+				let is_pci_hidden = false in
 				let supported_vgpu_types =
-					Xapi_vgpu_type.find_or_create_supported_types ~__context pci
+					Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci
+						~is_system_display_device
+						~is_host_display_enabled
+						~is_pci_hidden
 				in
 				Db.PGPU.set_supported_VGPU_types ~__context
 					~self:pgpu ~value:supported_vgpu_types;
@@ -414,7 +422,7 @@ let set_vgpu_types = {
 	fn = fun ~__context ->
 		let vgpus = Db.VGPU.get_all ~__context in
 		let passthrough_vgpu_type =
-			Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.entire_gpu
+			Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.passthrough_gpu
 		in
 		List.iter
 			(fun vgpu ->
