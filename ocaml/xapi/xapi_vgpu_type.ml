@@ -31,7 +31,7 @@ type vgpu_type = {
 	implementation : API.vgpu_type_implementation;
 }
 
-let entire_gpu = {
+let passthrough_gpu = {
 	vendor_name = "";
 	model_name = "passthrough";
 	framebuffer_size = 0L;
@@ -254,8 +254,8 @@ module Nvidia = struct
 				(List.map (fun vt -> vt.model_name) relevant_types));
 		let vgpu_types = List.map
 			(fun v -> find_or_create ~__context v) relevant_types in
-		let entire_gpu_type = find_or_create ~__context entire_gpu in
-		entire_gpu_type :: vgpu_types
+		let passthrough_gpu_type = find_or_create ~__context passthrough_gpu in
+		passthrough_gpu_type :: vgpu_types
 end
 
 module Intel = struct
@@ -321,10 +321,10 @@ module Intel = struct
 			if is_system_display_device
 			then begin
 				match is_host_display_enabled, is_pci_hidden with
-				| false, true -> [entire_gpu]
+				| false, true -> [passthrough_gpu]
 				| true, true -> []
 				| _, false -> [make_gvt_g_256 ~__context ~pci]
-			end else [entire_gpu; make_gvt_g_256 ~__context ~pci]
+			end else [passthrough_gpu; make_gvt_g_256 ~__context ~pci]
 		in
 		List.map (find_or_create ~__context) types
 end
@@ -350,7 +350,7 @@ let find_or_create_supported_types ~__context ~pci
 			~is_pci_hidden
 	else begin
 		if is_system_display_device then []
-		else [find_or_create ~__context entire_gpu]
+		else [find_or_create ~__context passthrough_gpu]
 	end
 
 let requires_passthrough ~__context ~self =

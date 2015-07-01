@@ -77,14 +77,14 @@ let k260q = {
 let k1_vgpu_types = [
 	k100;
 	k140q;
-	entire_gpu;
+	passthrough_gpu;
 ]
 
 let k2_vgpu_types = [
 	k200;
 	k240q;
 	k260q;
-	entire_gpu;
+	passthrough_gpu;
 ]
 
 (* Represents the state of a PGPU, its supported and enabled VGPU types, and

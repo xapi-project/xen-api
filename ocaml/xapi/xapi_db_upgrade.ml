@@ -422,7 +422,7 @@ let set_vgpu_types = {
 	fn = fun ~__context ->
 		let vgpus = Db.VGPU.get_all ~__context in
 		let passthrough_vgpu_type =
-			Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.entire_gpu
+			Xapi_vgpu_type.find_or_create ~__context Xapi_vgpu_type.passthrough_gpu
 		in
 		List.iter
 			(fun vgpu ->
