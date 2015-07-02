@@ -881,13 +881,19 @@ let set_hostname_live ~__context ~host ~hostname =
   Helpers.update_domain_zero_name ~__context host hostname
   )
 
+let m_ssl_legacy = Mutex.create ()
+
 let set_ssl_legacy ~__context ~self ~value =
-	let old = Db.Host.get_ssl_legacy ~__context ~self in
-	info "set_ssl_legacy %B where old=%B" value old;
-	Db.Host.set_ssl_legacy ~__context ~self ~value;
-	if old <> value then (
-		Stunnel.set_legacy_protocol_and_ciphersuites_allowed value;
-		Xapi_mgmt_iface.reconfigure_stunnel ~__context
+	(* Use the mutex to ensure inventory and DB are consistent. *)
+	Mutex.execute m_ssl_legacy (fun () ->
+		let old = Db.Host.get_ssl_legacy ~__context ~self in
+		info "set_ssl_legacy %B where old=%B" value old;
+		Db.Host.set_ssl_legacy ~__context ~self ~value;
+		Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool value);
+		if old <> value then (
+			Stunnel.set_legacy_protocol_and_ciphersuites_allowed value;
+			Xapi_mgmt_iface.reconfigure_stunnel ~__context
+		)
 	)
 
 let is_in_emergency_mode ~__context =

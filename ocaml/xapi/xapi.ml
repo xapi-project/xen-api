@@ -689,10 +689,32 @@ let set_stunnel_timeout () =
   with _ ->
     debug "Using default stunnel timeout (usually 43200)"
 
-let set_stunnel_legacy ~__context () =
+(* Consult inventory, because to do DB lookups we must contact the
+ * master, and to do that we need to start an outgoing stunnel. *)
+let set_stunnel_legacy_inv () =
+  let s = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true" in
+  let legacy = try
+	  bool_of_string s
+  with e ->
+	  error "Invalid inventory value for %s: expected a Boolean; found %s" Xapi_inventory._stunnel_legacy s;
+	  raise e
+  in
+  debug "Setting client stunnel legacy %b based on inventory lookup." legacy;
+  Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy
+
+(* Consult database, in case inventory was out of date due to a DB change while
+ * we were shut down. *)
+let set_stunnel_legacy_db ~__context () =
   let localhost = Helpers.get_localhost ~__context in
   let legacy = Db.Host.get_ssl_legacy ~__context ~self:localhost in
-  Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy
+  debug "Setting client stunnel legacy %b based on database lookup." legacy;
+  Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy;
+  let inv = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true" in
+  let s = string_of_bool legacy in
+  if (s <> inv) then (
+    info "Host.ssl_legacy differs from inventory %s. Updating inventory to %s." Xapi_inventory._stunnel_legacy s;
+    Xapi_inventory.update Xapi_inventory._stunnel_legacy (s);
+  )
 
 let server_init() =
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
@@ -797,6 +819,7 @@ let server_init() =
     Startup.run ~__context [
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
+    "Config (from file) for outgoing stunnels", [], set_stunnel_legacy_inv;
     "Setting stunnel timeout", [], set_stunnel_timeout;
     "Initialising local database", [], init_local_database;
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
@@ -827,7 +850,7 @@ let server_init() =
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
-    "Setting config for outgoing stunnels", [], set_stunnel_legacy ~__context; (* Requires database access *)
+    "Config (from DB) for outgoing stunnels", [], set_stunnel_legacy_db ~__context;
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
