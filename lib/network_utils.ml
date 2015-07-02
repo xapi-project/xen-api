@@ -33,7 +33,7 @@ let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
 let dhcp6c = "/sbin/dhcp6c"
-let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver.py"
+let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 
 let call_script ?(log_successful_output=false) script args =
 	try
