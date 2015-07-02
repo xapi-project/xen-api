@@ -230,7 +230,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
 					acc && (implementation = `nvidia))
 				true vgpus
 		in
-		if all_nvidia_vgpus
+		if all_nvidia_vgpus && (Xapi_fist.allow_nvidia_vgpu_migration ())
 		then None
 		else Some (Api_errors.vm_has_vgpu, [ref_str])
 	end
