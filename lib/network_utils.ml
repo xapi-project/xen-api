@@ -553,7 +553,7 @@ module Fcoe = struct
 
 	let get_capabilities name =
 		try
-			let output = call [name; "capable"] in
+			let output = call ["--xapi"; name; "capable"] in
 			if String.has_substr output "True" then ["fcoe"] else []
                 with _ ->
                         debug "Failed to get fcoe support status on device %s" name;
