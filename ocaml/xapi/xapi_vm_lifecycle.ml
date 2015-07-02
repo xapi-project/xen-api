@@ -218,8 +218,22 @@ let check_pci ~op ~ref_str =
 	| `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
 	| _ -> None
 
-let check_vgpu ~op ~ref_str =
+let check_vgpu ~__context ~op ~ref_str ~vgpus =
 	match op with
+	| `suspend | `pool_migrate -> begin
+		let all_nvidia_vgpus =
+			List.fold_left
+				(fun acc vgpu ->
+					let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
+					let implementation =
+						Db.VGPU_type.get_implementation ~__context ~self:vgpu_type in
+					acc && (implementation = `nvidia))
+				true vgpus
+		in
+		if all_nvidia_vgpus
+		then None
+		else Some (Api_errors.vm_has_vgpu, [ref_str])
+	end
 	| `checkpoint | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
 	| _ -> None
 
@@ -345,7 +359,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	(* The VM has a VGPU, check if the operation is allowed*)
 	let current_error = check current_error (fun () ->
 		if vmr.Db_actions.vM_VGPUs <> []
-		then check_vgpu ~op ~ref_str
+		then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs
 		else None) in
 
 	(* Check for errors caused by VM being in an appliance. *)
