@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: c2264267f34d492fdab44e1703914e33)
+# DO NOT EDIT (digest: de00483146b3c8527165d943a84f6147)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -26,11 +26,8 @@ true: annot, bin_annot
 # Executable xcp-rrdd
 <rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_byte
 <rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_byte
-"rrdd/blktap3_stats_stubs.c": oasis_executable_xcp_rrdd_byte
 <rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_native
 <rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_native
-"rrdd/blktap3_stats_stubs.c": oasis_executable_xcp_rrdd_native
-<rrdd/xcp_rrdd.{native,byte}>: use_libxcp-rrdd_stubs
 <rrdd/xcp_rrdd.{native,byte}>: pkg_forkexec
 <rrdd/xcp_rrdd.{native,byte}>: pkg_gzip
 <rrdd/xcp_rrdd.{native,byte}>: pkg_http-svr
@@ -75,28 +72,6 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: pkg_xen-gnt.unix
 <rrdd/*.ml{,i,y}>: pkg_xenops
 <rrdd/*.ml{,i,y}>: use_rrdd_libs
-"rrdd/blktap3_stats_stubs.c": pkg_forkexec
-"rrdd/blktap3_stats_stubs.c": pkg_gzip
-"rrdd/blktap3_stats_stubs.c": pkg_http-svr
-"rrdd/blktap3_stats_stubs.c": pkg_io-page.unix
-"rrdd/blktap3_stats_stubs.c": pkg_oclock
-"rrdd/blktap3_stats_stubs.c": pkg_rpclib
-"rrdd/blktap3_stats_stubs.c": pkg_rpclib.syntax
-"rrdd/blktap3_stats_stubs.c": pkg_rpclib.unix
-"rrdd/blktap3_stats_stubs.c": pkg_rrd
-"rrdd/blktap3_stats_stubs.c": pkg_rrd-transport
-"rrdd/blktap3_stats_stubs.c": pkg_rrd.unix
-"rrdd/blktap3_stats_stubs.c": pkg_stdext
-"rrdd/blktap3_stats_stubs.c": pkg_threads
-"rrdd/blktap3_stats_stubs.c": pkg_uuid
-"rrdd/blktap3_stats_stubs.c": pkg_xcp
-"rrdd/blktap3_stats_stubs.c": pkg_xcp-inventory
-"rrdd/blktap3_stats_stubs.c": pkg_xcp.network
-"rrdd/blktap3_stats_stubs.c": pkg_xcp.rrd
-"rrdd/blktap3_stats_stubs.c": pkg_xcp.xen
-"rrdd/blktap3_stats_stubs.c": pkg_xen-gnt.unix
-"rrdd/blktap3_stats_stubs.c": pkg_xenops
-"rrdd/blktap3_stats_stubs.c": use_rrdd_libs
 <rrdd/xcp_rrdd.{native,byte}>: custom
 # OASIS_STOP
 <rrdd/rrdd_fake_common.ml>: syntax_camlp4o, pkg_rpc.syntax
