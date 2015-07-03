@@ -4,6 +4,11 @@ Date: Wed, 27 May 2015 17:05:31 +0100
 Subject: [PATCH] Workaround for NVIDIA-130
 
 Signed-off-by: Si Beaumont <simon.beaumont@citrix.com>
+
+Offset and context updated by Thomas Sanders
+Fri Jul 03 17:43:32 +0100
+Signed-off-by: Thomas Sanders <thomas.sanders@citrix.com>
+
 ---
  ocaml/xapi/xapi.ml | 9 +++++++++
  1 file changed, 9 insertions(+)
@@ -12,7 +17,7 @@ diff --git a/ocaml/xapi/xapi.ml b/ocaml/xapi/xapi.ml
 index c9919df..98eaf6d 100644
 --- a/ocaml/xapi/xapi.ml
 +++ b/ocaml/xapi/xapi.ml
-@@ -787,8 +787,17 @@ let server_init() =
+@@ -816,8 +816,17 @@ let server_init() =
  
    try
      Server_helpers.exec_with_new_task "server_init" (fun __context ->
@@ -28,8 +33,8 @@ index c9919df..98eaf6d 100644
      "XAPI SERVER STARTING", [], print_server_starting_message;
 +    "NVIDIA-130 workaround", [], nvidia_130_workaround;
      "Parsing inventory file", [], Xapi_inventory.read_inventory;
+     "Config (from file) for outgoing stunnels", [], set_stunnel_legacy_inv;
      "Setting stunnel timeout", [], set_stunnel_timeout;
-     "Initialising local database", [], init_local_database;
 -- 
 1.9.1
 
