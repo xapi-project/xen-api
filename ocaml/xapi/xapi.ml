@@ -900,9 +900,6 @@ let server_init() =
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
-      "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
-      "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
-      "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
       "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
@@ -929,6 +926,10 @@ let server_init() =
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
       "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+      (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
+      "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
+      "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
+      "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
