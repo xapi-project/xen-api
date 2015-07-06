@@ -26,10 +26,7 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	if not (Pool_features.is_enabled ~__context Features.GPU) then
 		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
-	let vm_power_state = Db.VM.get_power_state ~__context ~self:vM in
-	if (vm_power_state <> `Halted) then
-		raise (Api_errors.Server_error (Api_errors.vm_bad_power_state,
-			Ref.string_of vM :: List.map Record_util.power_to_string [`Halted; vm_power_state]));
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self:vM ~expected:`Halted;
 	if not(valid_device device) then
 		raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
 

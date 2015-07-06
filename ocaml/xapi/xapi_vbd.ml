@@ -33,9 +33,7 @@ let assert_attachable ~__context ~self : unit =
 
 let set_mode ~__context ~self ~value =
 	let vm = Db.VBD.get_VM ~__context ~self in
-	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	if power_state <> `Halted
-	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self:vm ~expected:`Halted;
 	Db.VBD.set_mode ~__context ~self ~value
 
 let plug ~__context ~self =

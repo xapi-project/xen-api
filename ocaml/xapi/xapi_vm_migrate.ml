@@ -892,7 +892,7 @@ let handler req fd _ =
 			let dbg = Context.string_of_task __context in
 			let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
-				Xapi_xenops.transform_xenops_exn ~__context queue_name (fun () ->
+				Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name (fun () ->
 					debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
 					let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
 					info "xenops: VM.receive_memory %s" id;
