@@ -2,6 +2,34 @@ open Types
 open Type
 
 let api =
+  let sr_stat_decl =
+    Type.(Struct(
+        ( "sr", Name "sr", String.concat " " [
+          "The URI identifying this volume. A typical value would be a";
+          "file:// URI pointing to a directory or block device.";
+          ]),
+        [ "name", Basic String, String.concat " " [
+          "Short, human-readable label for the SR.";
+          ];
+          "description", Basic String, String.concat " " [
+            "Longer, human-readable description of the SR. Descriptions are";
+            "generally only displayed by clients when the user is examining";
+            "SRs in detail.";
+          ];
+          "virtual_allocation", Basic Int64, String.concat " " [
+            "Sum of the virtual_sizes of all Volumes in this SR (in bytes)";
+          ];
+          "physical_utilisation", Basic Int64, String.concat " " [
+            "Physical space currently used in this SR (in bytes). Note this";
+            "may be less than virtual_allocation if using thin-provisioning,";
+            "or it may be more than virtual_allocation if the storage type";
+            "has internal overheads.";
+          ];
+          "physical_size", Basic Int64, String.concat " " [
+            "Total physical size of the backing storage (in bytes)";
+          ];
+        ]
+      )) in
   let volume_decl =
     Type.(Struct(
         ( "key", Name "key", String.concat " " [
@@ -39,6 +67,7 @@ let api =
         ]
       )) in
   let volume = Type.Name "volume" in
+  let sr_stat = Type.Name "sr_stat" in
   let sr = {
     Arg.name = "sr";
     ty = Type.(Basic String);
@@ -108,6 +137,14 @@ let api =
           "This string is abstract.";
         ];
         ty = Type.(Basic String);
+      }; {
+        TyDecl.name = "sr_stat";
+        description = String.concat " " [
+          "A set of high-level properties associated with an SR. These";
+          "properties can change dynamically and can be queried by a";
+          "SR.stat call.";
+        ];
+        ty = sr_stat_decl
       }; {
         TyDecl.name = "volume";
         description = String.concat " " [
@@ -303,8 +340,21 @@ let api =
               ];
               outputs = [
               ];
-            };
-             {
+            }; {
+              Method.name = "stat";
+              description = String.concat " " [
+                "[stat sr] returns summary metadata associated with [sr]. Note this call does not return details of sub-volumes, see SR.ls.";
+              ];
+              inputs = [
+                sr;
+              ];
+              outputs = [
+                { Arg.name = "sr";
+                  ty = sr_stat;
+                  description = "SR metadata";
+                }
+              ];
+            }; {
               Method.name = "ls";
               description = String.concat " " [
                 "[ls sr] returns a list of volumes";
