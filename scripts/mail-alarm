@@ -409,7 +409,7 @@ class XapiMessage:
                 msg = self.body.replace('&gt;','>').replace('&lt;','<').replace('&quot;','"')
                 return \
                     "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\n%s\n" % \
+                    "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t%s\n" % \
                     (self.name,self.priority,self.cls,self.obj_uuid,self.timestamp,self.uuid,self.pool_name,msg)
 
 
