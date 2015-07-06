@@ -33,10 +33,20 @@ let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
 		(Api_errors.vgpu_type_not_enabled,
 			List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)))
 
+(* Get this list of VGPUs which are either resident on, or scheduled to be
+ * resident on, this PGPU. *)
+let get_allocated_VGPUs ~__context ~self =
+	let open Db_filter_types in
+	let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
+	let scheduled_VGPUs =
+		Db.VGPU.get_refs_where ~__context ~expr:(Eq
+			(Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
+	in
+	resident_VGPUs @ scheduled_VGPUs
+
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
 	assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
-	let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
-	(match resident_VGPUs with
+	(match get_allocated_VGPUs ~__context ~self with
 	| [] -> ()
 	| resident_VGPU :: _ ->
 		let running_type =
@@ -90,13 +100,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 		end else begin
 			(* For virtual VGPUs, we calculate the number of times the VGPU_type's
 			 * size fits into the PGPU's (size - utilisation). *)
-			let open Db_filter_types in
 			let pgpu_size = Db.PGPU.get_size ~__context ~self in
-			let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
-			let scheduled_VGPUs =
-				Db.VGPU.get_refs_where ~__context ~expr:(Eq
-						(Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
-			in
 			let utilisation =
 				List.fold_left
 					(fun acc vgpu ->
@@ -105,7 +109,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 							Db.VGPU_type.get_size ~__context ~self:_type
 						in
 						Int64.add acc vgpu_size)
-					0L (resident_VGPUs @ scheduled_VGPUs)
+					0L (get_allocated_VGPUs ~__context ~self)
 			in
 			let new_vgpu_size =
 				Db.VGPU_type.get_size ~__context ~self:vgpu_type
