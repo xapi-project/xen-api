@@ -16,16 +16,10 @@ let api =
             "generally only displayed by clients when the user is examining";
             "SRs in detail.";
           ];
-          "virtual_allocation", Basic Int64, String.concat " " [
-            "Sum of the virtual_sizes of all Volumes in this SR (in bytes)";
+          "free_space", Basic Int64, String.concat " " [
+            "Number of bytes free on the backing storage (in bytes)";
           ];
-          "physical_utilisation", Basic Int64, String.concat " " [
-            "Physical space currently used in this SR (in bytes). Note this";
-            "may be less than virtual_allocation if using thin-provisioning,";
-            "or it may be more than virtual_allocation if the storage type";
-            "has internal overheads.";
-          ];
-          "physical_size", Basic Int64, String.concat " " [
+          "total_space", Basic Int64, String.concat " " [
             "Total physical size of the backing storage (in bytes)";
           ];
         ]
