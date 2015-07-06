@@ -3,4 +3,4 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/ma
 script: bash -ex .travis-opam.sh
 sudo: true
 env:
-        - OCAML_VERSION=4.01 PACKAGE=xapi-storage-script EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
+        - OCAML_VERSION=4.01 PACKAGE=xapi-storage-script PINS="xapi-storage:git://github.com/djs55/xapi-storage"
