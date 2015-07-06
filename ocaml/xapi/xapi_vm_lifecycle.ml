@@ -486,6 +486,12 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
 		Db.VM.set_domid ~__context ~self ~value:(-1L)
 	end;
+        
+        if state = `Halted then begin
+                (* archive the rrd for this vm *)
+                let vm_uuid = Db.VM.get_uuid ~__context ~self in;
+                Rrdd.archive_rrd ~vm_uuid ~remote_address:(Some (Pool_role.get_master_address ())
+        end;
 
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	update_allowed_operations ~__context ~self
