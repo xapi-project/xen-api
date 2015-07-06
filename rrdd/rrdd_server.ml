@@ -29,7 +29,9 @@ let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
 let backup_rrds _ ?(remote_address = None) () : unit =
-	debug "backing up rrds";
+        debug "backing up rrds %s" (match remote_address with
+                                | None -> "locally"
+                                |Some x -> Printf.sprintf "remotely at %s" x);
 	let total_cycles = 5 in
 	let cycles_tried = ref 0 in
 	while !cycles_tried < total_cycles do
