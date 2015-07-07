@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xapi-storage
-Version:     0.1.0
+Version:     0.3.0
 Synopsis:    Xapi storage interfaces
 Authors:     David Scott
 License:     LGPL-2.0 with OCaml linking exception
