@@ -43,7 +43,7 @@ let on_pool_of_k1s (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_hos
 		f __context h h' h''
 
 let make_vm_with_vgpu_in_group ~__context vgpu_type gpu_group_ref =
-	let vgpu_ref = make_vgpu ~__context Ref.null vgpu_type
+	let vgpu_ref = make_vgpu ~__context ~resident_on:Ref.null vgpu_type
 	and vm_ref = make_vm ~__context () in
 	Db.VGPU.set_GPU_group ~__context ~self:vgpu_ref ~value:gpu_group_ref;
 	Db.VGPU.set_VM ~__context ~self:vgpu_ref ~value:vm_ref;
@@ -80,7 +80,7 @@ let test_gpus_available_fails_no_capacity () =
 		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
 		(* Fill up all the PGPUs *)
 		List.iter (fun p ->
-			ignore (make_vgpu ~__context p Xapi_vgpu_type.passthrough_gpu))
+			ignore (make_vgpu ~__context ~resident_on:p Xapi_vgpu_type.passthrough_gpu))
 			pgpus;
 		let vm = make_vm_with_vgpu_in_group ~__context k100 group in
 		assert_raises_api_error Api_errors.vm_requires_gpu
@@ -153,22 +153,22 @@ let test_group_hosts_bf () =
 				k100,  [ [(h',8L);(h'',8L)] ];
 				k140q, [ [(h',4L);(h'',4L)] ];
 			];
-			ignore (make_vgpu ~__context h''_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h''_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h',8L);(h'',8L)] ];
 				k140q, [ [(h',4L);(h'',4L)] ];
 			];
-			ignore (make_vgpu ~__context h''_p' k140q);
+			ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h',8L)]; [(h'',7L)] ];
 				k140q, [ [(h',4L)]; [(h'',3L)] ];
 			];
-			ignore (make_vgpu ~__context h'_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h'_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h',7L);(h'',7L)] ];
 				k140q, [ [(h'',3L)]; ];
 			];
-			ignore (make_vgpu ~__context h'_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h'_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h'',7L)]; [(h',6L)] ];
 				k140q, [ [(h'',3L)]; ];
@@ -186,22 +186,22 @@ let test_group_hosts_df () =
 				k100,  [ [(h',8L);(h'',8L)] ];
 				k140q, [ [(h',4L);(h'',4L)] ];
 			];
-			ignore (make_vgpu ~__context h''_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h''_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h'',7L)]; [(h',8L)] ];
 				k140q, [ [(h',4L);(h'',4L)] ];
 			];
-			ignore (make_vgpu ~__context h''_p' k140q);
+			ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h'',7L)]; [(h',8L)] ];
 				k140q, [ [(h'',3L)]; [(h',4L)] ];
 			];
-			ignore (make_vgpu ~__context h'_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h'_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h',7L);(h'',7L)] ];
 				k140q, [ [(h'',3L)]; ];
 			];
-			ignore (make_vgpu ~__context h'_p k100);
+			ignore (make_vgpu ~__context ~resident_on:h'_p k100);
 			assert_expectations ~__context gpu_group [
 				k100,  [ [(h',6L)]; [(h'',7L)] ];
 				k140q, [ [(h'',3L)]; ];
