@@ -116,8 +116,7 @@ module Deprecated = struct
 	 * 1. For the local host after a xapi restart or host restart.
 	 * 2. For running VMs after a xapi restart.
 	 * It is now only used to load the host's RRD after xapi restart. *)
-	let load_rrd _ ~(uuid : string) ~master_address ~(is_master : bool)
-		~(timescale : int) : unit =
+	let load_rrd _ ~(uuid : string) ~(timescale : int) ?(master_address = None) : unit =
 		try
 			let rrd =
 				try
@@ -125,13 +124,17 @@ module Deprecated = struct
 					debug "RRD loaded from local filesystem for object uuid=%s" uuid;
 					rrd
 				with e ->
+                                        let is_master, address = match master_address with
+                                                | None -> true, ""
+                                                | Some x -> false, x
+                                        in
 					if is_master then begin
 						info "Failed to load RRD from local filesystem: metrics not available for uuid=%s" uuid;
 						raise e
 					end else begin
 						debug "Failed to load RRD from local filesystem for object uuid=%s; asking master" uuid;
 						try
-							let rrd = pull_rrd_from_master ~uuid ~master_address in
+							let rrd = pull_rrd_from_master ~uuid ~master_address:address in
 							debug "RRD pulled from master for object uuid=%s" uuid;
 							rrd
 						with e ->
