@@ -317,6 +317,11 @@ module Interface = struct
 			Ethtool.set_offload name params
 		) ()
 
+	let get_capabilities _ dbg ~name =
+		Debug.with_thread_associated dbg (fun () ->
+			Fcoe.get_capabilities name
+		) ()
+
 	let is_connected _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			Sysfs.get_carrier name

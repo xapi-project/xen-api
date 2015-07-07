@@ -40,6 +40,12 @@ let resources = [
     essential = true;
     path = Network_utils.ethtool;
     perms = [ Unix.X_OK ];
+  };
+  { Xcp_service.name = "fcoedriver";
+    description = "used to identify fcoe interfaces";
+    essential = false;
+    path = Network_utils.fcoedriver;
+    perms = [ Unix.X_OK ];
   }
 ]
 
