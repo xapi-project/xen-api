@@ -330,6 +330,21 @@ let process root_dir name x =
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Clone.rpc_of_response response))
+  | { R.name = "VDI.stat"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Stat.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Stat.sr
+    >>= fun sr ->
+    let vdi = args.Args.VDI.Stat.vdi in
+    let args = Storage.Volume.Types.Volume.Stat.In.make
+      args.Args.VDI.Stat.dbg
+      sr
+      vdi in
+    let args = Storage.Volume.Types.Volume.Stat.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.stat") args Storage.Volume.Types.Volume.Stat.Out.t_of_rpc
+    >>= fun response ->
+    let response = vdi_of_volume response in
+    Deferred.Result.return (R.success (Args.VDI.Stat.rpc_of_response response))
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Attach.request_of_rpc args in
