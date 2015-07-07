@@ -267,6 +267,8 @@ let pif_record rpc session_id pif =
 		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pIF_properties)
 		~get_map:(fun () -> (x ()).API.pIF_properties)
 		~set_in_map:(fun k v -> Client.PIF.set_property rpc session_id pif k v) ();
+	make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.pIF_capabilities)
+		~get_set:(fun () -> (x ()).API.pIF_capabilities) ();
 	make_field ~name:"io_read_kbs" ~get:(fun () -> 
 	  try 
 	    let host = (x ()).API.pIF_host in

@@ -42,7 +42,7 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 		~physical:false ~currently_attached:false 
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null 
 		~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-	        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[];
+	        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[];
 	Db.Tunnel.create ~__context ~ref:tunnel ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
 		~access_PIF ~transport_PIF ~status:["active", "false"] ~other_config:[];
 	tunnel, access_PIF

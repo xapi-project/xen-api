@@ -56,11 +56,18 @@ let refresh_internal ~__context ~self =
 			(Db.PIF.set_MAC)
 			(fun () -> Net.Interface.get_mac dbg ~name:device)
 			(id);
+	
 	maybe_update_database "MTU"
 		(Db.PIF.get_MTU)
 		(Db.PIF.set_MTU)
 		(Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg ~name:bridge))
-		(Int64.to_string)
+		(Int64.to_string);
+	
+	maybe_update_database "capabilities"
+		(Db.PIF.get_capabilities)
+		(Db.PIF.set_capabilities)
+		(fun () -> Net.Interface.get_capabilities dbg ~name:device)
+		(String.concat "; ")
 
 let refresh ~__context ~host ~self =
 	assert (host = Helpers.get_localhost ~__context);
@@ -316,7 +323,7 @@ let pool_introduce
 			~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
 			~bond_slave_of:Ref.null ~vLAN_master_of ~management
 			~other_config ~disallow_unplug ~ipv6_configuration_mode
-			~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties in
+			~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] in
 	pif_ref
 
 let db_introduce = pool_introduce
@@ -339,6 +346,9 @@ let introduce_internal
 		| None -> make_pif_metrics ~__context
 		| Some m -> m
 	in
+	let dbg = Context.string_of_task __context in
+	let capabilities = Net.Interface.get_capabilities dbg device in
+
 	let pif = Ref.make () in
 	debug
 		"Creating a new record for NIC: %s: %s"
@@ -352,7 +362,7 @@ let introduce_internal
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
 		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
 		~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
-		~properties:default_properties in
+		~properties:default_properties ~capabilities:capabilities in
 
 	(* If I'm a pool slave and this pif represents my management
 	 * interface then leave it alone: if the interface goes down
