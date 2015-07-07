@@ -1,3 +1,11 @@
+0.12.1 (07-Jul-2015):
+* Add PIF.get_capabilities RPC to network interface
+* Fix HTTP header parsing
+
+0.12.0 (16-Jun-2015):
+* Add Xenops interface for virtual GPUs
+* Use DNS lookup for URIs
+
 0.11.2 (18-May-2015):
 * Update to message-switch.0.11.0
 * Unit test tidy up and travis fixes
