@@ -33,15 +33,16 @@ let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
 		(Api_errors.vgpu_type_not_enabled,
 			List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)))
 
+let get_scheduled_VGPUs ~__context ~self =
+	let open Db_filter_types in
+	Db.VGPU.get_refs_where ~__context ~expr:(Eq
+		(Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
+
 (* Get this list of VGPUs which are either resident on, or scheduled to be
  * resident on, this PGPU. *)
 let get_allocated_VGPUs ~__context ~self =
-	let open Db_filter_types in
 	let resident_VGPUs = Db.PGPU.get_resident_VGPUs ~__context ~self in
-	let scheduled_VGPUs =
-		Db.VGPU.get_refs_where ~__context ~expr:(Eq
-			(Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
-	in
+	let scheduled_VGPUs = get_scheduled_VGPUs ~__context ~self in
 	resident_VGPUs @ scheduled_VGPUs
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
@@ -93,10 +94,15 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 		in
 		if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
 		then begin
-			(* For passthrough VGPUs, we just check that there are functions
-			 * available. *)
+			(* For passthrough VGPUs, we check that there are functions available,
+			 * and subtract from this list the number of VGPUs scheduled to run on
+			 * this PGPU. *)
 			let pci = Db.PGPU.get_PCI ~__context ~self in
-			convert_capacity (Int64.of_int (Pciops.get_free_functions ~__context pci))
+			let scheduled_VGPUs = get_scheduled_VGPUs ~__context ~self in
+			convert_capacity
+				(Int64.of_int (
+					(Pciops.get_free_functions ~__context pci) -
+					(List.length scheduled_VGPUs)))
 		end else begin
 			(* For virtual VGPUs, we calculate the number of times the VGPU_type's
 			 * size fits into the PGPU's (size - utilisation). *)
