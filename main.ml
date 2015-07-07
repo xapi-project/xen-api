@@ -417,8 +417,16 @@ let process root_dir name x =
     let args = Args.SR.Stat.request_of_rpc args in
     Attached_SRs.find args.Args.SR.Stat.sr
     >>= fun sr ->
-    (* FIXME: query the datasources xapi-storage#13 *)
-    let response = { total_space = 0L; free_space = 0L } in
+    let args = Storage.Volume.Types.SR.Stat.In.make
+      args.Args.SR.Stat.dbg
+      sr in
+    let args = Storage.Volume.Types.SR.Stat.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
+    >>= fun response ->
+    let response = {
+      total_space = response.Storage.Volume.Types.total_space;
+      free_space = response.Storage.Volume.Types.free_space;
+    } in
     Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
   | { R.name = "VDI.epoch_begin"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
