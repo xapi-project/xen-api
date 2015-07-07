@@ -183,6 +183,48 @@ let process root_dir name x =
     let features = List.map ~f:(function
       | "VDI_DESTROY" -> "VDI_DELETE"
       | x -> x) response.Storage.Plugin.Types.features in
+    (* Look for executable scripts and automatically add capabilities *)
+    let rec loop acc = function
+      | [] -> return (Ok acc)
+      | (s, capability) :: rest ->
+        let open Deferred.Monad_infix in
+        let script_name = script root_dir name `Volume s in
+        ( Sys.is_file ~follow_symlinks:true script_name
+          >>= function
+          | `No | `Unknown ->
+            return false
+          | `Yes ->
+            ( Unix.access script_name [ `Exec ]
+              >>= function
+              | Error exn ->
+                return false
+              | Ok () ->
+                return true
+            )
+          ) >>= function
+          | false -> loop acc rest
+          | true -> loop (capability :: acc) rest in
+    loop [] [
+      "SR.attach",       "SR_ATTACH";
+      "SR.create",       "SR_CREATE";
+      "SR.destroy",      "SR_DELETE";
+      "SR.detach",       "SR_DETACH";
+      "SR.ls",           "SR_SCAN";
+      "SR.stat",         "SR_UPDATE";
+      "Volume.create",   "VDI_CREATE";
+      "Volume.clone",    "VDI_CLONE";
+      "Volume.snapshot", "VDI_SNAPSHOT";
+      "Volume.resize",   "VDI_RESIZE";
+      "Volume.destroy",  "VDI_DELETE";
+      "Volume.stat",     "VDI_UPDATE";
+    ]
+    >>= fun x ->
+    let features = features @ x in
+    (* Add the features we always have *)
+    let features = features @ [
+      "VDI_ATTACH"; "VDI_DETACH"; "VDI_ACTIVATE"; "VDI_DEACTIVATE";
+      "VDI_INTRODUCE"
+    ] in
     let response = {
       driver = response.Storage.Plugin.Types.plugin;
       name = response.Storage.Plugin.Types.name;
