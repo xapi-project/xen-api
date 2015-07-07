@@ -39,7 +39,7 @@ let test_can_run_VGPU_succeeds_enabled_types () =
 
 let test_can_run_VGPU_succeeds_same_type () =
 	on_host_with_k2 (fun __context p ->
-		let _ = make_vgpu ~__context ~resident_on:p k260q in
+		let (_:API.ref_VGPU) = make_vgpu ~__context ~resident_on:p k260q in
 		let vgpu = make_vgpu ~__context k260q in
 		Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu)
 
@@ -61,7 +61,7 @@ let test_can_run_VGPU_fails_disabled_type () =
 
 let test_can_run_VGPU_fails_different_type () =
 	on_host_with_k2 (fun __context p ->
-		let _ = make_vgpu ~__context ~resident_on:p k260q in
+		let (_:API.ref_VGPU) = make_vgpu ~__context ~resident_on:p k260q in
 		let vgpu = make_vgpu ~__context k240q in
 		assert_raises_api_error
 			Api_errors.vgpu_type_not_compatible_with_running_type
@@ -70,7 +70,8 @@ let test_can_run_VGPU_fails_different_type () =
 let test_can_run_VGPU_fails_no_capacity () =
 	on_host_with_k2 (fun __context p ->
 		(* Fill up the pGPU with 2 x K260Q *)
-		let _ = List.map (make_vgpu ~__context ~resident_on:p) [k260q; k260q] in
+		let (_:API.ref_VGPU list) =
+			List.map (make_vgpu ~__context ~resident_on:p) [k260q; k260q] in
 		(* Should fail to put another one on *)
 		let vgpu = make_vgpu ~__context k260q in
 		assert_raises_api_error
