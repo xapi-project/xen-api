@@ -392,6 +392,32 @@ let process root_dir name x =
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Clone.rpc_of_response response))
+  | { R.name = "VDI.set_name_label"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Set_name_label.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Set_name_label.sr
+    >>= fun sr ->
+    let vdi = args.Args.VDI.Set_name_label.vdi in
+    let new_name_label = args.Args.VDI.Set_name_label.new_name_label in
+    let dbg = args.Args.VDI.Set_name_label.dbg in
+    let args = Storage.Volume.Types.Volume.Set_name.In.make dbg sr vdi new_name_label in
+    let args = Storage.Volume.Types.Volume.Set_name.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_name") args Storage.Volume.Types.Volume.Set_name.Out.t_of_rpc
+    >>= fun () ->
+    Deferred.Result.return (R.success (Args.VDI.Set_name_label.rpc_of_response ()))
+  | { R.name = "VDI.set_name_description"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Set_name_description.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Set_name_description.sr
+    >>= fun sr ->
+    let vdi = args.Args.VDI.Set_name_description.vdi in
+    let new_name_description = args.Args.VDI.Set_name_description.new_name_description in
+    let dbg = args.Args.VDI.Set_name_description.dbg in
+    let args = Storage.Volume.Types.Volume.Set_description.In.make dbg sr vdi new_name_description in
+    let args = Storage.Volume.Types.Volume.Set_description.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_description") args Storage.Volume.Types.Volume.Set_description.Out.t_of_rpc
+    >>= fun () ->
+    Deferred.Result.return (R.success (Args.VDI.Set_name_description.rpc_of_response ()))
   | { R.name = "VDI.resize"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Resize.request_of_rpc args in
