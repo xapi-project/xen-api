@@ -159,7 +159,7 @@ let vdi_of_volume x =
   snapshot_of = "";
   read_only = not x.Storage.Volume.Types.read_write;
   virtual_size = x.Storage.Volume.Types.virtual_size;
-  physical_utilisation = 0L;
+  physical_utilisation = x.Storage.Volume.Types.physical_utilisation;
   sm_config = [];
   persistent = true;
 }
