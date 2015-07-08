@@ -50,6 +50,9 @@ let api =
           "virtual_size", Basic Int64, String.concat " " [
             "Size of the volume from the perspective of a VM (in bytes)";
           ];
+          "physical_utilisation", Basic Int64, String.concat " " [
+            "Amount of space currently used on the backing storage (in bytes)";
+          ];
           "uri", Array (Basic String), String.concat " " [
             "A list of URIs which can be opened and used for I/O. A URI could ";
             "reference a local block device, a remote NFS share, iSCSI LUN or ";
