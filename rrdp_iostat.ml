@@ -38,8 +38,8 @@ let get_running_domUs xc =
 		(domid, uuid)
 	) |> List.filter (fun x -> fst x <> 0)
 
-(* A mapping of VDIs to the VMs they are plugged to, and in which position *)
-let vdi_to_vm_map : (string * (string * string)) list ref = ref []
+(* A mapping of VDIs to the VMs they are plugged to, in which position, and the device-id *)
+let vdi_to_vm_map : (string * (string * string * int)) list ref = ref []
 
 let get_vdi_to_vm_map () = !vdi_to_vm_map
 
@@ -58,7 +58,14 @@ let update_vdi_to_vm_map () =
 						try
 							let path = Printf.sprintf "%s/%d" base_path domid in
 							D.debug "Getting path %s..." path;
-							List.map (fun vbd -> Printf.sprintf "%s/%s" path vbd) (xs.Xs.directory path)
+							List.filter_map (fun vbd ->
+								try
+									let devid = int_of_string vbd in
+									Some (Printf.sprintf "%s/%s" path vbd, devid)
+								with Failure "int_of_string" ->
+									D.warn "Got non-integer vbd %s in domain %d" vbd domid;
+									None
+							) (xs.Xs.directory path)
 						with Xs_protocol.Enoent _ ->
 							D.debug "Got ENOENT when listing VBDs in %s for domain %d" base_path domid;
 							incr enoents;
@@ -67,12 +74,12 @@ let update_vdi_to_vm_map () =
 
 					if !enoents = List.length base_paths then D.warn "Got ENOENT for each VBD backend path for domain %d" domid;
 
-					List.filter_map (fun vbd ->
+					List.filter_map (fun (vbd, devid) ->
 						try
 							let vdi    = xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd) in
 							let device = xs.Xs.read (Printf.sprintf "%s/dev" vbd) in
-							D.info "Found VDI %s at device %s in VM %s" vdi device vm;
-							Some (vdi, (vm, device))
+							D.info "Found VDI %s at device %s in VM %s, device id %d" vdi device vm devid;
+							Some (vdi, (vm, device, devid))
 						with Xs_protocol.Enoent _ ->
 							(* CA-111132: an empty VBD (i.e. no ISO inserted) has no sm-data/vdi-uuid *)
 							D.debug "Got ENOENT when reading info for vbd %s in domain %d (might be empty)" vbd domid;
@@ -633,12 +640,13 @@ let gen_metrics () =
 		) sr_to_stats_values in
 
 	let vdi_to_vm = get_vdi_to_vm_map () in
-	D.debug "VDI-to-VM map: %s" (String.concat "; " (List.map (fun (vdi, (vm, pos)) -> Printf.sprintf "%s -> %s @ %s" vdi vm pos) vdi_to_vm));
+	D.debug "VDI-to-VM map: %s" (String.concat "; " (List.map (fun (vdi, (vm, pos, devid)) ->
+		Printf.sprintf "VDI %s -> VM %s, %s, dev-id %d" vdi vm pos devid) vdi_to_vm));
 
 	(* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
 	let data_sources_vm_iostats = List.flatten (
 		List.map (fun ((sr, vdi), iostats_value) ->
-			let create_metrics (vm, pos) =
+			let create_metrics (vm, pos, devid) =
 				let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
 				let stats = Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format iostats_value in
 				(* Drop the latency metric -- this is already covered by vbd_DEV_{read,write}_latency provided by xcp-rrdd *)
@@ -648,7 +656,7 @@ let gen_metrics () =
 		) sr_vdi_to_iostats_values) in
 	let data_sources_vm_stats = List.flatten (
 		List.map (fun ((sr, vdi), stats_value) ->
-			let create_metrics (vm, pos) =
+			let create_metrics (vm, pos, devid) =
 				let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
 				let stats = Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format stats_value in
 				(* Drop the io_throughput_* metrics -- the read and write ones are already covered by vbd_DEV_{read,write} provided by xcp-rrdd *)
