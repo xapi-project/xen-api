@@ -488,6 +488,20 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let snapshot = snapshot_and_clone "VDI.snapshot" Impl.VDI.snapshot
 		let clone = snapshot_and_clone "VDI.clone" Impl.VDI.clone
 
+	let set_name_label context ~dbg ~sr ~vdi ~new_name_label =
+		info "VDI.set_name_label dbg:%s sr:%s vdi:%s new_name_label:%s" dbg sr vdi new_name_label;
+		with_vdi sr vdi
+			(fun () ->
+				Impl.VDI.set_name_label context ~dbg ~sr ~vdi ~new_name_label
+			)
+
+	let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
+		info "VDI.set_name_description dbg:%s sr:%s vdi:%s new_name_description:%s" dbg sr vdi new_name_description;
+		with_vdi sr vdi
+			(fun () ->
+				Impl.VDI.set_name_description context ~dbg ~sr ~vdi ~new_name_description
+			)
+
         let resize context ~dbg ~sr ~vdi ~new_size =
             info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg sr vdi new_size;
             with_vdi sr vdi

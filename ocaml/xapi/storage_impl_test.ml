@@ -67,6 +67,9 @@ module Debug_print_impl = struct
                 );
             info
 
+	let set_name_label context ~dbg ~sr ~vdi ~new_name_label = ()
+	let set_name_description context ~dbg ~sr ~vdi ~new_name_description = ()
+
 		let snapshot context ~dbg ~sr ~vdi_info =
 			create context ~dbg ~sr ~vdi_info
 		let clone = snapshot

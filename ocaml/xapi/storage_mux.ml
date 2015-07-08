@@ -181,6 +181,12 @@ module Mux = struct
 		let create context ~dbg ~sr ~vdi_info =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.create ~dbg ~sr ~vdi_info
+		let set_name_label context ~dbg ~sr ~vdi ~new_name_label =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_name_label ~dbg ~sr ~vdi ~new_name_label
+		let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.set_name_description ~dbg ~sr ~vdi ~new_name_description
         let snapshot context ~dbg ~sr ~vdi_info =
             let module C = Client(struct let rpc = of_sr sr end) in
             C.VDI.snapshot ~dbg ~sr ~vdi_info

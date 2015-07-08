@@ -703,22 +703,31 @@ let set_on_boot ~__context ~self ~value =
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
 
-(* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
-(* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
-let try_update_vdi ~__context ~self =
-	try
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.VDI.update ~rpc ~session_id ~vdi:self)
-	with e ->
-		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
-
 let set_name_label ~__context ~self ~value =
-	Db.VDI.set_name_label ~__context ~self ~value;
-	try_update_vdi ~__context ~self
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr = Db.VDI.get_SR ~__context ~self in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let vdi' = Db.VDI.get_location ~__context ~self in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.VDI.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_label:value
+		)
 
 let set_name_description ~__context ~self ~value =
-	Db.VDI.set_name_description ~__context ~self ~value;
-	try_update_vdi ~__context ~self
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr = Db.VDI.get_SR ~__context ~self in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let vdi' = Db.VDI.get_location ~__context ~self in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.VDI.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_description:value
+		)
 
 let checksum ~__context ~self =
 	let do_checksum f = Digest.to_hex (Digest.file f) in

@@ -538,6 +538,20 @@ module SMAPIv1 = struct
 		let snapshot = snapshot_and_clone "VDI.snapshot" Sm.vdi_snapshot true
 		let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone false
 
+	let set_name_label context ~dbg ~sr ~vdi ~new_name_label =
+                Server_helpers.exec_with_new_task "VDI.set_name_label" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+                        let self, _ = find_vdi ~__context sr vdi in
+                        Db.VDI.set_name_label ~__context ~self ~value:new_name_label
+                    )
+ 
+	let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
+                Server_helpers.exec_with_new_task "VDI.set_name_description" ~subtask_of:(Ref.of_string dbg)
+                    (fun __context ->
+                        let self, _ = find_vdi ~__context sr vdi in
+                        Db.VDI.set_name_description ~__context ~self ~value:new_name_description
+                    )
+
         let resize context ~dbg ~sr ~vdi ~new_size =
             try
                 let vi = for_vdi ~dbg ~sr ~vdi "VDI.resize"
