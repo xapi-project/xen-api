@@ -244,6 +244,36 @@ let api =
               outputs = [
               ];
             }; {
+              Method.name = "set_name";
+              description = String.concat " " [
+                "[set_name sr volume new_name] changes the name of [volume]";
+              ];
+              inputs = [
+                sr;
+                key;
+                { Arg.name = "new_name";
+                  ty = Basic String;
+                  description = "New name"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
+              Method.name = "set_description";
+              description = String.concat " " [
+                "[set_description sr volume new_description] changes the description of [volume]";
+              ];
+              inputs = [
+                sr;
+                key;
+                { Arg.name = "new_description";
+                  ty = Basic String;
+                  description = "New description"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
               Method.name = "resize";
               description = String.concat " " [
                 "[resize sr volume new_size] enlarges [volume] to be at least";
