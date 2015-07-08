@@ -88,46 +88,55 @@ let k2_vgpu_types = [
 ]
 
 (* Represents the state of a PGPU, its supported and enabled VGPU types, and
- * the types of the VGPUs running on it. *)
+ * the types of the VGPUs running and scheduled to run on it. *)
 type pgpu_state = {
 	supported_VGPU_types: vgpu_type list;
 	enabled_VGPU_types: vgpu_type list;
 	resident_VGPU_types: vgpu_type list;
+	scheduled_VGPU_types: vgpu_type list;
 }
 
 let default_k1 = {
 	supported_VGPU_types = k1_vgpu_types;
 	enabled_VGPU_types = k1_vgpu_types;
 	resident_VGPU_types = [];
+	scheduled_VGPU_types = [];
 }
 
 let default_k2 = {
 	supported_VGPU_types = k2_vgpu_types;
 	enabled_VGPU_types = k2_vgpu_types;
 	resident_VGPU_types = [];
+	scheduled_VGPU_types = [];
 }
 
 let string_of_vgpu_type vgpu_type =
 	vgpu_type.model_name
 
 let string_of_pgpu_state pgpu =
-	Printf.sprintf "{supported: %s; enabled: %s; resident: %s}"
+	Printf.sprintf "{supported: %s; enabled: %s; resident: %s; scheduled: %s}"
 		(Test_common.string_of_string_list
 			(List.map string_of_vgpu_type pgpu.supported_VGPU_types))
 		(Test_common.string_of_string_list
 			(List.map string_of_vgpu_type pgpu.enabled_VGPU_types))
 		(Test_common.string_of_string_list
 			(List.map string_of_vgpu_type pgpu.resident_VGPU_types))
+		(Test_common.string_of_string_list
+			(List.map string_of_vgpu_type pgpu.scheduled_VGPU_types))
 
-let make_vgpu ~__context pgpu_ref vgpu_type =
+let make_vgpu ~__context
+		?(resident_on=Ref.null)
+		?(scheduled_to_be_resident_on=Ref.null)
+		vgpu_type =
 	let vgpu_type_ref = find_or_create ~__context vgpu_type in
 	(* For the passthrough VGPU type, create a VM and mark it as attached to the
 	 * PGPU's PCI device. *)
 	let vm_ref_opt =
-		if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref
+		if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
+			&& (Db.is_valid_ref __context resident_on)
 		then begin
 			let vm_ref = Test_common.make_vm ~__context () in
-			let pci_ref = Db.PGPU.get_PCI ~__context ~self:pgpu_ref in
+			let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
 			Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref;
 			Some vm_ref
 		end else None
@@ -135,7 +144,8 @@ let make_vgpu ~__context pgpu_ref vgpu_type =
 	Test_common.make_vgpu ~__context
 		~vM:(Opt.default Ref.null vm_ref_opt)
 		~_type:vgpu_type_ref
-		~resident_on:pgpu_ref ()
+		~resident_on
+		~scheduled_to_be_resident_on ()
 
 let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
 	let pCI = Test_common.make_pci ~__context ~host ~functions:1L () in
@@ -153,6 +163,13 @@ let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
 		~enabled_VGPU_types () in
 	List.iter
 		(fun vgpu_type ->
-			let (_: API.ref_VGPU) = (make_vgpu ~__context pgpu_ref vgpu_type) in ())
+			let (_: API.ref_VGPU) =
+				(make_vgpu ~__context ~resident_on:pgpu_ref vgpu_type) in ())
 		pgpu.resident_VGPU_types;
+	List.iter
+		(fun vgpu_type ->
+			let (_: API.ref_VGPU) =
+				(make_vgpu ~__context ~scheduled_to_be_resident_on:pgpu_ref vgpu_type)
+			in ())
+		pgpu.scheduled_VGPU_types;
 	pgpu_ref
