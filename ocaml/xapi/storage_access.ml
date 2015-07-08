@@ -1017,6 +1017,12 @@ let transform_storage_exn f =
 			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
 			raise (Api_errors.Server_error(code, params))
 		| Api_errors.Server_error(code, params) as e -> raise e
+		| No_storage_plugin_for_sr sr as e ->
+			Server_helpers.exec_with_new_task "transform_storage_exn"
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
+				)
 		| e ->
 			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
 			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
