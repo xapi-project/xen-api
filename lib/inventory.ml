@@ -34,6 +34,7 @@ let _oem_build_number = "OEM_BUILD_NUMBER"
 let _machine_serial_number = "MACHINE_SERIAL_NUMBER"
 let _machine_serial_name = "MACHINE_SERIAL_NAME"
 let _stunnel_idle_timeout = "STUNNEL_IDLE_TIMEOUT"
+let _stunnel_legacy = "STUNNEL_LEGACY"
 
 let loaded_inventory = ref false
 let inventory = Hashtbl.create 10
