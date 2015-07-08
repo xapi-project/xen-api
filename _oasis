@@ -26,6 +26,7 @@ Library rrd_unix
   BuildDepends:       rrd, unix, uuidm
 
 Executable rewrite
+  Build$:             flag(tests)
   Install:            false
   CompiledObject:     best
   Path:               lib_test
@@ -33,6 +34,7 @@ Executable rewrite
   BuildDepends:       rrd, rrd.unix, unix, bigarray
 
 Executable            test
+  Build$:             flag(tests)
   Install:            false
   CompiledObject:     best
   Path:               lib_test

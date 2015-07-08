@@ -1,5 +1,5 @@
-CONFIGUREFLAGS = --enable-tests
-SETUP = ocaml setup.ml
+CONFIGUREFLAGS ?= --disable-tests
+SETUP           = ocaml setup.ml
 
 build: setup.data
 	$(SETUP) -build $(BUILDFLAGS)
@@ -8,6 +8,8 @@ doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
 
 test: setup.data build
+	rm -f setup.data
+	make CONFIGUREFLAGS=--enable-tests build
 	$(SETUP) -test $(TESTFLAGS)
 
 all:
