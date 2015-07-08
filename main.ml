@@ -107,14 +107,22 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
     end
 
 module Attached_SRs = struct
-  let sr_table = String.Table.create ()
+  let sr_table : string String.Table.t ref = ref (String.Table.create ())
+  let state_path = ref None
 
   let add smapiv2 plugin =
-    Hashtbl.replace sr_table smapiv2 plugin;
+    Hashtbl.replace !sr_table smapiv2 plugin;
+    ( match !state_path with
+      | None ->
+        return ()
+      | Some path ->
+        let contents = String.Table.sexp_of_t (fun x -> Sexplib.Sexp.Atom x) !sr_table |> Sexplib.Sexp.to_string in
+        Writer.save path ~contents
+    ) >>= fun () ->
     return (Ok ())
 
   let find smapiv2 =
-    match Hashtbl.find sr_table smapiv2 with
+    match Hashtbl.find !sr_table smapiv2 with
     | None ->
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
@@ -122,8 +130,20 @@ module Attached_SRs = struct
     | Some sr -> return (Ok sr)
 
   let remove smapiv2 =
-    Hashtbl.remove sr_table smapiv2;
+    Hashtbl.remove !sr_table smapiv2;
     return (Ok ())
+
+  let reload path =
+    state_path := Some path;
+    Sys.is_file ~follow_symlinks:true path
+    >>= function
+    | `No | `Unknown ->
+      return ()
+    | `Yes ->
+      Reader.file_contents path
+      >>= fun contents ->
+      sr_table := contents |> Sexplib.Sexp.of_string |> String.Table.t_of_sexp (function Sexplib.Sexp.Atom x -> x | _ -> assert false);
+      return ()
 end
 
 let vdi_of_volume x =
@@ -581,7 +601,9 @@ let sync ~root_dir ~switch_path =
   >>= fun () ->
   Deferred.all_ignore (List.map ~f:(destroy switch_path) (diff got_already needed))
 
-let main ~root_dir ~switch_path =
+let main ~root_dir ~state_path ~switch_path =
+  Attached_SRs.reload state_path
+  >>= fun () ->
   (* We watch and create queues for the Volume plugins only *)
   let root_dir = Filename.concat root_dir "volume" in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
@@ -614,8 +636,8 @@ let main ~root_dir ~switch_path =
     loop () in
   loop ()
 
-let main ~root_dir ~switch_path =
-  let (_: unit Deferred.t) = main ~root_dir ~switch_path in
+let main ~root_dir ~state_path ~switch_path =
+  let (_: unit Deferred.t) = main ~root_dir ~state_path ~switch_path in
   never_returns (Scheduler.go ())
 
 open Xcp_service
@@ -629,6 +651,7 @@ let description = String.concat ~sep:" " [
 
 let _ =
   let root_dir = ref "/var/lib/xapi/storage-scripts" in
+  let state_path = ref "/var/run/nonpersistent/xapi-storage-script/state.db" in
 
   let resources = [
     { Xcp_service.name = "root";
@@ -636,6 +659,11 @@ let _ =
       essential = true;
       path = root_dir;
       perms = [ U.X_OK ];
+    }; { Xcp_service.name = "state";
+      description = "file containing attached SR information, should be deleted on host boot";
+      essential = false;
+      path = state_path;
+      perms = [ ];
     }
   ] in
 
@@ -655,5 +683,5 @@ let _ =
     use_syslog := true;
     Core.Syslog.openlog ~id:"xapi-storage-script" ~facility:Core.Syslog.Facility.DAEMON ();
   end;
-  main ~root_dir:!root_dir ~switch_path:!Xcp_client.switch_path
+  main ~root_dir:!root_dir ~state_path:!state_path ~switch_path:!Xcp_client.switch_path
 
