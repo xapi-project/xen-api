@@ -308,6 +308,122 @@ let sr_to_sth s_v_to_i =
 	in
 	List.fold_left fold_fun [] s_v_to_i
 
+module Blktap3_stats_wrapper = struct
+	type t = blktap3_stats
+
+	let empty =
+		{
+		st_ds_req       = 0L;
+		st_f_req        = 0L;
+		st_oo_req       = 0L;
+		st_rd_req       = 0L;
+		st_rd_cnt       = 0L;
+		st_rd_sect      = 0L;
+		st_rd_sum_usecs = 0L;
+		st_rd_max_usecs = 0L;
+		st_wr_req       = 0L;
+		st_wr_cnt       = 0L;
+		st_wr_sect      = 0L;
+		st_wr_sum_usecs = 0L;
+		st_wr_max_usecs = 0L;
+		}
+
+	let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
+		let shm_devices_dir = "/dev/shm" in
+		let read_raw_blktap3_stats vbd =
+			try
+				let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
+				(* Retrieve blktap3 statistics record *)
+				let stat_rec = get_blktap3_stats stat_file in
+				Some stat_rec
+			with _ ->
+				None
+		in
+		let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
+		let shm_vbds = List.filter (fun s -> String.startswith "vbd3-" s) shm_dirs in
+		List.fold_left (fun acc vbd ->
+			match read_raw_blktap3_stats vbd with
+			| Some stat ->
+				let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
+				((domid, devid), stat) :: acc
+			| None -> acc
+		) [] shm_vbds
+
+	let get_domid_devid_to_sr_blktap3 (domid_devids : (int * int) list) : ((int * int) * string) list =
+		try
+			with_xs (fun xs ->
+				List.fold_left (fun acc (domid, devid) ->
+					let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/sm-data/mem-pool" domid devid in
+					let sr = xs.Xs.read path in
+					((domid, devid), sr) :: acc
+				) [] domid_devids
+			)
+		with e ->
+			D.error "Error while looking up the domid-devid to SR map: %s" (Printexc.to_string e);
+			[]
+
+	let get_sr_to_domid_devid_to_stats_blktap3 () : (string, ((int * int) * t) list) Hashtbl.t =
+		let domid_devid_to_stats = get_domid_devid_to_stats_blktap3 () in
+		let domid_devid_to_sr = get_domid_devid_to_sr_blktap3 (List.map (fun (domid_devid, stat) -> domid_devid) domid_devid_to_stats) in
+		let sr_to_domid_devid_to_stats_blktap3 = Hashtbl.create 20 in
+		List.iter (fun (domid_devid, stat) ->
+			if List.mem_assoc domid_devid domid_devid_to_sr then
+				let sr = List.assoc domid_devid domid_devid_to_sr in
+				Hashtbl.replace sr_to_domid_devid_to_stats_blktap3 sr ((domid_devid, stat) ::
+					if Hashtbl.mem sr_to_domid_devid_to_stats_blktap3 sr then
+						Hashtbl.find sr_to_domid_devid_to_stats_blktap3 sr
+					else
+						[]
+				)
+		) domid_devid_to_stats;
+		sr_to_domid_devid_to_stats_blktap3
+
+	let consolidate sr_to_domid_devid_to_stats_blktap3 last_sr_to_domid_devid_to_stats_blktap3 : (string, (t * t * int)) Hashtbl.t =
+		let sum_up_stats_blktap3 s1 s2 =
+			let max a b = if a >= b then a else b in
+			{
+				st_ds_req       = Int64.add s1.st_ds_req       s2.st_ds_req;
+				st_f_req        = Int64.add s1.st_f_req        s2.st_f_req;
+				st_oo_req       = Int64.add s1.st_oo_req       s2.st_oo_req;
+				st_rd_req       = Int64.add s1.st_rd_req       s2.st_rd_req;
+				st_rd_cnt       = Int64.add s1.st_rd_cnt       s2.st_rd_cnt;
+				st_rd_sect      = Int64.add s1.st_rd_sect      s2.st_rd_sect;
+				st_rd_sum_usecs = Int64.add s1.st_rd_sum_usecs s2.st_rd_sum_usecs;
+				st_rd_max_usecs = max       s1.st_rd_max_usecs s2.st_rd_max_usecs;
+				st_wr_req       = Int64.add s1.st_wr_req       s2.st_wr_req;
+				st_wr_cnt       = Int64.add s1.st_wr_cnt       s2.st_wr_cnt;
+				st_wr_sect      = Int64.add s1.st_wr_sect      s2.st_wr_sect;
+				st_wr_sum_usecs = Int64.add s1.st_wr_sum_usecs s2.st_wr_sum_usecs;
+				st_wr_max_usecs = max       s1.st_wr_max_usecs s2.st_wr_max_usecs;
+			}
+		in
+		let sr_to_stats_blktap3_triple = Hashtbl.create 20 in
+		Hashtbl.iter (fun sr stats ->
+			let recent_stats_sum = ref empty in
+			let last_stats_sum = ref empty in
+			let last_stats = match last_sr_to_domid_devid_to_stats_blktap3 with
+				| None -> None
+				| Some stats ->
+						if Hashtbl.mem stats sr then
+							Some (Hashtbl.find stats sr)
+						else
+							None
+			in
+			List.iter (fun (domid_devid, recent_s3) ->
+				recent_stats_sum := sum_up_stats_blktap3 !recent_stats_sum recent_s3;
+				match last_stats with
+					| None -> ()
+					| Some stats ->
+							if List.mem_assoc domid_devid stats then
+								last_stats_sum := sum_up_stats_blktap3 !last_stats_sum (List.assoc domid_devid stats)
+							else
+								()
+			) stats;
+			Hashtbl.add sr_to_stats_blktap3_triple sr (!recent_stats_sum, !last_stats_sum, List.length stats)
+		) sr_to_domid_devid_to_stats_blktap3;
+		sr_to_stats_blktap3_triple
+end
+
 module Stats_value = struct
 	type t =
 		{
@@ -453,122 +569,6 @@ module Iostats_value = struct
 				~value:(Rrd.VT_Float value.avgqu_sz)
 				~ty:Rrd.Gauge ~units:"requests" ~min:0. ();
 		]
-end
-
-module Blktap3_stats_wrapper = struct
-	type t = blktap3_stats
-
-	let empty =
-		{
-		st_ds_req       = 0L;
-		st_f_req        = 0L;
-		st_oo_req       = 0L;
-		st_rd_req       = 0L;
-		st_rd_cnt       = 0L;
-		st_rd_sect      = 0L;
-		st_rd_sum_usecs = 0L;
-		st_rd_max_usecs = 0L;
-		st_wr_req       = 0L;
-		st_wr_cnt       = 0L;
-		st_wr_sect      = 0L;
-		st_wr_sum_usecs = 0L;
-		st_wr_max_usecs = 0L;
-		}
-
-	let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
-		let shm_devices_dir = "/dev/shm" in
-		let read_raw_blktap3_stats vbd =
-			try
-				let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
-				(* Retrieve blktap3 statistics record *)
-				let stat_rec = get_blktap3_stats stat_file in
-				Some stat_rec
-			with _ ->
-				None
-		in
-		let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
-		let shm_vbds = List.filter (fun s -> String.startswith "vbd3-" s) shm_dirs in
-		List.fold_left (fun acc vbd ->
-			match read_raw_blktap3_stats vbd with
-			| Some stat ->
-				let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
-				((domid, devid), stat) :: acc
-			| None -> acc
-		) [] shm_vbds
-
-	let get_domid_devid_to_sr_blktap3 (domid_devids : (int * int) list) : ((int * int) * string) list =
-		try
-			with_xs (fun xs ->
-				List.fold_left (fun acc (domid, devid) ->
-					let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/sm-data/mem-pool" domid devid in
-					let sr = xs.Xs.read path in
-					((domid, devid), sr) :: acc
-				) [] domid_devids
-			)
-		with e ->
-			D.error "Error while looking up the domid-devid to SR map: %s" (Printexc.to_string e);
-			[]
-
-	let get_sr_to_domid_devid_to_stats_blktap3 () : (string, ((int * int) * t) list) Hashtbl.t =
-		let domid_devid_to_stats = get_domid_devid_to_stats_blktap3 () in
-		let domid_devid_to_sr = get_domid_devid_to_sr_blktap3 (List.map (fun (domid_devid, stat) -> domid_devid) domid_devid_to_stats) in
-		let sr_to_domid_devid_to_stats_blktap3 = Hashtbl.create 20 in
-		List.iter (fun (domid_devid, stat) ->
-			if List.mem_assoc domid_devid domid_devid_to_sr then
-				let sr = List.assoc domid_devid domid_devid_to_sr in
-				Hashtbl.replace sr_to_domid_devid_to_stats_blktap3 sr ((domid_devid, stat) ::
-					if Hashtbl.mem sr_to_domid_devid_to_stats_blktap3 sr then
-						Hashtbl.find sr_to_domid_devid_to_stats_blktap3 sr
-					else
-						[]
-				)
-		) domid_devid_to_stats;
-		sr_to_domid_devid_to_stats_blktap3
-
-	let consolidate sr_to_domid_devid_to_stats_blktap3 last_sr_to_domid_devid_to_stats_blktap3 : (string, (t * t * int)) Hashtbl.t =
-		let sum_up_stats_blktap3 s1 s2 =
-			let max a b = if a >= b then a else b in
-			{
-				st_ds_req       = Int64.add s1.st_ds_req       s2.st_ds_req;
-				st_f_req        = Int64.add s1.st_f_req        s2.st_f_req;
-				st_oo_req       = Int64.add s1.st_oo_req       s2.st_oo_req;
-				st_rd_req       = Int64.add s1.st_rd_req       s2.st_rd_req;
-				st_rd_cnt       = Int64.add s1.st_rd_cnt       s2.st_rd_cnt;
-				st_rd_sect      = Int64.add s1.st_rd_sect      s2.st_rd_sect;
-				st_rd_sum_usecs = Int64.add s1.st_rd_sum_usecs s2.st_rd_sum_usecs;
-				st_rd_max_usecs = max       s1.st_rd_max_usecs s2.st_rd_max_usecs;
-				st_wr_req       = Int64.add s1.st_wr_req       s2.st_wr_req;
-				st_wr_cnt       = Int64.add s1.st_wr_cnt       s2.st_wr_cnt;
-				st_wr_sect      = Int64.add s1.st_wr_sect      s2.st_wr_sect;
-				st_wr_sum_usecs = Int64.add s1.st_wr_sum_usecs s2.st_wr_sum_usecs;
-				st_wr_max_usecs = max       s1.st_wr_max_usecs s2.st_wr_max_usecs;
-			}
-		in
-		let sr_to_stats_blktap3_triple = Hashtbl.create 20 in
-		Hashtbl.iter (fun sr stats ->
-			let recent_stats_sum = ref empty in
-			let last_stats_sum = ref empty in
-			let last_stats = match last_sr_to_domid_devid_to_stats_blktap3 with
-				| None -> None
-				| Some stats ->
-						if Hashtbl.mem stats sr then
-							Some (Hashtbl.find stats sr)
-						else
-							None
-			in
-			List.iter (fun (domid_devid, recent_s3) ->
-				recent_stats_sum := sum_up_stats_blktap3 !recent_stats_sum recent_s3;
-				match last_stats with
-					| None -> ()
-					| Some stats ->
-							if List.mem_assoc domid_devid stats then
-								last_stats_sum := sum_up_stats_blktap3 !last_stats_sum (List.assoc domid_devid stats)
-							else
-								()
-			) stats;
-			Hashtbl.add sr_to_stats_blktap3_triple sr (!recent_stats_sum, !last_stats_sum, List.length stats)
-		) sr_to_domid_devid_to_stats_blktap3;
-		sr_to_stats_blktap3_triple
 end
 
 let list_all_assocs key xs = List.map snd (List.filter (fun (k,_) -> k = key) xs)
