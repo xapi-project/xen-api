@@ -1007,6 +1007,9 @@ Authorized Roles: {1}</value>
   <data name="VM_HAS_PCI_ATTACHED" xml:space="preserve">
     <value>This operation could not be performed because the VM has one or more PCI devices passed through.</value>
   </data>
+  <data name="VM_HOST_INCOMPATIBLE_VIRTUAL_HARDWARE_PLATFORM_VERSION" xml:space="preserve">
+    <value>The VM's Virtual Hardware Platform version is incompatible with this host.</value>
+  </data>
   <data name="VM_HVM_REQUIRED-SHORT" xml:space="preserve">
     <value>HVM not supported</value>
   </data>
