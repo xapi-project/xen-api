@@ -1,3 +1,7 @@
+0.7.0 (9-Jul-2015)
+- Plumb through Volume set_name and set_description
+- Plumb through VDI.introduce as Volume.stat
+
 0.6.0 (8-Jul-2015)
 - Remember which SRs are attached in /var/run/nonpersistent
 - Plumb through physical_utilisation from Volume.stat
