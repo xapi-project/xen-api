@@ -1100,9 +1100,11 @@ let vdi_type_of_string = function
 let vdi_create printer rpc session_id params =
 	let sR = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) in
 	let name_label=List.assoc "name-label" params in
-	let str_type = List.assoc "type" params in
 	let virtual_size = Record_util.bytes_of_string "virtual-size" (List.assoc "virtual-size" params) in
-	let ty = vdi_type_of_string str_type in
+	let ty =
+		if List.mem_assoc "type" params
+		then vdi_type_of_string (List.assoc "type" params)
+		else `user in
 	let sharable = get_bool_param params "sharable" in
 	let sm_config=read_map_params "sm-config" params in
 	let tags=read_set_params "tags" params in
