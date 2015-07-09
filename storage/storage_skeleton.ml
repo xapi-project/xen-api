@@ -57,6 +57,7 @@ module VDI = struct
   let resize ctx ~dbg ~sr ~vdi ~new_size = u "VDI.resize"
   let destroy ctx ~dbg ~sr ~vdi = u "VDI.destroy"
   let stat ctx ~dbg ~sr ~vdi = u "VDI.stat"
+  let introduce ctx ~dbg ~sr ~uuid ~sm_config ~location = u "VDI.introduce"
   let set_persistent ctx ~dbg ~sr ~vdi ~persistent = u "VDI.set_persistent"
   let epoch_begin ctx ~dbg ~sr ~vdi = ()
   let attach ctx ~dbg ~dp ~sr ~vdi ~read_write = u "VDI.attach"

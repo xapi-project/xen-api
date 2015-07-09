@@ -311,6 +311,9 @@ module VDI = struct
 	(** [stat dbg sr vdi] returns information about VDI [vdi] in SR [sr] *)
 	external stat : dbg:debug_info -> sr:sr -> vdi:vdi -> vdi_info = ""
 
+	(** [introduce dbg sr uuid sm_config location] checks that a VDI exists and returns info about it *)
+	external introduce : dbg:debug_info -> sr:sr -> uuid:string -> sm_config:(string * string) list -> location:string -> vdi_info = ""
+
 	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
 	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
 
