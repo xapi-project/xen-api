@@ -155,9 +155,6 @@ module SMAPIv1 = struct
 							try
 								Sm.sr_create (subtask_of, device_config) _type sr physical_size
 							with
-								| Smint.Not_implemented_in_backend ->
-									error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
-									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| Api_errors.Server_error(code, params) ->
 									raise (Backend_error(code, params))
 								| e ->
@@ -220,8 +217,6 @@ module SMAPIv1 = struct
 							try
 								Sm.sr_delete device_config _type sr
 							with
-								| Smint.Not_implemented_in_backend ->
-									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| Api_errors.Server_error(code, params) ->
 									raise (Backend_error(code, params))
 								| e ->
@@ -244,8 +239,6 @@ module SMAPIv1 = struct
 								let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
 								{ total_space; free_space }
 							with
-								| Smint.Not_implemented_in_backend ->
-									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| Api_errors.Server_error(code, params) ->
 									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
 									raise (Backend_error(code, params))
@@ -269,8 +262,6 @@ module SMAPIv1 = struct
 								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |> List.map snd in
 								List.map (vdi_info_of_vdi_rec __context) vdis
 							with
-								| Smint.Not_implemented_in_backend ->
-									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| Api_errors.Server_error(code, params) ->
 									error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
 									raise (Backend_error(code, params))
@@ -530,8 +521,6 @@ module SMAPIv1 = struct
             with 
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
-				| Smint.Not_implemented_in_backend ->
-					raise (Unimplemented call_name)
 				| Sm.MasterOnly -> redirect sr
 
 
@@ -552,8 +541,6 @@ module SMAPIv1 = struct
             with
                                 | Api_errors.Server_error(code, params) ->
                                         raise (Backend_error(code, params))
-                                | Smint.Not_implemented_in_backend ->
-                                        raise (Unimplemented "VDI.resize")
                                 | Sm.MasterOnly -> redirect sr
 
         let destroy context ~dbg ~sr ~vdi =
@@ -695,8 +682,6 @@ module SMAPIv1 = struct
 							)
 					)
             with
-				| Smint.Not_implemented_in_backend ->
-					raise (Unimplemented "VDI.compose")
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
@@ -999,13 +984,15 @@ let transform_storage_exn f =
 	try
 		f ()
 	with
-		| Backend_error(code, params) ->
-			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
-			raise (Api_errors.Server_error(code, params))
+		| Backend_error(code, params) as e ->
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
+			let backtrace = Backtrace.t_of_sexp (Sexplib.Sexp.of_string backtrace) in
+			Backtrace.add e backtrace;
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
 		| Api_errors.Server_error(code, params) as e -> raise e
 		| e ->
-			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
-			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+			Backtrace.reraise e (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
 
 let events_from_sm () =
 	ignore(Thread.create (fun () -> 

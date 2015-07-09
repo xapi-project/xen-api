@@ -89,7 +89,12 @@ let with_vbds rpc session_id __context vm vdis mode f =
 		    let uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
 		    debug "created VBD (uuid %s); attempting to hotplug to VM (uuid: %s)" vbd_uuid uuid; 
 		    vbds := vbd :: !vbds;
-		    Client.VBD.plug rpc session_id vbd
+		    let task = Client.Async.VBD.plug rpc session_id vbd in
+                    finally (fun () ->
+                      Cli_util.wait_for_task_completion rpc session_id task;
+                      let (_: string) = Cli_util.result_from_task rpc session_id task in
+                      ()
+                    ) (fun () -> Client.Task.destroy rpc session_id task)
 		 ) vdis;
        vbds := List.rev !vbds;
        f !vbds)
