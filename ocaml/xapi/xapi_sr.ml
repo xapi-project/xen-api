@@ -496,8 +496,13 @@ let assert_supports_database_replication ~__context ~sr =
 		end) pbds;
 	(* Check the exported capabilities of the SR's SM plugin *)
 	let srtype = Db.SR.get_type ~__context ~self:sr in
-	if not (List.mem_assoc Smint.Sr_metadata (Sm.features_of_driver srtype))
-	then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
+	match Db.SM.get_internal_records_where ~__context ~expr:(Eq (Field "type", Literal srtype)) with
+	| [] ->
+		(* This should never happen because the PBDs are plugged in *)
+		raise (Api_errors.Server_error(Api_errors.internal_error, [ "SR does not have corresponding SM record"; Ref.string_of sr; srtype ]))
+	| (_, sm) :: _ ->
+		if not (List.mem_assoc "SR_METADATA" sm.Db_actions.sM_features)
+		then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
 
 (* Metadata replication to SRs *)
 let find_or_create_metadata_vdi ~__context ~sr =
