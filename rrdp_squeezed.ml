@@ -94,7 +94,8 @@ let get_squeezed_data domid =
 	let get_current_value ~label current_values =
 		try IntMap.find domid !current_values
 		with _ ->
-			D.warn "Couldn't find cached %s value for domain %d, using 0" label domid;
+			if domid != 0
+			then D.warn "Couldn't find cached %s value for domain %d, using 0" label domid;
 			0L
 	in
 	(
