@@ -32,7 +32,7 @@ val inject: __context:Context.t -> _class:string -> _ref:string -> string
 
 (** {2} Internal interfaces with the other parts of xapi. *)
 
-val event_add: ?snapshot:Rpc.t -> string -> string -> string -> unit
+val event_add: ?snapshot_fn:(unit -> Rpc.t option) -> string -> string -> string -> unit
 
 val register_hooks: unit -> unit
 
