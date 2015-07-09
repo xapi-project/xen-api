@@ -95,8 +95,8 @@ let on_xapi_start ~__context =
 	List.iter
 		(fun ty ->
 			let self, rc = List.assoc ty existing in
-			if is_v1 rc.API.sM_version then begin
-				info "Unregistering SM plugin %s since version (%s) < 2.0 and executable is missing" ty rc.API.sM_version;
+			if is_v1 rc.API.sM_required_api_version then begin
+				info "Unregistering SM plugin %s since required_api_version (%s) < 2.0 and executable is missing" ty rc.API.sM_required_api_version;
 				try
 					Db.SM.destroy ~__context ~self
 				with _ -> ()
@@ -118,8 +118,8 @@ let on_xapi_start ~__context =
 let unregister_plugin ~__context query_result =
 	let open Storage_interface in
 	let driver = String.lowercase query_result.driver in
-	if is_v1 query_result.version then begin
-		info "Not unregistering SM plugin %s (version %s < 2.0)" driver query_result.version;
+	if is_v1 query_result.required_api_version then begin
+		info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
 	end else begin
 		let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
 		if List.mem_assoc driver existing then begin
@@ -133,8 +133,8 @@ let unregister_plugin ~__context query_result =
 let register_plugin ~__context query_result =
 	let open Storage_interface in
 	let driver = String.lowercase query_result.driver in
-	if is_v1 query_result.version then begin
-		info "Not registering SM plugin %s (version %s < 2.0)" driver query_result.version;		
+	if is_v1 query_result.required_api_version then begin
+		info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;		
 	end else begin
 		unregister_plugin ~__context query_result;
 		create_from_query_result ~__context query_result
