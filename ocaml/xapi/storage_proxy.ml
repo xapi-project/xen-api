@@ -59,6 +59,8 @@ module Proxy = functor(RPC: RPC) -> struct
 		let epoch_end _ = Client.VDI.epoch_end
 
 		let create _ = Client.VDI.create
+		let set_name_label _ = Client.VDI.set_name_label
+		let set_name_description _ = Client.VDI.set_name_description
 		let snapshot _ = Client.VDI.snapshot
 		let clone _ = Client.VDI.clone
 		let destroy _ = Client.VDI.destroy
