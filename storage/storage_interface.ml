@@ -294,6 +294,12 @@ module VDI = struct
         returns the vdi_info which was used. *)
 	external create : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 
+	(** [set_name_label sr vdi new_name_label] updates the name_label of VDI [vdi] in SR [sr]. *)
+	external set_name_label : dbg:debug_info -> sr:sr -> vdi:vdi -> new_name_label:string -> unit = ""
+
+	(** [set_name_description sr vdi new_name_description] updates the name_description of VDI [vdi] in SR [sr]. *)
+	external set_name_description : dbg:debug_info -> sr:sr -> vdi:vdi -> new_name_description:string -> unit = ""
+
 	(** [snapshot task sr vdi_info] creates a new VDI which is a snapshot of [vdi_info] in [sr] *)
 	external snapshot : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> vdi_info = ""
 

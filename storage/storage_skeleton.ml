@@ -52,6 +52,8 @@ end
 
 module VDI = struct
   let create ctx ~dbg ~sr ~vdi_info = u "VDI.create"
+  let set_name_label ctx ~dbg ~sr ~vdi ~new_name_label = u "VDI.set_name_label"
+  let set_name_description ctx ~dbg ~sr ~vdi ~new_name_description = u "VDI.set_name_description"
   let snapshot ctx ~dbg ~sr ~vdi_info = u "VDI.snapshot"
   let clone ctx ~dbg ~sr ~vdi_info = u "VDI.clone"
   let resize ctx ~dbg ~sr ~vdi ~new_size = u "VDI.resize"
