@@ -57,33 +57,54 @@ module State = struct
 		} with rpc
 	end
 
-	type mirror = 
-		| Send of Send_state.t		
-		| Receive of Receive_state.t with rpc
+	module Copy_state = struct
+	  type t = {
+	    base_dp : dp;
+	    leaf_dp : dp;
+	  } with rpc
+	end
 
-	type t = (string, mirror) Hashtbl.t with rpc
+	type operation =
+		| Send of Send_state.t		
+		| Receive of Receive_state.t
+		| Copy of Copy_state.t with rpc
+
+	type t = (string, operation) Hashtbl.t with rpc
 
 	let active_send : t = Hashtbl.create 10
 	let active_recv : t = Hashtbl.create 10
+	let active_copy : t = Hashtbl.create 10
+
 	let loaded = ref false
 	let mutex = Mutex.create () 
 
-	let path send = Printf.sprintf "/var/run/nonpersistent/storage_mirrors_%s.json"
-		(if send then "send" else "recv")
+	type opty = OSend | OReceive | OCopy
+
+	let path ty = match ty with
+	  | OSend -> "/var/run/nonpersistent/storage_mirrors_send.json"
+	  | OReceive -> "/var/run/nonpersistent/storage_mirrors_recv.json"
+	  | OCopy -> "/var/run/nonpersistent/storage_mirrors_copy.json"
 
 	let to_string r = rpc_of_t r |> Jsonrpc.to_string
 	let of_string s = Jsonrpc.of_string s |> t_of_rpc
-	let id_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
-	let of_id id = match String.split '/' id with
+	let mirror_id_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
+	let of_mirror_id id = match String.split '/' id with
 		| sr::rest -> (sr,String.concat "/" rest)
 		| _ -> failwith "Bad id"
+	let copy_id_of (sr,vdi) = Printf.sprintf "copy/%s/%s" sr vdi
+	let of_copy_id id =
+	  match String.split '/' id with
+	  | op :: sr :: rest when op="copy" -> (sr,(String.concat "/" rest))
+	  | _ -> failwith "Bad id"
 
 	let load () =
 		let load path hashtbl = Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace hashtbl) in
-		try load (path true) active_send; load (path false) active_recv with _ -> ()
+		try load (path OSend) active_send; load (path OReceive) active_recv; load (path OCopy) active_copy with _ -> ()
 	let save () = 
-		to_string active_send |> Unixext.write_string_to_file (path true);
-		to_string active_recv |> Unixext.write_string_to_file (path false)
+	  to_string active_send |> Unixext.write_string_to_file (path OSend);
+	  to_string active_recv |> Unixext.write_string_to_file (path OReceive);
+	  to_string active_recv |> Unixext.write_string_to_file (path OCopy)
+
 	let op s f h = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f h in if s then save (); r)
 	let map_of () =	
 		let m1 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h []) active_send in
@@ -98,12 +119,18 @@ module State = struct
 			
 	let add_to_active_receive_mirrors id arm =
 	    add id active_recv $ Receive arm; arm
-									  
+
+	let add_to_active_copy id s =
+	    add id active_copy $ Copy s; s
+
 	let find_active_local_mirror id =
 		Opt.Monad.bind (find id active_send) (function | Send s -> Some s | _ -> None)
 
 	let find_active_receive_mirror id =
 		Opt.Monad.bind (find id active_recv) (function | Receive r -> Some r | _ -> None)
+
+	let find_active_copy id =
+	  Opt.Monad.bind (find id active_copy) (function | Copy s -> Some s | _ -> None)
 end
 
 
@@ -288,8 +315,8 @@ let stop ~dbg ~id =
 	(* Find the local VDI *)
 	let alm = State.find_active_local_mirror id in
 	match alm with 
-		| Some alm -> 
-			let sr,vdi = State.of_id id in
+		| Some alm ->
+			let sr,vdi = State.of_mirror_id id in
 			let vdis = Local.SR.scan ~dbg ~sr in
 			let local_vdi =
 				try List.find (fun x -> x.vdi = vdi) vdis
@@ -318,7 +345,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
-	let id = State.id_of (sr,local_vdi.vdi) in
+	let id = State.mirror_id_of (sr,local_vdi.vdi) in
 
 	(* A list of cleanup actions to perform if the operation should fail. *)
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -464,7 +491,7 @@ let stat ~dbg ~id =
 		| (None, Some _) -> [Sending]
 		| (None, None) -> raise (Does_not_exist ("mirror",id))
 	in
-	let (sr,vdi) = of_id id in
+	let (sr,vdi) = of_mirror_id id in
 	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
 	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
 	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
@@ -560,7 +587,7 @@ let reqs_outstanding_timeout = 150.0 (* Tapdisk should time out after 2 mins. We
 
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 	let open State.Send_state in
-	let id = State.id_of (sr,vdi) in
+	let id = State.mirror_id_of (sr,vdi) in
 	let start_time = Oclock.gettime Oclock.monotonic in
  	let get_delta () = (Int64.to_float (Int64.sub (Oclock.gettime Oclock.monotonic) start_time)) /. 1.0e9 in
 	State.find_active_local_mirror id |> 
@@ -597,7 +624,7 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 
 let post_detach_hook ~sr ~vdi ~dp = 
 	let open State.Send_state in
-	let id = State.id_of (sr,vdi) in
+	let id = State.mirror_id_of (sr,vdi) in
 	State.find_active_local_mirror id |> 
 			Opt.iter (fun r -> 
 				let remote_url = Http.Url.of_string r.url in
