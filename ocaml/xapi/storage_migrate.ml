@@ -93,22 +93,17 @@ module State = struct
 	let find id h = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None) h
 	let remove id h = op true (fun a ->	Hashtbl.remove a id) h
 
-	let add_to_active_local_mirrors id url dest_sr remote_dp local_dp mirror_vdi remote_url tapdev =
-		let open Send_state in 
-		let alm = {url; dest_sr; remote_dp; local_dp; mirror_vdi; remote_url; tapdev; failed=false; watchdog=None} in
+	let add_to_active_local_mirrors id alm =
 		add id active_send $ Send alm; alm
-			
-	let add_to_active_receive_mirrors id sr dummy_vdi leaf_vdi leaf_dp parent_vdi remote_vdi =
-		let open Receive_state in 
-		let arm = {sr; dummy_vdi; leaf_vdi; leaf_dp; parent_vdi; remote_vdi} in
+
+	let add_to_active_receive_mirrors id arm =
 		add id active_recv $ Receive arm; arm
-									  
+
 	let find_active_local_mirror id =
 		Opt.Monad.bind (find id active_send) (function | Send s -> Some s | _ -> None)
 
 	let find_active_receive_mirror id =
 		Opt.Monad.bind (find id active_recv) (function | Receive r -> Some r | _ -> None)
-
 end
 
 
@@ -374,7 +369,16 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 				failwith "Not attached"
 		in
 		debug "Adding to active local mirrors: id=%s" id;
-		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url tapdev in
+		let alm = State.add_to_active_local_mirrors id State.Send_state.({
+			url;
+			dest_sr=dest;
+			remote_dp=mirror_dp;
+			local_dp=dp;
+			mirror_vdi=result.Mirror.mirror_vdi.vdi;
+			remote_url=url;
+			tapdev;
+			failed=false;
+			watchdog=None}) in
 		debug "Added";
 
 		debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi);
@@ -513,7 +517,13 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
 		debug "Parent disk content_id=%s" parent.content_id;
 		
-		ignore(State.add_to_active_receive_mirrors id sr dummy.vdi leaf.vdi leaf_dp parent.vdi vdi_info.vdi);
+		ignore(State.add_to_active_receive_mirrors id State.Receive_state.({
+			sr;
+			dummy_vdi=dummy.vdi;
+			leaf_vdi=leaf.vdi;
+			leaf_dp;
+			parent_vdi=parent.vdi;
+			remote_vdi=vdi_info.vdi}));
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
