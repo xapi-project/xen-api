@@ -61,6 +61,10 @@ module State = struct
 	  type t = {
 	    base_dp : dp;
 	    leaf_dp : dp;
+	    remote_dp : dp;
+	    dest_sr: sr;
+	    copy_vdi: vdi;
+	    remote_url : string;
 	  } with rpc
 	end
 
@@ -184,20 +188,20 @@ let tapdisk_of_attach_info attach_info =
 			None 
 
 
-let with_activated_disk ~dbg ~sr ~vdi f =
+let with_activated_disk ~dbg ~sr ~vdi ~dp f =
 	let path =
 		Opt.map (fun vdi -> 
-			let attach_info = Local.VDI.attach ~dbg ~dp:"migrate" ~sr ~vdi ~read_write:false in
+			let attach_info = Local.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false in
 			let path = attach_info.params in
-			Local.VDI.activate ~dbg ~dp:"migrate" ~sr ~vdi;
+			Local.VDI.activate ~dbg ~dp ~sr ~vdi;
 			path) vdi in
 	finally
 		(fun () -> f path)
 		(fun () ->
 			Opt.iter
 				(fun vdi ->
-					Local.VDI.deactivate ~dbg ~dp:"migrate" ~sr ~vdi;
-					Local.VDI.detach ~dbg ~dp:"migrate" ~sr ~vdi)
+					Local.VDI.deactivate ~dbg ~dp ~sr ~vdi;
+					Local.VDI.detach ~dbg ~dp ~sr ~vdi)
 				vdi)
 
 let perform_cleanup_actions =
@@ -258,21 +262,28 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 
 	try
-		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
+		let remote_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let base_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let leaf_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi remote_dp) |> Http.Url.to_string in
 
 		debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
+
+		let id=State.copy_id_of (sr,vdi) in
+		debug "Persisting state for copy (id=%s)" id;
+		ignore(State.add_to_active_copy id (State.Copy_state.({
+		  base_dp; leaf_dp; remote_dp; dest_sr=dest; copy_vdi=remote_vdi.vdi; remote_url=url})));
 
 		SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s" vdi dest_vdi;
 
 		Pervasiveext.finally (fun () -> 
-			debug "activating RW datapath %s on remote=%s/%s" dp dest dest_vdi;
-			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp ~read_write:true);
-			Remote.VDI.activate ~dbg ~dp ~sr:dest ~vdi:dest_vdi;
+			debug "activating RW datapath %s on remote=%s/%s" remote_dp dest dest_vdi;
+			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp:remote_dp ~read_write:true);
+			Remote.VDI.activate ~dbg ~dp:remote_dp ~sr:dest ~vdi:dest_vdi;
 			
-			with_activated_disk ~dbg ~sr ~vdi:base_vdi
+			with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
 				(fun base_path ->
-					with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
+					with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp
 						(fun src ->
 							let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src) 
 								dest_vdi_url remote_vdi.virtual_size in
@@ -285,7 +296,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 				);
 			)
 			(fun () -> 
-				Remote.DP.destroy ~dbg ~dp ~allow_leak:false);
+				Remote.DP.destroy ~dbg ~dp:remote_dp ~allow_leak:false);
 
 		SMPERF.debug "mirror.copy: copy complete local_vdi:%s dest_vdi:%s" vdi dest_vdi;
 
