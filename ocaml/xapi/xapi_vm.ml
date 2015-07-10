@@ -326,7 +326,9 @@ let power_state_reset ~__context ~vm =
 
 let suspend ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
-	Xapi_xenops.suspend ~__context ~self:vm
+	Xapi_xenops.suspend ~__context ~self:vm;
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+	log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
 
 let resume ~__context ~vm ~start_paused ~force = 
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
@@ -452,7 +454,7 @@ let destroy  ~__context ~self =
 		(fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
 		(Db.VM.get_children ~__context ~self);
 
-	log_and_ignore_exn (Rrdd.remove_rrd ~uuid:(Db.VM.get_uuid ~__context ~self));
+	log_and_ignore_exn (fun () -> Rrdd.remove_rrd ~uuid:(Db.VM.get_uuid ~__context ~self));
 	destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
