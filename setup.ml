@@ -6754,7 +6754,7 @@ let setup_t =
                       bs_nativeopt = [(OASISExpr.EBool true, ["-bin-annot"])]
                    },
                    {
-                      lib_modules = ["Stats"; "Constants"; "Pool_role_shared"];
+                      lib_modules = ["Stats"; "Constants"];
                       lib_pack = false;
                       lib_internal_modules = [];
                       lib_findlib_parent = None;
