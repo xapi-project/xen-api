@@ -293,9 +293,11 @@ let event_inject_test session_id =
 
 
 let all_srs_with_vdi_create session_id = 
-  let all_srs : API.ref_SR list = Quicktest_storage.list_srs session_id in
+  Quicktest_storage.list_srs session_id
   (* Filter out those which support the vdi_create capability *)
-  List.filter (fun sr -> List.mem Quicktest_storage.vdi_create (Quicktest_storage.sm_caps_of_sr session_id sr)) all_srs 
+  |> List.filter (fun sr -> List.mem Quicktest_storage.vdi_create (Quicktest_storage.sm_caps_of_sr session_id sr))
+  (* Filter out those without the allowed operation *)
+  |> List.filter (fun sr -> List.mem `vdi_create (Client.SR.get_allowed_operations !rpc session_id sr))
 
 (** Create a small VM with a selection of CDs, empty drives, "iso" Disks etc *)
 let setup_export_test_vm session_id = 
@@ -307,7 +309,6 @@ let setup_export_test_vm session_id =
   let vm = vm_install test session_id uuid "quicktest-export" in
   debug test (Printf.sprintf "Installed new VM");
   let cd = List.hd (Client.VDI.get_by_name_label !rpc session_id "xs-tools.iso") in
-  let pool = List.hd (Client.Pool.get_all !rpc session_id) in
   debug test "Looking for the SR which supports the smallest disk size";
   let all_srs = all_srs_with_vdi_create session_id in
   let smallest : int64 option list = List.map (fun sr -> Quicktest_storage.find_smallest_disk_size session_id sr) all_srs in
@@ -324,7 +325,6 @@ let setup_export_test_vm session_id =
   end;
   let sr = fst (List.hd possible_srs) in
   debug test (Printf.sprintf "Using a disk size of: %Ld on SR: %s" minimum (Quicktest_storage.name_of_sr session_id sr));
-  let sr = Client.Pool.get_default_SR !rpc session_id pool in
   let vdi = Client.VDI.create !rpc session_id "small"
     "description" sr 4194304L `user false false [] [] [] [] in
   ignore(Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"0" ~bootable:false
@@ -555,10 +555,11 @@ let test_vhd_locking_hook session_id vm =
 	Client.VM.start !rpc session_id vm false false;
 	(* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
 
-	let pool = get_pool session_id in
-	let default_SR = Client.Pool.get_default_SR !rpc session_id pool in
+	let all_srs = all_srs_with_vdi_create session_id in
+	let sr = List.hd all_srs in
+
 	let new_vdi = Client.VDI.create !rpc session_id "lvhd_testvdi"
-		"description" default_SR 4194304L `user false false [] [] [] [] in
+		"description" sr 4194304L `user false false [] [] [] [] in
 	let new_vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:new_vdi ~userdevice:"9" ~bootable:false
 		~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""] 
 		~qos_algorithm_type:"" ~qos_algorithm_params:[] in
@@ -695,15 +696,16 @@ let powercycle_test session_id vm =
 let vdi_test session_id =
   let test = make_test "VDI.create/copy/destroy test" 0 in
   start test;
-  let pool = get_pool session_id in
-  let default_SR = Client.Pool.get_default_SR !rpc session_id pool in
-  debug test (Printf.sprintf "default_SR=%s%!" (Ref.string_of default_SR));
+
+  let all_srs = all_srs_with_vdi_create session_id in
+  debug test (Printf.sprintf "All SRs = [ %s ]" (String.concat ", " (List.map (fun x -> Client.SR.get_uuid !rpc session_id x) all_srs)));
+  let sr = List.hd all_srs in
   let t = Unix.gettimeofday () in
   let newvdi = Client.VDI.create !rpc session_id "testvdi"
-    "description" default_SR 4194304L `user false false [] [] [] [] in
+    "description" sr 4194304L `user false false [] [] [] [] in
   let createtime = Unix.gettimeofday () -. t in
   debug test (Printf.sprintf "Time to create: %f%!" createtime);
-  let pbd = List.hd (Client.SR.get_PBDs !rpc session_id default_SR) in
+  let pbd = List.hd (Client.SR.get_PBDs !rpc session_id sr) in
   let host = Client.PBD.get_host !rpc session_id pbd in
   let vms = Client.VM.get_all !rpc session_id in
   let filter vm =
@@ -716,7 +718,7 @@ let vdi_test session_id =
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let t = Unix.gettimeofday () in
   debug test (Printf.sprintf "Attempting to copy the VDI%!");
-  let newvdi2 = Client.VDI.copy !rpc session_id newvdi default_SR Ref.null Ref.null in
+  let newvdi2 = Client.VDI.copy !rpc session_id newvdi sr Ref.null Ref.null in
   let copytime = Unix.gettimeofday () -. t in
   debug test (Printf.sprintf "Time to copy: %f%!" copytime);
   Client.VBD.destroy !rpc session_id vbd;
@@ -730,12 +732,11 @@ let vdi_test session_id =
 let async_test session_id =
   let test = make_test "Async.VDI.copy" 0 in
   start test;
-  let pool = get_pool session_id in
-  let default_SR = Client.Pool.get_default_SR !rpc session_id pool in
-  debug test (Printf.sprintf "default_SR=%s%!" (Ref.string_of default_SR));
+  let all_srs = all_srs_with_vdi_create session_id in
+  let sr = List.hd all_srs in
   let newvdi = Client.VDI.create !rpc session_id "testvdi"
-    "description" default_SR 4194304L `user false false [] [] [] [] in
-  let pbd = List.hd (Client.SR.get_PBDs !rpc session_id default_SR) in
+    "description" sr 4194304L `user false false [] [] [] [] in
+  let pbd = List.hd (Client.SR.get_PBDs !rpc session_id sr) in
   let host = Client.PBD.get_host !rpc session_id pbd in
   let vms = Client.VM.get_all !rpc session_id in
   let filter vm =
@@ -746,7 +747,7 @@ let async_test session_id =
   let vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:dom0 ~vDI:newvdi ~userdevice:device ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
   let vdis = Client.VDI.get_all !rpc session_id in
-  let task = Client.Async.VDI.copy !rpc session_id newvdi default_SR Ref.null Ref.null in
+  let task = Client.Async.VDI.copy !rpc session_id newvdi sr Ref.null Ref.null in
   wait_for_task_complete session_id task;
   debug test (Printf.sprintf "Task completed!%!");
   let status = Client.Task.get_status !rpc session_id task in
@@ -764,7 +765,7 @@ let async_test session_id =
       failwith "Async VDI copy failed"
     end;
   let newvdis = Client.VDI.get_all !rpc session_id in
-  let newvdis = List.filter (fun vdi -> try Client.VDI.get_SR !rpc session_id vdi = default_SR with _ -> false) newvdis in
+  let newvdis = List.filter (fun vdi -> try Client.VDI.get_SR !rpc session_id vdi = sr with _ -> false) newvdis in
   let newvdis2 = List.filter (fun vdi -> not (List.mem vdi vdis)) newvdis in
   match newvdis2 with
     | [newvdi2] ->
@@ -850,6 +851,8 @@ let _ =
 		if List.mem name !tests_to_run then f () in
 
 	let s = init_session !username !password in
+        let all_srs = all_srs_with_vdi_create s in
+        let sr = List.hd all_srs in
 	finally
 		(fun () ->
 			(try
@@ -871,7 +874,7 @@ let _ =
 				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
 				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
 				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
-				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s);
+				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
 				| Api_errors.Server_error (a,b) ->
 					output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));

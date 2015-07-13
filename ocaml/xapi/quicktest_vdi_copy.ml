@@ -58,14 +58,9 @@ let read_from_vdi ~session_id ~vdi f =
     Http.Get uri in
   http req (fun (_, fd) -> f fd)
 
-let start session_id =
+let start session_id sr =
   let t = make_test "Check VDI.copy delta handling" 1 in
   start t;
-
-  (* Choose the default SR *)
-  let pool = List.hd (Client.Pool.get_all ~rpc:!rpc ~session_id) in
-  let sr = Client.Pool.get_default_SR ~rpc:!rpc ~session_id ~self:pool in
-  debug t (Printf.sprintf "Pool default_SR is %s" (Ref.string_of sr));
 
   (* Create a 4 MiB disk on src_sr *)
   let original =
