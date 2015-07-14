@@ -16,3 +16,6 @@ install: build
 .PHONY: uninstall
 uninstall:
 	echo "I don't know how to uninstall python code"
+
+.PHONY: reinstall
+reinstall: install
