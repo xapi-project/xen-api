@@ -34,7 +34,7 @@ val unassign_all_for_vm : __context:Context.t -> [ `VM ] Ref.t -> unit
 val pcidev_of_pci: __context:Context.t -> API.ref_PCI -> (int * int * int * int)
 
 (** Return a list of PCIdevs in plug order *)
-val sort_pcidevs: ('a * 'b) list -> ('a * 'b list) list
+val sort_pcidevs: (int * (int * int * int * int)) list -> (int * (int * int * int * int)) list
 
 (** Return the PCI devices that are specified in the VM.other_config:pci field. *)
 val other_pcidevs_of_vm :

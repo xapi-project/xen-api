@@ -74,12 +74,10 @@ let unassign_all_for_vm ~__context vm =
 	List.iter (fun self -> Db.PCI.remove_attached_VMs ~__context ~self ~value:vm) pcis
 
 (* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
-(* It might be possible to refactor this but attempts so far have failed. *)
-let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x"
-let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
-let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
-let bdf_paren_prnt_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
-let bdf_paren_scan_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
+(* http://stackoverflow.com/questions/25025091/ocaml-formatters-and-value-restriction *)
+let bdf_fmt : ('a, 'b, 'c, 'd, 'e, 'f) format6       = "%04x:%02x:%02x.%01x"
+let slash_bdf_fmt : ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%d/%04x:%02x:%02x.%01x"
+let bdf_paren_fmt : ('a, 'b, 'c, 'd, 'e, 'f) format6 = "(%04x:%02x:%02x.%01x)"
 
 let pcidev_of_pci ~__context pci =
 	let bdf_str = Db.PCI.get_pci_id ~__context ~self:pci in
@@ -90,15 +88,15 @@ let pcidev_of_pci ~__context pci =
    multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
 let sort_pcidevs devs =
 	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
-	List.map (fun id ->
-		id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
-	) ids
+	List.flatten (List.map (fun id ->
+		List.filter (fun (x, _) -> x = id) devs
+	) ids)
 
 let of_string dev =
-	Scanf.sscanf dev slash_bdf_scan_fmt (fun id a b c d -> (id, (a, b, c, d)))
+	Scanf.sscanf dev slash_bdf_fmt (fun id a b c d -> (id, (a, b, c, d)))
 
 let to_string (id, (a, b, c, d)) =
-	Printf.sprintf slash_bdf_prnt_fmt id a b c d
+	Printf.sprintf slash_bdf_fmt id a b c d
 
 let other_pcidevs_of_vm ~__context other_config =
 	let devs =
@@ -135,7 +133,7 @@ let get_hidden_pcidevs () =
 			| "" -> devs
 			| _ -> (
 				let dev = Scanf.sscanf
-					raw bdf_paren_scan_fmt (fun a b c d -> (a, b, c, d)) in
+					raw bdf_paren_fmt (fun a b c d -> (a, b, c, d)) in
 				read_dev (dev::devs) (String.sub_to_end raw paren_len)
 			)
 	in
@@ -154,7 +152,7 @@ let is_pci_hidden ~__context pci =
 let _hide_pci ~__context pci =
 	if not (_is_pci_hidden ~__context pci) then (
 		let paren_of (a, b, c, d) = (
-			Printf.sprintf bdf_paren_prnt_fmt a b c d
+			Printf.sprintf bdf_paren_fmt a b c d
 		) in
 		let p = pcidev_of_pci ~__context pci in
 		let devs = p::(get_hidden_pcidevs ()) in
