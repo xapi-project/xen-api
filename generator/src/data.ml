@@ -18,6 +18,16 @@ let backend = {
   description = "The Xen block backend configuration."
 }
 
+let persistent = {
+  Arg.name = "persistent";
+  ty = Type.(Basic Boolean);
+  description = String.concat "" [
+    "True means the disk data is persistent and should be preserved when the datapath ";
+    "is closed i.e. when a VM is shutdown or rebooted. False means the data should be ";
+    "thrown away when the VM is shutdown or rebooted.";
+  ]
+}
+
 let implementation = Type.Variant (
   ("Blkback", Type.(Basic String), "use kernel blkback with the given 'params' key"), [
    "Tapdisk3", Type.(Basic String), "use userspace tapdisk3 with the given 'params' key";
@@ -95,6 +105,20 @@ let api =
          ];
         methods = [
           {
+            Method.name = "open";
+            description = String.concat " "[
+              "[open uri persistent] is called before a disk is attached to a VM. If";
+              "persistent is true then care should be taken to persist all writes to the";
+              "disk. If persistent is false then the implementation should configure";
+              "a temporary location for writes so they can be thrown away on [close]."
+            ];
+            inputs = [
+              uri;
+              persistent;
+            ];
+            outputs = [
+            ];
+          }; {
             Method.name = "attach";
             description = String.concat " "[
               "[attach uri domain] prepares a connection between the storage";
@@ -161,6 +185,17 @@ let api =
             inputs = [
               uri;
               domain;
+            ];
+            outputs = [
+            ];
+          }; {
+            Method.name = "close";
+            description = String.concat " "[
+              "[close uri] is called after a disk is detached and a VM shutdown.";
+              "This is an opportunity to throw away writes if the disk is not persistent.";
+            ];
+            inputs = [
+              uri;
             ];
             outputs = [
             ];
