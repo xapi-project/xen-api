@@ -36,6 +36,8 @@ let info fmt =
     end
   ) fmt
 
+let _nonpersistent = "NONPERSISTENT"
+
 let backend_error name args =
   let open Storage_interface in
   let exnty = Exception.Backend_error (name, args) in
@@ -171,6 +173,11 @@ module Datapath_plugins = struct
   let unregister root_dir name =
     Hashtbl.remove !table name;
     return ()
+
+  let supports_feature scheme feature =
+    match Hashtbl.find !table scheme with
+    | None -> false
+    | Some query_result -> List.mem query_result.Storage.Plugin.Types.features feature
 end
 
 let vdi_of_volume x =
@@ -191,23 +198,36 @@ let vdi_of_volume x =
   persistent = true;
 }
 
-let choose_datapath = function
-  | [] -> return (Error (missing_uri ()))
-  | uri :: _ ->
-    let uri' = Uri.of_string uri in
-    let domain = "0" in
-    begin match Uri.scheme uri' with
-    | None -> return (Error (missing_uri ()))
-    | Some scheme -> return (Ok (scheme, uri, domain))
-    end
-
-let stat root_dir name dbg sr vdi =
+let stat ?(persistent = true) root_dir name dbg sr vdi =
   let args = Storage.Volume.Types.Volume.Stat.In.make dbg sr vdi in
   let args = Storage.Volume.Types.Volume.Stat.In.rpc_of_t args in
   let open Deferred.Result.Monad_infix in
   fork_exec_rpc root_dir (script root_dir name `Volume "Volume.stat") args Storage.Volume.Types.Volume.Stat.Out.t_of_rpc
   >>= fun response ->
-  choose_datapath response.Storage.Volume.Types.uri
+  (* We can only use a URI with a valid scheme, since we use the scheme
+     to name the datapath plugin. *)
+  let possible =
+    List.filter_map ~f:(fun x ->
+      let uri = Uri.of_string x in
+      match Uri.scheme uri with
+      | None -> None
+      | Some scheme -> Some (scheme, uri)
+    ) response.Storage.Volume.Types.uri in
+  (* We can only use URIs whose schemes correspond to registered plugins *)
+  let possible = List.filter ~f:(fun (scheme, _) -> Hashtbl.mem !Datapath_plugins.table scheme) possible in
+  (* If we want to be non-persistent, we prefer if the datapath plugin supports it natively *)
+  let preference_order =
+    if persistent
+    then possible
+    else
+      let supports_nonpersistent, others = List.partition_map ~f:(fun (scheme, uri) ->
+        if Datapath_plugins.supports_feature scheme _nonpersistent
+        then `Fst (scheme, uri) else `Snd (scheme, uri)
+      ) possible in
+      supports_nonpersistent @ others in
+  match preference_order with
+  | [] -> return (Error (missing_uri ()))
+  | (scheme, u) :: us -> return (Ok (scheme, Uri.to_string u, "0"))
 
 (* Process a message *)
 let process root_dir name x =
@@ -268,6 +288,12 @@ let process root_dir name x =
       "VDI_ATTACH"; "VDI_DETACH"; "VDI_ACTIVATE"; "VDI_DEACTIVATE";
       "VDI_INTRODUCE"
     ] in
+    (* If we have the ability to clone a disk then we can provide
+       clone on boot. *)
+    let features =
+      if List.mem features "VDI_CLONE"
+      then "VDI_RESET_ON_BOOT/2" :: features
+      else features in
     let response = {
       driver = response.Storage.Plugin.Types.plugin;
       name = response.Storage.Plugin.Types.name;
@@ -593,19 +619,26 @@ let process root_dir name x =
     Attached_SRs.find args.Args.VDI.Epoch_begin.sr
     >>= fun sr ->
     (* Discover the URIs using Volume.stat *)
-    stat root_dir name
+    let persistent = args.Args.VDI.Epoch_begin.persistent in
+    stat ~persistent root_dir name
       args.Args.VDI.Epoch_begin.dbg
       sr
       args.Args.VDI.Epoch_begin.vdi
     >>= fun (datapath, uri, domain) ->
-    let persistent = args.Args.VDI.Epoch_begin.persistent in
-    let args = Storage.Datapath.Types.Datapath.Open.In.make
-      args.Args.VDI.Epoch_begin.dbg
-      uri persistent in
-    let args = Storage.Datapath.Types.Datapath.Open.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
-    >>= fun () ->
-    Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
+    (* If non-persistent and the datapath plugin supports NONPERSISTENT
+       then we delegate this to the datapath plugin. Otherwise we will
+       make a temporary clone now and attach/detach etc this file. *)
+    if Datapath_plugins.supports_feature datapath _nonpersistent then begin
+      let args = Storage.Datapath.Types.Datapath.Open.In.make
+        args.Args.VDI.Epoch_begin.dbg
+        uri persistent in
+      let args = Storage.Datapath.Types.Datapath.Open.In.rpc_of_t args in
+      fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
+      >>= fun () ->
+      Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
+    end else begin
+      Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ]))
+    end
   | { R.name = "VDI.epoch_end"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Epoch_end.request_of_rpc args in
