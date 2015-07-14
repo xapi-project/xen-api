@@ -106,6 +106,10 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
       end
     end
 
+let script root_dir name kind script = match kind with
+| `Volume -> Filename.(concat (concat root_dir name) script)
+| `Datapath datapath -> Filename.(concat (concat (concat (dirname root_dir) "datapath") datapath) script)
+
 module Attached_SRs = struct
   let sr_table : string String.Table.t ref = ref (String.Table.create ())
   let state_path = ref None
@@ -146,6 +150,29 @@ module Attached_SRs = struct
       return ()
 end
 
+module Datapath_plugins = struct
+  let table: Storage.Plugin.Types.query_result String.Table.t ref = ref (String.Table.create ())
+
+  let register root_dir name =
+    let args = Storage.Plugin.Types.Plugin.Query.In.make "register" in
+    let args = Storage.Plugin.Types.Plugin.Query.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath name) "Plugin.Query") args Storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
+    >>= function
+    | Ok response ->
+      info "Registered datapath plugin %s" name
+      >>= fun () ->
+      Hashtbl.replace !table name response;
+      return ()
+    | _ ->
+      info "Failed to register datapath plugin %s" name
+      >>= fun () ->
+      return ()
+
+  let unregister root_dir name =
+    Hashtbl.remove !table name;
+    return ()
+end
+
 let vdi_of_volume x =
   let open Storage_interface in {
   vdi = x.Storage.Volume.Types.key;
@@ -173,10 +200,6 @@ let choose_datapath = function
     | None -> return (Error (missing_uri ()))
     | Some scheme -> return (Ok (scheme, uri, domain))
     end
-
-let script root_dir name kind script = match kind with
-| `Volume -> Filename.(concat (concat root_dir name) script)
-| `Datapath datapath -> Filename.(concat (concat (concat (dirname root_dir) "datapath") datapath) script)
 
 let stat root_dir name dbg sr vdi =
   let args = Storage.Volume.Types.Volume.Stat.In.make dbg sr vdi in
@@ -692,10 +715,53 @@ let watch_volume_plugins ~root_dir ~switch_path =
     loop () in
   loop ()
 
+let watch_datapath_plugins ~root_dir =
+  let root_dir = Filename.concat root_dir "datapath" in
+  let sync ~root_dir =
+    Sys.readdir root_dir
+    >>= fun names ->
+    let needed : string list = Array.to_list names in
+    let got_already : string list = Hashtbl.keys servers in
+    Deferred.all_ignore (List.map ~f:(Datapath_plugins.register root_dir) (diff needed got_already))
+    >>= fun () ->
+    Deferred.all_ignore (List.map ~f:(Datapath_plugins.unregister root_dir) (diff got_already needed)) in
+  Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
+  >>= fun (watch, _) ->
+  sync ~root_dir
+  >>= fun () ->
+  let pipe = Async_inotify.pipe watch in
+  let open Async_inotify.Event in
+  let rec loop () =
+    ( Pipe.read pipe >>= function
+    | `Eof ->
+      info "Received EOF from inotify event pipe"
+      >>= fun () ->
+      Shutdown.exit 1
+    | `Ok (Created path)
+    | `Ok (Moved (Into path)) ->
+      Datapath_plugins.register root_dir (Filename.basename path)
+    | `Ok (Unlinked path)
+    | `Ok (Moved (Away path)) ->
+      Datapath_plugins.unregister root_dir (Filename.basename path)
+    | `Ok (Modified _) ->
+      return ()
+    | `Ok (Moved (Move (path_a, path_b))) ->
+      Datapath_plugins.unregister root_dir (Filename.basename path_a)
+      >>= fun () ->
+      Datapath_plugins.register root_dir (Filename.basename path_b)
+    | `Ok Queue_overflow ->
+      sync ~root_dir
+    ) >>= fun () ->
+    loop () in
+  loop ()
+
 let main ~root_dir ~state_path ~switch_path =
   Attached_SRs.reload state_path
   >>= fun () ->
-  watch_volume_plugins ~root_dir ~switch_path
+  Deferred.all_unit [
+    watch_volume_plugins ~root_dir ~switch_path;
+    watch_datapath_plugins ~root_dir
+  ]
 
 let main ~root_dir ~state_path ~switch_path =
   let (_: unit Deferred.t) = main ~root_dir ~state_path ~switch_path in
