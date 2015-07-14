@@ -46,7 +46,7 @@ let options = [
     "run_hotplug_scripts", Arg.Bool (fun x -> run_hotplug_scripts := x), (fun () -> string_of_bool !run_hotplug_scripts), "True if xenopsd should execute the hotplug scripts directly";
     "hotplug_timeout", Arg.Set_float hotplug_timeout, (fun () -> string_of_float !hotplug_timeout), "Time before we assume hotplug scripts have failed";
     "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, (fun () -> string_of_float !qemu_dm_ready_timeout), "Time before we assume qemu has become stuck";
-    "vgpu-ready-timeout", Arg.Set_float vgpu_ready_timeout, (fun () -> string_of_float !vgpu_ready_timeout), "Time before we assume vgpu has become stuck or unresposive";
+    "vgpu-ready-timeout", Arg.Set_float vgpu_ready_timeout, (fun () -> string_of_float !vgpu_ready_timeout), "Time before we assume vgpu has become stuck or unresponsive";
     "vgpu-suspend-timeout", Arg.Set_float vgpu_suspend_timeout, (fun () -> string_of_float !vgpu_suspend_timeout), "Time we allow vgpu to write its statefile";
     "watch_queue_length", Arg.Set_int watch_queue_length, (fun () -> string_of_int !watch_queue_length), "Maximum number of unprocessed xenstore watch events before we restart";
     "use-upstream-qemu", Arg.Bool (fun x -> use_upstream_qemu := x), (fun () -> string_of_bool !use_upstream_qemu), "True if we want to use upsteam QEMU";
