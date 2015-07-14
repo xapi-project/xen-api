@@ -569,16 +569,37 @@ let process root_dir name x =
     let args = Args.VDI.Epoch_begin.request_of_rpc args in
     Attached_SRs.find args.Args.VDI.Epoch_begin.sr
     >>= fun sr ->
-    (* FIXME: will some backends do this in special ways?
-       See [djs55/xapi-storage#19] *)
+    (* Discover the URIs using Volume.stat *)
+    stat root_dir name
+      args.Args.VDI.Epoch_begin.dbg
+      sr
+      args.Args.VDI.Epoch_begin.vdi
+    >>= fun (datapath, uri, domain) ->
+    let persistent = args.Args.VDI.Epoch_begin.persistent in
+    let args = Storage.Datapath.Types.Datapath.Open.In.make
+      args.Args.VDI.Epoch_begin.dbg
+      uri persistent in
+    let args = Storage.Datapath.Types.Datapath.Open.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
+    >>= fun () ->
     Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
   | { R.name = "VDI.epoch_end"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Epoch_end.request_of_rpc args in
     Attached_SRs.find args.Args.VDI.Epoch_end.sr
     >>= fun sr ->
-    (* FIXME: will some backends do this in special ways?
-       See [djs55/xapi-storage#19] *)
+    (* Discover the URIs using Volume.stat *)
+    stat root_dir name
+      args.Args.VDI.Epoch_end.dbg
+      sr
+      args.Args.VDI.Epoch_end.vdi
+    >>= fun (datapath, uri, domain) ->
+    let args = Storage.Datapath.Types.Datapath.Close.In.make
+      args.Args.VDI.Epoch_end.dbg
+      uri in
+    let args = Storage.Datapath.Types.Datapath.Close.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.close") args Storage.Datapath.Types.Datapath.Close.Out.t_of_rpc
+    >>= fun () ->
     Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
 
   | { R.name = name } ->
