@@ -511,6 +511,7 @@ let pool_record rpc session_id pool =
 				~remove_from_set:(fun tag -> Client.Pool.remove_tags rpc session_id pool tag) ();
 			make_field ~name:"license-state"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (Client.Pool.get_license_state rpc session_id pool)) ();
+			make_field ~name:"ha-cluster-stack" ~get:(fun () -> (x ()).API.pool_ha_cluster_stack) ();
 		]}
 
 let subject_record rpc session_id subject = 
