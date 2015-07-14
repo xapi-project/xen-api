@@ -657,12 +657,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Pool.designate_new_master ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Pool.designate_new_master rpc session_id host)
 
-		let enable_ha ~__context ~heartbeat_srs ~configuration =
-			info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]"
+		let enable_ha ~__context ~heartbeat_srs ~configuration ~cluster_stack =
+			info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]; cluster_stack = [ %s ]"
 				(current_pool_uuid ~__context)
 				(String.concat ", " (List.map Ref.string_of heartbeat_srs))
-				(String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration));
-			Local.Pool.enable_ha __context heartbeat_srs configuration
+				(String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration))
+				cluster_stack ;
+			Local.Pool.enable_ha __context heartbeat_srs configuration cluster_stack
 
 		let disable_ha ~__context =
 			info "Pool.disable_ha: pool = '%s'" (current_pool_uuid ~__context);
