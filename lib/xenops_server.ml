@@ -67,7 +67,7 @@ type atomic =
 	| VIF_set_active of Vif.id * bool
 	| VM_hook_script of (Vm.id * Xenops_hooks.script * string)
 	| VBD_plug of Vbd.id
-	| VBD_epoch_begin of (Vbd.id * disk)
+	| VBD_epoch_begin of (Vbd.id * disk * bool)
 	| VBD_epoch_end of (Vbd.id * disk)
 	| VBD_set_qos of Vbd.id
 	| VBD_unplug of Vbd.id * bool
@@ -748,7 +748,7 @@ let rec atomics_of_operation = function
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
 		) @	(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map
-			(fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
+			(fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent) ]) vbd.Vbd.backend))
 			(VBD_DB.vbds id |> vbd_plug_order)
 		)) @ simplify (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
@@ -942,9 +942,9 @@ let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) :
 			debug "VBD.set_active %s %b" (VBD_DB.string_of_id id) b;
 			B.VBD.set_active t (VBD_DB.vm_of id) (VBD_DB.read_exn id) b;
 			VBD_DB.signal id
-		| VBD_epoch_begin (id, disk) ->
+		| VBD_epoch_begin (id, disk, persistent) ->
 			debug "VBD.epoch_begin %s" (disk |> rpc_of_disk |> Jsonrpc.to_string);
-			B.VBD.epoch_begin t (VBD_DB.vm_of id) disk
+			B.VBD.epoch_begin t (VBD_DB.vm_of id) disk persistent
 		| VBD_epoch_end (id, disk) ->
 			debug "VBD.epoch_end %s" (disk |> rpc_of_disk |> Jsonrpc.to_string);
 			B.VBD.epoch_end t (VBD_DB.vm_of id) disk
@@ -1158,8 +1158,8 @@ and trigger_cleanup_after_failure op t = match op with
 		| VBD_eject id
 		| VBD_plug id
 		| VBD_set_active (id, _)
-		| VBD_epoch_begin (id, _)
-		| VBD_epoch_end (id, _)
+		| VBD_epoch_begin (id, _, _)
+		| VBD_epoch_end  (id, _)
 		| VBD_set_qos id
 		| VBD_unplug (id, _)
 		| VBD_insert (id, _) ->

@@ -105,7 +105,7 @@ module type S = sig
 	end
 	module VBD : sig
 		val set_active: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
-		val epoch_begin: Xenops_task.t -> Vm.id -> disk -> unit
+		val epoch_begin: Xenops_task.t -> Vm.id -> disk -> bool -> unit
 		val epoch_end: Xenops_task.t -> Vm.id -> disk -> unit
 		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
 		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit

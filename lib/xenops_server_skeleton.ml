@@ -85,7 +85,7 @@ module PCI = struct
 end
 module VBD = struct
 	let set_active _ _ _ _ = ()
-	let epoch_begin _ _ _ = ()
+	let epoch_begin _ _ _ _ = ()
 	let epoch_end _ _ _ = ()
 	let plug _ _ _ = unimplemented "VBD.plug"
 	let unplug _ _ _ _ = unimplemented "VBD.unplug"
