@@ -89,7 +89,7 @@ module Debug_print_impl = struct
                     end
                 )
 
-		let epoch_begin context ~dbg ~sr ~vdi = ()
+		let epoch_begin context ~dbg ~sr ~vdi ~persistent = ()
 
 		let stat context ~dbg ~sr ~vdi = assert false
 

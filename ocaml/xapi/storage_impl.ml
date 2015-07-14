@@ -416,13 +416,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| [] -> next ()
 			| f :: fs -> raise f
 
-		let epoch_begin context ~dbg ~sr ~vdi =
-			info "VDI.epoch_begin dbg:%s sr:%s vdi:%s" dbg sr vdi;
+		let epoch_begin context ~dbg ~sr ~vdi ~persistent =
+			info "VDI.epoch_begin dbg:%s sr:%s vdi:%s persistent:%b" dbg sr vdi persistent;
 			with_vdi sr vdi
 				(fun () ->
 					remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
 						(fun () ->
-							Impl.VDI.epoch_begin context ~dbg ~sr ~vdi
+							Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~persistent
 						))
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =

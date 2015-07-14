@@ -347,7 +347,7 @@ module SMAPIv1 = struct
 			per_host_key ~__context ~prefix:"read-caching-reason"
 
 
-		let epoch_begin context ~dbg ~sr ~vdi =
+		let epoch_begin context ~dbg ~sr ~vdi ~persistent =
 			try
 				for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
 					(fun device_config _type sr self ->
