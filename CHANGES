@@ -1,3 +1,7 @@
+0.12.2 (14-Jul-2015):
+* rrd: General interface tidyup
+* storage: Add set_name_label and set_name_description
+
 0.12.1 (07-Jul-2015):
 * Add PIF.get_capabilities RPC to network interface
 * Fix HTTP header parsing
