@@ -125,8 +125,6 @@ install:
 	$(IDATA) gpg/secring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/pubring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/trustdb.gpg $(DESTDIR)/opt/xensource/gpg/
-	mkdir -p $(DESTDIR)$(UDEVDIR)/rules.d
-	$(IPROG) 58-xapi.rules $(DESTDIR)$(UDEVDIR)/rules.d/
 
 sdk-install: install
 	mkdir -p $(SDK)
