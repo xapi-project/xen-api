@@ -625,49 +625,43 @@ let get_ok = function
     Format.pp_print_flush fmt ();
     failwith (Buffer.contents b)
 
-let create switch_path root_dir name =
-  if Hashtbl.mem servers name
-  then return ()
-  else begin
-    info "Adding %s" name
-    >>= fun () ->
-    Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
-    >>= fun result ->
-    let server = get_ok result in
-    Hashtbl.add_exn servers name server;
-    return ()
-  end
-
-let destroy switch_path name =
-  info "Removing %s" name
-  >>= fun () ->
-  if Hashtbl.mem servers name then begin
-    let t = Hashtbl.find_exn servers name in
-    Protocol_async.Server.shutdown ~t () >>= fun () ->
-    Hashtbl.remove servers name;
-    return ()
-  end else return ()
 
 let rec diff a b = match a with
   | [] -> []
   | a :: aa ->
     if List.mem b a then diff aa b else a :: (diff aa b)
 
-(* Ensure the right servers are started *)
-let sync ~root_dir ~switch_path =
-  Sys.readdir root_dir
-  >>= fun names ->
-  let needed : string list = Array.to_list names in
-  let got_already : string list = Hashtbl.keys servers in
-  Deferred.all_ignore (List.map ~f:(create switch_path root_dir) (diff needed got_already))
-  >>= fun () ->
-  Deferred.all_ignore (List.map ~f:(destroy switch_path) (diff got_already needed))
-
-let main ~root_dir ~state_path ~switch_path =
-  Attached_SRs.reload state_path
-  >>= fun () ->
-  (* We watch and create queues for the Volume plugins only *)
+let watch_volume_plugins ~root_dir ~switch_path =
   let root_dir = Filename.concat root_dir "volume" in
+  let create switch_path root_dir name =
+    if Hashtbl.mem servers name
+      then return ()
+      else begin
+        info "Adding %s" name
+        >>= fun () ->
+        Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
+        >>= fun result ->
+        let server = get_ok result in
+        Hashtbl.add_exn servers name server;
+        return ()
+      end in
+  let destroy switch_path name =
+    info "Removing %s" name
+    >>= fun () ->
+    if Hashtbl.mem servers name then begin
+      let t = Hashtbl.find_exn servers name in
+      Protocol_async.Server.shutdown ~t () >>= fun () ->
+      Hashtbl.remove servers name;
+      return ()
+    end else return () in
+  let sync ~root_dir ~switch_path =
+    Sys.readdir root_dir
+    >>= fun names ->
+    let needed : string list = Array.to_list names in
+    let got_already : string list = Hashtbl.keys servers in
+    Deferred.all_ignore (List.map ~f:(create switch_path root_dir) (diff needed got_already))
+    >>= fun () ->
+    Deferred.all_ignore (List.map ~f:(destroy switch_path) (diff got_already needed)) in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false root_dir
   >>= fun (watch, _) ->
   sync ~root_dir ~switch_path
@@ -697,6 +691,11 @@ let main ~root_dir ~state_path ~switch_path =
     ) >>= fun () ->
     loop () in
   loop ()
+
+let main ~root_dir ~state_path ~switch_path =
+  Attached_SRs.reload state_path
+  >>= fun () ->
+  watch_volume_plugins ~root_dir ~switch_path
 
 let main ~root_dir ~state_path ~switch_path =
   let (_: unit Deferred.t) = main ~root_dir ~state_path ~switch_path in
