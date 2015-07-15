@@ -617,29 +617,25 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		(** [destroy_sr context dp sr allow_leak vdi_already_locked] attempts to free
 		    the resources associated with [dp] in [sr]. If [vdi_already_locked] then
 		    it is assumed that all VDIs are already locked. *)
-		let destroy_sr context ~dbg ~dp ~sr ~allow_leak vdi_already_locked =
+		let destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak vdi_already_locked =
 			(* Every VDI in use by this session should be detached and deactivated *)
-			match Host.find sr !Host.host with
-			| None -> [ Sr_not_attached sr ]
-			| Some sr_t ->
-				let vdis = Sr.list sr_t in
-				List.fold_left (fun acc (vdi, vdi_t) ->
-					let locker =
-						if vdi_already_locked
-						then fun f -> f ()
-						else VDI.with_vdi sr vdi in
-					locker
-						(fun () ->
-							try
-								VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;
-								acc
-							with e -> e::acc
-						)) [] vdis
+			let vdis = Sr.list sr_t in
+			List.fold_left (fun acc (vdi, vdi_t) ->
+				let locker =
+					if vdi_already_locked
+					then fun f -> f ()
+					else VDI.with_vdi sr vdi in
+				locker
+					(fun () ->
+						try
+							VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;								acc
+						with e -> e::acc
+					)) [] vdis
 
 
 		let destroy context ~dbg ~dp ~allow_leak =
 			info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak;
-			let failures = List.fold_left (fun acc (sr, _) -> acc @ (destroy_sr context ~dbg ~dp ~sr ~allow_leak false)) [] (Host.list !Host.host) in
+			let failures = List.fold_left (fun acc (sr, sr_t) -> acc @ (destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false)) [] (Host.list !Host.host) in
 			match failures, allow_leak with
 			| [], _  -> ()
 			| f :: _, false ->
@@ -760,7 +756,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 								let dps = active_dps sr_t in
 								List.iter
 									(fun dp ->
-										let ( _ : exn list) = DP.destroy_sr context ~dbg ~dp ~sr ~allow_leak:false true in ()
+										let ( _ : exn list) = DP.destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak:false true in ()
 									) dps;
 								let dps = active_dps sr_t in
 								if dps <> []
