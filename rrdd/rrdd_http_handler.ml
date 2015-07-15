@@ -59,7 +59,7 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
 			in
 			let vm_rrds = List.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
 			if is_host then match !host_rrd with None -> vm_rrds | Some rrdi ->
-				("host:" ^ localhost_uuid ^ ":", rrdi.rrd)::vm_rrds
+				("host:" ^ (Inventory.lookup Inventory._installation_uuid) ^ ":", rrdi.rrd)::vm_rrds
 			else vm_rrds
 		in
 		Rrd_updates.export ~json prefixandrrds start interval cfopt)
