@@ -202,6 +202,9 @@ module Mux = struct
 		let stat context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.stat ~dbg ~sr ~vdi
+		let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.introduce ~dbg ~sr ~uuid ~sm_config ~location
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent

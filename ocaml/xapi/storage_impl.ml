@@ -523,6 +523,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
 			Impl.VDI.stat context ~dbg ~sr ~vdi
 
+		let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
+			info "VDI.introduce dbg:%s sr:%s uuid:%s sm_config:%s location:%s" dbg sr uuid (String.concat ", " (List.map (fun (k, v) -> k ^ ":" ^ v) sm_config)) location;
+			Impl.VDI.introduce context ~dbg ~sr ~uuid ~sm_config ~location
+
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg sr vdi persistent;
 			with_vdi sr vdi

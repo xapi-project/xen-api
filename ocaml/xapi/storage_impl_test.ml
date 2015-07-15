@@ -93,6 +93,8 @@ module Debug_print_impl = struct
 
 		let stat context ~dbg ~sr ~vdi = assert false
 
+		let introduce context ~dbg ~sr ~uuid ~sm_config ~location = assert false
+
 		let set_persistent context ~dbg ~sr ~vdi ~persistent = ()
 
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =

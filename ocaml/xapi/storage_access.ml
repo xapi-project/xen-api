@@ -599,6 +599,21 @@ module SMAPIv1 = struct
 				error "VDI.stat caught: %s" (Printexc.to_string e);
 				raise (Vdi_does_not_exist vdi)
 
+		let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
+			try
+				Server_helpers.exec_with_new_task "VDI.introduce" ~subtask_of:(Ref.of_string dbg)
+					(fun __context ->
+                        			let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+						let vi =
+							Sm.call_sm_functions ~__context ~sR:sr
+								(fun device_config sr_type ->
+									Sm.vdi_introduce device_config sr_type sr uuid sm_config location) in
+                        			newvdi ~__context vi
+					)
+			with e ->
+				error "VDI.introduce caught: %s" (Printexc.to_string e);
+				raise (Vdi_does_not_exist location)
+
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
             try
                 Server_helpers.exec_with_new_task "VDI.set_persistent" ~subtask_of:(Ref.of_string dbg)

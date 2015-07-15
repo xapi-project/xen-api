@@ -367,15 +367,20 @@ let db_forget ~__context ~vdi =
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
+  let open Storage_access in
+  let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  let vdi_info = 
-    Sm.call_sm_functions ~__context ~sR
-      (fun device_config sr_type ->
-	 Sm.vdi_introduce device_config sr_type sR uuid sm_config location)
-  in
-  let uuid = require_uuid vdi_info in
-  let ref = Db.VDI.get_by_uuid ~__context ~uuid in
+  let task = Context.get_task_id __context in	
+  let sr' = Db.SR.get_uuid ~__context ~self:sR in
+  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  Sm.assert_pbd_is_plugged ~__context ~sr:sR;
+  let vdi_info =
+    transform_storage_exn
+      (fun () ->
+        C.VDI.introduce ~dbg:(Ref.string_of task) ~sr:sr' ~uuid ~sm_config ~location
+      ) in
+  let ref = update_vdi_db ~__context ~sr:sR vdi_info in
 
   (* Set the fields which belong to the higher-level API: *)
   Db.VDI.set_other_config ~__context ~self:ref ~value:other_config;
