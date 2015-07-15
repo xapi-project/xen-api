@@ -14,6 +14,13 @@ let rec lines_of_t t =
 
 let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 
+(* generate a fresh id *)
+let fresh_id =
+  let counter = ref 0 in
+  fun () ->
+    incr counter;
+    "tmp_" ^ (string_of_int !counter)
+
 (** [typecheck ty v] returns a python fragment which checks 
     	[v] has type [ty] *)
 let rec typecheck env ty v =
@@ -47,20 +54,22 @@ let rec typecheck env ty v =
       ] in
     (member true hd) @ (List.concat (List.map (member false) tl))
   | Array t ->
+    let id = fresh_id () in
     [
       Line (sprintf "if type(%s) <> type([]):" v);
       Block [ raise_type_error ];
-      Line (sprintf "for x in %s:" v);
-      Block (typecheck env t "x")
+      Line (sprintf "for %s in %s:" id v);
+      Block (typecheck env t id)
     ]
   | Dict (key, va) ->
+    let id = fresh_id () in
     [
       Line (sprintf "if type(%s) <> type({}):" v);
       Block [ raise_type_error ];
-      Line (sprintf "for x in %s.keys():" v);
-      Block (typecheck env (Basic key) "x");
-      Line (sprintf "for x in %s.values():" v);
-      Block (typecheck env va "x")
+      Line (sprintf "for %s in %s.keys():" id v);
+      Block (typecheck env (Basic key) id);
+      Line (sprintf "for %s in %s.values():" id v);
+      Block (typecheck env va id)
     ]
   | Name x ->
     let ident =
