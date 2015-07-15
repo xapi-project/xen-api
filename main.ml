@@ -665,6 +665,13 @@ let process root_dir name x =
     end else begin
       (* We create a non-persistent disk here with Volume.clone, and store
          the name of the cloned disk in the metadata of the original. *)
+      ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+        | None ->
+          return (Ok ())
+        | Some temporary ->
+          (* Destroy the temporary disk we made earlier *)
+          destroy root_dir name args.Args.VDI.Epoch_begin.dbg sr temporary
+      ) >>= fun () ->
       clone root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi
       >>= fun vdi ->
       set root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Storage.Volume.Types.key
