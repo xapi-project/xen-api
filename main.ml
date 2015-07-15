@@ -400,6 +400,13 @@ let process root_dir name x =
     let args = Storage.Volume.Types.SR.Ls.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args Storage.Volume.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
+    (* Filter out volumes which are clone-on-boot transients *)
+    let transients = List.fold ~f:(fun set x ->
+      match List.Assoc.find x.Storage.Volume.Types.keys _clone_on_boot_key with
+      | None -> set
+      | Some transient -> Set.add set transient
+    ) ~init:(Set.empty ~comparator:String.comparator) response in
+    let response = List.filter ~f:(fun x -> not(Set.mem transients x.Storage.Volume.Types.key)) response in
     let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
   | { R.name = "VDI.create"; R.params = [ args ] } ->
