@@ -60,7 +60,11 @@ let api =
             "protocols, he list should be sorted into descending order of ";
             "desirability. Xapi will open the most desirable URI for which it has ";
             "an available datapath plugin.";
-          ]
+          ];
+          "keys", Dict(String, Basic String), String.concat " " [
+            "A lit of key=value pairs which have been stored in the Volume ";
+            "metadata. These should not be interpreted by the Volume plugin.";
+          ];
         ]
       )) in
   let volume = Type.Name "volume" in
@@ -210,6 +214,8 @@ let api =
                 "[snapshot sr volume] creates a new volue which is a ";
                 "snapshot of [volume] in [sr]. Snapshots should never be";
                 "written to; they are intended for backup/restore only.";
+                "Note the name and description are copied but any extra";
+                "metadata associated by [set] is not copied.";
               ];
               inputs = [
                 sr;
@@ -225,7 +231,8 @@ let api =
               Method.name = "clone";
               description = String.concat " " [
                 "[clone sr volume] creates a new volume which is a writable";
-                "clone of [volume] in [sr].";
+                "clone of [volume] in [sr]. Note the name and description are";
+                "copied but any extra metadata associated by [set] is not copied.";
               ];
               inputs = [
                 sr;
@@ -272,6 +279,44 @@ let api =
                 { Arg.name = "new_description";
                   ty = Basic String;
                   description = "New description"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
+              Method.name = "set";
+              description = String.concat " " [
+                "[set sr volume key value] associates [key] with [value] in the metadata of [volume]";
+                "Note these keys and values are not interpreted by the plugin; they are intended for";
+                "the higher-level software only.";
+              ];
+              inputs = [
+                sr;
+                key;
+                { Arg.name = "k";
+                  ty = Basic String;
+                  description = "Key"
+                }; {
+                  Arg.name = "v";
+                  ty = Basic String;
+                  description = "Value"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
+              Method.name = "unset";
+              description = String.concat " " [
+                "[unset sr volume key] removes [key] and any value associated with it from the metadata of [volume]";
+                "Note these keys and values are not interpreted by the plugin; they are intended for";
+                "the higher-level software only.";
+              ];
+              inputs = [
+                sr;
+                key;
+                { Arg.name = "k";
+                  ty = Basic String;
+                  description = "Key"
                 }
             ];
               outputs = [

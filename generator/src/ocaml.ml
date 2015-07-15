@@ -14,6 +14,12 @@ let rec lines_of_t t =
 
 let string_of_ts ts = String.concat "\n" (List.concat (List.map lines_of_t ts))
 
+let keywords = [
+  "open";
+]
+
+let escape_keywords x = if List.mem x keywords then "_" ^ x else x
+
 open Printf
 
 let rec typeof ?(expand_aliases=false) env t =
@@ -315,7 +321,7 @@ let skeleton_method unimplemented env i m =
   let unimplemented_error =
     sprintf "return (`Error (Unimplemented \"%s.%s\"))" i.Interface.name m.Method.name in
   [
-    Line (sprintf "let %s x =" m.Method.name);
+    Line (sprintf "let %s x =" (escape_keywords m.Method.name));
     Block [
       Line (sprintf "let open Types.%s.%s in" i.Interface.name (String.capitalize m.Method.name));
       Line "let open Types in";
@@ -365,7 +371,7 @@ let example_stub env is i m =
     ];
     Line "end)";
     Line "";
-    Line (sprintf "let result = Client.%s %s;;" m.Method.name (String.concat " " (List.map (fun a -> sprintf "~%s:%s" a.Arg.name (example_value_of env a.Arg.ty)) m.Method.inputs)));
+    Line (sprintf "let result = Client.%s %s;;" (escape_keywords m.Method.name) (String.concat " " (List.map (fun a -> sprintf "~%s:%s" a.Arg.name (example_value_of env a.Arg.ty)) m.Method.inputs)));
   ]
 
 let skeleton_of_interface unimplemented suffix env i =
@@ -381,7 +387,7 @@ let skeleton_of_interface unimplemented suffix env i =
 let signature_of_interface env i =
   let signature_of_method m =
     Line (sprintf "val %s: Types.%s.%s.In.t -> (Types.%s.%s.Out.t, exn) Result.t t"
-            m.Method.name
+            (escape_keywords m.Method.name)
             i.Interface.name (String.capitalize m.Method.name)
             i.Interface.name (String.capitalize m.Method.name)
          ) in
@@ -402,7 +408,7 @@ let server_of_interface env i =
     [
       Line (sprintf "| Types.%s.In.%s x ->" i.Interface.name (String.capitalize m.Method.name));
       Block [
-        Line (sprintf "Impl.%s x" m.Method.name);
+        Line (sprintf "Impl.%s x" (escape_keywords m.Method.name));
         Line ">>= fun result ->";
         Line "return (Result.(>>=) result (fun ok ->";
         Block [
@@ -441,17 +447,17 @@ let server_of_interface env i =
 let client_of_interfaces env is =
   let client_of_method env i m =
     [
-      Line (sprintf "let %s_r x =" m.Method.name);
+      Line (sprintf "let %s_r x =" (escape_keywords m.Method.name));
       Block [
         Line (sprintf "let call = Types.%s.In.call_of (Types.%s.In.%s x) in" i.Interface.name i.Interface.name (String.capitalize m.Method.name));
         Line "RPC.rpc call >>= fun response ->";
         Line (sprintf "let result = Result.(>>=) (result_of_response response) (fun x -> Result.return (Types.%s.%s.Out.t_of_rpc x)) in" i.Interface.name (String.capitalize m.Method.name));
         Line "return result";
       ];
-      Line (sprintf "let %s %s =" m.Method.name (String.concat " " (List.map (fun i -> sprintf "~%s" i.Arg.name) m.Method.inputs)));
+      Line (sprintf "let %s %s =" (escape_keywords m.Method.name) (String.concat " " (List.map (fun i -> sprintf "~%s" i.Arg.name) m.Method.inputs)));
       Block [
         Line (sprintf "let r = Types.%s.%s.In.({ %s }) in" i.Interface.name (String.capitalize m.Method.name) (String.concat "; " (List.map (fun i -> sprintf "%s = %s" i.Arg.name i.Arg.name) m.Method.inputs)));
-        Line (sprintf "%s_r r" m.Method.name);
+        Line (sprintf "%s_r r" (escape_keywords m.Method.name));
       ]
     ] in
   let client_of_interface env i =
