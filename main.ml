@@ -227,7 +227,7 @@ let choose_datapath ?(persistent = true) response =
       let uri = Uri.of_string x in
       match Uri.scheme uri with
       | None -> None
-      | Some scheme -> Some (scheme, uri)
+      | Some scheme -> Some (scheme, x)
     ) response.Storage.Volume.Types.uri in
   (* We can only use URIs whose schemes correspond to registered plugins *)
   let possible = List.filter ~f:(fun (scheme, _) -> Hashtbl.mem !Datapath_plugins.table scheme) possible in
@@ -243,7 +243,7 @@ let choose_datapath ?(persistent = true) response =
       supports_nonpersistent @ others in
   match preference_order with
   | [] -> return (Error (missing_uri ()))
-  | (scheme, u) :: us -> return (Ok (scheme, Uri.to_string u, "0"))
+  | (scheme, u) :: us -> return (Ok (scheme, u, "0"))
 
 (* Process a message *)
 let process root_dir name x =
