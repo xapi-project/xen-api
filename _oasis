@@ -11,7 +11,7 @@ Library rrdd_libs
   CompiledObject:     best
   Path:               lib
   Findlibname:        rrdd-libs
-  Modules:            Stats, Constants, Pool_role_shared
+  Modules:            Stats, Constants
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       xcp, stdext, threads
