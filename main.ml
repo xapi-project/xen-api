@@ -219,6 +219,11 @@ let set root_dir name dbg sr vdi k v =
   let args = Storage.Volume.Types.Volume.Set.In.rpc_of_t args in
   fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set") args Storage.Volume.Types.Volume.Set.Out.t_of_rpc
 
+let unset root_dir name dbg sr vdi k =
+  let args = Storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
+  let args = Storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Storage.Volume.Types.Volume.Unset.Out.t_of_rpc
+
 let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
      to name the datapath plugin. *)
@@ -703,6 +708,8 @@ let process root_dir name x =
       | Some temporary ->
         (* Destroy the temporary disk we made earlier *)
         destroy root_dir name args.Args.VDI.Epoch_end.dbg sr temporary
+        >>= fun () ->
+        unset root_dir name args.Args.VDI.Epoch_end.dbg sr args.Args.VDI.Epoch_end.vdi _clone_on_boot_key
         >>= fun () ->
         Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
     end
