@@ -706,6 +706,10 @@ let process root_dir name x =
         >>= fun () ->
         Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
     end
+  | { R.name = "VDI.set_persistent"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    (* We don't do anything until the VDI.epoch_begin *)
+    Deferred.Result.return (R.success (Args.VDI.Set_persistent.rpc_of_response ()))
   | { R.name = name } ->
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
