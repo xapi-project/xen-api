@@ -305,9 +305,9 @@ let api =
               outputs = [
               ];
             }; {
-              Method.name = "remove";
+              Method.name = "unset";
               description = String.concat " " [
-                "[remove sr volume key] removes [key] and any value associated with it from the metadata of [volume]";
+                "[unset sr volume key] removes [key] and any value associated with it from the metadata of [volume]";
                 "Note these keys and values are not interpreted by the plugin; they are intended for";
                 "the higher-level software only.";
               ];
