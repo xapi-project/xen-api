@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 8a41e7e62d7cbc5de0e3c4767f7fdbf1)
-version = "0.5.0"
+# DO NOT EDIT (digest: e39c2189943178aff4a225df11545707)
+version = "0.7.1"
 description = "Plugin library for the XCP RRD daemon"
 requires =
 "threads forkexec stdext rrd xcp.rrd rrd-transport xenstore.unix xenstore_transport.unix"

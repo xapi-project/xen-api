@@ -1,3 +1,6 @@
+0.7.1 (16-07-2015):
+ * Update to new rrd-transport interface
+
 0.7.0 (4-Apr-2015):
  * Update following xcp-rrd -> rrd rename
 
