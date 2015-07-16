@@ -239,9 +239,12 @@ let make_server config =
           let from = match from with None -> -1L | Some x -> Int64.of_string x in
           let rec wait () =
             if Q.transfer !queues from names = [] then begin
-              Lwt_condition.wait queues_c
+              let timeout = max 0. (Int64.(to_float (sub time (ns ())))) /. 1e9 in
+              Lwt.pick [ Lwt_unix.sleep timeout; Lwt_condition.wait queues_c ]
               >>= fun () ->
-              wait ()
+              if ns () > time
+              then return ()
+              else wait ()
             end else return () in
           wait ()
         | _, _ -> return () )
