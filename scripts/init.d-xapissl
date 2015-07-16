@@ -64,8 +64,9 @@ writeconffile () {
     # interface is enabled or disabled.
     . /etc/xensource-inventory
 
-    # (This "good" list is just for testing this script; it needs choosing properly.)
-    GOOD_CIPHERS='TLSv1.2'
+    # (This "good" list must match, or at least contain one of, the
+    # good_ciphers in xen-api-libs-transitional/stunnel/stunnel.ml)
+    GOOD_CIPHERS='RSA+AES128-SHA'
     BACK_COMPAT_CIPHERS='RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA'
 
     if [ -n "${STUNNEL_IDLE_TIMEOUT}" ]; then
