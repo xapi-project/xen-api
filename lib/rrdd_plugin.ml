@@ -124,7 +124,7 @@ module Reporter = struct
 		| Stopped
 
 	type target =
-		| Local
+		| Local of int
 		| Interdomain of (int * int)
 
 	type t = {
@@ -190,12 +190,22 @@ module Reporter = struct
 					Thread.delay 10.0
 		done
 
-	let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~protocol ~dss_f =
+	let start_local (module D : Debug.DEBUG)
+			~reporter
+			~uid
+			~neg_shift
+			~page_count
+			~protocol
+			~dss_f =
 		let path = RRDD.Plugin.get_path ~uid in
 		D.info "Obtained path=%s\n" path;
 		let _ = mkdir_safe (Filename.dirname path) 0o644 in
+		let id = Rrd_writer.({
+			path;
+			shared_page_count = page_count;
+		}) in
 		let _, writer =
-			Rrd_writer.FileWriter.create path (choose_protocol protocol)
+			Rrd_writer.FileWriter.create id (choose_protocol protocol)
 		in
 		let report () =
 			wait_until_next_reading
@@ -261,11 +271,12 @@ module Reporter = struct
 
 	let start (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
 		match target with
-		| Local ->
+		| Local page_count ->
 			start_local (module D)
 				~reporter:None
 				~uid
 				~neg_shift
+				~page_count
 				~protocol
 				~dss_f
 		| Interdomain (backend_domid, page_count) ->
@@ -282,11 +293,12 @@ module Reporter = struct
 		let (_ : Thread.t) =
 			Thread.create (fun () ->
 				match target with
-				| Local ->
+				| Local page_count ->
 					start_local (module D)
 						~reporter:(Some reporter)
 						~uid
 						~neg_shift
+						~page_count
 						~protocol
 						~dss_f
 				| Interdomain (backend_domid, page_count) ->
