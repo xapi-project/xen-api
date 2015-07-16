@@ -160,5 +160,7 @@ let stop () =
 		(fun () ->
 			match !reporter_cache with
 			| None -> ()
-			| Some reporter ->
-				Reporter.cancel reporter)
+			| Some reporter -> begin
+				Reporter.cancel reporter;
+				reporter_cache := None
+			end)
