@@ -136,6 +136,10 @@ let generate_stats ~__context ~master =
 let reporter_cache : Reporter.t option ref = ref None
 let reporter_m = Mutex.create ()
 
+(* xapi currently exports 5 datasources if a slave or 7 if a master; this
+ * comfortably fits into a single page. *)
+let shared_page_count = 1
+
 let start () =
 	let __context = Context.make "xapi_stats" in
 	let master = (Pool_role.is_master ()) in
@@ -149,7 +153,7 @@ let start () =
 						(module D : Debug.DEBUG)
 						~uid:"xapi-stats"
 						~neg_shift:0.5
-						~target:Reporter.Local
+						~target:(Reporter.Local shared_page_count)
 						~protocol:Rrd_interface.V2
 						~dss_f:(fun () -> generate_stats ~__context ~master)
 				in
