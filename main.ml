@@ -22,19 +22,22 @@ open Types
 
 let use_syslog = ref false
 
-let info fmt =
+let log level fmt =
   Printf.ksprintf (fun s ->
     if !use_syslog then begin
       (* FIXME: this is synchronous and will block other I/O *)
-      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO ~facility:Core.Syslog.Facility.DAEMON s;
-      return ()
+      Core.Syslog.syslog ~level ~facility:Core.Syslog.Facility.DAEMON s;
     end else begin
       let w = Lazy.force Writer.stderr in
       Writer.write w s;
-      Writer.newline w;
-      Writer.flushed w;
+      Writer.newline w
     end
   ) fmt
+
+let debug fmt = log Core.Syslog.Level.DEBUG   fmt
+let info  fmt = log Core.Syslog.Level.INFO    fmt
+let warn  fmt = log Core.Syslog.Level.WARNING fmt
+let error fmt = log Core.Syslog.Level.ERR     fmt
 
 let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
@@ -56,21 +59,25 @@ let missing_uri () =
 let (>>>=) = Deferred.Result.(>>=)
 
 let fork_exec_rpc root_dir script_name args response_of_rpc =
+  info "%s/%s %s" root_dir script_name (Jsonrpc.to_string args);
   ( Sys.is_file ~follow_symlinks:true script_name
     >>= function
     | `No | `Unknown ->
+      error "%s/%s is not a file" root_dir script_name;
       return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
     | `Yes -> return (Ok ())
   ) >>>= fun () ->
   ( Unix.access script_name [ `Exec ]
     >>= function
     | Error exn ->
+      error "%s/%s is not executable" root_dir script_name;
       return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]))
     | Ok () -> return (Ok ())
   ) >>>= fun () ->
   Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
   >>= function
   | Error e ->
+    error "%s/%s failed: %s" root_dir script_name (Error.to_string_hum e);
     return (Error(backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]))
   | Ok p ->
     (* Send the request as json on stdin *)
@@ -85,26 +92,34 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
       (* Expect an exception and backtrace on stderr *)
       begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stderr) with
       | Error _ ->
+        error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stderr;
         return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
       | Ok response ->
         begin match Or_error.try_with (fun () -> error_of_rpc response) with
-        | Error _ -> return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
+        | Error _ ->
+          error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stderr;
+          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
         | Ok x -> return (Error(backend_backtrace_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code; output.Process.Output.stdout ] x))
         end
       end
     | Error (`Signal signal) ->
+      error "%s/%s caught a signal and failed" root_dir script_name;
       return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stderr ]))
     | Ok () ->
 
       (* Parse the json on stdout *)
       begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
       | Error _ ->
+        error "%s/%s succeeded but printed bad json: %s" root_dir script_name output.Process.Output.stdout;
         return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
       | Ok response ->
         begin match Or_error.try_with (fun () -> response_of_rpc response) with
         | Error _ ->
+          error "%s/%s succeeded but printed bad json: %s" root_dir script_name output.Process.Output.stdout;
           return (Error (backend_error "SCRIPT_FAILED" [ script_name; "json did not match schema"; output.Process.Output.stdout ]))
-        | Ok x -> return (Ok x)
+        | Ok x ->
+          info "%s/%s succeeded: %s" root_dir script_name output.Process.Output.stdout;
+          return (Ok x)
         end
       end
     end
@@ -162,13 +177,11 @@ module Datapath_plugins = struct
     fork_exec_rpc root_dir (script root_dir name (`Datapath name) "Plugin.Query") args Storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
     >>= function
     | Ok response ->
-      info "Registered datapath plugin %s" name
-      >>= fun () ->
+      info "Registered datapath plugin %s" name;
       Hashtbl.replace !table name response;
       return ()
     | _ ->
-      info "Failed to register datapath plugin %s" name
-      >>= fun () ->
+      info "Failed to register datapath plugin %s" name;
       return ()
 
   let unregister root_dir name =
@@ -728,8 +741,7 @@ let process root_dir name x =
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
-    info "returning error %s" (Jsonrpc.string_of_response (R.failure error))
-    >>= fun () ->
+    info "returning error %s" (Jsonrpc.string_of_response (R.failure error));
     return (Jsonrpc.string_of_response (R.failure error))
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
@@ -759,8 +771,7 @@ let watch_volume_plugins ~root_dir ~switch_path =
     if Hashtbl.mem servers name
       then return ()
       else begin
-        info "Adding %s" name
-        >>= fun () ->
+        info "Adding %s" name;
         Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
         >>= fun result ->
         let server = get_ok result in
@@ -768,8 +779,7 @@ let watch_volume_plugins ~root_dir ~switch_path =
         return ()
       end in
   let destroy switch_path name =
-    info "Removing %s" name
-    >>= fun () ->
+    info "Removing %s" name;
     if Hashtbl.mem servers name then begin
       let t = Hashtbl.find_exn servers name in
       Protocol_async.Server.shutdown ~t () >>= fun () ->
@@ -793,8 +803,7 @@ let watch_volume_plugins ~root_dir ~switch_path =
   let rec loop () =
     ( Pipe.read pipe >>= function
     | `Eof ->
-      info "Received EOF from inotify event pipe"
-      >>= fun () ->
+      info "Received EOF from inotify event pipe";
       Shutdown.exit 1
     | `Ok (Created path)
     | `Ok (Moved (Into path)) ->
@@ -833,8 +842,7 @@ let watch_datapath_plugins ~root_dir =
   let rec loop () =
     ( Pipe.read pipe >>= function
     | `Eof ->
-      info "Received EOF from inotify event pipe"
-      >>= fun () ->
+      info "Received EOF from inotify event pipe";
       Shutdown.exit 1
     | `Ok (Created path)
     | `Ok (Moved (Into path)) ->
@@ -907,7 +915,7 @@ let _ =
   if !Xcp_service.daemon then begin
     Xcp_service.maybe_daemonize ();
     use_syslog := true;
-    Deferred.don't_wait_for (info "Daemonisation successful.");
+    info "Daemonisation successful.";
   end;
   main ~root_dir:!root_dir ~state_path:!state_path ~switch_path:!Xcp_client.switch_path
 
