@@ -32,6 +32,7 @@ type blktap3_stats = {
 	st_wr_sect: int64;
 	st_wr_sum_usecs : int64;
 	st_wr_max_usecs : int64;
+	st_mem_mode : bool;
 }
 
 (** Obtain a blktap3 statistics record using the stubs *)
