@@ -135,11 +135,14 @@ let generate_squeezed_dss () =
 		~default:true ~units:"B" ();
 	]
 
+(* This plugin always reports two datasources only, so one page is fine. *)
+let shared_page_count = 1
+
 let _ =
 	initialise ();
 	Watcher.create_watcher_thread (Xs.get_client ());
 	main_loop
 		~neg_shift:0.5
-		~target:Reporter.Local
+		~target:(Reporter.Local shared_page_count)
 		~protocol:Rrd_interface.V2
 		~dss_f:generate_squeezed_dss
