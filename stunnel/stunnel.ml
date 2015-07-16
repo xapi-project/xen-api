@@ -129,7 +129,9 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
 
 let config_file verify_cert extended_diagnosis host port legacy =
 
-    let good_ciphers = "!EXPORT:TLSv1.2" in
+    (* This "good" list must match, or at least contain one of, the
+     * GOOD_CIPHERS in xen-api/scripts/init.d-xapissl *)
+    let good_ciphers = "!EXPORT:RSA+AES128-SHA" in
     let back_compat_ciphers = "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA" in
 
 	let lines = [
