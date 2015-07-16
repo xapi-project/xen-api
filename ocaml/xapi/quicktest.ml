@@ -298,6 +298,8 @@ let all_srs_with_vdi_create session_id =
   |> List.filter (fun sr -> List.mem Quicktest_storage.vdi_create (Quicktest_storage.sm_caps_of_sr session_id sr))
   (* Filter out those without the allowed operation *)
   |> List.filter (fun sr -> List.mem `vdi_create (Client.SR.get_allowed_operations !rpc session_id sr))
+  (* Filter out those with content-type = iso (this confuses the import test logic) *)
+  |> List.filter (fun sr -> Client.SR.get_content_type !rpc session_id sr <> "iso")
 
 (** Create a small VM with a selection of CDs, empty drives, "iso" Disks etc *)
 let setup_export_test_vm session_id = 
