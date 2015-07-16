@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        rrd-transport
-Version:     0.8.1
+Version:     0.9.0
 Synopsis:    Shared-memory protocols for transmitting RRD data
 Authors:     John Else
 License:     LGPL-2.1 with OCaml linking exception
