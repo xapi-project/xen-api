@@ -1,7 +1,7 @@
 .PHONY: all clean install build
 all: build doc
 
-NAME=xenstore
+NAME=message_switch
 J=4
 
 export OCAMLRUNPARAM=b
@@ -55,8 +55,10 @@ test:
 
 reinstall: setup.bin
 	@ocamlfind remove $(NAME) || true
-	@cp -f core/message_switch.py $(PYTHON)/
 	@./setup.bin -reinstall
+	mkdir -p $(DESTDIR)/$(BINDIR)
+	install _build/cli/main.native $(DESTDIR)/$(BINDIR)/ms
+	install _build/switch/switch_main.native $(DESTDIR)/$(BINDIR)/message-switch
 
 release:
 	# Remove our dependencies on oasis and bisect
