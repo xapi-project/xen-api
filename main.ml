@@ -674,7 +674,7 @@ let process root_dir name x =
       fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
-    end else begin
+    end else if not persistent then begin
       (* We create a non-persistent disk here with Volume.clone, and store
          the name of the cloned disk in the metadata of the original. *)
       ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
@@ -689,7 +689,7 @@ let process root_dir name x =
       set root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Storage.Volume.Types.key
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
-    end
+    end else Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
   | { R.name = "VDI.epoch_end"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Epoch_end.request_of_rpc args in
