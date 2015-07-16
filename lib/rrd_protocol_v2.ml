@@ -39,7 +39,8 @@ let get_total_bytes datasource_count metadata_length =
 	datasource_count_bytes +
 	timestamp_bytes +
 	(datasource_value_bytes * datasource_count) +
-	(metadata_length * 8)
+	metadata_length_bytes +
+	metadata_length
 
 (* Field start points. *)
 let header_start = 0
