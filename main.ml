@@ -26,7 +26,7 @@ let info fmt =
   Printf.ksprintf (fun s ->
     if !use_syslog then begin
       (* FIXME: this is synchronous and will block other I/O *)
-      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO s;
+      Core.Syslog.syslog ~level:Core.Syslog.Level.INFO ~facility:Core.Syslog.Facility.DAEMON s;
       return ()
     end else begin
       let w = Lazy.force Writer.stderr in
@@ -907,7 +907,7 @@ let _ =
   if !Xcp_service.daemon then begin
     Xcp_service.maybe_daemonize ();
     use_syslog := true;
-    Core.Syslog.openlog ~id:"xapi-storage-script" ~facility:Core.Syslog.Facility.DAEMON ();
+    Deferred.don't_wait_for (info "Daemonisation successful.");
   end;
   main ~root_dir:!root_dir ~state_path:!state_path ~switch_path:!Xcp_client.switch_path
 
