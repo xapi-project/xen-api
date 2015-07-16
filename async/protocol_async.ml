@@ -41,7 +41,7 @@ module M = struct
     let maximum_delay = 30. in
     let connect () =
       let s = Socket.create Socket.Type.unix in
-      Monitor.try_with (fun () -> Socket.connect s (Socket.Address.Unix.create path)) >>= function
+      Monitor.try_with ~extract_exn:true (fun () -> Socket.connect s (Socket.Address.Unix.create path)) >>= function
       | Ok x ->
         let fd = Socket.fd s in
         let reader = Reader.create fd in
@@ -51,7 +51,7 @@ module M = struct
         Socket.shutdown s `Both;
         raise e in
     let rec retry delay =
-      Monitor.try_with connect >>= function
+      Monitor.try_with ~extract_exn:true connect >>= 	function
       | Error (Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _))->
         let delay = min maximum_delay delay in
         Clock.after (Time.Span.of_sec delay) >>= fun () ->
