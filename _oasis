@@ -26,3 +26,15 @@ Executable "xcp-rrdd"
   NativeOpt:          -bin-annot
   BuildDepends:       threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, rrd, rrd.unix, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenops, rrd-transport, threads, rpclib.syntax, io-page.unix, xen-gnt.unix, oclock
 
+Executable "test_rrdd_monitor"
+  CompiledObject:     best
+  Path:               rrdd
+  MainIs:             test_rrdd_monitor.ml
+  Custom:             true
+  Install:            false
+  ByteOpt:            -bin-annot
+  NativeOpt:          -bin-annot
+  BuildDepends:       oUnit, threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, rrd, rrd.unix, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenops, rrd-transport, threads, rpclib.syntax, io-page.unix, xen-gnt.unix, oclock
+
+Test "test_rrdd_monitor"
+  Command: $test_rrdd_monitor

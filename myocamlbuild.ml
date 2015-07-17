@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 290010d9e696fcfe6c41efcfa65b0433) *)
+(* DO NOT EDIT (digest: 7684563d4f864c66f33c102c0bbef528) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -635,6 +635,48 @@ let package_default =
           (["oasis_executable_xcp_rrdd_byte"; "ocaml"; "compile"; "byte"],
             [(OASISExpr.EBool true, S [A "-bin-annot"])]);
           (["oasis_executable_xcp_rrdd_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_byte";
+              "ocaml";
+              "link";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_native";
+              "ocaml";
+              "link";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_byte";
+              "ocaml";
+              "ocamldep";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_byte";
+              "ocaml";
+              "compile";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-bin-annot"])]);
+          ([
+              "oasis_executable_test_rrdd_monitor_native";
+              "ocaml";
+              "compile";
+              "native"
+           ],
             [(OASISExpr.EBool true, S [A "-bin-annot"])])
        ];
      includes = [("rrdd", ["lib"])]
@@ -645,6 +687,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 649 "myocamlbuild.ml"
+# 691 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
