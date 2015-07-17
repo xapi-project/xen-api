@@ -108,8 +108,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
-			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-			let sm_features = Xapi_sr_operations.features_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
+			let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
 
 			let blocked_by_attach =
 				if operation_can_be_performed_live
@@ -687,7 +686,7 @@ let set_metadata_of_pool ~__context ~self ~value =
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-	let sm_features = Xapi_sr_operations.features_of_sr sr_record in
+	let sm_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
 
 	if not Smint.(has_capability Vdi_reset_on_boot sm_features) then
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));

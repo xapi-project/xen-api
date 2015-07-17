@@ -186,7 +186,7 @@ let checkpoint ~__context ~vm ~new_name =
 
 				(* Check if SR has snapshot feature *)
 				let sr_has_snapshot_feature sr =
-					if not Smint.(has_capability Vdi_snapshot (Xapi_sr_operations.features_of_sr sr)) then false
+					if not Smint.(has_capability Vdi_snapshot (Xapi_sr_operations.features_of_sr ~__context sr)) then false
 					else true
 				in
 
