@@ -67,9 +67,6 @@ let use_min_max = ref false
 
 let mutex = Mutex.create ()
 
-let localhost_uuid =
-	Inventory.lookup Inventory._installation_uuid
-
 type rrd_info = {
 	rrd : Rrd.rrd;
 	mutable dss : Ds.ds list;

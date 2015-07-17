@@ -19,7 +19,7 @@ let create_rras use_min_max =
 		) timescales)
 	)
 
-let step = 5
+let step = 5L
 
 (** Create a rrd *)
 let create_fresh_rrd use_min_max dss =
@@ -29,8 +29,7 @@ let create_fresh_rrd use_min_max dss =
 			Some (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 ~max:ds.ds_max ~min:ds.ds_min Rrd.VT_Unknown)
 		else None) dss)
 	in
-	let rrd = Rrd.rrd_create dss rras (Int64.of_int step) (Unix.gettimeofday()) in
-	rrd
+	Rrd.rrd_create dss rras step (Unix.gettimeofday())
 
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.

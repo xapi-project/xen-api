@@ -71,7 +71,7 @@ let backup_rrds _ ?(remote_address = None) () : unit =
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
 				let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-				archive_rrd_internal ~remote_address ~uuid:localhost_uuid ~rrd ()
+				archive_rrd_internal ~remote_address ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
 			| None -> ()
 		end else begin
 			cycles_tried := 1 + !cycles_tried;
@@ -207,7 +207,7 @@ let send_host_rrd_to_master _ ~master_address =
 	| Some rrdi ->
 		debug "sending host RRD to master";
 		let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-		send_rrd ~address:master_address ~to_archive:true ~uuid:localhost_uuid ~rrd ()
+		send_rrd ~address:master_address ~to_archive:true ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
 	| None -> ()
 
 let add_ds ~rrdi ~ds_name =

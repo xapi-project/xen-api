@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: de00483146b3c8527165d943a84f6147)
+# DO NOT EDIT (digest: 6f6e8887c27edb280b24a3314cc1ccc8)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -50,10 +50,40 @@ true: annot, bin_annot
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xen-gnt.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xenops
 <rrdd/xcp_rrdd.{native,byte}>: use_rrdd_libs
+<rrdd/xcp_rrdd.{native,byte}>: custom
+# Executable test_rrdd_monitor
+<rrdd/test_rrdd_monitor.{native,byte}>: oasis_executable_test_rrdd_monitor_byte
+<rrdd/*.ml{,i,y}>: oasis_executable_test_rrdd_monitor_byte
+<rrdd/test_rrdd_monitor.{native,byte}>: oasis_executable_test_rrdd_monitor_native
+<rrdd/*.ml{,i,y}>: oasis_executable_test_rrdd_monitor_native
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_forkexec
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_gzip
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_http-svr
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_io-page.unix
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_oUnit
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_oclock
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rpclib
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rpclib.syntax
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rpclib.unix
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rrd
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rrd-transport
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_rrd.unix
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_stdext
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_threads
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_uuid
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp-inventory
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp.network
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp.rrd
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp.xen
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xen-gnt.unix
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_xenops
+<rrdd/test_rrdd_monitor.{native,byte}>: use_rrdd_libs
 <rrdd/*.ml{,i,y}>: pkg_forkexec
 <rrdd/*.ml{,i,y}>: pkg_gzip
 <rrdd/*.ml{,i,y}>: pkg_http-svr
 <rrdd/*.ml{,i,y}>: pkg_io-page.unix
+<rrdd/*.ml{,i,y}>: pkg_oUnit
 <rrdd/*.ml{,i,y}>: pkg_oclock
 <rrdd/*.ml{,i,y}>: pkg_rpclib
 <rrdd/*.ml{,i,y}>: pkg_rpclib.syntax
@@ -72,7 +102,7 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: pkg_xen-gnt.unix
 <rrdd/*.ml{,i,y}>: pkg_xenops
 <rrdd/*.ml{,i,y}>: use_rrdd_libs
-<rrdd/xcp_rrdd.{native,byte}>: custom
+<rrdd/test_rrdd_monitor.{native,byte}>: custom
 # OASIS_STOP
 <rrdd/rrdd_fake_common.ml>: syntax_camlp4o, pkg_rpc.syntax
 
