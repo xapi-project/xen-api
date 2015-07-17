@@ -650,9 +650,11 @@ let gen_metrics () =
 
 let _ =
 	initialise ();
+	(* Approx. one page per VBD, up to the limit. *)
+	let shared_page_count = 2048 in
 	(* It takes (at least) 1 second to get the iostat data, so start reading the data early enough *)
 	main_loop
 		~neg_shift:1.5
-		~target:Reporter.Local
+		~target:(Reporter.Local shared_page_count)
 		~protocol:Rrd_interface.V2
 		~dss_f:gen_metrics
