@@ -87,8 +87,10 @@ let _ =
 	initialise ();
 	D.warn "Found %d pCPUs" !nr_cpu;
 	if !nr_cpu = 0 then exit 1;
+	(* Share one page per CPU. *)
+	let shared_page_count = !nr_cpu in
 	main_loop
 		~neg_shift:0.5
-		~target:Reporter.Local
+		~target:(Reporter.Local shared_page_count)
 		~protocol:Rrd_interface.V2
 		~dss_f:generate_dss
