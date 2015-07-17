@@ -3272,12 +3272,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_name_label ~__context ~self ~value =
 			info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
 				(vdi_uuid ~__context self) value;
-			Local.VDI.set_name_label ~__context ~self ~value
+			let local_fn = Local.VDI.set_name_label ~self ~value in
+			forward_vdi_op ~local_fn ~__context ~self
+				(fun session_id rpc -> Client.VDI.set_name_label rpc session_id self value)
 
 		let set_name_description ~__context ~self ~value =
 			info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
 				(vdi_uuid ~__context self) value;
-			Local.VDI.set_name_description ~__context ~self ~value
+			let local_fn = Local.VDI.set_name_description ~self ~value in
+			forward_vdi_op ~local_fn ~__context ~self
+				(fun session_id rpc -> Client.VDI.set_name_description rpc session_id self value)
 
 		let ensure_vdi_not_on_running_vm ~__context ~self =
 			let vbds = Db.VDI.get_VBDs ~__context ~self in
