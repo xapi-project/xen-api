@@ -321,6 +321,7 @@ let create ~__context ~name_label ~name_description
 	Db.VDI.set_sharable ~__context ~self:db_vdi ~value:sharable;
 	Db.VDI.set_tags ~__context ~self:db_vdi ~value:tags;
 	Db.VDI.set_xenstore_data ~__context ~self:db_vdi ~value:xenstore_data;
+	update_allowed_operations ~__context ~self:db_vdi;
 	db_vdi
 
 (* Make the database record only *)
