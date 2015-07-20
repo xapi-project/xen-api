@@ -101,7 +101,10 @@ let set_ha_restart_priority ~__context ~self ~value =
 		(* If the VM is running then immediately turn on or off "protection"
 		   for the VM by setting ha_always_run *)
 		if Db.VM.get_power_state ~__context ~self = `Running
-		then Db.VM.set_ha_always_run ~__context ~self ~value:(value = Constants.ha_restart)
+		then begin
+			Db.VM.set_ha_always_run ~__context ~self ~value:(value = Constants.ha_restart);
+			debug "Setting ha_always_run on vm=%s as %b during VM.set_ha_restart_priority" (Ref.string_of self) (value = Constants.ha_restart)
+		end;
 	end
 
 
@@ -187,7 +190,11 @@ let start ~__context ~vm ~start_paused ~force =
 	let vmr = Db.VM.get_record ~__context ~self:vm in
 	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
-	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+	then begin
+		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+		debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
+	end;
+
 
 	(* Clear out any VM guest metrics record. Guest metrics will be updated by
 	 * the running VM and for now they might be wrong, especially network
@@ -230,6 +237,7 @@ let hard_reboot ~__context ~vm =
 
 let hard_shutdown ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
+	debug "Setting ha_always_run on vm=%s as false during VM.hard_shutdown" (Ref.string_of vm);
 	if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
 		debug "hard_shutdown: destroying any suspend VDI";
 		let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
@@ -250,6 +258,7 @@ let clean_reboot ~__context ~vm =
 
 let clean_shutdown_with_timeout ~__context ~vm timeout =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
+	debug "Setting ha_always_run on vm=%s as false during VM.clean_shutdown" (Ref.string_of vm);
 	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout)
 
 let clean_shutdown ~__context ~vm =
@@ -326,13 +335,17 @@ let power_state_reset ~__context ~vm =
 
 let suspend ~__context ~vm =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
+	debug "Setting ha_always_run on vm=%s as false during VM.suspend" (Ref.string_of vm);
 	Xapi_xenops.suspend ~__context ~self:vm;
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
 
 let resume ~__context ~vm ~start_paused ~force = 
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
-	then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+	then begin
+		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+		debug "Setting ha_always_run on vm=%s as true during VM.resume" (Ref.string_of vm)
+	end;
 
 	let host = Helpers.get_localhost ~__context in
 	if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
