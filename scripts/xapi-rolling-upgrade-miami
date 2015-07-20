@@ -30,7 +30,7 @@ case "$1" in
       echo Forgetting all missing VDIs
       # Note any suspended guest using one of these VDIs will be confused
       for j in $($XE vdi-list sr-uuid=$i missing=true params=uuid --minimal | sed 's/,/ /g'); do
-	  $XE vdi-forget uuid=$j
+	  $XE vdi-forget uuid=$j || true
       done
     done
 
