@@ -107,7 +107,8 @@ type operation =
 	| VM_reboot of (Vm.id * float option)
 	| VM_suspend of (Vm.id * data)
 	| VM_resume of (Vm.id * data)
-	| VM_restore_devices of Vm.id
+	| VM_restore_vifs of Vm.id
+	| VM_restore_devices of (Vm.id * bool)
 	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
 	| VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
 	| VBD_hotplug of Vbd.id
@@ -826,7 +827,13 @@ let rec atomics_of_operation = function
 		)) @ [
 			VM_destroy id
 		]
-	| VM_restore_devices id ->
+	| VM_restore_vifs id ->
+		(List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
+			(VIF_DB.vifs id)
+		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
+			(VIF_DB.vifs id |> vif_plug_order)
+		)
+	| VM_restore_devices (id, restore_vifs) ->
 		(* Note: VBD_plug does not take a "simplify" modifier, because VM_restore
 		 * never attaches the storage, even in "simplified" backends. This is necessary when
 		 * migrating a VM, where the storage can be attached only after the sender host
@@ -836,10 +843,10 @@ let rec atomics_of_operation = function
 			(VBD_DB.vbds id)
 		) @ (List.map (fun vbd -> VBD_plug vbd.Vbd.id)
 			(VBD_DB.vbds id |> vbd_plug_order)
-		) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
-			(VIF_DB.vifs id)
-		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
-			(VIF_DB.vifs id |> vif_plug_order)
+		) @
+			(if restore_vifs
+				then atomics_of_operation (VM_restore_vifs id)
+				else []
 		) @ simplify [
 			(* Unfortunately this has to be done after the devices have been created since
 			   qemu reads xenstore keys in preference to its own commandline. After this is
@@ -899,7 +906,7 @@ let rec atomics_of_operation = function
 		] @ [
 			VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
 			VM_restore (id, data);
-		] @ (atomics_of_operation (VM_restore_devices id)
+		] @ (atomics_of_operation (VM_restore_devices (id, true))
 		) @ [
 			(* At this point the domain is considered survivable. *)
 			VM_set_domain_action_request(id, None);
@@ -1185,7 +1192,8 @@ and trigger_cleanup_after_failure op t = match op with
 	| VM_reboot (id, _)
 	| VM_shutdown (id, _)
 	| VM_suspend (id, _)
-	| VM_restore_devices id
+	| VM_restore_vifs id
+	| VM_restore_devices (id, _)
 	| VM_resume (id, _)
 	| VM_migrate (id, _, _, _)
 	| VM_receive_memory (id, _, _) ->
@@ -1269,8 +1277,11 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.suspend %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
-		| VM_restore_devices id -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
-			debug "VM_restore_devices %s" id;
+		| VM_restore_vifs id ->
+			debug "VM_restore_vifs %s" id;
+			perform_atomics (atomics_of_operation op) t;
+		| VM_restore_devices (id, restore_vifs) -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
+			debug "VM_restore_devices %s %b" id restore_vifs;
 			perform_atomics (atomics_of_operation op) t;
 		| VM_resume (id, data) ->
 			debug "VM.resume %s" id;
@@ -1371,6 +1382,13 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 (*			let state = B.VM.get_state (VM_DB.read_exn id) in
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
 
+			(* set up the destination domain *)
+			perform_atomics (
+				simplify [VM_create (id, Some memory_limit);] @
+				(* Perform as many operations as possible on the destination domain before pausing the original domain *)
+				(atomics_of_operation (VM_restore_vifs id))
+			) t;
+
 			(try
 				Handshake.send s Handshake.Success
 			with e ->
@@ -1381,8 +1399,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 
 			debug "VM.receive_memory calling create";
 			perform_atomics (
-				simplify [VM_create (id, Some memory_limit);
-			] @ [
+			[
 				VM_restore (id, FD s);
 			]) t;
 			debug "VM.receive_memory restore complete";
@@ -1394,7 +1411,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 				debug "Synchronisation point 3";
 
 				perform_atomics ([
-				] @ (atomics_of_operation (VM_restore_devices id)) @ [
+				] @ (atomics_of_operation (VM_restore_devices (id, false))) @ [
 					VM_unpause id;
 					VM_set_domain_action_request(id, None);
 					VM_hook_script(id, Xenops_hooks.VM_post_migrate, Xenops_hooks.reason__migrate_dest);
