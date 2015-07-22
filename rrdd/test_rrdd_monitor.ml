@@ -5,9 +5,14 @@ let ds_a = Ds.ds_make ~name:"datasource_a" ~units:"(fraction)"
 	~value:(Rrd.VT_Float 1.0)
 	~ty:Rrd.Gauge ~default:true ()
 
+let reset_rrdd_shared_state ctxt =
+        Hashtbl.clear Rrdd_shared.vm_rrds;
+        Rrdd_shared.host_rrd := None
+
 let update_rrds_test dss uuid_domids paused_vms
 	num_vm_rrds num_host_dss =
 	fun ctxt ->
+	OUnit2.bracket reset_rrdd_shared_state (fun () -> ignore) ctxt;
 	Rrdd_monitor.update_rrds 12345.0 dss uuid_domids paused_vms;
 	assert_equal num_vm_rrds (Hashtbl.length Rrdd_shared.vm_rrds);
 	match !Rrdd_shared.host_rrd with
@@ -15,7 +20,7 @@ let update_rrds_test dss uuid_domids paused_vms
 	| Some info ->
 		assert_equal num_host_dss (List.length Rrdd_shared.(info.dss))
 
-let update_rrds = "update_rrds" >::: [
+let update_rrds = "update_rrds" >::: let open Rrd in [
 	("Null update" >::
 		update_rrds_test [] [] [] 0 0);
 
