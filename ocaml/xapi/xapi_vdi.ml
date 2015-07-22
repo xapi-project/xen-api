@@ -463,9 +463,8 @@ let snapshot ~__context ~vdi ~driver_params =
 			try
 				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
 			with Storage_interface.Unimplemented _ ->
-				(* CA-28598 *)
-				debug "Backend reported not implemented despite it offering the feature; assuming this is an LVHD upgrade issue";
-				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
+				debug "Backend reported not implemented despite it offering the feature";
+				raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
 		) in
 	(* Record the fact this is a snapshot *)
 	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
