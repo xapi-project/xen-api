@@ -20,7 +20,7 @@ let update_rrds_test dss uuid_domids paused_vms
 	| Some info ->
 		assert_equal num_host_dss (List.length Rrdd_shared.(info.dss))
 
-let update_rrds = "update_rrds" >::: [
+let update_rrds = "update_rrds" >::: let open Rrd in [
 	("Null update" >::
 		update_rrds_test [] [] [] 0 0);
 
