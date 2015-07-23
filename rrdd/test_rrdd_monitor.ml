@@ -43,6 +43,9 @@ let update_rrds = "update_rrds" >::: let open Rrd in [
 
 	("Multiple resident VM updates" >::
 		update_rrds_test [(VM "a", ds_a); (VM "b", ds_a)] [("a", 1); ("b", 1)] [] 2 0);
+
+	("Multiple resident and non-resident VM updates" >::
+		update_rrds_test [(VM "a", ds_a); (VM "b", ds_a); (VM "c", ds_a)] [("a", 1); ("b", 1)] [] 2 0);
 ]
 
 let suite = "rrdd monitor test" >:::
