@@ -1,5 +1,7 @@
 open OUnit2
 
+let assert_equal_int = assert_equal ~printer:string_of_int
+
 let ds_a = Ds.ds_make ~name:"datasource_a" ~units:"(fraction)"
 	~description:"datasource_a"
 	~value:(Rrd.VT_Float 1.0)
@@ -14,11 +16,11 @@ let update_rrds_test dss uuid_domids paused_vms
 	fun ctxt ->
 	OUnit2.bracket reset_rrdd_shared_state (fun () -> ignore) ctxt;
 	Rrdd_monitor.update_rrds 12345.0 dss uuid_domids paused_vms;
-	assert_equal num_vm_rrds (Hashtbl.length Rrdd_shared.vm_rrds);
+	assert_equal_int num_vm_rrds (Hashtbl.length Rrdd_shared.vm_rrds);
 	match !Rrdd_shared.host_rrd with
 	| None -> assert_failure "host_rrd should have been created"
 	| Some info ->
-		assert_equal num_host_dss (List.length Rrdd_shared.(info.dss))
+		assert_equal_int num_host_dss (List.length Rrdd_shared.(info.dss))
 
 let update_rrds = "update_rrds" >::: let open Rrd in [
 	("Null update" >::
