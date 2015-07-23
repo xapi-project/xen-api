@@ -684,7 +684,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration))
 				cluster_stack ;
 			let pool = Helpers.get_pool ~__context in
-			with_pool_operation ~__context ~doc:"Pool.ha_disable" ~self:pool ~op:`ha_disable
+			with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
 				(fun () ->
 					Local.Pool.enable_ha __context heartbeat_srs configuration cluster_stack
 				)
