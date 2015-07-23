@@ -7,6 +7,11 @@ let ds_a = Ds.ds_make ~name:"ds_a" ~units:"(fraction)"
 	~value:(Rrd.VT_Float 1.0)
 	~ty:Rrd.Gauge ~default:true ()
 
+let ds_b = Ds.ds_make ~name:"ds_b" ~units:"(fraction)"
+	~description:"datasource b"
+	~value:(Rrd.VT_Float 2.0)
+	~ty:Rrd.Gauge ~default:true ()
+
 let reset_rrdd_shared_state ctxt =
         Hashtbl.clear Rrdd_shared.vm_rrds;
         Rrdd_shared.host_rrd := None
@@ -85,10 +90,10 @@ let update_rrds = "update_rrds" >::: let open Rrd in [
 		~expected_host_dss:0;
 
 	"Multiple resident VM updates" >:: update_rrds_test
-		~dss:[(VM "a", ds_a); (VM "b", ds_a)]
+		~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "b", ds_b)]
 		~uuid_domids:[("a", 1); ("b", 1)]
 		~paused_vms:[]
-		~expected_vm_rrds:["a", ["ds_a"]; "b", ["ds_a"]]
+		~expected_vm_rrds:["a", ["ds_a"]; "b", ["ds_a"; "ds_b"]]
 		~expected_host_dss:0;
 
 	"Multiple resident and non-resident VM updates" >:: update_rrds_test
