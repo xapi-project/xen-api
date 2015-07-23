@@ -501,7 +501,7 @@ let do_monitor xc =
 			let plugins_stats = Rrdd_server.Plugin.read_stats () in
 			let stats = List.rev_append plugins_stats dom0_stats in
 			Rrdd_stats.print_snapshot ();
-			Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
+			Rrdd_monitor.update_rrds timestamp stats uuid_domids [] my_paused_vms
 		)
 
 let monitor_loop () =

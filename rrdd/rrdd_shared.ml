@@ -75,6 +75,7 @@ type rrd_info = {
 
 (* RRDs *)
 let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
+let sr_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32
 let host_rrd : rrd_info option ref = ref None
 
 let rrd_of_fd fd =
