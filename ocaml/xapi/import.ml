@@ -49,6 +49,8 @@ type metadata_options = {
 	 * - If the migration is for real, we will expect the VM export code on the source host to have mapped the VDI locations onto their
 	 *   mirrored counterparts which are present on this host. *)
 	live: bool;
+	(* An optional src VDI -> destination VDI rewrite list *)
+	vdi_map: (string * string) list;
 }
 
 type import_type =
@@ -621,36 +623,92 @@ module VDI : HandlerTools = struct
 				Found_no_iso
 		end else begin
 			match config.import_type with
-			| Metadata_import _ -> begin
+			| Metadata_import { vdi_map } -> begin
 				let mapto =
 					if List.mem_assoc Constants.storage_migrate_vdi_map_key vdi_record.API.vDI_other_config
 					then Some (Ref.of_string (List.assoc Constants.storage_migrate_vdi_map_key vdi_record.API.vDI_other_config))
 					else None in
-				let find_by_sr_and_location () =
-					let sr = lookup vdi_record.API.vDI_SR state.table in
-					List.filter (fun (_, vdir) ->
-						vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
-						(Client.VDI.get_all_records rpc session_id) |> choose_one |> Opt.map fst in
-				match (
-					if exists vdi_record.API.vDI_SR state.table
-					then match find_by_sr_and_location () with
+				let vdi_records = Client.VDI.get_all_records rpc session_id in
+				let find_by_sr_and_location sr location =
+					vdi_records
+					|> List.filter (fun (_, vdir) -> vdir.API.vDI_location = location && vdir.API.vDI_SR = sr)
+					|> choose_one
+					|> Opt.map fst in
+				let find_by_uuid uuid =
+					vdi_records
+					|> List.filter (fun (_, vdir) -> vdir.API.vDI_uuid = uuid)
+					|> choose_one
+					|> Opt.map fst in
+				let _scsiid = "SCSIid" in
+				let scsiid_of vdi_record =
+					if List.mem_assoc _scsiid vdi_record.API.vDI_sm_config
+					then Some (List.assoc _scsiid vdi_record.API.vDI_sm_config)
+					else None in
+				let find_by_scsiid x =
+					vdi_records
+					|> Listext.List.filter_map (fun (rf, vdir) ->
+                                           if scsiid_of vdir = Some x then Some (rf, vdir) else None)
+					|> choose_one in
+				let by_vdi_map =
+					(* Look up the mapping by both uuid and SCSIid *)
+					match (
+						if List.mem_assoc vdi_record.API.vDI_uuid vdi_map
+						then Some (List.assoc vdi_record.API.vDI_uuid vdi_map)
+						else match scsiid_of vdi_record with
+						| None -> None
+						| Some x ->
+							if List.mem_assoc x vdi_map
+							then Some (List.assoc x vdi_map)
+							else None
+					) with
+					| Some destination ->
+						begin match find_by_uuid destination with
 						| Some x -> Some x
-						| None -> mapto
-					else mapto
-				) with
-					| Some vdi -> Found_disk vdi
-					| None -> begin
-						error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
-							(if config.force
-							then "ignoring error because '--force' is set"
-							else "treating as fatal and abandoning import");
-						if config.force then Skip
-						else begin
-							if exists vdi_record.API.vDI_SR state.table
-							then
-								let sr = lookup vdi_record.API.vDI_SR state.table in
-								Found_no_disk (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
-							else Found_no_disk (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ ]))
+						| None ->
+							begin match find_by_scsiid destination with
+							| Some (rf, rc) ->
+								info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Opt.default "None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Opt.default "None" (scsiid_of rc));
+								Some rf
+							| None -> None
+							end
+						end
+					| None ->
+						(match scsiid_of vdi_record with
+						| None -> None
+						| Some x ->
+							begin match find_by_scsiid x with
+							| Some (rf, rc) ->
+								info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Opt.default "None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Opt.default "None" (scsiid_of rc));
+								Some rf
+							| None -> None
+							end
+						) in
+				match by_vdi_map with
+				| Some vdi ->
+					Found_disk vdi
+				| None ->
+					begin match (
+						if exists vdi_record.API.vDI_SR state.table then begin
+							let sr = lookup vdi_record.API.vDI_SR state.table in
+							match find_by_sr_and_location sr vdi_record.API.vDI_location with
+							| Some x -> Some x
+							| None -> mapto
+						end else mapto
+					) with
+						| Some vdi -> Found_disk vdi
+						| None -> begin
+							error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
+								(if config.force
+								then "ignoring error because '--force' is set"
+								else "treating as fatal and abandoning import");
+							if config.force then Skip
+							else begin
+								if exists vdi_record.API.vDI_SR state.table
+								then
+									let sr = lookup vdi_record.API.vDI_SR state.table in
+									Found_no_disk (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
+								else Found_no_disk (Api_errors.Server_error(Api_errors.vdi_content_id_missing, [ ]))
+							end
 						end
 					end
 			end
@@ -1305,6 +1363,11 @@ let complete_import ~__context vmrefs =
 let find_query_flag query key =
 	List.mem_assoc key query && (List.assoc key query = "true")
 
+let read_map_params name params =
+	let len = String.length name + 1 in (* include ':' *)
+	let filter_params = List.filter (fun (p,_) -> (Xstringext.String.startswith name p) && (String.length p > len)) params in
+	List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
+
 (** Import metadata only *)
 let metadata_handler (req: Request.t) s _ =
 	debug "metadata_handler called";
@@ -1315,9 +1378,11 @@ let metadata_handler (req: Request.t) s _ =
 			let force = find_query_flag req.Request.query "force" in
 			let dry_run = find_query_flag req.Request.query "dry_run" in
 			let live = find_query_flag req.Request.query "live" in
-			info "VM.import_metadata: force = %b; full_restore = %b dry_run = %b; live = %b"
-				force full_restore dry_run live;
-			let metadata_options = {dry_run = dry_run; live = live} in
+			let vdi_map = read_map_params "vdi" req.Request.query in
+			info "VM.import_metadata: force = %b; full_restore = %b dry_run = %b; live = %b; vdi_map = [ %s ]"
+				force full_restore dry_run live
+				(String.concat "; " (List.map (fun (a, b) -> a ^ "=" ^ b) vdi_map));
+			let metadata_options = {dry_run = dry_run; live = live; vdi_map} in
 			let config = {
 				import_type = Metadata_import metadata_options;
 				full_restore = full_restore;
