@@ -2,10 +2,22 @@
 
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
-import sys, os, subprocess
+import sys, os, subprocess, json, urlparse
 import XenAPI, inventory, xmlrpclib
 
-main_dir = "@ETCDIR@/static-vdis"
+main_dir = "/etc/xensource/static-vdis"
+
+xapi_storage_script = "/usr/libexec/xapi-storage-script"
+
+def call_volume_plugin(name, command, args):
+    args = [ xapi_storage_script + "/volume/org.xen.xcp.storage." + name + "/" + command, "static-vdis" ] + args
+    output = subprocess.check_output(args)
+    return json.loads(output)
+
+def call_datapath_plugin(name, command, args):
+    args = [ xapi_storage_script + "/datapath/" + name + "/" + command, "static-vdis" ] + args
+    output = subprocess.check_output(args)
+    return json.loads(output)
 
 def read_whole_file(filename):
     f = open(filename)
@@ -24,8 +36,10 @@ def write_whole_file(filename, contents):
 def load(name):
     """Return a dictionary describing a single static VDI"""
     d = { "id": name }
-    for key in [ "vdi-uuid", "config", "reason" ]:
-        d[key] = read_whole_file("%s/%s/%s" % (main_dir, name, key))
+    for key in [ "vdi-uuid", "config", "sr-uri", "volume-plugin", "volume-uri", "volume-key", "reason" ]:
+        path = "%s/%s/%s" % (main_dir, name, key)
+        if os.path.exists(path):
+             d[key] = read_whole_file(path)
     try:
         disk = "%s/%s/disk" % (main_dir, name)
         os.stat(disk) # throws an error if missing
@@ -93,35 +107,60 @@ def add(session, vdi_uuid, reason):
                 write_whole_file(path + "/reason", reason)
                 # Assume config is still valid
                 return
-            raise "Static configuration for VDI already exists"
+            raise Exception("Static configuration for VDI already exists")
     
     vdi = session.xenapi.VDI.get_by_uuid(vdi_uuid)
     host = session.xenapi.host.get_by_uuid(inventory.get_localhost_uuid ())
-    
-    config = None
-    try:
-        config = session.xenapi.VDI.generate_config(host, vdi)
-    except XenAPI.Failure, e:
-        raise "Failed generating static config file: %s" % (str(e))
     sr = session.xenapi.VDI.get_SR(vdi)
     ty = session.xenapi.SR.get_type(sr)
-    filename = None
+
+    # This host's device-config will have info needed to attach SMAPIv3
+    # SRs.
+    device_config = None
+    for p in session.xenapi.host.get_PBDs(host):
+       p_rec = session.xenapi.PBD.get_record(p)
+       if p_rec['SR'] == sr:
+         device_config = p_rec['device_config']
+
+    sm = None
     all_sm = session.xenapi.SM.get_all_records()
     for sm_ref in all_sm.keys():
         if all_sm[sm_ref]['type'] == ty:
-            filename = session.xenapi.SM.get_driver_filename(sm_ref)
-    if filename == None:
-        raise "Unable to discover SM plugin driver filename"
+            sm = all_sm[sm_ref]
+            break
+
+    if sm is None:
+        raise Exception("Unable to discover SM plugin")
+
+    data = {
+        "vdi-uuid": vdi_uuid,
+        "reason": reason
+    }
+
+    # If the SM supports offline attach then we use it
+    if sm["features"].has_key("VDI_ATTACH_OFFLINE"):
+        data["volume-plugin"] = ty
+        data["sr-uri"] = device_config['uri']
+        sr = call_volume_plugin(ty, "SR.attach", [ data["sr-uri"] ])
+        location = session.xenapi.VDI.get_location(vdi)
+        stat = call_volume_plugin(ty, "Volume.stat", [ sr, location ])
+        data["volume-uri"] = stat["uri"][0]
+        data["volume-key"] = stat["key"]
+    else:
+        # SMAPIv1
+        try:
+            data["driver"] = session.xenapi.SM.get_driver_filename(sm_ref)
+            data["config"] = session.xenapi.VDI.generate_config(host, vdi)
+        except XenAPI.Failure, e:
+            raise Exception("Failed generating static config file: %s" % (str(e)))
 
     # Make a fresh directory in main_dir to store the configuration. Note
     # there is no locking so please run this script serially.
     fresh = fresh_name()
     path = main_dir + "/" + fresh
     os.mkdir(path)
-    write_whole_file(path + "/vdi-uuid", vdi_uuid)
-    write_whole_file(path + "/config", config)
-    write_whole_file(path + "/reason", reason)
-    os.symlink(filename, path + "/driver")
+    for key in data.keys():
+        write_whole_file(path + "/" + key, data[key])
 
 def delete(vdi_uuid):
     found = False
@@ -135,7 +174,7 @@ def delete(vdi_uuid):
             if not(existing.has_key("disk")):
                 os.system("/bin/rm -rf %s" % path)
     if not found:
-        raise "Disk configuration not found"
+        raise Exception("Disk configuration not found")
 
 # Copied by util.py
 def doexec(args, inputtext=None):
@@ -148,7 +187,7 @@ def doexec(args, inputtext=None):
 def call_backend_attach(driver, config):
     xml = doexec([ driver, config ])
     if xml[0] <> 0:
-        raise "SM_BACKEND_FAILURE(%d, %s, %s)" % xml
+        raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xmlrpc = xmlrpclib.loads(xml[1])
     try:
     	path = xmlrpc[0][0]['params']
@@ -168,12 +207,27 @@ def attach(vdi_uuid):
                     os.unlink(d + "/disk")
                 except:
                     pass
-                config = read_whole_file(d + "/config")
-                path = call_backend_attach(d + "/driver", config)
+                path = None
+                if not (os.path.exists(d + "/sr-uri")):
+                    # SMAPIv1
+                    config = read_whole_file(d + "/config")
+                    driver = read_whole_file(d + "/driver")
+                    path = call_backend_attach(driver, config)
+                else:
+                    volume_plugin = read_whole_file(d + "/volume-plugin")
+                    sr_uri = read_whole_file(d + "/sr-uri")
+                    vol_key = read_whole_file(d + "/volume-key")
+                    vol_uri = read_whole_file(d + "/volume-uri")
+                    scheme = urlparse.urlparse(vol_uri).scheme
+                    sr = call_volume_plugin(volume_plugin, "SR.attach", [ sr_uri ])
+                    attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
+                    path = attach['implementation'][1]
+                    call_datapath_plugin(scheme, "Datapath.activate", [ vol_uri, "0" ])
+
                 os.symlink(path, d + "/disk")
                 return d + "/disk"
     if not found:
-        raise "Disk configuration not found"
+        raise Exception("Disk configuration not found")
     
 def usage():
     print "Usage:"
