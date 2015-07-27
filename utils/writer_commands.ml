@@ -85,7 +85,11 @@ let protocol_of_string = function
 let write_file path protocol =
 	Random.self_init ();
 	let protocol = protocol_of_string protocol in
-	let _, writer = Rrd_writer.FileWriter.create path protocol in
+	let _, writer =
+		Rrd_writer.FileWriter.create
+			{Rrd_writer.path = path; shared_page_count = 1}
+			protocol
+	in
 	Printf.printf "Writing to file %s\n%!" path;
 	main_loop writer 5.0
 

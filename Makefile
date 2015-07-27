@@ -26,8 +26,7 @@ uninstall:
 	ocamlfind remove $(NAME)
 
 test: setup.ml build
-	LD_LIBRARY_PATH=$(LIBDIR):$(LD_LIBRARY_PATH) ./test_suite.byte
-#	ocaml setup.ml -test
+	ocaml setup.ml -test
 
 reinstall: setup.ml
 	ocamlfind remove $(NAME) || true

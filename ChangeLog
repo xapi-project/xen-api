@@ -1,3 +1,9 @@
+0.9.0 (16-07-2015)
+ * Interface change to FileWriter module
+ * FileWriter.create now takes a number of pages to share
+ * FileReader now mmaps once and closes the file descriptor, instead of
+   keeping the file descriptor open and mmaping on each read.
+
 0.8.1 (15-06-2015)
  * Add flag to set whether imported datasources are default
 

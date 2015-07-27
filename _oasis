@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        rrd-transport
-Version:     0.8.1
+Version:     0.9.0
 Synopsis:    Shared-memory protocols for transmitting RRD data
 Authors:     John Else
 License:     LGPL-2.1 with OCaml linking exception
@@ -28,13 +28,30 @@ Executable writer
   Install:              false
   BuildDepends:         cmdliner, threads, rrd-transport
 
-Executable test_suite
+Executable test_unit
+  CompiledObject:       best
   Build$:               flag(tests)
   Path:                 test
-  MainIs:               test_suite.ml
+  MainIs:               test_unit.ml
   Install:              false
   BuildDepends:         oUnit, rrd-transport
 
-Test test_suite
-  Command:              $test_suite
+Test test_unit
+  Command:              $test_unit
+  WorkingDirectory:     test
+
+Executable test_scale
+  CompiledObject:       best
+  Build$:               flag(tests)
+  Path:                 test
+  MainIs:               test_scale.ml
+  Install:              false
+  BuildDepends:         oUnit, rrd-transport
+
+Test test_scale_v1
+  Command:              $test_scale -p 1
+  WorkingDirectory:     test
+
+Test test_scale_v2
+  Command:              $test_scale -p 2
   WorkingDirectory:     test
