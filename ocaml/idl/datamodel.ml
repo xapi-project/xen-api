@@ -2428,6 +2428,17 @@ let vm_import = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let vm_xenprep_start = call
+	~name:"xenprep_start"
+	~lifecycle:[
+		Published, rel_dundee, "New function call";
+	]
+	~doc:"Start the 'xenprep' process on the VM; the process will remove any tools and drivers for XenServer and then set auto update drivers true."
+	~params:[Ref _vm, "self", "The VM to xenprep"]
+	~doc_tags:[Windows]
+	~allowed_roles:_R_VM_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -7026,6 +7037,7 @@ let vm =
 		vm_set_auto_update_drivers;
 		vm_assert_can_set_auto_update_drivers;
 		vm_import;
+		vm_xenprep_start;
 		]
       ~contents:
       ([ uid _vm;
