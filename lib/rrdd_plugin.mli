@@ -48,9 +48,10 @@ module Reporter : sig
 	(** The state of a reporter. *)
 
 	type target =
-		| Local
-		(** Specifies that we will be reporting data to an rrdd process in the same
-				domain as this process. *)
+		| Local of int
+		(** [Local pages] Specifies that we will be reporting data to an rrdd
+				process in the same domain as this process, and we will be sharing
+				[pages] with this process. *)
 		| Interdomain of (int * int)
 		(** [Interdomain (domid, pages)] specifies that we will be reporting data to
 				an rrdd process in domain [domid], and we will be sharing [pages] with
