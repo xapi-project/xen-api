@@ -153,11 +153,14 @@ let stop sr =
   let rec inner signal n =
     try
       info "Stopping xenvmd for SR uuid: %s" sr;
-      Unixext.pidfile_read (lockfile_path sr) >>= fun pid ->
-      get_cmdname pid >>=
-      check_is "xenvmd" >>= fun _ ->
-      Unixext.kill_and_wait ~signal pid;
-      None
+      if is_running sr then begin
+        Unixext.pidfile_read (lockfile_path sr) >>= fun pid ->
+        get_cmdname pid >>=
+        check_is "xenvmd" >>= fun _ ->
+        Unixext.kill_and_wait ~signal pid;
+        None
+      end else
+        None
     with
     | Unixext.Process_still_alive ->
       if n=0 then begin
