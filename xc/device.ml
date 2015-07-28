@@ -1166,6 +1166,14 @@ let unbind_from_nvidia devstr =
 let bind_lock = Mutex.create ()
 
 let bind devices new_driver =
+	let bind_to devstr = function
+		| I915 -> bind_to_i915 devstr
+		| Nvidia -> bind_to_nvidia devstr
+		| Pciback -> begin
+			bind_to_pciback devstr;
+			do_flr devstr
+		end
+	in
 	Mutex.execute bind_lock (fun () ->
 		List.iter
 			(fun device ->
@@ -1181,33 +1189,17 @@ let bind devices new_driver =
 					debug "pci: device %s already bound to pciback; doing flr" devstr;
 					do_flr devstr
 				(* No driver is bound, so just bind the one we want. *)
-				| None, I915 ->
+				| None, new_driver ->
 					debug "pci: device %s not bound" devstr;
-					bind_to_i915 devstr
-				| None, Nvidia ->
-					debug "pci: device %s not bound" devstr;
-					bind_to_nvidia devstr
-				| None, Pciback ->
-					debug "pci: device %s not bound" devstr;
-					bind_to_pciback devstr;
-					do_flr devstr
+					bind_to devstr new_driver
 				(* Unbinding from nvidia and binding to another driver. *)
-				| Some (Supported Nvidia), Pciback ->
+				| Some (Supported Nvidia), new_driver ->
 					unbind_from_nvidia devstr;
-					bind_to_pciback devstr
-				| Some (Supported Nvidia), I915 ->
-					unbind_from_nvidia devstr;
-					bind_to_i915 devstr
+					bind_to devstr new_driver
 				(* Unbinding other drivers. *)
-				| Some driver, Nvidia ->
-					unbind devstr driver;
-					bind_to_nvidia devstr
-				| Some driver, Pciback ->
-					unbind devstr driver;
-					bind_to_pciback devstr
-				| Some driver, I915 ->
-					unbind devstr driver;
-					bind_to_i915 devstr)
+				| Some old_driver, new_driver ->
+					unbind devstr old_driver;
+					bind_to devstr new_driver)
 			devices)
 
 let enumerate_devs ~xs (x: device) =
