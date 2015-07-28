@@ -1182,6 +1182,7 @@ let bind devices new_driver =
 					do_flr devstr
 				(* No driver is bound, so just bind the one we want. *)
 				| None, I915 ->
+					debug "pci: device %s not bound" devstr;
 					bind_to_i915 devstr
 				| None, Nvidia ->
 					debug "pci: device %s not bound" devstr;
