@@ -1172,34 +1172,38 @@ let bind devices new_driver =
 				let devstr = Xenops_interface.Pci.string_of_address device in
 				let old_driver = get_driver devstr in
 				match old_driver, new_driver with
-				| None, Nvidia ->
-					debug "pci: device %s not bound" devstr;
-					bind_to_nvidia devstr
+				(* We want the driver which is already bound. *)
+				| Some (Supported I915), I915 ->
+					debug "pci: device %s already bound to i915; doing nothing" devstr
 				| Some (Supported Nvidia), Nvidia ->
 					debug "pci: device %s already bound to nvidia; doing nothing" devstr
-				| Some driver, Nvidia ->
-					unbind devstr driver;
+				| Some (Supported Pciback), Pciback ->
+					debug "pci: device %s already bound to pciback; doing flr" devstr;
+					do_flr devstr
+				(* No driver is bound, so just bind the one we want. *)
+				| None, I915 ->
+					bind_to_i915 devstr
+				| None, Nvidia ->
+					debug "pci: device %s not bound" devstr;
 					bind_to_nvidia devstr
 				| None, Pciback ->
 					debug "pci: device %s not bound" devstr;
 					bind_to_pciback devstr;
 					do_flr devstr
-				| Some (Supported Pciback), Pciback ->
-					debug "pci: device %s already bound to pciback; doing flr" devstr;
-					do_flr devstr
+				(* Unbinding from nvidia and binding to another driver. *)
 				| Some (Supported Nvidia), Pciback ->
 					unbind_from_nvidia devstr;
 					bind_to_pciback devstr
-				| Some driver, Pciback ->
-					unbind devstr driver;
-					bind_to_pciback devstr
-				| None, I915 ->
-					bind_to_i915 devstr
 				| Some (Supported Nvidia), I915 ->
 					unbind_from_nvidia devstr;
 					bind_to_i915 devstr
-				| Some (Supported I915), I915 ->
-					debug "pci: device %s already bound to i915; doing nothing" devstr
+				(* Unbinding other drivers. *)
+				| Some driver, Nvidia ->
+					unbind devstr driver;
+					bind_to_nvidia devstr
+				| Some driver, Pciback ->
+					unbind devstr driver;
+					bind_to_pciback devstr
 				| Some driver, I915 ->
 					unbind devstr driver;
 					bind_to_i915 devstr)
