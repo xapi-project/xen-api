@@ -1104,9 +1104,10 @@ let bind_to_pciback devstr =
 	write_string_to_file bind devstr
 
 let bind_to_i915 devstr =
+	(* No need to explicitly bind, as the driver will auto-bind on load. *)
 	debug "pci: binding device %s to i915" devstr;
-	let bind = Filename.concat sysfs_i915 "bind" in
-	write_string_to_file bind devstr
+	let (_:string * string) =
+		Forkhelpers.execute_command_get_output !Path.modprobe ["i915"] in ()
 
 let bind_to_nvidia devstr =
 	debug "pci: binding device %s to nvidia" devstr;
