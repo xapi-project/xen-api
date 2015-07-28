@@ -1121,6 +1121,11 @@ let unbind devstr driver =
 	let unbind = Filename.concat sysfs_driver "unbind" in
 	write_string_to_file unbind devstr
 
+let unbind_from_i915 devstr =
+	unbind devstr (Supported I915);
+	let (_:string * string) =
+		Forkhelpers.execute_command_get_output !Path.rmmod ["i915"] in ()
+
 let procfs_nvidia = "/proc/driver/nvidia/gpus"
 let bus_id_key = "Bus Location"
 
@@ -1192,6 +1197,10 @@ let bind devices new_driver =
 				(* No driver is bound, so just bind the one we want. *)
 				| None, new_driver ->
 					debug "pci: device %s not bound" devstr;
+					bind_to devstr new_driver
+				(* Unbinding from i915 and binding to another driver. *)
+				| Some (Supported I915), new_driver ->
+					unbind_from_i915 devstr;
 					bind_to devstr new_driver
 				(* Unbinding from nvidia and binding to another driver. *)
 				| Some (Supported Nvidia), new_driver ->
