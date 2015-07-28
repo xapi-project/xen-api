@@ -16,6 +16,8 @@ let network_conf = ref "/etc/xcp/network.conf"
 let qemu_dm_wrapper = ref "qemu-dm-wrapper"
 let qemu_system_i386 = ref "qemu-system-i386"
 let chgrp = ref "chgrp"
+let modprobe = ref "/usr/sbin/modprobe"
+let rmmod = ref "/usr/sbin/rmmod"
 let hvmloader = ref "hvmloader"
 let pygrub = ref "pygrub"
 let eliloader = ref "eliloader"
@@ -42,6 +44,8 @@ let network_configuration = [
 
 let essentials = [
 	X_OK, "chgrp", chgrp, "path to the chgrp binary";
+	X_OK, "modprobe", modprobe, "path to the modprobe binary";
+	X_OK, "rmmod", rmmod, "path to the rmmod binary";
 ]
 
 let nonessentials = [
