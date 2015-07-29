@@ -208,9 +208,9 @@ module Mux = struct
 		let set_persistent context ~dbg ~sr ~vdi ~persistent =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.set_persistent ~dbg ~sr ~vdi ~persistent
-		let epoch_begin context ~dbg ~sr ~vdi =
+		let epoch_begin context ~dbg ~sr ~vdi ~persistent =
 			let module C = Client(struct let rpc = of_sr sr end) in
-			C.VDI.epoch_begin ~dbg ~sr ~vdi
+			C.VDI.epoch_begin ~dbg ~sr ~vdi ~persistent
 		let attach context ~dbg ~dp ~sr ~vdi ~read_write =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write

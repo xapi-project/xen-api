@@ -450,6 +450,7 @@ module MD = struct
 			extra_backend_keys = backend_kind_keys;
 			extra_private_keys = [];
 			qos = qos ty;
+			persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);
 		}
 
 	let of_vif ~__context ~vm ~vif =
