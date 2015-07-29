@@ -49,15 +49,22 @@ let sm_cap_table =
 
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
-let features_of_sr_internal ~_type ~uuid =
-	try
-		Sm.features_of_driver _type
-	with Sm.Unknown_driver _ ->
-		(* then look to see if this supports the SMAPIv2 *)
-		Smint.parse_capability_int64_features (Storage_mux.features_of_sr uuid)
+let features_of_sr_internal ~__context ~_type =
+	let open Db_filter_types in
+	match Db.SM.get_internal_records_where ~__context ~expr:(Eq (Field "type", Literal _type)) with
+	| [] ->
+		[]
+	| (_, sm) :: _ ->
+		Listext.List.filter_map
+			(fun (name, v) ->
+				try
+					Some (List.assoc name Smint.string_to_capability_table, v)
+				with Not_found ->
+					None
+			) sm.Db_actions.sM_features
 
-let features_of_sr record =
-	features_of_sr_internal record.Db_actions.sR_type record.Db_actions.sR_uuid
+let features_of_sr ~__context record =
+	features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' : table = 
@@ -78,7 +85,7 @@ let valid_operations ~__context record _ref' : table =
   *)
 
   (* First consider the backend SM features *)
-  let sm_features = features_of_sr record in
+  let sm_features = features_of_sr ~__context record in
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_features =

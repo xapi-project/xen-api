@@ -140,8 +140,32 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~restrictions ~other_config ~ha_cluster_stack;
 	pool_ref
 
+let default_sm_features = [
+	"SR_PROBE", 1L;
+	"SR_UPDATE", 1L;
+	"VDI_CREATE", 1L;
+	"VDI_DELETE", 1L;
+	"VDI_ATTACH", 1L;
+	"VDI_DETACH", 1L;
+	"VDI_UPDATE", 1L;
+	"VDI_CLONE", 1L;
+	"VDI_SNAPSHOT", 1L;
+	"VDI_RESIZE", 1L;
+	"VDI_GENERATE_CONFIG", 1L;
+	"VDI_RESET_ON_BOOT", 2L;
+]
+
+let make_sm ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(_type="sm")
+	?(name_label="") ?(name_description="") ?(vendor="") ?(copyright="")
+	?(version="") ?(required_api_version="") ?(capabilities=[]) ?(features=default_sm_features)
+	?(configuration=[]) ?(other_config=[]) ?(driver_filename="/dev/null") () =
+        Db.SM.create ~__context ~ref:ref ~uuid ~_type ~name_label ~name_description
+		~vendor ~copyright ~version ~required_api_version ~capabilities ~features
+		~configuration ~other_config ~driver_filename;
+	ref
+
 let make_sr ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
-		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="")
+		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="sm")
 		?(content_type="") ?(shared=true) ?(other_config=[]) ?(tags=[]) ?(default_vdi_visibility=true)
 		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) () =
 	Db.SR.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations

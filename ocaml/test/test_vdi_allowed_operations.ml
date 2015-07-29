@@ -18,37 +18,8 @@ open Test_common
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
 let setup_test ~__context ~vdi_fun =
+	let _sm_ref = make_sm ~__context () in
 	let sr_ref = make_sr ~__context () in
-	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
-	(* Register the SR with a dummy processor which has a sensible
-	 * set of features. *)
-	Storage_mux.register sr_uuid
-		(fun _ -> Rpc.({success = true; contents = Null}))
-		"0"
-		Storage_interface.({
-			driver = "";
-			name = "";
-			description = "";
-			vendor = "";
-			copyright = "";
-			version = "";
-			required_api_version = "";
-			features = [
-				"SR_PROBE";
-				"SR_UPDATE";
-				"VDI_CREATE";
-				"VDI_DELETE";
-				"VDI_ATTACH";
-				"VDI_DETACH";
-				"VDI_UPDATE";
-				"VDI_CLONE";
-				"VDI_SNAPSHOT";
-				"VDI_RESIZE";
-				"VDI_GENERATE_CONFIG";
-				"VDI_RESET_ON_BOOT/2";
-			];
-			configuration = []
-		});
 	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
 	let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
 	vdi_fun vdi_ref;
