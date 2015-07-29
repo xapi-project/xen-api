@@ -401,7 +401,23 @@ module Vbd = struct
 		extra_backend_keys: (string * string) list;
 		extra_private_keys: (string * string) list;
 		qos: qos option;
+		persistent: bool;
 	}
+
+	let default_t = {
+		id = "", "";
+		position = None;
+		mode = ReadWrite;
+		backend = None;
+		ty = Disk;
+		unpluggable = true;
+		extra_backend_keys = [];
+		extra_private_keys = [];
+		qos = None;
+		persistent = true;
+	}
+
+	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
 
 	type state = {
 		active: bool;

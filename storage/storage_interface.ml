@@ -323,9 +323,10 @@ module VDI = struct
 	(** [set_persistent dbg sr vdi persistent] sets [vdi]'s persistent flag to [persistent] *)
 	external set_persistent : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
 
-	(** [epoch_begin sr vdi] declares that [vdi] is about to be added to a starting/rebooting VM.
-        This is not called over suspend/resume or migrate. *)
-	external epoch_begin : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+	(** [epoch_begin sr vdi persistent] declares that [vdi] is about to be added to a starting/rebooting VM.
+            This is not called over suspend/resume or migrate.
+	    If [persistent] is false, then changes to the disk will be erased when the VM shuts down. *)
+	external epoch_begin : dbg:debug_info -> sr:sr -> vdi:vdi -> persistent:bool -> unit = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
@@ -345,7 +346,7 @@ module VDI = struct
     external detach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit = ""
 
 	(** [epoch_end sr vdi] declares that [vdi] is about to be removed from a shutting down/rebooting VM.
-        This is not called over suspend/resume or migrate. *)
+            This is not called over suspend/resume or migrate. *)
 	external epoch_end : dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
