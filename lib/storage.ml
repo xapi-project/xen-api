@@ -37,10 +37,10 @@ let transform_exception f x =
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 
-let epoch_begin task sr vdi =
+let epoch_begin task sr vdi persistent =
 	transform_exception
 		(fun () ->
-			Client.VDI.epoch_begin task.Xenops_task.dbg sr vdi
+			Client.VDI.epoch_begin task.Xenops_task.dbg sr vdi persistent
 		) ()
 
 let epoch_end task sr vdi =

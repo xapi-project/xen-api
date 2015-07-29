@@ -1660,10 +1660,10 @@ module VBD = struct
 			with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
 		with _ -> false
 
-	let epoch_begin task vm disk = match disk with
+	let epoch_begin task vm disk persistent = match disk with
 		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
-			Storage.epoch_begin task sr vdi
+			Storage.epoch_begin task sr vdi persistent
 		| _ -> ()
 
 	let epoch_end task vm disk = match disk with
