@@ -3777,7 +3777,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
 						Client.SR.update rpc session_id sr
-					)
+					);
+
+				(* Check if SR has SR_STATS capability then create SR-stats VDI *)
+				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then
+					Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
