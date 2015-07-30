@@ -1,6 +1,0 @@
-# A set of new subclasses for a class already present in the base database.
-
-C 00  Class Name
-	70 NewSubClass1
-	71 NewSubClass2
-	72 NewSubClass3

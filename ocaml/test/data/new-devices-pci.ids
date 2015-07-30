@@ -1,8 +1,0 @@
-# A set of new devices for a vendor already present in the base database.
-
-0003  SimpleVendorName3
-	0011 NewDevice1
-	0012 NewDevice2
-	0013 NewDevice3
-		0003 01f1  NewSubDevice1
-		0003 01f2  NewSubDevice2
