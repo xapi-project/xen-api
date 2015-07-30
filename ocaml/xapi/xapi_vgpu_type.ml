@@ -44,12 +44,13 @@ let passthrough_gpu = {
 }
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
-		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
+		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation
+		~identifier =
 	let ref = Ref.make () in
 	let uuid = Uuidm.to_string (Uuidm.create `V4) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-		~size ~internal_config ~implementation;
+		~size ~internal_config ~implementation ~identifier;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -105,6 +106,7 @@ let find_or_create ~__context vgpu_type =
 			~size:vgpu_type.size
 			~internal_config:vgpu_type.internal_config
 			~implementation:vgpu_type.implementation
+			~identifier:""
 	| _ ->
 		failwith "Error: Multiple vGPU types exist with the same configuration."
 

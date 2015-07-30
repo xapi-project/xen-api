@@ -1121,7 +1121,8 @@ module VGPUType : HandlerTools = struct
 							~max_resolution_y:value.API.vGPU_type_max_resolution_y
 							~size:0L
 							~internal_config:[]
-							~implementation:value.API.vGPU_type_implementation)
+							~implementation:value.API.vGPU_type_implementation
+							~identifier:value.API.vGPU_type_identifier)
 					vgpu_type_record
 			in
 			state.cleanup <- (fun __context rpc session_id -> Db.VGPU_type.destroy __context vgpu_type) :: state.cleanup;
