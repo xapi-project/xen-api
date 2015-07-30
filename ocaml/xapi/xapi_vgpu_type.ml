@@ -46,7 +46,7 @@ let passthrough_gpu = {
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
 		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
 	let ref = Ref.make () in
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let uuid = Uuidm.to_string (Uuidm.create `V4) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
 		~size ~internal_config ~implementation;
