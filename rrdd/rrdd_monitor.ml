@@ -39,7 +39,7 @@ let create_fresh_rrd use_min_max dss =
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD. *)
-let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
+let update_rrds timestamp dss (uuid_domids : (string * int) list) (uuid_srs : string list) paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
@@ -93,6 +93,43 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 				log_backtrace ()
 		in
 		List.iter do_vm uuid_domids;
+
+		let do_sr sr_uuid =
+			try
+				let dss = List.filter_map (fun (ty, ds) -> match ty with | SR x -> if x = sr_uuid then Some ds else None | _ -> None) dss in
+				begin
+					try
+						(* First, potentially update the rrd with any new default dss *)
+						let rrdi = Hashtbl.find sr_rrds sr_uuid in
+						let default_dss = List.filter (fun ds -> ds.ds_default) dss in
+						let current_dss = Rrd.ds_names rrdi.rrd in
+						let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
+						let rrd =
+							let now = Unix.gettimeofday () in
+							if List.length new_defaults > 0 then (
+								let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
+								Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid = 0};
+								rrd
+							) else rrdi.rrd
+						in
+
+						Rrd.ds_update_named rrd timestamp ~new_domid:false
+							(List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);
+						rrdi.dss <- dss;
+						rrdi.domid <- 0;
+					with
+					| Not_found ->
+						debug "Creating fresh RRD for SR uuid=%s" sr_uuid;
+						let rrd = create_fresh_rrd (!use_min_max) dss in
+						Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid = 0}
+					| e -> raise e
+				end
+			with e ->
+				(*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
+				log_backtrace ()
+		in
+		List.iter do_sr uuid_srs;
+
 		let host_dss = List.filter_map (fun (ty, ds) -> match ty with | Host -> Some ds | _ -> None) dss in
 		begin
 			match !host_rrd with
