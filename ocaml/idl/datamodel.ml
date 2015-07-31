@@ -3291,8 +3291,8 @@ let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) ?lifecycle refname =
 
 let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) operations_type =
   [ 
-    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set operations_type) "allowed_operations" "list of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client.";
-    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, operations_type)) "current_operations" "links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task.";
+    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set operations_type) ~default_value:(Some (VSet [])) "allowed_operations" "list of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client.";
+    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, operations_type)) ~default_value:(Some (VMap [])) "current_operations" "links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task.";
   ]
 
 
