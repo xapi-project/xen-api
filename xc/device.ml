@@ -1104,9 +1104,10 @@ let bind_to_pciback devstr =
 	write_string_to_file bind devstr
 
 let bind_to_i915 devstr =
+	(* No need to explicitly bind, as the driver will auto-bind on load. *)
 	debug "pci: binding device %s to i915" devstr;
-	let bind = Filename.concat sysfs_i915 "bind" in
-	write_string_to_file bind devstr
+	let (_:string * string) =
+		Forkhelpers.execute_command_get_output !Path.modprobe ["i915"] in ()
 
 let bind_to_nvidia devstr =
 	debug "pci: binding device %s to nvidia" devstr;
@@ -1119,6 +1120,11 @@ let unbind devstr driver =
 	let sysfs_driver = Filename.concat sysfs_drivers driverstr in
 	let unbind = Filename.concat sysfs_driver "unbind" in
 	write_string_to_file unbind devstr
+
+let unbind_from_i915 devstr =
+	unbind devstr (Supported I915);
+	let (_:string * string) =
+		Forkhelpers.execute_command_get_output !Path.rmmod ["i915"] in ()
 
 let procfs_nvidia = "/proc/driver/nvidia/gpus"
 let bus_id_key = "Bus Location"
@@ -1166,43 +1172,41 @@ let unbind_from_nvidia devstr =
 let bind_lock = Mutex.create ()
 
 let bind devices new_driver =
+	let bind_to devstr = function
+		| I915 -> bind_to_i915 devstr
+		| Nvidia -> bind_to_nvidia devstr
+		| Pciback -> begin
+			bind_to_pciback devstr;
+			do_flr devstr
+		end
+	in
+	let unbind_from devstr = function
+		| Supported I915 -> unbind_from_i915 devstr
+		| Supported Nvidia -> unbind_from_nvidia devstr
+		| driver -> unbind devstr driver
+	in
 	Mutex.execute bind_lock (fun () ->
 		List.iter
 			(fun device ->
 				let devstr = Xenops_interface.Pci.string_of_address device in
 				let old_driver = get_driver devstr in
 				match old_driver, new_driver with
-				| None, Nvidia ->
-					debug "pci: device %s not bound" devstr;
-					bind_to_nvidia devstr
+				(* We want the driver which is already bound. *)
+				| Some (Supported I915), I915 ->
+					debug "pci: device %s already bound to i915; doing nothing" devstr
 				| Some (Supported Nvidia), Nvidia ->
 					debug "pci: device %s already bound to nvidia; doing nothing" devstr
-				| Some driver, Nvidia ->
-					unbind devstr driver;
-					bind_to_nvidia devstr
-				| None, Pciback ->
-					debug "pci: device %s not bound" devstr;
-					bind_to_pciback devstr;
-					do_flr devstr
 				| Some (Supported Pciback), Pciback ->
 					debug "pci: device %s already bound to pciback; doing flr" devstr;
 					do_flr devstr
-				| Some (Supported Nvidia), Pciback ->
-					unbind_from_nvidia devstr;
-					bind_to_pciback devstr
-				| Some driver, Pciback ->
-					unbind devstr driver;
-					bind_to_pciback devstr
-				| None, I915 ->
-					bind_to_i915 devstr
-				| Some (Supported Nvidia), I915 ->
-					unbind_from_nvidia devstr;
-					bind_to_i915 devstr
-				| Some (Supported I915), I915 ->
-					debug "pci: device %s already bound to i915; doing nothing" devstr
-				| Some driver, I915 ->
-					unbind devstr driver;
-					bind_to_i915 devstr)
+				(* No driver is bound, so just bind the one we want. *)
+				| None, new_driver ->
+					debug "pci: device %s not bound" devstr;
+					bind_to devstr new_driver
+				(* Unbinding from one driver and binding to another driver. *)
+				| Some (old_driver), new_driver ->
+					unbind_from devstr old_driver;
+					bind_to devstr new_driver)
 			devices)
 
 let enumerate_devs ~xs (x: device) =
