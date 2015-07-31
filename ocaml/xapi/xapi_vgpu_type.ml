@@ -273,8 +273,9 @@ module Intel = struct
 			Db.PCI.get_pci_id ~__context ~self:pci
 			|> address_of_string
 		in
-		let device, device_name =
+		let vendor_name, device, device_name =
 			Pci.(with_access (fun access ->
+				let vendor_name = lookup_vendor_name access intel_vendor_id in
 				let device =
 					List.find
 						(fun device ->
@@ -289,7 +290,7 @@ module Intel = struct
 						device.Pci_dev.vendor_id
 						device.Pci_dev.device_id
 				in
-				device, device_name))
+				vendor_name, device, device_name))
 		in
 		let bar_size =
 			List.nth device.Pci.Pci_dev.size 2
@@ -298,7 +299,7 @@ module Intel = struct
 		let vgpus_per_pgpu = bar_size /// 1024L /// 1024L /// 128L --- 1L in
 		let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
 		{
-			vendor_name = "Intel";
+			vendor_name;
 			model_name = "Intel GVT-g on " ^ device_name;
 			framebuffer_size = mib 256L;
 			max_heads = 1L;
