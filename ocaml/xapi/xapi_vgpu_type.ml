@@ -111,17 +111,58 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
 		(Ref.string_of ref) vendor_name model_name;
 	ref
 
-let find_or_create ~__context vgpu_type =
+let find_and_update ~__context vgpu_type =
+	let identifier_string = Identifier.to_string vgpu_type.identifier in
+	let fail () =
+		failwith "Error: Multiple vGPU types exist with the same configuration." in
 	let open Db_filter_types in
-	let existing_types =
-		Db.VGPU_type.get_internal_records_where ~__context
-			~expr:(And
-				(Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
-				(Eq (Field "model_name", Literal vgpu_type.model_name))))
+	let new_expr = Eq (Field "identifier", Literal identifier_string) in
+	let old_expr = And
+		((Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
+		(Eq (Field "model_name", Literal vgpu_type.model_name))))
 	in
+	(* First try to look up by identifier. *)
+	match Db.VGPU_type.get_internal_records_where ~__context ~expr:new_expr with
+	| [vgpu_type_ref, rc] -> begin
+		(* If looking up by identifier succeeds, update that VGPU_type's vendor_name
+		 * and model_name. *)
+		if vgpu_type.vendor_name <> rc.Db_actions.vGPU_type_vendor_name then
+			Db.VGPU_type.set_vendor_name ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.vendor_name;
+		if vgpu_type.model_name <> rc.Db_actions.vGPU_type_model_name then
+			Db.VGPU_type.set_model_name ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.model_name;
+		let new_rc = Db_actions.({rc with
+			vGPU_type_vendor_name = vgpu_type.vendor_name;
+			vGPU_type_model_name = vgpu_type.model_name;
+		}) in
+		Some (vgpu_type_ref, new_rc)
+	end
+	| [] -> begin
+		(* If looking up by identifier fails, try to the old method (vendor name
+		 * and model name). If this finds a VGPU_type, update its identifier
+		 * field. *)
+		match Db.VGPU_type.get_internal_records_where ~__context ~expr:old_expr with
+		| [vgpu_type_ref, rc] -> begin
+			Db.VGPU_type.set_identifier ~__context
+				~self:vgpu_type_ref
+				~value:identifier_string;
+			let new_rc = {rc with
+				Db_actions.vGPU_type_identifier = identifier_string;
+			} in
+			Some (vgpu_type_ref, new_rc)
+		end
+		| [] -> None
+		| _ -> fail ()
+	end
+	| _ -> fail ()
+
+let find_or_create ~__context vgpu_type =
 	let implementation = Identifier.to_implementation vgpu_type.identifier in
-	match existing_types with
-	| [vgpu_type_ref, rc] ->
+	match (find_and_update ~__context vgpu_type) with
+	| Some (vgpu_type_ref, rc) ->
 		(* Update anything about the VGPU type which might have changed since we
 		 * last read the config file. *)
 		if vgpu_type.framebuffer_size <> rc.Db_actions.vGPU_type_framebuffer_size then
@@ -153,7 +194,7 @@ let find_or_create ~__context vgpu_type =
 				~self:vgpu_type_ref
 				~value:implementation;
 		vgpu_type_ref
-	| [] ->
+	| None ->
 		create ~__context ~vendor_name:vgpu_type.vendor_name
 			~model_name:vgpu_type.model_name
 			~framebuffer_size:vgpu_type.framebuffer_size
@@ -164,8 +205,6 @@ let find_or_create ~__context vgpu_type =
 			~internal_config:vgpu_type.internal_config
 			~implementation
 			~identifier:(Identifier.to_string vgpu_type.identifier)
-	| _ ->
-		failwith "Error: Multiple vGPU types exist with the same configuration."
 
 module Nvidia = struct
 	let nvidia_conf_dir = "/usr/share/nvidia/vgx"
