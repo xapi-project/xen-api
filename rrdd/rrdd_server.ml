@@ -284,6 +284,33 @@ let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
 		Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
 	)
 
+let add_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : unit =
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find sr_rrds sr_uuid in
+		let rrd = add_ds rrdi ds_name in
+		Hashtbl.replace sr_rrds sr_uuid {rrd; dss = rrdi.dss; domid = 0}
+	)
+
+let forget_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : unit =
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find sr_rrds sr_uuid in
+		let rrd = rrdi.rrd in
+		Hashtbl.replace sr_rrds sr_uuid {rrdi with rrd = Rrd.rrd_remove_ds rrd ds_name}
+	)
+
+let query_possible_sr_dss _ ~(sr_uuid : string) : Data_source.t list =
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find sr_rrds sr_uuid in
+		query_possible_dss rrdi
+	)
+
+let query_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : float =
+	let now = Unix.gettimeofday () in
+	Mutex.execute mutex (fun () ->
+		let rrdi = Hashtbl.find sr_rrds sr_uuid in
+		Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
+	)
+
 let update_use_min_max _ ~(value : bool) : unit =
 	debug "Updating use_min_max: New value=%b" value;
 	use_min_max := value
