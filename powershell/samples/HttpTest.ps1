@@ -36,6 +36,7 @@ Param([Parameter(Mandatory=$true)][String]$svr,
 
 ### Connect to a server
 
+[Net.ServicePointManager]::SecurityProtocol='tls,tls11,tls12'
 Connect-XenServer -Server $svr -UserName $usr -Password $pwd
 
 

@@ -4,7 +4,7 @@ Citrix XenServer PowerShell Module
 Version @SDK_VERSION@
 
 The XenServer PowerShell Module (XS-PS) is a complete SDK for Citrix XenServer,
-exposing the XenServer API as Windows PowerShell 2.0 cmdlets.
+exposing the XenServer API as Windows PowerShell cmdlets.
 
 For XenServer documentation, see http://docs.xensource.com.
 XS-PS includes a cmdlet for each XenServer API call, so API documentation
@@ -22,6 +22,11 @@ This library may be accompanied by pedagogical examples. These do not form
 part of this library, and are licensed for redistribution and modification
 under the BSD license. Such examples are licensed clearly at the top
 of each file.
+
+Prerequisites
+-------------
+
+This library requires .NET 4.5 and PowerShell 4.0.
 
 
 Dependencies
@@ -51,7 +56,7 @@ Getting Started
 
 1.  Unzip the XenServer PowerShell Module in your PowerShell modules directory.
 
-2.  Start > Windows PowerShell 2.0 > Right click Windows PowerShell >
+2.  Start > Windows PowerShell 4.0 > Right click Windows PowerShell >
     Run as administrator.
     Note that in Vista you may need to "Run as administrator" even if your
     current user is privileged.
@@ -76,7 +81,7 @@ Getting Started
 
 4.  Exit the privileged instance of PowerShell.
 
-5.  Start > Windows PowerShell 2.0
+5.  Start > Windows PowerShell 4.0
 
     PS> Import-Module XenServerPSModule
     PS> Get-Help about_XenServer
