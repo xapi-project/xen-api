@@ -197,6 +197,7 @@ end
 let vdi_of_volume x =
   let open Storage_interface in {
   vdi = x.Storage.Volume.Types.key;
+  uuid = x.Storage.Volume.Types.uuid;
   content_id = "";
   name_label = x.Storage.Volume.Types.name;
   name_description = x.Storage.Volume.Types.description;
