@@ -852,8 +852,7 @@ let pool_ha_enable printer rpc session_id params =
 	let config = read_map_params "ha-config" params in
 	let uuids = if List.mem_assoc "heartbeat-sr-uuids" params then String.split ',' (List.assoc "heartbeat-sr-uuids" params) else [] in
 	let srs = List.map (fun uuid -> Client.SR.get_by_uuid rpc session_id uuid) uuids in
-	let cluster_stack = if List.mem_assoc "cluster-stack" params then List.assoc "cluster-stack" params else "" in
-	Client.Pool.enable_ha rpc session_id srs config cluster_stack
+	Client.Pool.enable_ha rpc session_id srs config
 let pool_ha_disable printer rpc session_id params =
 	Client.Pool.disable_ha rpc session_id
 let pool_ha_prevent_restarts_for printer rpc session_id params =

@@ -99,7 +99,7 @@ val enable_ha :
   __context:Context.t ->
   heartbeat_srs:API.ref_SR list ->
   configuration:(string * string) list ->
-  cluster_stack:string -> unit
+  unit
 val disable_ha : __context:Context.t -> unit
 val ha_prevent_restarts_for : __context:Context.t -> seconds:int64 -> unit
 val ha_failover_plan_exists : __context:Context.t -> n:int64 -> bool

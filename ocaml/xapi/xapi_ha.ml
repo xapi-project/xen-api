@@ -1353,7 +1353,7 @@ let disable __context =
 
 open Db_cache_types (* for the Manifest. Database. functions below *)
 
-let enable __context heartbeat_srs configuration cluster_stack =
+let enable __context heartbeat_srs configuration =
 	debug "Enabling HA on the Pool.";
 	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool
