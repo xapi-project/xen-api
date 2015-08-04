@@ -43,7 +43,7 @@ CAMLprim value stub_get_blktap3_stats(value filename)
 	if (!c_fd) uerror("fopen", Nothing);
 	if (fread(&c_stats, sizeof(struct blkback_stats), 1, c_fd) < 1) uerror("fread", Nothing);
 
-	stats = caml_alloc_tuple(13);
+	stats = caml_alloc_tuple(14);
 
 	Store_field(stats, 0, caml_copy_int64((int64) c_stats.st_ds_req));
 	Store_field(stats, 1, caml_copy_int64((int64) c_stats.st_f_req));
@@ -58,6 +58,10 @@ CAMLprim value stub_get_blktap3_stats(value filename)
 	Store_field(stats, 10, caml_copy_int64((int64) c_stats.st_wr_sect));
 	Store_field(stats, 11, caml_copy_int64((int64) c_stats.st_wr_sum_usecs));
 	Store_field(stats, 12, caml_copy_int64((int64) c_stats.st_wr_max_usecs));
+	if ((c_stats.flags) & BT3_LOW_MEMORY_MODE)
+		Store_field(stats, 13, Val_true);
+	else
+		Store_field(stats, 13, Val_false);
 
 	fclose(c_fd);
 

@@ -326,6 +326,7 @@ module Blktap3_stats_wrapper = struct
 		st_wr_sect      = 0L;
 		st_wr_sum_usecs = 0L;
 		st_wr_max_usecs = 0L;
+		st_mem_mode	= false;
 		}
 
 	let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
@@ -614,6 +615,23 @@ let gen_metrics () =
 			Stats_value.make_ds ~owner:Rrd.Host ~name:"SR" ~key_format stats_value
 		) sr_to_stats_values in
 
+	(* Get the blktap3 stats and iterate the stats list to count the
+		number of tapdisks in low memory mode *)
+	let data_sources_low_mem_mode =
+		let (++) = Int64.add in 
+		let count = List.fold_left (fun acc ((_, _), stats) -> 
+			if stats.st_mem_mode then acc ++ 1L else acc
+			)0L domid_devid_to_stats_blktap3
+		in
+		let ds_make = Ds.ds_make ~default:true in
+		[
+			[
+				Rrd.Host, ds_make ~name:"Tapdisks_in_low_memory_mode"
+					~description:("Number of tapdisks in low memory mode")
+					~value:(Rrd.VT_Int64 count)
+					~ty:Rrd.Absolute ~units:"count" ~min:0. ();
+			];
+		] in
 	(* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
 	let data_sources_vm_iostats = List.flatten (
 		List.map (fun ((sr, vdi), iostats_value) ->
@@ -646,7 +664,8 @@ let gen_metrics () =
 	sr_vdi_to_last_stats_values := Some (to_hashtbl sr_vdi_to_stats);
 	domid_devid_to_last_stats_blktap3 := Some domid_devid_to_stats_blktap3;
 
-	List.flatten (data_sources_stats @ data_sources_iostats @ data_sources_vm_stats @ data_sources_vm_iostats)
+	List.flatten (data_sources_stats @ data_sources_iostats @ data_sources_vm_stats @ data_sources_vm_iostats 
+			@ data_sources_low_mem_mode)
 
 let _ =
 	initialise ();

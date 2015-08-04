@@ -45,6 +45,8 @@ type blktap3_stats = {
 	st_wr_sum_usecs : int64;
 	(** Absolute maximum BLKIF_OP_WRITE response time *)
 	st_wr_max_usecs : int64;
+	(** Tapdisk Low memory mode *)
+	st_mem_mode : bool;
 }
 
 (** Get a blktap3 statistics record *)
