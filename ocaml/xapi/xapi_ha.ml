@@ -1401,13 +1401,16 @@ let enable __context heartbeat_srs configuration =
 		if not alive then raise (Api_errors.Server_error(Api_errors.host_offline, [ Ref.string_of host ]))
 	) (Db.Host.get_all ~__context);
 
+	let pool = Helpers.get_pool ~__context in
+
+	let cluster_stack = Cluster_stack_constraints.choose_cluster_stack ~__context in
+	Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:cluster_stack;
+
 	(* Steps from 8.7 Enabling HA in Marathon spec:
 	 * 1. Bring up state file VDI(s)
 	 * 2. Clear the flag "can not be master and no VM failover decision on next boot"
 	 * 3. XAPI stops its internal heartbeats with other hosts in the pool
 	 * 4. ha_set_pool_state(init) *)
-
-	let pool = Helpers.get_pool ~__context in
 
 	let statefile_vdis = ref [] in
 	let database_vdis = ref [] in
