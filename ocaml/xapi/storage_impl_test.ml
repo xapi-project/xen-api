@@ -471,6 +471,7 @@ let create_vdi_test sr =
         (Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let vdi_info = {
 		vdi = "";
+		uuid = None;
 		content_id = "";
 		name_label = "name_label";
 		name_description = "name_description";

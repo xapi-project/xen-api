@@ -66,6 +66,7 @@ module SMAPIv1 = struct
 			else vdi_rec.API.vDI_location (* PR-1255 *)
 		in {
 			vdi = vdi_rec.API.vDI_location;
+			uuid = Some vdi_rec.API.vDI_uuid;
 			content_id = content_id; (* PR-1255 *)
 			name_label = vdi_rec.API.vDI_name_label;
 			name_description = vdi_rec.API.vDI_name_description;
