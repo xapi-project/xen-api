@@ -107,6 +107,7 @@ let old_main () =
 					else acc) [] kvpairs in
 			let vdi_info = {
 				vdi = "";
+				uuid = None;
 				content_id = ""; (* PR-1255 *)
 				name_label = Opt.default "default name_label" (find "name_label");
 				name_description = Opt.default "default name_description" (find "name_description");
@@ -384,6 +385,7 @@ let vdi_create common_opts sr name descr virtual_size format = match sr with
     wrap common_opts (fun () ->
       let vdi_info = {
         vdi = "";
+        uuid = None;
         content_id = "";
         name_label = name;
         name_description = descr;
