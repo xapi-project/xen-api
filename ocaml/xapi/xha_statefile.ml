@@ -39,7 +39,7 @@ let minimum_size =
   and maximum_number_of_hosts = 64L in
 	global_section_size ++ maximum_number_of_hosts ** host_section_size
 
-let assert_sr_can_host_statefile ~__context ~sr =
+let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
 	(* Check that each host has a PBD to this SR *)
 	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 	let connected_hosts = List.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds) in
@@ -58,6 +58,8 @@ let assert_sr_can_host_statefile ~__context ~sr =
 			(* Same exception is used in this case (see Helpers.assert_pbd_is_plugged) *)
 			raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
 		end) pbds;
+	(* Check cluster stack constraints *)
+	Cluster_stack_constraints.assert_sr_compatible ~__context ~cluster_stack ~sr;
 	(* Check the exported capabilities of the SR's SM plugin *)
 	let srtype = Db.SR.get_type ~__context ~self:sr in
 	let open Db_filter_types in
@@ -70,12 +72,12 @@ let assert_sr_can_host_statefile ~__context ~sr =
 		&& not (List.mem_assoc "VDI_ATTACH_OFFLINE" sm.Db_actions.sM_features)
 		then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
 
-let list_srs_which_can_host_statefile ~__context =
-	List.filter (fun sr -> try assert_sr_can_host_statefile ~__context ~sr; true
+let list_srs_which_can_host_statefile ~__context ~cluster_stack =
+	List.filter (fun sr -> try assert_sr_can_host_statefile ~__context ~sr ~cluster_stack; true
 	with _ -> false) (Db.SR.get_all ~__context)
 
-let create ~__context ~sr =
-	assert_sr_can_host_statefile ~__context ~sr;
+let create ~__context ~sr ~cluster_stack =
+	assert_sr_can_host_statefile ~__context ~sr ~cluster_stack;
 	let size = minimum_size in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
@@ -91,8 +93,8 @@ let create ~__context ~sr =
     it expects to see a poisoned VDI but not necessarily a stale or corrupted one. Consider that
     when using LVM-based SRs the VDI could be deleted on the master but the slaves would still
     have access to stale data. *)
-let find_or_create ~__context ~sr =
-	assert_sr_can_host_statefile ~__context ~sr;
+let find_or_create ~__context ~sr ~cluster_stack =
+	assert_sr_can_host_statefile ~__context ~sr ~cluster_stack;
 	let size = minimum_size in
 	match
 		List.filter
@@ -105,7 +107,7 @@ let find_or_create ~__context ~sr =
 					x
 				| [] ->
 					info "no suitable existing statefile found; creating a fresh one";
-					create ~__context ~sr
+					create ~__context ~sr ~cluster_stack
 
 let list_existing_statefiles () =
 	List.filter (fun x -> x.Static_vdis.reason = reason) (Static_vdis.list ())

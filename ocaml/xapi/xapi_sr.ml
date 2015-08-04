@@ -471,7 +471,8 @@ let set_physical_utilisation ~__context ~self ~value =
 	Db.SR.set_physical_utilisation ~__context ~self ~value
 
 let assert_can_host_ha_statefile ~__context ~sr =
-	Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
+	let cluster_stack = Cluster_stack_constraints.choose_cluster_stack ~__context in
+	Xha_statefile.assert_sr_can_host_statefile ~__context ~sr ~cluster_stack
 
 let assert_supports_database_replication ~__context ~sr =
 	(* Check that each host has a PBD to this SR *)

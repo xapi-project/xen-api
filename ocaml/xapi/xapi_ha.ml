@@ -1416,7 +1416,7 @@ let enable __context heartbeat_srs configuration =
 	let database_vdis = ref [] in
 	try
 		(* 1a. Create state file VDIs *)
-		let possible_srs = if heartbeat_srs = [] then Xha_statefile.list_srs_which_can_host_statefile ~__context else heartbeat_srs in
+		let possible_srs = if heartbeat_srs = [] then Xha_statefile.list_srs_which_can_host_statefile ~__context ~cluster_stack else heartbeat_srs in
 		if List.length possible_srs = 0
 		then raise (Api_errors.Server_error(Api_errors.cannot_create_state_file, []));
 
@@ -1424,7 +1424,7 @@ let enable __context heartbeat_srs configuration =
 		let srs = [ List.hd possible_srs ] in
 		List.iter
 			(fun sr ->
-				let vdi = Xha_statefile.find_or_create ~__context ~sr in
+				let vdi = Xha_statefile.find_or_create ~__context ~sr ~cluster_stack in
 				statefile_vdis := vdi :: !statefile_vdis;
 			) srs;
 		(* For storing the database, assume there is only one SR *)
