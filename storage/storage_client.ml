@@ -43,6 +43,7 @@ end)
 
 let default_vdi_info = {
   vdi = "";
+  uuid = None;
   content_id = "";
   name_label = "";
   name_description = "";
