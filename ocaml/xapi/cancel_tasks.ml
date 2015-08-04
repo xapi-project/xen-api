@@ -31,7 +31,8 @@ let update_all_allowed_operations ~__context =
 	and all_vdis = Db.VDI.get_all ~__context
 	and all_srs = Db.SR.get_all ~__context
 	and all_pbds = Db.PBD.get_all ~__context
-	and all_hosts = Db.Host.get_all ~__context in
+	and all_hosts = Db.Host.get_all ~__context
+	and pool = Helpers.get_pool ~__context in
 	(* VM *)
 	time_this "Cancel_tasks.update_all_allowed_operations: VM" (fun () ->
 		debug "Updating allowed operations: VM";
@@ -67,7 +68,12 @@ let update_all_allowed_operations ~__context =
 	time_this "Cancel_tasks.update_all_allowed_operations: host" (fun () ->
 		debug "Updating allowed operations: host";
 		List.iter (safe_wrapper "allowed_ops - host" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) all_hosts;
-		debug "Finished updating allowed operations: host")
+		debug "Finished updating allowed operations: host");
+	(* Pool *)
+	time_this "Cancel_tasks.update_all_allowed_operations: pool" (fun () ->
+		debug "Updating allowed operations: pool";
+		safe_wrapper "allowed_ops - pool" (fun pool -> Xapi_pool_helpers.update_allowed_operations ~__context ~self:pool) pool;
+		debug "Finished updating allowed operations: pool")
 
 (* !!! This code was written in a world when tasks, current_operations and allowed_operations were persistent.
    This is no longer the case (we changed this to reduce writes to flash for OEM case + to simplify xapi logic elsewhere).
