@@ -31,7 +31,12 @@ let api =
           "within the enclosing Storage Repository (SR). A typical value would";
           "be a filename or an LVM volume name."
           ]),
-        [ "name", Basic String, String.concat " " [
+        [ "uuid", Option (Basic String), String.concat " " [
+          "A uuid (or guid) for the volume, if one is available.";
+          "If a storage system has a built-in notion of a guid, then it";
+          "will be returned here.";
+          ];
+          "name", Basic String, String.concat " " [
           "Short, human-readable label for the volume. Names are commonly used by";
           "when displaying short lists of volumes.";
           ];
