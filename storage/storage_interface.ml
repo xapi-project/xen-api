@@ -52,6 +52,7 @@ type content_id = string
 (** The result of an operation which creates or examines a VDI *)
 type vdi_info = {
     vdi: vdi;
+    uuid: string option;
 	content_id: content_id;
     name_label: string;
     name_description: string;
@@ -70,6 +71,26 @@ type vdi_info = {
 	persistent: bool;
     sm_config: (string * string) list;
 }
+
+let default_vdi_info = {
+    vdi = "";
+    uuid = None;
+    content_id = "";
+    name_label = "";
+    name_description = "";
+    ty = "";
+    metadata_of_pool = "";
+    is_a_snapshot = false;
+    snapshot_time = "";
+    snapshot_of = "";
+    read_only = false;
+    virtual_size = 0L;
+    physical_utilisation = 0L;
+    persistent = true;
+    sm_config = [];
+}
+
+let vdi_info_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_vdi_info default_vdi_info) |> vdi_info_of_rpc
 
 type sr_info = {
     total_space: int64;        (** total number of bytes on the storage substrate *)
