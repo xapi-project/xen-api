@@ -9,6 +9,11 @@ REASON=$4
 function reset {
 	echo Resetting VDIs on host $HOSTUUID
 	IFS=","
+        for i in `xe sr-list host-uuid=$HOSTUUID --minimal`
+	do
+		xenvm host-disconnect --uncooperative /dev/VG_XenStorage-$i $HOSTUUID
+	done
+
 	for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
 	do
 		SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
@@ -16,6 +21,14 @@ function reset {
 	done
 }
 
+function forget {
+	echo Forgetting host: $HOSTUUID
+	IFS=","
+	for i in `xe sr-list host-uuid=$HOSTUUID --minimal`
+	do
+		xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID
+	done
+}
 # Only reset the VDIs if the host is actually fenced, or the user has requested it.
 if [ $REASON = "fenced" ]; then
 	reset
@@ -27,6 +40,7 @@ fi
 
 if [ $REASON = "dbdestroy" ]; then
         reset
+	forget
 fi
 
 
