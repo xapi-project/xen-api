@@ -39,6 +39,7 @@ Param([Parameter(Mandatory=$true)][String]$out_xml,
 
 # Initial Setup
 
+[Net.ServicePointManager]::SecurityProtocol='tls,tls11,tls12'
 $BestEffort = $false
 $NoWarnCertificates = $true
 $info = $true
