@@ -67,6 +67,11 @@ external forget_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
 external query_possible_vm_dss : vm_uuid:string -> Data_source.t list = ""
 external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
 
+external add_sr_ds : sr_uuid:string -> ds_name:string -> unit = ""
+external forget_sr_ds : sr_uuid:string -> ds_name:string -> unit = ""
+external query_possible_sr_dss : sr_uuid:string -> Data_source.t list = ""
+external query_sr_ds : sr_uuid:string -> ds_name:string -> float = ""
+
 external update_use_min_max : value:bool -> unit = ""
 
 external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
