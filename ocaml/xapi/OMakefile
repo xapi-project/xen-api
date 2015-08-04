@@ -273,6 +273,7 @@ XAPI_MODULES = $(COMMON) \
 	rrdd_helper \
 	../util/rpc_retry \
 	xapi \
+	cluster_stack_constraints \
 
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
 
