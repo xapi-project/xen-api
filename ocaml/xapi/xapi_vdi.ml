@@ -268,24 +268,6 @@ let update_vdi_db ~__context ~sr newvdi =
 		| (vdi, _) :: _ -> vdi
 		| [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
 
-let default_vdi_info =
-	let open Storage_interface in {
-		vdi = "";
-		content_id = "";
-		name_label = "";
-		name_description = "";
-		ty = "user";
-		metadata_of_pool = "";
-		is_a_snapshot = false;
-		snapshot_time = Date.to_string Date.never;
-		snapshot_of = "";
-		read_only = false;
-		virtual_size = 0L;
-		physical_utilisation = 0L;
-		persistent = true;
-		sm_config = [];
-	}
-
 let create ~__context ~name_label ~name_description
         ~sR ~virtual_size ~_type
         ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
