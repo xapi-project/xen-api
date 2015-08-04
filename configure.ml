@@ -26,7 +26,7 @@ let libexecdir = dir "libexecdir" "/opt/xensource/libexec" "LIBEXECDIR" "utility
 let scriptsdir = dir "scriptsdir" "/etc/xensource/scripts" "SCRIPTSDIR" "utility scripts"
 let sharedir = dir "sharedir" "/opt/xensource" "SHAREDIR" "shared binary files"
 let webdir = dir "webdir" "/opt/xensource/www" "WEBDIR" "html files"
-let xhadir = dir "xhadir" "/opt/xensource/xha" "XHADIR" "HA daemon"
+let cluster_stack_root = dir "cluster-stack-root" "/usr/libexec/xapi/cluster-stack" "CLUSTER_STACK_ROOT" "cluster stacks"
 let bindir = dir "bindir" "/opt/xensource/bin" "BINDIR" "binaries"
 let sbindir = dir "sbindir" "/opt/xensource/bin" "BINDIR" "system binaries"
 let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
@@ -41,8 +41,8 @@ let output_file filename lines =
   List.iter (output_string oc) lines;
   close_out oc
 
-let configure disable_warn_error varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir =
-  Printf.printf "Configuring with the following params:\n\tdisable_warn_error=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\txhadir=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" disable_warn_error varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir xhadir bindir sbindir udevdir;
+let configure disable_warn_error varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir =
+  Printf.printf "Configuring with the following params:\n\tdisable_warn_error=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\tcluster_stack_root=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" disable_warn_error varpatchdir etcdir optdir plugindir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir;
 
   (* Write config.mk *)
   let lines = 
@@ -60,14 +60,14 @@ let configure disable_warn_error varpatchdir etcdir optdir plugindir hooksdir in
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
       Printf.sprintf "SHAREDIR=%s" sharedir;
       Printf.sprintf "WEBDIR=%s" webdir;
-      Printf.sprintf "XHADIR=%s" xhadir;
+      Printf.sprintf "CLUSTER_STACK_ROOT=%s" cluster_stack_root;
       Printf.sprintf "BINDIR=%s" bindir;
       Printf.sprintf "SBINDIR=%s" sbindir;
       Printf.sprintf "UDEVDIR=%s" udevdir
     ] in
   output_file config_mk lines
 
-let configure_t = Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ xhadir $ bindir $ sbindir $ udevdir )
+let configure_t = Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $ optdir $ plugindir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ cluster_stack_root $ bindir $ sbindir $ udevdir )
 
 let () = 
   match 

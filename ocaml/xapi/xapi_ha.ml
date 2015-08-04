@@ -38,14 +38,18 @@ let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:Non
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
-let ha_set_pool_state = Filename.concat !Xapi_globs.xha_dir "ha_set_pool_state"
-let ha_start_daemon = Filename.concat !Xapi_globs.xha_dir "ha_start_daemon"
-let ha_stop_daemon = Filename.concat !Xapi_globs.xha_dir "ha_stop_daemon"
-let ha_query_liveset = Filename.concat !Xapi_globs.xha_dir "ha_query_liveset"
-let ha_propose_master = Filename.concat !Xapi_globs.xha_dir "ha_propose_master"
-let ha_disarm_fencing = Filename.concat !Xapi_globs.xha_dir "ha_disarm_fencing"
-let ha_set_excluded = Filename.concat !Xapi_globs.xha_dir "ha_set_excluded"
-(* Unused: let ha_clear_excluded = Filename.concat !Xapi_globs.xha_dir "ha_clear_excluded" *)
+let ha_dir () =
+	let stack = Localdb.get Constants.ha_cluster_stack in
+	Filename.concat !Xapi_globs.cluster_stack_root stack
+
+let ha_set_pool_state = "ha_set_pool_state"
+let ha_start_daemon = "ha_start_daemon"
+let ha_stop_daemon = "ha_stop_daemon"
+let ha_query_liveset = "ha_query_liveset"
+let ha_propose_master = "ha_propose_master"
+let ha_disarm_fencing = "ha_disarm_fencing"
+let ha_set_excluded = "ha_set_excluded"
+(* Unused: let ha_clear_excluded = "ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
@@ -54,11 +58,14 @@ exception Xha_error of Xha_errno.code
 let ha_script_m = Mutex.create ()
 
 let call_script ?log_successful_output script args =
+	let path = ha_dir () in
+	let script' = Filename.concat path script in
+	let env = [| (Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path) |] in
 	try
-		Mutex.execute ha_script_m (fun () -> Helpers.call_script ?log_successful_output script args)
+		Mutex.execute ha_script_m (fun () -> Helpers.call_script ?log_successful_output ~env script' args)
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) ->
 		let code = Xha_errno.of_int n in
-		warn "%s %s returned %s (%s)" script (String.concat " " args)
+		warn "%s %s returned %s (%s)" script' (String.concat " " args)
 			(Xha_errno.to_string code) (Xha_errno.to_description_string code);
 		raise (Xha_error code)
 
@@ -1019,6 +1026,16 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
 		failwith "FIST: fist_reconfigure_host"
 	end;
 
+	(* Write name of cluster stack to the local DB. This determines which HA scripts we use. *)
+	let pool = Helpers.get_pool ~__context in
+	let cluster_stack = Db.Pool.get_ha_cluster_stack ~__context ~self:pool in
+	(try
+		let dir = Filename.concat !Xapi_globs.cluster_stack_root cluster_stack in
+		Unix.access dir [Unix.F_OK]
+	with _ ->
+		failwith ("cluster stack " ^ cluster_stack ^ " not installed"));
+	Localdb.put Constants.ha_cluster_stack cluster_stack;
+
 	Db.Host.set_ha_statefiles ~__context ~self:localhost ~value:(List.map Ref.string_of statevdis);
 
 	(* The master has already attached the statefile VDIs and written the
@@ -1405,6 +1422,7 @@ let enable __context heartbeat_srs configuration =
 
 	let cluster_stack = Cluster_stack_constraints.choose_cluster_stack ~__context in
 	Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:cluster_stack;
+	Localdb.put Constants.ha_cluster_stack cluster_stack;
 
 	(* Steps from 8.7 Enabling HA in Marathon spec:
 	 * 1. Bring up state file VDI(s)

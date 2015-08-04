@@ -31,11 +31,11 @@ let required_cluster_stack ~__context =
 		error "Conflicting cluster stack demands.";
 		failwith "Conflicting cluster stack demands."
 
-(* Choose a cluster stack given the constraints. Use xhad if there are no constaints. *)
+(* Choose a cluster stack given the constraints. Use default stack if there are no constaints. *)
 let choose_cluster_stack ~__context =
 	match required_cluster_stack ~__context with
 	| Some stack -> stack
-	| None -> "xhad"
+	| None -> !Xapi_globs.cluster_stack_default
 
 (* Check whether the given SR is compatible with the given cluster stack *)
 let assert_sr_compatible ~__context ~cluster_stack ~sr =
