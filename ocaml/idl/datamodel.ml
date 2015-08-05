@@ -5528,6 +5528,7 @@ let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on 
 				   "ha_statefile", "a disk used for HA storage heartbeating";
 				   "metadata", "a disk used for HA Pool metadata";
 				   "redo_log", "a disk used for a general metadata redo-log";
+				   "rrd", "a disk that stores SR-level RRDs";
 				 ])
 
 let vdi_introduce_params first_rel =

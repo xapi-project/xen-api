@@ -282,7 +282,8 @@ let create ~__context ~name_label ~name_description
         | `redo_log -> "redo_log"
         | `suspend -> "suspend"
         | `system -> "system"
-        | `user -> "user" in
+        | `user -> "user"
+        | `rrd -> "rrd" in
 
     let open Storage_access in
     let task = Context.get_task_id __context in
