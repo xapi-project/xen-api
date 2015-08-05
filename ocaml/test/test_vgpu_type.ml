@@ -160,6 +160,24 @@ let test_identifier_lookup () =
 		test_model_name
 		(Db.VGPU_type.get_model_name ~__context ~self:k100_ref_1)
 
+let test_vendor_model_lookup () =
+	let __context = make_test_database () in
+	let k100_ref_1 = find_or_create ~__context k100 in
+	(* Set the identifier to the empty string, as if we have upgraded from an old
+	 * version that did not have the identifier field. *)
+	Db.VGPU_type.set_identifier ~__context ~self:k100_ref_1 ~value:"";
+	let k100_ref_2 = find_or_create ~__context k100 in
+	(* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
+	 * been created. *)
+	assert_equal
+		~msg:"New k100 type was created erroneously"
+		k100_ref_1 k100_ref_2;
+	(* Make sure the identifier field has been updated. *)
+	assert_equal
+		~msg:"k100 identifier was not updated."
+		(Identifier.to_string k100.identifier)
+		(Db.VGPU_type.get_identifier ~__context ~self:k100_ref_1)
+
 let test =
 	"test_vgpu_type" >:::
 		[
@@ -167,4 +185,5 @@ let test =
 			"print_nv_types" >:: print_nv_types;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
+			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
 		]
