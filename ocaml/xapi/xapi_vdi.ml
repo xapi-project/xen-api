@@ -719,7 +719,8 @@ let set_name_label ~__context ~self ~value =
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_label:value
-		)
+		);
+	update ~__context ~vdi:self
 
 let set_name_description ~__context ~self ~value =
 	let open Storage_access in
@@ -732,7 +733,8 @@ let set_name_description ~__context ~self ~value =
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_description:value
-		)
+		);
+	update ~__context ~vdi:self
 
 let checksum ~__context ~self =
 	let do_checksum f = Digest.to_hex (Digest.file f) in
