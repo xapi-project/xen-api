@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Listext
 open Threadext
 open Xstringext
 module XenAPI = Client.Client
@@ -839,6 +840,55 @@ let external_rpc queue_name uri =
 				~dststr:queue_name
 				uri
 				call
+
+(** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
+    plugins mentioned in the configuration file whitelist. *)
+let on_xapi_start ~__context =
+	let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
+	let explicitly_configured_drivers = List.filter_map (function `Sm x -> Some x | `All -> None) !Xapi_globs.sm_plugins in
+	let smapiv1_drivers = Sm.supported_drivers () in
+	let configured_drivers = explicitly_configured_drivers @ smapiv1_drivers in
+	let in_use_drivers = List.map (fun (rf, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context) in
+	let to_keep = configured_drivers @ in_use_drivers in
+	(* Delete all records which aren't configured or in-use *)
+	List.iter
+		(fun ty ->
+			info "Unregistering SM plugin %s since not in the whitelist and not in-use" ty;
+			let self, _ = List.assoc ty existing in
+			try
+				Db.SM.destroy ~__context ~self
+			with _ -> ()
+		) (List.set_difference (List.map fst existing) to_keep);
+	(* Create all missing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			Xapi_sm.create_from_query_result ~__context query_result
+		) (List.set_difference smapiv1_drivers (List.map fst existing));
+	(* Update all existing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) query_result
+		) (List.intersect smapiv1_drivers (List.map fst existing));
+	let smapiv2_drivers = List.set_difference to_keep smapiv1_drivers in
+	(* Create all missing SMAPIv2 plugins *)
+	let query ty =
+		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+		let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
+		let rpc = external_rpc queue_name uri in
+		let module C = Storage_interface.Client(struct let rpc = rpc end) in
+		let dbg = Context.string_of_task __context in
+		C.Query.query ~dbg in
+	List.iter
+		(fun ty ->
+			Xapi_sm.create_from_query_result ~__context (query ty)
+		) (List.set_difference smapiv2_drivers (List.map fst existing));
+	(* Update all existing SMAPIv2 plugins *)
+	List.iter
+		(fun ty ->
+			Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) (query ty)
+		) (List.intersect smapiv2_drivers (List.map fst existing))
 
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)

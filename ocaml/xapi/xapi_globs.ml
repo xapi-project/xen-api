@@ -883,6 +883,7 @@ let trusted_patch_key = ref citrix_patch_key
 
 let gen_list_option name desc of_string string_of opt =
   let parse s =
+    opt := [];
     try
       String.split_f String.isspace s |>
       List.iter (fun x -> opt := (of_string x) :: !opt)
@@ -894,7 +895,16 @@ let gen_list_option name desc of_string string_of opt =
   in
   name, Arg.String parse, get, desc
 
+let sm_plugins = ref [ ]
+
+let accept_sm_plugin name =
+  List.(fold_left (||) false (map (function `All -> true | `Sm x -> String.lowercase x = String.lowercase name) !sm_plugins))
+
 let other_options = [
+  gen_list_option "sm-plugins"
+    "space-separated list of storage plugins to allow."
+    (fun x -> if x = "*" then `All else `Sm x) (fun x -> match x with `All -> "*" | `Sm x -> x) sm_plugins;
+
   "hotfix-fingerprint", Arg.Set_string trusted_patch_key,
     (fun () -> !trusted_patch_key), "Fingerprint of the key used for signed hotfixes";
 
