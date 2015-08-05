@@ -1095,7 +1095,8 @@ module VGPUType : HandlerTools = struct
 		| Some (vgpu_type, _) -> Found_VGPU_type vgpu_type
 		| None ->
 			warn
-				"Unable to find VGPU_type (%s,%s) - creating a new record"
+				"Unable to find VGPU_type (%s,%s,%s) - creating a new record"
+				vgpu_type_record.API.vGPU_type_identifier
 				vgpu_type_record.API.vGPU_type_vendor_name
 				vgpu_type_record.API.vGPU_type_model_name;
 			Create vgpu_type_record
