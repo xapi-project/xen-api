@@ -138,10 +138,33 @@ let test_find_or_create () =
 		new_k100.size
 		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1)
 
+let test_identifier_lookup () =
+	let test_vendor_name = "test_vendor_name" in
+	let test_model_name = "test_model_name" in
+	let __context = make_test_database () in
+	let k100_ref_1 = find_or_create ~__context k100 in
+	let k100_ref_2 = find_or_create ~__context
+		{k100 with vendor_name = test_vendor_name; model_name = test_model_name} in
+	(* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
+	 * been created. *)
+	assert_equal
+		~msg:"New k100 type was created erroneously"
+		k100_ref_1 k100_ref_2;
+	(* Make sure the VGPU_type's vendor and model names have been updated. *)
+	assert_equal
+		~msg:"k100 vendor_name was not updated"
+		test_vendor_name
+		(Db.VGPU_type.get_vendor_name ~__context ~self:k100_ref_1);
+	assert_equal
+		~msg:"k100 model_name was not updated"
+		test_model_name
+		(Db.VGPU_type.get_model_name ~__context ~self:k100_ref_1)
+
 let test =
 	"test_vgpu_type" >:::
 		[
 			"test_of_conf_file" >:: OfConfFile.test;
 			"print_nv_types" >:: print_nv_types;
 			"test_find_or_create" >:: test_find_or_create;
+			"test_identifier_lookup" >:: test_identifier_lookup;
 		]
