@@ -1361,7 +1361,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let assert_can_set_auto_update_drivers ~__context ~self ~value =
 			info "VM.assert_can_set_auto_update_drivers: VM = '%s' to %b " (vm_uuid ~__context self) value;
 			Local.VM.assert_can_set_auto_update_drivers ~__context ~self ~value
-			
+
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
 			Db.VM.set_xenstore_data ~__context ~self ~value;
@@ -2064,6 +2064,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let pbd = choose_pbd_for_sr ~__context ~self:sr () in
 			let host = Db.PBD.get_host ~__context ~self:pbd in
 			do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
+
+		let xenprep_start ~__context ~self =
+			info "VM.xenprep_start: VM = '%s'" (vm_uuid ~__context self);
+			let local_fn = Local.VM.xenprep_start ~self in
+			forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
 
 	end
 

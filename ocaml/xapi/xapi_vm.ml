@@ -1018,3 +1018,7 @@ let assert_can_set_auto_update_drivers ~__context ~self ~value =
 let set_auto_update_drivers ~__context ~self ~value=	
 	assert_can_set_auto_update_drivers ~__context ~self ~value;
 	Db.VM.set_auto_update_drivers ~__context ~self ~value
+
+let xenprep_start ~__context ~self =
+	info "Xapi_vm.xenprep_start: VM=%s" (Db.VM.get_uuid ~__context ~self);
+	Db.VM.add_to_other_config ~__context ~self ~key:"xenprep_progress" ~value:"dummyvalue_should_be_cd_inserted"
