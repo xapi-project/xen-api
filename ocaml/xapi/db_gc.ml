@@ -72,7 +72,7 @@ let gc_VGPU_types ~__context =
 	match garbage with
 	| [] -> ()
 	| _ ->
-		debug "GC-ing the follwing unused and unsupported VGPU_types: [ %s ]"
+		debug "GC-ing the following unused and unsupported VGPU_types: [ %s ]"
 			(String.concat "; " (List.map Ref.string_of (List.map fst garbage)));
 		List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
 
