@@ -403,6 +403,18 @@ let process root_dir name x =
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
+  | { R.name = "SR.destroy"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.SR.Destroy.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Destroy.sr
+    >>= fun sr ->
+    let args = Storage.Volume.Types.SR.Destroy.In.make
+      args.Args.SR.Destroy.dbg
+      sr in
+    let args = Storage.Volume.Types.SR.Destroy.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.destroy") args Storage.Volume.Types.SR.Destroy.Out.t_of_rpc
+    >>= fun response ->
+    Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
   | { R.name = "SR.scan"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.SR.Scan.request_of_rpc args in
