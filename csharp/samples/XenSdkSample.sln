@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 9.00
-# Visual Studio 2005
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetVmRecords", "GetVmRecords\GetVmRecords.csproj", "{869DC514-BCC0-42D7-BFA7-077005B23107}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetVariousRecords", "GetVariousRecords\GetVariousRecords.csproj", "{099064D3-BC8B-4320-AF43-ECADD0F97D09}"

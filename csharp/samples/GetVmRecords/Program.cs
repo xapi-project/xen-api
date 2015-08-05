@@ -30,6 +30,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text;
 using XenAPI;
 
@@ -50,11 +51,13 @@ namespace GetVmRecords
 
             // Host information necessary to get started
             string hostname = args[0];
-            int port = 80; // default
+            int port = 443; // default
             string username = args[1];
             string password = args[2];
 
             // Establish a session
+            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };  // Trust all certificates: DO NOT USE IN PRODUCTION CODE!
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
             Session session = new Session(hostname, port);
 
             // Authenticate with username and password. The third parameter tells the server which API version we support.

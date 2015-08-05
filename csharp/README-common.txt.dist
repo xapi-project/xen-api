@@ -25,6 +25,12 @@ under the BSD license. Such examples are licensed clearly at the top
 of each file.
 
 
+Prerequisites
+-------------
+
+This library requires .NET 4.5 or greater.
+
+
 Dependencies
 ------------
 
