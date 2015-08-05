@@ -6,13 +6,7 @@ Getting Started
 2.  Extract the XenServer.NET binaries archive, making sure to place the
     binaries in the same directory as the samples.
 	
-3.  Open XenSdkSample.sln inside Visual Studio (2005 or greater).
-
-4.  If you are using Visual Studio 2005, the samples are now ready to
-    compile. On later versions, Visual Studio will offer to convert
-    the solution file to a later format. Proceed with this conversion
-    (there should be no need to take a backup) and then you too will
-    be ready to compile the samples.
+3.  Open XenSdkSample.sln inside Visual Studio (2013 or greater).
 
 
 Three console applications are produced:
