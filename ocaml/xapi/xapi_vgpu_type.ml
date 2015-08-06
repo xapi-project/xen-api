@@ -85,6 +85,7 @@ type vgpu_type = {
 	size : int64;
 	internal_config : (string * string) list;
 	identifier : Identifier.t;
+	experimental : bool;
 }
 
 let passthrough_gpu = {
@@ -97,16 +98,17 @@ let passthrough_gpu = {
 	size = 0L;
 	internal_config = [];
 	identifier = Identifier.Passthrough;
+	experimental = false;
 }
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
 		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation
-		~identifier =
+		~identifier ~experimental =
 	let ref = Ref.make () in
 	let uuid = Uuidm.to_string (Uuidm.create `V4) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-		~size ~internal_config ~implementation ~identifier;
+		~size ~internal_config ~implementation ~identifier ~experimental;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
@@ -193,6 +195,10 @@ let find_or_create ~__context vgpu_type =
 			Db.VGPU_type.set_implementation ~__context
 				~self:vgpu_type_ref
 				~value:implementation;
+		if vgpu_type.experimental <> rc.Db_actions.vGPU_type_experimental then
+			Db.VGPU_type.set_experimental ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.experimental;
 		vgpu_type_ref
 	| None ->
 		create ~__context ~vendor_name:vgpu_type.vendor_name
@@ -205,6 +211,7 @@ let find_or_create ~__context vgpu_type =
 			~internal_config:vgpu_type.internal_config
 			~implementation
 			~identifier:(Identifier.to_string vgpu_type.identifier)
+			~experimental:vgpu_type.experimental
 
 module Nvidia = struct
 	let nvidia_conf_dir = "/usr/share/nvidia/vgx"
@@ -333,11 +340,12 @@ module Nvidia = struct
 					psubdev_id = conf.psubdev_id;
 					vdev_id = conf.vdev_id;
 					vsubdev_id = conf.vsubdev_id;
-				}) in
+				})
+				and experimental = false in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
 					max_resolution_x; max_resolution_y; size; internal_config;
-					identifier}
+					identifier; experimental}
 				in
 				build_vgpu_types pci_access (vgpu_type :: ac) tl
 		in
@@ -421,6 +429,7 @@ module Intel = struct
 				fence_sz = 4L;
 				monitor_config_file = None;
 			});
+			experimental = false;
 		}
 
 	let find_or_create_supported_types ~__context ~pci
