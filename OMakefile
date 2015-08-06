@@ -71,6 +71,8 @@ install: $(RRDP_IOSTAT) $(RRDP_XENPM) $(RRDP_SQUEEZED)
 	install -m 755 init.d-rrdd-plugins $(DESTDIR)/etc/rc.d/init.d/xcp-rrdd-plugins
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	install -m 755 sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
+	mkdir -p $(DESTDIR)/etc/logrotate.d
+	install -m 644 logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 
 .PHONY: clean
 clean:
