@@ -93,20 +93,20 @@ let print_nv_types () =
 
 let test_find_or_create () =
 	let __context = make_test_database () in
-	let k100_ref = find_or_create ~__context k100 in
+	let k100_ref_1 = find_or_create ~__context k100 in
 	(* Check the VGPU type created in the DB has the expected fields. *)
 	assert_equal
 		~msg:"k100 framebuffer_size is incorrect"
 		k100.framebuffer_size
-		(Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref);
+		(Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref_1);
 	assert_equal
 		~msg:"k100 max_heads is incorrect"
 		k100.max_heads
-		(Db.VGPU_type.get_max_heads ~__context ~self:k100_ref);
+		(Db.VGPU_type.get_max_heads ~__context ~self:k100_ref_1);
 	assert_equal
 		~msg:"k100 size is incorrect"
 		k100.size
-		(Db.VGPU_type.get_size ~__context ~self:k100_ref);
+		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1);
 	(* Simulate an update of framebuffer_size, max_heads and size as if the
 	 * config file had been updated. *)
 	let new_k100 = {
@@ -117,21 +117,66 @@ let test_find_or_create () =
 	} in
 	(* We can ignore the result as it should be the same as the VGPU_type ref
 	 * obtained earlier. *)
-	let (_: API.ref_VGPU_type) = find_or_create ~__context new_k100 in
+	let k100_ref_2 = find_or_create ~__context new_k100 in
+	(* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
+	 * been created. *)
+	assert_equal
+		~msg:"New k100 type was created erroneously"
+		k100_ref_1 k100_ref_2;
 	(* Make sure the existing VGPU type object in the database
 	 * has been updated. *)
 	assert_equal
 		~msg:"k100 framebuffer_size was not updated"
 		new_k100.framebuffer_size
-		(Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref);
+		(Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref_1);
 	assert_equal
 		~msg:"k100 max_heads was not updated"
 		new_k100.max_heads
-		(Db.VGPU_type.get_max_heads ~__context ~self:k100_ref);
+		(Db.VGPU_type.get_max_heads ~__context ~self:k100_ref_1);
 	assert_equal
 		~msg:"k100 size was not updated"
 		new_k100.size
-		(Db.VGPU_type.get_size ~__context ~self:k100_ref)
+		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1)
+
+let test_identifier_lookup () =
+	let test_vendor_name = "test_vendor_name" in
+	let test_model_name = "test_model_name" in
+	let __context = make_test_database () in
+	let k100_ref_1 = find_or_create ~__context k100 in
+	let k100_ref_2 = find_or_create ~__context
+		{k100 with vendor_name = test_vendor_name; model_name = test_model_name} in
+	(* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
+	 * been created. *)
+	assert_equal
+		~msg:"New k100 type was created erroneously"
+		k100_ref_1 k100_ref_2;
+	(* Make sure the VGPU_type's vendor and model names have been updated. *)
+	assert_equal
+		~msg:"k100 vendor_name was not updated"
+		test_vendor_name
+		(Db.VGPU_type.get_vendor_name ~__context ~self:k100_ref_1);
+	assert_equal
+		~msg:"k100 model_name was not updated"
+		test_model_name
+		(Db.VGPU_type.get_model_name ~__context ~self:k100_ref_1)
+
+let test_vendor_model_lookup () =
+	let __context = make_test_database () in
+	let k100_ref_1 = find_or_create ~__context k100 in
+	(* Set the identifier to the empty string, as if we have upgraded from an old
+	 * version that did not have the identifier field. *)
+	Db.VGPU_type.set_identifier ~__context ~self:k100_ref_1 ~value:"";
+	let k100_ref_2 = find_or_create ~__context k100 in
+	(* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
+	 * been created. *)
+	assert_equal
+		~msg:"New k100 type was created erroneously"
+		k100_ref_1 k100_ref_2;
+	(* Make sure the identifier field has been updated. *)
+	assert_equal
+		~msg:"k100 identifier was not updated."
+		(Identifier.to_string k100.identifier)
+		(Db.VGPU_type.get_identifier ~__context ~self:k100_ref_1)
 
 let test =
 	"test_vgpu_type" >:::
@@ -139,4 +184,6 @@ let test =
 			"test_of_conf_file" >:: OfConfFile.test;
 			"print_nv_types" >:: print_nv_types;
 			"test_find_or_create" >:: test_find_or_create;
+			"test_identifier_lookup" >:: test_identifier_lookup;
+			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
 		]

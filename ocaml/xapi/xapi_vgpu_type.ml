@@ -19,6 +19,62 @@ open Xstringext
 
 exception Parse_error of exn
 
+module Identifier = struct
+	let version = 1
+
+	type nvidia_id = {
+		pdev_id : int;
+		psubdev_id : int option;
+		vdev_id : int;
+		vsubdev_id : int;
+	}
+
+	type gvt_g_id = {
+		pdev_id : int;
+		low_gm_sz : int64;
+		high_gm_sz : int64;
+		fence_sz : int64;
+		monitor_config_file : string option;
+	}
+
+	type t =
+		| Passthrough
+		| Nvidia of nvidia_id
+		| GVT_g of gvt_g_id
+
+	(* Create a unique string for each possible value of type t. This value
+	 * functions as a primary key for the VGPU_type object, so we can use it
+	 * to decide whether a relevant VGPU_type already exists in the database. *)
+	let to_string id =
+		let data =
+			match id with
+			| Passthrough -> "passthrough"
+			| Nvidia nvidia_id ->
+					Printf.sprintf "nvidia,%04x,%s,%04x,%04x"
+						nvidia_id.pdev_id
+						(match nvidia_id.psubdev_id with
+							| Some id -> Printf.sprintf "%04x" id
+							| None -> "")
+						nvidia_id.vdev_id
+						nvidia_id.vsubdev_id
+			| GVT_g gvt_g_id ->
+					Printf.sprintf "gvt-g,%04x,%Lx,%Lx,%Lx,%s"
+						gvt_g_id.pdev_id
+						gvt_g_id.low_gm_sz
+						gvt_g_id.high_gm_sz
+						gvt_g_id.fence_sz
+						(match gvt_g_id.monitor_config_file with
+							| Some path -> path
+							| None -> "")
+		in
+		Printf.sprintf "%04d:%s" version data
+
+	let to_implementation : (t -> API.vgpu_type_implementation) = function
+		| Passthrough -> `passthrough
+		| Nvidia _ -> `nvidia
+		| GVT_g _ -> `gvt_g
+end
+
 type vgpu_type = {
 	vendor_name : string;
 	model_name : string;
@@ -28,7 +84,7 @@ type vgpu_type = {
 	max_resolution_y : int64;
 	size : int64;
 	internal_config : (string * string) list;
-	implementation : API.vgpu_type_implementation;
+	identifier : Identifier.t;
 }
 
 let passthrough_gpu = {
@@ -40,30 +96,73 @@ let passthrough_gpu = {
 	max_resolution_y = 0L;
 	size = 0L;
 	internal_config = [];
-	implementation = `passthrough;
+	identifier = Identifier.Passthrough;
 }
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
-		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation =
+		~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation
+		~identifier =
 	let ref = Ref.make () in
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let uuid = Uuidm.to_string (Uuidm.create `V4) in
 	Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
 		~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-		~size ~internal_config ~implementation;
+		~size ~internal_config ~implementation ~identifier;
 	debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
 		(Ref.string_of ref) vendor_name model_name;
 	ref
 
-let find_or_create ~__context vgpu_type =
+let find_and_update ~__context vgpu_type =
+	let identifier_string = Identifier.to_string vgpu_type.identifier in
+	let fail () =
+		failwith "Error: Multiple vGPU types exist with the same configuration." in
 	let open Db_filter_types in
-	let existing_types =
-		Db.VGPU_type.get_internal_records_where ~__context
-			~expr:(And
-				(Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
-				(Eq (Field "model_name", Literal vgpu_type.model_name))))
+	let new_expr = Eq (Field "identifier", Literal identifier_string) in
+	let old_expr = And
+		((Eq (Field "vendor_name", Literal vgpu_type.vendor_name),
+		(Eq (Field "model_name", Literal vgpu_type.model_name))))
 	in
-	match existing_types with
-	| [vgpu_type_ref, rc] ->
+	(* First try to look up by identifier. *)
+	match Db.VGPU_type.get_internal_records_where ~__context ~expr:new_expr with
+	| [vgpu_type_ref, rc] -> begin
+		(* If looking up by identifier succeeds, update that VGPU_type's vendor_name
+		 * and model_name. *)
+		if vgpu_type.vendor_name <> rc.Db_actions.vGPU_type_vendor_name then
+			Db.VGPU_type.set_vendor_name ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.vendor_name;
+		if vgpu_type.model_name <> rc.Db_actions.vGPU_type_model_name then
+			Db.VGPU_type.set_model_name ~__context
+				~self:vgpu_type_ref
+				~value:vgpu_type.model_name;
+		let new_rc = Db_actions.({rc with
+			vGPU_type_vendor_name = vgpu_type.vendor_name;
+			vGPU_type_model_name = vgpu_type.model_name;
+		}) in
+		Some (vgpu_type_ref, new_rc)
+	end
+	| [] -> begin
+		(* If looking up by identifier fails, try to the old method (vendor name
+		 * and model name). If this finds a VGPU_type, update its identifier
+		 * field. *)
+		match Db.VGPU_type.get_internal_records_where ~__context ~expr:old_expr with
+		| [vgpu_type_ref, rc] -> begin
+			Db.VGPU_type.set_identifier ~__context
+				~self:vgpu_type_ref
+				~value:identifier_string;
+			let new_rc = {rc with
+				Db_actions.vGPU_type_identifier = identifier_string;
+			} in
+			Some (vgpu_type_ref, new_rc)
+		end
+		| [] -> None
+		| _ -> fail ()
+	end
+	| _ -> fail ()
+
+let find_or_create ~__context vgpu_type =
+	let implementation = Identifier.to_implementation vgpu_type.identifier in
+	match (find_and_update ~__context vgpu_type) with
+	| Some (vgpu_type_ref, rc) ->
 		(* Update anything about the VGPU type which might have changed since we
 		 * last read the config file. *)
 		if vgpu_type.framebuffer_size <> rc.Db_actions.vGPU_type_framebuffer_size then
@@ -90,12 +189,12 @@ let find_or_create ~__context vgpu_type =
 			Db.VGPU_type.set_internal_config ~__context
 				~self:vgpu_type_ref
 				~value:vgpu_type.internal_config;
-		if vgpu_type.implementation <> rc.Db_actions.vGPU_type_implementation then
+		if implementation <> rc.Db_actions.vGPU_type_implementation then
 			Db.VGPU_type.set_implementation ~__context
 				~self:vgpu_type_ref
-				~value:vgpu_type.implementation;
+				~value:implementation;
 		vgpu_type_ref
-	| [] ->
+	| None ->
 		create ~__context ~vendor_name:vgpu_type.vendor_name
 			~model_name:vgpu_type.model_name
 			~framebuffer_size:vgpu_type.framebuffer_size
@@ -104,9 +203,8 @@ let find_or_create ~__context vgpu_type =
 			~max_resolution_y:vgpu_type.max_resolution_y
 			~size:vgpu_type.size
 			~internal_config:vgpu_type.internal_config
-			~implementation:vgpu_type.implementation
-	| _ ->
-		failwith "Error: Multiple vGPU types exist with the same configuration."
+			~implementation
+			~identifier:(Identifier.to_string vgpu_type.identifier)
 
 module Nvidia = struct
 	let nvidia_conf_dir = "/usr/share/nvidia/vgx"
@@ -230,11 +328,16 @@ module Nvidia = struct
 				and max_resolution_y = conf.max_y
 				and size = Int64.div Constants.pgpu_default_size conf.max_instance
 				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path]
-				and implementation = `nvidia in
+				and identifier = Identifier.(Nvidia {
+					pdev_id = conf.pdev_id;
+					psubdev_id = conf.psubdev_id;
+					vdev_id = conf.vdev_id;
+					vsubdev_id = conf.vsubdev_id;
+				}) in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
 					max_resolution_x; max_resolution_y; size; internal_config;
-					implementation}
+					identifier}
 				in
 				build_vgpu_types pci_access (vgpu_type :: ac) tl
 		in
@@ -273,8 +376,9 @@ module Intel = struct
 			Db.PCI.get_pci_id ~__context ~self:pci
 			|> address_of_string
 		in
-		let device, device_name =
+		let vendor_name, device, device_name =
 			Pci.(with_access (fun access ->
+				let vendor_name = lookup_vendor_name access intel_vendor_id in
 				let device =
 					List.find
 						(fun device ->
@@ -289,7 +393,7 @@ module Intel = struct
 						device.Pci_dev.vendor_id
 						device.Pci_dev.device_id
 				in
-				device, device_name))
+				vendor_name, device, device_name))
 		in
 		let bar_size =
 			List.nth device.Pci.Pci_dev.size 2
@@ -298,7 +402,7 @@ module Intel = struct
 		let vgpus_per_pgpu = bar_size /// 1024L /// 1024L /// 128L --- 1L in
 		let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
 		{
-			vendor_name = "Intel";
+			vendor_name;
 			model_name = "Intel GVT-g on " ^ device_name;
 			framebuffer_size = mib 256L;
 			max_heads = 1L;
@@ -310,7 +414,13 @@ module Intel = struct
 				Xapi_globs.vgt_high_gm_sz, Int64.to_string 384L;
 				Xapi_globs.vgt_fence_sz, Int64.to_string 4L;
 			];
-			implementation = `gvt_g;
+			identifier = Identifier.(GVT_g {
+				pdev_id = device.Pci.Pci_dev.device_id;
+				low_gm_sz = 128L;
+				high_gm_sz = 384L;
+				fence_sz = 4L;
+				monitor_config_file = None;
+			});
 		}
 
 	let find_or_create_supported_types ~__context ~pci
