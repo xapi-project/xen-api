@@ -205,6 +205,9 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
+(* let xenprep_iso_name_label = "xenprep.iso" *) (* TODO use this once the xenprep ISO is available *)
+let xenprep_iso_name_label = "xs-tools.iso" (* Temporary stopgap value for dev-testing *)
+
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 let base_template_name_key = "base_template_name"
