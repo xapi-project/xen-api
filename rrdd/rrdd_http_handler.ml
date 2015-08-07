@@ -45,6 +45,20 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 			["Access-Control-Allow-Origin: *"]);
 	Rrd_unix.to_fd ~json:(List.mem_assoc "json" query) rrd s
 
+(* A handler for putting the SR's RRD data into the Http response. *)
+let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
+	debug "get_sr_rrd_handler: start";
+	let query = req.Http.Request.query in
+	let sr_uuid = List.assoc "uuid" query in
+	let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd ( let rrdi =
+		try 
+			Hashtbl.find sr_rrds sr_uuid
+		with Not_found -> failwith "No SR RRD available!"
+		in rrdi.rrd)
+	) in
+	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
+	Rrd_unix.to_fd rrd s
+
 (* Get an XML/JSON document (as a string) representing the updates since the
  * specified start time. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
