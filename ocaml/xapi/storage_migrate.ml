@@ -24,7 +24,7 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
-let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 open Storage_interface
