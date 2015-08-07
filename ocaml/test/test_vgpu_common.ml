@@ -29,6 +29,7 @@ let k100 = {
 		vdev_id = 0x0fe7;
 		vsubdev_id = 0x101e;
 	});
+	experimental = false;
 }
 
 let k140q = {
@@ -46,6 +47,7 @@ let k140q = {
 		vdev_id = 0x0ff7;
 		vsubdev_id = 0x1037;
 	});
+	experimental = false;
 }
 
 let k200 = {
@@ -63,6 +65,7 @@ let k200 = {
 		vdev_id = 0x118d;
 		vsubdev_id = 0x101d;
 	});
+	experimental = false;
 }
 
 let k240q = {
@@ -80,6 +83,7 @@ let k240q = {
 		vdev_id = 0x11b0;
 		vsubdev_id = 0x101a;
 	});
+	experimental = false;
 }
 
 let k260q = {
@@ -97,6 +101,7 @@ let k260q = {
 		vdev_id = 0x11b0;
 		vsubdev_id = 0x101b;
 	});
+	experimental = false;
 }
 
 let k1_vgpu_types = [

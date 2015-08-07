@@ -107,13 +107,18 @@ let test_find_or_create () =
 		~msg:"k100 size is incorrect"
 		k100.size
 		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1);
-	(* Simulate an update of framebuffer_size, max_heads and size as if the
-	 * config file had been updated. *)
+	assert_equal
+		~msg:"k100 experimental flag is incorrect"
+		k100.experimental
+		(Db.VGPU_type.get_experimental ~__context ~self:k100_ref_1);
+	(* Simulate an update of framebuffer_size, max_heads, size and the
+	 * experimental flag, as if the config file had been updated. *)
 	let new_k100 = {
 		k100 with
 		framebuffer_size = (Int64.mul k100.framebuffer_size 2L);
 		max_heads = (Int64.mul k100.max_heads 2L);
 		size = (Int64.mul k100.size 2L);
+		experimental = not k100.experimental;
 	} in
 	(* We can ignore the result as it should be the same as the VGPU_type ref
 	 * obtained earlier. *)
@@ -136,7 +141,11 @@ let test_find_or_create () =
 	assert_equal
 		~msg:"k100 size was not updated"
 		new_k100.size
-		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1)
+		(Db.VGPU_type.get_size ~__context ~self:k100_ref_1);
+	assert_equal
+		~msg:"k100 was not marked experimental"
+		new_k100.experimental
+		(Db.VGPU_type.get_experimental ~__context ~self:k100_ref_1)
 
 let test_identifier_lookup () =
 	let test_vendor_name = "test_vendor_name" in

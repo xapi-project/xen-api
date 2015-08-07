@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 88
+let schema_minor_vsn = 89
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -67,7 +67,7 @@ let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 88
+let dundee_release_schema_minor_vsn = 89
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = creedence_release_schema_major_vsn
@@ -8365,6 +8365,7 @@ let vgpu_type =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
 			field ~qualifier:StaticRO ~ty:vgpu_type_implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VString "")) "identifier" "Key used to identify VGPU types and avoid creating duplicates - this field is used internally and not intended for interpretation by API clients";
+			field ~qualifier: StaticRO ~ty:Bool ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VBool false)) "experimental" "Indicates whether VGPUs of this type should be considered experimental";
 		]
 	()
 
