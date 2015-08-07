@@ -464,14 +464,18 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					let dest_vdi_ref = XenAPI.VDI.get_by_uuid remote_rpc session_id vdi_uuid in
 					location,dest_vdi_ref,"none"
 				else begin
-					let newdp = Printf.sprintf "mirror_%s" dp in
-					(* Though we have no intention of "write", here we use the same mode as the
-					   associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
-					   when we need to start/stop the VM along the migration. *)
-					let read_write = true in
-					ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write);
-					SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
-					new_dps := newdp :: !new_dps;
+					let newdp = Printf.sprintf (if do_mirror then "mirror_%s" else "copy_%s") dp in
+					(* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
+					   It's not necessary for copy which will take care of that itself。*)
+					if do_mirror then begin
+						(* Though we have no intention of "write", here we use the same mode as the
+						   associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
+						   when we need to start/stop the VM along the migration. *)
+						let read_write = true in
+						ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr ~vdi:location ~read_write);
+						SMAPI.VDI.activate ~dbg ~dp:newdp ~sr ~vdi:location;
+						new_dps := newdp :: !new_dps
+					end;
 
 					let mapfn = 
 						let start = (Int64.to_float !so_far) /. (Int64.to_float total_size) in
@@ -728,7 +732,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					let vdis = XenAPI.VDI.get_all_records_where remote_rpc session_id query in
 
 					if List.length vdis <> 1 then error "Could not locate remote VDI: query='%s', length of results: %d" query (List.length vdis);
-					
+
 					let remote_vdi_reference = fst (List.hd vdis) in
 					XenAPI.VDI.destroy remote_rpc session_id remote_vdi_reference
 				with e ->
