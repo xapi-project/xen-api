@@ -18,83 +18,85 @@ open Test_highlevel
 open Test_vgpu_common
 open Xapi_vgpu_type
 
-let string_of_vgpu_conf conf =
-	let open Identifier in
-	let open Nvidia in
-	Printf.sprintf "%04x %s %04x %04x %Ld"
-		conf.identifier.pdev_id
-		(match conf.identifier.psubdev_id with
-			| Some id -> Printf.sprintf "Some %04x" id
-			| None -> "None")
-		conf.identifier.vdev_id
-		conf.identifier.vsubdev_id
-		conf.framebufferlength
-
-let print_vgpu_conf conf =
-	Printf.printf "%s\n" (string_of_vgpu_conf conf)
-
-module OfConfFile = Generic.Make(struct
-	module Io = struct
-		type input_t = string
-		type output_t = Nvidia.vgpu_conf
-
-		let string_of_input_t x = x
-		let string_of_output_t = string_of_vgpu_conf
-	end
-
-	let transform = Nvidia.of_conf_file
-
-	let tests = [
-		"ocaml/test/data/test_vgpu_subdevid.conf",
-		Nvidia.({
-			identifier = Identifier.({
-				pdev_id = 0x3333;
-				psubdev_id = Some 0x4444;
-				vdev_id = 0x1111;
-				vsubdev_id = 0x2222;
-			});
-			framebufferlength = 0x10000000L;
-			num_heads = 2L;
-			max_instance = 8L;
-			max_x = 1920L;
-			max_y = 1200L;
-			file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
-		});
-		"ocaml/test/data/test_vgpu_nosubdevid.conf",
-		Nvidia.({
-			identifier = Identifier.({
-				pdev_id = 0x3333;
-				psubdev_id = None;
-				vdev_id = 0x1111;
-				vsubdev_id = 0x2222;
-			});
-			framebufferlength = 0x10000000L;
-			num_heads = 2L;
-			max_instance = 8L;
-			max_x = 1920L;
-			max_y = 1200L;
-			file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
-		});
-	]
-end)
-
-(* This test generates a lot of print --- set skip to false to enable *)
-let skip = true
-
-let print_nv_types () =
-	skip_if skip "Generates print...";
-	try
+module NvidiaTest = struct
+	let string_of_vgpu_conf conf =
+		let open Identifier in
 		let open Nvidia in
-		if (Sys.file_exists nvidia_conf_dir
-			&& Sys.is_directory nvidia_conf_dir) then
-			begin
-				let vgpu_confs = read_config_dir nvidia_conf_dir in
-				List.iter print_vgpu_conf vgpu_confs
-			end else
-				Printf.printf "No NVIDIA conf files found in %s\n" nvidia_conf_dir
-	with e ->
-		print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
-		assert false (* fail *)
+		Printf.sprintf "%04x %s %04x %04x %Ld"
+			conf.identifier.pdev_id
+			(match conf.identifier.psubdev_id with
+				| Some id -> Printf.sprintf "Some %04x" id
+				| None -> "None")
+			conf.identifier.vdev_id
+			conf.identifier.vsubdev_id
+			conf.framebufferlength
+
+	let print_vgpu_conf conf =
+		Printf.printf "%s\n" (string_of_vgpu_conf conf)
+
+	module OfConfFile = Generic.Make(struct
+		module Io = struct
+			type input_t = string
+			type output_t = Nvidia.vgpu_conf
+
+			let string_of_input_t x = x
+			let string_of_output_t = string_of_vgpu_conf
+		end
+
+		let transform = Nvidia.of_conf_file
+
+		let tests = [
+			"ocaml/test/data/test_vgpu_subdevid.conf",
+			Nvidia.({
+				identifier = Identifier.({
+					pdev_id = 0x3333;
+					psubdev_id = Some 0x4444;
+					vdev_id = 0x1111;
+					vsubdev_id = 0x2222;
+				});
+				framebufferlength = 0x10000000L;
+				num_heads = 2L;
+				max_instance = 8L;
+				max_x = 1920L;
+				max_y = 1200L;
+				file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
+			});
+			"ocaml/test/data/test_vgpu_nosubdevid.conf",
+			Nvidia.({
+				identifier = Identifier.({
+					pdev_id = 0x3333;
+					psubdev_id = None;
+					vdev_id = 0x1111;
+					vsubdev_id = 0x2222;
+				});
+				framebufferlength = 0x10000000L;
+				num_heads = 2L;
+				max_instance = 8L;
+				max_x = 1920L;
+				max_y = 1200L;
+				file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
+			});
+		]
+	end)
+
+	(* This test generates a lot of print --- set skip to false to enable *)
+	let skip = true
+
+	let print_nv_types () =
+		skip_if skip "Generates print...";
+		try
+			let open Nvidia in
+			if (Sys.file_exists nvidia_conf_dir
+				&& Sys.is_directory nvidia_conf_dir) then
+				begin
+					let vgpu_confs = read_config_dir nvidia_conf_dir in
+					List.iter print_vgpu_conf vgpu_confs
+				end else
+					Printf.printf "No NVIDIA conf files found in %s\n" nvidia_conf_dir
+		with e ->
+			print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
+			assert false (* fail *)
+end
 
 let test_find_or_create () =
 	let __context = make_test_database () in
@@ -195,8 +197,8 @@ let test_vendor_model_lookup () =
 let test =
 	"test_vgpu_type" >:::
 		[
-			"test_of_conf_file" >:: OfConfFile.test;
-			"print_nv_types" >:: print_nv_types;
+			"test_of_conf_file" >:: NvidiaTest.OfConfFile.test;
+			"print_nv_types" >:: NvidiaTest.print_nv_types;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
 			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
