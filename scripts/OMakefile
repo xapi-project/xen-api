@@ -34,8 +34,8 @@ install:
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) license-check.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
-	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
+	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
+	$(IDATA) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCDIR)/udhcpd.skel
