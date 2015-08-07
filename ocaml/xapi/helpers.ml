@@ -908,11 +908,14 @@ let on_oem ~__context =
 
 exception File_doesnt_exist of string
 
-let call_script ?(log_successful_output=true) script args =
+let call_script ?(log_successful_output=true) ?env script args =
   try
     Unix.access script [ Unix.X_OK ];
 	(* Use the same $PATH as xapi *)
-	let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
+	let env = match env with
+		| None -> [| "PATH=" ^ (Sys.getenv "PATH") |]
+		| Some env -> env
+	in
     let output, _ = Forkhelpers.execute_command_get_output ~env script args in
     if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
     output

@@ -2,8 +2,8 @@
 
 # Run by xen-bugtool
 
-export PATH=$PATH:@OPTDIR@/xha
+export PATH=$PATH:@CLUSTER_STACK_ROOT@/xhad
 echo Running ha_query_liveset $*:
-"@OPTDIR@/xha/ha_query_liveset" $*
+"@CLUSTER_STACK_ROOT@/xhad/ha_query_liveset" $*
 echo Output of command: $?
 

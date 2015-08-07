@@ -2234,7 +2234,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "pool-ha-enable",
     {
       reqd=[];
-      optn=["heartbeat-sr-uuids"; "ha-config:"; "cluster-stack"];
+      optn=["heartbeat-sr-uuids"; "ha-config:"];
       help="Enable HA on this Pool.";
       implementation=No_fd Cli_operations.pool_ha_enable;
       flags=[];

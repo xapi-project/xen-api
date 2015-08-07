@@ -51,7 +51,7 @@ for FILE in ${FILES}; do
         -e "s!@SCRIPTSDIR@!${SCRIPTSDIR}!g" \
         -e "s!@SHAREDIR@!${SHAREDIR}!g" \
         -e "s!@WEBDIR@!${WEBDIR}!g" \
-        -e "s!@XHADIR@!${XHADIR}!g" \
+        -e "s!@CLUSTER_STACK_ROOT@!${CLUSTER_STACK_ROOT}!g" \
         -e "s!@BINDIR@!${BINDIR}!g" \
 	-e "s!@SBINDIR@!${SBINDIR}!g" \
          ${NEWFILE}

@@ -134,6 +134,14 @@ let valid_operations ~__context record _ref' : table =
   then set_errors  Api_errors.other_operation_in_progress
     [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
     safe_to_parallelise;
+
+  (* Check whether there are any conflicts with HA that prevent us from
+   * plugging a PBD for this SR *)
+  (try
+    Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
+  with Api_errors.Server_error (e, args) ->
+    set_errors e args [`plug]);
+    
   table
 
 let throw_error (table: table) op = 

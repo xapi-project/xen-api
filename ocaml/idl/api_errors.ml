@@ -400,6 +400,9 @@ let ha_constraint_violation_network_not_shared = "HA_CONSTRAINT_VIOLATION_NETWOR
 
 let ha_operation_would_break_failover_plan = "HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN"
 
+let incompatible_statefile_sr = "INCOMPATIBLE_STATEFILE_SR"
+let incompatible_cluster_stack_active = "INCOMPATIBLE_CLUSTER_STACK_ACTIVE"
+
 let cannot_evacuate_host = "CANNOT_EVACUATE_HOST"
 let host_evacuate_in_progress = "HOST_EVACUATE_IN_PROGRESS"
 

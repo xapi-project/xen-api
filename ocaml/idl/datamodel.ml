@@ -1180,6 +1180,13 @@ let _ =
 		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
 		();
 
+  error Api_errors.incompatible_statefile_sr ["SR type"]
+    ~doc:"The specified SR is incompatible with the selected HA cluster stack."
+    ();
+  error Api_errors.incompatible_cluster_stack_active ["cluster_stack"]
+    ~doc:"This operation cannot be performed, because it is incompatible with the currently active HA cluster stack."
+    ();
+
   error Api_errors.cannot_evacuate_host ["errors"]
     ~doc:"This host cannot be evacuated."
     ();
@@ -6007,7 +6014,6 @@ let pool_enable_ha = call
   ~versioned_params:
   [{param_type=Set(Ref _sr); param_name="heartbeat_srs"; param_doc="Set of SRs to use for storage heartbeating"; param_release=miami_release; param_default=None };
   {param_type=Map(String, String); param_name="configuration"; param_doc="Detailed HA configuration to apply"; param_release=miami_release; param_default=None };
-  {param_type=String; param_name="cluster_stack"; param_doc="HA cluster manager stack"; param_release=dundee_release; param_default=Some (VString "")}
   ]
   ~doc:"Turn on High Availability mode"
   ~allowed_roles:_R_POOL_OP
