@@ -33,6 +33,7 @@ module M = struct
     include Cohttp_async_io
 
     let map f t = Deferred.map ~f t
+    let iter f t = Deferred.List.iter t ~f
     let any = Deferred.any
     let is_determined = Deferred.is_determined
   end

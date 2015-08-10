@@ -29,6 +29,7 @@ module M = struct
     include Cohttp_lwt_unix_io
 
     let map = Lwt.map
+    let iter = Lwt_list.iter_s
     let any = Lwt.choose
     let is_determined t = Lwt.state t <> Lwt.Sleep
   end
