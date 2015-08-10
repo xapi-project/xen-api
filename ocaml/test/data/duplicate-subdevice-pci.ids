@@ -1,5 +1,0 @@
-# A database containing a duplicate subdevice with a different name.
-
-0003  SimpleVendorName3
-	0003  SimpleDeviceName-3-3
-		0003 0004  JunkJunkJunk

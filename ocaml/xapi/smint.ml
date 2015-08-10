@@ -41,6 +41,7 @@ type capability =
     | Vdi_update | Vdi_introduce 
     | Vdi_resize_online
     | Vdi_generate_config
+    | Vdi_attach_offline
 	| Vdi_reset_on_boot
 
 type feature = capability * int64
@@ -75,6 +76,7 @@ let string_to_capability_table = [
 	"VDI_UPDATE",     Vdi_update;
 	"VDI_INTRODUCE",  Vdi_introduce;
 	"VDI_GENERATE_CONFIG", Vdi_generate_config;
+	"VDI_ATTACH_OFFLINE", Vdi_attach_offline;
 	"VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table

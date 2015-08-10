@@ -239,6 +239,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_logs_download \
 	xapi_vncsnapshot \
 	xapi_pool \
+	xapi_pool_helpers \
 	xapi_upgrade \
 	xapi_blob \
 	xapi_message \

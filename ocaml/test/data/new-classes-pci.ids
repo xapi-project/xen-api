@@ -1,6 +1,0 @@
-# A new class tree which is absent from the base database.
-
-C 7f  NewClass
-	01  NewSubClass1
-	02  NewSubClass2
-	03  NewSubClass3

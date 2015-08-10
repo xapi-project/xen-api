@@ -82,6 +82,10 @@ let string_to_vm_operation x =
   then (raise (Api_errors.Server_error(Api_errors.invalid_value, [ "blocked_operation"; x ])))
   else List.assoc x table
 
+let pool_operation_to_string = function
+  | `ha_enable -> "ha_enable"
+  | `ha_disable -> "ha_disable"
+
 let host_operation_to_string = function
   | `provision -> "provision"
   | `evacuate -> "evacuate"

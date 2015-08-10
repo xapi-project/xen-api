@@ -108,8 +108,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 			(* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
-			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-			let sm_features = Xapi_sr_operations.features_of_sr_internal ~_type:sr_type ~uuid:sr_uuid in
+			let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
 
 			let blocked_by_attach =
 				if operation_can_be_performed_live
@@ -139,6 +138,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 						else
 							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 							then Some (Api_errors.ha_is_enabled, [])
+							else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_enable_in_progress ~__context
+							then Some (Api_errors.ha_enable_in_progress, [])
+							else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
+							then Some (Api_errors.ha_disable_in_progress, [])
 							else
 								if not Smint.(has_capability Vdi_delete sm_features)
 								then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
@@ -321,6 +324,7 @@ let create ~__context ~name_label ~name_description
 	Db.VDI.set_sharable ~__context ~self:db_vdi ~value:sharable;
 	Db.VDI.set_tags ~__context ~self:db_vdi ~value:tags;
 	Db.VDI.set_xenstore_data ~__context ~self:db_vdi ~value:xenstore_data;
+	update_allowed_operations ~__context ~self:db_vdi;
 	db_vdi
 
 (* Make the database record only *)
@@ -371,6 +375,12 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
   let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
+  (* Verify that the location field is unique in this SR *)
+  List.iter
+    (fun vdi ->
+       if Db.VDI.get_location ~__context ~self:vdi = location
+       then raise (Api_errors.Server_error (Api_errors.location_not_unique, [ Ref.string_of sR; location ]))
+    ) (Db.SR.get_VDIs ~__context ~self:sR);
   let task = Context.get_task_id __context in	
   let sr' = Db.SR.get_uuid ~__context ~self:sR in
   let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
@@ -463,9 +473,8 @@ let snapshot ~__context ~vdi ~driver_params =
 			try
 				snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
 			with Storage_interface.Unimplemented _ ->
-				(* CA-28598 *)
-				debug "Backend reported not implemented despite it offering the feature; assuming this is an LVHD upgrade issue";
-				raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
+				debug "Backend reported not implemented despite it offering the feature";
+				raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
 		) in
 	(* Record the fact this is a snapshot *)
 	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
@@ -686,7 +695,7 @@ let set_metadata_of_pool ~__context ~self ~value =
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-	let sm_features = Xapi_sr_operations.features_of_sr sr_record in
+	let sm_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
 
 	if not Smint.(has_capability Vdi_reset_on_boot sm_features) then
 		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));

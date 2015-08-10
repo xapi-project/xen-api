@@ -1137,6 +1137,10 @@ let _ =
     ~doc:"The operation could not be performed because HA is enabled on the Pool" ();
   error Api_errors.ha_not_enabled [ ]
     ~doc:"The operation could not be performed because HA is not enabled on the Pool" ();
+  error Api_errors.ha_enable_in_progress [ ]
+    ~doc:"The operation could not be performed because HA enable is in progress" ();
+  error Api_errors.ha_disable_in_progress [ ]
+    ~doc:"The operation could not be performed because HA disable is in progress" ();
   error Api_errors.ha_not_installed [ "host" ]
     ~doc:"The operation could not be performed because the HA software is not installed on this host." ();
   error Api_errors.ha_host_cannot_see_peers [ "host"; "all"; "subset" ]
@@ -3287,8 +3291,8 @@ let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) ?lifecycle refname =
 
 let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) operations_type =
   [ 
-    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set operations_type) "allowed_operations" "list of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client.";
-    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, operations_type)) "current_operations" "links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task.";
+    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set operations_type) ~default_value:(Some (VSet [])) "allowed_operations" "list of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client.";
+    field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, operations_type)) ~default_value:(Some (VMap [])) "current_operations" "links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task.";
   ]
 
 
@@ -5978,6 +5982,12 @@ let crashdump =
      ])
 	()
 
+let pool_operations =
+	Enum ("pool_allowed_operations",
+		[ "ha_enable", "Indicates this pool is in the process of enabling HA";
+			"ha_disable", "Indicates this pool is in the process of disabling HA";
+		])
+
 let pool_enable_ha = call
   ~in_product_since:rel_miami
   ~name:"enable_ha"
@@ -6604,8 +6614,8 @@ let pool =
 			; pool_disable_ssl_legacy
 			]
 		~contents:
-			[uid ~in_oss_since:None _pool
-			; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label" "Short name"
+			([uid ~in_oss_since:None _pool] @
+			[ field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label" "Short name"
 			; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_description" "Description"
 			; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "master" "The host that is pool master"
 			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
@@ -6635,7 +6645,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "xhad")) ~ty:String "ha_cluster_stack" "The ha cluster manager stack"
 
-			]
+			] @ (allowed_and_current_operations pool_operations) )
 		()
 
 (** Auth class *)

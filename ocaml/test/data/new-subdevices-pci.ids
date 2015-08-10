@@ -1,8 +1,0 @@
-# A set of new subdevices for a device already present in the base database.
-
-0002  SimpleVendorName2
-	0001 SimpleDeviceName-2-1
-		0002 0be1  SubDeviceName1
-		0002 0be2  SubDeviceName2
-		0002 0be3  SubDeviceName3
-		0002 0be4  SubDeviceName4
