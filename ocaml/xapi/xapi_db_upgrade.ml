@@ -50,6 +50,7 @@ let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_sc
 let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
 let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
 let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
+let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release_schema_minor_vsn
 
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
@@ -483,6 +484,15 @@ let upgrade_recommendations_for_gpu_passthru = {
 		) (Db.VM.get_all ~__context)
 }
 
+let upgrade_ha_cluster_stack = {
+	description = "Setting HA cluster stack to \"xhad\"";
+	version = (fun x -> x < dundee);
+	fn = fun ~__context ->
+		let pool = Helpers.get_pool ~__context in
+		if Db.Pool.get_ha_cluster_stack ~__context ~self:pool = "" then
+			Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:"xhad"
+}
+
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -503,6 +513,7 @@ let rules = [
 	add_default_pif_properties;
 	remove_restricted_pbd_keys;
 	upgrade_recommendations_for_gpu_passthru;
+	upgrade_ha_cluster_stack;
 ]
 
 (* Maybe upgrade most recent db *)
