@@ -558,18 +558,24 @@ type params = (string * string) list
 (* If the parameter is not present, use the original session_id. *)
 let with_specified_database rpc session_id params f =
 	let database_params = read_map_params "database" params in
-	let use_foreign_database = List.mem_assoc "vdi-uuid" database_params in
+	let use_db_vdi = List.mem_assoc "vdi-uuid" database_params in
+	let use_db_file = List.mem_assoc "filename" database_params in
+	if use_db_vdi && use_db_file then
+		failwith "xapi can query a DB vdi or a DB file, but not both.";
 	let session_id =
-		if use_foreign_database then begin
+		if use_db_vdi then begin
 			let database_vdi_uuid = List.assoc "vdi-uuid" database_params in
 			let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_vdi_uuid in
 			Client.VDI.open_database ~rpc ~session_id ~self:database_vdi
+		end else if use_db_file then begin
+			let database_file = List.assoc "filename" database_params in
+			Client.Session.create_from_db_file ~rpc ~session_id ~filename:database_file
 		end else
 			session_id
 	in
 	finally
 		(fun () -> f session_id)
-		(fun () -> if use_foreign_database then Client.Session.logout ~rpc ~session_id)
+		(fun () -> if use_db_vdi || use_db_file then Client.Session.logout ~rpc ~session_id)
 
 let make_param_funs getall getallrecs getbyuuid record class_name def_filters def_list_params rpc session_id =
 	let get_record2 rpc session_id x =

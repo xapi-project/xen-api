@@ -727,3 +727,14 @@ let create_readonly_session ~__context ~uname =
 	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
 		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
 		~auth_user_name:uname ~rbac_permissions
+
+(* Create a database reference from a DB dump, and register it with a new readonly session. *)
+let create_from_db_file ~__context ~filename =
+	let session_id = create_readonly_session ~__context ~uname:"db-from-file" in
+	let db =
+		(Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename)
+		|> Db_upgrade.generic_database_upgrade
+	in
+	let db_ref = Db_ref.in_memory (ref (ref db)) in
+	Db_backend.register_session_with_database session_id db_ref;
+	session_id
