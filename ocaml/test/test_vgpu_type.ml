@@ -98,6 +98,63 @@ module NvidiaTest = struct
 			assert false (* fail *)
 end
 
+module IntelTest = struct
+	let string_of_vgpu_conf conf =
+		let open Identifier in
+		let open Intel in
+		Printf.sprintf "%04x %Ld %Ld %Ld %s %b %s"
+			conf.identifier.pdev_id
+			conf.identifier.low_gm_sz
+			conf.identifier.high_gm_sz
+			conf.identifier.fence_sz
+			(string_of_string_opt conf.identifier.monitor_config_file)
+			conf.experimental
+			conf.model_name
+
+	module ReadWhitelistLine = Generic.Make(struct
+		module Io = struct
+			type input_t = string
+			type output_t = Intel.vgpu_conf option
+
+			let string_of_input_t x = x
+			let string_of_output_t = string_of_opt string_of_vgpu_conf
+		end
+
+		let transform line = Intel.read_whitelist_line ~line
+
+		let tests = [
+			(* Test some failure cases. *)
+			"", None;
+			"nonsense123", None;
+			(* Test some success cases. *)
+			"1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			Some {
+				Intel.identifier = Identifier.({
+					pdev_id = 0x1234;
+					low_gm_sz = 128L;
+					high_gm_sz = 384L;
+					fence_sz = 4L;
+					monitor_config_file = Some "/my/file";
+				});
+				experimental = false;
+				model_name = "myvgpu";
+			};
+			"1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			Some {
+				Intel.identifier = Identifier.({
+					pdev_id = 0x1234;
+					low_gm_sz = 128L;
+					high_gm_sz = 384L;
+					fence_sz = 4L;
+					monitor_config_file = Some "/my/file";
+				});
+				experimental = true;
+				model_name = "myvgpu";
+			};
+		]
+	end)
+end
+
 let test_find_or_create () =
 	let __context = make_test_database () in
 	let k100_ref_1 = find_or_create ~__context k100 in
@@ -199,6 +256,7 @@ let test =
 		[
 			"test_of_conf_file" >:: NvidiaTest.OfConfFile.test;
 			"print_nv_types" >:: NvidiaTest.print_nv_types;
+			"read_whitelist_line" >:: IntelTest.ReadWhitelistLine.test;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
 			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
