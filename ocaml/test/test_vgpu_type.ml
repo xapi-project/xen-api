@@ -19,14 +19,15 @@ open Test_vgpu_common
 open Xapi_vgpu_type
 
 let string_of_vgpu_conf conf =
+	let open Identifier in
 	let open Nvidia in
 	Printf.sprintf "%04x %s %04x %04x %Ld"
-		conf.pdev_id
-		(match conf.psubdev_id with
+		conf.identifier.pdev_id
+		(match conf.identifier.psubdev_id with
 			| Some id -> Printf.sprintf "Some %04x" id
 			| None -> "None")
-		conf.vdev_id
-		conf.vsubdev_id
+		conf.identifier.vdev_id
+		conf.identifier.vsubdev_id
 		conf.framebufferlength
 
 let print_vgpu_conf conf =
@@ -45,31 +46,35 @@ module OfConfFile = Generic.Make(struct
 
 	let tests = [
 		"ocaml/test/data/test_vgpu_subdevid.conf",
-		{
-			Nvidia.pdev_id = 0x3333;
-			psubdev_id = Some 0x4444;
-			vdev_id = 0x1111;
-			vsubdev_id = 0x2222;
+		Nvidia.({
+			identifier = Identifier.({
+				pdev_id = 0x3333;
+				psubdev_id = Some 0x4444;
+				vdev_id = 0x1111;
+				vsubdev_id = 0x2222;
+			});
 			framebufferlength = 0x10000000L;
 			num_heads = 2L;
 			max_instance = 8L;
 			max_x = 1920L;
 			max_y = 1200L;
 			file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
-		};
+		});
 		"ocaml/test/data/test_vgpu_nosubdevid.conf",
-		{
-			Nvidia.pdev_id = 0x3333;
-			psubdev_id = None;
-			vdev_id = 0x1111;
-			vsubdev_id = 0x2222;
+		Nvidia.({
+			identifier = Identifier.({
+				pdev_id = 0x3333;
+				psubdev_id = None;
+				vdev_id = 0x1111;
+				vsubdev_id = 0x2222;
+			});
 			framebufferlength = 0x10000000L;
 			num_heads = 2L;
 			max_instance = 8L;
 			max_x = 1920L;
 			max_y = 1200L;
 			file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
-		};
+		});
 	]
 end)
 

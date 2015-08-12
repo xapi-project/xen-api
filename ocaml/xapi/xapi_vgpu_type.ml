@@ -218,10 +218,7 @@ module Nvidia = struct
 	let nvidia_vendor_id = 0x10de
 
 	type vgpu_conf = {
-		pdev_id : int;
-		psubdev_id : int option;
-		vdev_id : int;
-		vsubdev_id : int;
+		identifier : Identifier.nvidia_id;
 		framebufferlength : int64;
 		num_heads : int64;
 		max_instance : int64;
@@ -263,7 +260,13 @@ module Nvidia = struct
 						(List.assoc "plugin0.num_heads" args) in
 					let max_instance = Int64.of_string
 						(List.assoc "plugin0.max_instance" args) in
-					{pdev_id; psubdev_id; vdev_id; vsubdev_id; framebufferlength;
+					let identifier = Identifier.({
+						pdev_id;
+						psubdev_id;
+						vdev_id;
+						vsubdev_id;
+					}) in
+					{identifier; framebufferlength;
 							 num_heads; max_instance; max_x; max_y; file_path}
 					)
 				)
@@ -288,11 +291,12 @@ module Nvidia = struct
 			(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
 	let relevant_vgpu_types pci_dev_id subsystem_device_id =
+		let open Identifier in
 		let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 		let relevant_vgpu_confs =
 			List.filter
 				(fun c ->
-					let device_id_matches = (c.pdev_id = pci_dev_id) in
+					let device_id_matches = (c.identifier.pdev_id = pci_dev_id) in
 					let subsystem_device_id_matches =
 						(* If the config file doesn't specify a physical subdevice ID, then
 						 * the config file is valid for this device no matter the device's
@@ -300,7 +304,7 @@ module Nvidia = struct
 						 *
 						 * If the config file does specify a physical subdevice ID, then the
 						 * corresponding ID of the card must match. *)
-						match subsystem_device_id, c.psubdev_id with
+						match subsystem_device_id, c.identifier.psubdev_id with
 						| _, None -> true
 						| None, Some _ -> false
 						| Some device_id, Some conf_id -> device_id = conf_id
@@ -312,35 +316,30 @@ module Nvidia = struct
 			(String.concat "; " (List.map (fun c ->
 				Printf.sprintf
 					"{pdev_id:%04x; psubdev_id:%s; vdev_id:%04x; vsubdev_id:%04x; framebufferlength:0x%Lx}"
-					c.pdev_id
-					(match c.psubdev_id with
+					c.identifier.pdev_id
+					(match c.identifier.psubdev_id with
 						| None -> "Any"
 						| Some id -> Printf.sprintf "%04x" id)
-					c.vdev_id
-					c.vsubdev_id
+					c.identifier.vdev_id
+					c.identifier.vsubdev_id
 					c.framebufferlength)
 				relevant_vgpu_confs));
 		let rec build_vgpu_types pci_access ac = function
 			| [] -> ac
 			| conf::tl ->
 				debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
-					nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
+					nvidia_vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
 				let vendor_name = Pci.lookup_vendor_name pci_access nvidia_vendor_id
 				and model_name =
 					Pci.lookup_subsystem_device_name pci_access nvidia_vendor_id
-						conf.vdev_id nvidia_vendor_id conf.vsubdev_id
+						conf.identifier.vdev_id nvidia_vendor_id conf.identifier.vsubdev_id
 				and framebuffer_size = conf.framebufferlength
 				and max_heads = conf.num_heads
 				and max_resolution_x = conf.max_x
 				and max_resolution_y = conf.max_y
 				and size = Int64.div Constants.pgpu_default_size conf.max_instance
 				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path]
-				and identifier = Identifier.(Nvidia {
-					pdev_id = conf.pdev_id;
-					psubdev_id = conf.psubdev_id;
-					vdev_id = conf.vdev_id;
-					vsubdev_id = conf.vsubdev_id;
-				})
+				and identifier = Nvidia conf.identifier
 				and experimental = false in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
