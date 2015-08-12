@@ -804,6 +804,8 @@ let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
 
+let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
+
 (* The ibft-to-ignore script returns NICs listed in the ISCSI Boot Firmware Table.
  * These NICs (probably just one for now) are used to boot from, and should be marked
  * with PIF.managed = false during a PIF.scan. *)
@@ -935,6 +937,9 @@ let other_options = [
       D.debug "Whitelisting PCI vendor %s for passthrough" s;
       Scanf.sscanf s "%4Lx" (fun _ -> s)) (* Scanf verifies format *)
     (fun s -> s) igd_passthru_vendor_whitelist;
+
+  "gvt-g-whitelist", Arg.Set_string gvt_g_whitelist,
+    (fun () -> !gvt_g_whitelist), "path to the GVT-g whitelist file";
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";

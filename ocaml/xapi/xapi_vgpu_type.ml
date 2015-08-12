@@ -377,13 +377,67 @@ module Intel = struct
 	let ( --- ) = Int64.sub
 	let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 
-	let make_gvt_g_256 ~__context ~pci =
+	type vgpu_conf = {
+		identifier : Identifier.gvt_g_id;
+		experimental : bool;
+		model_name : string
+	}
+
+	let read_whitelist_line ~line =
+		try
+			Some (Scanf.sscanf
+				line
+				"%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld monitor_config_file=%s"
+				(fun pdev_id
+						experimental
+						model_name
+						low_gm_sz
+						high_gm_sz
+						fence_sz
+						monitor_config_file ->
+					{
+						identifier = Identifier.({
+							pdev_id;
+							low_gm_sz;
+							high_gm_sz;
+							fence_sz;
+							monitor_config_file = Some monitor_config_file;
+						});
+						experimental =
+							(match experimental with
+							| '0' -> false
+							| _ -> true);
+						model_name;
+					}))
+		with e-> begin
+			error "Failed to read whitelist line: '%s' %s"
+				line (Printexc.to_string e);
+			None
+		end
+
+	let read_whitelist ~whitelist ~device_id =
+		if Sys.file_exists whitelist then begin
+			Unixext.file_lines_fold
+				Identifier.(fun acc line ->
+					match read_whitelist_line ~line with
+					| Some conf when conf.identifier.pdev_id = device_id -> conf :: acc
+					| _ -> acc)
+				[]
+				whitelist
+		end else []
+
+	let make_vgpu_types ~__context ~pci ~whitelist =
 		let open Xenops_interface.Pci in
+		let device_id =
+			Db.PCI.get_device_id ~__context ~self:pci
+			|> Xapi_pci.int_of_id
+		in
 		let address =
 			Db.PCI.get_pci_id ~__context ~self:pci
 			|> address_of_string
 		in
-		let vendor_name, device, device_name =
+		let whitelist = read_whitelist ~whitelist ~device_id in
+		let vendor_name, device =
 			Pci.(with_access (fun access ->
 				let vendor_name = lookup_vendor_name access intel_vendor_id in
 				let device =
@@ -395,41 +449,37 @@ module Intel = struct
 							(device.Pci_dev.func = address.fn))
 						(get_devices access)
 				in
-				let device_name =
-					lookup_device_name access
-						device.Pci_dev.vendor_id
-						device.Pci_dev.device_id
-				in
-				vendor_name, device, device_name))
+				vendor_name, device))
 		in
 		let bar_size =
 			List.nth device.Pci.Pci_dev.size 2
 			|> Int64.of_nativeint
 		in
-		let vgpus_per_pgpu = bar_size /// 1024L /// 1024L /// 128L --- 1L in
-		let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
-		{
-			vendor_name;
-			model_name = "Intel GVT-g on " ^ device_name;
-			framebuffer_size = mib 256L;
-			max_heads = 1L;
-			max_resolution_x = 2560L;
-			max_resolution_y = 1600L;
-			size = vgpu_size;
-			internal_config = [
-				Xapi_globs.vgt_low_gm_sz, Int64.to_string 128L;
-				Xapi_globs.vgt_high_gm_sz, Int64.to_string 384L;
-				Xapi_globs.vgt_fence_sz, Int64.to_string 4L;
-			];
-			identifier = Identifier.(GVT_g {
-				pdev_id = device.Pci.Pci_dev.device_id;
-				low_gm_sz = 128L;
-				high_gm_sz = 384L;
-				fence_sz = 4L;
-				monitor_config_file = None;
-			});
-			experimental = false;
-		}
+		List.map
+			Identifier.(fun conf ->
+				let vgpus_per_pgpu =
+					bar_size /// 1024L /// 1024L
+					/// conf.identifier.low_gm_sz
+					--- 1L
+				in
+				let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
+				{
+					vendor_name;
+					model_name = conf.model_name;
+					framebuffer_size = mib 256L;
+					max_heads = 1L;
+					max_resolution_x = 2560L;
+					max_resolution_y = 1600L;
+					size = vgpu_size;
+					internal_config = [
+						Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
+						Xapi_globs.vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz;
+						Xapi_globs.vgt_fence_sz, Int64.to_string conf.identifier.fence_sz;
+					];
+					identifier = GVT_g conf.identifier;
+					experimental = conf.experimental;
+				})
+			whitelist
 
 	let find_or_create_supported_types ~__context ~pci
 			~is_system_display_device
@@ -441,8 +491,13 @@ module Intel = struct
 				match is_host_display_enabled, is_pci_hidden with
 				| false, true -> [passthrough_gpu]
 				| true, true -> []
-				| _, false -> [make_gvt_g_256 ~__context ~pci]
-			end else [passthrough_gpu; make_gvt_g_256 ~__context ~pci]
+				| _, false ->
+					(make_vgpu_types ~__context
+						~pci ~whitelist:!Xapi_globs.gvt_g_whitelist)
+			end else
+				passthrough_gpu ::
+				(make_vgpu_types ~__context
+					~pci ~whitelist:!Xapi_globs.gvt_g_whitelist)
 		in
 		List.map (find_or_create ~__context) types
 end
