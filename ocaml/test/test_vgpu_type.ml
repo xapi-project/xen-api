@@ -153,6 +153,66 @@ module IntelTest = struct
 			};
 		]
 	end)
+
+	module ReadWhitelist = Generic.Make(struct
+		module Io = struct
+			type input_t = (string * int) (* whitelist * device_id *)
+			type output_t = Intel.vgpu_conf list
+
+			let string_of_input_t (whitelist, device_id) =
+				Printf.sprintf "(%s, %04x)" whitelist device_id
+			let string_of_output_t confs =
+				List.map string_of_vgpu_conf confs |> string_of_string_list
+		end
+
+		let transform (whitelist, device_id) =
+			Intel.read_whitelist ~whitelist ~device_id |> List.rev
+
+		let tests = [
+			("ocaml/test/data/gvt-g-whitelist-empty", 0x1234), [];
+			("ocaml/test/data/gvt-g-whitelist-missing", 0x1234), [];
+			("ocaml/test/data/gvt-g-whitelist-1234", 0x1234),
+			[
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file1";
+					});
+					experimental = false;
+					model_name = "GVT-g on 1234";
+				});
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file2";
+					});
+					experimental = true;
+					model_name = "GVT-g on 1234 (experimental)";
+				});
+			];
+			("ocaml/test/data/gvt-g-whitelist-1234", 0x5678), [];
+			("ocaml/test/data/gvt-g-whitelist-mixed", 0x1234),
+			[
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file1";
+					});
+					experimental = false;
+					model_name = "GVT-g on 1234";
+				});
+			];
+		]
+	end)
 end
 
 let test_find_or_create () =
@@ -257,6 +317,7 @@ let test =
 			"test_of_conf_file" >:: NvidiaTest.OfConfFile.test;
 			"print_nv_types" >:: NvidiaTest.print_nv_types;
 			"read_whitelist_line" >:: IntelTest.ReadWhitelistLine.test;
+			"read_whitelist" >:: IntelTest.ReadWhitelist.test;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
 			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
