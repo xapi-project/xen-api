@@ -822,17 +822,23 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
 let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 let is_tools_sr_cache = ref []
+let tools_sr_memoised = ref None
 let is_tools_sr_cache_m = Mutex.create ()
 
 let clear_tools_sr_cache () =
 	Mutex.execute is_tools_sr_cache_m 
-		(fun () -> is_tools_sr_cache := [])
+		(fun () -> is_tools_sr_cache := []; tools_sr_memoised := None)
 
 (** Returns true if this SR is the XenSource Tools SR *)
 let is_tools_sr ~__context ~sr =
 	try
 		Mutex.execute is_tools_sr_cache_m
-			(fun () -> List.assoc sr !is_tools_sr_cache)
+			(fun () ->
+				match !tools_sr_memoised with
+					| Some s when s = sr -> true
+					| Some _ (* We could return false except for nervousness about adding an assumption of only one Tools SR *)
+					| None -> List.assoc sr !is_tools_sr_cache
+			)
 	with Not_found ->
 		let other_config = Db.SR.get_other_config ~__context ~self:sr in
 		(* Miami GA *)
@@ -847,6 +853,32 @@ let is_tools_sr ~__context ~sr =
 				if not (List.mem_assoc sr cache) then
 					is_tools_sr_cache := (sr, result) :: !is_tools_sr_cache);
 		result
+
+let get_tools_sr ~__context =
+	let seek_tools_sr () =
+		let candidates = Db.SR.get_refs_where ~__context ~expr:(
+			And (
+				Or (
+					Eq (Field "name__label", Literal Xapi_globs.miami_tools_sr_name),
+					Eq (Field "name__label", Literal Xapi_globs.rio_tools_sr_name) (* In case of ancient hosts that have been upgraded repeatedly? *)
+				),
+				Eq (Field "content_type", Literal "iso")
+			)
+		) in
+		let srs = List.filter (fun sr ->
+			is_tools_sr ~__context ~sr
+		) candidates in
+		if List.length srs <> 1 then failwith
+			("Expected exactly one Tools SR; found " ^ string_of_int (List.length srs));
+		List.hd srs
+	in
+	match Mutex.execute is_tools_sr_cache_m (fun () -> !tools_sr_memoised)
+	with
+		| Some sr -> sr
+		| None ->
+			let sr = seek_tools_sr () in
+			Mutex.execute is_tools_sr_cache_m (fun () -> tools_sr_memoised := Some sr);
+			sr
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
