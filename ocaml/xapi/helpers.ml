@@ -842,11 +842,13 @@ let is_tools_sr ~__context ~sr =
 	with Not_found ->
 		let other_config = Db.SR.get_other_config ~__context ~self:sr in
 		(* Miami GA *)
-		let result =
+		let result = (
 			List.mem_assoc Xapi_globs.tools_sr_tag other_config
 			(* Miami beta2 and earlier: *)
 			|| (List.mem_assoc Xapi_globs.xensource_internal other_config)
-		in
+		) && (
+			"iso" = Db.SR.get_content_type ~__context ~self:sr
+		) in
 		Mutex.execute is_tools_sr_cache_m
 			(fun () ->
 				let cache = !is_tools_sr_cache in
