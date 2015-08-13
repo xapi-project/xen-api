@@ -325,6 +325,7 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_features = features;
     sr_driver_configuration = configuration;
     sr_driver_text_features = text_features;
+    sr_driver_required_cluster_stack = [];
   }
 
 let sr_get_driver_info driver = 
