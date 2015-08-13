@@ -3202,6 +3202,23 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "SR.create_new_blob: SR = '%s'" (sr_uuid ~__context sr);
 			Local.SR.create_new_blob ~__context ~sr ~name ~mime_type ~public
 
+		(* SR Level RRDs *)
+		let get_data_sources ~__context ~sr =
+			info "SR.get_data_sources: SR = '%s'" (sr_uuid ~__context sr);
+			Local.SR.get_data_sources ~__context ~sr
+
+		let record_data_source ~__context ~sr ~data_source =
+			info "SR.record_data_source: SR = '%s';  data source = '%s'" (sr_uuid ~__context sr) data_source;
+			Local.SR.record_data_source ~__context ~sr ~data_source
+
+		let query_data_source ~__context ~sr ~data_source =
+			info "SR.query_data_source: SR = '%s'; data source = '%s'" (sr_uuid ~__context sr) data_source;
+			Local.SR.query_data_source ~__context ~sr ~data_source
+
+		let forget_data_source_archives ~__context ~sr ~data_source =
+			info "SR.forget_data_source_archives: sr = '%s'; data source = '%s'" (sr_uuid ~__context  sr) data_source;
+			Local.SR.forget_data_source_archives ~__context ~sr ~data_source
+
 	end
 	module VDI = struct
 
