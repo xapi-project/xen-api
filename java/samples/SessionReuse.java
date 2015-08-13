@@ -49,7 +49,7 @@ public class SessionReuse extends TestBase
     {
         TestBase.logger = logger;
 
-        URL url = new URL("http://" + server.Hostname);
+        URL url = new URL("https://" + server.Hostname);
 
         // Create a Connection. No login is performed for us.
         final Connection connection1 = new Connection(url);
