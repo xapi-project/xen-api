@@ -51,7 +51,7 @@ public abstract class TestBase
         /*
          * New style: we are responsible for Session login/logout.
          */
-        connection = new Connection(new URL("http://" + target.Hostname));
+        connection = new Connection(new URL("https://" + target.Hostname));
         logln(String.format("logging in to '%s' as '%s' with password '%s'...", target.Hostname, target.Username,
                 target.Password));
         logln("Success");
