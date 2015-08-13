@@ -155,12 +155,16 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
 
 (** Point ourselves at another master *)
 let become_another_masters_slave master_address = 
+  let current_role = Pool_role.get_role () in
   let new_role = Pool_role.Slave master_address in
-  if Pool_role.get_role () = new_role then begin
+  if current_role = new_role then begin
     debug "We are already a slave of %s; nothing to do" master_address;
   end else begin
+    if current_role = Pool_role.Master && !Xapi_globs.manage_xenvmd then begin
+      debug "Killing xenvmd instances for shared SRs before transitioning to slave";
+      Xapi_xenvmd.kill_non_sr_master_xenvmds ();
+    end;
     debug "Setting pool.conf to point to %s" master_address;
-    if !Xapi_globs.manage_xenvmd then Xapi_xenvmd.kill_non_sr_master_xenvmds ();
     Pool_role.set_role new_role;
     run_external_scripts false;
     Xapi_fuse.light_fuse_and_run ()
