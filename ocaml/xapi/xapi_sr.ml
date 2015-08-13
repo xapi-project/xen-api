@@ -14,6 +14,7 @@
 (** Module that defines API functions for SR objects
  * @group XenAPI functions
  *)
+module Rrdd = Rrd_client.Client
 
 open Printf
 open Threadext
@@ -563,3 +564,15 @@ let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 	let blob = Xapi_blob.create ~__context ~mime_type ~public in
 	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
 	blob
+
+(* APIs for accessing SR level stats *)
+let get_data_sources ~__context ~sr =
+	List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_sr_dss ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr))
+
+let record_data_source ~__context ~sr ~data_source =
+	Rrdd.add_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr)
+		~ds_name:data_source
+
+let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source
+
+let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source
