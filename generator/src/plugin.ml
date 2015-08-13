@@ -28,7 +28,8 @@ let api =
             "version", Basic String, "version";
             "required_api_version", Basic String, "minimum required API version";
             "features", Array (Basic String), "features supported by this plugin";
-            "configuration", Dict(String, Basic String), "key/description pairs describing required device_config parameters"
+            "configuration", Dict(String, Basic String), "key/description pairs describing required device_config parameters";
+            "required_cluster_stack", Array (Basic String), "the plugin requires one of these cluster stacks to be active";
           ]))
       }
     ];
