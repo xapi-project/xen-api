@@ -32,6 +32,7 @@ type imp =
 type flag = 
 | Vm_selectors (** adds a "vm" parameter for the name of a VM (rather than a UUID) *)
 | Host_selectors (** a "host" parameter for the name of a host (rather than a UUID) *)
+| Sr_selectors (** a "sr" parameter for the name of a SR (rather than a UUID) *)
 | Standard (** includes the command in the list of common commands displayed by "xe help" *)
 | Neverforward 
 | Hidden 

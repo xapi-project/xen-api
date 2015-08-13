@@ -3549,6 +3549,54 @@ let sr_create_new_blob = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let sr_get_data_sources = call
+  ~name:"get_data_sources"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:""
+  ~result:(Set (Record _data_source), "A set of data sources")
+  ~params:[Ref _sr, "sr", "The SR to interrogate"]
+  ~errs:[]
+  ~flags:[`Session] 
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
+let sr_record_data_source = call
+  ~name:"record_data_source"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Start recording the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source to record"]
+  ~errs:[]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let sr_query_data_source = call
+  ~name:"query_data_source"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Query the latest value of the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source to query"]
+  ~result:(Float,"The latest value, averaged over the last 5 seconds")
+  ~errs:[]
+  ~flags:[`Session]
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
+let sr_forget_data_source_archives = call
+  ~name:"forget_data_source_archives"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Forget the recorded statistics related to the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source whose archives are to be forgotten"]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let pbd_plug = call
   ~name:"plug"
   ~in_oss_since:None 
@@ -5460,9 +5508,13 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
-			sr_assert_supports_database_replication;
-			sr_enable_database_replication;
-			sr_disable_database_replication;
+		  sr_assert_supports_database_replication;
+		  sr_enable_database_replication;
+		  sr_disable_database_replication;
+		  sr_get_data_sources;
+		  sr_record_data_source;
+		  sr_query_data_source;
+		  sr_forget_data_source_archives; 
 
 		]
       ~contents:
@@ -8712,3 +8764,4 @@ let public_http_actions_with_no_rbac_check =
 let extra_permissions = [
 	(extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
 ]
+
