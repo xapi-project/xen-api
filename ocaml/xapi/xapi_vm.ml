@@ -1039,26 +1039,14 @@ let xenprep_start ~__context ~self =
 		| None -> true
 	then (
 		( try
-			let cd_name = Xapi_globs.xenprep_iso_name_label in
-			let sr = Helpers.get_tools_sr ~__context in
-			let vdis =
-				let open Db_filter_types in
-				Db.VDI.get_refs_where ~__context ~expr:(
-					And (
-						Eq (Field "SR", Literal (Ref.string_of sr)),
-						Eq (Field "name__label", Literal cd_name)
-					)
-				) in
-			if List.length vdis <> 1 then failwith
-				("xenprep_start failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
-			let vdi = List.hd vdis in
 			(* Find any empty CD-drive VBD for the VM. *)
 			(* We don't care if currently_attached is false: VBD.insert will take care of things. *)
 			let vbds = Db.VM.get_VBDs ~__context ~self in
 			let empty_cd_vbds = List.filter (fun vbd -> (Db.VBD.get_type ~__context ~self:vbd = `CD) && (Db.VBD.get_empty ~__context ~self:vbd)) vbds in
 			if [] = empty_cd_vbds then raise (Api_errors.Server_error(Api_errors.vm_no_empty_cd_vbd, [ Ref.string_of self ]));
 			let cd_vbd = List.hd empty_cd_vbds in
-			(* We found a suitable drive, so insert the CD. *)
+			(* We found a suitable drive, so find and insert the CD. *)
+			let vdi = Helpers.get_xenprep_iso_vdi ~__context in
 			(* We use the API to be on the safe side, because calling
 			 * Xapi_vbd.insert directly would bypass the "operations"
 			 * handling in Message_forwarding *)
