@@ -652,6 +652,8 @@ let _ =
   (* CA-83260 *)
   error Api_errors.disk_vbd_must_be_readwrite_for_hvm ["vbd"]
     ~doc:"All VBDs of type 'disk' must be read/write for HVM guests" ();
+  error Api_errors.vm_no_empty_cd_vbd ["vm"]
+    ~doc:"The VM has no empty CD drive (VBD)." ();
   error Api_errors.vm_hvm_required ["vm"]
     ~doc:"HVM is required for this operation" ();
   error Api_errors.vm_no_vcpus ["vm"]

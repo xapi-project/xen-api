@@ -2820,7 +2820,7 @@ let vm_cd_insert printer rpc session_id params =
 		let vm_record = vm.record () in
 		let vbds = vm_record.API.vM_VBDs in
 		let cdvbds = List.filter (fun vbd -> (Client.VBD.get_type rpc session_id vbd = `CD) && (Client.VBD.get_empty rpc session_id vbd)) vbds in
-		if List.length cdvbds = 0 then (failwith "No empty CD devices found");
+		if List.length cdvbds = 0 then raise (Api_errors.Server_error(Api_errors.vm_no_empty_cd_vbd, [ Ref.string_of (vm.getref ()) ]));
 		if List.length cdvbds > 1 then (failwith "Two or more empty CD devices found. Please use vbd-insert");
 		let cd = List.hd cdvbds in
 		Client.VBD.insert rpc session_id cd (List.hd vdis)
