@@ -1,3 +1,8 @@
+0.13.0 (14-Aug-2015):
+* storage: add `persistent` to VBDs
+* storage: `vdi_info` includes an optional uuid
+* storage: support for RRD datasources
+
 0.12.2 (14-Jul-2015):
 * rrd: General interface tidyup
 * storage: Add set_name_label and set_name_description
