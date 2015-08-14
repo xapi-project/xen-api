@@ -1,3 +1,8 @@
+0.10.0 (14-Aug-2015):
+* Preliminary support for FCoE
+* Support xapi `originator`
+* Prevent "xenapi" prefixed bridge monitoring
+
 0.9.5 (27-Sep-2014):
 * Add man page and standard command-line options
 * Use libnl to read stats from interfaces
