@@ -428,14 +428,16 @@ module MD = struct
 				warn "Unknown VBD QoS type: %s (try 'ionice')" x;
 				None in
 
-		let backend_kind_keys =
+		let other_config_keys key =
 			let oc = vbd.API.vBD_other_config in
-			let k = Xapi_globs.vbd_backend_key in
+			let k = key in
 			try
 				let v = List.assoc k oc in
 				[(k, v)]
 			with Not_found -> []
 		in
+
+		let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
 
 		{
 			id = (vm.API.vM_uuid, Device_number.to_linux_device device_number);
