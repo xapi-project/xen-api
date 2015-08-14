@@ -1,5 +1,10 @@
-trunk (unreleased)
+0.12.0 (14-Aug-2015):
+* Remove dependency on Re_str
+* Fix FD leak while reading /sysfs
+
+0.11.0 (7-Apr-2015):
 * CA-155888: do not clean memory reservation in transfer
+* Add lots of documentation
 
 0.10.7 (9-Oct-2014):
 * Create a fast-path when there is plenty of memory
