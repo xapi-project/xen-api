@@ -1034,14 +1034,19 @@ let xenprep_start ~__context ~self =
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 
 	let key = "xenprep_progress" in
-	let started_already = Mutex.execute xenprep_mutex (fun () ->
-		if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then true
+	let preexisting_progress = Mutex.execute xenprep_mutex (fun () ->
+		let other_config = Db.VM.get_other_config ~__context ~self in
+		if List.mem_assoc key other_config
+		then Some (List.assoc key other_config)
 		else (Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
-		false)
+		None)
 	) in
-	if started_already then (
-		info "Xapi_vm.xenprep_start: VM is in xenprep already: VM=%s" vm_uuid
-	) else (
+	if match preexisting_progress with
+		| Some progress ->
+			info "Xapi_vm.xenprep_start: VM already has %s=%s; VM=%s" key progress vm_uuid;
+			false
+		| None -> true
+	then (
 		( try
 			let cd_name = Xapi_globs.xenprep_iso_name_label in
 			let sr = Helpers.get_tools_sr ~__context in
