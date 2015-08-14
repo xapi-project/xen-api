@@ -1029,9 +1029,11 @@ let set_auto_update_drivers ~__context ~self ~value=
 let xenprep_mutex = Mutex.create ()
 
 let xenprep_start ~__context ~self =
-	let key = "xenprep_progress" in
 	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
 	info "Xapi_vm.xenprep_start: VM=%s" vm_uuid;
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
+
+	let key = "xenprep_progress" in
 	let started_already = Mutex.execute xenprep_mutex (fun () ->
 		if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then true
 		else (Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
