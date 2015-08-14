@@ -187,6 +187,7 @@ let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
 let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
+let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
 
 let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
 
