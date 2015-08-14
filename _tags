@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: a70660444fe52cdc09990fba812c7150)
+# DO NOT EDIT (digest: 3e84eb1eaa573b339c1fdfdc6d6759f6)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -15,11 +16,11 @@
 "_darcs": not_hygienic
 # Library squeeze
 "lib/squeeze.cmxs": use_squeeze
-<lib/*.ml{,i}>: pkg_re
-<lib/*.ml{,i}>: pkg_re.str
-<lib/*.ml{,i}>: pkg_stdext
-<lib/*.ml{,i}>: pkg_threads
-<lib/*.ml{,i}>: pkg_xcp
+<lib/*.ml{,i,y}>: pkg_re
+<lib/*.ml{,i,y}>: pkg_re.str
+<lib/*.ml{,i,y}>: pkg_stdext
+<lib/*.ml{,i,y}>: pkg_threads
+<lib/*.ml{,i,y}>: pkg_xcp
 # Executable squeezed
 <src/squeezed.{native,byte}>: pkg_re
 <src/squeezed.{native,byte}>: pkg_re.str
@@ -36,21 +37,21 @@
 <src/squeezed.{native,byte}>: pkg_xenstore_transport
 <src/squeezed.{native,byte}>: pkg_xenstore_transport.unix
 <src/squeezed.{native,byte}>: use_squeeze
-<src/*.ml{,i}>: pkg_re
-<src/*.ml{,i}>: pkg_re.str
-<src/*.ml{,i}>: pkg_rpclib
-<src/*.ml{,i}>: pkg_rpclib.syntax
-<src/*.ml{,i}>: pkg_stdext
-<src/*.ml{,i}>: pkg_threads
-<src/*.ml{,i}>: pkg_uuidm
-<src/*.ml{,i}>: pkg_xcp
-<src/*.ml{,i}>: pkg_xcp.memory
-<src/*.ml{,i}>: pkg_xenctrl
-<src/*.ml{,i}>: pkg_xenstore
-<src/*.ml{,i}>: pkg_xenstore.unix
-<src/*.ml{,i}>: pkg_xenstore_transport
-<src/*.ml{,i}>: pkg_xenstore_transport.unix
-<src/*.ml{,i}>: use_squeeze
+<src/*.ml{,i,y}>: pkg_re
+<src/*.ml{,i,y}>: pkg_re.str
+<src/*.ml{,i,y}>: pkg_rpclib
+<src/*.ml{,i,y}>: pkg_rpclib.syntax
+<src/*.ml{,i,y}>: pkg_stdext
+<src/*.ml{,i,y}>: pkg_threads
+<src/*.ml{,i,y}>: pkg_uuidm
+<src/*.ml{,i,y}>: pkg_xcp
+<src/*.ml{,i,y}>: pkg_xcp.memory
+<src/*.ml{,i,y}>: pkg_xenctrl
+<src/*.ml{,i,y}>: pkg_xenstore
+<src/*.ml{,i,y}>: pkg_xenstore.unix
+<src/*.ml{,i,y}>: pkg_xenstore_transport
+<src/*.ml{,i,y}>: pkg_xenstore_transport.unix
+<src/*.ml{,i,y}>: use_squeeze
 # Executable test
 <test/squeeze_test_main.{native,byte}>: pkg_re
 <test/squeeze_test_main.{native,byte}>: pkg_re.str
@@ -60,12 +61,12 @@
 <test/squeeze_test_main.{native,byte}>: pkg_xcp
 <test/squeeze_test_main.{native,byte}>: pkg_xenctrl
 <test/squeeze_test_main.{native,byte}>: use_squeeze
-<test/*.ml{,i}>: pkg_re
-<test/*.ml{,i}>: pkg_re.str
-<test/*.ml{,i}>: pkg_stdext
-<test/*.ml{,i}>: pkg_threads
-<test/*.ml{,i}>: pkg_unix
-<test/*.ml{,i}>: pkg_xcp
-<test/*.ml{,i}>: pkg_xenctrl
-<test/*.ml{,i}>: use_squeeze
+<test/*.ml{,i,y}>: pkg_re
+<test/*.ml{,i,y}>: pkg_re.str
+<test/*.ml{,i,y}>: pkg_stdext
+<test/*.ml{,i,y}>: pkg_threads
+<test/*.ml{,i,y}>: pkg_unix
+<test/*.ml{,i,y}>: pkg_xcp
+<test/*.ml{,i,y}>: pkg_xenctrl
+<test/*.ml{,i,y}>: use_squeeze
 # OASIS_STOP
