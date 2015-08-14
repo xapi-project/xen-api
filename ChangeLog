@@ -1,3 +1,6 @@
+0.9.5 (14-Aug-2015):
+* VDIs now have optional uuids
+
 0.9.4 (25-Oct-2013):
 * add 'vdi-compose' and 'vdi-similar-content' subcommands
 * add mirror manipulation subcommands
