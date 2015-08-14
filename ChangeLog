@@ -1,3 +1,14 @@
+0.11.0 (14-Aug-2015):
+* Replace 'xcp' in alternatives path with 'xapi'
+* Use 'xl pci-attach' for PCI passthrough
+* Turn on TCP keepalives on migration sockets
+* libxl: update to serial_list (Xen 4.5)
+* Add support for configuring Windows update
+* Support for blkback with raw format block devices
+* Failing to add a vif to a bridge is a hard error
+* Improved VGPU support
+* Support SMAPIv3
+
 0.10.1 (7-Apr-2015):
 * update libvirt xenopsd to xapi-idl.0.10.0
 
