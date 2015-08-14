@@ -26,6 +26,12 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 open Workload_balancing
 
+(* Convenience function. Not thread-safe. *)
+let db_set_in_other_config ~__context ~self ~key ~value =
+	if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then
+		Db.VM.remove_from_other_config ~__context ~self ~key;
+	Db.VM.add_to_other_config ~__context ~self ~key ~value
+
 let compute_memory_overhead ~__context ~vm =
 	let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
 	| `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
@@ -918,6 +924,8 @@ let allowed_VIF_devices ~__context ~vm =
 	let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
 	List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
+
+let xenprep_mutex = Mutex.create ()
 
 let delete_guest_metrics ~__context ~self:vm =
 	(* Delete potentially stale guest metrics object *)

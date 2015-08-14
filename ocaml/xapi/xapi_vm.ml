@@ -36,13 +36,6 @@ exception InvalidOperation of string
 
 let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid
 
-(* Convenience function currently not exposed in .mli but could be. *)
-(* Not thread-safe. *)
-let db_set_in_other_config ~__context ~self ~key ~value =
-	if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then
-		Db.VM.remove_from_other_config ~__context ~self ~key;
-	Db.VM.add_to_other_config ~__context ~self ~key ~value
-
 let update_allowed_operations ~__context ~self =
 	Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"
 		(fun () ->
@@ -1026,15 +1019,13 @@ let set_auto_update_drivers ~__context ~self ~value=
 	assert_can_set_auto_update_drivers ~__context ~self ~value;
 	Db.VM.set_auto_update_drivers ~__context ~self ~value
 
-let xenprep_mutex = Mutex.create ()
-
 let xenprep_start ~__context ~self =
 	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
 	info "Xapi_vm.xenprep_start: VM=%s" vm_uuid;
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 
 	let key = Xapi_globs.xenprep_other_config_key in
-	let preexisting_progress = Mutex.execute xenprep_mutex (fun () ->
+	let preexisting_progress = Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
 		let other_config = Db.VM.get_other_config ~__context ~self in
 		if List.mem_assoc key other_config
 		then Some (List.assoc key other_config)
@@ -1076,12 +1067,12 @@ let xenprep_start ~__context ~self =
 					Client.VBD.insert ~rpc ~session_id ~vbd:cd_vbd ~vdi
 				)
 		with e ->
-			Mutex.execute xenprep_mutex (fun () ->
+			Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
 				Db.VM.remove_from_other_config ~__context ~self ~key
 			);
 			raise e
 		);
-		Mutex.execute xenprep_mutex (fun () ->
-			db_set_in_other_config ~__context ~self ~key ~value:Xapi_globs.xenprep_other_config_iso_inserted
+		Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
+			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:Xapi_globs.xenprep_other_config_iso_inserted
 		)
 	)
