@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name: squeeezed
-Version: 0.10.7
+Version: 0.12.0
 Synopsis: Xen host memory ballooning daemon
 Authors: Dave Scott
 License: LGPL-2.1 with OCaml linking exception
