@@ -438,6 +438,7 @@ module MD = struct
 		in
 
 		let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
+		let poll_duration_keys = other_config_keys Xapi_globs.vbd_polling_duration_key in
 
 		{
 			id = (vm.API.vM_uuid, Device_number.to_linux_device device_number);
@@ -449,7 +450,7 @@ module MD = struct
 				| `CD -> CDROM
 				| `Floppy -> Floppy);
 			unpluggable = vbd.API.vBD_unpluggable;
-			extra_backend_keys = backend_kind_keys;
+			extra_backend_keys = backend_kind_keys @ poll_duration_keys;
 			extra_private_keys = [];
 			qos = qos ty;
 			persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);
