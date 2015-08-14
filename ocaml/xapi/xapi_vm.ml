@@ -1033,7 +1033,7 @@ let xenprep_start ~__context ~self =
 	info "Xapi_vm.xenprep_start: VM=%s" vm_uuid;
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 
-	let key = "xenprep_progress" in
+	let key = Xapi_globs.xenprep_other_config_key in
 	let preexisting_progress = Mutex.execute xenprep_mutex (fun () ->
 		let other_config = Db.VM.get_other_config ~__context ~self in
 		if List.mem_assoc key other_config
@@ -1082,6 +1082,6 @@ let xenprep_start ~__context ~self =
 			raise e
 		);
 		Mutex.execute xenprep_mutex (fun () ->
-			db_set_in_other_config ~__context ~self ~key ~value:"ISO_inserted"
+			db_set_in_other_config ~__context ~self ~key ~value:Xapi_globs.xenprep_other_config_iso_inserted
 		)
 	)
