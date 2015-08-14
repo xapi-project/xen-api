@@ -208,20 +208,18 @@ let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 		)
 
-let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
-  let localhost = Helpers.get_localhost ~__context in
+let host_for_vm ~__context ~vm_uuid =
 	let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
-	let vm_host = Db.VM.get_resident_on ~__context ~self:vm in
-	localhost = vm_host
+	Db.VM.get_resident_on ~__context ~self:vm
 
 let push_rrd ~__context ~(vm_uuid : string) : unit =
-	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
-	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-	if is_on_localhost then
+	let vm_host = host_for_vm ~__context ~vm_uuid in
+	if vm_host = (Helpers.get_localhost ~__context) then
+		let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
 		log_and_ignore_exn (fun () -> Rrdd.push_rrd_local ~vm_uuid ~domid)
 	else
-		let master = Pool_role.get_master_address () in
-		log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote ~vm_uuid ~remote_address:master)
+		let remote_address = Db.Host.get_address ~__context ~self:vm_host in
+		log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote ~vm_uuid ~remote_address)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 	let remote_address = match remote_address with
