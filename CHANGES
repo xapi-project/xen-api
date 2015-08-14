@@ -1,3 +1,6 @@
+0.11.0 (14-Aug-2015):
+* rrd: remove notion of master and slave from the interface
+
 0.10.1 (15-Jun-2015):
 * Fix setting of plugins as default
 
