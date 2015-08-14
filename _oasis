@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xcp-networkd
-Version:     0.9.5
+Version:     0.10.0
 Synopsis:    XCP Network Daemon
 Authors:     Rob Hoes
 License:     LGPL-2.1 with OCaml linking exception
