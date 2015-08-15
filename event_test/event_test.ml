@@ -111,7 +111,7 @@ let watch_events rpc session_id =
 
 let main () =
 	let rpc = make !uri in
-	Session.login_with_password rpc !username !password "1.0"
+	Session.login_with_password rpc !username !password "1.0" "event_test"
 	>>= fun session_id ->
         let a = watch_events rpc session_id in
         let b = watch_events rpc session_id in

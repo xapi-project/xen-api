@@ -30,7 +30,7 @@ let exn_to_string = function
 
 let main () =
 	let rpc = make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" in
+	lwt session_id = Session.login_with_password rpc !username !password "1.0" "watch_metrics" in
 	try_lwt
 		lwt hosts = Host.get_all rpc session_id in
 		let host = List.hd hosts in

@@ -90,6 +90,7 @@ let v6_license_expired = addMessage "LICENSE_EXPIRED" 2L (* Used in XenCenter *)
 let v6_grace_license = addMessage "GRACE_LICENSE" 3L
 let v6_rejected = addMessage "LICENSE_NOT_AVAILABLE" 2L
 let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE" 2L
+let v6_license_server_version_obsolete = addMessage "LICENSE_SERVER_VERSION_OBSOLETE" 2L
 
 (* VMPP message types *)
 let vmpp_snapshot_lock_failed = addMessage "VMPP_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot phase is already executing for this protection policy. Please try again later'*)
