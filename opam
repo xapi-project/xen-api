@@ -21,6 +21,8 @@ depends: [
   "re"
   "xmlm"
   "rpc" {>= "1.3.0"}
+  "xapi-rrd"
+  "uuidm"
 ]
 depopts: ["async"]
 conflicts: ["async" {< "111.13.00"}]
