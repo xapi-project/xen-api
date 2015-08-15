@@ -20,6 +20,12 @@ module ClientF = functor(X : IO) ->struct
   module Async = struct
     module Session = struct
       (**  *)
+      let create_from_db_file ~rpc ~session_id ~filename =
+        let session_id = rpc_of_ref_session session_id in
+        let filename = rpc_of_string filename in
+        
+        rpc_wrapper rpc "Async.session.create_from_db_file" [ session_id; filename ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
       let get_all_subject_identifiers ~rpc ~session_id =
         let session_id = rpc_of_ref_session session_id in
         
@@ -311,6 +317,31 @@ module ClientF = functor(X : IO) ->struct
         let self = rpc_of_ref_pool self in
         
         rpc_wrapper rpc "Async.pool.disable_local_storage_caching" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let get_license_state ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        
+        rpc_wrapper rpc "Async.pool.get_license_state" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let apply_edition ~rpc ~session_id ~self ~edition =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        let edition = rpc_of_string edition in
+        
+        rpc_wrapper rpc "Async.pool.apply_edition" [ session_id; self; edition ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let enable_ssl_legacy ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        
+        rpc_wrapper rpc "Async.pool.enable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let disable_ssl_legacy ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        
+        rpc_wrapper rpc "Async.pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module Pool_patch = struct
       (**  *)
@@ -361,7 +392,7 @@ module ClientF = functor(X : IO) ->struct
     end
     module VM = struct
       (**  *)
-      let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version =
+      let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version =
         let session_id = rpc_of_ref_session session_id in
         let name_label = rpc_of_string name_label in
         let name_description = rpc_of_string name_description in
@@ -405,7 +436,9 @@ module ClientF = functor(X : IO) ->struct
         let order = rpc_of_int64 order in
         let suspend_SR = rpc_of_ref_SR suspend_SR in
         let version = rpc_of_int64 version in
-        let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version] in
+        let generation_id = rpc_of_string generation_id in
+        let hardware_platform_version = rpc_of_int64 hardware_platform_version in
+        let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version] in
         rpc_wrapper rpc "Async.VM.create" [ session_id; args ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let destroy ~rpc ~session_id ~self =
@@ -496,6 +529,12 @@ module ClientF = functor(X : IO) ->struct
         let vm = rpc_of_ref_VM vm in
         
         rpc_wrapper rpc "Async.VM.clean_shutdown" [ session_id; vm ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let shutdown ~rpc ~session_id ~vm =
+        let session_id = rpc_of_ref_session session_id in
+        let vm = rpc_of_ref_VM vm in
+        
+        rpc_wrapper rpc "Async.VM.shutdown" [ session_id; vm ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let clean_reboot ~rpc ~session_id ~vm =
         let session_id = rpc_of_ref_session session_id in
@@ -805,6 +844,13 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.VM.assert_can_be_recovered" [ session_id; self; session_to ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
+      let get_SRs_required_for_recovery ~rpc ~session_id ~self ~session_to =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM self in
+        let session_to = rpc_of_ref_session session_to in
+        
+        rpc_wrapper rpc "Async.VM.get_SRs_required_for_recovery" [ session_id; self; session_to ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
       let recover ~rpc ~session_id ~self ~session_to ~force =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_VM self in
@@ -835,6 +881,44 @@ module ClientF = functor(X : IO) ->struct
         let self = rpc_of_ref_VM self in
         
         rpc_wrapper rpc "Async.VM.query_services" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args =
+        let session_id = rpc_of_ref_session session_id in
+        let vm = rpc_of_ref_VM vm in
+        let plugin = rpc_of_string plugin in
+        let fn = rpc_of_string fn in
+        let args = rpc_of_string_to_string_map args in
+        
+        rpc_wrapper rpc "Async.VM.call_plugin" [ session_id; vm; plugin; fn; args ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_auto_update_drivers ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM self in
+        let value = rpc_of_bool value in
+        
+        rpc_wrapper rpc "Async.VM.set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let assert_can_set_auto_update_drivers ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM self in
+        let value = rpc_of_bool value in
+        
+        rpc_wrapper rpc "Async.VM.assert_can_set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let import ~rpc ~session_id ~url ~sr ~full_restore ~force =
+        let session_id = rpc_of_ref_session session_id in
+        let url = rpc_of_string url in
+        let sr = rpc_of_ref_SR sr in
+        let full_restore = rpc_of_bool full_restore in
+        let force = rpc_of_bool force in
+        
+        rpc_wrapper rpc "Async.VM.import" [ session_id; url; sr; full_restore; force ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let xenprep_start ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM self in
+        
+        rpc_wrapper rpc "Async.VM.xenprep_start" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
@@ -882,6 +966,8 @@ module ClientF = functor(X : IO) ->struct
         ~order:value.vM_order
         ~suspend_SR:value.vM_suspend_SR
         ~version:value.vM_version
+        ~generation_id:value.vM_generation_id
+        ~hardware_platform_version:value.vM_hardware_platform_version
     end
     module VM_metrics = struct
     end
@@ -977,6 +1063,13 @@ module ClientF = functor(X : IO) ->struct
         let session_to = rpc_of_ref_session session_to in
         
         rpc_wrapper rpc "Async.VM_appliance.assert_can_be_recovered" [ session_id; self; session_to ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let get_SRs_required_for_recovery ~rpc ~session_id ~self ~session_to =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM_appliance self in
+        let session_to = rpc_of_ref_session session_to in
+        
+        rpc_wrapper rpc "Async.VM_appliance.get_SRs_required_for_recovery" [ session_id; self; session_to ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let recover ~rpc ~session_id ~self ~session_to ~force =
         let session_id = rpc_of_ref_session session_id in
@@ -1383,6 +1476,31 @@ module ClientF = functor(X : IO) ->struct
         let options = rpc_of_string_to_string_map options in
         
         rpc_wrapper rpc "Async.host.migrate_receive" [ session_id; host; network; options ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let declare_dead ~rpc ~session_id ~host =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        
+        rpc_wrapper rpc "Async.host.declare_dead" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let enable_display ~rpc ~session_id ~host =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        
+        rpc_wrapper rpc "Async.host.enable_display" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let disable_display ~rpc ~session_id ~host =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        
+        rpc_wrapper rpc "Async.host.disable_display" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_ssl_legacy ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_host self in
+        let value = rpc_of_bool value in
+        
+        rpc_wrapper rpc "Async.host.set_ssl_legacy" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module Host_crashdump = struct
       (**  *)
@@ -1653,13 +1771,14 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.PIF.scan" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let introduce ~rpc ~session_id ~host ~mAC ~device =
+      let introduce ~rpc ~session_id ~host ~mAC ~device ~managed =
         let session_id = rpc_of_ref_session session_id in
         let host = rpc_of_ref_host host in
         let mAC = rpc_of_string mAC in
         let device = rpc_of_string device in
+        let managed = rpc_of_bool managed in
         
-        rpc_wrapper rpc "Async.PIF.introduce" [ session_id; host; mAC; device ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.PIF.introduce" [ session_id; host; mAC; device; managed ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let forget ~rpc ~session_id ~self =
         let session_id = rpc_of_ref_session session_id in
@@ -1679,7 +1798,7 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.PIF.plug" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let pool_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type =
+      let pool_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
         let session_id = rpc_of_ref_session session_id in
         let device = rpc_of_string device in
         let network = rpc_of_ref_network network in
@@ -1702,10 +1821,12 @@ module ClientF = functor(X : IO) ->struct
         let iPv6 = rpc_of_string_set iPv6 in
         let ipv6_gateway = rpc_of_string ipv6_gateway in
         let primary_address_type = rpc_of_primary_address_type primary_address_type in
+        let managed = rpc_of_bool managed in
+        let properties = rpc_of_string_to_string_map properties in
         
-        rpc_wrapper rpc "Async.PIF.pool_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.PIF.pool_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type; managed; properties ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let db_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type =
+      let db_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
         let session_id = rpc_of_ref_session session_id in
         let device = rpc_of_string device in
         let network = rpc_of_ref_network network in
@@ -1728,14 +1849,24 @@ module ClientF = functor(X : IO) ->struct
         let iPv6 = rpc_of_string_set iPv6 in
         let ipv6_gateway = rpc_of_string ipv6_gateway in
         let primary_address_type = rpc_of_primary_address_type primary_address_type in
+        let managed = rpc_of_bool managed in
+        let properties = rpc_of_string_to_string_map properties in
         
-        rpc_wrapper rpc "Async.PIF.db_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.PIF.db_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type; managed; properties ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let db_forget ~rpc ~session_id ~self =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_PIF self in
         
         rpc_wrapper rpc "Async.PIF.db_forget" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_property ~rpc ~session_id ~self ~name ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PIF self in
+        let name = rpc_of_string name in
+        let value = rpc_of_string value in
+        
+        rpc_wrapper rpc "Async.PIF.set_property" [ session_id; self; name; value ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module PIF_metrics = struct
     end
@@ -2051,12 +2182,14 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.VDI.update" [ session_id; vdi ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let copy ~rpc ~session_id ~vdi ~sr =
+      let copy ~rpc ~session_id ~vdi ~sr ~base_vdi ~into_vdi =
         let session_id = rpc_of_ref_session session_id in
         let vdi = rpc_of_ref_VDI vdi in
         let sr = rpc_of_ref_SR sr in
+        let base_vdi = rpc_of_ref_VDI base_vdi in
+        let into_vdi = rpc_of_ref_VDI into_vdi in
         
-        rpc_wrapper rpc "Async.VDI.copy" [ session_id; vdi; sr ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.VDI.copy" [ session_id; vdi; sr; base_vdi; into_vdi ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let force_unlock ~rpc ~session_id ~vdi =
         let session_id = rpc_of_ref_session session_id in
@@ -2410,6 +2543,53 @@ module ClientF = functor(X : IO) ->struct
     module PCI = struct
     end
     module PGPU = struct
+      (**  *)
+      let add_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        let value = rpc_of_ref_VGPU_type value in
+        
+        rpc_wrapper rpc "Async.PGPU.add_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let remove_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        let value = rpc_of_ref_VGPU_type value in
+        
+        rpc_wrapper rpc "Async.PGPU.remove_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        let value = rpc_of_ref_VGPU_type_set value in
+        
+        rpc_wrapper rpc "Async.PGPU.set_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_GPU_group ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        let value = rpc_of_ref_GPU_group value in
+        
+        rpc_wrapper rpc "Async.PGPU.set_GPU_group" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let get_remaining_capacity ~rpc ~session_id ~self ~vgpu_type =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        let vgpu_type = rpc_of_ref_VGPU_type vgpu_type in
+        
+        rpc_wrapper rpc "Async.PGPU.get_remaining_capacity" [ session_id; self; vgpu_type ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let enable_dom0_access ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        
+        rpc_wrapper rpc "Async.PGPU.enable_dom0_access" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let disable_dom0_access ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_PGPU self in
+        
+        rpc_wrapper rpc "Async.PGPU.disable_dom0_access" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module GPU_group = struct
       (**  *)
@@ -2426,23 +2606,52 @@ module ClientF = functor(X : IO) ->struct
         let self = rpc_of_ref_GPU_group self in
         
         rpc_wrapper rpc "Async.GPU_group.destroy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let update_enabled_VGPU_types ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_GPU_group self in
+        
+        rpc_wrapper rpc "Async.GPU_group.update_enabled_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let update_supported_VGPU_types ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_GPU_group self in
+        
+        rpc_wrapper rpc "Async.GPU_group.update_supported_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let get_remaining_capacity ~rpc ~session_id ~self ~vgpu_type =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_GPU_group self in
+        let vgpu_type = rpc_of_ref_VGPU_type vgpu_type in
+        
+        rpc_wrapper rpc "Async.GPU_group.get_remaining_capacity" [ session_id; self; vgpu_type ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module VGPU = struct
       (**  *)
-      let create ~rpc ~session_id ~vM ~gPU_group ~device ~other_config =
+      let create ~rpc ~session_id ~vM ~gPU_group ~device ~other_config ~_type =
         let session_id = rpc_of_ref_session session_id in
         let vM = rpc_of_ref_VM vM in
         let gPU_group = rpc_of_ref_GPU_group gPU_group in
         let device = rpc_of_string device in
         let other_config = rpc_of_string_to_string_map other_config in
+        let _type = rpc_of_ref_VGPU_type _type in
         
-        rpc_wrapper rpc "Async.VGPU.create" [ session_id; vM; gPU_group; device; other_config ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.VGPU.create" [ session_id; vM; gPU_group; device; other_config; _type ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let destroy ~rpc ~session_id ~self =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_VGPU self in
         
         rpc_wrapper rpc "Async.VGPU.destroy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let atomic_set_resident_on ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VGPU self in
+        let value = rpc_of_ref_PGPU value in
+        
+        rpc_wrapper rpc "Async.VGPU.atomic_set_resident_on" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+    end
+    module VGPU_type = struct
     end
   end
   module Session = struct
@@ -2543,6 +2752,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "session.get_parent" [ session_id; self ] >>= fun x -> return (ref_session_of_rpc  x)
     (**  *)
+    let get_originator ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_session self in
+      
+      rpc_wrapper rpc "session.get_originator" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_session self in
@@ -2565,12 +2780,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "session.remove_from_other_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
     (**  *)
-    let login_with_password ~rpc ~uname ~pwd ~version =
+    let login_with_password ~rpc ~uname ~pwd ~version ~originator =
       let uname = rpc_of_string uname in
       let pwd = rpc_of_string pwd in
       let version = rpc_of_string version in
+      let originator = rpc_of_string originator in
       
-      rpc_wrapper rpc "session.login_with_password" [ uname; pwd; version ] >>= fun x -> return (ref_session_of_rpc  x)
+      rpc_wrapper rpc "session.login_with_password" [ uname; pwd; version; originator ] >>= fun x -> return (ref_session_of_rpc  x)
     (**  *)
     let logout ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -2600,6 +2816,12 @@ module ClientF = functor(X : IO) ->struct
       let pwd = rpc_of_string pwd in
       
       rpc_wrapper rpc "session.slave_local_login_with_password" [ uname; pwd ] >>= fun x -> return (ref_session_of_rpc  x)
+    (**  *)
+    let create_from_db_file ~rpc ~session_id ~filename =
+      let session_id = rpc_of_ref_session session_id in
+      let filename = rpc_of_string filename in
+      
+      rpc_wrapper rpc "session.create_from_db_file" [ session_id; filename ] >>= fun x -> return (ref_session_of_rpc  x)
     (**  *)
     let local_logout ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -2931,6 +3153,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "task.get_subtasks" [ session_id; self ] >>= fun x -> return (ref_task_set_of_rpc  x)
     (**  *)
+    let get_backtrace ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_task self in
+      
+      rpc_wrapper rpc "task.get_backtrace" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_task self in
@@ -3149,6 +3377,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.get_gui_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_health_check_config ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_health_check_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
     let get_wlb_url ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_pool self in
@@ -3202,6 +3436,24 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_pool self in
       
       rpc_wrapper rpc "pool.get_metadata_VDIs" [ session_id; self ] >>= fun x -> return (ref_VDI_set_of_rpc  x)
+    (**  *)
+    let get_ha_cluster_stack ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_ha_cluster_stack" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_allowed_operations ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_allowed_operations" [ session_id; self ] >>= fun x -> return (pool_allowed_operations_set_of_rpc  x)
+    (**  *)
+    let get_current_operations ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_current_operations" [ session_id; self ] >>= fun x -> return (string_to_pool_allowed_operations_map_of_rpc  x)
     (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -3309,6 +3561,28 @@ module ClientF = functor(X : IO) ->struct
       let key = rpc_of_string key in
       
       rpc_wrapper rpc "pool.remove_from_gui_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_health_check_config ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let value = rpc_of_string_to_string_map value in
+      
+      rpc_wrapper rpc "pool.set_health_check_config" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let add_to_health_check_config ~rpc ~session_id ~self ~key ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let key = rpc_of_string key in
+      let value = rpc_of_string value in
+      
+      rpc_wrapper rpc "pool.add_to_health_check_config" [ session_id; self; key; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let remove_from_health_check_config ~rpc ~session_id ~self ~key =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let key = rpc_of_string key in
+      
+      rpc_wrapper rpc "pool.remove_from_health_check_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
     (**  *)
     let set_wlb_enabled ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -3633,6 +3907,31 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.disable_local_storage_caching" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
+    let get_license_state ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_license_state" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let apply_edition ~rpc ~session_id ~self ~edition =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let edition = rpc_of_string edition in
+      
+      rpc_wrapper rpc "pool.apply_edition" [ session_id; self; edition ] >>= fun x -> return (ignore x)
+    (**  *)
+    let enable_ssl_legacy ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.enable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let disable_ssl_legacy ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
       
@@ -3820,7 +4119,7 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.get_by_uuid" [ session_id; uuid ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
-    let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version =
+    let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version =
       let session_id = rpc_of_ref_session session_id in
       let name_label = rpc_of_string name_label in
       let name_description = rpc_of_string name_description in
@@ -3864,7 +4163,9 @@ module ClientF = functor(X : IO) ->struct
       let order = rpc_of_int64 order in
       let suspend_SR = rpc_of_ref_SR suspend_SR in
       let version = rpc_of_int64 version in
-      let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version] in
+      let generation_id = rpc_of_string generation_id in
+      let hardware_platform_version = rpc_of_int64 hardware_platform_version in
+      let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version] in
       rpc_wrapper rpc "VM.create" [ session_id; args ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
     let destroy ~rpc ~session_id ~self =
@@ -4323,6 +4624,24 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.get_version" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
     (**  *)
+    let get_generation_id ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      
+      rpc_wrapper rpc "VM.get_generation_id" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_hardware_platform_version ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      
+      rpc_wrapper rpc "VM.get_hardware_platform_version" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let get_auto_update_drivers ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      
+      rpc_wrapper rpc "VM.get_auto_update_drivers" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM self in
@@ -4602,6 +4921,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.set_suspend_SR" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
+    let set_hardware_platform_version ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      let value = rpc_of_int64 value in
+      
+      rpc_wrapper rpc "VM.set_hardware_platform_version" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
     let snapshot ~rpc ~session_id ~vm ~new_name =
       let session_id = rpc_of_ref_session session_id in
       let vm = rpc_of_ref_VM vm in
@@ -4684,6 +5010,12 @@ module ClientF = functor(X : IO) ->struct
       let vm = rpc_of_ref_VM vm in
       
       rpc_wrapper rpc "VM.clean_shutdown" [ session_id; vm ] >>= fun x -> return (ignore x)
+    (**  *)
+    let shutdown ~rpc ~session_id ~vm =
+      let session_id = rpc_of_ref_session session_id in
+      let vm = rpc_of_ref_VM vm in
+      
+      rpc_wrapper rpc "VM.shutdown" [ session_id; vm ] >>= fun x -> return (ignore x)
     (**  *)
     let clean_reboot ~rpc ~session_id ~vm =
       let session_id = rpc_of_ref_session session_id in
@@ -4926,7 +5258,7 @@ module ClientF = functor(X : IO) ->struct
       let vif_map = rpc_of_ref_VIF_to_ref_network_map vif_map in
       let options = rpc_of_string_to_string_map options in
       
-      rpc_wrapper rpc "VM.migrate_send" [ session_id; vm; dest; live; vdi_map; vif_map; options ] >>= fun x -> return (ignore x)
+      rpc_wrapper rpc "VM.migrate_send" [ session_id; vm; dest; live; vdi_map; vif_map; options ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
     let assert_can_migrate ~rpc ~session_id ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       let session_id = rpc_of_ref_session session_id in
@@ -5108,6 +5440,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.assert_can_be_recovered" [ session_id; self; session_to ] >>= fun x -> return (ignore x)
     (**  *)
+    let get_SRs_required_for_recovery ~rpc ~session_id ~self ~session_to =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      let session_to = rpc_of_ref_session session_to in
+      
+      rpc_wrapper rpc "VM.get_SRs_required_for_recovery" [ session_id; self; session_to ] >>= fun x -> return (ref_SR_set_of_rpc  x)
+    (**  *)
     let recover ~rpc ~session_id ~self ~session_to ~force =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM self in
@@ -5138,6 +5477,44 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_VM self in
       
       rpc_wrapper rpc "VM.query_services" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args =
+      let session_id = rpc_of_ref_session session_id in
+      let vm = rpc_of_ref_VM vm in
+      let plugin = rpc_of_string plugin in
+      let fn = rpc_of_string fn in
+      let args = rpc_of_string_to_string_map args in
+      
+      rpc_wrapper rpc "VM.call_plugin" [ session_id; vm; plugin; fn; args ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let set_auto_update_drivers ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "VM.set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let assert_can_set_auto_update_drivers ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "VM.assert_can_set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let import ~rpc ~session_id ~url ~sr ~full_restore ~force =
+      let session_id = rpc_of_ref_session session_id in
+      let url = rpc_of_string url in
+      let sr = rpc_of_ref_SR sr in
+      let full_restore = rpc_of_bool full_restore in
+      let force = rpc_of_bool force in
+      
+      rpc_wrapper rpc "VM.import" [ session_id; url; sr; full_restore; force ] >>= fun x -> return (ref_VM_set_of_rpc  x)
+    (**  *)
+    let xenprep_start ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      
+      rpc_wrapper rpc "VM.xenprep_start" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -5201,6 +5578,8 @@ module ClientF = functor(X : IO) ->struct
       ~order:value.vM_order
       ~suspend_SR:value.vM_suspend_SR
       ~version:value.vM_version
+      ~generation_id:value.vM_generation_id
+      ~hardware_platform_version:value.vM_hardware_platform_version
   end
   module VM_metrics = struct
     (**  *)
@@ -5363,6 +5742,18 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_VM_guest_metrics self in
       
       rpc_wrapper rpc "VM_guest_metrics.get_PV_drivers_up_to_date" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_network_paths_optimized ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_guest_metrics self in
+      
+      rpc_wrapper rpc "VM_guest_metrics.get_network_paths_optimized" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_storage_paths_optimized ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_guest_metrics self in
+      
+      rpc_wrapper rpc "VM_guest_metrics.get_storage_paths_optimized" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
     let get_memory ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
@@ -5965,6 +6356,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM_appliance.assert_can_be_recovered" [ session_id; self; session_to ] >>= fun x -> return (ignore x)
     (**  *)
+    let get_SRs_required_for_recovery ~rpc ~session_id ~self ~session_to =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_appliance self in
+      let session_to = rpc_of_ref_session session_to in
+      
+      rpc_wrapper rpc "VM_appliance.get_SRs_required_for_recovery" [ session_id; self; session_to ] >>= fun x -> return (ref_SR_set_of_rpc  x)
+    (**  *)
     let recover ~rpc ~session_id ~self ~session_to ~force =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM_appliance self in
@@ -6354,11 +6752,29 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.get_PGPUs" [ session_id; self ] >>= fun x -> return (ref_PGPU_set_of_rpc  x)
     (**  *)
+    let get_ssl_legacy ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      
+      rpc_wrapper rpc "host.get_ssl_legacy" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let get_guest_VCPUs_params ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_host self in
       
       rpc_wrapper rpc "host.get_guest_VCPUs_params" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let get_display ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      
+      rpc_wrapper rpc "host.get_display" [ session_id; self ] >>= fun x -> return (host_display_of_rpc  x)
+    (**  *)
+    let get_virtual_hardware_platform_versions ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      
+      rpc_wrapper rpc "host.get_virtual_hardware_platform_versions" [ session_id; self ] >>= fun x -> return (int64_set_of_rpc  x)
     (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -6510,6 +6926,13 @@ module ClientF = functor(X : IO) ->struct
       let key = rpc_of_string key in
       
       rpc_wrapper rpc "host.remove_from_guest_VCPUs_params" [ session_id; self; key ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_display ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      let value = rpc_of_host_display value in
+      
+      rpc_wrapper rpc "host.set_display" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let disable ~rpc ~session_id ~host =
       let session_id = rpc_of_ref_session session_id in
@@ -7030,12 +7453,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.set_localdb_key" [ session_id; host; key; value ] >>= fun x -> return (ignore x)
     (**  *)
-    let apply_edition ~rpc ~session_id ~host ~edition =
+    let apply_edition ~rpc ~session_id ~host ~edition ~force =
       let session_id = rpc_of_ref_session session_id in
       let host = rpc_of_ref_host host in
       let edition = rpc_of_string edition in
+      let force = rpc_of_bool force in
       
-      rpc_wrapper rpc "host.apply_edition" [ session_id; host; edition ] >>= fun x -> return (ignore x)
+      rpc_wrapper rpc "host.apply_edition" [ session_id; host; edition; force ] >>= fun x -> return (ignore x)
     (**  *)
     let refresh_pack_info ~rpc ~session_id ~host =
       let session_id = rpc_of_ref_session session_id in
@@ -7129,6 +7553,31 @@ module ClientF = functor(X : IO) ->struct
       let options = rpc_of_string_to_string_map options in
       
       rpc_wrapper rpc "host.migrate_receive" [ session_id; host; network; options ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let declare_dead ~rpc ~session_id ~host =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      
+      rpc_wrapper rpc "host.declare_dead" [ session_id; host ] >>= fun x -> return (ignore x)
+    (**  *)
+    let enable_display ~rpc ~session_id ~host =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      
+      rpc_wrapper rpc "host.enable_display" [ session_id; host ] >>= fun x -> return (host_display_of_rpc  x)
+    (**  *)
+    let disable_display ~rpc ~session_id ~host =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      
+      rpc_wrapper rpc "host.disable_display" [ session_id; host ] >>= fun x -> return (host_display_of_rpc  x)
+    (**  *)
+    let set_ssl_legacy ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "host.set_ssl_legacy" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -7703,6 +8152,12 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_network self in
       
       rpc_wrapper rpc "network.get_default_locking_mode" [ session_id; self ] >>= fun x -> return (network_default_locking_mode_of_rpc  x)
+    (**  *)
+    let get_assigned_ips ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_network self in
+      
+      rpc_wrapper rpc "network.get_assigned_ips" [ session_id; self ] >>= fun x -> return (ref_VIF_to_string_map_of_rpc  x)
     (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -8417,6 +8872,24 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PIF.get_primary_address_type" [ session_id; self ] >>= fun x -> return (primary_address_type_of_rpc  x)
     (**  *)
+    let get_managed ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PIF self in
+      
+      rpc_wrapper rpc "PIF.get_managed" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_properties ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PIF self in
+      
+      rpc_wrapper rpc "PIF.get_properties" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let get_capabilities ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PIF self in
+      
+      rpc_wrapper rpc "PIF.get_capabilities" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_PIF self in
@@ -8495,13 +8968,14 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PIF.scan" [ session_id; host ] >>= fun x -> return (ignore x)
     (**  *)
-    let introduce ~rpc ~session_id ~host ~mAC ~device =
+    let introduce ~rpc ~session_id ~host ~mAC ~device ~managed =
       let session_id = rpc_of_ref_session session_id in
       let host = rpc_of_ref_host host in
       let mAC = rpc_of_string mAC in
       let device = rpc_of_string device in
+      let managed = rpc_of_bool managed in
       
-      rpc_wrapper rpc "PIF.introduce" [ session_id; host; mAC; device ] >>= fun x -> return (ref_PIF_of_rpc  x)
+      rpc_wrapper rpc "PIF.introduce" [ session_id; host; mAC; device; managed ] >>= fun x -> return (ref_PIF_of_rpc  x)
     (**  *)
     let forget ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
@@ -8521,7 +8995,7 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PIF.plug" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
-    let pool_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type =
+    let pool_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
       let session_id = rpc_of_ref_session session_id in
       let device = rpc_of_string device in
       let network = rpc_of_ref_network network in
@@ -8544,10 +9018,12 @@ module ClientF = functor(X : IO) ->struct
       let iPv6 = rpc_of_string_set iPv6 in
       let ipv6_gateway = rpc_of_string ipv6_gateway in
       let primary_address_type = rpc_of_primary_address_type primary_address_type in
+      let managed = rpc_of_bool managed in
+      let properties = rpc_of_string_to_string_map properties in
       
-      rpc_wrapper rpc "PIF.pool_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type ] >>= fun x -> return (ref_PIF_of_rpc  x)
+      rpc_wrapper rpc "PIF.pool_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type; managed; properties ] >>= fun x -> return (ref_PIF_of_rpc  x)
     (**  *)
-    let db_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type =
+    let db_introduce ~rpc ~session_id ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties =
       let session_id = rpc_of_ref_session session_id in
       let device = rpc_of_string device in
       let network = rpc_of_ref_network network in
@@ -8570,14 +9046,24 @@ module ClientF = functor(X : IO) ->struct
       let iPv6 = rpc_of_string_set iPv6 in
       let ipv6_gateway = rpc_of_string ipv6_gateway in
       let primary_address_type = rpc_of_primary_address_type primary_address_type in
+      let managed = rpc_of_bool managed in
+      let properties = rpc_of_string_to_string_map properties in
       
-      rpc_wrapper rpc "PIF.db_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type ] >>= fun x -> return (ref_PIF_of_rpc  x)
+      rpc_wrapper rpc "PIF.db_introduce" [ session_id; device; network; host; mAC; mTU; vLAN; physical; ip_configuration_mode; iP; netmask; gateway; dNS; bond_slave_of; vLAN_master_of; management; other_config; disallow_unplug; ipv6_configuration_mode; iPv6; ipv6_gateway; primary_address_type; managed; properties ] >>= fun x -> return (ref_PIF_of_rpc  x)
     (**  *)
     let db_forget ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_PIF self in
       
       rpc_wrapper rpc "PIF.db_forget" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_property ~rpc ~session_id ~self ~name ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PIF self in
+      let name = rpc_of_string name in
+      let value = rpc_of_string value in
+      
+      rpc_wrapper rpc "PIF.set_property" [ session_id; self; name; value ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -9873,12 +10359,14 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VDI.update" [ session_id; vdi ] >>= fun x -> return (ignore x)
     (**  *)
-    let copy ~rpc ~session_id ~vdi ~sr =
+    let copy ~rpc ~session_id ~vdi ~sr ~base_vdi ~into_vdi =
       let session_id = rpc_of_ref_session session_id in
       let vdi = rpc_of_ref_VDI vdi in
       let sr = rpc_of_ref_SR sr in
+      let base_vdi = rpc_of_ref_VDI base_vdi in
+      let into_vdi = rpc_of_ref_VDI into_vdi in
       
-      rpc_wrapper rpc "VDI.copy" [ session_id; vdi; sr ] >>= fun x -> return (ref_VDI_of_rpc  x)
+      rpc_wrapper rpc "VDI.copy" [ session_id; vdi; sr; base_vdi; into_vdi ] >>= fun x -> return (ref_VDI_of_rpc  x)
     (**  *)
     let force_unlock ~rpc ~session_id ~vdi =
       let session_id = rpc_of_ref_session session_id in
@@ -11391,6 +11879,18 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PCI.get_other_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_subsystem_vendor_name ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PCI self in
+      
+      rpc_wrapper rpc "PCI.get_subsystem_vendor_name" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_subsystem_device_name ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PCI self in
+      
+      rpc_wrapper rpc "PCI.get_subsystem_device_name" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_PCI self in
@@ -11473,6 +11973,42 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PGPU.get_other_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_supported_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_supported_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_set_of_rpc  x)
+    (**  *)
+    let get_enabled_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_enabled_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_set_of_rpc  x)
+    (**  *)
+    let get_resident_VGPUs ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_resident_VGPUs" [ session_id; self ] >>= fun x -> return (ref_VGPU_set_of_rpc  x)
+    (**  *)
+    let get_supported_VGPU_max_capacities ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_supported_VGPU_max_capacities" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_to_int64_map_of_rpc  x)
+    (**  *)
+    let get_dom0_access ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_dom0_access" [ session_id; self ] >>= fun x -> return (pgpu_dom0_access_of_rpc  x)
+    (**  *)
+    let get_is_system_display_device ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.get_is_system_display_device" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_PGPU self in
@@ -11494,6 +12030,53 @@ module ClientF = functor(X : IO) ->struct
       let key = rpc_of_string key in
       
       rpc_wrapper rpc "PGPU.remove_from_other_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
+    (**  *)
+    let add_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      let value = rpc_of_ref_VGPU_type value in
+      
+      rpc_wrapper rpc "PGPU.add_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let remove_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      let value = rpc_of_ref_VGPU_type value in
+      
+      rpc_wrapper rpc "PGPU.remove_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_enabled_VGPU_types ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      let value = rpc_of_ref_VGPU_type_set value in
+      
+      rpc_wrapper rpc "PGPU.set_enabled_VGPU_types" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_GPU_group ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      let value = rpc_of_ref_GPU_group value in
+      
+      rpc_wrapper rpc "PGPU.set_GPU_group" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let get_remaining_capacity ~rpc ~session_id ~self ~vgpu_type =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      let vgpu_type = rpc_of_ref_VGPU_type vgpu_type in
+      
+      rpc_wrapper rpc "PGPU.get_remaining_capacity" [ session_id; self; vgpu_type ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let enable_dom0_access ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.enable_dom0_access" [ session_id; self ] >>= fun x -> return (pgpu_dom0_access_of_rpc  x)
+    (**  *)
+    let disable_dom0_access ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PGPU self in
+      
+      rpc_wrapper rpc "PGPU.disable_dom0_access" [ session_id; self ] >>= fun x -> return (pgpu_dom0_access_of_rpc  x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -11573,6 +12156,24 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "GPU_group.get_other_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_allocation_algorithm ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      
+      rpc_wrapper rpc "GPU_group.get_allocation_algorithm" [ session_id; self ] >>= fun x -> return (allocation_algorithm_of_rpc  x)
+    (**  *)
+    let get_supported_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      
+      rpc_wrapper rpc "GPU_group.get_supported_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_set_of_rpc  x)
+    (**  *)
+    let get_enabled_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      
+      rpc_wrapper rpc "GPU_group.get_enabled_VGPU_types" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_set_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_GPU_group self in
@@ -11609,6 +12210,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "GPU_group.remove_from_other_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
     (**  *)
+    let set_allocation_algorithm ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      let value = rpc_of_allocation_algorithm value in
+      
+      rpc_wrapper rpc "GPU_group.set_allocation_algorithm" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
     let create ~rpc ~session_id ~name_label ~name_description ~other_config =
       let session_id = rpc_of_ref_session session_id in
       let name_label = rpc_of_string name_label in
@@ -11622,6 +12230,25 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_GPU_group self in
       
       rpc_wrapper rpc "GPU_group.destroy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let update_enabled_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      
+      rpc_wrapper rpc "GPU_group.update_enabled_VGPU_types" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let update_supported_VGPU_types ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      
+      rpc_wrapper rpc "GPU_group.update_supported_VGPU_types" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let get_remaining_capacity ~rpc ~session_id ~self ~vgpu_type =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_GPU_group self in
+      let vgpu_type = rpc_of_ref_VGPU_type vgpu_type in
+      
+      rpc_wrapper rpc "GPU_group.get_remaining_capacity" [ session_id; self; vgpu_type ] >>= fun x -> return (int64_of_rpc  x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -11689,6 +12316,18 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VGPU.get_other_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_type ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU self in
+      
+      rpc_wrapper rpc "VGPU.get_type" [ session_id; self ] >>= fun x -> return (ref_VGPU_type_of_rpc  x)
+    (**  *)
+    let get_resident_on ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU self in
+      
+      rpc_wrapper rpc "VGPU.get_resident_on" [ session_id; self ] >>= fun x -> return (ref_PGPU_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VGPU self in
@@ -11711,20 +12350,28 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VGPU.remove_from_other_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
     (**  *)
-    let create ~rpc ~session_id ~vM ~gPU_group ~device ~other_config =
+    let create ~rpc ~session_id ~vM ~gPU_group ~device ~other_config ~_type =
       let session_id = rpc_of_ref_session session_id in
       let vM = rpc_of_ref_VM vM in
       let gPU_group = rpc_of_ref_GPU_group gPU_group in
       let device = rpc_of_string device in
       let other_config = rpc_of_string_to_string_map other_config in
+      let _type = rpc_of_ref_VGPU_type _type in
       
-      rpc_wrapper rpc "VGPU.create" [ session_id; vM; gPU_group; device; other_config ] >>= fun x -> return (ref_VGPU_of_rpc  x)
+      rpc_wrapper rpc "VGPU.create" [ session_id; vM; gPU_group; device; other_config; _type ] >>= fun x -> return (ref_VGPU_of_rpc  x)
     (**  *)
     let destroy ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VGPU self in
       
       rpc_wrapper rpc "VGPU.destroy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let atomic_set_resident_on ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU self in
+      let value = rpc_of_ref_PGPU value in
+      
+      rpc_wrapper rpc "VGPU.atomic_set_resident_on" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -11741,6 +12388,126 @@ module ClientF = functor(X : IO) ->struct
       let session_id = rpc_of_ref_session session_id in
       
       rpc_wrapper rpc "VGPU.get_all_records" [ session_id ] >>= fun x -> return (ref_VGPU_to_vGPU_t_map_of_rpc  x)
+  end
+  module VGPU_type = struct
+    (**  *)
+    let get_record ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_record" [ session_id; self ] >>= fun x -> return (vGPU_type_t_of_rpc  x)
+    (**  *)
+    let get_by_uuid ~rpc ~session_id ~uuid =
+      let session_id = rpc_of_ref_session session_id in
+      let uuid = rpc_of_string uuid in
+      
+      rpc_wrapper rpc "VGPU_type.get_by_uuid" [ session_id; uuid ] >>= fun x -> return (ref_VGPU_type_of_rpc  x)
+    (**  *)
+    let get_uuid ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_uuid" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_vendor_name ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_vendor_name" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_model_name ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_model_name" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_framebuffer_size ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_framebuffer_size" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let get_max_heads ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_max_heads" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let get_max_resolution_x ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_max_resolution_x" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let get_max_resolution_y ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_max_resolution_y" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
+    (**  *)
+    let get_supported_on_PGPUs ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_supported_on_PGPUs" [ session_id; self ] >>= fun x -> return (ref_PGPU_set_of_rpc  x)
+    (**  *)
+    let get_enabled_on_PGPUs ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_enabled_on_PGPUs" [ session_id; self ] >>= fun x -> return (ref_PGPU_set_of_rpc  x)
+    (**  *)
+    let get_VGPUs ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_VGPUs" [ session_id; self ] >>= fun x -> return (ref_VGPU_set_of_rpc  x)
+    (**  *)
+    let get_supported_on_GPU_groups ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_supported_on_GPU_groups" [ session_id; self ] >>= fun x -> return (ref_GPU_group_set_of_rpc  x)
+    (**  *)
+    let get_enabled_on_GPU_groups ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_enabled_on_GPU_groups" [ session_id; self ] >>= fun x -> return (ref_GPU_group_set_of_rpc  x)
+    (**  *)
+    let get_implementation ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_implementation" [ session_id; self ] >>= fun x -> return (vgpu_type_implementation_of_rpc  x)
+    (**  *)
+    let get_identifier ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_identifier" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_experimental ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VGPU_type self in
+      
+      rpc_wrapper rpc "VGPU_type.get_experimental" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_all ~rpc ~session_id =
+      let session_id = rpc_of_ref_session session_id in
+      
+      rpc_wrapper rpc "VGPU_type.get_all" [ session_id ] >>= fun x -> return (ref_VGPU_type_set_of_rpc  x)
+    (**  *)
+    let get_all_records_where ~rpc ~session_id ~expr =
+      let session_id = rpc_of_ref_session session_id in
+      let expr = rpc_of_string expr in
+      
+      rpc_wrapper rpc "VGPU_type.get_all_records_where" [ session_id; expr ] >>= fun x -> return (ref_VGPU_type_to_vGPU_type_t_map_of_rpc  x)
+    (**  *)
+    let get_all_records ~rpc ~session_id =
+      let session_id = rpc_of_ref_session session_id in
+      
+      rpc_wrapper rpc "VGPU_type.get_all_records" [ session_id ] >>= fun x -> return (ref_VGPU_type_to_vGPU_type_t_map_of_rpc  x)
   end
 
 end

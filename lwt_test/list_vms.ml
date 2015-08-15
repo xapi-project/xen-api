@@ -29,7 +29,7 @@ let exn_to_string = function
 
 let main () =
 	let rpc = if !json then make_json !uri else make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" in
+	lwt session_id = Session.login_with_password rpc !username !password "1.0" "list_vms" in
 	try_lwt
 		lwt vms = VM.get_all_records rpc session_id in
 		List.iter

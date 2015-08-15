@@ -29,7 +29,7 @@ let exn_to_string = function
 
 let main () =
 	let rpc = make !uri in
-	Session.login_with_password rpc !username !password "1.0"
+	Session.login_with_password rpc !username !password "1.0" "list_vms"
 	>>= fun session_id ->
 	VM.get_all_records rpc session_id
 	>>= fun vms ->

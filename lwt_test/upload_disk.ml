@@ -30,7 +30,7 @@ let main filename =
 	Lwt_unix.LargeFile.stat filename >>= fun stats ->
 	let virtual_size = stats.Lwt_unix.LargeFile.st_size in
 	let rpc = make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" in
+	lwt session_id = Session.login_with_password rpc !username !password "1.0" "upload_disk" in
 	try_lwt
 		lwt pools = Pool.get_all rpc session_id in
 		let pool = List.hd pools in

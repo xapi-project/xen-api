@@ -110,7 +110,7 @@ let test_login_fail _ =
 	num_sleeps := 0;
 	begin
 		try
-			let session_id = C.Session.login_with_password rpc "root" "password" "1.0" in
+			let session_id = C.Session.login_with_password rpc "root" "password" "1.0" "xen-api test" in
 			()
 		with Xen_api.No_response -> ()
 	end;
@@ -141,7 +141,7 @@ let test_login_success _ =
 		>>= function
 			| Ok x -> Xmlrpc.response_of_string x
 			| Error e -> raise e in
-	let session_id' = C.Session.login_with_password rpc "root" "password" "1.0" in
+	let session_id' = C.Session.login_with_password rpc "root" "password" "1.0" "xen-api test" in
 	assert_equal ~msg:"session_id" session_id session_id'
 
 let _ =
