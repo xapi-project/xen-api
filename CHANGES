@@ -1,3 +1,9 @@
+0.9.9 (15-Aug-2015)
+* support for RRD updates
+* API changes corresponding to XenServer dundee aplha 3, including
+  an extra string argument on `login_with_password`: this should be
+  a unique identifier for your client.
+
 0.9.8 (04-Nov-2014)
 * update to cohttp 0.12.0 API
 
