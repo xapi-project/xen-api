@@ -2443,6 +2443,17 @@ let vm_xenprep_start = call
 	~allowed_roles:_R_VM_OP
 	()
 
+let vm_xenprep_abort = call
+	~name:"xenprep_abort"
+	~lifecycle:[
+		Published, rel_dundee, "New function call";
+	]
+	~doc:"Abort the 'xenprep' process on the specified VM, ejecting the ISO; this is best-effort only."
+	~params:[Ref _vm, "self", "The VM"]
+	~doc_tags:[Windows]
+	~allowed_roles:_R_VM_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -7043,6 +7054,7 @@ let vm =
 		vm_assert_can_set_auto_update_drivers;
 		vm_import;
 		vm_xenprep_start;
+		vm_xenprep_abort;
 		]
       ~contents:
       ([ uid _vm;
