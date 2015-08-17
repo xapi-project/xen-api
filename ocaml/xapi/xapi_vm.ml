@@ -1075,10 +1075,7 @@ let xenprep_abort ~__context ~self =
 			let prog = Some (List.assoc key other_config) in
 			Db.VM.remove_from_other_config ~__context ~self ~key;
 			prog
-		) else (
-			Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
-			None
-		)
+		) else None
 	) in
 	debug "xenprep_progress before abort: VM=%s progress=%s" vm_uuid
 		(match preexisting_progress with
