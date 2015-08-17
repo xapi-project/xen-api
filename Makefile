@@ -12,7 +12,7 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure --enable-tests
 
-build: setup.data setup.bin
+build: setup.data setup.bin rrdd/version.ml
 	@./setup.bin -build -j $(J)
 
 doc: setup.data setup.bin
@@ -26,6 +26,9 @@ uninstall:
 
 test: setup.bin build
 	@./setup.bin -test
+
+rrdd/version.ml: VERSION
+	echo "let version = \"$(shell cat VERSION)\"" > rrdd/version.ml
 
 clean:
 	@ocamlbuild -clean
