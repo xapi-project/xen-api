@@ -3381,6 +3381,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							Client.VDI.update ~rpc ~session_id ~vdi))
 
 		let forget ~__context ~vdi =
+			info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi);
 			with_sr_andor_vdi ~__context ~vdi:(vdi, `forget) ~doc:"VDI.forget"
 				(fun () ->
 					Local.VDI.forget ~__context ~vdi)
