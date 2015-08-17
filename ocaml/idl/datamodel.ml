@@ -647,6 +647,8 @@ let _ =
     ~doc:"Operation could not be performed because the drive is empty" ();
   error Api_errors.vbd_tray_locked ["vbd"]
     ~doc:"This VM has locked the DVD drive tray, so the disk cannot be ejected" ();
+  error Api_errors.vbd_xenprep_cd_in_use ["vbd"]
+    ~doc:"This VBD contains the XenPrep virtual CD, and it is in use so it cannot be ejected." ();
   error Api_errors.vbd_cds_must_be_readonly [ ]
     ~doc:"Read/write CDs are not supported" ();
   (* CA-83260 *)
