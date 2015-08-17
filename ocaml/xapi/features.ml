@@ -43,6 +43,8 @@ type feature =
 	| Storage_motion
 	| VGPU
 	| Integrated_GPU
+	| VSS
+	| Guest_agent_auto_update
 	with rpc
 
 type orientation = Positive | Negative
@@ -75,6 +77,8 @@ let keys_of_features =
 		Storage_motion, ("restrict_storage_xen_motion", Negative, "SXM");
 		VGPU, ("restrict_vgpu", Negative, "vGPU");
 		Integrated_GPU, ("restrict_integrated_gpu_passthrough", Negative, "iGPU");
+		VSS, ("restrict_vss", Negative, "VSS");
+		Guest_agent_auto_update, ("restrict_guest_agent_auto_update", Negative, "GAAU");
 	]
 
 let string_of_feature f =
