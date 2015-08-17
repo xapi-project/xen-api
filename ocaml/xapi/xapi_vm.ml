@@ -1064,3 +1064,48 @@ let xenprep_start ~__context ~self =
 			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:Xapi_globs.xenprep_other_config_iso_inserted
 		)
 	)
+
+let xenprep_abort ~__context ~self =
+	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
+	info "Xapi_vm.xenprep_abort: VM=%s" vm_uuid;
+	let key = Xapi_globs.xenprep_other_config_key in
+	let preexisting_progress = Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
+		let other_config = Db.VM.get_other_config ~__context ~self in
+		if List.mem_assoc key other_config then (
+			let prog = Some (List.assoc key other_config) in
+			Db.VM.remove_from_other_config ~__context ~self ~key;
+			prog
+		) else (
+			Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
+			None
+		)
+	) in
+	debug "xenprep_progress before abort: VM=%s progress=%s" vm_uuid
+		(match preexisting_progress with
+			| None -> "None"
+			| Some p -> "\"" ^ p ^ "\""
+		);
+	let vdi = Helpers.get_xenprep_iso_vdi ~__context in
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let xenprep_CDs, eopt = List.fold_right (fun vbd acc ->
+		if Db.VBD.get_VDI ~__context ~self:vbd = vdi then (
+			let n, eopt = acc in
+			(* We use the API to be on the safe side, because calling
+			 * Xapi_vbd.eject directly would bypass the "operations"
+			 * handling in Message_forwarding *)
+			try Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					Client.VBD.eject ~rpc ~session_id ~vbd
+				);
+				(1 + n, eopt)
+			with e ->
+				error "Failed to eject xenprep VDI; VBD=%s" (Ref.string_of vbd);
+				(1 + n, Some e)
+		) else acc
+	) vbds (0, None) in
+	info "xenprep_abort: Number of xenprep discs found (and ejection attempted) = %d" xenprep_CDs;
+	match eopt with
+		| None -> ()
+		| Some e -> raise e
+			(* Only raising the last error, because handling a multitude is cumbersome
+			 * and there is very unlikely to be more than one disc anyway. *)
