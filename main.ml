@@ -39,6 +39,35 @@ let info  fmt = log Core.Syslog.Level.INFO    fmt
 let warn  fmt = log Core.Syslog.Level.WARNING fmt
 let error fmt = log Core.Syslog.Level.ERR     fmt
 
+module RRD = struct
+  open Protocol_async
+
+  let (>>|=) m f = m >>= function
+    | `Ok x -> f x
+    | `Error y ->
+      let b = Buffer.create 16 in
+      let fmt = Format.formatter_of_buffer b in
+      Client.pp_error fmt y;
+      Format.pp_print_flush fmt ();
+      raise (Failure (Buffer.contents b))
+
+  let switch_rpc queue_name string_of_call response_of_string call =
+    Client.connect ~switch:queue_name () >>|= fun t ->
+    Client.rpc ~t ~queue:queue_name ~body:(string_of_call call) () >>|= fun s ->
+    return (response_of_string s)
+
+  let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
+
+  module Client = Rrd_interface.ClientM(struct
+    type 'a t = 'a Deferred.t
+    let return = return
+    let bind = Deferred.bind
+    let fail = raise
+    let rpc call = json_switch_rpc !Rrd_interface.queue_name call
+end)
+
+end
+
 let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
 
@@ -129,16 +158,21 @@ let script root_dir name kind script = match kind with
 | `Datapath datapath -> Filename.(concat (concat (concat (dirname root_dir) "datapath") datapath) script)
 
 module Attached_SRs = struct
-  let sr_table : string String.Table.t ref = ref (String.Table.create ())
+  type state = {
+    sr: string;
+    uids: string list;
+  } with sexp
+
+  let sr_table : state String.Table.t ref = ref (String.Table.create ())
   let state_path = ref None
 
-  let add smapiv2 plugin =
-    Hashtbl.replace !sr_table smapiv2 plugin;
+  let add smapiv2 plugin uids =
+    Hashtbl.replace !sr_table smapiv2 { sr = plugin; uids };
     ( match !state_path with
       | None ->
         return ()
       | Some path ->
-        let contents = String.Table.sexp_of_t (fun x -> Sexplib.Sexp.Atom x) !sr_table |> Sexplib.Sexp.to_string in
+        let contents = String.Table.sexp_of_t sexp_of_state !sr_table |> Sexplib.Sexp.to_string in
         Writer.save path ~contents
     ) >>= fun () ->
     return (Ok ())
@@ -149,7 +183,15 @@ module Attached_SRs = struct
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
       return (Error (Exception.rpc_of_exnty exnty))
-    | Some sr -> return (Ok sr)
+    | Some { sr } -> return (Ok sr)
+
+  let get_uids smapiv2 =
+    match Hashtbl.find !sr_table smapiv2 with
+    | None ->
+      let open Storage_interface in
+      let exnty = Exception.Sr_not_attached smapiv2 in
+      return (Error (Exception.rpc_of_exnty exnty))
+    | Some { uids } -> return (Ok uids)
 
   let remove smapiv2 =
     Hashtbl.remove !sr_table smapiv2;
@@ -164,7 +206,7 @@ module Attached_SRs = struct
     | `Yes ->
       Reader.file_contents path
       >>= fun contents ->
-      sr_table := contents |> Sexplib.Sexp.of_string |> String.Table.t_of_sexp (function Sexplib.Sexp.Atom x -> x | _ -> assert false);
+      sr_table := contents |> Sexplib.Sexp.of_string |> String.Table.t_of_sexp state_of_sexp;
       return ()
 end
 
@@ -361,11 +403,36 @@ let process root_dir name x =
       let args' = Storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Storage.Volume.Types.SR.Attach.Out.t_of_rpc
-      >>= fun response ->
+      >>= fun attach_response ->
+      let sr = args.Args.SR.Attach.sr in
+      (* Stat the SR to look for datasources *)
+      let args = Storage.Volume.Types.SR.Stat.In.make
+        args.Args.SR.Attach.dbg
+        uri in
+      let args = Storage.Volume.Types.SR.Stat.In.rpc_of_t args in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
+      >>= fun stat ->
+      let open Deferred.Monad_infix in
+      let rec loop acc = function
+      | [] -> return acc
+      | datasource :: datasources ->
+        let uri = Uri.of_string datasource in
+        match Uri.scheme uri with
+        | Some "xeno+shm" ->
+          let uid = Uri.path uri in
+          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          RRD.Client.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol:Rrd_interface.V2
+          >>= fun _ ->
+          loop (uid :: acc) datasources
+        | _ ->
+          loop acc datasources in
+      loop [] stat.Storage.Volume.Types.datasources
+      >>= fun uids ->
+      let open Deferred.Result.Monad_infix in
       (* associate the 'sr' from the plugin with the SR reference passed in *)
-      Attached_SRs.add args.Args.SR.Attach.sr response
+      Attached_SRs.add sr attach_response uids
       >>= fun () ->
-      Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response response))
+      Deferred.Result.return (R.success (Args.SR.Attach.rpc_of_response attach_response))
     end
   | { R.name = "SR.detach"; R.params = [ args ] } ->
     let args = Args.SR.Detach.request_of_rpc args in
@@ -382,6 +449,25 @@ let process root_dir name x =
       let args' = Storage.Volume.Types.SR.Detach.In.rpc_of_t args' in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.detach") args' Storage.Volume.Types.SR.Detach.Out.t_of_rpc
       >>= fun response ->
+      Attached_SRs.get_uids args.Args.SR.Detach.sr
+      >>= fun uids ->
+      let open Deferred.Monad_infix in
+      let rec loop = function
+      | [] -> return ()
+      | datasource :: datasources ->
+        let uri = Uri.of_string datasource in
+        match Uri.scheme uri with
+        | Some "xeno+shm" ->
+          let uid = Uri.path uri in
+          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          RRD.Client.Plugin.Local.deregister ~uid
+          >>= fun _ ->
+          loop datasources
+        | _ ->
+          loop datasources in
+      loop uids
+      >>= fun () ->
+      let open Deferred.Result.Monad_infix in
       Attached_SRs.remove args.Args.SR.Detach.sr
       >>= fun () ->
       Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
