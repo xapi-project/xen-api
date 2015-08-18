@@ -27,6 +27,18 @@ let ha_propose_master = "ha_propose_master"
 let ha_disarm_fencing = "ha_disarm_fencing"
 let ha_set_excluded = "ha_set_excluded"
 (* Unused: let ha_clear_excluded = "ha_clear_excluded" *)
+let ha_supported_srs = "ha_supported_srs"
+
+(** Obtain list of SRs that the cluster stack can use for state/heartbeat SR.
+ *  If the file does not exist, then we assume that there are no constraints
+ *  for backwards compatibility. *)
+let get_supported_srs cluster_stack =
+	let fname = Filename.concat !Xapi_globs.cluster_stack_root cluster_stack in
+	try
+		let open Xstringext.String in
+		Some (Unixext.string_of_file fname |> strip isspace |> split_f isspace)
+	with _ ->
+		None
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
