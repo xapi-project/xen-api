@@ -960,6 +960,7 @@ let server_init() =
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
 			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
+			"Starting SR physical utilisation scanning", [Startup.OnThread], (Xapi_sr.physical_utilisation_thread ~__context);
 			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
 			"Stats reporting thread", [], Xapi_stats.start;
     ];
