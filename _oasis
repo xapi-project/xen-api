@@ -1,5 +1,5 @@
 OASISFormat: 0.2
-Name:        xapi-script-storage
+Name:        xapi-storage-script
 Version:     0.7
 Synopsis:    Adapter which allows xapi to call storage scripts
 Authors:     David Scott
