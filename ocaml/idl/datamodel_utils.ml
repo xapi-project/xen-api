@@ -227,6 +227,7 @@ let new_messages_of_field x order fld =
 		 msg_allowed_roles = None;
 		 msg_map_keys_roles = [];
 		 msg_doc_tags = [];
+		 msg_forward_to = None
 	       } in
   let getter = { common with
 		   msg_name = prefix "get_";
@@ -339,6 +340,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_map_keys_roles = [];
 		 msg_obj_name=x.name;
 		 msg_doc_tags = [];
+		 msg_forward_to = None;
 		 } in
   (* Constructor *)
   let ctor = { common with 

@@ -50,7 +50,7 @@ let operation_requires_side_effect ({ msg_tag = tag } as msg) =
   | FromField(Setter, fld) -> fld.DT.field_has_effect
   | FromObject(GetRecord | GetByUuid | GetByLabel | GetAll | GetAllRecordsWhere | GetAllRecords) -> false
   | FromObject(_) -> true
-  | Custom -> msg.DT.msg_has_effect
+  | Custom -> msg.DT.msg_has_effect && msg.DT.msg_forward_to = None
   | _ -> false
 
 let make_custom_api api =
