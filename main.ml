@@ -340,7 +340,8 @@ let process root_dir name x =
       features;
       configuration =
        ("uri", "URI of the storage medium") ::
-       response.Storage.Plugin.Types.configuration} in
+       response.Storage.Plugin.Types.configuration;
+      required_cluster_stack = response.Storage.Plugin.Types.required_cluster_stack } in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | { R.name = "Query.diagnostics"; R.params = [ args ] } ->
     let args = Args.Query.Diagnostics.request_of_rpc args in
