@@ -90,6 +90,7 @@ let _host_patch = "host_patch"
 let _hostcpu = "host_cpu"
 let _sr = "SR"
 let _sm = "SM"
+let _lvhd = "LVHD"
 let _vm = "VM"
 let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
@@ -5521,6 +5522,30 @@ let storage_plugin =
      ])
     ()
 
+let lvhd_enable_thin_provisioning = call
+   ~name:"enable_thin_provisioning"
+   ~in_oss_since:None
+   ~in_product_since:rel_dundee
+   ~allowed_roles:_R_POOL_ADMIN
+   ~params:[
+     Ref _sr, "SR", "The LVHD SR to upgrade to being thin-provisioned.";
+     Int, "initial_allocation", "The initial amount of space to allocate to a newly-created VDI in bytes";
+     Int, "allocation_quantum", "The amount of space to allocate to a VDI when it needs to be enlarged in bytes";
+   ]
+   ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
+   ()  
+
+let lvhd = 
+  create_obj ~in_db:false ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
+    ~gen_events:true
+    ~doccomments:[]
+    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~messages:[ 
+      lvhd_enable_thin_provisioning;
+    ]
+    ~contents: []
+    ()
+
 (* --- rws: removed this after talking to Andy and Julian
 let filesystem =
   { name = _filesystem; description = "An on-disk filesystem";
@@ -8423,6 +8448,7 @@ let all_system =
 		vlan;
 		storage_plugin;
 		storage_repository;
+		lvhd;
 		vdi;
 		vbd;
 		vbd_metrics;
