@@ -214,6 +214,7 @@ module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
 			required_api_version = "";
 			features = features;
 			configuration = [];
+			required_cluster_stack = [];
 		}
 
 	let extract_output __context _ =
