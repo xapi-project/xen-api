@@ -40,7 +40,7 @@ let comma = Re_str.regexp_string ","
 let csv = Re_str.split_delim comma
 
 let queues : string list ref = ref [
-  "org.xen.xcp.ffs";
+  "org.xen.xapi.ffs";
 ]
 
 let set_default_format _ = ()
