@@ -208,6 +208,7 @@ type query_result = {
 	required_api_version: string;
 	features: string list;
 	configuration: (string * string) list;
+	required_cluster_stack: string list;
 }
 
 module Query = struct
