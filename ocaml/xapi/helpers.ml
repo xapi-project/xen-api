@@ -823,16 +823,21 @@ let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 let is_tools_sr_cache = ref []
 let tools_sr_memoised = ref None
-let is_tools_sr_cache_m = Mutex.create ()
+let xenprep_iso_vdi_memoised = ref None
+let tools_sr_and_iso_m = Mutex.create () (* Use for all the above refs *)
 
 let clear_tools_sr_cache () =
-	Mutex.execute is_tools_sr_cache_m 
-		(fun () -> is_tools_sr_cache := []; tools_sr_memoised := None)
+	Mutex.execute tools_sr_and_iso_m
+		(fun () ->
+			is_tools_sr_cache := []
+			;tools_sr_memoised := None
+			;xenprep_iso_vdi_memoised := None
+		)
 
 (** Returns true if this SR is the XenSource Tools SR *)
 let is_tools_sr ~__context ~sr =
 	try
-		Mutex.execute is_tools_sr_cache_m
+		Mutex.execute tools_sr_and_iso_m
 			(fun () ->
 				match !tools_sr_memoised with
 					| Some s when s = sr -> true
@@ -849,13 +854,24 @@ let is_tools_sr ~__context ~sr =
 		) && (
 			"iso" = Db.SR.get_content_type ~__context ~self:sr
 		) in
-		Mutex.execute is_tools_sr_cache_m
+		Mutex.execute tools_sr_and_iso_m
 			(fun () ->
 				let cache = !is_tools_sr_cache in
 				if not (List.mem_assoc sr cache) then
 					is_tools_sr_cache := (sr, result) :: !is_tools_sr_cache);
 		result
 
+let get_with_memo ~seeker ~memo ~mtx =
+	match Mutex.execute mtx (fun () -> !memo)
+	with
+		| Some x -> x
+		| None ->
+			let x = seeker () in
+			Mutex.execute mtx (fun () -> memo := Some x);
+			x
+
+(** Returns the XenSource Tools SR; fails if there is not exactly one such SR.
+ *  Memoises the result, so calls after the first one are quick and cheap. *)
 let get_tools_sr ~__context =
 	let seek_tools_sr () =
 		let candidates = Db.SR.get_refs_where ~__context ~expr:(
@@ -874,13 +890,28 @@ let get_tools_sr ~__context =
 			("Expected exactly one Tools SR; found " ^ string_of_int (List.length srs));
 		List.hd srs
 	in
-	match Mutex.execute is_tools_sr_cache_m (fun () -> !tools_sr_memoised)
-	with
-		| Some sr -> sr
-		| None ->
-			let sr = seek_tools_sr () in
-			Mutex.execute is_tools_sr_cache_m (fun () -> tools_sr_memoised := Some sr);
-			sr
+	get_with_memo ~seeker:seek_tools_sr ~memo:tools_sr_memoised ~mtx:tools_sr_and_iso_m
+
+(** Returns the xenprep iso from the XenSource Tools SR.
+  * Fails if there is not exactly one such VDI. *)
+(* We need to specify the type because otherwise the compiler can't work it out
+ * and gives an error on the line defining xenprep_iso_vdi_memoised. *)
+let get_xenprep_iso_vdi ~__context : [ `VDI ] API.Ref.t =
+	let seek_xenprep_iso_vdi () =
+		let cd_name = Xapi_globs.xenprep_iso_name_label in
+		let sr = get_tools_sr ~__context in
+		let vdis =
+			Db.VDI.get_refs_where ~__context ~expr:(
+				And (
+					Eq (Field "SR", Literal (Ref.string_of sr)),
+					Eq (Field "name__label", Literal cd_name)
+				)
+			) in
+		if List.length vdis <> 1 then failwith
+			("get_xenprep_iso_vdi failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
+		List.hd vdis
+	in
+	get_with_memo ~seeker:seek_xenprep_iso_vdi ~memo:xenprep_iso_vdi_memoised ~mtx:tools_sr_and_iso_m
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
