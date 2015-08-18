@@ -136,6 +136,7 @@ type sr_driver_info = {
 	sr_driver_features: feature list;
 	sr_driver_text_features: string list;
 	sr_driver_configuration: (string * string) list;
+	sr_driver_required_cluster_stack: string list;
 }
 
 let query_result_of_sr_driver_info x = {
@@ -147,7 +148,8 @@ let query_result_of_sr_driver_info x = {
 	version = x.sr_driver_version;
 	required_api_version = x.sr_driver_required_api_version;
 	features = x.sr_driver_text_features;
-	configuration = x.sr_driver_configuration
+	configuration = x.sr_driver_configuration;
+	required_cluster_stack = x.sr_driver_required_cluster_stack;
 }
 
 type attach_info = {

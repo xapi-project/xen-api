@@ -5518,6 +5518,7 @@ let storage_plugin =
        field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_clearwater ~ty:(Map(String, Int)) "features" "capabilities of the SM plugin, with capability version numbers" ~default_value:(Some (VMap []));
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
        field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
+       field ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VSet [])) ~ty:(Set String) "required_cluster_stack" "The storage plugin requires that one of these cluster stacks is configured and running.";
      ])
     ()
 

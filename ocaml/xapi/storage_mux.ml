@@ -114,7 +114,8 @@ module Mux = struct
 			version = "2.0";
 			required_api_version = "2.0";
 			features = [];
-			configuration = []
+			configuration = [];
+			required_cluster_stack = [];
 		}
 		let diagnostics context ~dbg =
 			forall (fun sr rpc ->

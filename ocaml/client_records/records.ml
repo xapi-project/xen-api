@@ -1264,6 +1264,8 @@ let sm_record rpc session_id sm =
 		~get_map:(fun () -> s2i64_to_string (x ()).API.sM_features) ();
     make_field ~name:"configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_configuration) ();
     make_field ~name:"driver-filename" ~get:(fun () -> (x ()).API.sM_driver_filename) ();
+    make_field ~name:"required-cluster-stack"
+		~get:(fun () -> String.concat ", " (x ()).API.sM_required_cluster_stack) ();
   ]}
 
 

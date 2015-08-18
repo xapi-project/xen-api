@@ -128,7 +128,8 @@ module SMAPIv1 = struct
 			version = "2.0";
 			required_api_version = "2.0";
 			features = [];
-			configuration = []
+			configuration = [];
+			required_cluster_stack = [];
 		}
 
 		let diagnostics context ~dbg =

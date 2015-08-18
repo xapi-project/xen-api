@@ -50,6 +50,7 @@ let create_from_query_result ~__context q =
 			~configuration:q.configuration
 			~other_config:[]
 			~driver_filename:(Sm_exec.cmd_name q.driver)
+			~required_cluster_stack:q.required_cluster_stack
 	end
 
 let update_from_query_result ~__context (self, r) query_result =
