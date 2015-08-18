@@ -22,6 +22,11 @@ let api =
           "total_space", Basic Int64, String.concat " " [
             "Total physical size of the backing storage (in bytes)";
           ];
+          "datasources", Array (Basic String), String.concat " " [
+            "URIs naming datasources: time-varying quantities representing anything";
+            "from disk access latency to free space. The entities named by these URIs";
+            "are self-describing.";
+          ];
         ]
       )) in
   let volume_decl =
