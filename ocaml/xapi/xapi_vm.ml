@@ -1025,20 +1025,35 @@ let xenprep_start ~__context ~self =
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 
 	let key = Xapi_globs.xenprep_other_config_key in
+	let ins_str = Xapi_globs.xenprep_other_config_iso_inserted in
 	let preexisting_progress = Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
 		let other_config = Db.VM.get_other_config ~__context ~self in
 		if List.mem_assoc key other_config
 		then Some (List.assoc key other_config)
-		else (Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
-		None)
+		else None
 	) in
-	if match preexisting_progress with
+	if ( match preexisting_progress with
 		| Some progress ->
 			info "Xapi_vm.xenprep_start: VM already has %s=%s; VM=%s" key progress vm_uuid;
-			false
+			( match progress with
+				| p when p = ins_str ->
+					if Xapi_vm_helpers.has_xenprep_iso ~__context ~self then
+						false (* All is well: started already. Nothing to do. *)
+					else (
+						info "Inconsistent state: no xenprep iso despite entry in other_config. VM=%s" vm_uuid;
+						true
+					)
+				| _ -> true
+			)
 		| None -> true
-	then (
-		( try
+	) then (
+		(* Reach a state of xenprep-iso-in-a-drive *)
+		Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"checking_for_unexpected_iso";
+		if Xapi_vm_helpers.has_xenprep_iso ~__context ~self then
+			(* No need to insert the CD since it is present already. *)
+			info "xenprep_start: unexpected iso for VM %s" vm_uuid
+		else ( try
+			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
 			(* Find any empty CD-drive VBD for the VM. *)
 			(* We don't care if currently_attached is false: VBD.insert will take care of things. *)
 			let vbds = Db.VM.get_VBDs ~__context ~self in
@@ -1060,8 +1075,9 @@ let xenprep_start ~__context ~self =
 			);
 			raise e
 		);
+		(* At this point we are sure the ISO is in the drive *)
 		Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
-			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:Xapi_globs.xenprep_other_config_iso_inserted
+			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:ins_str
 		)
 	)
 
