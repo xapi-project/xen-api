@@ -153,6 +153,8 @@ and param = {param_type:ty; param_name:string; param_doc:string; param_release: 
 
 and doc_tag = VM_lifecycle | Snapshots | Networking | Memory | Windows
 
+and forward = Extension of string
+
 (** Types of RPC messages; in addition to those generated for object fields *)
 and message = { 
     msg_name: string;
@@ -177,6 +179,7 @@ and message = {
     msg_allowed_roles: string list option;
     msg_map_keys_roles: (string * (string list option)) list;
     msg_doc_tags: doc_tag list;
+    msg_forward_to: forward option; (* proxy the RPC elsewhere *)
 } 
 
 and field = {

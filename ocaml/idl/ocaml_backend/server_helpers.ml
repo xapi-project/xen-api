@@ -152,3 +152,5 @@ let exec_with_subtask ~__context ?task_in_database ?task_description task_name f
 	let session_id = try Some (Context.get_session_id __context) with _ -> None in
 	let new_context = Context.make ~subtask_of ?session_id ?task_in_database ?task_description task_name in
 	exec_with_context ~__context:new_context f
+
+let forward_plugin name rbac call = failwith name
