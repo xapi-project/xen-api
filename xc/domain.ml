@@ -372,7 +372,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
         (List.map (fun x -> string_of_int x.Xenctrl.domid) other_domains);
 
 	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
-	let _, all_pci_devices = List.split (Device.PCI.list xc xs domid) in
+	let _, all_pci_devices = List.split (Device.PCI.list xs domid) in
 	List.iter
 		(fun pcidev ->
 			let open Xenops_interface.Pci in

@@ -927,54 +927,6 @@ let _proc_pci_num_resources = 7
 (* same as libxl_internal: PCI_BAR_IO *)
 let _pci_bar_io = 0x01L
 
-(* comment out while we sort out libxenlight
-let pci_info_of ~msitranslate ~pci_power_mgmt = function
-    | domain, bus, dev, func ->
-        {
-            (* XXX: I don't think we can guarantee how the C compiler will
-               lay out bitfields.
-			   unsigned int reserved1:2;
-			   unsigned int reg:6;
-			   unsigned int func:3;
-			   unsigned int dev:5;
-			   unsigned int bus:8;
-			   unsigned int reserved2:7;
-			   unsigned int enable:1;
-            *)
-            Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
-            domain = domain;
-            vdevfn = 0;
-            msitranslate = msitranslate = 1;
-            power_mgmt = pci_power_mgmt = 1;
-        }
-*)
-
-
-(* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings.
-let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
-	List.iter
-		(fun dev ->
-			try
-				Xenlight.pci_add (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
-			with e ->
-				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
-				raise e
-		) pcidevs
-*)
-(* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings.
-let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
-	List.iter
-		(fun dev ->
-			try
-				Xenlight.pci_remove (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
-			with e ->
-				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
-				raise e
-		) pcidevs
-*)
-
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd pcidevs domid =
@@ -1004,7 +956,7 @@ let device_model_pci_device_path xs be_domid fe_domid =
 
 (* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
    which the device was plugged. *)
-let read_pcidir ~xc ~xs domid =
+let read_pcidir ~xs domid =
 	let path = device_model_pci_device_path xs 0 domid in
 	let prefix = "dev-" in
 	let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
@@ -1021,9 +973,9 @@ let read_pcidir ~xc ~xs domid =
 	(* Sort into the order the devices were plugged *)
 	List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
-let add ~xc ~xs pcidevs domid =
+let add ~xs pcidevs domid =
 	try
-		let current = read_pcidir ~xc ~xs domid in
+		let current = read_pcidir ~xs domid in
 		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 		add_xl pcidevs domid;
 		List.iteri
@@ -1034,7 +986,7 @@ let add ~xc ~xs pcidevs domid =
 			pcidevs
 	with exn -> raise (Cannot_add (pcidevs, exn))
 
-let release ~xc ~xs ~hvm pcidevs domid devid =
+let release pcidevs domid =
 	release_xl pcidevs domid
 
 let write_string_to_file file s =
@@ -1240,11 +1192,7 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
-		let hvm =
-			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
-			with _ -> false
-			in
-		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid
+		try release devs x.frontend.domid
 		with _ -> ());
 	()
 
@@ -1257,7 +1205,7 @@ let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
 let device_model_state_path xs be_domid fe_domid =
   Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
 
-let signal_device_model ~xc ~xs domid cmd parameter = 
+let signal_device_model ~xs domid cmd parameter = 
 	debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
 	let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
 	let be_path = xs.Xs.getdomainpath be_domid in 
@@ -1269,7 +1217,7 @@ let signal_device_model ~xc ~xs domid cmd parameter =
 				       Printf.sprintf "device-model/%d/parameter" domid, parameter ];
 	)
 
-let wait_device_model (task: Xenops_task.t) ~xc ~xs domid = 
+let wait_device_model (task: Xenops_task.t) ~xs domid = 
   let be_domid = 0 in
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
@@ -1286,9 +1234,9 @@ let wait_device_model (task: Xenops_task.t) ~xc ~xs domid =
   end
 
 (* Return a list of PCI devices *)
-let list ~xc ~xs domid = 
+let list ~xs domid = 
 	(* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
-	List.map (fun (_, y) -> (0, y)) (read_pcidir ~xc ~xs domid)
+	List.map (fun (_, y) -> (0, y)) (read_pcidir ~xs domid)
 
 (* We explicitly add a device frontend in the hotplug case so the device watch code
    can find the backend and monitor it. *)
@@ -1311,58 +1259,6 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 			]
 		end
 	)
-
-let plug (task: Xenops_task.t) ~xc ~xs address domid = 
-	try
-		let current = read_pcidir ~xc ~xs domid in
-		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
-
-		let pci = Xenops_interface.Pci.string_of_address address in
-		signal_device_model ~xc ~xs domid "pci-ins" pci;
-
-		let () = match wait_device_model task ~xc ~xs domid with
-			| Some "pci-inserted" -> 
-				(* success *)
-				xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
-				(* Ensure a frontend exists so the device watching code can see it *)
-				ensure_device_frontend_exists ~xs 0 domid;
-			| x ->
-				failwith
-					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" (Opt.default "None" x)) in
-		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
-		Xenctrl.domain_assign_device xc domid
-			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
-	with e ->
-		error "Device.Pci.plug: %s" (Printexc.to_string e);
-		raise e
-
-let unplug (task: Xenops_task.t) ~xc ~xs address domid =
-	try
-		let current = read_pcidir ~xc ~xs domid in
-
-		let pci = Xenops_interface.Pci.string_of_address address in
-		let idx = fst (List.find (fun x -> snd x = address) current) in
-		signal_device_model ~xc ~xs domid "pci-rem" pci;
-
-		begin match wait_device_model task ~xc ~xs domid with
-			| Some "pci-removed" -> 
-				(* success *)
-				xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-			| None ->
-				(* qemu has shutdown *)
-				()
-			| Some x ->
-				failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
-		end;
-		xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx));
-		(* CA-62028: tell the device to stop whatever it's doing *)
-		do_flr pci;
-		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
-		Xenctrl.domain_deassign_device xc domid
-			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
-	with e ->
-		error "Device.Pci.unplug: %s" (Printexc.to_string e);
-		raise e
 end
 
 module Vfs = struct
