@@ -4563,3 +4563,10 @@ let pgpu_disable_dom0_access printer rpc session_id params =
 	let ref = Client.PGPU.get_by_uuid rpc session_id uuid in
 	let result = Client.PGPU.disable_dom0_access rpc session_id ref in
 	printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+
+let lvhd_enable_thin_provisioning printer rpc session_id params =
+	let uuid = List.assoc "sr-uuid" params in
+	let initial_allocation = Record_util.bytes_of_string "initial-allocation" (List.assoc "initial-allocation" params) in
+	let allocation_quantum = Record_util.bytes_of_string "allocation-quantum" (List.assoc "allocation-quantum" params) in
+	let ref = Client.SR.get_by_uuid rpc session_id uuid in
+	Client.LVHD.enable_thin_provisioning rpc session_id ref initial_allocation allocation_quantum
