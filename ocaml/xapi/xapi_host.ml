@@ -685,10 +685,10 @@ let ha_join_liveset ~__context ~host =
   try
 	Xapi_ha.join_liveset __context host
   with
-  | Xapi_ha.Xha_error Xha_errno.Mtc_exit_bootjoin_timeout ->
+  | Xha_scripts.Xha_error Xha_errno.Mtc_exit_bootjoin_timeout ->
 	  error "HA enable failed with BOOTJOIN_TIMEOUT";
 	  raise (Api_errors.Server_error(Api_errors.ha_failed_to_form_liveset, []))
-  | Xapi_ha.Xha_error Xha_errno.Mtc_exit_can_not_access_statefile ->
+  | Xha_scripts.Xha_error Xha_errno.Mtc_exit_can_not_access_statefile ->
 	  error "HA enable failed with CAN_NOT_ACCESS_STATEFILE";
 	  raise (Api_errors.Server_error(Api_errors.ha_host_cannot_access_statefile, []))
 
