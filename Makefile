@@ -15,11 +15,22 @@ all:
 install: setup.data
 	$(SETUP) -install $(INSTALLFLAGS)
 
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+uninstall:
+	ocamlfind remove xml-light2
+	ocamlfind remove xenstore-compat
+	ocamlfind remove xenctrlext
+	ocamlfind remove xen-utils
+	ocamlfind remove uuid
+	ocamlfind remove stunnel
+	ocamlfind remove sha1
+	ocamlfind remove sexpr
+	ocamlfind remove pciutil
+	ocamlfind remove http-svr
+	ocamlfind remove gzip
+	ocamlfind remove cpuid
 
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+reinstall: uninstall
+	$(SETUP) -install $(REINSTALLFLAGS)
 
 clean:
 	$(SETUP) -clean $(CLEANFLAGS)
