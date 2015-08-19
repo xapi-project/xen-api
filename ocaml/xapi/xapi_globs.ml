@@ -416,6 +416,9 @@ let max_clock_skew = 5. *. 60. (* 5 minutes *)
 (* Optional directory containing XenAPI plugins *)
 let xapi_plugins_root = ref "/etc/xapi.d/plugins"
 
+(* Optional directory containing XenAPI extensions *)
+let xapi_extensions_root = ref "/etc/xapi.d/extensions"
+
 (** CA-18377: Providing lists of operations that were supported by the Miami release. *)
 (** For now, we check against these lists when sending data across the wire that may  *)
 (** be read by a Miami host, and remove any items that are not found on the lists.    *)
@@ -1030,6 +1033,7 @@ module Resources = struct
 		"packs-dir", packs_dir, "Directory containing supplemental pack data";
 		"xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
 		"xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
+		"xapi-extensions-root", xapi_extensions_root, "Optional directory containing XenAPI extensions";
 		"static-vdis-root", static_vdis_dir, "Optional directory for configuring static VDIs";
 	]
 

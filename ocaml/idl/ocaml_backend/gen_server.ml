@@ -210,9 +210,9 @@ let operation (obj: obj) (x: message) =
 			in
 
 	let gen_body () = match x.DT.msg_forward_to with
-	| Some Plugin name ->
+	| Some Extension name ->
 		[
-			"Server_helpers.forward_plugin \"call.Rpc.name\" rbac call"
+			"Server_helpers.forward_extension ~__context rbac call"
 		]
 	| None ->
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in

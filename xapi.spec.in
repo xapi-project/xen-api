@@ -218,6 +218,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/iovirt
 /etc/xapi.d/plugins/install-supp-pack
 /etc/xapi.d/plugins/disk-space
+/etc/xapi.d/extensions
 %config(noreplace) /etc/xensource/db.conf
 %config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
