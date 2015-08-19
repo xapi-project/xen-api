@@ -473,6 +473,29 @@ let process root_dir name x =
       >>= fun () ->
       Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response response))
     end
+  | { R.name = "SR.probe"; R.params = [ args ] } ->
+    let args = Args.SR.Probe.request_of_rpc args in
+    let name = args.Args.SR.Probe.queue in
+    let device_config = args.Args.SR.Probe.device_config in
+    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
+    | None ->
+      Deferred.Result.return (R.failure (missing_uri ()))
+    | Some (_, uri) ->
+      let args = Storage.Volume.Types.SR.Probe.In.make
+        args.Args.SR.Probe.dbg
+        uri in
+      let args = Storage.Volume.Types.SR.Probe.In.rpc_of_t args in
+      let open Deferred.Result.Monad_infix in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Storage.Volume.Types.SR.Probe.Out.t_of_rpc
+      >>= fun response ->
+      let srs = List.map ~f:(fun sr_stat -> sr_stat.Storage.Volume.Types.sr, {
+        Storage_interface.total_space = sr_stat.Storage.Volume.Types.total_space;
+        free_space = sr_stat.Storage.Volume.Types.free_space;
+      }) response.Storage.Volume.Types.SR.Probe.Out.srs in
+      let uris = response.Storage.Volume.Types.SR.Probe.Out.uris in
+      let result = Storage_interface.(Probe { srs; uris }) in
+      Deferred.Result.return (R.success (Args.SR.Probe.rpc_of_response result))
+    end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
     let device_config = args.Args.SR.Create.device_config in
