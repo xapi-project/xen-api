@@ -201,3 +201,5 @@ val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> see
 
 val disable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
+
+val has_extension : __context:Context.t -> self:API.ref_pool -> name:string -> bool

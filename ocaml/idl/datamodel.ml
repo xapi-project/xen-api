@@ -6601,6 +6601,18 @@ let pool_disable_ssl_legacy = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_has_extension = call
+	~name:"has_extension"
+	~in_product_since:rel_dundee
+	~doc:"Return true if the extension is available on the pool"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "name", "The name of the API call"
+	]
+	~result:(Bool, "True if the extension exists, false otherwise")
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6669,6 +6681,7 @@ let pool =
 			; pool_apply_edition
 			; pool_enable_ssl_legacy
 			; pool_disable_ssl_legacy
+			; pool_has_extension
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @

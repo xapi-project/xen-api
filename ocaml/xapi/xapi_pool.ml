@@ -1810,3 +1810,10 @@ let enable_ssl_legacy ~__context ~self =
 		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:true
 	in
 	call_fn_on_hosts ~__context f
+
+let has_extension ~__context ~self ~name =
+	try
+		let (_: string) = Xapi_extensions.find_extension name in
+		true
+	with _ ->
+		false
