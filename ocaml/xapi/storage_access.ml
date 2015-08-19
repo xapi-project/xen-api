@@ -20,6 +20,26 @@ open Storage_interface
 module D=Debug.Make(struct let name="storage_access" end)
 open D
 
+let transform_storage_exn f =
+	try
+		f ()
+	with
+		| Backend_error(code, params) as e ->
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
+			let backtrace = Backtrace.Interop.of_json "SM" backtrace in
+			Backtrace.add e backtrace;
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Api_errors.Server_error(code, params) as e -> raise e
+		| No_storage_plugin_for_sr sr as e ->
+			Server_helpers.exec_with_new_task "transform_storage_exn"
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
+				)
+		| e ->
+			Backtrace.reraise e (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
+
 exception No_VDI
 
 (* Find a VDI given a storage-layer SR and VDI *)
@@ -146,6 +166,22 @@ module SMAPIv1 = struct
 
 	module SR = struct
 		include Storage_skeleton.SR
+
+		let probe context ~dbg ~queue ~device_config ~sm_config =
+			let _type =
+				(* SMAPIv1 plugins have no namespaces, so strip off everything up to
+				   the final dot *)
+				try
+					let i = String.rindex queue '.' in
+					String.sub queue (i + 1) (String.length queue -i - 1)
+				with Not_found ->
+					queue in
+			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let task = Context.get_task_id __context in
+					Storage_interface.Raw (Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sm_config)
+				)
+
 		let create context ~dbg ~sr ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
@@ -887,17 +923,6 @@ let rpc call = Storage_mux.Server.process None call
 
 module Client = Client(struct let rpc = rpc end)
 
-let probe ~__context ~_type ~device_config ~sr_sm_config =
-	let task = Context.get_task_id __context in
-	(* Look for an SMAPIv1 plugin first *)
-	if List.mem _type (Sm.supported_drivers ()) then begin
-		Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sr_sm_config
-	end else begin
-		let result = Client.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-		let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) result.probed_srs in
-		(String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
-	end
-
 let print_delta d =
 	debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
 
@@ -1025,26 +1050,6 @@ let rec events_watch ~__context from =
 				update_mirror ~__context id
 		) events;
 	events_watch ~__context next
-
-let transform_storage_exn f =
-	try
-		f ()
-	with
-		| Backend_error(code, params) as e ->
-			Backtrace.reraise e (Api_errors.Server_error(code, params))
-		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
-			let backtrace = Backtrace.Interop.of_json "SM" backtrace in
-			Backtrace.add e backtrace;
-			Backtrace.reraise e (Api_errors.Server_error(code, params))
-		| Api_errors.Server_error(code, params) as e -> raise e
-		| No_storage_plugin_for_sr sr as e ->
-			Server_helpers.exec_with_new_task "transform_storage_exn"
-				(fun __context ->
-					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
-					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
-				)
-		| e ->
-			Backtrace.reraise e (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
 
 let events_from_sm () =
 	ignore(Thread.create (fun () -> 

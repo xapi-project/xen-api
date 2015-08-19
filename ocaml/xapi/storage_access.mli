@@ -44,6 +44,9 @@ val make_service: string -> string -> System_domains.service
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
 
+(** [external_rpc queue_name uri] for calling a particular storage implementation *)
+val external_rpc: string -> (unit -> string) -> Rpc.call -> Rpc.response
+
 (** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
     to device [userdevice] on domain [domid] *)
 val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
@@ -107,9 +110,6 @@ val create_sr: __context:Context.t -> sr:API.ref_SR -> physical_size:int64 -> un
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
-
-(** [probe __context _type device_config sr_sm_config] executes an SR probe *)
-val probe: __context:Context.t -> _type:string -> device_config:(string * string) list -> sr_sm_config:(string * string) list -> string
 
 val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
 
