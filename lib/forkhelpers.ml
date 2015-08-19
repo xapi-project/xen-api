@@ -168,14 +168,24 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
 
 
 let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
+	let to_close = ref [] in
+	let close fd =
+		if List.mem fd !to_close then begin
+			Unix.close fd;
+			to_close := List.filter (fun x -> x <> fd) !to_close;
+		end in
 	let stdinandpipes = Opt.map (fun str -> 
 		let (x,y) = Unix.pipe () in
+		to_close := x :: y :: !to_close;
 		(str,x,y)) stdin in
 	Pervasiveext.finally (fun () -> 
 		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
 			with_logfile_fd "execute_command_get_err" (fun err_fd ->
 				let (sock,pid) = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
-				Opt.map (fun (str,_,wr) -> Unixext.really_write_string wr str) stdinandpipes;
+				Opt.map (fun (str,_,wr) ->
+					Unixext.really_write_string wr str;
+					close wr;
+				) stdinandpipes;
 				match Fecomms.read_raw_rpc sock with
 					| Fe.Finished x -> Unix.close sock; x
 					| _ -> Unix.close sock; failwith "Communications error"	    
@@ -191,7 +201,7 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) c
 			| Success(_,Failure(_,exn))
 			| Failure(_, exn) ->
 				raise exn)
-		(fun () -> Opt.iter (fun (_,x,y) -> Unix.close x; Unix.close y) stdinandpipes)
+		(fun () -> List.iter Unix.close !to_close)
 
 let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) cmd args =
 	execute_command_get_output_inner ?env ?stdin:None ~syslog_stdout cmd args
