@@ -43,6 +43,8 @@ type feature =
 	| Storage_motion               (** Enable Storage XenMotion feature *)
 	| VGPU                         (** Enable use of virtual GPUs *)
 	| Integrated_GPU               (** Enable use of integrated GPU passthrough *)
+	| VSS                          (** Enable use of VSS *)
+	| Guest_agent_auto_update      (** Enable use of the Windows guest agent auto-update feature. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
