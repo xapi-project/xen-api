@@ -317,8 +317,19 @@ let gen_module api : O.Module.t =
 			"  then Rpc.success (List.hd __params)";
 			"  else begin";
 			"    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) with _ -> true)";
-			"    then " ^ (debug "Unknown rpc \"%s\"" [ "__call" ]);
-			"    Server_helpers.unknown_rpc_failure func";
+			"    then " ^ (debug "This is not a built-in rpc \"%s\"" [ "__call" ]);
+			"    begin match __params with";
+			"    | session_id_rpc::_->";
+			"      let session_id = ref_session_of_rpc session_id_rpc in";
+			"      Session_check.check false session_id;";
+			"      (* based on the pool.has_extension call *)";
+			"      let arg_names = \"session_id\"::__call::[] in";
+			"      let key_names = [] in";
+			"      let rbac __context fn = Rbac.check session_id \"pool.has_extension\" ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in";
+			"      Server_helpers.forward_extension ~__context rbac { call with Rpc.name = __call }";
+			"    | _ ->";
+			"      Server_helpers.unknown_rpc_failure func ";
+			"    end";
 			"  end";
 		")))";
 	    ]

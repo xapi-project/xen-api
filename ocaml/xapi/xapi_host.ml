@@ -940,6 +940,13 @@ let call_plugin ~__context ~host ~plugin ~fn ~args =
 	then call_extauth_plugin ~__context ~host ~fn ~args
 	else Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 
+let has_extension ~__context ~name =
+	try
+		let (_: string) = Xapi_extensions.find_extension name in
+		true
+	with _ ->
+		false
+
 let sync_data ~__context ~host =
   Xapi_sync.sync_host __context host (* Nb, no attempt to wrap exceptions yet *)
 
