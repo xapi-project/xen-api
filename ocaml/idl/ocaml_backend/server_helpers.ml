@@ -153,4 +153,5 @@ let exec_with_subtask ~__context ?task_in_database ?task_description task_name f
 	let new_context = Context.make ~subtask_of ?session_id ?task_in_database ?task_description task_name in
 	exec_with_context ~__context:new_context f
 
-let forward_plugin name rbac call = failwith name
+let forward_extension ~__context rbac call =
+  rbac __context (fun () -> Xapi_extensions.call_extension call)
