@@ -103,6 +103,7 @@ install:
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
 	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
