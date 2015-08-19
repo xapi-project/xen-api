@@ -27,6 +27,12 @@ let string_of_string_map map =
 	Printf.sprintf "[%s]"
 		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
 
+let string_of_opt string_of = function
+	| None -> "None"
+	| Some x -> Printf.sprintf "Some %s" (string_of x)
+
+let string_of_string_opt = string_of_opt (fun x -> x)
+
 let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 

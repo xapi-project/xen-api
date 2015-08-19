@@ -218,10 +218,7 @@ module Nvidia = struct
 	let nvidia_vendor_id = 0x10de
 
 	type vgpu_conf = {
-		pdev_id : int;
-		psubdev_id : int option;
-		vdev_id : int;
-		vsubdev_id : int;
+		identifier : Identifier.nvidia_id;
 		framebufferlength : int64;
 		num_heads : int64;
 		max_instance : int64;
@@ -263,7 +260,13 @@ module Nvidia = struct
 						(List.assoc "plugin0.num_heads" args) in
 					let max_instance = Int64.of_string
 						(List.assoc "plugin0.max_instance" args) in
-					{pdev_id; psubdev_id; vdev_id; vsubdev_id; framebufferlength;
+					let identifier = Identifier.({
+						pdev_id;
+						psubdev_id;
+						vdev_id;
+						vsubdev_id;
+					}) in
+					{identifier; framebufferlength;
 							 num_heads; max_instance; max_x; max_y; file_path}
 					)
 				)
@@ -288,11 +291,12 @@ module Nvidia = struct
 			(List.map (fun conf -> String.concat "/" [conf_dir; conf]) conf_files)
 
 	let relevant_vgpu_types pci_dev_id subsystem_device_id =
+		let open Identifier in
 		let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
 		let relevant_vgpu_confs =
 			List.filter
 				(fun c ->
-					let device_id_matches = (c.pdev_id = pci_dev_id) in
+					let device_id_matches = (c.identifier.pdev_id = pci_dev_id) in
 					let subsystem_device_id_matches =
 						(* If the config file doesn't specify a physical subdevice ID, then
 						 * the config file is valid for this device no matter the device's
@@ -300,7 +304,7 @@ module Nvidia = struct
 						 *
 						 * If the config file does specify a physical subdevice ID, then the
 						 * corresponding ID of the card must match. *)
-						match subsystem_device_id, c.psubdev_id with
+						match subsystem_device_id, c.identifier.psubdev_id with
 						| _, None -> true
 						| None, Some _ -> false
 						| Some device_id, Some conf_id -> device_id = conf_id
@@ -312,35 +316,30 @@ module Nvidia = struct
 			(String.concat "; " (List.map (fun c ->
 				Printf.sprintf
 					"{pdev_id:%04x; psubdev_id:%s; vdev_id:%04x; vsubdev_id:%04x; framebufferlength:0x%Lx}"
-					c.pdev_id
-					(match c.psubdev_id with
+					c.identifier.pdev_id
+					(match c.identifier.psubdev_id with
 						| None -> "Any"
 						| Some id -> Printf.sprintf "%04x" id)
-					c.vdev_id
-					c.vsubdev_id
+					c.identifier.vdev_id
+					c.identifier.vsubdev_id
 					c.framebufferlength)
 				relevant_vgpu_confs));
 		let rec build_vgpu_types pci_access ac = function
 			| [] -> ac
 			| conf::tl ->
 				debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
-					nvidia_vendor_id conf.vdev_id conf.vsubdev_id;
+					nvidia_vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
 				let vendor_name = Pci.lookup_vendor_name pci_access nvidia_vendor_id
 				and model_name =
 					Pci.lookup_subsystem_device_name pci_access nvidia_vendor_id
-						conf.vdev_id nvidia_vendor_id conf.vsubdev_id
+						conf.identifier.vdev_id nvidia_vendor_id conf.identifier.vsubdev_id
 				and framebuffer_size = conf.framebufferlength
 				and max_heads = conf.num_heads
 				and max_resolution_x = conf.max_x
 				and max_resolution_y = conf.max_y
 				and size = Int64.div Constants.pgpu_default_size conf.max_instance
 				and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path]
-				and identifier = Identifier.(Nvidia {
-					pdev_id = conf.pdev_id;
-					psubdev_id = conf.psubdev_id;
-					vdev_id = conf.vdev_id;
-					vsubdev_id = conf.vsubdev_id;
-				})
+				and identifier = Nvidia conf.identifier
 				and experimental = false in
 				let vgpu_type = {
 					vendor_name; model_name; framebuffer_size; max_heads;
@@ -378,13 +377,67 @@ module Intel = struct
 	let ( --- ) = Int64.sub
 	let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 
-	let make_gvt_g_256 ~__context ~pci =
+	type vgpu_conf = {
+		identifier : Identifier.gvt_g_id;
+		experimental : bool;
+		model_name : string
+	}
+
+	let read_whitelist_line ~line =
+		try
+			Some (Scanf.sscanf
+				line
+				"%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld monitor_config_file=%s"
+				(fun pdev_id
+						experimental
+						model_name
+						low_gm_sz
+						high_gm_sz
+						fence_sz
+						monitor_config_file ->
+					{
+						identifier = Identifier.({
+							pdev_id;
+							low_gm_sz;
+							high_gm_sz;
+							fence_sz;
+							monitor_config_file = Some monitor_config_file;
+						});
+						experimental =
+							(match experimental with
+							| '0' -> false
+							| _ -> true);
+						model_name;
+					}))
+		with e-> begin
+			error "Failed to read whitelist line: '%s' %s"
+				line (Printexc.to_string e);
+			None
+		end
+
+	let read_whitelist ~whitelist ~device_id =
+		if Sys.file_exists whitelist then begin
+			Unixext.file_lines_fold
+				Identifier.(fun acc line ->
+					match read_whitelist_line ~line with
+					| Some conf when conf.identifier.pdev_id = device_id -> conf :: acc
+					| _ -> acc)
+				[]
+				whitelist
+		end else []
+
+	let make_vgpu_types ~__context ~pci ~whitelist =
 		let open Xenops_interface.Pci in
+		let device_id =
+			Db.PCI.get_device_id ~__context ~self:pci
+			|> Xapi_pci.int_of_id
+		in
 		let address =
 			Db.PCI.get_pci_id ~__context ~self:pci
 			|> address_of_string
 		in
-		let vendor_name, device, device_name =
+		let whitelist = read_whitelist ~whitelist ~device_id in
+		let vendor_name, device =
 			Pci.(with_access (fun access ->
 				let vendor_name = lookup_vendor_name access intel_vendor_id in
 				let device =
@@ -396,41 +449,37 @@ module Intel = struct
 							(device.Pci_dev.func = address.fn))
 						(get_devices access)
 				in
-				let device_name =
-					lookup_device_name access
-						device.Pci_dev.vendor_id
-						device.Pci_dev.device_id
-				in
-				vendor_name, device, device_name))
+				vendor_name, device))
 		in
 		let bar_size =
 			List.nth device.Pci.Pci_dev.size 2
 			|> Int64.of_nativeint
 		in
-		let vgpus_per_pgpu = bar_size /// 1024L /// 1024L /// 128L --- 1L in
-		let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
-		{
-			vendor_name;
-			model_name = "Intel GVT-g on " ^ device_name;
-			framebuffer_size = mib 256L;
-			max_heads = 1L;
-			max_resolution_x = 2560L;
-			max_resolution_y = 1600L;
-			size = vgpu_size;
-			internal_config = [
-				Xapi_globs.vgt_low_gm_sz, Int64.to_string 128L;
-				Xapi_globs.vgt_high_gm_sz, Int64.to_string 384L;
-				Xapi_globs.vgt_fence_sz, Int64.to_string 4L;
-			];
-			identifier = Identifier.(GVT_g {
-				pdev_id = device.Pci.Pci_dev.device_id;
-				low_gm_sz = 128L;
-				high_gm_sz = 384L;
-				fence_sz = 4L;
-				monitor_config_file = None;
-			});
-			experimental = false;
-		}
+		List.map
+			Identifier.(fun conf ->
+				let vgpus_per_pgpu =
+					bar_size /// 1024L /// 1024L
+					/// conf.identifier.low_gm_sz
+					--- 1L
+				in
+				let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
+				{
+					vendor_name;
+					model_name = conf.model_name;
+					framebuffer_size = mib 256L;
+					max_heads = 1L;
+					max_resolution_x = 2560L;
+					max_resolution_y = 1600L;
+					size = vgpu_size;
+					internal_config = [
+						Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
+						Xapi_globs.vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz;
+						Xapi_globs.vgt_fence_sz, Int64.to_string conf.identifier.fence_sz;
+					];
+					identifier = GVT_g conf.identifier;
+					experimental = conf.experimental;
+				})
+			whitelist
 
 	let find_or_create_supported_types ~__context ~pci
 			~is_system_display_device
@@ -442,8 +491,13 @@ module Intel = struct
 				match is_host_display_enabled, is_pci_hidden with
 				| false, true -> [passthrough_gpu]
 				| true, true -> []
-				| _, false -> [make_gvt_g_256 ~__context ~pci]
-			end else [passthrough_gpu; make_gvt_g_256 ~__context ~pci]
+				| _, false ->
+					(make_vgpu_types ~__context
+						~pci ~whitelist:!Xapi_globs.gvt_g_whitelist)
+			end else
+				passthrough_gpu ::
+				(make_vgpu_types ~__context
+					~pci ~whitelist:!Xapi_globs.gvt_g_whitelist)
 		in
 		List.map (find_or_create ~__context) types
 end
