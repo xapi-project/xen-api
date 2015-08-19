@@ -6984,8 +6984,10 @@ let vm_operations =
 	    "export", "exporting a VM to a network stream";
 	    "metadata_export", "exporting VM metadata to a network stream";
 	    "reverting", "Reverting the VM to a previous snapshotted state";
-	    "destroy", "refers to the act of uninstalling the VM"; ]
-       )
+	    "destroy", "refers to the act of uninstalling the VM";
+	    "xenprep", "Any of the xenprep-related operations";
+	]
+  )
 
 (** VM (or 'guest') configuration: *)
 let vm =
