@@ -3200,19 +3200,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* SR Level RRDs *)
 		let get_data_sources ~__context ~sr =
 			info "SR.get_data_sources: SR = '%s'" (sr_uuid ~__context sr);
-			Local.SR.get_data_sources ~__context ~sr
+			let local_fn = Local.SR.get_data_sources ~sr in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc -> Client.SR.get_data_sources rpc session_id sr)
 
 		let record_data_source ~__context ~sr ~data_source =
-			info "SR.record_data_source: SR = '%s';  data source = '%s'" (sr_uuid ~__context sr) data_source;
-			Local.SR.record_data_source ~__context ~sr ~data_source
+			info "SR.record_data_source: SR = '%s';  data source = '%s'"
+				(sr_uuid ~__context sr) data_source;
+			let local_fn = Local.SR.record_data_source ~sr ~data_source in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc ->
+					Client.SR.record_data_source rpc session_id sr data_source)
 
 		let query_data_source ~__context ~sr ~data_source =
-			info "SR.query_data_source: SR = '%s'; data source = '%s'" (sr_uuid ~__context sr) data_source;
-			Local.SR.query_data_source ~__context ~sr ~data_source
+			info "SR.query_data_source: SR = '%s'; data source = '%s'"
+				(sr_uuid ~__context sr) data_source;
+			let local_fn = Local.SR.query_data_source ~sr ~data_source in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc ->
+					Client.SR.query_data_source rpc session_id sr data_source)
 
 		let forget_data_source_archives ~__context ~sr ~data_source =
-			info "SR.forget_data_source_archives: sr = '%s'; data source = '%s'" (sr_uuid ~__context  sr) data_source;
-			Local.SR.forget_data_source_archives ~__context ~sr ~data_source
+			info "SR.forget_data_source_archives: sr = '%s'; data source = '%s'"
+				(sr_uuid ~__context  sr) data_source;
+			let local_fn = Local.SR.forget_data_source_archives ~sr ~data_source in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc ->
+					Client.SR.forget_data_source_archives rpc session_id sr data_source)
 
 	end
 	module VDI = struct
