@@ -930,8 +930,6 @@ let has_xenprep_iso ~__context ~self =
 	let vbds = List.filter (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd = vdi) vbds in
 	vbds <> []
 
-let xenprep_mutex = Mutex.create ()
-
 let delete_guest_metrics ~__context ~self:vm =
 	(* Delete potentially stale guest metrics object *)
 	let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in

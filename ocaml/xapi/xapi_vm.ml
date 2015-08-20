@@ -1019,6 +1019,8 @@ let set_auto_update_drivers ~__context ~self ~value=
 	assert_can_set_auto_update_drivers ~__context ~self ~value;
 	Db.VM.set_auto_update_drivers ~__context ~self ~value
 
+(* Do not call this directly: go through message_forwarding which calls it
+   with_vm_operation for thread-safety. (That is to say, go through API.) *)
 let xenprep_start ~__context ~self =
 	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
 	info "Xapi_vm.xenprep_start: VM=%s" vm_uuid;
@@ -1026,12 +1028,12 @@ let xenprep_start ~__context ~self =
 
 	let key = Xapi_globs.xenprep_other_config_key in
 	let ins_str = Xapi_globs.xenprep_other_config_iso_inserted in
-	let preexisting_progress = Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
+	let preexisting_progress =
 		let other_config = Db.VM.get_other_config ~__context ~self in
 		if List.mem_assoc key other_config
 		then Some (List.assoc key other_config)
 		else None
-	) in
+	in
 	if ( match preexisting_progress with
 		| Some progress ->
 			info "Xapi_vm.xenprep_start: VM already has %s=%s; VM=%s" key progress vm_uuid;
@@ -1070,29 +1072,28 @@ let xenprep_start ~__context ~self =
 					Client.VBD.insert ~rpc ~session_id ~vbd:cd_vbd ~vdi
 				)
 		with e ->
-			Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
-				Db.VM.remove_from_other_config ~__context ~self ~key
-			);
+			Backtrace.is_important e;
+			Db.VM.remove_from_other_config ~__context ~self ~key;
 			raise e
 		);
 		(* At this point we are sure the ISO is in the drive *)
-		Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
-			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:ins_str
-		)
+		Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:ins_str
 	)
 
+(* Do not call this directly: go through message_forwarding which calls it
+   with_vm_operation for thread-safety. (That is to say, go through API.) *)
 let xenprep_abort ~__context ~self =
 	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
 	info "Xapi_vm.xenprep_abort: VM=%s" vm_uuid;
 	let key = Xapi_globs.xenprep_other_config_key in
-	let preexisting_progress = Mutex.execute Xapi_vm_helpers.xenprep_mutex (fun () ->
+	let preexisting_progress =
 		let other_config = Db.VM.get_other_config ~__context ~self in
 		if List.mem_assoc key other_config then (
 			let prog = Some (List.assoc key other_config) in
 			Db.VM.remove_from_other_config ~__context ~self ~key;
 			prog
 		) else None
-	) in
+	in
 	debug "xenprep_progress before abort: VM=%s progress=%s" vm_uuid
 		(match preexisting_progress with
 			| None -> "None"
@@ -1112,6 +1113,7 @@ let xenprep_abort ~__context ~self =
 				);
 				(1 + n, eopt)
 			with e ->
+				Backtrace.is_important e;
 				error "Failed to eject xenprep VDI; VBD=%s" (Ref.string_of vbd);
 				(1 + n, Some e)
 		) else acc
