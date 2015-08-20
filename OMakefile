@@ -87,8 +87,8 @@ if $(not $(defined-env SHAREDIR))
 if $(not $(defined-env WEBDIR))
   WEBDIR=/opt/xensource/www
   export
-if $(not $(defined-env XHADIR))
-  XHADIR=/opt/xensource/xha
+if $(not $(defined-env CLUSTER_STACK_ROOT))
+  CLUSTER_STACK_ROOT=/usr/libexec/xapi/cluster-stack
   export
 if $(not $(defined-env BINDIR))
   BINDIR=/opt/xensource/bin

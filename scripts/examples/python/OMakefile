@@ -44,6 +44,7 @@ install:
 	$(IEXE) wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
 	$(IEXE) shutdown.py $(DESTDIR)$(LIBEXECDIR)/shutdown
 	$(IEXE) shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
+	$(IEXE) xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
 
 .PHONY: sdk-install
 sdk-install:

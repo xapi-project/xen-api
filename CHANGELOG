@@ -1,3 +1,16 @@
+1.9.70 (2015-08-14):
+ * add originator for `login_with_password`
+ * new API: VM.import
+ * new CLI: VM import from URL
+ * initial support for thin provisioning on block storage
+ * lots of VGPU improvements
+ * allow storage motion of halted VMs
+ * support for TLS 1.2
+ * initial support for FCoE
+ * preliminary support for SMAPIv3
+ * preliminary support for multiple cluster stacks
+ * new CLI support for reading database dumps
+ 
 1.9.60 (2015-04-04):
  * fix release_version of get_SRs_required_for_recover
  * support SM backend-kind override via VDI.other_config key

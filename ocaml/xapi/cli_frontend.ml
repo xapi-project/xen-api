@@ -1380,6 +1380,15 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[];
     };
 
+   "vm-xenprep-start",
+    {
+      reqd=[];
+      optn=[];
+      help="Inserts the XenPrep ISO into the VM's CD drive to begin the process of removing superseded PV drivers in preparation for triggering automatic installation of new ones.";
+      implementation=No_fd Cli_operations.vm_xenprep_start;
+      flags=[Vm_selectors];
+    };
+
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];
@@ -2225,7 +2234,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "pool-ha-enable",
     {
       reqd=[];
-      optn=["heartbeat-sr-uuids"; "ha-config:"; "cluster-stack"];
+      optn=["heartbeat-sr-uuids"; "ha-config:"];
       help="Enable HA on this Pool.";
       implementation=No_fd Cli_operations.pool_ha_enable;
       flags=[];

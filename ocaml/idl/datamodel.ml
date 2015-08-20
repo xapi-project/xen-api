@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 87
+let schema_minor_vsn = 89
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -67,7 +67,7 @@ let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 87
+let dundee_release_schema_minor_vsn = 89
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = creedence_release_schema_major_vsn
@@ -652,6 +652,8 @@ let _ =
   (* CA-83260 *)
   error Api_errors.disk_vbd_must_be_readwrite_for_hvm ["vbd"]
     ~doc:"All VBDs of type 'disk' must be read/write for HVM guests" ();
+  error Api_errors.vm_no_empty_cd_vbd ["vm"]
+    ~doc:"The VM has no empty CD drive (VBD)." ();
   error Api_errors.vm_hvm_required ["vm"]
     ~doc:"HVM is required for this operation" ();
   error Api_errors.vm_no_vcpus ["vm"]
@@ -1180,6 +1182,13 @@ let _ =
 		~doc:"This operation cannot be performed because creating or deleting a bond involving the management interface is not allowed while HA is on. In order to do that, disable HA, create or delete the bond then re-enable HA."
 		();
 
+  error Api_errors.incompatible_statefile_sr ["SR type"]
+    ~doc:"The specified SR is incompatible with the selected HA cluster stack."
+    ();
+  error Api_errors.incompatible_cluster_stack_active ["cluster_stack"]
+    ~doc:"This operation cannot be performed, because it is incompatible with the currently active HA cluster stack."
+    ();
+
   error Api_errors.cannot_evacuate_host ["errors"]
     ~doc:"This host cannot be evacuated."
     ();
@@ -1352,6 +1361,15 @@ let slave_local_login_with_password = call ~flags:[]
   ~secret:true
   ~allowed_roles:_R_POOL_ADMIN (*only root can do an emergency slave login*)
   ()
+
+let session_create_from_db_file = call
+	~lifecycle:[Published, rel_dundee, ""]
+	~name:"create_from_db_file"
+	~params:[String, "filename", "Database dump filename."]
+	~result:(Ref _session, "ID of newly created session")
+	~in_oss_since:None
+	~allowed_roles:_R_LOCAL_ROOT_ONLY
+	()
 
 let local_logout = call ~flags:[`Session]
   ~in_product_since:rel_miami
@@ -2426,6 +2444,17 @@ let vm_import = call
          ]
 	~result:(Set(Ref _vm), "Imported VM reference")
 	~allowed_roles:_R_POOL_OP
+	()
+
+let vm_xenprep_start = call
+	~name:"xenprep_start"
+	~lifecycle:[
+		Published, rel_dundee, "New function call";
+	]
+	~doc:"Start the 'xenprep' process on the VM; the process will remove any tools and drivers for XenServer and then set auto update drivers true."
+	~params:[Ref _vm, "self", "The VM to xenprep"]
+	~doc_tags:[Windows]
+	~allowed_roles:_R_VM_OP
 	()
 
 (* ------------------------------------------------------------------------------------------------------------
@@ -3548,7 +3577,7 @@ let session =
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~messages:[session_login; session_logout; session_chpass;
 	       slave_login; 
-	       slave_local_login; slave_local_login_with_password; local_logout;
+	       slave_local_login; slave_local_login_with_password; session_create_from_db_file; local_logout;
 	       session_get_all_subject_identifiers; session_logout_subject_identifier;
 	      ] ~contents:[
 		  uid _session;
@@ -5517,6 +5546,7 @@ let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on 
 				   "ha_statefile", "a disk used for HA storage heartbeating";
 				   "metadata", "a disk used for HA Pool metadata";
 				   "redo_log", "a disk used for a general metadata redo-log";
+				   "rrd", "a disk that stores SR-level RRDs";
 				 ])
 
 let vdi_introduce_params first_rel =
@@ -5995,7 +6025,6 @@ let pool_enable_ha = call
   ~versioned_params:
   [{param_type=Set(Ref _sr); param_name="heartbeat_srs"; param_doc="Set of SRs to use for storage heartbeating"; param_release=miami_release; param_default=None };
   {param_type=Map(String, String); param_name="configuration"; param_doc="Detailed HA configuration to apply"; param_release=miami_release; param_default=None };
-  {param_type=String; param_name="cluster_stack"; param_doc="HA cluster manager stack"; param_release=dundee_release; param_default=Some (VString "")}
   ]
   ~doc:"Turn on High Availability mode"
   ~allowed_roles:_R_POOL_OP
@@ -6643,7 +6672,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
 			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
-			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "xhad")) ~ty:String "ha_cluster_stack" "The ha cluster manager stack"
+			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
 
 			] @ (allowed_and_current_operations pool_operations) )
 		()
@@ -7026,6 +7055,7 @@ let vm =
 		vm_set_auto_update_drivers;
 		vm_assert_can_set_auto_update_drivers;
 		vm_import;
+		vm_xenprep_start;
 		]
       ~contents:
       ([ uid _vm;
@@ -8341,8 +8371,8 @@ let vgpu_type =
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "max_heads" "Maximum number of displays supported by the VGPU type";
-			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_x" "Maximum resultion (width) supported by the VGPU type";
-			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_y" "Maximum resoltion (height) supported by the VGPU type";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_x" "Maximum resolution (width) supported by the VGPU type";
+			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_y" "Maximum resolution (height) supported by the VGPU type";
 			field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt 0L)) "size" "Abstract size for tracking PGPU utilisation";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
@@ -8351,6 +8381,8 @@ let vgpu_type =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
 			field ~qualifier:StaticRO ~ty:vgpu_type_implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VString "")) "identifier" "Key used to identify VGPU types and avoid creating duplicates - this field is used internally and not intended for interpretation by API clients";
+			field ~qualifier: StaticRO ~ty:Bool ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VBool false)) "experimental" "Indicates whether VGPUs of this type should be considered experimental";
 		]
 	()
 

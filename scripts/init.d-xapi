@@ -42,8 +42,6 @@ start() {
 	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
 	# Enable backtraces
 	export OCAMLRUNPARAM="b"
-	# Add HA scripts to the path
-	PATH=$PATH:@OPTDIR@/xha
 
 	# For debugging, prevent xapi startup
 	if [ -e ${XAPI_BLOCK_STARTUP_COOKIE} ]; then

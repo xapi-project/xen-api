@@ -34,6 +34,7 @@ let make_vdi_info ~location ?uuid () =
 type capability =
     | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
 	| Sr_supports_local_caching
+	| Sr_stats
     | Sr_metadata
     | Sr_trim
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
@@ -51,6 +52,7 @@ let all_capabilites =
     Sr_supports_local_caching;
     Sr_metadata;
     Sr_trim;
+    Sr_stats;
     Vdi_create; Vdi_delete; Vdi_attach; Vdi_detach;
     Vdi_clone; Vdi_resize; Vdi_activate; Vdi_deactivate;
     Vdi_update; Vdi_introduce;
@@ -78,6 +80,7 @@ let string_to_capability_table = [
 	"VDI_GENERATE_CONFIG", Vdi_generate_config;
 	"VDI_ATTACH_OFFLINE", Vdi_attach_offline;
 	"VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
+	"SR_STATS", Sr_stats;
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 

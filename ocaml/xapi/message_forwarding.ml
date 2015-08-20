@@ -677,16 +677,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Pool.designate_new_master ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Pool.designate_new_master rpc session_id host)
 
-		let enable_ha ~__context ~heartbeat_srs ~configuration ~cluster_stack =
-			info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]; cluster_stack = [ %s ]"
+		let enable_ha ~__context ~heartbeat_srs ~configuration =
+			info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]"
 				(current_pool_uuid ~__context)
 				(String.concat ", " (List.map Ref.string_of heartbeat_srs))
-				(String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration))
-				cluster_stack ;
+				(String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration));
 			let pool = Helpers.get_pool ~__context in
 			with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
 				(fun () ->
-					Local.Pool.enable_ha __context heartbeat_srs configuration cluster_stack
+					Local.Pool.enable_ha __context heartbeat_srs configuration
 				)
 
 		let disable_ha ~__context =
@@ -1361,7 +1360,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let assert_can_set_auto_update_drivers ~__context ~self ~value =
 			info "VM.assert_can_set_auto_update_drivers: VM = '%s' to %b " (vm_uuid ~__context self) value;
 			Local.VM.assert_can_set_auto_update_drivers ~__context ~self ~value
-			
+
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
 			Db.VM.set_xenstore_data ~__context ~self ~value;
@@ -2064,6 +2063,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let pbd = choose_pbd_for_sr ~__context ~self:sr () in
 			let host = Db.PBD.get_host ~__context ~self:pbd in
 			do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
+
+		let xenprep_start ~__context ~self =
+			info "VM.xenprep_start: VM = '%s'" (vm_uuid ~__context self);
+			let local_fn = Local.VM.xenprep_start ~self in
+			forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
 
 	end
 
@@ -3377,6 +3381,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							Client.VDI.update ~rpc ~session_id ~vdi))
 
 		let forget ~__context ~vdi =
+			info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi);
 			with_sr_andor_vdi ~__context ~vdi:(vdi, `forget) ~doc:"VDI.forget"
 				(fun () ->
 					Local.VDI.forget ~__context ~vdi)
@@ -3777,7 +3782,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
 						Client.SR.update rpc session_id sr
-					)
+					);
+
+				(* Check if SR has SR_STATS capability then create SR-stats VDI *)
+				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then
+					Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);

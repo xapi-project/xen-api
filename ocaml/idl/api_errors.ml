@@ -138,6 +138,7 @@ let vbd_not_empty = "VBD_NOT_EMPTY"
 let vbd_is_empty = "VBD_IS_EMPTY"
 let vbd_tray_locked = "VBD_TRAY_LOCKED"
 let vbd_missing = "VBD_MISSING"
+let vm_no_empty_cd_vbd = "VM_NO_EMPTY_CD_VBD"
 let vm_snapshot_failed = "VM_SNAPSHOT_FAILED"
 let vm_snapshot_with_quiesce_failed = "VM_SNAPSHOT_WITH_QUIESCE_FAILED"
 let vm_snapshot_with_quiesce_timeout = "VM_SNAPSHOT_WITH_QUIESCE_TIMEOUT"
@@ -400,6 +401,9 @@ let ha_constraint_violation_sr_not_shared = "HA_CONSTRAINT_VIOLATION_SR_NOT_SHAR
 let ha_constraint_violation_network_not_shared = "HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED"
 
 let ha_operation_would_break_failover_plan = "HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN"
+
+let incompatible_statefile_sr = "INCOMPATIBLE_STATEFILE_SR"
+let incompatible_cluster_stack_active = "INCOMPATIBLE_CLUSTER_STACK_ACTIVE"
 
 let cannot_evacuate_host = "CANNOT_EVACUATE_HOST"
 let host_evacuate_in_progress = "HOST_EVACUATE_IN_PROGRESS"

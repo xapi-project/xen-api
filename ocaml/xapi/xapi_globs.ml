@@ -205,6 +205,9 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
+(* let xenprep_iso_name_label = "xenprep.iso" *) (* TODO use this once the xenprep ISO is available *)
+let xenprep_iso_name_label = "xs-tools.iso" (* Temporary stopgap value for dev-testing *)
+
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 let base_template_name_key = "base_template_name"
@@ -788,7 +791,8 @@ let sm_dir = ref "/opt/xensource/sm"
 
 let web_dir = ref "/opt/xensource/www"
 
-let xha_dir = ref "/opt/xensource/xha"
+let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
+let cluster_stack_default = ref "xhad"
 
 let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts"
 
@@ -937,6 +941,9 @@ let other_options = [
 
   "manage_xenvmd", Arg.Set manage_xenvmd,
   (fun () -> string_of_bool !manage_xenvmd), "Start and stop xenvmd instances on behalf of the SM backends";
+
+  "cluster-stack-default", Arg.Set_string cluster_stack_default,
+    (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1014,7 +1021,7 @@ module Resources = struct
 		"sm-dir", sm_dir, "Directory containing SM plugins";
 		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
 		"web-dir", web_dir, "Directory to export fileserver";
-		"xha-dir", xha_dir, "Directory containing xhad and HA scripts";
+		"cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 		"post-install-scripts-dir", post_install_scripts_dir, "Directory containing trusted guest provisioning scripts";
 	]

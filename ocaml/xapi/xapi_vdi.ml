@@ -268,24 +268,6 @@ let update_vdi_db ~__context ~sr newvdi =
 		| (vdi, _) :: _ -> vdi
 		| [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
 
-let default_vdi_info =
-	let open Storage_interface in {
-		vdi = "";
-		content_id = "";
-		name_label = "";
-		name_description = "";
-		ty = "user";
-		metadata_of_pool = "";
-		is_a_snapshot = false;
-		snapshot_time = Date.to_string Date.never;
-		snapshot_of = "";
-		read_only = false;
-		virtual_size = 0L;
-		physical_utilisation = 0L;
-		persistent = true;
-		sm_config = [];
-	}
-
 let create ~__context ~name_label ~name_description
         ~sR ~virtual_size ~_type
         ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
@@ -300,7 +282,8 @@ let create ~__context ~name_label ~name_description
         | `redo_log -> "redo_log"
         | `suspend -> "suspend"
         | `system -> "system"
-        | `user -> "user" in
+        | `user -> "user"
+        | `rrd -> "rrd" in
 
     let open Storage_access in
     let task = Context.get_task_id __context in
@@ -728,7 +711,8 @@ let set_name_label ~__context ~self ~value =
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_label:value
-		)
+		);
+	update ~__context ~vdi:self
 
 let set_name_description ~__context ~self ~value =
 	let open Storage_access in
@@ -741,7 +725,8 @@ let set_name_description ~__context ~self ~value =
 	transform_storage_exn
 		(fun () ->
 			C.VDI.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_description:value
-		)
+		);
+	update ~__context ~vdi:self
 
 let checksum ~__context ~self =
 	let do_checksum f = Digest.to_hex (Digest.file f) in

@@ -23,7 +23,13 @@ let k100 = {
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
-	implementation = `nvidia;
+	identifier = Identifier.(Nvidia {
+		pdev_id = 0x0ff2;
+		psubdev_id = None;
+		vdev_id = 0x0fe7;
+		vsubdev_id = 0x101e;
+	});
+	experimental = false;
 }
 
 let k140q = {
@@ -35,7 +41,13 @@ let k140q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
-	implementation = `nvidia;
+	identifier = Identifier.(Nvidia {
+		pdev_id = 0x0ff2;
+		psubdev_id = None;
+		vdev_id = 0x0ff7;
+		vsubdev_id = 0x1037;
+	});
+	experimental = false;
 }
 
 let k200 = {
@@ -47,7 +59,13 @@ let k200 = {
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
 	internal_config = [];
-	implementation = `nvidia;
+	identifier = Identifier.(Nvidia {
+		pdev_id = 0x11bf;
+		psubdev_id = None;
+		vdev_id = 0x118d;
+		vsubdev_id = 0x101d;
+	});
+	experimental = false;
 }
 
 let k240q = {
@@ -59,7 +77,13 @@ let k240q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
 	internal_config = [];
-	implementation = `nvidia;
+	identifier = Identifier.(Nvidia {
+		pdev_id = 0x11bf;
+		psubdev_id = None;
+		vdev_id = 0x11b0;
+		vsubdev_id = 0x101a;
+	});
+	experimental = false;
 }
 
 let k260q = {
@@ -71,7 +95,13 @@ let k260q = {
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 2L;
 	internal_config = [];
-	implementation = `nvidia;
+	identifier = Identifier.(Nvidia {
+		pdev_id = 0x11bf;
+		psubdev_id = None;
+		vdev_id = 0x11b0;
+		vsubdev_id = 0x101b;
+	});
+	experimental = false;
 }
 
 let k1_vgpu_types = [

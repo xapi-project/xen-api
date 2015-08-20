@@ -1652,5 +1652,7 @@ let vgpu_type_record rpc session_id vgpu_type =
 			make_field ~name:"enabled-on-GPU-groups"
 				~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_enabled_on_GPU_groups)) ();
 			make_field ~name:"VGPU-uuids" ~get:(fun () -> String.concat "; " (List.map (fun v -> get_uuid_from_ref v) (x ()).API.vGPU_type_VGPUs)) ();
+			make_field ~name:"experimental"
+				~get:(fun () -> string_of_bool (x ()).API.vGPU_type_experimental) ();
 		]
 	}

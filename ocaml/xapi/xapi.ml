@@ -834,6 +834,7 @@ let server_init() =
 	"Starting SM internal event service", [], Storage_task.Updates.Scheduler.start;
 	"Starting SM service", [], Storage_access.start;
 	"Starting SM xapi event service", [], Storage_access.events_from_sm;
+    "Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], (fun () -> listen_unix_socket Xapi_globs.unix_domain_socket);
@@ -923,9 +924,6 @@ let server_init() =
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
-      "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
-      "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
-      "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
       "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
@@ -952,6 +950,10 @@ let server_init() =
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
 	  "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
       "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
+      (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
+      "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
+      "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
+      "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
 
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
@@ -985,7 +987,7 @@ let server_init() =
       "wait management interface to come up", [ Startup.NoExnRaising ], wait_management_interface;
       "considering sending a master transition alert", [ Startup.NoExnRaising; Startup.OnlyMaster ], 
           Xapi_pool_transition.consider_sending_alert __context;
-
+      "Cancelling in-progress storage migrations", [], (fun () -> Storage_migrate.killall ~dbg:"xapi init");
       (* Start the external authentification plugin *)
       "Calling extauth_hook_script_before_xapi_initialize", [ Startup.NoExnRaising ],
           (fun () -> call_extauth_hook_script_before_xapi_initialize ~__context);

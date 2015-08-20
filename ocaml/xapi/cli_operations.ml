@@ -558,18 +558,24 @@ type params = (string * string) list
 (* If the parameter is not present, use the original session_id. *)
 let with_specified_database rpc session_id params f =
 	let database_params = read_map_params "database" params in
-	let use_foreign_database = List.mem_assoc "vdi-uuid" database_params in
+	let use_db_vdi = List.mem_assoc "vdi-uuid" database_params in
+	let use_db_file = List.mem_assoc "filename" database_params in
+	if use_db_vdi && use_db_file then
+		failwith "xapi can query a DB vdi or a DB file, but not both.";
 	let session_id =
-		if use_foreign_database then begin
+		if use_db_vdi then begin
 			let database_vdi_uuid = List.assoc "vdi-uuid" database_params in
 			let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_vdi_uuid in
 			Client.VDI.open_database ~rpc ~session_id ~self:database_vdi
+		end else if use_db_file then begin
+			let database_file = List.assoc "filename" database_params in
+			Client.Session.create_from_db_file ~rpc ~session_id ~filename:database_file
 		end else
 			session_id
 	in
 	finally
 		(fun () -> f session_id)
-		(fun () -> if use_foreign_database then Client.Session.logout ~rpc ~session_id)
+		(fun () -> if use_db_vdi || use_db_file then Client.Session.logout ~rpc ~session_id)
 
 let make_param_funs getall getallrecs getbyuuid record class_name def_filters def_list_params rpc session_id =
 	let get_record2 rpc session_id x =
@@ -852,8 +858,7 @@ let pool_ha_enable printer rpc session_id params =
 	let config = read_map_params "ha-config" params in
 	let uuids = if List.mem_assoc "heartbeat-sr-uuids" params then String.split ',' (List.assoc "heartbeat-sr-uuids" params) else [] in
 	let srs = List.map (fun uuid -> Client.SR.get_by_uuid rpc session_id uuid) uuids in
-	let cluster_stack = if List.mem_assoc "cluster-stack" params then List.assoc "cluster-stack" params else "" in
-	Client.Pool.enable_ha rpc session_id srs config cluster_stack
+	Client.Pool.enable_ha rpc session_id srs config
 let pool_ha_disable printer rpc session_id params =
 	Client.Pool.disable_ha rpc session_id
 let pool_ha_prevent_restarts_for printer rpc session_id params =
@@ -2815,12 +2820,18 @@ let vm_cd_insert printer rpc session_id params =
 		let vm_record = vm.record () in
 		let vbds = vm_record.API.vM_VBDs in
 		let cdvbds = List.filter (fun vbd -> (Client.VBD.get_type rpc session_id vbd = `CD) && (Client.VBD.get_empty rpc session_id vbd)) vbds in
-		if List.length cdvbds = 0 then (failwith "No empty CD devices found");
+		if List.length cdvbds = 0 then raise (Api_errors.Server_error(Api_errors.vm_no_empty_cd_vbd, [ Ref.string_of (vm.getref ()) ]));
 		if List.length cdvbds > 1 then (failwith "Two or more empty CD devices found. Please use vbd-insert");
 		let cd = List.hd cdvbds in
 		Client.VBD.insert rpc session_id cd (List.hd vdis)
 	in
 	ignore(do_vm_op printer rpc session_id op params ["cd-name"])
+
+let vm_xenprep_start printer rpc session_id params =
+	let op vm =
+		Client.VM.xenprep_start rpc session_id (vm.getref ())
+	in
+	ignore (do_vm_op printer rpc session_id op params [])
 
 let host_careful_op op fd printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in

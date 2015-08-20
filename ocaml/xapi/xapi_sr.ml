@@ -338,16 +338,10 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 	(* Create the new ones *)
 	let db_vdi_map = StringMap.fold
 		(fun loc vdi m ->
-			(* If vdi looks like a UUID, use it as the UUID for this VDI *)
-			let x = 
-				try Filename.chop_extension vdi.vdi
-				with Invalid_argument _ -> vdi.vdi in
 			let ref = Ref.make () in
-			let uuid_len = 36 in
-			let uuid = 
-				if String.length x == uuid_len && Uuid.is_uuid x
-				then Uuid.of_string x
-				else Uuid.make_uuid () in
+			let uuid = match vdi.uuid with
+				| Some x -> Uuid.of_string x
+				| None -> Uuid.make_uuid () in
 
 			debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
 			Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
@@ -427,9 +421,9 @@ let scan ~__context ~sr =
 		(fun () ->
 			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 			let vs = C.SR.scan ~dbg:(Ref.string_of task) ~sr:sr_uuid in
-			let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr_uuid in
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
+			let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr_uuid in
 			let virtual_allocation = List.fold_left Int64.add 0L (List.map (fun v -> v.virtual_size) vs) in
 			Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
 			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
@@ -477,7 +471,8 @@ let set_physical_utilisation ~__context ~self ~value =
 	Db.SR.set_physical_utilisation ~__context ~self ~value
 
 let assert_can_host_ha_statefile ~__context ~sr =
-	Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
+	let cluster_stack = Cluster_stack_constraints.choose_cluster_stack ~__context in
+	Xha_statefile.assert_sr_can_host_statefile ~__context ~sr ~cluster_stack
 
 let assert_supports_database_replication ~__context ~sr =
 	(* Check that each host has a PBD to this SR *)

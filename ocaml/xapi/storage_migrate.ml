@@ -24,7 +24,7 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
-let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 open Storage_interface
@@ -57,58 +57,89 @@ module State = struct
 		} with rpc
 	end
 
-	type mirror = 
-		| Send of Send_state.t		
-		| Receive of Receive_state.t with rpc
+	module Copy_state = struct
+		type t = {
+			base_dp : dp;
+			leaf_dp : dp;
+			remote_dp : dp;
+			dest_sr: sr;
+			copy_vdi: vdi;
+			remote_url : string;
+		} with rpc
+	end
 
-	type t = (string, mirror) Hashtbl.t with rpc
+	type operation =
+		| Send of Send_state.t
+		| Receive of Receive_state.t
+		| Copy of Copy_state.t with rpc
+
+	type t = (string, operation) Hashtbl.t with rpc
 
 	let active_send : t = Hashtbl.create 10
 	let active_recv : t = Hashtbl.create 10
+	let active_copy : t = Hashtbl.create 10
+
 	let loaded = ref false
 	let mutex = Mutex.create () 
 
-	let path send = Printf.sprintf "/var/run/nonpersistent/storage_mirrors_%s.json"
-		(if send then "send" else "recv")
+	type opty = OSend | OReceive | OCopy
+
+	let path ty = match ty with
+		| OSend -> "/var/run/nonpersistent/storage_mirrors_send.json"
+		| OReceive -> "/var/run/nonpersistent/storage_mirrors_recv.json"
+		| OCopy -> "/var/run/nonpersistent/storage_mirrors_copy.json"
 
 	let to_string r = rpc_of_t r |> Jsonrpc.to_string
 	let of_string s = Jsonrpc.of_string s |> t_of_rpc
-	let id_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
-	let of_id id = match String.split '/' id with
+	let mirror_id_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
+	let of_mirror_id id = match String.split '/' id with
 		| sr::rest -> (sr,String.concat "/" rest)
+		| _ -> failwith "Bad id"
+	let copy_id_of (sr,vdi) = Printf.sprintf "copy/%s/%s" sr vdi
+	let of_copy_id id =
+		match String.split '/' id with
+		| op :: sr :: rest when op="copy" -> (sr,(String.concat "/" rest))
 		| _ -> failwith "Bad id"
 
 	let load () =
 		let load path hashtbl = Unixext.string_of_file path |> of_string |> Hashtbl.iter (Hashtbl.replace hashtbl) in
-		try load (path true) active_send; load (path false) active_recv with _ -> ()
+		List.iter (fun (ty, tbl) -> try load (path ty) tbl with _ -> ()) [ OSend, active_send; OReceive, active_recv; OCopy, active_copy ];
+		loaded := true
+
 	let save () = 
-		to_string active_send |> Unixext.write_string_to_file (path true);
-		to_string active_recv |> Unixext.write_string_to_file (path false)
+		to_string active_send |> Unixext.write_string_to_file (path OSend);
+		to_string active_recv |> Unixext.write_string_to_file (path OReceive);
+		to_string active_copy |> Unixext.write_string_to_file (path OCopy)
+
 	let op s f h = Mutex.execute mutex (fun () -> if not !loaded then load (); let r = f h in if s then save (); r)
 	let map_of () =	
 		let m1 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h []) active_send in
-		op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m1) active_recv
+		let m2 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m1) active_recv in
+		let m3 = op false (fun h -> Hashtbl.fold (fun k v acc -> (k,v)::acc) h m2) active_copy in
+		m3
 
 	let add id h s = op true (fun a -> Hashtbl.replace a id s) h
 	let find id h = op false (fun a -> try Some (Hashtbl.find a id) with _ -> None) h
 	let remove id h = op true (fun a ->	Hashtbl.remove a id) h
+	let clear h = op true Hashtbl.clear h
 
-	let add_to_active_local_mirrors id url dest_sr remote_dp local_dp mirror_vdi remote_url tapdev =
-		let open Send_state in 
-		let alm = {url; dest_sr; remote_dp; local_dp; mirror_vdi; remote_url; tapdev; failed=false; watchdog=None} in
+	let add_to_active_local_mirrors id alm =
 		add id active_send $ Send alm; alm
-			
-	let add_to_active_receive_mirrors id sr dummy_vdi leaf_vdi leaf_dp parent_vdi remote_vdi =
-		let open Receive_state in 
-		let arm = {sr; dummy_vdi; leaf_vdi; leaf_dp; parent_vdi; remote_vdi} in
+
+	let add_to_active_receive_mirrors id arm =
 		add id active_recv $ Receive arm; arm
-									  
+
+	let add_to_active_copy id s =
+		add id active_copy $ Copy s; s
+
 	let find_active_local_mirror id =
 		Opt.Monad.bind (find id active_send) (function | Send s -> Some s | _ -> None)
 
 	let find_active_receive_mirror id =
 		Opt.Monad.bind (find id active_recv) (function | Receive r -> Some r | _ -> None)
 
+	let find_active_copy id =
+		Opt.Monad.bind (find id active_copy) (function | Copy s -> Some s | _ -> None)
 end
 
 
@@ -159,23 +190,23 @@ let tapdisk_of_attach_info attach_info =
 			None
 		| _ -> 
 			debug "Device %s has an unknown driver" path;
-			None 
+			None
 
 
-let with_activated_disk ~dbg ~sr ~vdi f =
+let with_activated_disk ~dbg ~sr ~vdi ~dp f =
 	let path =
 		Opt.map (fun vdi -> 
-			let attach_info = Local.VDI.attach ~dbg ~dp:"migrate" ~sr ~vdi ~read_write:false in
+			let attach_info = Local.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false in
 			let path = attach_info.params in
-			Local.VDI.activate ~dbg ~dp:"migrate" ~sr ~vdi;
+			Local.VDI.activate ~dbg ~dp ~sr ~vdi;
 			path) vdi in
 	finally
 		(fun () -> f path)
 		(fun () ->
 			Opt.iter
 				(fun vdi ->
-					Local.VDI.deactivate ~dbg ~dp:"migrate" ~sr ~vdi;
-					Local.VDI.detach ~dbg ~dp:"migrate" ~sr ~vdi)
+					Local.VDI.deactivate ~dbg ~dp ~sr ~vdi;
+					Local.VDI.detach ~dbg ~dp ~sr ~vdi)
 				vdi)
 
 let perform_cleanup_actions =
@@ -236,21 +267,28 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
 
 	try
-		let dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi dp) |> Http.Url.to_string in
+		let remote_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let base_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let leaf_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+		let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi remote_dp) |> Http.Url.to_string in
 
 		debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
+
+		let id=State.copy_id_of (sr,vdi) in
+		debug "Persisting state for copy (id=%s)" id;
+		ignore(State.add_to_active_copy id (State.Copy_state.({
+		  base_dp; leaf_dp; remote_dp; dest_sr=dest; copy_vdi=remote_vdi.vdi; remote_url=url})));
 
 		SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s" vdi dest_vdi;
 
 		Pervasiveext.finally (fun () -> 
-			debug "activating RW datapath %s on remote=%s/%s" dp dest dest_vdi;
-			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp ~read_write:true);
-			Remote.VDI.activate ~dbg ~dp ~sr:dest ~vdi:dest_vdi;
-			
-			with_activated_disk ~dbg ~sr ~vdi:base_vdi
+			debug "activating RW datapath %s on remote=%s/%s" remote_dp dest dest_vdi;
+			ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp:remote_dp ~read_write:true);
+			Remote.VDI.activate ~dbg ~dp:remote_dp ~sr:dest ~vdi:dest_vdi;
+
+			with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
 				(fun base_path ->
-					with_activated_disk ~dbg ~sr ~vdi:(Some vdi)
+					with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp
 						(fun src ->
 							let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src) 
 								dest_vdi_url remote_vdi.virtual_size in
@@ -263,7 +301,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 				);
 			)
 			(fun () -> 
-				Remote.DP.destroy ~dbg ~dp ~allow_leak:false);
+				Remote.DP.destroy ~dbg ~dp:remote_dp ~allow_leak:false);
 
 		SMPERF.debug "mirror.copy: copy complete local_vdi:%s dest_vdi:%s" vdi dest_vdi;
 
@@ -293,8 +331,8 @@ let stop ~dbg ~id =
 	(* Find the local VDI *)
 	let alm = State.find_active_local_mirror id in
 	match alm with 
-		| Some alm -> 
-			let sr,vdi = State.of_id id in
+		| Some alm ->
+			let sr,vdi = State.of_mirror_id id in
 			let vdis = Local.SR.scan ~dbg ~sr in
 			let local_vdi =
 				try List.find (fun x -> x.vdi = vdi) vdis
@@ -304,6 +342,16 @@ let stop ~dbg ~id =
 			(* Disable mirroring on the local machine *)
 			let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
 			Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
+			(* Destroy the snapshot, if it still exists *)
+			let snap = try Some (List.find (fun x -> List.mem_assoc "base_mirror" x.sm_config && List.assoc "base_mirror" x.sm_config = id) vdis) with _ -> None in
+			begin
+				match snap with
+				| Some s ->
+					debug "Found snapshot VDI: %s" s.vdi;
+					Local.VDI.destroy ~dbg ~sr ~vdi:s.vdi
+				| None ->
+					debug "Snapshot VDI already cleaned up"
+			end;
 			let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
 			let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 			(try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
@@ -323,7 +371,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		try List.find (fun x -> x.vdi = vdi) vdis
 		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
-	let id = State.id_of (sr,local_vdi.vdi) in
+	let id = State.mirror_id_of (sr,local_vdi.vdi) in
 
 	(* A list of cleanup actions to perform if the operation should fail. *)
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -374,7 +422,16 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 				failwith "Not attached"
 		in
 		debug "Adding to active local mirrors: id=%s" id;
-		let alm = State.add_to_active_local_mirrors id url dest mirror_dp dp result.Mirror.mirror_vdi.vdi url tapdev in
+		let alm = State.add_to_active_local_mirrors id State.Send_state.({
+			url;
+			dest_sr=dest;
+			remote_dp=mirror_dp;
+			local_dp=dp;
+			mirror_vdi=result.Mirror.mirror_vdi.vdi;
+			remote_url=url;
+			tapdev;
+			failed=false;
+			watchdog=None}) in
 		debug "Added";
 
 		debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi);
@@ -460,16 +517,46 @@ let stat ~dbg ~id =
 		| (None, Some _) -> [Sending]
 		| (None, None) -> raise (Does_not_exist ("mirror",id))
 	in
-	let (sr,vdi) = of_id id in
+	let (sr,vdi) = of_mirror_id id in
 	let src = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.remote_vdi | (_,Some (Send x)) -> vdi | _ -> failwith "Invalid" in
 	let dst = match (s1,s2) with | (Some (Receive x), _) -> x.Receive_state.leaf_vdi | (_,Some (Send x)) -> x.Send_state.mirror_vdi | _ -> failwith "Invalid" in
 	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
-	
+
 let list ~dbg =
 	let m = State.map_of () in
 	let ids = List.map fst m |> Listext.List.setify in
 	List.map (fun id ->
 		(id,stat dbg id)) ids
+
+let killall ~dbg =
+	let m = State.map_of () in
+	List.iter (function
+		| (id, State.Send x) ->
+			begin
+				debug "Send in progress: %s" id;
+				List.iter log_and_ignore_exn
+					[ (fun () -> stop dbg id);
+					  (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Send_state.local_dp ~allow_leak:true) ]
+			end
+		| (id, State.Copy x) ->
+			 begin
+				 debug "Copy in progress: %s" id;
+				 List.iter log_and_ignore_exn
+					 [ (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Copy_state.leaf_dp ~allow_leak:true);
+					   (fun () -> Local.DP.destroy ~dbg ~dp:x.State.Copy_state.base_dp ~allow_leak:true) ];
+				 let remote_url = Http.Url.of_string x.State.Copy_state.remote_url in
+				 let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+				 List.iter log_and_ignore_exn
+					 [ (fun () -> Remote.DP.destroy ~dbg ~dp:x.State.Copy_state.remote_dp ~allow_leak:true);
+					   (fun () -> Remote.VDI.destroy ~dbg ~sr:x.State.Copy_state.dest_sr ~vdi:x.State.Copy_state.copy_vdi) ]
+			 end
+		| (id, State.Receive x) ->
+			 begin
+				 debug "Receive in progress: %s" id;
+				 log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel ~dbg ~id)
+			 end
+	) m;
+	List.iter State.clear [State.active_send; State.active_recv; State.active_copy]
 
 let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 	let on_fail : (unit -> unit) list ref = ref [] in
@@ -513,7 +600,13 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
 		debug "Parent disk content_id=%s" parent.content_id;
 		
-		ignore(State.add_to_active_receive_mirrors id sr dummy.vdi leaf.vdi leaf_dp parent.vdi vdi_info.vdi);
+		ignore(State.add_to_active_receive_mirrors id State.Receive_state.({
+			sr;
+			dummy_vdi=dummy.vdi;
+			leaf_vdi=leaf.vdi;
+			leaf_dp;
+			parent_vdi=parent.vdi;
+			remote_vdi=vdi_info.vdi}));
 		
 		let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
 
@@ -527,9 +620,6 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 		List.iter (fun op -> try op () with e -> debug "Caught exception in on_fail: %s" (Printexc.to_string e)) !on_fail;
 		raise e
 
-let log_exn_and_continue s f =
-	try f () with e -> debug "Ignorning exception '%s' while %s" (Printexc.to_string e) s
-
 let receive_finalize ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
 	let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false) record;
@@ -538,9 +628,9 @@ let receive_finalize ~dbg ~id =
 let receive_cancel ~dbg ~id =
 	let record = State.find_active_receive_mirror id in
 	let open State.Receive_state in Opt.iter (fun r ->
-		log_exn_and_continue "cancelling receive" (fun () -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false);
+		log_and_ignore_exn (fun () -> Local.DP.destroy ~dbg ~dp:r.leaf_dp ~allow_leak:false);
 		List.iter (fun v -> 
-			log_exn_and_continue "cancelling receive" (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
+			log_and_ignore_exn (fun () -> Local.VDI.destroy ~dbg ~sr:r.sr ~vdi:v)
 		) [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
 	) record;
 	State.remove id State.active_recv
@@ -550,7 +640,7 @@ let reqs_outstanding_timeout = 150.0 (* Tapdisk should time out after 2 mins. We
 
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 	let open State.Send_state in
-	let id = State.id_of (sr,vdi) in
+	let id = State.mirror_id_of (sr,vdi) in
 	let start_time = Oclock.gettime Oclock.monotonic in
  	let get_delta () = (Int64.to_float (Int64.sub (Oclock.gettime Oclock.monotonic) start_time)) /. 1.0e9 in
 	State.find_active_local_mirror id |> 
@@ -587,14 +677,14 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
 
 let post_detach_hook ~sr ~vdi ~dp = 
 	let open State.Send_state in
-	let id = State.id_of (sr,vdi) in
+	let id = State.mirror_id_of (sr,vdi) in
 	State.find_active_local_mirror id |> 
 			Opt.iter (fun r -> 
 				let remote_url = Http.Url.of_string r.url in
 				let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
 				let t = Thread.create (fun () ->
 					debug "Calling receive_finalize";
-					log_exn_and_continue "in detach hook" 
+					log_and_ignore_exn
 						(fun () -> Remote.DATA.MIRROR.receive_finalize ~dbg:"Mirror-cleanup" ~id);
 					debug "Finished calling receive_finalize";
 					State.remove id State.active_send;
@@ -694,7 +784,7 @@ let wrap ~dbg f =
 			signal task.Storage_task.id
 		)) () in
 	task.Storage_task.id
-		
+
 let start ~dbg ~sr ~vdi ~dp ~url ~dest = 
 	wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
 

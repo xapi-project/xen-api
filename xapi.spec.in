@@ -242,6 +242,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-xentrace
 @OPTDIR@/bin/xe-switch-network-backend
 @OPTDIR@/bin/xe-enable-all-plugin-metrics
+@OPTDIR@/bin/xva-rewrite-scsiid
 @OPTDIR@/bin/xe-install-supplemental-pack
 @OPTDIR@/bin/hfx_filename
 @OPTDIR@/bin/pv2hvm
