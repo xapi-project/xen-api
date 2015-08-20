@@ -36,13 +36,6 @@ exception InvalidOperation of string
 
 let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid
 
-(* Convenience function currently not exposed in .mli but could be. *)
-(* Not thread-safe. *)
-let db_set_in_other_config ~__context ~self ~key ~value =
-	if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then
-		Db.VM.remove_from_other_config ~__context ~self ~key;
-	Db.VM.add_to_other_config ~__context ~self ~key ~value
-
 let update_allowed_operations ~__context ~self =
 	Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"
 		(fun () ->
@@ -1030,41 +1023,51 @@ let set_auto_update_drivers ~__context ~self ~value=
 	assert_can_set_auto_update_drivers ~__context ~self ~value;
 	Db.VM.set_auto_update_drivers ~__context ~self ~value
 
-let xenprep_mutex = Mutex.create ()
-
+(* Do not call this directly: go through message_forwarding which calls it
+   with_vm_operation for thread-safety. (That is to say, go through API.) *)
 let xenprep_start ~__context ~self =
-	let key = "xenprep_progress" in
 	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
 	info "Xapi_vm.xenprep_start: VM=%s" vm_uuid;
-	let started_already = Mutex.execute xenprep_mutex (fun () ->
-		if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then true
-		else (Db.VM.add_to_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
-		false)
-	) in
-	if started_already then (
-		info "Xapi_vm.xenprep_start: VM is in xenprep already: VM=%s" vm_uuid
-	) else (
-		( try
-			let cd_name = Xapi_globs.xenprep_iso_name_label in
-			let sr = Helpers.get_tools_sr ~__context in
-			let vdis =
-				let open Db_filter_types in
-				Db.VDI.get_refs_where ~__context ~expr:(
-					And (
-						Eq (Field "SR", Literal (Ref.string_of sr)),
-						Eq (Field "name__label", Literal cd_name)
+	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
+
+	let key = Xapi_globs.xenprep_other_config_key in
+	let ins_str = Xapi_globs.xenprep_other_config_iso_inserted in
+	let preexisting_progress =
+		let other_config = Db.VM.get_other_config ~__context ~self in
+		if List.mem_assoc key other_config
+		then Some (List.assoc key other_config)
+		else None
+	in
+	if ( match preexisting_progress with
+		| Some progress ->
+			info "Xapi_vm.xenprep_start: VM already has %s=%s; VM=%s" key progress vm_uuid;
+			( match progress with
+				| p when p = ins_str ->
+					if Xapi_vm_helpers.has_xenprep_iso ~__context ~self then
+						false (* All is well: started already. Nothing to do. *)
+					else (
+						info "Inconsistent state: no xenprep iso despite entry in other_config. VM=%s" vm_uuid;
+						true
 					)
-				) in
-			if List.length vdis <> 1 then failwith
-				("xenprep_start failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
-			let vdi = List.hd vdis in
+				| _ -> true
+			)
+		| None -> true
+	) then (
+		(* Reach a state of xenprep-iso-in-a-drive *)
+		Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"checking_for_unexpected_iso";
+		if Xapi_vm_helpers.has_xenprep_iso ~__context ~self then
+			(* No need to insert the CD since it is present already. *)
+			info "xenprep_start: unexpected iso for VM %s" vm_uuid
+		else ( try
+			Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"about_to_insert_iso";
 			(* Find any empty CD-drive VBD for the VM. *)
 			(* We don't care if currently_attached is false: VBD.insert will take care of things. *)
 			let vbds = Db.VM.get_VBDs ~__context ~self in
 			let empty_cd_vbds = List.filter (fun vbd -> (Db.VBD.get_type ~__context ~self:vbd = `CD) && (Db.VBD.get_empty ~__context ~self:vbd)) vbds in
 			if [] = empty_cd_vbds then raise (Api_errors.Server_error(Api_errors.vm_no_empty_cd_vbd, [ Ref.string_of self ]));
 			let cd_vbd = List.hd empty_cd_vbds in
-			(* We found a suitable drive, so insert the CD. *)
+			(* We found a suitable drive, so find and insert the CD. *)
+			let vdi = Helpers.get_xenprep_iso_vdi ~__context in
 			(* We use the API to be on the safe side, because calling
 			 * Xapi_vbd.insert directly would bypass the "operations"
 			 * handling in Message_forwarding *)
@@ -1073,12 +1076,55 @@ let xenprep_start ~__context ~self =
 					Client.VBD.insert ~rpc ~session_id ~vbd:cd_vbd ~vdi
 				)
 		with e ->
-			Mutex.execute xenprep_mutex (fun () ->
-				Db.VM.remove_from_other_config ~__context ~self ~key
-			);
+			Backtrace.is_important e;
+			Db.VM.remove_from_other_config ~__context ~self ~key;
 			raise e
 		);
-		Mutex.execute xenprep_mutex (fun () ->
-			db_set_in_other_config ~__context ~self ~key ~value:"ISO_inserted"
-		)
+		(* At this point we are sure the ISO is in the drive *)
+		Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:ins_str
 	)
+
+(* Do not call this directly: go through message_forwarding which calls it
+   with_vm_operation for thread-safety. (That is to say, go through API.) *)
+let xenprep_abort ~__context ~self =
+	let vm_uuid = Db.VM.get_uuid ~__context ~self in (* Just for log-msgs *)
+	info "Xapi_vm.xenprep_abort: VM=%s" vm_uuid;
+	let key = Xapi_globs.xenprep_other_config_key in
+	let preexisting_progress =
+		let other_config = Db.VM.get_other_config ~__context ~self in
+		if List.mem_assoc key other_config then (
+			let prog = Some (List.assoc key other_config) in
+			Db.VM.remove_from_other_config ~__context ~self ~key;
+			prog
+		) else None
+	in
+	debug "xenprep_progress before abort: VM=%s progress=%s" vm_uuid
+		(match preexisting_progress with
+			| None -> "None"
+			| Some p -> "\"" ^ p ^ "\""
+		);
+	let vdi = Helpers.get_xenprep_iso_vdi ~__context in
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let xenprep_CDs, eopt = List.fold_right (fun vbd acc ->
+		if Db.VBD.get_VDI ~__context ~self:vbd = vdi then (
+			let n, eopt = acc in
+			(* We use the API to be on the safe side, because calling
+			 * Xapi_vbd.eject directly would bypass the "operations"
+			 * handling in Message_forwarding *)
+			try Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					Client.VBD.eject ~rpc ~session_id ~vbd
+				);
+				(1 + n, eopt)
+			with e ->
+				Backtrace.is_important e;
+				error "Failed to eject xenprep VDI; VBD=%s" (Ref.string_of vbd);
+				(1 + n, Some e)
+		) else acc
+	) vbds (0, None) in
+	info "xenprep_abort: Number of xenprep discs found (and ejection attempted) = %d" xenprep_CDs;
+	match eopt with
+		| None -> ()
+		| Some e -> raise e
+			(* Only raising the last error, because handling a multitude is cumbersome
+			 * and there is very unlikely to be more than one disc anyway. *)

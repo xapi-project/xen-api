@@ -1191,8 +1191,27 @@ let update_vm ~__context id =
 										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
 								Xenopsd_metadata.delete ~__context id
 							end;
-							if power_state = `Halted
-							then !trigger_xenapi_reregister ();
+							if power_state = `Halted then (
+								let key = Xapi_globs.xenprep_other_config_key in
+								Xapi_vm_helpers.with_vm_operation ~__context ~self ~doc:"VM.xenprep_completion_check" ~op:`xenprep (fun () ->
+									let other_config = Db.VM.get_other_config ~__context ~self in
+									if List.mem_assoc key other_config &&
+										(List.assoc key other_config = Xapi_globs.xenprep_other_config_iso_inserted) &&
+										not (Xapi_vm_helpers.has_xenprep_iso ~__context ~self)
+									then (
+										(* Setting auto_update_drivers means the VM's virtual hardware platform version must be
+										 * at least high enough for that feature; this will be updated as part of VM start. *)
+										Db.VM.set_auto_update_drivers ~__context ~self ~value:true;
+										Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"Needs_start";
+										Helpers.call_api_functions ~__context (fun rpc session_id ->
+											XenAPI.Task.destroy ~rpc ~session_id ~self:(
+												XenAPI.Async.VM.start ~rpc ~session_id ~vm:self ~start_paused:false ~force:false
+											) (* Mark the task for destruction-after-completion to avoid accumulation of tasks. *)
+										);
+										Db.VM.remove_from_other_config ~__context ~self ~key
+									));
+								!trigger_xenapi_reregister ()
+							);
 						with e ->
 							error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
 					end;

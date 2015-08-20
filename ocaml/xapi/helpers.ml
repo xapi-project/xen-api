@@ -823,16 +823,21 @@ let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 let is_tools_sr_cache = ref []
 let tools_sr_memoised = ref None
-let is_tools_sr_cache_m = Mutex.create ()
+let xenprep_iso_vdi_memoised = ref None
+let tools_sr_and_iso_m = Mutex.create () (* Use for all the above refs *)
 
 let clear_tools_sr_cache () =
-	Mutex.execute is_tools_sr_cache_m 
-		(fun () -> is_tools_sr_cache := []; tools_sr_memoised := None)
+	Mutex.execute tools_sr_and_iso_m
+		(fun () ->
+			is_tools_sr_cache := []
+			;tools_sr_memoised := None
+			;xenprep_iso_vdi_memoised := None
+		)
 
 (** Returns true if this SR is the XenSource Tools SR *)
 let is_tools_sr ~__context ~sr =
 	try
-		Mutex.execute is_tools_sr_cache_m
+		Mutex.execute tools_sr_and_iso_m
 			(fun () ->
 				match !tools_sr_memoised with
 					| Some s when s = sr -> true
@@ -849,13 +854,24 @@ let is_tools_sr ~__context ~sr =
 		) && (
 			"iso" = Db.SR.get_content_type ~__context ~self:sr
 		) in
-		Mutex.execute is_tools_sr_cache_m
+		Mutex.execute tools_sr_and_iso_m
 			(fun () ->
 				let cache = !is_tools_sr_cache in
 				if not (List.mem_assoc sr cache) then
 					is_tools_sr_cache := (sr, result) :: !is_tools_sr_cache);
 		result
 
+let get_with_memo ~seeker ~memo ~mtx =
+	match Mutex.execute mtx (fun () -> !memo)
+	with
+		| Some x -> x
+		| None ->
+			let x = seeker () in
+			Mutex.execute mtx (fun () -> memo := Some x);
+			x
+
+(** Returns the XenSource Tools SR; fails if there is not exactly one such SR.
+ *  Memoises the result, so calls after the first one are quick and cheap. *)
 let get_tools_sr ~__context =
 	let seek_tools_sr () =
 		let candidates = Db.SR.get_refs_where ~__context ~expr:(
@@ -874,13 +890,28 @@ let get_tools_sr ~__context =
 			("Expected exactly one Tools SR; found " ^ string_of_int (List.length srs));
 		List.hd srs
 	in
-	match Mutex.execute is_tools_sr_cache_m (fun () -> !tools_sr_memoised)
-	with
-		| Some sr -> sr
-		| None ->
-			let sr = seek_tools_sr () in
-			Mutex.execute is_tools_sr_cache_m (fun () -> tools_sr_memoised := Some sr);
-			sr
+	get_with_memo ~seeker:seek_tools_sr ~memo:tools_sr_memoised ~mtx:tools_sr_and_iso_m
+
+(** Returns the xenprep iso from the XenSource Tools SR.
+  * Fails if there is not exactly one such VDI. *)
+(* We need to specify the type because otherwise the compiler can't work it out
+ * and gives an error on the line defining xenprep_iso_vdi_memoised. *)
+let get_xenprep_iso_vdi ~__context : [ `VDI ] API.Ref.t =
+	let seek_xenprep_iso_vdi () =
+		let cd_name = Xapi_globs.xenprep_iso_name_label in
+		let sr = get_tools_sr ~__context in
+		let vdis =
+			Db.VDI.get_refs_where ~__context ~expr:(
+				And (
+					Eq (Field "SR", Literal (Ref.string_of sr)),
+					Eq (Field "name__label", Literal cd_name)
+				)
+			) in
+		if List.length vdis <> 1 then failwith
+			("get_xenprep_iso_vdi failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
+		List.hd vdis
+	in
+	get_with_memo ~seeker:seek_xenprep_iso_vdi ~memo:xenprep_iso_vdi_memoised ~mtx:tools_sr_and_iso_m
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
@@ -1258,3 +1289,134 @@ let timebox ~timeout ~otherwise f =
 	let _ = Thread.wait_timed_read fd_in timeout in
 	Unix.close fd_in;
 	!result ()
+
+(**************************************************************************************)
+(* The master uses a global mutex to mark database records before forwarding messages *)
+
+(** All must fear the global mutex *)
+let __internal_mutex = Mutex.create ()
+let __number_of_queueing_threads = ref 0
+let max_number_of_queueing_threads = 100
+
+let with_global_lock x = Mutex.execute __internal_mutex x
+
+(** Call the function f having incremented the number of queueing threads counter.
+    If we exceed a built-in threshold, throw TOO_MANY_PENDING_TASKS *)
+let queue_thread f =
+	with_global_lock
+		(fun () ->
+			if !__number_of_queueing_threads > max_number_of_queueing_threads
+			then raise (Api_errors.Server_error(Api_errors.too_many_pending_tasks, []))
+			else incr __number_of_queueing_threads);
+	finally f (fun () -> with_global_lock (fun () -> decr __number_of_queueing_threads))
+
+module type POLICY = sig
+	type t
+	val standard : t
+		(** Used by operations like VM.start which want to paper over transient glitches but want to fail
+		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
+	val fail_quickly : t
+	val wait : __context:Context.t -> t -> exn -> t
+end
+
+(* Mechanism for early wakeup of blocked threads. When a thread goes to sleep having got an
+   'other_operation_in_progress' exception, we use the interruptible sleep 'Delay.*' rather than
+   'Thread.delay' and provide a mechanism for the other of the conflicting task to wake us up
+   on the way out. *)
+module Early_wakeup = struct
+	let table : ((string*string), Delay.t) Hashtbl.t = Hashtbl.create 10
+	let table_m = Mutex.create ()
+
+	let wait ((a, b) as key) time =
+		(* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
+		let d = Delay.make () in
+		Mutex.execute table_m (fun () -> Hashtbl.add table key d);
+		finally
+			(fun () ->
+				let (_: bool) = Delay.wait d time in
+				()
+			)(fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
+
+	let broadcast (a, b) =
+		(*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
+		Mutex.execute table_m
+			(fun () ->
+				Hashtbl.iter (fun (a, b) d -> (*debug "Signalling thread blocked on (%s, %s)" a b;*) Delay.signal d) table
+			)
+
+	let signal ((a, b) as key) =
+		(*debug "Early_wakeup signal key = (%s, %s)" a b;*)
+		Mutex.execute table_m
+			(fun () ->
+				if Hashtbl.mem table key then ((*debug "Signalling thread blocked on (%s,%s)" a b;*) Delay.signal (Hashtbl.find table key))
+			)
+end
+
+module Repeat_with_uniform_backoff : POLICY = struct
+	type t = {
+		minimum_delay: float;    (* seconds *)
+		maximum_delay: float;    (* maximum backoff time *)
+		max_total_wait: float;   (* max time to wait before failing *)
+		wait_so_far: float;      (* time waited so far *)
+	}
+	let standard = {
+		minimum_delay = 1.0;
+		maximum_delay = 20.0;
+		max_total_wait = 3600.0 *. 2.0; (* 2 hours *)
+		wait_so_far = 0.0;
+	}
+	let fail_quickly = {
+		minimum_delay = 2.;
+		maximum_delay = 2.;
+		max_total_wait = 120.;
+		wait_so_far = 0.
+	}
+	let wait ~__context (state: t) (e: exn) =
+		if state.wait_so_far >= state.max_total_wait then raise e;
+		let this_timeout = state.minimum_delay +. (state.maximum_delay -. state.minimum_delay) *. (Random.float 1.0) in
+
+		debug "Waiting for up to %f seconds before retrying..." this_timeout;
+		let start = Unix.gettimeofday () in
+		begin
+			match e with
+			| Api_errors.Server_error(code, [ cls; objref ]) when code = Api_errors.other_operation_in_progress ->
+				  Early_wakeup.wait (cls, objref) this_timeout;
+			| _ ->
+				  Thread.delay this_timeout;
+		end;
+		{ state with wait_so_far = state.wait_so_far +. (Unix.gettimeofday () -. start) }
+end
+
+(** Could replace this with something fancier which waits for objects to change at the
+    database level *)
+module Policy = Repeat_with_uniform_backoff
+
+(** Attempts to retry a lock-acquiring function multiple times. If it catches another operation
+    in progress error then it blocks before retrying. *)
+let retry ~__context ~doc ?(policy = Policy.standard) f =
+	(* This is a cancellable operation, so mark the allowed operations on the task *)
+	TaskHelper.set_cancellable ~__context;
+
+	let rec loop state =
+		let result = ref None in
+		let state = ref state in
+		while !result = None do
+			try
+				if TaskHelper.is_cancelling ~__context then begin
+					error "%s locking failed: task has been cancelled" doc;
+					TaskHelper.cancel ~__context;
+					raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]))
+				end;
+				result := Some (f ())
+			with
+			| Api_errors.Server_error(code, objref :: _ ) as e when code = Api_errors.other_operation_in_progress ->
+				  debug "%s locking failed: caught transient failure %s" doc (ExnHelper.string_of_exn e);
+				  state := queue_thread (fun () -> Policy.wait ~__context !state e)
+		done;
+		match !result with
+		| Some x -> x
+		| None -> failwith "this should never happen" in
+	loop policy
+
+let retry_with_global_lock ~__context ~doc ?policy f =
+	retry ~__context ~doc ?policy (fun () -> with_global_lock f)

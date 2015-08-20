@@ -647,6 +647,8 @@ let _ =
     ~doc:"Operation could not be performed because the drive is empty" ();
   error Api_errors.vbd_tray_locked ["vbd"]
     ~doc:"This VM has locked the DVD drive tray, so the disk cannot be ejected" ();
+  error Api_errors.vbd_xenprep_cd_in_use ["vbd"]
+    ~doc:"This VBD contains the XenPrep virtual CD, and it is in use so it cannot be ejected." ();
   error Api_errors.vbd_cds_must_be_readonly [ ]
     ~doc:"Read/write CDs are not supported" ();
   (* CA-83260 *)
@@ -2453,6 +2455,17 @@ let vm_xenprep_start = call
 	]
 	~doc:"Start the 'xenprep' process on the VM; the process will remove any tools and drivers for XenServer and then set auto update drivers true."
 	~params:[Ref _vm, "self", "The VM to xenprep"]
+	~doc_tags:[Windows]
+	~allowed_roles:_R_VM_OP
+	()
+
+let vm_xenprep_abort = call
+	~name:"xenprep_abort"
+	~lifecycle:[
+		Published, rel_dundee, "New function call";
+	]
+	~doc:"Abort the 'xenprep' process on the specified VM, ejecting the ISO; this is best-effort only."
+	~params:[Ref _vm, "self", "The VM"]
 	~doc_tags:[Windows]
 	~allowed_roles:_R_VM_OP
 	()
@@ -7039,8 +7052,10 @@ let vm_operations =
 	    "export", "exporting a VM to a network stream";
 	    "metadata_export", "exporting VM metadata to a network stream";
 	    "reverting", "Reverting the VM to a previous snapshotted state";
-	    "destroy", "refers to the act of uninstalling the VM"; ]
-       )
+	    "destroy", "refers to the act of uninstalling the VM";
+	    "xenprep", "Any of the xenprep-related operations";
+	]
+  )
 
 (** VM (or 'guest') configuration: *)
 let vm =
@@ -7109,6 +7124,7 @@ let vm =
 		vm_assert_can_set_auto_update_drivers;
 		vm_import;
 		vm_xenprep_start;
+		vm_xenprep_abort;
 		]
       ~contents:
       ([ uid _vm;

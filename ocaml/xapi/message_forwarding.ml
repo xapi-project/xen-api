@@ -30,137 +30,6 @@ let info = Audit.debug
 
 
 (**************************************************************************************)
-(* The master uses a global mutex to mark database records before forwarding messages *)
-
-(** All must fear the global mutex *)
-let __internal_mutex = Mutex.create ()
-let __number_of_queueing_threads = ref 0
-let max_number_of_queueing_threads = 100
-
-let with_global_lock x = Mutex.execute __internal_mutex x
-
-(** Call the function f having incremented the number of queueing threads counter.
-    If we exceed a built-in threshold, throw TOO_MANY_PENDING_TASKS *)
-let queue_thread f =
-	with_global_lock
-		(fun () ->
-			if !__number_of_queueing_threads > max_number_of_queueing_threads
-			then raise (Api_errors.Server_error(Api_errors.too_many_pending_tasks, []))
-			else incr __number_of_queueing_threads);
-	finally f (fun () -> with_global_lock (fun () -> decr __number_of_queueing_threads))
-
-module type POLICY = sig
-	type t
-	val standard : t
-		(** Used by operations like VM.start which want to paper over transient glitches but want to fail
-		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
-	val fail_quickly : t
-	val wait : __context:Context.t -> t -> exn -> t
-end
-
-(* Mechanism for early wakeup of blocked threads. When a thread goes to sleep having got an
-   'other_operation_in_progress' exception, we use the interruptible sleep 'Delay.*' rather than
-   'Thread.delay' and provide a mechanism for the other of the conflicting task to wake us up
-   on the way out. *)
-module Early_wakeup = struct
-	let table : ((string*string), Delay.t) Hashtbl.t = Hashtbl.create 10
-	let table_m = Mutex.create ()
-
-	let wait ((a, b) as key) time =
-		(* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
-		let d = Delay.make () in
-		Mutex.execute table_m (fun () -> Hashtbl.add table key d);
-		finally
-			(fun () ->
-				let (_: bool) = Delay.wait d time in
-				()
-			)(fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
-
-	let broadcast (a, b) =
-		(*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
-		Mutex.execute table_m
-			(fun () ->
-				Hashtbl.iter (fun (a, b) d -> (*debug "Signalling thread blocked on (%s, %s)" a b;*) Delay.signal d) table
-			)
-
-	let signal ((a, b) as key) =
-		(*debug "Early_wakeup signal key = (%s, %s)" a b;*)
-		Mutex.execute table_m
-			(fun () ->
-				if Hashtbl.mem table key then ((*debug "Signalling thread blocked on (%s,%s)" a b;*) Delay.signal (Hashtbl.find table key))
-			)
-end
-
-module Repeat_with_uniform_backoff : POLICY = struct
-	type t = {
-		minimum_delay: float;    (* seconds *)
-		maximum_delay: float;    (* maximum backoff time *)
-		max_total_wait: float;   (* max time to wait before failing *)
-		wait_so_far: float;      (* time waited so far *)
-	}
-	let standard = {
-		minimum_delay = 1.0;
-		maximum_delay = 20.0;
-		max_total_wait = 3600.0 *. 2.0; (* 2 hours *)
-		wait_so_far = 0.0;
-	}
-	let fail_quickly = {
-		minimum_delay = 2.;
-		maximum_delay = 2.;
-		max_total_wait = 120.;
-		wait_so_far = 0.
-	}
-	let wait ~__context (state: t) (e: exn) =
-		if state.wait_so_far >= state.max_total_wait then raise e;
-		let this_timeout = state.minimum_delay +. (state.maximum_delay -. state.minimum_delay) *. (Random.float 1.0) in
-
-		debug "Waiting for up to %f seconds before retrying..." this_timeout;
-		let start = Unix.gettimeofday () in
-		begin
-			match e with
-			| Api_errors.Server_error(code, [ cls; objref ]) when code = Api_errors.other_operation_in_progress ->
-				  Early_wakeup.wait (cls, objref) this_timeout;
-			| _ ->
-				  Thread.delay this_timeout;
-		end;
-		{ state with wait_so_far = state.wait_so_far +. (Unix.gettimeofday () -. start) }
-end
-
-(** Could replace this with something fancier which waits for objects to change at the
-    database level *)
-module Policy = Repeat_with_uniform_backoff
-
-(** Attempts to retry a lock-acquiring function multiple times. If it catches another operation
-    in progress error then it blocks before retrying. *)
-let retry ~__context ~doc ?(policy = Policy.standard) f =
-	(* This is a cancellable operation, so mark the allowed operations on the task *)
-	TaskHelper.set_cancellable ~__context;
-
-	let rec loop state =
-		let result = ref None in
-		let state = ref state in
-		while !result = None do
-			try
-				if TaskHelper.is_cancelling ~__context then begin
-					error "%s locking failed: task has been cancelled" doc;
-					TaskHelper.cancel ~__context;
-					raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]))
-				end;
-				result := Some (f ())
-			with
-			| Api_errors.Server_error(code, objref :: _ ) as e when code = Api_errors.other_operation_in_progress ->
-				  debug "%s locking failed: caught transient failure %s" doc (ExnHelper.string_of_exn e);
-				  state := queue_thread (fun () -> Policy.wait ~__context !state e)
-		done;
-		match !result with
-		| Some x -> x
-		| None -> failwith "this should never happen" in
-	loop policy
-
-let retry_with_global_lock ~__context ~doc ?policy f =
-	retry ~__context ~doc ?policy (fun () -> with_global_lock f)
-
-(**************************************************************************************)
 
 (* WARNING: using persistent+cached connections with retries doesn't work for all messages.
    Examples:
@@ -326,7 +195,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
-	let choice = retry_with_global_lock ~__context ~doc
+	let choice = Helpers.retry_with_global_lock ~__context ~doc
 		(fun () ->
 			let possibilities = List.filter
 				(fun self -> try Xapi_host_helpers.assert_operation_valid ~__context ~self ~op; true
@@ -347,7 +216,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> un
 			try
 				Db.Host.remove_from_current_operations ~__context ~self:choice ~key:task_id;
 				Xapi_host_helpers.update_allowed_operations ~__context ~self:choice;
-				Early_wakeup.broadcast (Datamodel._host, Ref.string_of choice);
+				Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of choice);
 			with
 			  _ -> ())
 
@@ -589,7 +458,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(* current operations. Ensure the allowed_operations are kept up to date. *)
 		let with_vm_appliance_operation ~__context ~self ~doc ~op f =
 			let task_id = Ref.string_of (Context.get_task_id __context) in
-			retry_with_global_lock ~__context ~doc
+			Helpers.retry_with_global_lock ~__context ~doc
 				(fun () ->
 					Xapi_vm_appliance.assert_operation_valid ~__context ~self ~op;
 					Db.VM_appliance.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
@@ -601,7 +470,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					try
 						Db.VM_appliance.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vm_appliance.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vm_appliance, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._vm_appliance, Ref.string_of self);
 					with
 					  _ -> ())
 
@@ -651,7 +520,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			current operations. Ensure the allowed_operations are kept up to date. *)
 		let with_pool_operation ~__context ~self ~doc ~op f =
 			let task_id = Ref.string_of (Context.get_task_id __context) in
-			retry_with_global_lock ~__context ~doc
+			Helpers.retry_with_global_lock ~__context ~doc
 				(fun () ->
 					Xapi_pool_helpers.assert_operation_valid ~__context ~self ~op;
 					Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op);
@@ -663,7 +532,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					try
 						Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._pool, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._pool, Ref.string_of self);
 					with
 						_ -> ())
 
@@ -768,25 +637,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	end
 
 	module VM = struct
-		(** Add to the VM's current operations, call a function and then remove from the
-		    current operations. Ensure the allowed_operations are kept up to date. *)
-		let with_vm_operation ~__context ~self ~doc ~op f =
-			let task_id = Ref.string_of (Context.get_task_id __context) in
-			retry_with_global_lock ~__context ~doc
-				(fun () ->
-					Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
-					Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
-					Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
-			(* Then do the action with the lock released *)
-			finally f
-				(* Make sure to clean up at the end *)
-				(fun () ->
-					try
-						Db.VM.remove_from_current_operations ~__context ~self ~key:task_id;
-						Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vm, Ref.string_of self);
-					with
-					  _ -> ())
+		(* Defined in Xapi_vm_helpers so it can be used from elsewhere without circular dependency. *)
+		let with_vm_operation = Xapi_vm_helpers.with_vm_operation
 
 		let unmark_vbds ~__context ~vbds ~doc ~op =
 			let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -795,7 +647,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
 					end)
 				vbds
 
@@ -821,10 +673,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let with_vbds_marked ~__context ~vm ~doc ~op f =
 			(* CA-26575: paper over transient VBD glitches caused by SR.lvhd_stop_the_world *)
-			let vbds = retry_with_global_lock ~__context ~doc ~policy:Policy.fail_quickly (fun () -> mark_vbds ~__context ~vm ~doc ~op) in
+			let vbds = Helpers.retry_with_global_lock ~__context ~doc ~policy:Helpers.Policy.fail_quickly (fun () ->
+				mark_vbds ~__context ~vm ~doc ~op) in
 			finally
 				(fun () -> f vbds)
-				(fun () -> with_global_lock (fun () -> unmark_vbds ~__context ~vbds ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> unmark_vbds ~__context ~vbds ~doc ~op))
 
 		let unmark_vifs ~__context ~vifs ~doc ~op =
 			let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -833,7 +686,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
 					end)
 				vifs
 
@@ -853,15 +706,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			end else marked
 
 		let with_vifs_marked ~__context ~vm ~doc ~op f =
-			let vifs = retry_with_global_lock ~__context ~doc (fun () -> mark_vifs ~__context ~vm ~doc ~op) in
+			let vifs = Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_vifs ~__context ~vm ~doc ~op) in
 			finally
 				(fun () -> f vifs)
-				(fun () -> with_global_lock (fun () -> unmark_vifs ~__context ~vifs ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> unmark_vifs ~__context ~vifs ~doc ~op))
 
 		(* Some VM operations have side-effects on VBD allowed_operations but don't actually
 		   lock the VBDs themselves (eg suspend) *)
 		let update_vbd_operations ~__context ~vm =
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					List.iter (fun self ->
 						Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
@@ -872,7 +725,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						(Db.VM.get_VBDs ~__context ~self:vm))
 
 		let update_vif_operations ~__context ~vm =
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					List.iter (fun self -> Xapi_vif_helpers.update_allowed_operations ~__context ~self)
 						(Db.VM.get_VIFs ~__context ~self:vm))
@@ -919,7 +772,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				  let task_id = Ref.string_of (Context.get_task_id __context) in
 				  Db.Host.remove_from_current_operations ~__context ~self:host ~key:task_id;
 				  Xapi_host_helpers.update_allowed_operations ~__context ~self:host;
-				  Early_wakeup.broadcast (Datamodel._host, Ref.string_of host);
+				  Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of host);
 			| None -> ()
 
 		let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
@@ -943,7 +796,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* Used by VM.start and VM.resume to choose a host with enough resource and to
 		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
 		let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ?host_op op =
-			let suitable_host = with_global_lock
+			let suitable_host = Helpers.with_global_lock
 				(fun () ->
 					let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
 					if host <> Ref.null then host else
@@ -956,7 +809,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			finally
 				(fun () -> do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
 				(fun () ->
-					with_global_lock
+					Helpers.with_global_lock
 						(fun () ->
 							finally_clear_host_operation ~__context ~host:suitable_host ?host_op ();
 							(* In certain cases, VM might have been destroyed as a consequence of operation *)
@@ -966,7 +819,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
 		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
 		let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ();
 					(* NB in the case of migrate although we are about to increase free memory on the sending host
@@ -976,7 +829,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ());
 			finally f
 				(fun () ->
-					with_global_lock
+					Helpers.with_global_lock
 						(fun () ->
 							finally_clear_host_operation ~__context ~host ?host_op ();
 							Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null))
@@ -994,7 +847,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let old_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
 			let old_dynamic_max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
 			let restore_old_values_on_error = ref false in
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					let host_mem_available =
 						Memory_check.host_compute_free_memory_with_maximum_compression
@@ -1986,7 +1839,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let atomic_set_resident_on ~__context ~vm ~host =
 			info "VM.atomic_set_resident_on: VM = '%s'" (vm_uuid ~__context vm);
 			(* Need to prevent the host chooser being run while these fields are being modified *)
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					Db.VM.set_resident_on ~__context ~self:vm ~value:host;
 					Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null
@@ -2066,8 +1919,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let xenprep_start ~__context ~self =
 			info "VM.xenprep_start: VM = '%s'" (vm_uuid ~__context self);
+			Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
 			let local_fn = Local.VM.xenprep_start ~self in
-			forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
+			with_vm_operation ~__context ~self ~doc:"VM.xenprep_start" ~op:`xenprep (fun () ->
+				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
+			)
+
+		let xenprep_abort ~__context ~self =
+			info "VM.xenprep_abort: VM = '%s'" (vm_uuid ~__context self);
+			let local_fn = Local.VM.xenprep_abort ~self in
+			with_vm_operation ~__context ~self ~doc:"VM.xenprep_abort" ~op:`xenprep (fun () ->
+				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_abort rpc session_id self)
+			)
 
 	end
 
@@ -2087,7 +1950,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let operation_allowed ~op = false
 				|| not (Helpers.rolling_upgrade_in_progress ~__context)
 				|| List.mem op Xapi_globs.host_operations_miami in
-			retry_with_global_lock ~__context ~doc
+			Helpers.retry_with_global_lock ~__context ~doc
 				(fun () ->
 					Xapi_host_helpers.assert_operation_valid ~__context ~self ~op;
 					if operation_allowed ~op then
@@ -2100,7 +1963,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					try
 						if operation_allowed ~op then begin
 							Db.Host.remove_from_current_operations ~__context ~self ~key: task_id;
-							Early_wakeup.broadcast (Datamodel._host, Ref.string_of self);
+							Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of self);
 						end;
 						Xapi_host_helpers.update_allowed_operations ~__context ~self
 					with
@@ -2713,7 +2576,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Network.destroy: network = '%s'" (network_uuid ~__context self);
 			(* WARNING WARNING WARNING: directly call Network.destroy with the global lock since it does
 			   only database operations *)
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					Local.Network.destroy ~__context ~self)
 
@@ -2747,7 +2610,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
 					end)
 				vif
 
@@ -2760,10 +2623,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Xapi_vif_helpers.update_allowed_operations ~__context ~self) vif
 
 		let with_vif_marked ~__context ~vif ~doc ~op f =
-			retry_with_global_lock ~__context ~doc (fun () -> mark_vif ~__context ~vif ~doc ~op);
+			Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_vif ~__context ~vif ~doc ~op);
 			finally
 				(fun () -> f ())
-				(fun () -> with_global_lock (fun () -> unmark_vif ~__context ~vif ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> unmark_vif ~__context ~vif ~doc ~op))
 
 		(* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -3048,7 +2911,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_sr_operations.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
 					end)
 				sr
 
@@ -3062,10 +2925,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Xapi_sr_operations.update_allowed_operations ~__context ~self) sr
 
 		let with_sr_marked ~__context ~sr ~doc ~op f =
-			retry_with_global_lock ~__context ~doc (fun () -> mark_sr ~__context ~sr ~doc ~op);
+			Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_sr ~__context ~sr ~doc ~op);
 			finally
 				(fun () -> f ())
-				(fun () -> with_global_lock (fun () -> unmark_sr ~__context ~sr ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> unmark_sr ~__context ~sr ~doc ~op))
 
 		(* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -3238,7 +3101,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vdi.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+						Helpers.Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
 					end)
 				vdi
 
@@ -3252,7 +3115,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(** Use this function to mark the SR and/or the individual VDI *)
 		let with_sr_andor_vdi ~__context ?sr ?vdi ~doc f =
-			retry_with_global_lock ~__context ~doc
+			Helpers.retry_with_global_lock ~__context ~doc
 				(fun () ->
 					maybe (fun (sr, op) -> SR.mark_sr ~__context ~sr ~doc ~op) sr;
 					(* If we fail to acquire the VDI lock, unlock the SR *)
@@ -3265,7 +3128,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			finally
 				(fun () -> f ())
 				(fun () ->
-					with_global_lock
+					Helpers.with_global_lock
 						(fun () ->
 							maybe (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op) sr;
 							maybe (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op) vdi))
@@ -3541,7 +3404,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	module VBD = struct
 
 		let update_vbd_and_vdi_operations ~__context ~vbd =
-			with_global_lock
+			Helpers.with_global_lock
 				(fun () ->
 					try
 						Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
@@ -3557,7 +3420,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					if Db.is_valid_ref __context self then begin
 						Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
 						Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-						Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
+						Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
 					end)
 				vbd
 
@@ -3570,10 +3433,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Xapi_vbd_helpers.update_allowed_operations ~__context ~self) vbd
 
 		let with_vbd_marked ~__context ~vbd ~doc ~op f =
-			retry_with_global_lock ~__context ~doc (fun () -> mark_vbd ~__context ~vbd ~doc ~op);
+			Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_vbd ~__context ~vbd ~doc ~op);
 			finally
 				(fun () -> f ())
-				(fun () -> with_global_lock (fun () -> unmark_vbd ~__context ~vbd ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> unmark_vbd ~__context ~vbd ~doc ~op))
 
 
 
@@ -3738,7 +3601,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		   done on the SR master. *)
 		let with_unplug_locks ~__context ~pbd ~sr f =
 			let doc = "PBD.unplug" and op = `unplug in
-			retry_with_global_lock ~__context ~doc
+			Helpers.retry_with_global_lock ~__context ~doc
 				(fun () ->
 					if Helpers.i_am_srmaster ~__context ~sr
 					then
@@ -3750,7 +3613,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				);
 			finally
 				(fun () -> f ())
-				(fun () -> with_global_lock (fun () -> SR.unmark_sr ~__context ~sr ~doc ~op))
+				(fun () -> Helpers.with_global_lock (fun () -> SR.unmark_sr ~__context ~sr ~doc ~op))
 
 		(* plug and unplug need to be executed on the host that the pbd is related to *)
 		let plug ~__context ~self =
@@ -3892,7 +3755,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let destroy ~__context ~self =
 			info "GPU_group.destroy: gpu_group = '%s'" (gpu_group_uuid ~__context self);
 			(* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
-			with_global_lock (fun () ->
+			Helpers.with_global_lock (fun () ->
 				Local.GPU_group.destroy ~__context ~self)
 
 		let update_enabled_VGPU_types ~__context ~self =

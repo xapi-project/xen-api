@@ -2896,6 +2896,12 @@ let vm_xenprep_start printer rpc session_id params =
 	in
 	ignore (do_vm_op printer rpc session_id op params [])
 
+let vm_xenprep_abort printer rpc session_id params =
+	let op vm =
+		Client.VM.xenprep_abort rpc session_id (vm.getref ())
+	in
+	ignore (do_vm_op printer rpc session_id op params [])
+
 let host_careful_op op fd printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let host = Client.Host.get_by_uuid rpc session_id uuid in
