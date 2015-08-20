@@ -5612,7 +5612,9 @@ let lvhd =
     ~messages:[ 
       lvhd_enable_thin_provisioning;
     ]
-    ~contents: []
+    ~contents: [
+      uid _lvhd;
+    ]
     ()
 
 (* --- rws: removed this after talking to Andy and Julian
