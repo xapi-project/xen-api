@@ -186,7 +186,7 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 		(fun () ->
 			match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
 			| Raw x -> x
-			| Probe _ -> failwith "unimplemented: probe (only raw)"
+			| Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
 		)
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)

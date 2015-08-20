@@ -1469,9 +1469,26 @@ let sr_probe printer rpc session_id params =
 	let _type = List.assoc "type" params in
 	let device_config = parse_device_config params in
 	let sm_config = read_map_params "sm-config" params in
-	printer (Cli_printer.PList
-		[Client.SR.probe ~rpc ~session_id
-			~host ~_type ~device_config ~sm_config])
+	let txt = Client.SR.probe ~rpc ~session_id ~host ~_type ~device_config ~sm_config in
+	try
+		(* If it's the new format, try to print it more nicely *)
+		let open Storage_interface in
+		match probe_result_of_rpc (Xmlrpc.of_string txt) with
+		| Raw x -> printer (Cli_printer.PList [ x ])
+		| Probe x ->
+			let sr (uri, x) = [
+				"uri", uri;
+				"total_space", Int64.to_string x.total_space;
+				"free_space", Int64.to_string x.free_space;
+			] in
+			if x.srs <> []
+			then printer (Cli_printer.PMsg "The following SRs were found:");
+			printer (Cli_printer.PTable (List.map sr x.srs));
+			if x.uris <> []
+			then printer (Cli_printer.PMsg "The following URIs may contain SRs:");
+			printer (Cli_printer.PList x.uris)
+	with _ ->	
+		printer (Cli_printer.PList [txt])
 
 let sr_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
