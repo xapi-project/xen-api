@@ -5605,7 +5605,7 @@ let lvhd_enable_thin_provisioning = call
    ()  
 
 let lvhd = 
-  create_obj ~in_db:false ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
+  create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
