@@ -3900,5 +3900,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	end
 
 	module VGPU_type = struct end
+	module LVHD = struct end
 end
 
