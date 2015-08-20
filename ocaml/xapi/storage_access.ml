@@ -1059,8 +1059,8 @@ let events_from_sm () =
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
-	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xcp.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
-	info "Started service on org.xen.xcp.storage";
+	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
+	info "Started service on org.xen.xapi.storage";
 	let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
 	()
 

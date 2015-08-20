@@ -875,12 +875,12 @@ let xapissl_path = ref "xapissl"
 let xenvmd_path = ref "xenvmd"
 
 let xenopsd_queues = ref ([
-  "org.xen.xcp.xenops.classic";
-  "org.xen.xcp.xenops.simulator";
-  "org.xen.xcp.xenops.xenlight";
+  "org.xen.xapi.xenops.classic";
+  "org.xen.xapi.xenops.simulator";
+  "org.xen.xapi.xenops.xenlight";
 ])
 
-let default_xenopsd = ref "org.xen.xcp.xenops.xenlight"
+let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
