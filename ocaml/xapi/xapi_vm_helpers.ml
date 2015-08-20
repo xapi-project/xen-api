@@ -1086,3 +1086,23 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 	let current_version = vm_record.API.vM_hardware_platform_version in
 	if visibly_required_version > current_version then
 		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
+
+(** Add to the VM's current operations, call a function and then remove from the
+	current operations. Ensure the allowed_operations are kept up to date. *)
+let with_vm_operation ~__context ~self ~doc ~op f =
+	let task_id = Ref.string_of (Context.get_task_id __context) in
+	Helpers.retry_with_global_lock ~__context ~doc
+		(fun () ->
+			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
+			Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
+			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
+	(* Then do the action with the lock released *)
+	Pervasiveext.finally f
+		(* Make sure to clean up at the end *)
+		(fun () ->
+			try
+				Db.VM.remove_from_current_operations ~__context ~self ~key:task_id;
+				Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+				Helpers.Early_wakeup.broadcast (Datamodel._vm, Ref.string_of self);
+			with
+					_ -> ())
