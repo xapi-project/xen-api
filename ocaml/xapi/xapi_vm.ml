@@ -503,8 +503,12 @@ let snapshot ~__context ~vm ~new_name =
 (* Snapshot_with_quiesce triggers the VSS plugin which will then calls the VM.snapshot API call.     *)
 (* Thus, to avoid dead-locks, do not put snapshot and snapshot_with_quiesce on the same waiting line *)
 let snapshot_with_quiesce ~__context ~vm ~new_name =
-	TaskHelper.set_cancellable ~__context;
-	Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
+	if not (Pool_features.is_enabled ~__context Features.VSS)
+	then raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	else begin
+		TaskHelper.set_cancellable ~__context;
+		Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
+	end
 
 (* As we will destroy the domain ourself, we grab the vm_lock here in order to tell the event thread to *)
 (* do not look at this domain. The message forwarding layer already checked that the VM reference we    *)
