@@ -2611,6 +2611,15 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.pgpu_disable_dom0_access;
 			flags=[]
 		};
+
+		"lvhd-enable-thin-provisioning",
+		{
+			reqd=["sr-uuid"; "initial-allocation"; "allocation-quantum"];
+			optn=[];
+			help="Enable thin-provisioning on an LVHD SR.";
+			implementation=No_fd Cli_operations.lvhd_enable_thin_provisioning;
+			flags=[];
+		}
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =
