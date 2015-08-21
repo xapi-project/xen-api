@@ -21,6 +21,7 @@ module StringSet = Set.Make(String)
 *)
 let default_service_name = Filename.basename Sys.argv.(0)
 let config_file = ref (Printf.sprintf "/etc/%s.conf" default_service_name)
+let config_dir = ref (Printf.sprintf "/etc/%s.conf.d" default_service_name)
 let pidfile = ref (Printf.sprintf "/var/run/%s.pid" default_service_name)
 let extra_search_path = ref []
 let log_destination = ref "syslog:daemon"
@@ -162,6 +163,7 @@ let common_options = [
 		), (fun () -> String.concat " " (setify (List.map fst !Debug.logging_disabled_for))), "A space-separated list of debug modules to suppress logging from";
 	"inventory", Arg.Set_string Inventory.inventory_filename, (fun () -> !Inventory.inventory_filename), "Location of the inventory file";
 	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
+	"config-dir", Arg.Set_string config_dir, (fun () -> !config_dir), "Location of directory containing configuration file fragments";
 ]
 
 module Term = Cmdliner.Term
@@ -272,7 +274,15 @@ let read_config_file x =
 		   caller to inspect and handle the failure.
 		*)
 		Config_file.parse !config_file x;
-	end
+	end;
+	(try Sys.readdir !config_dir with _ -> [||])
+	|> Array.to_list
+	|> List.stable_sort compare
+	|> List.iter
+		(fun fragment ->
+			let path = Filename.concat !config_dir fragment in
+			Config_file.parse path x
+		)
 
 let startswith prefix x =
         let prefix' = String.length prefix and x' = String.length x in
