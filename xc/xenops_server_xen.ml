@@ -507,6 +507,38 @@ module HOST = struct
 			(fun xc xs ->
 				Xenctrl.send_debug_keys xc keys
 			)
+
+	let update_guest_agent_features features =
+		let root = "/guest_agent_features" in
+		let perms =
+			Xs_protocol.ACL.({
+				owner = 0;
+				other = READ;
+				acl = [];
+			}) in
+		with_xs
+			(fun xs ->
+				xs.Xs.rm root;
+				let write_with_perms key value =
+					xs.Xs.write key value;
+					xs.Xs.setperms key perms
+				in
+				write_with_perms root "";
+				List.iter (fun feature ->
+					let feature_root = Filename.concat root feature.Host.name in
+					let parameters_root = Filename.concat feature_root "parameters" in
+					write_with_perms feature_root "";
+					write_with_perms parameters_root "";
+					write_with_perms
+						(Filename.concat feature_root "licensed")
+						(if feature.Host.licensed then "1" else "0");
+					List.iter
+						(fun (key, value) ->
+							write_with_perms
+								(Filename.concat parameters_root key)
+								value)
+						feature.Host.parameters)
+				features)
 end
 
 module VM = struct

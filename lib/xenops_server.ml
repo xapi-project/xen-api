@@ -1786,6 +1786,16 @@ module HOST = struct
 				let module B = (val get_backend () : S) in
 				B.HOST.mask_features features mask
 			) ()
+
+	let update_guest_agent_features _ dbg features =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.update_guest_agent_features %s"
+					(Rpc.Enum (List.map Host.rpc_of_guest_agent_feature features)
+						|> Jsonrpc.to_string);
+				let module B = (val get_backend () : S) in
+				B.HOST.update_guest_agent_features features
+			) ()
 end
 
 module VM = struct
