@@ -541,7 +541,7 @@ namespace XenAPI
 ";
 
 and get_all_records_method classname = 
-  { 
+  { default_message with
     msg_name = "get_all_records";
     msg_params = []; 
     msg_result = Some (Map(Ref classname, Record classname), 
