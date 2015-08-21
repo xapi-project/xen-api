@@ -29,19 +29,30 @@ def log(txt):
 def success(result):
     return { "Status": "Success", "Value": result }
 
-def handle_exception(e):
+def handle_exception(e, code = None, params = None):
     s = sys.exc_info()
     files = []
     lines = []
     for slot in traceback.extract_tb(s[2]):
         files.append(slot[0])
         lines.append(slot[1])
-    results = {
+    backtrace = {
       "error": str(s[1]),
       "files": files,
       "lines": lines,
     }
-    print >>sys.stderr, json.dumps(results)
+    code = "SR_BACKEND_FAILURE"
+    params = [ str(s[1]) ]
+    if hasattr(e, "code"):
+      code = e.code
+    if hasattr(e, "params"):
+      params = e.params
+    results = {
+      "code": code,
+      "params": params,
+      "backtrace": backtrace,
+    }
+    print >>sys.stdout, json.dumps(results)
     sys.exit(1)
 
 class MissingDependency(Exception):
