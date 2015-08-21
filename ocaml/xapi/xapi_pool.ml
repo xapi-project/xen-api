@@ -1253,8 +1253,29 @@ let set_ha_host_failures_to_tolerate ~__context ~self ~value =
 let ha_schedule_plan_recomputation ~__context = 
   Xapi_ha.Monitor.plan_out_of_date := true
 
-let call_fn_on_hosts ~__context f =
-  let hosts = Db.Host.get_all ~__context in
+let get_master_slaves_list_with_fn ~__context fn =
+	let _unsorted_hosts = Db.Host.get_all ~__context in
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
+	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
+		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);
+	fn master slaves
+
+(* returns the list of hosts in the pool, with the master being the first element of the list *)
+let get_master_slaves_list ~__context =
+	get_master_slaves_list_with_fn ~__context (fun master slaves -> master::slaves)
+
+(* returns the list of slaves in the pool *)
+let get_slaves_list ~__context =
+	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
+
+(* Note: fn exposed in .mli *)
+(** Call the function on the slaves first. When those calls have all
+ *  returned, call the function on the master. *)
+let call_fn_on_slaves_then_master ~__context f =
+  (* Get list with master as LAST element: important for ssl_legacy calls *)
+  let hosts = List.rev (get_master_slaves_list ~__context) in
   Helpers.call_api_functions ~__context (fun rpc session_id -> 
     let errs = List.fold_left 
       (fun acc host -> 
@@ -1282,10 +1303,10 @@ let call_fn_on_host ~__context f host =
 	)
 
 let enable_binary_storage ~__context =
-  call_fn_on_hosts ~__context Client.Host.enable_binary_storage
+  call_fn_on_slaves_then_master ~__context Client.Host.enable_binary_storage
 
 let disable_binary_storage ~__context =
-  call_fn_on_hosts ~__context Client.Host.disable_binary_storage
+  call_fn_on_slaves_then_master ~__context Client.Host.disable_binary_storage
 
 let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
   init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
@@ -1313,23 +1334,6 @@ let crl_uninstall = Certificates.pool_uninstall false
 let crl_list ~__context = Certificates.local_list false
 
 let certificate_sync = Certificates.pool_sync
-
-let get_master_slaves_list_with_fn ~__context fn =
-	let _unsorted_hosts = Db.Host.get_all ~__context in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
-	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
-		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);
-	fn master slaves
-	
-(* returns the list of hosts in the pool, with the master being the first element of the list *)
-let get_master_slaves_list ~__context =
-	get_master_slaves_list_with_fn ~__context (fun master slaves -> master::slaves)
-
-(* returns the list of slaves in the pool *)
-let get_slaves_list ~__context =
-	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
 
 (* destroy all subject not validated in external authentication *)
 let revalidate_subjects ~__context =
@@ -1803,13 +1807,13 @@ let disable_ssl_legacy ~__context ~self =
 	let f ~rpc ~session_id ~host =
 		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:false
 	in
-	call_fn_on_hosts ~__context f
+	call_fn_on_slaves_then_master ~__context f
 
 let enable_ssl_legacy ~__context ~self =
 	let f ~rpc ~session_id ~host =
 		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:true
 	in
-	call_fn_on_hosts ~__context f
+	call_fn_on_slaves_then_master ~__context f
 
 let has_extension ~__context ~self ~name =
 	try
