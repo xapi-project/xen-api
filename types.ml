@@ -13,10 +13,16 @@
  *)
 open Sexplib.Std
 
-(* This matches xapi.py:exception *)
-type error = {
+type backtrace = {
   error: string;
   (* Python json.dumps and rpclib are not very friendly *)
   files: string list;
   lines: int list;
+} with rpc
+
+(* This matches xapi.py:exception *)
+type error = {
+  code: string;
+  params: string list;
+  backtrace: backtrace;
 } with rpc
