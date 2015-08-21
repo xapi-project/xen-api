@@ -55,6 +55,16 @@ def handle_exception(e, code = None, params = None):
     print >>sys.stdout, json.dumps(results)
     sys.exit(1)
 
+class XenAPIException(Exception):
+    def __init__(self, code, params):
+        Exception.__init__(self)
+        if type(code) <> type("") and type(code) <> type(u""):
+            raise (TypeError("string", repr(code)))
+        if type(params) <> type([]):
+            raise (TypeError("list", repr(params)))
+        self.code = code
+        self.params = params
+
 class MissingDependency(Exception):
     def __init__(self, missing):
         self.missing = missing
