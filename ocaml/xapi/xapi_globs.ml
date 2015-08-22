@@ -804,6 +804,8 @@ let web_dir = ref "/opt/xensource/www"
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 let cluster_stack_default = ref "xhad"
 
+let xen_cmdline_path = ref "/opt/xensource/libexec/xen-cmdline"
+
 let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts"
 
 let gpg_homedir = ref "/opt/xensource/gpg"
@@ -1041,6 +1043,7 @@ module Resources = struct
 		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
 		"web-dir", web_dir, "Directory to export fileserver";
 		"cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
+		"xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 		"post-install-scripts-dir", post_install_scripts_dir, "Directory containing trusted guest provisioning scripts";
 	]
