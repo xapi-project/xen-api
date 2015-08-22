@@ -355,6 +355,10 @@ let sync_chipset_info = "sync_chipset_info"
 let sync_pci_devices = "sync_pci_devices"
 let sync_gpus = "sync_gpus"
 
+(* Allow dbsync actions to be disabled via the redo log, since the database
+   isn't of much use if xapi won't start. *)
+let disable_dbsync_for = ref []
+
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
 
@@ -930,6 +934,10 @@ let other_options = [
   gen_list_option "disable-logging-for"
     "space-separated list of modules to suppress logging from"
     (fun s -> s) (fun s -> s) disable_logging_for;
+
+  gen_list_option "disable-dbsync-for"
+    "space-separated list of database synchronisation actions to skip"
+    (fun s -> s) (fun s -> s) disable_dbsync_for;
 
   "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
     (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
