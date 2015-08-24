@@ -768,6 +768,73 @@ end
 open Xenops_interface
 open Fun
 
+module Guest_agent_features = struct
+	module Xapi = struct
+		let auto_update_enabled = "auto_update_enabled"
+		let auto_update_url = "auto_update_url"
+	end
+
+	module Xenopsd = struct
+		let auto_update_enabled = "enabled"
+		let auto_update_url = "update_url"
+
+		let enabled = "1"
+		let disabled = "0"
+	end
+	
+	let auto_update_parameters_of_config config =
+		let auto_update_enabled =
+			match
+				if List.mem_assoc Xapi.auto_update_enabled config
+				then Some
+					(* bool_of_string should be safe as the setter in xapi_pool.ml only
+					 * allows "true" or "false" to be put into the database. *)
+					(bool_of_string (List.assoc Xapi.auto_update_enabled config))
+				else None
+			with
+			| Some true ->  [Xenopsd.auto_update_enabled, Xenopsd.enabled]
+			| Some false -> [Xenopsd.auto_update_enabled, Xenopsd.disabled]
+			| None -> []
+		in
+		let auto_update_url =
+			if List.mem_assoc Xapi.auto_update_url config
+			then [Xenopsd.auto_update_url, List.assoc Xapi.auto_update_url config]
+			else []
+		in
+		auto_update_enabled @ auto_update_url
+
+	let of_config ~__context config =
+		let open Features in
+		let vss =
+			let name = Features.name_of_feature VSS in
+			let licensed = Pool_features.is_enabled ~__context VSS in
+			let parameters = [] in
+			Host.({
+				name;
+				licensed;
+				parameters;
+			})
+		in
+		let guest_agent_auto_update =
+			let name = Features.name_of_feature Guest_agent_auto_update in
+			let licensed =
+				Pool_features.is_enabled ~__context Guest_agent_auto_update in
+			let parameters = auto_update_parameters_of_config config in
+			Host.({
+				name;
+				licensed;
+				parameters;
+			})
+		in
+		[vss; guest_agent_auto_update]
+end
+
+let apply_guest_agent_config ~__context config =
+	let dbg = Context.string_of_task __context in
+	let features = Guest_agent_features.of_config ~__context config in
+	let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+	Client.HOST.update_guest_agent_features dbg features
+
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
 (* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
 let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus =
