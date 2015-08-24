@@ -262,6 +262,12 @@ module SR = struct
 	(** [create dbg sr device_config physical_size] creates an sr with id [sr] *)
 	external create : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
 
+	(** [set_name_label sr new_name_label] updates the name_label of SR [sr]. *)
+	external set_name_label : dbg:debug_info -> sr:sr -> new_name_label:string -> unit = ""
+
+	(** [set_name_description sr new_name_description] updates the name_description of SR [sr]. *)
+	external set_name_description : dbg:debug_info -> sr:sr -> new_name_description:string -> unit = ""
+
 	(** [probe dbg queue device_config sm_config] searches on the storage device for SRs of queue [queue] *)
 	external probe : dbg:debug_info -> queue:string -> device_config:(string * string) list -> sm_config:(string * string) list -> probe_result = ""
 
