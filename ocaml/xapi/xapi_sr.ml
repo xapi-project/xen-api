@@ -379,7 +379,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		) to_create db_vdi_map in
 	(* Update the ones which already exist *)
 	StringMap.iter
-		(fun loc (r, v, vi) ->
+		(fun loc (r, v, (vi: vdi_info)) ->
 			if v.API.vDI_name_label <> vi.name_label then begin
 				debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
 				Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label
