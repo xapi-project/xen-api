@@ -173,7 +173,21 @@ let unplug_and_destroy_pbds ~__context ~self =
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
-	Storage_access.probe ~__context ~_type ~device_config ~sr_sm_config:sm_config
+	let open Storage_interface in
+	let open Storage_access in
+
+        let queue = !Storage_interface.queue_name ^ "." ^ _type in
+        let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
+        let rpc = external_rpc queue uri in
+        let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+        let dbg = Context.string_of_task __context in
+
+        transform_storage_exn
+		(fun () ->
+			match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
+			| Raw x -> x
+			| Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
+		)
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description

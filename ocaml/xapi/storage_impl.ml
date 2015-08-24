@@ -690,6 +690,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 		let locks : (string, unit) Storage_locks.t = Storage_locks.make ()
 		let with_sr sr f = Storage_locks.with_instance_lock locks sr f
 
+		let probe context ~dbg ~queue ~device_config ~sm_config =
+			Impl.SR.probe context ~dbg ~queue ~device_config ~sm_config
+
 		let list context ~dbg =
 			List.map fst (Host.list !Host.host)
 
