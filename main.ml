@@ -489,7 +489,9 @@ let process root_dir name x =
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Storage.Volume.Types.SR.Probe.Out.t_of_rpc
       >>= fun response ->
       let srs = List.map ~f:(fun sr_stat -> sr_stat.Storage.Volume.Types.sr, {
-        Storage_interface.total_space = sr_stat.Storage.Volume.Types.total_space;
+        Storage_interface.name_label = sr_stat.Storage.Volume.Types.name;
+        name_description = sr_stat.Storage.Volume.Types.description;
+        total_space = sr_stat.Storage.Volume.Types.total_space;
         free_space = sr_stat.Storage.Volume.Types.free_space;
         clustered = sr_stat.Storage.Volume.Types.clustered;
         health = match sr_stat.Storage.Volume.Types.health with
@@ -788,6 +790,8 @@ let process root_dir name x =
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
     >>= fun response ->
     let response = {
+      name_label = response.Storage.Volume.Types.name;
+      name_description = response.Storage.Volume.Types.description;
       total_space = response.Storage.Volume.Types.total_space;
       free_space = response.Storage.Volume.Types.free_space;
       clustered = response.Storage.Volume.Types.clustered;
