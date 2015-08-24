@@ -76,10 +76,10 @@ let backend_error name args =
   let exnty = Exception.Backend_error (name, args) in
   Exception.rpc_of_exnty exnty
 
-let backend_backtrace_error name args error =
-  let error = rpc_of_error error |> Jsonrpc.to_string in
+let backend_backtrace_error name args backtrace =
+  let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
   let open Storage_interface in
-  let exnty = Exception.Backend_error_with_backtrace(name, error :: args) in
+  let exnty = Exception.Backend_error_with_backtrace(name, backtrace :: args) in
   Exception.rpc_of_exnty exnty
 
 let missing_uri () =
@@ -118,22 +118,22 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
     >>= fun output ->
     begin match output.Process.Output.exit_status with
     | Error (`Exit_non_zero code) ->
-      (* Expect an exception and backtrace on stderr *)
-      begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stderr) with
+      (* Expect an exception and backtrace on stdout *)
+      begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
       | Error _ ->
-        error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stderr;
-        return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
+        error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stdout;
+        return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
       | Ok response ->
         begin match Or_error.try_with (fun () -> error_of_rpc response) with
         | Error _ ->
-          error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stderr;
-          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stderr"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stderr ]))
-        | Ok x -> return (Error(backend_backtrace_error "SCRIPT_FAILED" [ script_name; "non-zero exit"; string_of_int code; output.Process.Output.stdout ] x))
+          error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stdout;
+          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
+        | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
         end
       end
     | Error (`Signal signal) ->
       error "%s/%s caught a signal and failed" root_dir script_name;
-      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stderr ]))
+      return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
     | Ok () ->
 
       (* Parse the json on stdout *)
