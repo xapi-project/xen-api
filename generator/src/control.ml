@@ -2,6 +2,12 @@ open Types
 open Type
 
 let api =
+  let health_decl =
+    Type.(Variant(
+      ("Healthy", Basic String, "Storage is fully available"), [
+       "Recovering", Basic String, "Storage is busy recovering, e.g. rebuilding mirrors.";
+      ]
+    )) in
   let sr_stat_decl =
     Type.(Struct(
         ( "sr", Name "sr", String.concat " " [
@@ -26,6 +32,12 @@ let api =
             "URIs naming datasources: time-varying quantities representing anything";
             "from disk access latency to free space. The entities named by these URIs";
             "are self-describing.";
+          ];
+          "clustered", Basic Boolean, String.concat " " [
+            "Indicates whether the SR uses clustered local storage.";
+          ];
+          "health", Name "health", String.concat " " [
+            "The health status of the SR.";
           ];
         ]
       )) in
@@ -148,6 +160,10 @@ let api =
           "This string is abstract.";
         ];
         ty = Type.(Basic String);
+      }; {
+        TyDecl.name = "health";
+        description = "The health status of an SR.";
+        ty = health_decl;
       }; {
         TyDecl.name = "sr_stat";
         description = String.concat " " [
