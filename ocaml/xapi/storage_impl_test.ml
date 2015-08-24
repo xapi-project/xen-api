@@ -189,7 +189,7 @@ module Debug_print_impl = struct
 		include Storage_skeleton.SR
 		let list context ~dbg = assert false
 		let scan context ~dbg ~sr = assert false
-		let create context ~dbg ~sr ~device_config ~physical_size = assert false
+		let create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size = assert false
 		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach sr:%s" sr
 		let fail_if_anything_leaked () = 

@@ -234,7 +234,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	in
 	begin
 		try
-			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+			Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
 		with e ->
 			Db.SR.destroy ~__context ~self:sr_ref;
 			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
@@ -379,7 +379,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		) to_create db_vdi_map in
 	(* Update the ones which already exist *)
 	StringMap.iter
-		(fun loc (r, v, vi) ->
+		(fun loc (r, v, (vi: vdi_info)) ->
 			if v.API.vDI_name_label <> vi.name_label then begin
 				debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
 				Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label
@@ -461,20 +461,33 @@ let set_shared ~__context ~sr ~value =
 
 (* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
 (* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
-let try_update_sr ~__context ~sr =
-	try
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
-	with e ->
-		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
+let update ~__context ~sr =
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
 
 let set_name_label ~__context ~sr ~value =
-	Db.SR.set_name_label ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_label:value
+	);
+	update ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
-	Db.SR.set_name_description ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_description:value
+	);
+	update ~__context ~sr
 
 let set_virtual_allocation ~__context ~self ~value =
 	Db.SR.set_virtual_allocation ~__context ~self ~value

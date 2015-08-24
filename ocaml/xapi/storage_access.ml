@@ -182,11 +182,13 @@ module SMAPIv1 = struct
 					Storage_interface.Raw (Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sm_config)
 				)
 
-		let create context ~dbg ~sr ~device_config ~physical_size =
+		let create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let subtask_of = Some (Context.get_task_id __context) in
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_label ~__context ~self:sr ~value:name_label;
+					Db.SR.set_name_description ~__context ~self:sr ~value:name_description;
 					let device_config = (Sm.sm_master true) :: device_config in
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun _ _type ->
@@ -203,6 +205,20 @@ module SMAPIv1 = struct
 									error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
 									raise e
 						)
+				)
+
+		let set_name_label context ~dbg ~sr ~new_name_label =
+			Server_helpers.exec_with_new_task "SR.set_name_label" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_label ~__context ~self:sr ~value:new_name_label
+				)
+
+		let set_name_description context ~dbg ~sr ~new_name_description =
+			Server_helpers.exec_with_new_task "SR.set_name_description" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_description ~__context ~self:sr ~value:new_name_description
 				)
 
 		let attach context ~dbg ~sr ~device_config =
@@ -278,11 +294,13 @@ module SMAPIv1 = struct
 							try
 								Sm.sr_update device_config _type sr;
 								let r = Db.SR.get_record ~__context ~self:sr in
+								let name_label = r.API.sR_name_label in
+								let name_description = r.API.sR_name_description in
 								let total_space = r.API.sR_physical_size in
 								let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
 								let clustered = false in
 								let health = Storage_interface.Healthy in
-								{ total_space; free_space; clustered; health }
+								{ name_label; name_description; total_space; free_space; clustered; health }
 							with
 								| Smint.Not_implemented_in_backend ->
 									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
@@ -1310,13 +1328,13 @@ let vbd_attach_order ~__context vbds =
 
 let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
 
-let create_sr ~__context ~sr ~physical_size =
+let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
 			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
-			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config physical_size;
+			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size;
 			unbind ~__context ~pbd
 		)
 
