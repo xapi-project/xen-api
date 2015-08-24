@@ -75,7 +75,7 @@ let old_main () =
 			Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
 		| "sr-create" :: sr :: device_config ->
 			let device_config = kvpairs device_config in
-			Client.SR.create ~dbg ~sr ~device_config ~physical_size:0L
+			Client.SR.create ~dbg ~sr ~name_label:"name" ~name_description:"description" ~device_config ~physical_size:0L
 		| "sr-attach" :: sr :: device_config ->
 			let device_config = kvpairs device_config in
 			Client.SR.attach ~dbg ~sr ~device_config
