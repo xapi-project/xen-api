@@ -92,9 +92,13 @@ let default_vdi_info = {
 
 let vdi_info_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_vdi_info default_vdi_info) |> vdi_info_of_rpc
 
+type sr_health = Healthy | Recovering
+
 type sr_info = {
     total_space: int64;        (** total number of bytes on the storage substrate *)
     free_space: int64;         (** current free space on the storage substrate *)
+    clustered: bool;
+    health: sr_health;
 }
 
 let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
