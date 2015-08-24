@@ -109,6 +109,15 @@ type dp_stat_t = {
 
 let string_of_dp_stat_t (x: dp_stat_t) = Jsonrpc.to_string (rpc_of_dp_stat_t x)
 
+type probe = {
+  srs: (string * sr_info) list; (* SRs we found *)
+  uris: string list; (* other uris we found which could be probed recursively *)
+}
+
+type probe_result =
+  | Raw of string (* SMAPIv1 adapters return arbitrary data *)
+  | Probe of probe
+
 module Mirror = struct
 	type id = string
 
@@ -219,17 +228,6 @@ module Query = struct
 	external diagnostics: dbg:string -> string = ""
 end
 
-type probe_possibility = {
-	new_device_config : (string * string) list;
-	info : (string * string) list;
-}
-
-type probe_result = {
-	probed_srs : sr list;
-	probed : probe_possibility list;
-	other_data : (string * string) option;
-}
-
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
 
@@ -260,6 +258,9 @@ module SR = struct
 	(** [create dbg sr device_config physical_size] creates an sr with id [sr] *)
 	external create : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
 
+	(** [probe dbg queue device_config sm_config] searches on the storage device for SRs of queue [queue] *)
+	external probe : dbg:debug_info -> queue:string -> device_config:(string * string) list -> sm_config:(string * string) list -> probe_result = ""
+
 	(** [attach task sr]: attaches the SR *)
     external attach : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> unit = ""
 
@@ -276,10 +277,6 @@ module SR = struct
 		first detaching and/or deactivating any active VDIs. This may fail with 
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
 	external destroy : dbg:debug_info -> sr:sr -> unit = ""
-
-	(** [probe device_config]: searches for existing SRs and returns them, or if the device-config
-	    map is under-specified returns possible values for further probing *)
-	external probe : dbg:debug_info -> device_config:(string * string) list -> probe_result = ""
 
 	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
 	external scan: dbg:debug_info -> sr:sr -> vdi_info list = ""
