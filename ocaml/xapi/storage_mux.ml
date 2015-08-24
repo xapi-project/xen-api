@@ -156,6 +156,12 @@ module Mux = struct
 		let attach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.attach ~dbg ~sr
+		let set_name_label context ~dbg ~sr ~new_name_label =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.set_name_label ~dbg ~sr ~new_name_label
+		let set_name_description context ~dbg ~sr ~new_name_description =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.set_name_description ~dbg ~sr ~new_name_description
 		let detach context ~dbg ~sr =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.SR.detach ~dbg ~sr

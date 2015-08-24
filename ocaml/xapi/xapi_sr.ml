@@ -461,20 +461,33 @@ let set_shared ~__context ~sr ~value =
 
 (* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
 (* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
-let try_update_sr ~__context ~sr =
-	try
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
-	with e ->
-		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
+let update ~__context ~sr =
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
 
 let set_name_label ~__context ~sr ~value =
-	Db.SR.set_name_label ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_label:value
+	);
+	update ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
-	Db.SR.set_name_description ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_description:value
+	);
+	update ~__context ~sr
 
 let set_virtual_allocation ~__context ~self ~value =
 	Db.SR.set_virtual_allocation ~__context ~self ~value

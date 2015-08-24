@@ -205,6 +205,20 @@ module SMAPIv1 = struct
 						)
 				)
 
+		let set_name_label context ~dbg ~sr ~new_name_label =
+			Server_helpers.exec_with_new_task "SR.set_name_label" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_label ~__context ~self:sr ~value:new_name_label
+				)
+
+		let set_name_description context ~dbg ~sr ~new_name_description =
+			Server_helpers.exec_with_new_task "SR.set_name_description" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_description ~__context ~self:sr ~value:new_name_description
+				)
+
 		let attach context ~dbg ~sr ~device_config =
 			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
