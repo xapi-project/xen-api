@@ -716,12 +716,12 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Impl.SR.scan context ~dbg ~sr
 				)
 
-		let create context ~dbg ~sr ~device_config ~physical_size =
+		let create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size =
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
 						| None ->
-							Impl.SR.create context ~dbg ~sr ~device_config ~physical_size
+							Impl.SR.create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size
 						| Some _ ->
 							error "SR %s is already attached" sr;
 							raise (Sr_attached sr)

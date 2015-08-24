@@ -105,8 +105,8 @@ val diagnostics: __context:Context.t -> string
 (** [dp_destroy __context dp allow_leak] attempts to cleanup and detach a given DP *)
 val dp_destroy: __context:Context.t -> string -> bool -> unit
 
-(** [create_sr __context sr physical_size] attempts to create an empty SR *)
-val create_sr: __context:Context.t -> sr:API.ref_SR -> physical_size:int64 -> unit
+(** [create_sr __context sr name_label name_description physical_size] attempts to create an empty SR *)
+val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit

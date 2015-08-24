@@ -234,7 +234,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	in
 	begin
 		try
-			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+			Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
 		with e ->
 			Db.SR.destroy ~__context ~self:sr_ref;
 			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
