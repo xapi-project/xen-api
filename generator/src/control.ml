@@ -370,6 +370,23 @@ let api =
           type_decls = [];
           methods = [
             {
+              Method.name = "probe";
+              description = "[probe uri]: looks for existing SRs on the storage device";
+              inputs = [
+                uri;
+              ];
+              outputs = [
+               { Arg.name = "result";
+                 ty = 
+                   Type.Struct (
+                     ("srs", Type.(Array sr_stat), "SRs found on this storage device"), [
+                      "uris", Type.(Array (Basic String)), "Other possible URIs which may contain SRs"
+                   ]);
+                 description = "Contents of the storage device";
+               }
+              ];
+            };
+            {
               Method.name = "create";
               description = "[create uri configuration]: creates a fresh SR";
               inputs = [
