@@ -259,8 +259,8 @@ end
 module SR = struct
 	(** Functions which manipulate SRs *)
 
-	(** [create dbg sr device_config physical_size] creates an sr with id [sr] *)
-	external create : dbg:debug_info -> sr:sr -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
+	(** [create dbg sr name_label name_description device_config physical_size] creates an sr with id [sr] *)
+	external create : dbg:debug_info -> sr:sr -> name_label:string -> name_description:string -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
 
 	(** [set_name_label sr new_name_label] updates the name_label of SR [sr]. *)
 	external set_name_label : dbg:debug_info -> sr:sr -> new_name_label:string -> unit = ""

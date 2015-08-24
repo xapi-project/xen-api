@@ -37,7 +37,7 @@ module DP = struct
 end
 
 module SR = struct
-  let create ctx ~dbg ~sr ~device_config ~physical_size = u "SR.create"
+  let create ctx ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size = u "SR.create"
   let attach ctx ~dbg ~sr ~device_config = u "SR.attach"
   let set_name_label ctx ~dbg ~sr ~new_name_label = u "SR.set_name_label"
   let set_name_description ctx ~dbg ~sr ~new_name_description = u "SR.set_name_description"
