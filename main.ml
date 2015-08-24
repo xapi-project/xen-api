@@ -491,6 +491,11 @@ let process root_dir name x =
       let srs = List.map ~f:(fun sr_stat -> sr_stat.Storage.Volume.Types.sr, {
         Storage_interface.total_space = sr_stat.Storage.Volume.Types.total_space;
         free_space = sr_stat.Storage.Volume.Types.free_space;
+        clustered = sr_stat.Storage.Volume.Types.clustered;
+        health = match sr_stat.Storage.Volume.Types.health with
+          | Storage.Volume.Types.Healthy _ -> Healthy
+          | Storage.Volume.Types.Recovering _ -> Recovering
+          ;
       }) response.Storage.Volume.Types.SR.Probe.Out.srs in
       let uris = response.Storage.Volume.Types.SR.Probe.Out.uris in
       let result = Storage_interface.(Probe { srs; uris }) in
@@ -785,6 +790,11 @@ let process root_dir name x =
     let response = {
       total_space = response.Storage.Volume.Types.total_space;
       free_space = response.Storage.Volume.Types.free_space;
+      clustered = response.Storage.Volume.Types.clustered;
+      health = match response.Storage.Volume.Types.health with
+        | Storage.Volume.Types.Healthy _ -> Healthy
+        | Storage.Volume.Types.Recovering _ -> Recovering
+        ;
     } in
     Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
   | { R.name = "VDI.epoch_begin"; R.params = [ args ] } ->
