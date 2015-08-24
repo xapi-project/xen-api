@@ -470,6 +470,34 @@ let api =
                 }
               ];
             }; {
+              Method.name = "set_name";
+              description = String.concat " " [
+                "[set_name sr new_name] changes the name of [sr]";
+              ];
+              inputs = [
+                sr;
+                { Arg.name = "new_name";
+                  ty = Basic String;
+                  description = "The new name of the SR"
+                }
+            ];
+              outputs = [
+              ];
+            }; {
+              Method.name = "set_description";
+              description = String.concat " " [
+                "[set_description sr new_description] changes the description of [sr]";
+              ];
+              inputs = [
+                sr;
+                { Arg.name = "new_description";
+                  ty = Basic String;
+                  description = "The new description for the SR";
+                }
+              ];
+              outputs = [
+              ];
+            }; {
               Method.name = "ls";
               description = String.concat " " [
                 "[ls sr] returns a list of volumes";
