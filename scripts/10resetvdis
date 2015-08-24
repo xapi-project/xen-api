@@ -7,27 +7,48 @@ HOSTUUID=$2
 REASON=$4
 
 function reset {
-	echo Resetting VDIs on host $HOSTUUID
+	logger "Resetting VDIs on host $HOSTUUID"
 	IFS=","
-	for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
+        for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
 	do
-		SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
-		"@OPTDIR@/sm/resetvdis.py" $HOSTUUID $SR
+		logger "Calling xenvm host-disconnect --uncooperative /dev/VG_XenStorage-$i $HOSTUUID"
+		xenvm host-disconnect --uncooperative /dev/VG_XenStorage-$i $HOSTUUID
+	done
+
+	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
+	do
+		"/opt/xensource/sm/resetvdis.py" $HOSTUUID $i
 	done
 }
 
+function forget {
+	logger "Forgetting host: $HOSTUUID"
+	IFS=","
+	for i in `xe sr-list host-uuid=$HOSTUUID --minimal`
+	do
+		logger "Calling xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID"
+		xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID
+	done
+}
 # Only reset the VDIs if the host is actually fenced, or the user has requested it.
-if [ $REASON = "fenced" ]; then
-	reset
-fi
-
-if [ $REASON = "user" ]; then
-	reset
-fi
-
-if [ $REASON = "dbdestroy" ]; then
-        reset
-fi
-
-
-
+case "$REASON" in
+	 fenced)
+		reset
+		;;
+	 user)
+		reset
+		;;
+	dbdestroy)
+		reset
+		forget
+		;;
+	assume-failed)
+		reset
+		;;
+	clean-shutdown)
+		;;
+	*)
+		logger "Invalid argument to $3 ($4)"
+		exit 1
+		;;
+esac

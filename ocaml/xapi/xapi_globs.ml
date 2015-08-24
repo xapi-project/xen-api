@@ -823,7 +823,7 @@ let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
  * with PIF.managed = false during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
-let manage_xenvmd = ref false
+let manage_xenvmd = ref true
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 

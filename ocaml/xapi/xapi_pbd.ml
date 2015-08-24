@@ -113,6 +113,20 @@ let check_sharing_constraint ~__context ~self =
 		[ Ref.string_of self; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
 	end
 
+let check_plugged_on_master_constraint ~__context ~self =
+  if Db.SR.get_shared ~__context ~self && not (Pool_role.is_master ()) then begin
+    let pool = Helpers.get_pool ~__context in
+    let master = Db.Pool.get_master ~__context ~self:pool in
+    let pbds = Db.SR.get_PBDs ~__context ~self in
+    let master_pbd =
+      try List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = master) pbds
+      with _ ->
+	raise (Api_errors.Server_error(Api_errors.sr_no_pbds, []))
+    in
+    if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
+      raise (Api_errors.Server_error(Api_errors.sr_detached_on_master, []))
+  end
+	  
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
@@ -125,7 +139,7 @@ let plug ~__context ~self =
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~self:sr;
-
+				check_plugged_on_master_constraint ~__context ~self:sr;
 				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.transform_storage_exn

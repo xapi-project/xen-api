@@ -94,7 +94,6 @@ let assert_config_present sr = assert_file_present (configfile_path sr) NoConfig
    pidfile. Xenvmd will itself lock the pidfile while it is up, so
    xapi's attempt will fail if the process still exists. *)
 let is_running sr =
-  debug "Checking for xenvmd running for sr: %s" sr;
   try
     let l = lockfile_path sr in
     assert_file_present l NoLockFile;
@@ -106,8 +105,8 @@ let is_running sr =
     false
   with
   | NoLockFile -> debug "Caught NoLockFile (xenvmd not running)"; false (* Lockfile missing *)
-  | Unix.Unix_error (Unix.EAGAIN, _, _) -> debug "Caught EAGAIN (xenvmd running)"; true  (* Locked by xenvmd *)
-  | Unix.Unix_error (Unix.EACCES, _, _) -> debug "Caught EACCESS (xenvmd running)"; true  (* Locked by xenvmd *)
+  | Unix.Unix_error (Unix.EAGAIN, _, _)
+  | Unix.Unix_error (Unix.EACCES, _, _) -> true (* Locked by xenvmd *)
   | e -> raise e
 
 (* Verify that xenvmd is running for a particular SR. If xenvmd is not
