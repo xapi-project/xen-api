@@ -146,7 +146,8 @@ let introduce  ~__context ~uuid ~name_label
 			~content_type
 			~_type ~shared ~other_config:[] ~default_vdi_visibility:true
 			~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
-			~introduced_by:Ref.null;
+			~introduced_by:Ref.null
+			~clustered:false;
 
 		Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
 		(* Return ref of newly created sr *)
@@ -309,6 +310,7 @@ let update ~__context ~sr =
 			let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
 			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
 			Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
+			Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
 		)
 
 let get_supported_types ~__context = Sm.supported_drivers ()
@@ -443,7 +445,8 @@ let scan ~__context ~sr =
 			Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
 			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
 			Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
-			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
+			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
+			Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
 		)
 
 let set_shared ~__context ~sr ~value =

@@ -1323,6 +1323,8 @@ let sr_record rpc session_id sr =
 				~get_set:(fun () -> (x ()).API.sR_tags)
 				~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
 				~remove_from_set:(fun tag -> Client.SR.remove_tags rpc session_id sr tag) ();
+			make_field ~name:"clustered"
+				~get:(fun () -> string_of_bool ((x ()).API.sR_clustered)) ();
 		]}
 
 let pbd_record rpc session_id pbd =
