@@ -45,22 +45,44 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 			["Access-Control-Allow-Origin: *"]);
 	Rrd_unix.to_fd ~json:(List.mem_assoc "json" query) rrd s
 
+(* A handler for putting the SR's RRD data into the Http response. *)
+let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
+	debug "get_sr_rrd_handler: start";
+	let query = req.Http.Request.query in
+	let sr_uuid = List.assoc "uuid" query in
+	let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd ( let rrdi =
+		try 
+			Hashtbl.find sr_rrds sr_uuid
+		with Not_found -> failwith "No SR RRD available!"
+		in rrdi.rrd)
+	) in
+	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
+	Rrd_unix.to_fd rrd s
+
 (* Get an XML/JSON document (as a string) representing the updates since the
  * specified start time. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
-		~(cfopt : Rrd.cf_type option) ~(is_host : bool) ?(uuid : string option) () =
+		~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuid : string)
+		~(sr_uuid : string) () =
 	Mutex.execute mutex (fun () ->
 		let prefixandrrds =
-			let vmsandrrds = Hashtblext.to_list vm_rrds in
+			let vm_rrds = Hashtblext.to_list vm_rrds in
+			let sr_rrds = Hashtblext.to_list sr_rrds in
+			let host_rrds =
+				if is_host = "true" then
+					match !host_rrd with None -> [] | Some rrdi -> [("host:" ^ (Inventory.lookup Inventory._installation_uuid) ^ ":", rrdi.rrd)]
+				else [] in
 			let vmsandrrds =
-				match uuid with
-				| None -> vmsandrrds
-				| Some uuid -> List.filter (fun (k, _) -> k = uuid) vmsandrrds
-			in
-			let vm_rrds = List.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
-			if is_host then match !host_rrd with None -> vm_rrds | Some rrdi ->
-				("host:" ^ (Inventory.lookup Inventory._installation_uuid) ^ ":", rrdi.rrd)::vm_rrds
-			else vm_rrds
+				if vm_uuid = "all" then vm_rrds
+				else if vm_uuid = "none" then []
+				else List.filter (fun (k, _) -> k = vm_uuid) vm_rrds in
+			let vm_rrds_altered = List.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
+			let srsandrrds =
+				if sr_uuid = "all" then sr_rrds
+				else if sr_uuid = "none" then []
+				else List.filter (fun (k, _) -> k = sr_uuid) sr_rrds in
+			let sr_rrds_altered = List.map (fun (k, v) -> "sr:" ^ k ^ ":", v.rrd) srsandrrds in
+			host_rrds @ vm_rrds_altered @ sr_rrds_altered
 		in
 		Rrd_updates.export ~json prefixandrrds start interval cfopt)
 
@@ -71,10 +93,12 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 	let start = Int64.of_string (List.assoc "start" query) in
 	let cfopt = try Some (Rrd.cf_type_of_string (List.assoc "cf" query)) with _ -> None in
 	let interval = try Int64.of_string (List.assoc "interval" query) with _ -> 0L in
-	let is_host = List.mem_assoc "host" query in
-	let uuid = try Some (List.assoc "vm_uuid" query) with _ -> None in
+	let query_associated_value key lst = try (List.assoc key lst) with _ -> "none" in
+	let is_host = if (List.mem_assoc "host" query) then query_associated_value "host" query else "none" in
+	let vm_uuid = if (List.mem_assoc "vm_uuid" query) then query_associated_value "vm_uuid" query else "all" in
+	let sr_uuid = if (List.mem_assoc "sr_uuid" query) then query_associated_value "sr_uuid" query else "none" in
 	let json = List.mem_assoc "json" query in
-	let reply = get_host_stats ~json ~start ~interval ~cfopt ~is_host ?uuid () in
+	let reply = get_host_stats ~json ~start ~interval ~cfopt ~is_host ~vm_uuid ~sr_uuid () in
 	let headers = Http.http_200_ok_with_content (Int64.of_int (String.length reply))
 		~version:"1.1" ~keep_alive:true () in
 	let headers =

@@ -69,6 +69,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 	Http_svr.Server.add_handler server Http.Get Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
 	Http_svr.Server.add_handler server Http.Get Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Constants.get_sr_rrd_uri (Http_svr.FdIO get_sr_rrd_handler);
 	Http_svr.Server.add_handler server Http.Get Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
 	Http_svr.Server.add_handler server Http.Put Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
 	Http_svr.Server.add_handler server Http.Post Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
