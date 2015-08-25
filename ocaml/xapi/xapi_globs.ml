@@ -205,9 +205,7 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
-(* let xenprep_iso_name_label = "xenprep.iso" *) (* TODO use this once the xenprep ISO is available *)
-let xenprep_iso_name_label = "xs-tools.iso" (* Temporary stopgap value for dev-testing *)
-
+let xenprep_iso_name_label = "xenprep.iso"
 let xenprep_other_config_key = "xenprep_progress"
 let xenprep_other_config_iso_inserted = "ISO_inserted"
 
