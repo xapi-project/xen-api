@@ -825,6 +825,8 @@ let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
 let manage_xenvmd = ref true
 
+let sr_health_check_task_label = "SR Recovering"
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =

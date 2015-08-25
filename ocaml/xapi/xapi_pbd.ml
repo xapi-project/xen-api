@@ -134,7 +134,8 @@ let sr_health_check ~__context ~self =
 		let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
 		if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
 			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				let task = Client.Client.Task.create ~rpc ~session_id ~label:"SR recovering"  ~description:"" in
+				let task = Client.Client.Task.create ~rpc ~session_id
+					~label:Xapi_globs.sr_health_check_task_label ~description:(Ref.string_of self) in
 				let _ = Thread.create (fun () ->
 					let rec loop () =
 						Thread.delay 30.;
