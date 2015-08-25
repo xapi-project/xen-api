@@ -1009,6 +1009,8 @@ let _ =
     ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
   error Api_errors.sr_is_cache_sr [ "host" ]
     ~doc:"The SR is currently being used as a local cache SR." ();
+  error Api_errors.clustered_sr_degraded [ "sr" ]
+    ~doc:"An SR is using clustered local storage. It is not safe to reboot a host at the moment." ();
 
   error Api_errors.sm_plugin_communication_failure ["sm"]
     ~doc:"The SM plugin did not respond to a query." ();
