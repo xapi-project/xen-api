@@ -70,8 +70,8 @@ let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 90
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = creedence_release_schema_major_vsn
-let last_release_schema_minor_vsn = creedence_release_schema_minor_vsn
+let last_release_schema_major_vsn = cream_release_schema_major_vsn
+let last_release_schema_minor_vsn = cream_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
