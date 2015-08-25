@@ -729,17 +729,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let set_name_label context ~dbg ~sr ~new_name_label =
 			info "SR.set_name_label dbg:%s sr:%s new_name_label:%s" dbg sr new_name_label;
-			with_sr sr
-				(fun () ->
-					Impl.SR.set_name_label context ~dbg ~sr ~new_name_label
-				)
+			Impl.SR.set_name_label context ~dbg ~sr ~new_name_label
 
 		let set_name_description context ~dbg ~sr ~new_name_description =
 			info "SR.set_name_description dbg:%s sr:%s new_name_description:%s" dbg sr new_name_description;
-			with_sr sr
-				(fun () ->
-					Impl.SR.set_name_description context ~dbg ~sr ~new_name_description
-				)
+			Impl.SR.set_name_description context ~dbg ~sr ~new_name_description
 
 		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg sr (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) device_config));
