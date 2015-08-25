@@ -113,7 +113,8 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../autogen/rbac_static \
 	../../xapi/helper_hostname \
 	../../xapi/helper_process \
-	../../xapi/xmlrpc_sexpr
+	../../xapi/xmlrpc_sexpr \
+	../../xapi/xapi_extensions
 
 XAPI_CLIENT_OBJS = \
 	../../util/version \

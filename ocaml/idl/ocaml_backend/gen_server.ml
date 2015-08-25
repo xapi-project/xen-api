@@ -35,10 +35,10 @@ let is_session_arg arg =
   let converter = O.type_of_param arg in
   ((binding = "session_id") && (converter = "ref_session"))
 
-let from_rpc arg =
+let from_rpc ?(ignore=false) arg =
 	let binding = O.string_of_param arg in
 	let converter = O.type_of_param arg in
-	Printf.sprintf "let %s = %s_of_rpc %s_rpc in" binding converter binding
+	Printf.sprintf "let %s%s = %s_of_rpc %s_rpc in" (if ignore then "_" else "") binding converter binding
 
 let read_msg_parameter msg_parameter =
   from_rpc 
@@ -167,12 +167,15 @@ let operation (obj: obj) (x: message) =
   in
   let rbac_check_end = if has_session_arg then [] else [] in
   let unmarshall_code =
+    (* If we are forwarding the call then we don't want to emit a warning
+       because we know we don't need the arguments *)
+    let ignore = x.DT.msg_forward_to <> None in
     (
       (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
       if is_ctor then [from_rpc Client.session; from_ctor_record]
 	(* Otherwise, go read non-default fields from pattern match; if we have default fields then we need to
 	   get those from the 'default_fields' arg *)
-      else  List.map from_rpc args_without_default_values)
+      else  List.map (fun a -> from_rpc ~ignore:(ignore && not (is_session_arg a)) a) args_without_default_values)
 
     (* and for every default value we try to get this from default_args or default it *)
     @ (
@@ -206,7 +209,12 @@ let operation (obj: obj) (x: message) =
 				else []
 			in
 
-	let gen_body () =
+	let gen_body () = match x.DT.msg_forward_to with
+	| Some Extension name ->
+		[
+			"Server_helpers.forward_extension ~__context rbac call"
+		]
+	| None ->
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
 		let common_let_decs =
 			[
@@ -309,8 +317,19 @@ let gen_module api : O.Module.t =
 			"  then Rpc.success (List.hd __params)";
 			"  else begin";
 			"    if (try Scanf.sscanf func \"unknown-message-%s\" (fun _ -> false) with _ -> true)";
-			"    then " ^ (debug "Unknown rpc \"%s\"" [ "__call" ]);
-			"    Server_helpers.unknown_rpc_failure func";
+			"    then " ^ (debug "This is not a built-in rpc \"%s\"" [ "__call" ]);
+			"    begin match __params with";
+			"    | session_id_rpc::_->";
+			"      let session_id = ref_session_of_rpc session_id_rpc in";
+			"      Session_check.check false session_id;";
+			"      (* based on the pool.has_extension call *)";
+			"      let arg_names = \"session_id\"::__call::[] in";
+			"      let key_names = [] in";
+			"      let rbac __context fn = Rbac.check session_id \"pool.has_extension\" ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in";
+			"      Server_helpers.forward_extension ~__context rbac { call with Rpc.name = __call }";
+			"    | _ ->";
+			"      Server_helpers.unknown_rpc_failure func ";
+			"    end";
 			"  end";
 		")))";
 	    ]

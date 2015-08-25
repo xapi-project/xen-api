@@ -66,6 +66,9 @@ if $(not $(defined-env OPTDIR))
 if $(not $(defined-env PLUGINDIR))
   PLUGINDIR=/etc/xapi.d/plugins
   export
+if $(not $(defined-env EXTENSIONDIR))
+  EXTENSIONDIR=/etc/xapi.d/extensions
+  export
 if $(not $(defined-env HOOKSDIR))
   HOOKSDIR=/etc/xapi.d
   export

@@ -153,6 +153,8 @@ and param = {param_type:ty; param_name:string; param_doc:string; param_release: 
 
 and doc_tag = VM_lifecycle | Snapshots | Networking | Memory | Windows
 
+and forward = Extension of string
+
 (** Types of RPC messages; in addition to those generated for object fields *)
 and message = { 
     msg_name: string;
@@ -177,6 +179,7 @@ and message = {
     msg_allowed_roles: string list option;
     msg_map_keys_roles: (string * (string list option)) list;
     msg_doc_tags: doc_tag list;
+    msg_forward_to: forward option; (* proxy the RPC elsewhere *)
 } 
 
 and field = {
@@ -208,6 +211,36 @@ and mess = {
     mess_name: string;
     mess_doc: string;
 } with rpc
+
+let default_message = {
+    msg_name = "";
+    msg_params = [];
+    msg_result = None;
+    msg_errors = [];
+    msg_doc = "This message has no documentation.";
+    msg_async = true;
+    msg_session = true;
+    msg_secret = false;
+    msg_pool_internal = true;
+    msg_db_only = false;
+    msg_release = {
+      internal=["Never released"];
+      opensource=[];
+      internal_deprecated_since=None;
+    };
+    msg_lifecycle = [];
+    msg_has_effect = true;
+    msg_force_custom = None;
+    msg_no_current_operations = false;
+    msg_tag = Custom;
+    msg_obj_name = "";
+    msg_custom_marshaller = false;
+    msg_hide_from_docs = true;
+    msg_allowed_roles = None;
+    msg_map_keys_roles = [];
+    msg_doc_tags = [];
+    msg_forward_to = None;
+}
 
 (** Getters and Setters will be generated for each field, depending on the qualifier. 
     Namespaces allow fields to be grouped together (and this can get reflected in the XML

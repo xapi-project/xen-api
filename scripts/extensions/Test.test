@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+import xmlrpclib, sys
+
+def success_message(result):
+    rpcparams = { 'Status': 'Success', 'Value': result }
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+def failure_message(code, params):
+    rpcparams = { 'Status': 'Failure', 'ErrorDescription': [ code ] + params }
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+if __name__ == "__main__":
+    txt = sys.stdin.read()
+    req = xmlrpclib.loads(txt)
+    print (failure_message("CODE", [ "a", "b" ]))
+    #print (success_message(""))
+
+

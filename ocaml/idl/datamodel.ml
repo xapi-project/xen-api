@@ -90,6 +90,7 @@ let _host_patch = "host_patch"
 let _hostcpu = "host_cpu"
 let _sr = "SR"
 let _sm = "SM"
+let _lvhd = "LVHD"
 let _vm = "VM"
 let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
@@ -304,7 +305,8 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 	?(pool_internal=false)
 	~allowed_roles
 	?(map_keys_roles=[])
-	?(params=[]) ?versioned_params ?lifecycle ?(doc_tags=[]) () =
+	?(params=[]) ?versioned_params ?lifecycle ?(doc_tags=[])
+	?forward_to () =
 	(* if you specify versioned_params then these get put in the params field of the message record;
 	 * otherwise params go in with no default values and param_release=call_release...
 	 *)
@@ -355,6 +357,7 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 		msg_allowed_roles = allowed_roles;
 		msg_map_keys_roles = map_keys_roles;
 		msg_doc_tags = doc_tags;
+		msg_forward_to = forward_to;
 	}
 
 let assert_operation_valid enum cls self = call 
@@ -5521,6 +5524,33 @@ let storage_plugin =
      ])
     ()
 
+let lvhd_enable_thin_provisioning = call
+   ~name:"enable_thin_provisioning"
+   ~in_oss_since:None
+   ~in_product_since:rel_dundee
+   ~allowed_roles:_R_POOL_ADMIN
+   ~params:[
+     Ref _sr, "SR", "The LVHD SR to upgrade to being thin-provisioned.";
+     Int, "initial_allocation", "The initial amount of space to allocate to a newly-created VDI in bytes";
+     Int, "allocation_quantum", "The amount of space to allocate to a VDI when it needs to be enlarged in bytes";
+   ]
+   ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
+   ~forward_to:(Extension "LVHD.enable_thin_provisioning")
+   ()  
+
+let lvhd = 
+  create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
+    ~gen_events:true
+    ~doccomments:[]
+    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~messages:[ 
+      lvhd_enable_thin_provisioning;
+    ]
+    ~contents: [
+      uid _lvhd;
+    ]
+    ()
+
 (* --- rws: removed this after talking to Andy and Julian
 let filesystem =
   { name = _filesystem; description = "An on-disk filesystem";
@@ -6573,6 +6603,18 @@ let pool_disable_ssl_legacy = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let pool_has_extension = call
+	~name:"has_extension"
+	~in_product_since:rel_dundee
+	~doc:"Return true if the extension is available on the pool"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "name", "The name of the API call"
+	]
+	~result:(Bool, "True if the extension exists, false otherwise")
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6641,6 +6683,7 @@ let pool =
 			; pool_apply_edition
 			; pool_enable_ssl_legacy
 			; pool_disable_ssl_legacy
+			; pool_has_extension
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @
@@ -8423,6 +8466,7 @@ let all_system =
 		vlan;
 		storage_plugin;
 		storage_repository;
+		lvhd;
 		vdi;
 		vbd;
 		vbd_metrics;

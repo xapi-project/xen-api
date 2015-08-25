@@ -37,7 +37,7 @@ module Actions = struct
 	module VMPP = Xapi_vmpp
 	module VM_appliance = Xapi_vm_appliance
 	module DR_task = Xapi_dr_task
-
+	module LVHD = struct end
 	module Host = Xapi_host
 	module Host_crashdump = Xapi_host_crashdump
 	module Pool = Xapi_pool

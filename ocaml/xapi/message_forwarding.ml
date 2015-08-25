@@ -765,6 +765,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let disable_ssl_legacy ~__context ~self =
 			info "Pool.disable_ssl_legacy: pool = '%s'" (pool_uuid ~__context self);
 			Local.Pool.disable_ssl_legacy ~__context ~self
+
+		let has_extension ~__context ~self ~name =
+			info "Pool.has_extension: pool = '%s'; name = '%s'" (pool_uuid ~__context self) name;
+			Local.Pool.has_extension ~__context ~self ~name
+
 	end
 
 	module VM = struct
@@ -3895,5 +3900,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	end
 
 	module VGPU_type = struct end
+	module LVHD = struct end
 end
 
