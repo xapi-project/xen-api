@@ -196,6 +196,20 @@ let start ~__context ~vm ~start_paused ~force =
 	end;
 
 
+	(* Sanity check for HVM domains with invalid VCPU configuration*)
+	(*
+	if (Helpers.will_boot_hvm ~__context ~self:vm) && (List.mem_assoc "cores-per-socket" vmr.API.vM_platform) then
+	begin
+		try 
+			let cores_per_socket = int_of_string(List.assoc "cores-per-socket" vmr.API.vM_platform) in
+			(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
+			if (((Int64.to_int(vmr.API.vM_VCPUs_max) mod cores_per_socket) <> 0) 
+				|| ((Int64.to_int(vmr.API.vM_VCPUs_at_startup) mod cores_per_socket) <> 0)) then
+				raise (Api_errors.Server_error(Api_errors.invalid_value, 
+					["Invalid configuration of VCPUs: The number of VCPUs must be multiple of number of cores per socket"]))
+		with _ -> raise (Api_errors.Server_error(Api_errors.invalid_value, ["Invalid value for cores-per-socket"]))
+	end;
+	*)		
 	(* Clear out any VM guest metrics record. Guest metrics will be updated by
 	 * the running VM and for now they might be wrong, especially network
 	 * addresses inherited by a cloned VM. *)
