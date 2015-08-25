@@ -43,7 +43,7 @@ module Reporter : sig
 		(** The reporter is running. *)
 		| Cancelled
 		(** A thread has cancelled the reporter. *)
-		| Stopped
+		| Stopped of [ `New | `Cancelled | `Failed of exn ]
 		(** The reporter has stopped. *)
 	(** The state of a reporter. *)
 

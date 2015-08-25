@@ -121,7 +121,7 @@ module Reporter = struct
 	type state =
 		| Running
 		| Cancelled
-		| Stopped
+		| Stopped of [ `New | `Cancelled | `Failed of exn ]
 
 	type target =
 		| Local of int
@@ -134,7 +134,7 @@ module Reporter = struct
 	}
 
 	let make () = {
-		state = Running;
+		state = Stopped `New;
 		lock = Mutex.create ();
 		condition = Condition.create ();
 	}
@@ -159,6 +159,12 @@ module Reporter = struct
 
 	let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
 		let running = ref true in
+		begin match reporter with
+		| Some reporter ->
+			Mutex.execute reporter.lock (fun () ->
+				reporter.state <- Running)
+		| None -> ()
+		end;
 		while !running do
 			try
 				report ();
@@ -169,9 +175,9 @@ module Reporter = struct
 						(fun () ->
 							match reporter.state with
 							| Running -> ()
-							| Stopped
+							| Stopped _ -> ()
 							| Cancelled ->
-								reporter.state <- Stopped;
+								reporter.state <- Stopped `Cancelled;
 								cleanup ();
 								Condition.broadcast reporter.condition;
 								running := false)
@@ -197,34 +203,41 @@ module Reporter = struct
 			~page_count
 			~protocol
 			~dss_f =
-		let path = RRDD.Plugin.get_path ~uid in
-		D.info "Obtained path=%s\n" path;
-		let _ = mkdir_safe (Filename.dirname path) 0o644 in
-		let id = Rrd_writer.({
-			path;
-			shared_page_count = page_count;
-		}) in
-		let _, writer =
-			Rrd_writer.FileWriter.create id (choose_protocol protocol)
-		in
-		let report () =
-			wait_until_next_reading
-				(module D)
-				~neg_shift
-				~uid
-				~protocol;
-			let payload = Rrd_protocol.({
-				timestamp = Utils.now ();
-				datasources = dss_f ();
+		try
+			let path = RRDD.Plugin.get_path ~uid in
+			D.info "Obtained path=%s\n" path;
+			let _ = mkdir_safe (Filename.dirname path) 0o644 in
+			let id = Rrd_writer.({
+				path;
+				shared_page_count = page_count;
 			}) in
-			writer.Rrd_writer.write_payload payload;
-			Thread.delay 0.003
-		in
-		let cleanup () =
-			RRDD.Plugin.Local.deregister ~uid;
-			writer.Rrd_writer.cleanup ()
-		in
-		loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
+			let _, writer =
+				Rrd_writer.FileWriter.create id (choose_protocol protocol)
+			in
+			let report () =
+				wait_until_next_reading
+					(module D)
+					~neg_shift
+					~uid
+					~protocol;
+				let payload = Rrd_protocol.({
+					timestamp = Utils.now ();
+					datasources = dss_f ();
+				}) in
+				writer.Rrd_writer.write_payload payload;
+				Thread.delay 0.003
+			in
+			let cleanup () =
+				RRDD.Plugin.Local.deregister ~uid;
+				writer.Rrd_writer.cleanup ()
+			in
+			loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
+		with exn ->
+			match reporter with
+			| Some reporter ->
+				Mutex.execute reporter.lock (fun () ->
+					reporter.state <- Stopped (`Failed exn))
+			| None -> raise exn
 
 	let start_interdomain
 			(module D : Debug.DEBUG)
@@ -325,7 +338,7 @@ module Reporter = struct
 					Condition.wait reporter.condition reporter.lock
 				end
 				| Cancelled -> Condition.wait reporter.condition reporter.lock
-				| Stopped -> ())
+				| Stopped _ -> ())
 
 	let wait_until_stopped ~reporter =
 		Mutex.execute reporter.lock
