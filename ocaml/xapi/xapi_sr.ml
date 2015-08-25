@@ -459,12 +459,6 @@ let set_shared ~__context ~sr ~value =
 			Db.SR.set_shared ~__context ~self:sr ~value
 		end
 
-(* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
-(* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
-let update ~__context ~sr =
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
-
 let set_name_label ~__context ~sr ~value =
 	let open Storage_access in
 	let open Storage_interface in
