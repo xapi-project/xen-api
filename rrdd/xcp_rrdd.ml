@@ -532,6 +532,12 @@ let options = [
 		"True if datasources provided by plugins should be exported by default";
 ]
 
+let doc = String.concat "\n" [
+	"This is the xapi toolstack statistics gathering daemon.";
+        "";
+        "This service maintains a list of registered datasources (shared memory pages containing metadata and time-varying values), periodically polls the datasources and records historical data in RRD format.";
+]
+
 (* Entry point. *)
 let _ =
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
@@ -543,10 +549,34 @@ let _ =
 
 	(* Read configuration file. *)
 	debug "Reading configuration file ..";
-	Xcp_service.configure ~options ();
+	begin match Xcp_service.configure2
+		~name:Sys.argv.(0)
+		~version:Version.version
+		~doc ~options () with
+	| `Ok () -> ()
+	| `Error m ->
+		Printf.fprintf stderr "%s\n" m;
+		exit 1
+	end;
+
 	Xcp_service.maybe_daemonize ();
 
 	debug "Starting the HTTP server ..";
+	(* Eventually we should switch over to xcp_service to declare our services,
+	   but since it doesn't support HTTP GET and PUT we keep the old code for now.
+	   We must avoid creating the Unix domain socket twice, so we only call
+	   Xcp_service.serve_forever if we are actually using the message-switch. *)
+	let (_: Thread.t) =
+		Thread.create (fun () ->
+			if !Xcp_client.use_switch then begin
+				let server = Xcp_service.make
+					~path:!Rrd_interface.default_path
+					~queue_name:!Rrd_interface.queue_name
+					~rpc_fn:(Server.process ())
+					() in
+				Debug.with_thread_associated "main" Xcp_service.serve_forever server
+			end
+		) () in
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
 	debug "Starting xenstore-watching thread ..";
