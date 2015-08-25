@@ -132,12 +132,13 @@ let sr_health_check ~__context ~self =
 	if Helpers.i_am_srmaster ~__context ~sr:self then
 		let dbg = Ref.string_of (Context.get_task_id __context) in
 		let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-			if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
+		if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
 			Helpers.call_api_functions ~__context (fun rpc session_id ->
 				let task = Client.Client.Task.create ~rpc ~session_id ~label:"SR recovering"  ~description:"" in
 				let _ = Thread.create (fun () ->
 					let rec loop () =
 						Thread.delay 30.;
+						let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
 						if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then
 							loop ()
 						else
