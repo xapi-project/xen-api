@@ -1256,7 +1256,6 @@ let set_localdb_key ~__context ~host ~key ~value =
 
 (* Licensing *)
 
-exception Pool_record_expected_singleton
 let copy_license_to_db ~__context ~host ~features ~additional =
 	let restrict_kvpairs = Features.to_assoc_list features in
 	let license_params = additional @ restrict_kvpairs in
