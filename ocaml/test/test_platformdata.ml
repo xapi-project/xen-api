@@ -18,19 +18,23 @@ open Test_highlevel
 
 module SanityCheck = Generic.Make(struct
 	module Io = struct
-		type input_t = ((string * string) list * bool)
-		type output_t = (string * string) list
+		type input_t = ((string * string) list * bool * int64 * int64 * bool)
+		type output_t = (exn, (string * string) list) Either.t
 
-		let string_of_input_t input =
-			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b)"
-				(fst input |> Test_common.string_of_string_map)
-				(snd input)
+		let string_of_input_t (platformdata, filter, vcpu_max, vcpu_startup, hvm) =
+			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b, vcpu_max = %Ld,
+					 vcpu_at_startup = %Ld, hvm = %b)"
+				(platformdata |> Test_common.string_of_string_map)
+				(filter) (vcpu_max) (vcpu_startup) (hvm)
 
-		let string_of_output_t = Test_common.string_of_string_map
+		let string_of_output_t = function
+			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
+			| Either.Right e -> Printf.sprintf "Right %s" (e |> Test_common.string_of_string_map)
 	end
 
-	let transform (platformdata, filter_out_unknowns) =
-		Xapi_xenops.Platform.sanity_check ~platformdata ~filter_out_unknowns
+	let transform (platformdata, filter_out_unknowns, vcpu_max, vcpu_at_startup, hvm) =
+		try Either.Right (Xapi_xenops.Platform.sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns)
+		with e -> Either.Left e
 
 	let tests =
 		let usb_defaults = [
@@ -44,43 +48,43 @@ module SanityCheck = Generic.Make(struct
 				"pae", "true";
 				"whatever", "def";
 				"viridian", "true";
-			], true),
-			usb_defaults @
+			], true, 0L, 0L, false),
+			Either.Right (usb_defaults @
 			[
 				"pae", "true";
 				"viridian", "true";
-			]);
+			]));
 			(* Check that usb and usb_tablet are turned on by default. *)
-			(([], false),
-			usb_defaults);
+			(([], false, 0L, 0L, false),
+			Either.Right (usb_defaults));
 			(* Check that an invalid tsc_mode gets filtered out. *)
-			((["tsc_mode", "17";], false),
-			usb_defaults);
+			((["tsc_mode", "17";], false, 0L, 0L, false),
+			Either.right (usb_defaults));
 			(* Check that an invalid parallel port gets filtered out. *)
-			((["parallel", "/dev/random"], false),
-			usb_defaults);
+			((["parallel", "/dev/random"], false, 0L, 0L, false),
+			Either.Right (usb_defaults));
 			(* Check that we can't set usb_tablet to true if usb is false. *)
 			(([
 				"usb", "false";
 				"usb_tablet", "true";
-			], false),
-			[
+			], false, 0L, 0L, false),
+			Either.Right ([
 				"usb", "false";
 				"usb_tablet", "false";
-			]);
+			]));
 			(* Check that we can fully disable usb. *)
 			(([
 				"usb", "false";
 				"usb_tablet", "false";
-			], false),
-			[
+			], false, 0L, 0L, false),
+			Either.Right ([
 				"usb", "false";
 				"usb_tablet", "false";
-			]);
+			]));
 			(* Check that we can disable the parallel port. *)
-			((["parallel", "none"], false),
-			usb_defaults @
-			["parallel", "none"]);
+			((["parallel", "none"], false, 0L, 0L, false),
+			Either.Right (usb_defaults @
+			["parallel", "none"]));
 			(* Check that a set of valid fields is unchanged (apart from
 			 * the ordering, which changes due to the implementation of
 			 * List.update_assoc). *)
@@ -91,27 +95,64 @@ module SanityCheck = Generic.Make(struct
 				"tsc_mode", "2";
 				"viridian", "true";
 				"usb", "true";
-			], false),
-			[
+			], false, 0L, 0L, false),
+			Either.Right ([
 				"usb", "true";
 				"usb_tablet", "false";
 				"parallel", "/dev/parport2";
 				"pae", "true";
 				"tsc_mode", "2";
 				"viridian", "true";
-			]);
+			]));
 			(* Check that combination of valid and invalid fields is dealt with
 			 * correctly. *)
 			(([
 				"pae", "true";
 				"parallel", "/dev/parport0";
 				"tsc_mode", "blah";
-			], false),
-			usb_defaults @
+			], false, 0L, 0L, false),
+			Either.Right (usb_defaults @
 			[
 				"pae", "true";
 				"parallel", "/dev/parport0";
-			]);
+			]));
+			(* Check VCPUs configuration - hvm success scenario*)
+			(([
+				"cores-per-socket", "3";
+			], false, 6L, 6L, true),
+			Either.Right (usb_defaults @
+			[
+				"cores-per-socket", "3";
+			]));
+			(* Check VCPUs configuration - pvm success scenario*)
+			(([
+				"cores-per-socket", "3";
+			], false, 0L, 0L, false),
+			Either.Right (usb_defaults @
+			[
+				"cores-per-socket", "3";
+			]));
+			(* Check VCPUs configuration - hvm failure scenario*)
+			(([
+				"cores-per-socket", "3";
+			], false, 6L, 5L, true),
+			Either.Left (Api_errors.Server_error(Api_errors.invalid_value,
+						["platform:cores-per-socket";
+						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"])));
+			(* Check VCPUs configuration - hvm failure scenario*)
+			(([
+				"cores-per-socket", "4";
+			], false, 6L, 6L, true),
+			Either.Left (Api_errors.Server_error(Api_errors.invalid_value,
+						["platform:cores-per-socket";
+						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"])));
+			(* Check VCPUs configuration - hvm failure scenario*)
+			(([
+				"cores-per-socket", "abc";
+			], false, 6L, 5L, true),
+			Either.Left(Api_errors.Server_error(Api_errors.invalid_value,
+						["platform:cores-per-socket";
+						"value = abc is not a valid int"])));
 		]
 end)
 

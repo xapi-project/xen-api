@@ -151,7 +151,7 @@ module Platform = struct
 		with Not_found ->
 			default
 
-	let sanity_check ~platformdata ~filter_out_unknowns =
+	let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns =
 		(* Filter out unknown flags, if applicable *)
 		let platformdata =
 			if filter_out_unknowns
@@ -164,6 +164,21 @@ module Platform = struct
 				(fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
 				platformdata
 		in
+		(* Sanity check for HVM domains with invalid VCPU configuration*)
+		if hvm && (List.mem_assoc "cores-per-socket" platformdata) then
+		begin
+			try
+				let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
+				(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
+				if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) 
+					|| ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
+					raise (Api_errors.Server_error(Api_errors.invalid_value, 
+						["platform:cores-per-socket"; 
+						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
+			with Failure msg ->
+				raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; 
+					Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
+		end;
 		(* Add usb emulation flags.
 		   Make sure we don't send usb=false and usb_tablet=true,
 		   as that wouldn't make sense. *)
@@ -714,6 +729,9 @@ module MD = struct
 		let platformdata =
 			Platform.sanity_check
 				~platformdata:vm.API.vM_platform
+				~vcpu_max:vm.API.vM_VCPUs_max
+				~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
+				~hvm:(Helpers.will_boot_hvm ~__context ~self:vmref)
 				~filter_out_unknowns:
 					(not(Pool_features.is_enabled ~__context Features.No_platform_filter))
 		in
