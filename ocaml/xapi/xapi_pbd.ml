@@ -139,17 +139,31 @@ let sr_health_check ~__context ~self =
 				let _ = Thread.create (fun () ->
 					let rec loop () =
 						Thread.delay 30.;
-						let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-						if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then
-							loop ()
+						if not (Db.Task.get_status ~__context ~self:task = `cancelling) then
+							let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+							if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then
+								loop ()
+							else
+								Db.Task.destroy ~__context ~self:task
 						else
-							Client.Client.Task.destroy ~rpc ~session_id ~self:task
+							Db.Task.destroy ~__context ~self:task
 					in
 					loop ()
 				)
 				in ()
 			)
 		end
+
+let find_health_check_task ~__context ~self =
+	Db.Task.get_refs_where ~__context ~expr:(And (
+		Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
+		Eq (Field "name__description", Literal (Ref.string_of self))
+	))
+
+let stop_health_check_thread ~__context ~self =
+	if Helpers.i_am_srmaster ~__context ~sr:self then
+		let tasks = find_health_check_task ~__context ~self in
+		List.iter (fun task -> Db.Task.set_status ~__context ~self:task ~value:`cancelling) tasks
 
 let plug ~__context ~self =
 	(* It's possible to end up with a PBD being plugged after "unbind" is
@@ -229,6 +243,8 @@ let unplug ~__context ~self =
 
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false;
+
+			stop_health_check_thread ~__context ~self;
 
 			Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
 		end
