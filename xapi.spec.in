@@ -155,6 +155,7 @@ for f in XenAPI XenAPIPlugin inventory; do
 done > core-files
 
 ln -s /var/lib/xcp $RPM_BUILD_ROOT/var/xapi
+mkdir $RPM_BUILD_ROOT/etc/xapi.conf.d
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -196,6 +197,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/save-boot-info
 %config(noreplace) /etc/sysconfig/perfmon
 %config(noreplace) /etc/sysconfig/xapi
+/etc/xapi.conf.d
 /etc/xapi.d/base-path
 /etc/xapi.d/plugins/DRAC.py
 /etc/xapi.d/plugins/DRAC.pyo

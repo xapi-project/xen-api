@@ -222,9 +222,6 @@ let unplug ~__context ~self =
 			Storage_access.transform_storage_exn
 				(fun () -> C.SR.detach dbg uuid);
 
-			(* This is the last point we can query the plugin's capabilities *)
-			Opt.iter (Xapi_sm.unregister_plugin ~__context) (Storage_mux.query_result_of_sr uuid);
-
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false;
 

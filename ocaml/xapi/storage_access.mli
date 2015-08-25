@@ -18,6 +18,9 @@
 val start_smapiv1_servers: unit -> unit
 (** start listening for requests backed by SMAPIv1-style plugins *)
 
+val on_xapi_start: __context:Context.t -> unit
+(** Synchronises the known SM plugins with the SM table *)
+
 val start: unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)

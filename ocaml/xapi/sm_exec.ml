@@ -338,12 +338,16 @@ let get_supported add_fn =
   let check_driver entry =
       if String.endswith "SR" entry then (
         let driver = String.sub entry 0 (String.length entry - 2) in
-        try
-          Unix.access (cmd_name driver) [ Unix.X_OK ];
-          let i = sr_get_driver_info driver in
-          add_fn driver i;
-        with e ->
-          error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e);
+        if not(Xapi_globs.accept_sm_plugin driver)
+        then info "Skipping SMAPIv1 plugin %s: not in sm-plugins whitelist in configuration file" driver
+        else begin
+          try
+            Unix.access (cmd_name driver) [ Unix.X_OK ];
+            let i = sr_get_driver_info driver in
+            add_fn driver i;
+          with e ->
+            error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e)
+        end
       ) in
 
   List.iter 
