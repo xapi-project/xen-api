@@ -21,6 +21,7 @@ open Listext
 open Xstringext
 open Server_helpers
 open Client
+open Db_filter_types
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -1970,7 +1971,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							Db.Host.remove_from_current_operations ~__context ~self ~key: task_id;
 							Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of self);
 						end;
-						Xapi_host_helpers.update_allowed_operations ~__context ~self
+						let clustered_srs = Db.SR.get_refs_where ~__context ~expr:(Eq (Field "clustered", Literal "true")) in
+						if clustered_srs <> [] then
+							(* Host powerstate operations on one host may affect all other hosts if
+							 * a clustered SR is in use, so update all hosts' allowed operations. *)
+							Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
+						else
+							Xapi_host_helpers.update_allowed_operations ~__context ~self
 					with
 					  _ -> ())
 

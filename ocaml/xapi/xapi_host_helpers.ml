@@ -139,6 +139,10 @@ let update_allowed_operations ~__context ~self : unit =
     else keys in
   Db.Host.set_allowed_operations ~__context ~self ~value:keys
 
+let update_allowed_operations_all_hosts ~__context : unit =
+  let hosts = Db.Host.get_all ~__context in
+  List.iter (fun self -> update_allowed_operations ~__context ~self) hosts
+
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.Host.get_current_operations ~__context ~self in
   let set = (fun value -> Db.Host.set_current_operations ~__context ~self ~value) in
