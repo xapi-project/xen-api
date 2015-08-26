@@ -428,13 +428,39 @@ module MD = struct
 				warn "Unknown VBD QoS type: %s (try 'ionice')" x;
 				None in
 
-		let backend_kind_keys =
+		let other_config_keys ?(default=None) key =
 			let oc = vbd.API.vBD_other_config in
-			let k = Xapi_globs.vbd_backend_key in
+			let k = key in
 			try
 				let v = List.assoc k oc in
 				[(k, v)]
-			with Not_found -> []
+			with Not_found -> match default with None->[] | Some x->[(k, x)]
+		in
+
+		let in_range ~min ~max ~fallback values =
+			List.map (fun (k,v)-> k,
+				let value = try int_of_string v
+					with _->
+						debug "%s: warning: value %s is not an integer. Using fallback value %d" k v fallback;
+						fallback
+				in
+				string_of_int (
+					if value < min then min
+					else if value > max then max
+					else value
+				)
+			)
+			values
+		in
+
+		let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
+		let poll_duration_keys = in_range ~min:0 ~max:max_int
+			~fallback:0 (* if user provides invalid integer, use 0 = disable polling *)
+			(other_config_keys Xapi_globs.vbd_polling_duration_key ~default:(Some (string_of_int !Xapi_globs.default_vbd3_polling_duration)))
+		in
+		let poll_idle_threshold_keys = in_range ~min:0 ~max:100
+			~fallback:50 (* if user provides invalid float, use 50 = default 50% *)
+			(other_config_keys Xapi_globs.vbd_polling_idle_threshold_key ~default:(Some (string_of_int !Xapi_globs.default_vbd3_polling_idle_threshold)))
 		in
 
 		{
@@ -447,7 +473,7 @@ module MD = struct
 				| `CD -> CDROM
 				| `Floppy -> Floppy);
 			unpluggable = vbd.API.vBD_unpluggable;
-			extra_backend_keys = backend_kind_keys;
+			extra_backend_keys = backend_kind_keys @ poll_duration_keys @ poll_idle_threshold_keys;
 			extra_private_keys = [];
 			qos = qos ty;
 			persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);

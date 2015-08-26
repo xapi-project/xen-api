@@ -186,6 +186,8 @@ let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 
 let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
+let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
+let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
 
 let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
 
@@ -743,6 +745,12 @@ let redo_log_max_startup_time = ref 5.
 (** The delay between each attempt to connect to the block device I/O process *)
 let redo_log_connect_delay = ref 0.1
 
+(** The default time, in µs, in which tapdisk3 will keep polling the vbd ring buffer in expectation for extra requests from the guest *)
+let default_vbd3_polling_duration = ref 1000
+
+(** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
+let default_vbd3_polling_idle_threshold = ref 50
+
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
@@ -871,6 +879,8 @@ let xapi_globs_spec =
 	  "redo_log_max_block_time_writedb", Float redo_log_max_block_time_writedb;
 	  "redo_log_max_startup_time", Float redo_log_max_startup_time;
 	  "redo_log_connect_delay", Float redo_log_connect_delay;
+	  "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
+	  "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
 	]
 
 let options_of_xapi_globs_spec = 
