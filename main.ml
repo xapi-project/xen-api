@@ -505,6 +505,8 @@ let process root_dir name x =
     end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
+    let name_label = args.Args.SR.Create.name_label in
+    let description = args.Args.SR.Create.name_description in
     let device_config = args.Args.SR.Create.device_config in
     begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
     | None ->
@@ -513,6 +515,8 @@ let process root_dir name x =
       let args = Storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
         uri
+        name_label
+        description
         device_config in
       let args = Storage.Volume.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
