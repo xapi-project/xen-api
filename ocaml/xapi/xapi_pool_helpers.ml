@@ -15,6 +15,7 @@
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
+open Client
 open Db_filter
 open Record_util
 open Threadext
@@ -88,3 +89,50 @@ let ha_disable_in_progress ~__context =
 	let current_ops = Db.Pool.get_current_operations ~__context ~self:pool in
 	if List.exists (fun (_, x) -> x = `ha_disable) current_ops then true else false
 
+let get_master_slaves_list_with_fn ~__context fn =
+	let _unsorted_hosts = Db.Host.get_all ~__context in
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
+	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
+		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);
+	fn master slaves
+
+(* returns the list of hosts in the pool, with the master being the first element of the list *)
+let get_master_slaves_list ~__context =
+	get_master_slaves_list_with_fn ~__context (fun master slaves -> master::slaves)
+
+(* returns the list of slaves in the pool *)
+let get_slaves_list ~__context =
+	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
+
+(* Note: fn exposed in .mli *)
+(** Call the function on the slaves first. When those calls have all
+ *  returned, call the function on the master. *)
+let call_fn_on_slaves_then_master ~__context f =
+  (* Get list with master as LAST element: important for ssl_legacy calls *)
+  let hosts = List.rev (get_master_slaves_list ~__context) in
+  Helpers.call_api_functions ~__context (fun rpc session_id -> 
+    let errs = List.fold_left 
+      (fun acc host -> 
+	try
+	  f ~rpc ~session_id ~host;
+	  acc
+	with x -> 
+	  (host,x)::acc) [] hosts
+    in
+    if List.length errs > 0 then begin
+      warn "Exception raised while performing operation on hosts:";
+      List.iter (fun (host,x) -> warn "Host: %s error: %s" (Ref.string_of host) (ExnHelper.string_of_exn x)) errs;
+      raise (snd (List.hd errs))
+    end)
+
+let apply_guest_agent_config ~__context =
+	let f ~rpc ~session_id ~host =
+		try Client.Host.apply_guest_agent_config ~rpc ~session_id ~host
+		with e ->
+			error "Failed to apply guest agent config to host %s: %s"
+				(Db.Host.get_uuid~__context ~self:host)
+				(Printexc.to_string e)
+	in
+	call_fn_on_slaves_then_master ~__context f
