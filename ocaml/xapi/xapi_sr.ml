@@ -94,13 +94,8 @@ let scan_one ~__context ?callback sr =
 				()
 			)) callback
 
-let get_all_plugged_srs ~__context =
-	let pbds = Db.PBD.get_all ~__context in
-	let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
-	List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
-
 let scan_all ~__context =
-	let srs = get_all_plugged_srs ~__context in
+	let srs = Helpers.get_all_plugged_srs ~__context in
 	(* only scan those with the dirty/auto_scan key set *)
 	let scannable_srs =
 		List.filter (fun sr ->

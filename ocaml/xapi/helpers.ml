@@ -1200,6 +1200,17 @@ let get_srmaster ~__context ~sr =
 		List.map (fun pbd -> Db.PBD.get_uuid ~__context ~self:pbd) pbds))
   end
 
+let get_all_plugged_srs ~__context =
+	let pbds = Db.PBD.get_all ~__context in
+	let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
+	List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
+
+let find_health_check_task ~__context ~sr =
+	Db.Task.get_refs_where ~__context ~expr:(And (
+		Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
+		Eq (Field "name__description", Literal (Ref.string_of sr))
+	))
+
 (* Copy the snapshot metadata from [src_record] to the VM whose reference is [dst_ref]. *)
 (* If a lookup table is provided, then the field 'snapshot_of' is translated using this *)
 (* lookup table. *)

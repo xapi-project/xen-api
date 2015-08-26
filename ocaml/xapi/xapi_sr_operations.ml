@@ -205,14 +205,8 @@ let sr_health_check ~__context ~self =
 			)
 		end
 
-let find_health_check_task ~__context ~self =
-	Db.Task.get_refs_where ~__context ~expr:(And (
-		Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
-		Eq (Field "name__description", Literal (Ref.string_of self))
-	))
-
 let stop_health_check_thread ~__context ~self =
 	if Helpers.i_am_srmaster ~__context ~sr:self then
-		let tasks = find_health_check_task ~__context ~self in
+		let tasks = Helpers.find_health_check_task ~__context ~sr:self in
 		List.iter (fun task -> Db.Task.set_status ~__context ~self:task ~value:`cancelling) tasks
 

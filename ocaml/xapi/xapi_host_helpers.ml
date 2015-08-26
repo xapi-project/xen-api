@@ -97,7 +97,7 @@ let valid_operations ~__context record _ref' =
    * - Only one host may be down at a time;
    * - No hosts may go down if the SR is "recovering".
    *)
-  let plugged_srs = Xapi_sr.get_all_plugged_srs ~__context in
+  let plugged_srs = Helpers.get_all_plugged_srs ~__context in
   let plugged_clustered_srs = List.filter (fun self -> Db.SR.get_clustered ~__context ~self) plugged_srs in
   if plugged_clustered_srs <> [] then begin
     let hosts_down = Db.Host_metrics.get_refs_where ~__context ~expr:(Eq (Field "live", Literal "false")) in
@@ -105,7 +105,7 @@ let valid_operations ~__context record _ref' =
       set_errors Api_errors.clustered_sr_degraded [ List.hd plugged_clustered_srs |> Ref.string_of ] [ `shutdown; `reboot ];
 
     let recovering_tasks =
-      List.map (fun sr -> Xapi_sr_operations.find_health_check_task ~__context ~self:sr) plugged_clustered_srs
+      List.map (fun sr -> Helpers.find_health_check_task ~__context ~sr) plugged_clustered_srs
       |> List.concat
     in
     if recovering_tasks <> [] then
