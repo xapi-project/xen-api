@@ -66,6 +66,7 @@ let update_pool_features ~__context =
 		let pool_features = of_assoc_list pool_restrictions in
 		info "Old pool features enabled: %s" (to_compact_string pool_features);
 		info "New pool features enabled: %s" (to_compact_string new_features);
-		Db.Pool.set_restrictions ~__context ~self:pool ~value:new_restrictions
+		Db.Pool.set_restrictions ~__context ~self:pool ~value:new_restrictions;
+		Xapi_pool_helpers.apply_guest_agent_config ~__context
 	end
 
