@@ -19,6 +19,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Db_filter
+open Db_filter_types
 open Record_util (* for host_operation_to_string *)
 open Threadext
 
@@ -90,6 +91,26 @@ let valid_operations ~__context record _ref' =
   begin 
     try Unix.access (Filename.concat !Xapi_globs.xapi_plugins_root Constants.power_on_plugin) [ Unix.X_OK ]
     with _ -> set_errors Api_errors.xenapi_missing_plugin [ Constants.power_on_plugin ] [ `power_on ]
+  end;
+
+  (* Check where there are any attached clustered SRs. If so:
+   * - Only one host may be down at a time;
+   * - No hosts may go down if the SR is "recovering".
+   *)
+  let plugged_srs = Xapi_sr.get_all_plugged_srs ~__context in
+  let plugged_clustered_srs = List.filter (fun self -> Db.SR.get_clustered ~__context ~self) plugged_srs in
+  if plugged_clustered_srs <> [] then begin
+    let hosts_down = Db.Host_metrics.get_refs_where ~__context ~expr:(Eq (Field "live", Literal "false")) in
+    if hosts_down <> [] then
+      set_errors Api_errors.clustered_sr_degraded [ List.hd plugged_clustered_srs |> Ref.string_of ] [ `shutdown; `reboot ];
+
+    let recovering_tasks =
+      List.map (fun sr -> Xapi_sr_operations.find_health_check_task ~__context ~self:sr) plugged_clustered_srs
+      |> List.concat
+    in
+    if recovering_tasks <> [] then
+      set_errors Api_errors.clustered_sr_degraded
+        [ Db.Task.get_name_description ~__context ~self:(List.hd recovering_tasks) ] [ `shutdown; `reboot ];
   end;
 
   (* All other operations may be parallelised *)

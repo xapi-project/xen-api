@@ -128,27 +128,6 @@ let check_plugged_on_master_constraint ~__context ~self =
 	  
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
-let sr_health_check ~__context ~self =
-	if Helpers.i_am_srmaster ~__context ~sr:self then
-		let dbg = Ref.string_of (Context.get_task_id __context) in
-		let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-			if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				let task = Client.Client.Task.create ~rpc ~session_id ~label:"SR recovering"  ~description:"" in
-				let _ = Thread.create (fun () ->
-					let rec loop () =
-						Thread.delay 30.;
-						if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then
-							loop ()
-						else
-							Client.Client.Task.destroy ~rpc ~session_id ~self:task
-					in
-					loop ()
-				)
-				in ()
-			)
-		end
-
 let plug ~__context ~self =
 	(* It's possible to end up with a PBD being plugged after "unbind" is
 	   called if SR.create races with a PBD.plug (see Storage_access.create_sr)
@@ -166,7 +145,7 @@ let plug ~__context ~self =
 					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
-				sr_health_check ~__context ~self:sr;
+				Xapi_sr_operations.sr_health_check ~__context ~self:sr;
 
 				(* When the plugin is registered it is possible to query the capabilities etc *)
 				Xapi_sm.register_plugin ~__context query_result;
@@ -224,6 +203,8 @@ let unplug ~__context ~self =
 
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false;
+
+			Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
 			Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
 		end
