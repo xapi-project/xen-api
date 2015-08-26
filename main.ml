@@ -505,6 +505,8 @@ let process root_dir name x =
     end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
+    let name_label = args.Args.SR.Create.name_label in
+    let description = args.Args.SR.Create.name_description in
     let device_config = args.Args.SR.Create.device_config in
     begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
     | None ->
@@ -513,6 +515,8 @@ let process root_dir name x =
       let args = Storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
         uri
+        name_label
+        description
         device_config in
       let args = Storage.Volume.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
@@ -520,6 +524,30 @@ let process root_dir name x =
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
+  | { R.name = "SR.set_name_label"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.SR.Set_name_label.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Set_name_label.sr
+    >>= fun sr ->
+    let name_label = args.Args.SR.Set_name_label.new_name_label in
+    let dbg = args.Args.SR.Set_name_label.dbg in
+    let args = Storage.Volume.Types.SR.Set_name.In.make dbg sr name_label in
+    let args = Storage.Volume.Types.SR.Set_name.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_name") args Storage.Volume.Types.SR.Set_name.Out.t_of_rpc
+    >>= fun () ->
+    Deferred.Result.return (R.success (Args.SR.Set_name_label.rpc_of_response ()))
+  | { R.name = "SR.set_name_description"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    let args = Args.SR.Set_name_description.request_of_rpc args in
+    Attached_SRs.find args.Args.SR.Set_name_description.sr
+    >>= fun sr ->
+    let name_description = args.Args.SR.Set_name_description.new_name_description in
+    let dbg = args.Args.SR.Set_name_description.dbg in
+    let args = Storage.Volume.Types.SR.Set_description.In.make dbg sr name_description in
+    let args = Storage.Volume.Types.SR.Set_description.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_description") args Storage.Volume.Types.SR.Set_description.Out.t_of_rpc
+    >>= fun () ->
+    Deferred.Result.return (R.success (Args.SR.Set_name_label.rpc_of_response ()))
   | { R.name = "SR.destroy"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.SR.Destroy.request_of_rpc args in
