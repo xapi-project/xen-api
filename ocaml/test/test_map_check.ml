@@ -27,6 +27,8 @@ let string_of_requirements requirements =
 
 let true_fun = (fun _ -> true)
 
+let false_fun = (fun _ -> false)
+
 module AddDefaults = Generic.Make(struct
 	module Io = struct
 		type input_t = (requirement list) * ((string * string) list)
@@ -69,8 +71,43 @@ module AddDefaults = Generic.Make(struct
 	]
 end)
 
+module ValidateKVPair = Generic.Make(struct
+	module Io = struct
+		type input_t = requirement list * string * string
+		type output_t = (exn, unit) Either.t
+
+		let string_of_input_t (requirements, key, value) =
+			Printf.sprintf "%s, %s, %s"
+				(string_of_requirements requirements) key value
+		let string_of_output_t = function
+			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
+			| Either.Right () -> "Right ()"
+	end
+
+	let transform (requirements, key, value) =
+		try Either.Right (validate_kvpair "test_field" requirements (key, value))
+		with e -> Either.Left e
+
+	let tests = [
+		(* If all values are valid, the exception should not be thrown. *)
+		(
+			[{key = "abc"; default_value = None; is_valid_value = true_fun}],
+			"abc", "def"
+		),
+		Either.Right ();
+		(* If there is no valid value, the exception should always be thrown. *)
+		(
+			[{key = "abc"; default_value = None; is_valid_value = false_fun}],
+			"abc", "def"
+		),
+		Either.Left (Api_errors.(Server_error
+			(invalid_value, ["test_field"; "abc = def"])));
+	]
+end)
+
 let test =
 	"test_map_check" >:::
 		[
 			"test_add_defaults" >:: AddDefaults.test;
+			"test_validate_kvpair" >:: ValidateKVPair.test;
 		]
