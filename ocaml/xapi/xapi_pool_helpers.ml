@@ -132,7 +132,7 @@ let apply_guest_agent_config ~__context =
 		try Client.Host.apply_guest_agent_config ~rpc ~session_id ~host
 		with e ->
 			error "Failed to apply guest agent config to host %s: %s"
-				(Db.Host.get_uuid~__context ~self:host)
+				(Db.Host.get_uuid ~__context ~self:host)
 				(Printexc.to_string e)
 	in
 	call_fn_on_slaves_then_master ~__context f
