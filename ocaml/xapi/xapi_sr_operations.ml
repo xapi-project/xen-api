@@ -187,17 +187,19 @@ let sr_health_check ~__context ~self =
 			Helpers.call_api_functions ~__context (fun rpc session_id ->
 				let task = Client.Task.create ~rpc ~session_id
 					~label:Xapi_globs.sr_health_check_task_label ~description:(Ref.string_of self) in
+				Xapi_host_helpers.update_allowed_operations_all_hosts ~__context;
 				let _ = Thread.create (fun () ->
 					let rec loop () =
 						Thread.delay 30.;
-						if not (Db.Task.get_status ~__context ~self:task = `cancelling) then
-							let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-							if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then
-								loop ()
-							else
-								Db.Task.destroy ~__context ~self:task
-						else
-							Db.Task.destroy ~__context ~self:task
+						let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+						if not (Db.Task.get_status ~__context ~self:task = `cancelling) &&
+							info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering
+						then
+							loop ()
+						else begin
+							Db.Task.destroy ~__context ~self:task;
+							Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
+						end
 					in
 					loop ()
 				)
@@ -205,14 +207,8 @@ let sr_health_check ~__context ~self =
 			)
 		end
 
-let find_health_check_task ~__context ~self =
-	Db.Task.get_refs_where ~__context ~expr:(And (
-		Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
-		Eq (Field "name__description", Literal (Ref.string_of self))
-	))
-
 let stop_health_check_thread ~__context ~self =
 	if Helpers.i_am_srmaster ~__context ~sr:self then
-		let tasks = find_health_check_task ~__context ~self in
+		let tasks = Helpers.find_health_check_task ~__context ~sr:self in
 		List.iter (fun task -> Db.Task.set_status ~__context ~self:task ~value:`cancelling) tasks
 
