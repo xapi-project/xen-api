@@ -404,10 +404,18 @@ let api =
             };
             {
               Method.name = "create";
-              description = "[create uri configuration]: creates a fresh SR";
+              description = "[create uri name description configuration]: creates a fresh SR";
               inputs = [
                 uri;
-                { Arg.name = "configuration";
+                { Arg.name = "name";
+                  ty = Type.(Basic String);
+                  description = "Human-readable name for the SR";
+                }; {
+                  Arg.name = "description";
+                  ty = Type.(Basic String);
+                  description = "Human-readable description for the SR";
+                }; {
+                  Arg.name = "configuration";
                   ty = Type.(Dict(String, Basic String));
                   description = String.concat " " [
                     "Plugin-specific configuration which describes where and";
