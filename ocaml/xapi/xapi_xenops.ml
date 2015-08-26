@@ -172,9 +172,8 @@ module Platform = struct
 				(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
 				if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) 
 					|| ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
-					raise (Api_errors.Server_error(Api_errors.invalid_value, ["Invalid configuration of VCPUs: The number of VCPUs 
-								must be multiple of number of cores per socket"]))
-			with _ -> raise (Api_errors.Server_error(Api_errors.invalid_value, ["Invalid value for cores-per-socket"]))
+					raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; "VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
+			with Failure "int_of_string" -> raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; Printf.sprintf "%s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
 		end;
 		(* Add usb emulation flags.
 		   Make sure we don't send usb=false and usb_tablet=true,
