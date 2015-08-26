@@ -555,6 +555,12 @@ module Host = struct
 		cpu_info: cpu_info;
 		hypervisor: hypervisor;
 	}
+
+	type guest_agent_feature = {
+		name : string;
+		licensed : bool;
+		parameters : (string * string) list;
+	}
 end
 
 module TASK = struct
@@ -571,6 +577,8 @@ module HOST = struct
 	external send_debug_keys: debug_info -> string -> unit = ""
 	external set_worker_pool_size: debug_info -> int -> unit = ""
 	external mask_features: debug_info -> string -> string -> string = ""
+	external update_guest_agent_features: debug_info ->
+		Host.guest_agent_feature list -> unit = ""
 end
 
 module VM = struct
