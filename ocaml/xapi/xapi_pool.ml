@@ -1842,10 +1842,23 @@ let guest_agent_config_requirements =
 		};
 	]
 
+let apply_guest_agent_config ~__context =
+	let f ~rpc ~session_id ~host =
+		try Client.Host.apply_guest_agent_config ~rpc ~session_id ~host
+		with e ->
+			error "Failed to apply guest agent config to host %s: %s"
+				(Db.Host.get_uuid~__context ~self:host)
+				(Printexc.to_string e)
+	in
+	call_fn_on_slaves_then_master ~__context f
+
 let add_to_guest_agent_config ~__context ~self ~key ~value =
 	Map_check.validate_kvpair "guest_agent_config"
 		guest_agent_config_requirements (key, value);
-	Db.Pool.add_to_guest_agent_config ~__context ~self ~key ~value
+	Db.Pool.add_to_guest_agent_config ~__context ~self ~key ~value;
+	apply_guest_agent_config ~__context
 
 let remove_from_guest_agent_config ~__context ~self ~key =
-	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key
+	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
+	apply_guest_agent_config ~__context
+
