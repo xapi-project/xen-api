@@ -1478,8 +1478,10 @@ let sr_probe printer rpc session_id params =
 		| Probe x ->
 			let sr (uri, x) = [
 				"uri", uri;
-				"total_space", Int64.to_string x.total_space;
-				"free_space", Int64.to_string x.free_space;
+				"name-label", x.name_label;
+				"name-description", x.name_description;
+				"total-space", Int64.to_string x.total_space;
+				"free-space", Int64.to_string x.free_space;
 			] in
 			if x.srs <> []
 			then printer (Cli_printer.PMsg "The following SRs were found:");
