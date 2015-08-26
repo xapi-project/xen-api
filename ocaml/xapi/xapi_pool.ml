@@ -1821,3 +1821,31 @@ let has_extension ~__context ~self ~name =
 		true
 	with _ ->
 		false
+
+let guest_agent_config_requirements =
+	let open Map_check in
+	[
+		{
+			key = Xapi_xenops.Guest_agent_features.Xapi.auto_update_enabled;
+			default_value = None;
+			is_valid_value = (fun x ->
+				try let (_:bool) = bool_of_string x in true
+				with Invalid_argument _ -> false);
+		};
+		{
+			key = Xapi_xenops.Guest_agent_features.Xapi.auto_update_url;
+			default_value = None;
+			is_valid_value = (fun url ->
+				match Uri.of_string url |> Uri.scheme with
+				| Some "http" | Some "https" -> true
+				| _ -> false)
+		};
+	]
+
+let add_to_guest_agent_config ~__context ~self ~key ~value =
+	Map_check.validate_kvpair "guest_agent_config"
+		guest_agent_config_requirements (key, value);
+	Db.Pool.add_to_guest_agent_config ~__context ~self ~key ~value
+
+let remove_from_guest_agent_config ~__context ~self ~key =
+	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key

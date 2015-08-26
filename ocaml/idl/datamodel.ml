@@ -6681,6 +6681,29 @@ let pool_has_extension = call
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
+let pool_add_to_guest_agent_config = call
+	~name:"add_to_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Add a key-value pair to the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to add";
+		String, "value", "The value to add";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let pool_remove_from_guest_agent_config = call
+	~name:"remove_from_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Remove a key-value pair from the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to remove";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6750,6 +6773,8 @@ let pool =
 			; pool_enable_ssl_legacy
 			; pool_disable_ssl_legacy
 			; pool_has_extension
+			; pool_add_to_guest_agent_config
+			; pool_remove_from_guest_agent_config
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @

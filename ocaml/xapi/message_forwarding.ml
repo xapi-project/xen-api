@@ -639,6 +639,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Pool.has_extension: pool = '%s'; name = '%s'" (pool_uuid ~__context self) name;
 			Local.Pool.has_extension ~__context ~self ~name
 
+		let add_to_guest_agent_config ~__context ~self ~key ~value =
+			info "Pool.add_to_guest_agent_config: pool = '%s'; key = '%s'; value = '%s'"
+				(pool_uuid ~__context self) key value;
+			Local.Pool.add_to_guest_agent_config ~__context ~self ~key ~value
+
+		let remove_from_guest_agent_config ~__context ~self ~key =
+			info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
+				(pool_uuid ~__context self) key;
+			Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
 	end
 
 	module VM = struct
