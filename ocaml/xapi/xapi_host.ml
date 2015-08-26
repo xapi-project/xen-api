@@ -1256,7 +1256,6 @@ let set_localdb_key ~__context ~host ~key ~value =
 
 (* Licensing *)
 
-exception Pool_record_expected_singleton
 let copy_license_to_db ~__context ~host ~features ~additional =
 	let restrict_kvpairs = Features.to_assoc_list features in
 	let license_params = additional @ restrict_kvpairs in
@@ -1639,3 +1638,8 @@ let sync_display ~__context ~host=
 		then Xapi_pci.disable_system_display_device ();
 		Db.Host.set_display ~__context ~self:host ~value:status
 	end
+
+let apply_guest_agent_config ~__context ~host =
+	let pool = Helpers.get_pool ~__context in
+	let config = Db.Pool.get_guest_agent_config ~__context ~self:pool in
+	Xapi_xenops.apply_guest_agent_config ~__context config

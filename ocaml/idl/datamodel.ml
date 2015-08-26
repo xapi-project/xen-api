@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 89
+let schema_minor_vsn = 90
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -70,8 +70,8 @@ let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 90
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = creedence_release_schema_major_vsn
-let last_release_schema_minor_vsn = creedence_release_schema_minor_vsn
+let last_release_schema_major_vsn = cream_release_schema_major_vsn
+let last_release_schema_minor_vsn = cream_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -4484,6 +4484,17 @@ let host_disable_display = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_apply_guest_agent_config = call
+	~name:"apply_guest_agent_config"
+	~lifecycle:[Published, rel_dundee, ""]
+	~doc:"Signal to the host that the pool-wide guest agent config has changed"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4571,6 +4582,7 @@ let host =
 		 host_enable_display;
 		 host_disable_display;
 		 host_set_ssl_legacy;
+		 host_apply_guest_agent_config;
 		 ]
       ~contents:
         ([ uid _host;
@@ -6684,6 +6696,29 @@ let pool_has_extension = call
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
+let pool_add_to_guest_agent_config = call
+	~name:"add_to_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Add a key-value pair to the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to add";
+		String, "value", "The value to add";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let pool_remove_from_guest_agent_config = call
+	~name:"remove_from_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Remove a key-value pair from the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to remove";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6753,6 +6788,8 @@ let pool =
 			; pool_enable_ssl_legacy
 			; pool_disable_ssl_legacy
 			; pool_has_extension
+			; pool_add_to_guest_agent_config
+			; pool_remove_from_guest_agent_config
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @
@@ -6785,8 +6822,9 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
 			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
-
-			] @ (allowed_and_current_operations pool_operations) )
+			] @ (allowed_and_current_operations pool_operations) @
+			[ field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "guest_agent_config" "Pool-wide guest agent configuration information"
+			])
 		()
 
 (** Auth class *)

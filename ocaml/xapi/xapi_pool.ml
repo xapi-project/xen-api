@@ -1253,44 +1253,6 @@ let set_ha_host_failures_to_tolerate ~__context ~self ~value =
 let ha_schedule_plan_recomputation ~__context = 
   Xapi_ha.Monitor.plan_out_of_date := true
 
-let get_master_slaves_list_with_fn ~__context fn =
-	let _unsorted_hosts = Db.Host.get_all ~__context in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
-	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
-		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);
-	fn master slaves
-
-(* returns the list of hosts in the pool, with the master being the first element of the list *)
-let get_master_slaves_list ~__context =
-	get_master_slaves_list_with_fn ~__context (fun master slaves -> master::slaves)
-
-(* returns the list of slaves in the pool *)
-let get_slaves_list ~__context =
-	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
-
-(* Note: fn exposed in .mli *)
-(** Call the function on the slaves first. When those calls have all
- *  returned, call the function on the master. *)
-let call_fn_on_slaves_then_master ~__context f =
-  (* Get list with master as LAST element: important for ssl_legacy calls *)
-  let hosts = List.rev (get_master_slaves_list ~__context) in
-  Helpers.call_api_functions ~__context (fun rpc session_id -> 
-    let errs = List.fold_left 
-      (fun acc host -> 
-	try
-	  f ~rpc ~session_id ~host;
-	  acc
-	with x -> 
-	  (host,x)::acc) [] hosts
-    in
-    if List.length errs > 0 then begin
-      warn "Exception raised while performing operation on hosts:";
-      List.iter (fun (host,x) -> warn "Host: %s error: %s" (Ref.string_of host) (ExnHelper.string_of_exn x)) errs;
-      raise (snd (List.hd errs))
-    end)
-
 let call_fn_on_host ~__context f host =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		try 
@@ -1303,10 +1265,10 @@ let call_fn_on_host ~__context f host =
 	)
 
 let enable_binary_storage ~__context =
-  call_fn_on_slaves_then_master ~__context Client.Host.enable_binary_storage
+  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context Client.Host.enable_binary_storage
 
 let disable_binary_storage ~__context =
-  call_fn_on_slaves_then_master ~__context Client.Host.disable_binary_storage
+  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context Client.Host.disable_binary_storage
 
 let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
   init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
@@ -1364,7 +1326,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 
 	(* the first element in the hosts list needs to be the pool's master, because we *)
 	(* always want to update first the master's record due to homogeneity checks in CA-24856 *)
-	let hosts = get_master_slaves_list ~__context in
+	let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
 
 	(* 1. verifies if any of the pool hosts already have external auth enabled, and fails if so *)
 	(* this step isn't strictly necessary, since we will anyway fail in (2) if that is the case, but *)
@@ -1481,7 +1443,7 @@ let disable_external_auth ~__context ~pool ~config =
 
 	(* the first element in the hosts list needs to be the pool's master, because we *)
 	(* always want to update first the master's record due to homogeneity checks in CA-24856 *)
-	let hosts = get_master_slaves_list ~__context in
+	let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
 	let host_msgs_list =
 		List.map (fun host ->
 			try	(* forward the call to the host in the pool *)
@@ -1524,7 +1486,7 @@ let disable_external_auth ~__context ~pool ~config =
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		let slaves = get_slaves_list ~__context in
+		let slaves = Xapi_pool_helpers.get_slaves_list ~__context in
 		List.iter (fun slave ->
 			(* check every *slave* in the pool... (the master is always homogeneous to the pool by definition) *)
 			(* (also, checking the master inside this function would create an infinite recursion loop) *)
@@ -1807,13 +1769,13 @@ let disable_ssl_legacy ~__context ~self =
 	let f ~rpc ~session_id ~host =
 		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:false
 	in
-	call_fn_on_slaves_then_master ~__context f
+	Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
 
 let enable_ssl_legacy ~__context ~self =
 	let f ~rpc ~session_id ~host =
 		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:true
 	in
-	call_fn_on_slaves_then_master ~__context f
+	Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
 
 let has_extension ~__context ~self ~name =
 	try
@@ -1821,3 +1783,34 @@ let has_extension ~__context ~self ~name =
 		true
 	with _ ->
 		false
+
+let guest_agent_config_requirements =
+	let open Map_check in
+	[
+		{
+			key = Xapi_xenops.Guest_agent_features.Xapi.auto_update_enabled;
+			default_value = None;
+			is_valid_value = (fun x ->
+				try let (_:bool) = bool_of_string x in true
+				with Invalid_argument _ -> false);
+		};
+		{
+			key = Xapi_xenops.Guest_agent_features.Xapi.auto_update_url;
+			default_value = None;
+			is_valid_value = (fun url ->
+				match Uri.of_string url |> Uri.scheme with
+				| Some "http" | Some "https" -> true
+				| _ -> false)
+		};
+	]
+
+let add_to_guest_agent_config ~__context ~self ~key ~value =
+	Map_check.validate_kvpair "guest_agent_config"
+		guest_agent_config_requirements (key, value);
+	Db.Pool.add_to_guest_agent_config ~__context ~self ~key ~value;
+	Xapi_pool_helpers.apply_guest_agent_config ~__context
+
+let remove_from_guest_agent_config ~__context ~self ~key =
+	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
+	Xapi_pool_helpers.apply_guest_agent_config ~__context
+

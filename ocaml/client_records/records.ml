@@ -518,6 +518,15 @@ let pool_record rpc session_id pool =
 			make_field ~name:"license-state"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (Client.Pool.get_license_state rpc session_id pool)) ();
 			make_field ~name:"ha-cluster-stack" ~get:(fun () -> (x ()).API.pool_ha_cluster_stack) ();
+			make_field ~name:"guest-agent-config"
+				~get:(fun () ->
+					Record_util.s2sm_to_string "; " (x ()).API.pool_guest_agent_config)
+				~add_to_map:(fun k v ->
+					Client.Pool.add_to_guest_agent_config rpc session_id pool k v)
+				~remove_from_map:(fun k ->
+					Client.Pool.remove_from_guest_agent_config rpc session_id pool k)
+				~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
+				();
 		]}
 
 let subject_record rpc session_id subject = 

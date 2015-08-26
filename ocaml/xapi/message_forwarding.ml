@@ -640,6 +640,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Pool.has_extension: pool = '%s'; name = '%s'" (pool_uuid ~__context self) name;
 			Local.Pool.has_extension ~__context ~self ~name
 
+		let add_to_guest_agent_config ~__context ~self ~key ~value =
+			info "Pool.add_to_guest_agent_config: pool = '%s'; key = '%s'; value = '%s'"
+				(pool_uuid ~__context self) key value;
+			Local.Pool.add_to_guest_agent_config ~__context ~self ~key ~value
+
+		let remove_from_guest_agent_config ~__context ~self ~key =
+			info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
+				(pool_uuid ~__context self) key;
+			Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
 	end
 
 	module VM = struct
@@ -2497,6 +2507,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.disable_display ~host in
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.disable_display rpc session_id host)
+
+		let apply_guest_agent_config ~__context ~host =
+			info "Host.apply_guest_agent_config: host = '%s'"
+				(host_uuid ~__context host);
+			let local_fn = Local.Host.apply_guest_agent_config ~host in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc ->
+					Client.Host.apply_guest_agent_config rpc session_id host)
 	end
 
 	module Host_crashdump = struct

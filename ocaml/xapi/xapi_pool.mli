@@ -119,13 +119,6 @@ val ha_schedule_plan_recomputation : __context:'a -> unit
 
 (** {2 (Fill in Title!)} *)
 
-(** Call the function on the slaves first. When those calls have all
- *  returned, call the function on the master. *)
-val call_fn_on_slaves_then_master :
-  __context:Context.t ->
-  (rpc:(Rpc.call -> Rpc.response) ->
-   session_id:API.ref_session -> host:[ `host ] Ref.t -> 'a) ->
-  unit
 val call_fn_on_host :
   __context:Context.t ->
   (rpc:(Rpc.call -> Rpc.response) ->
@@ -162,11 +155,6 @@ val crl_install : __context:Context.t -> name:string -> cert:string -> unit
 val crl_uninstall : __context:Context.t -> name:string -> unit
 val crl_list : __context:'a -> string list
 val certificate_sync : __context:Context.t -> unit
-val get_master_slaves_list_with_fn :
-  __context:Context.t ->
-  ([ `host ] Ref.t -> [ `host ] Ref.t list -> 'a) -> 'a
-val get_master_slaves_list : __context:Context.t -> [ `host ] Ref.t list
-val get_slaves_list : __context:Context.t -> [ `host ] Ref.t list
 val enable_external_auth :
   __context:Context.t ->
   pool:'a ->
@@ -205,3 +193,8 @@ val disable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 
 val has_extension : __context:Context.t -> self:API.ref_pool -> name:string -> bool
+
+val add_to_guest_agent_config :
+	__context:Context.t -> self:API.ref_pool -> key:string -> value:string -> unit
+val remove_from_guest_agent_config :
+	__context:Context.t -> self:API.ref_pool -> key:string -> unit

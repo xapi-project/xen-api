@@ -40,6 +40,7 @@ let create_pool_record ~__context =
 				Xapi_globs.memory_ratio_pv;
 			]
 			~ha_cluster_stack:"xhad"
+			~guest_agent_config:[]
 
 let set_master_ip ~__context =
   let ip =

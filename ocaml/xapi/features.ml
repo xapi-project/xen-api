@@ -81,6 +81,9 @@ let keys_of_features =
 		Guest_agent_auto_update, ("restrict_guest_agent_auto_update", Negative, "GAAU");
 	]
 
+let name_of_feature f =
+	rpc_of_feature f |> Rpc.string_of_rpc
+
 let string_of_feature f =
 	let str, o, _ = List.assoc f keys_of_features in
 	str, o
