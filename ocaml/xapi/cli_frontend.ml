@@ -55,6 +55,19 @@ let hostselectorsinfo = " The simplest way to select the host on which the \
   'xe host-list params=all'. If no parameters to select hosts are given, \
   the operation will be performed on all hosts."
 
+let srselectors = ["<sr-selectors>"]
+let srselectorsinfo = " The simplest way to select the SR on which the \
+  operation is to be performed is by supplying the argument \
+  'sr=<name or uuid>'. SRs can also be \
+  specified by filtering the full list of hosts on the values of fields. For \
+  example, specifying 'enabled=true' will select all hosts whose \
+  'enabled' field is equal to 'true'. Where multiple SRs are matching, \
+  and the operation can be performed on multiple SRs, the option '--multiple' \
+  must be specified to perform the operation. The \
+  full list of fields that can be matched can be obtained by the command \
+  'xe sr-list params=all'. If no parameters to select SRs are given, \
+  the operation will be performed on all SRs."
+
 let rec cmdtable_data : (string*cmd_spec) list =
   [
     "log-set-output",
@@ -1389,6 +1402,15 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[Vm_selectors];
     };
 
+   "vm-xenprep-abort",
+    {
+      reqd=[];
+      optn=[];
+      help="A best-effort attempt to abandon the XenPrep process and eject the ISO. If the process has started already in the guest then it may continue, but then XenServer will not update the VM's settings.";
+      implementation=No_fd Cli_operations.vm_xenprep_abort;
+      flags=[Vm_selectors];
+    };
+
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];
@@ -1752,6 +1774,41 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
      implementation=No_fd Cli_operations.sr_disable_database_replication;
      flags=[];
    };
+   "sr-data-source-list",
+   {
+     reqd=[]; 
+     optn=[];
+     help="List the data sources that can be recorded for a SR.";
+     implementation=No_fd Cli_operations.sr_data_source_list;
+     flags=[Sr_selectors];
+   };
+   "sr-data-source-record",
+   {
+     reqd=["data-source"]; 
+     optn=[];
+     help="Record the specified data source for a SR.";
+     implementation=No_fd Cli_operations.sr_data_source_record;
+     flags=[Sr_selectors];
+   };
+
+   "sr-data-source-query",
+    {
+     reqd=["data-source"]; 
+     optn=[];
+     help="Query the last value read from a SR data source.";
+     implementation=No_fd Cli_operations.sr_data_source_query;
+     flags=[Sr_selectors];
+   };
+
+   "sr-data-source-forget",
+    {
+     reqd=["data-source"]; 
+     optn=[];
+     help="Stop recording the specified data source for a SR, and forget all of the recorded data.";
+     implementation=No_fd Cli_operations.sr_data_source_forget;
+     flags=[Sr_selectors];
+   };
+
    "vdi-create",
     {
       reqd=["sr-uuid";"name-label";"virtual-size"];
@@ -2785,15 +2842,18 @@ let rio_help printer minimal cmd =
       let cmd_spec = Hashtbl.find cmdtable cmd in
       let vm_selectors = List.mem Vm_selectors cmd_spec.flags in
       let host_selectors = List.mem Host_selectors cmd_spec.flags in
+      let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
       let optional =
 	cmd_spec.optn @
 	  (if vm_selectors then vmselectors else []) @
+	  (if sr_selectors then srselectors else []) @
 	  (if host_selectors then hostselectors else [])
       in
-      let desc = match (vm_selectors,host_selectors) with
-	| (false,false) -> cmd_spec.help
-	| (true,false) -> cmd_spec.help ^ vmselectorsinfo
-	| (false,true) -> cmd_spec.help ^ hostselectorsinfo
+      let desc = match (vm_selectors,host_selectors,sr_selectors) with
+	| (false,false,false) -> cmd_spec.help
+	| (true,false,false) -> cmd_spec.help ^ vmselectorsinfo
+	| (false,true,false) -> cmd_spec.help ^ hostselectorsinfo
+	| (false,false,true) -> cmd_spec.help ^ srselectorsinfo
 	| _ -> cmd_spec.help (* never happens currently *)
       in
       let recs = 

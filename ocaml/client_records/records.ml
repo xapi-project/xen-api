@@ -518,6 +518,15 @@ let pool_record rpc session_id pool =
 			make_field ~name:"license-state"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (Client.Pool.get_license_state rpc session_id pool)) ();
 			make_field ~name:"ha-cluster-stack" ~get:(fun () -> (x ()).API.pool_ha_cluster_stack) ();
+			make_field ~name:"guest-agent-config"
+				~get:(fun () ->
+					Record_util.s2sm_to_string "; " (x ()).API.pool_guest_agent_config)
+				~add_to_map:(fun k v ->
+					Client.Pool.add_to_guest_agent_config rpc session_id pool k v)
+				~remove_from_map:(fun k ->
+					Client.Pool.remove_from_guest_agent_config rpc session_id pool k)
+				~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
+				();
 		]}
 
 let subject_record rpc session_id subject = 
@@ -1264,6 +1273,8 @@ let sm_record rpc session_id sm =
 		~get_map:(fun () -> s2i64_to_string (x ()).API.sM_features) ();
     make_field ~name:"configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_configuration) ();
     make_field ~name:"driver-filename" ~get:(fun () -> (x ()).API.sM_driver_filename) ();
+    make_field ~name:"required-cluster-stack"
+		~get:(fun () -> String.concat ", " (x ()).API.sM_required_cluster_stack) ();
   ]}
 
 
@@ -1321,6 +1332,8 @@ let sr_record rpc session_id sr =
 				~get_set:(fun () -> (x ()).API.sR_tags)
 				~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
 				~remove_from_set:(fun tag -> Client.SR.remove_tags rpc session_id sr tag) ();
+			make_field ~name:"clustered"
+				~get:(fun () -> string_of_bool ((x ()).API.sR_clustered)) ();
 		]}
 
 let pbd_record rpc session_id pbd =

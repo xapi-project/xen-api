@@ -1,0 +1,2 @@
+1234 experimental=0 name='GVT-g on 1234' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/path/to/file1
+5678 experimental=0 name='GVT-g on 5678' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/path/to/file2

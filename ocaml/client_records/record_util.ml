@@ -69,6 +69,7 @@ let vm_operation_table =
     `pool_migrate, "pool_migrate";
     `power_state_reset, "power_state_reset";
     `csvm, "csvm";
+    `xenprep, "xenprep";
   ]
 
 let vm_operation_to_string x = 

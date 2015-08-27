@@ -128,6 +128,21 @@ let get_host_rrd_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 			)
 		)
 
+(* Forward the request for SR RRD data to the RRDD HTTP handler. *)
+let get_sr_rrd_forwarder (req: Http.Request.t) (s: Unix.file_descr) _ =
+	debug "get_sr_rrd_forwarder";
+	let query  = req.Http.Request.query in
+	req.Http.Request.close <- true;
+	Xapi_http.with_context ~dummy:true "Get SR RRD." req s
+		(fun __context ->
+			debug "get_sr_rrd_forwarder: obtained context";
+			if not (List.mem_assoc "uuid" query) then
+				fail_req_with s "get_sr_rrd: missing the 'uuid' parameter"
+					Http.http_400_badrequest
+			else
+				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
+		)
+
 (* Forward the request for obtaining RRD data updates to the RRDD HTTP handler. *)
 let get_rrd_updates_forwarder (req: Http.Request.t) (s : Unix.file_descr) _ =
 	(* Do not log this event, since commonly called. *)

@@ -238,9 +238,10 @@ let update_env __context sync_keys =
       try
 	List.assoc key sync_keys = Xapi_globs.sync_switch_off
       with _ -> false
-    in 
+    in
+    let disabled_in_config_file = List.mem key !Xapi_globs.disable_dbsync_for in
     begin 
-      if (not skip_sync)
+      if (not skip_sync) && (not disabled_in_config_file)
       then (debug "Sync: %s" key; f ())
       else debug "Skipping sync keyed: %s" key
     end;

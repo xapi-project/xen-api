@@ -40,6 +40,7 @@ let create_pool_record ~__context =
 				Xapi_globs.memory_ratio_pv;
 			]
 			~ha_cluster_stack:"xhad"
+			~guest_agent_config:[]
 
 let set_master_ip ~__context =
   let ip =
@@ -227,7 +228,7 @@ let update_env __context =
      in the db for cancelling *)
   Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:None;
   (* Update the SM plugin table *)
-  Xapi_sm.on_xapi_start ~__context;
+  Storage_access.on_xapi_start ~__context;
 
   create_tools_sr_noexn __context;
 

@@ -186,6 +186,8 @@ let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 
 let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
+let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
+let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
 
 let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
 
@@ -205,8 +207,9 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
-(* let xenprep_iso_name_label = "xenprep.iso" *) (* TODO use this once the xenprep ISO is available *)
-let xenprep_iso_name_label = "xs-tools.iso" (* Temporary stopgap value for dev-testing *)
+let xenprep_iso_name_label = "xenprep.iso"
+let xenprep_other_config_key = "xenprep_progress"
+let xenprep_other_config_iso_inserted = "ISO_inserted"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
@@ -351,6 +354,10 @@ let sync_bios_strings = "sync_bios_strings"
 let sync_chipset_info = "sync_chipset_info"
 let sync_pci_devices = "sync_pci_devices"
 let sync_gpus = "sync_gpus"
+
+(* Allow dbsync actions to be disabled via the redo log, since the database
+   isn't of much use if xapi won't start. *)
+let disable_dbsync_for = ref []
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
@@ -738,6 +745,12 @@ let redo_log_max_startup_time = ref 5.
 (** The delay between each attempt to connect to the block device I/O process *)
 let redo_log_connect_delay = ref 0.1
 
+(** The default time, in µs, in which tapdisk3 will keep polling the vbd ring buffer in expectation for extra requests from the guest *)
+let default_vbd3_polling_duration = ref 1000
+
+(** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
+let default_vbd3_polling_idle_threshold = ref 50
+
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
@@ -797,6 +810,8 @@ let web_dir = ref "/opt/xensource/www"
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 let cluster_stack_default = ref "xhad"
 
+let xen_cmdline_path = ref "/opt/xensource/libexec/xen-cmdline"
+
 let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts"
 
 let gpg_homedir = ref "/opt/xensource/gpg"
@@ -807,12 +822,16 @@ let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
 
+let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
+
 (* The ibft-to-ignore script returns NICs listed in the ISCSI Boot Firmware Table.
  * These NICs (probably just one for now) are used to boot from, and should be marked
  * with PIF.managed = false during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
 let manage_xenvmd = ref true
+
+let sr_health_check_task_label = "SR Recovering"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -860,6 +879,8 @@ let xapi_globs_spec =
 	  "redo_log_max_block_time_writedb", Float redo_log_max_block_time_writedb;
 	  "redo_log_max_startup_time", Float redo_log_max_startup_time;
 	  "redo_log_connect_delay", Float redo_log_connect_delay;
+	  "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
+	  "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
 	]
 
 let options_of_xapi_globs_spec = 
@@ -873,12 +894,12 @@ let xapissl_path = ref "xapissl"
 let xenvmd_path = ref "xenvmd"
 
 let xenopsd_queues = ref ([
-  "org.xen.xcp.xenops.classic";
-  "org.xen.xcp.xenops.simulator";
-  "org.xen.xcp.xenops.xenlight";
+  "org.xen.xapi.xenops.classic";
+  "org.xen.xapi.xenops.simulator";
+  "org.xen.xapi.xenops.xenlight";
 ])
 
-let default_xenopsd = ref "org.xen.xcp.xenops.xenlight"
+let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
@@ -889,6 +910,7 @@ let trusted_patch_key = ref citrix_patch_key
 
 let gen_list_option name desc of_string string_of opt =
   let parse s =
+    opt := [];
     try
       String.split_f String.isspace s |>
       List.iter (fun x -> opt := (of_string x) :: !opt)
@@ -900,7 +922,16 @@ let gen_list_option name desc of_string string_of opt =
   in
   name, Arg.String parse, get, desc
 
+let sm_plugins = ref [ ]
+
+let accept_sm_plugin name =
+  List.(fold_left (||) false (map (function `All -> true | `Sm x -> String.lowercase x = String.lowercase name) !sm_plugins))
+
 let other_options = [
+  gen_list_option "sm-plugins"
+    "space-separated list of storage plugins to allow."
+    (fun x -> if x = "*" then `All else `Sm x) (fun x -> match x with `All -> "*" | `Sm x -> x) sm_plugins;
+
   "hotfix-fingerprint", Arg.Set_string trusted_patch_key,
     (fun () -> !trusted_patch_key), "Fingerprint of the key used for signed hotfixes";
 
@@ -926,6 +957,10 @@ let other_options = [
     "space-separated list of modules to suppress logging from"
     (fun s -> s) (fun s -> s) disable_logging_for;
 
+  gen_list_option "disable-dbsync-for"
+    "space-separated list of database synchronisation actions to skip"
+    (fun s -> s) (fun s -> s) disable_dbsync_for;
+
   "xenopsd-queues", Arg.String (fun x -> xenopsd_queues := String.split ',' x),
     (fun () -> String.concat "," !xenopsd_queues), "list of xenopsd instances to manage";
 
@@ -938,6 +973,9 @@ let other_options = [
       D.debug "Whitelisting PCI vendor %s for passthrough" s;
       Scanf.sscanf s "%4Lx" (fun _ -> s)) (* Scanf verifies format *)
     (fun s -> s) igd_passthru_vendor_whitelist;
+
+  "gvt-g-whitelist", Arg.Set_string gvt_g_whitelist,
+    (fun () -> !gvt_g_whitelist), "path to the GVT-g whitelist file";
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
@@ -1025,6 +1063,7 @@ module Resources = struct
 		"tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
 		"web-dir", web_dir, "Directory to export fileserver";
 		"cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
+		"xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary";
 		"gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands";
 		"post-install-scripts-dir", post_install_scripts_dir, "Directory containing trusted guest provisioning scripts";
 	]

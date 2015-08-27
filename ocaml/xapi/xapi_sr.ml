@@ -14,6 +14,7 @@
 (** Module that defines API functions for SR objects
  * @group XenAPI functions
  *)
+module Rrdd = Rrd_client.Client
 
 open Printf
 open Threadext
@@ -93,13 +94,8 @@ let scan_one ~__context ?callback sr =
 				()
 			)) callback
 
-let get_all_plugged_srs ~__context =
-	let pbds = Db.PBD.get_all ~__context in
-	let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
-	List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
-
 let scan_all ~__context =
-	let srs = get_all_plugged_srs ~__context in
+	let srs = Helpers.get_all_plugged_srs ~__context in
 	(* only scan those with the dirty/auto_scan key set *)
 	let scannable_srs =
 		List.filter (fun sr ->
@@ -145,7 +141,8 @@ let introduce  ~__context ~uuid ~name_label
 			~content_type
 			~_type ~shared ~other_config:[] ~default_vdi_visibility:true
 			~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
-			~introduced_by:Ref.null;
+			~introduced_by:Ref.null
+			~clustered:false;
 
 		Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
 		(* Return ref of newly created sr *)
@@ -172,7 +169,21 @@ let unplug_and_destroy_pbds ~__context ~self =
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
-	Storage_access.probe ~__context ~_type ~device_config ~sr_sm_config:sm_config
+	let open Storage_interface in
+	let open Storage_access in
+
+        let queue = !Storage_interface.queue_name ^ "." ^ _type in
+        let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
+        let rpc = external_rpc queue uri in
+        let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+        let dbg = Context.string_of_task __context in
+
+        transform_storage_exn
+		(fun () ->
+			match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
+			| Raw x -> x
+			| Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
+		)
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
@@ -219,7 +230,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	in
 	begin
 		try
-			Storage_access.create_sr ~__context ~sr:sr_ref ~physical_size
+			Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
 		with e ->
 			Db.SR.destroy ~__context ~self:sr_ref;
 			List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
@@ -294,6 +305,7 @@ let update ~__context ~sr =
 			let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
 			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
 			Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
+			Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
 		)
 
 let get_supported_types ~__context = Sm.supported_drivers ()
@@ -364,7 +376,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		) to_create db_vdi_map in
 	(* Update the ones which already exist *)
 	StringMap.iter
-		(fun loc (r, v, vi) ->
+		(fun loc (r, v, (vi: vdi_info)) ->
 			if v.API.vDI_name_label <> vi.name_label then begin
 				debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
 				Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label
@@ -428,7 +440,8 @@ let scan ~__context ~sr =
 			Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
 			Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
 			Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
-			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty"
+			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
+			Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
 		)
 
 let set_shared ~__context ~sr ~value =
@@ -444,22 +457,29 @@ let set_shared ~__context ~sr ~value =
 			Db.SR.set_shared ~__context ~self:sr ~value
 		end
 
-(* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
-(* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
-let try_update_sr ~__context ~sr =
-	try
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
-	with e ->
-		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
-
 let set_name_label ~__context ~sr ~value =
-	Db.SR.set_name_label ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_label:value
+	);
+	update ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
-	Db.SR.set_name_description ~__context ~self:sr ~value;
-	try_update_sr ~__context ~sr
+	let open Storage_access in
+	let open Storage_interface in
+	let task = Context.get_task_id __context in
+	let sr' = Db.SR.get_uuid ~__context ~self:sr in
+	let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+	transform_storage_exn
+		(fun () ->
+			C.SR.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_description:value
+	);
+	update ~__context ~sr
 
 let set_virtual_allocation ~__context ~self ~value =
 	Db.SR.set_virtual_allocation ~__context ~self ~value
@@ -563,3 +583,15 @@ let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 	let blob = Xapi_blob.create ~__context ~mime_type ~public in
 	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
 	blob
+
+(* APIs for accessing SR level stats *)
+let get_data_sources ~__context ~sr =
+	List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_sr_dss ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr))
+
+let record_data_source ~__context ~sr ~data_source =
+	Rrdd.add_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr)
+		~ds_name:data_source
+
+let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source
+
+let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source

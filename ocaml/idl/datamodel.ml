@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 89
+let schema_minor_vsn = 90
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -67,11 +67,11 @@ let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 89
+let dundee_release_schema_minor_vsn = 90
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = creedence_release_schema_major_vsn
-let last_release_schema_minor_vsn = creedence_release_schema_minor_vsn
+let last_release_schema_major_vsn = cream_release_schema_major_vsn
+let last_release_schema_minor_vsn = cream_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -650,6 +650,8 @@ let _ =
     ~doc:"Operation could not be performed because the drive is empty" ();
   error Api_errors.vbd_tray_locked ["vbd"]
     ~doc:"This VM has locked the DVD drive tray, so the disk cannot be ejected" ();
+  error Api_errors.vbd_xenprep_cd_in_use ["vbd"]
+    ~doc:"This VBD contains the XenPrep virtual CD, and it is in use so it cannot be ejected." ();
   error Api_errors.vbd_cds_must_be_readonly [ ]
     ~doc:"Read/write CDs are not supported" ();
   (* CA-83260 *)
@@ -1007,6 +1009,8 @@ let _ =
     ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
   error Api_errors.sr_is_cache_sr [ "host" ]
     ~doc:"The SR is currently being used as a local cache SR." ();
+  error Api_errors.clustered_sr_degraded [ "sr" ]
+    ~doc:"An SR is using clustered local storage. It is not safe to reboot a host at the moment." ();
 
   error Api_errors.sm_plugin_communication_failure ["sm"]
     ~doc:"The SM plugin did not respond to a query." ();
@@ -2460,6 +2464,17 @@ let vm_xenprep_start = call
 	~allowed_roles:_R_VM_OP
 	()
 
+let vm_xenprep_abort = call
+	~name:"xenprep_abort"
+	~lifecycle:[
+		Published, rel_dundee, "New function call";
+	]
+	~doc:"Abort the 'xenprep' process on the specified VM, ejecting the ISO; this is best-effort only."
+	~params:[Ref _vm, "self", "The VM"]
+	~doc_tags:[Windows]
+	~allowed_roles:_R_VM_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -3554,6 +3569,54 @@ let sr_create_new_blob = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let sr_get_data_sources = call
+  ~name:"get_data_sources"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:""
+  ~result:(Set (Record _data_source), "A set of data sources")
+  ~params:[Ref _sr, "sr", "The SR to interrogate"]
+  ~errs:[]
+  ~flags:[`Session] 
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
+let sr_record_data_source = call
+  ~name:"record_data_source"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Start recording the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source to record"]
+  ~errs:[]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let sr_query_data_source = call
+  ~name:"query_data_source"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Query the latest value of the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source to query"]
+  ~result:(Float,"The latest value, averaged over the last 5 seconds")
+  ~errs:[]
+  ~flags:[`Session]
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
+let sr_forget_data_source_archives = call
+  ~name:"forget_data_source_archives"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Forget the recorded statistics related to the specified data source"
+  ~params:[Ref _sr, "sr", "The SR";
+	   String, "data_source", "The data source whose archives are to be forgotten"]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let pbd_plug = call
   ~name:"plug"
   ~in_oss_since:None 
@@ -4265,8 +4328,8 @@ let host_set_power_on_mode = call
 
 let host_set_ssl_legacy = call
 	~name:"set_ssl_legacy"
-	~lifecycle:[Prototyped, rel_dundee, ""]
-	~doc:"Enable/disable SSLv3 for interoperability with older versions of XenServer"
+	~lifecycle:[Published, rel_dundee, ""]
+	~doc:"Enable/disable SSLv3 for interoperability with older versions of XenServer. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. XenAPI login sessions will remain valid."
 	~params:[
 		Ref _host, "self", "The host";
 		Bool, "value", "True to allow SSLv3 and ciphersuites as used in old XenServer versions";
@@ -4421,6 +4484,17 @@ let host_disable_display = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_apply_guest_agent_config = call
+	~name:"apply_guest_agent_config"
+	~lifecycle:[Published, rel_dundee, ""]
+	~doc:"Signal to the host that the pool-wide guest agent config has changed"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~hide_from_docs:true
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4508,6 +4582,7 @@ let host =
 		 host_enable_display;
 		 host_disable_display;
 		 host_set_ssl_legacy;
+		 host_apply_guest_agent_config;
 		 ]
       ~contents:
         ([ uid _host;
@@ -4554,7 +4629,7 @@ let host =
 		"chipset_info" "Information about chipset features";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
-	field ~qualifier:DynamicRO ~lifecycle:[Prototyped, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older XenServers";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older XenServers. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. XenAPI login sessions will remain valid.";
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
 	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
@@ -5465,9 +5540,13 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
-			sr_assert_supports_database_replication;
-			sr_enable_database_replication;
-			sr_disable_database_replication;
+		  sr_assert_supports_database_replication;
+		  sr_enable_database_replication;
+		  sr_disable_database_replication;
+		  sr_get_data_sources;
+		  sr_record_data_source;
+		  sr_query_data_source;
+		  sr_forget_data_source_archives; 
 
 		]
       ~contents:
@@ -5489,6 +5568,7 @@ let storage_repository =
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
 	field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "introduced_by" "The disaster recovery task which introduced this SR";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "clustered" "True if the SR is using aggregated local storage";
       ])
 	()
 
@@ -5521,6 +5601,7 @@ let storage_plugin =
        field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_clearwater ~ty:(Map(String, Int)) "features" "capabilities of the SM plugin, with capability version numbers" ~default_value:(Some (VMap []));
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
        field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
+       field ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VSet [])) ~ty:(Set String) "required_cluster_stack" "The storage plugin requires that one of these cluster stacks is configured and running.";
      ])
     ()
 
@@ -6585,10 +6666,10 @@ let pool_enable_ssl_legacy = call
 	~name:"enable_ssl_legacy"
 	~in_oss_since:None
 	~lifecycle:[
-		Prototyped, rel_dundee, "Sets ssl_legacy true on each host.";
+		Published, rel_dundee, "";
 	]
 	~params:[Ref _pool, "self", "(ignored)";]
-	~doc:"Sets ssl_legacy true on each host: see Host.ssl_legacy"
+	~doc:"Sets ssl_legacy true on each host, pool-master last. See Host.ssl_legacy and Host.set_ssl_legacy."
 	~allowed_roles:_R_POOL_OP
 	()
 
@@ -6596,10 +6677,10 @@ let pool_disable_ssl_legacy = call
 	~name:"disable_ssl_legacy"
 	~in_oss_since:None
 	~lifecycle:[
-		Prototyped, rel_dundee, "Sets ssl_legacy false on each host.";
+		Published, rel_dundee, "";
 	]
 	~params:[Ref _pool, "self", "(ignored)";]
-	~doc:"Sets ssl_legacy true on each host: see Host.ssl_legacy"
+	~doc:"Sets ssl_legacy true on each host, pool-master last. See Host.ssl_legacy and Host.set_ssl_legacy."
 	~allowed_roles:_R_POOL_OP
 	()
 
@@ -6612,6 +6693,29 @@ let pool_has_extension = call
 		String, "name", "The name of the API call"
 	]
 	~result:(Bool, "True if the extension exists, false otherwise")
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let pool_add_to_guest_agent_config = call
+	~name:"add_to_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Add a key-value pair to the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to add";
+		String, "value", "The value to add";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let pool_remove_from_guest_agent_config = call
+	~name:"remove_from_guest_agent_config"
+	~in_product_since:rel_dundee
+	~doc:"Remove a key-value pair from the pool-wide guest agent configuration"
+	~params:[
+		Ref _pool, "self", "The pool";
+		String, "key", "The key to remove";
+	]
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
@@ -6684,6 +6788,8 @@ let pool =
 			; pool_enable_ssl_legacy
 			; pool_disable_ssl_legacy
 			; pool_has_extension
+			; pool_add_to_guest_agent_config
+			; pool_remove_from_guest_agent_config
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @
@@ -6716,8 +6822,9 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
 			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
-
-			] @ (allowed_and_current_operations pool_operations) )
+			] @ (allowed_and_current_operations pool_operations) @
+			[ field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "guest_agent_config" "Pool-wide guest agent configuration information"
+			])
 		()
 
 (** Auth class *)
@@ -7029,8 +7136,10 @@ let vm_operations =
 	    "export", "exporting a VM to a network stream";
 	    "metadata_export", "exporting VM metadata to a network stream";
 	    "reverting", "Reverting the VM to a previous snapshotted state";
-	    "destroy", "refers to the act of uninstalling the VM"; ]
-       )
+	    "destroy", "refers to the act of uninstalling the VM";
+	    "xenprep", "Any of the xenprep-related operations";
+	]
+  )
 
 (** VM (or 'guest') configuration: *)
 let vm =
@@ -7099,6 +7208,7 @@ let vm =
 		vm_assert_can_set_auto_update_drivers;
 		vm_import;
 		vm_xenprep_start;
+		vm_xenprep_abort;
 		]
       ~contents:
       ([ uid _vm;
@@ -8712,6 +8822,7 @@ let http_actions = [
 			 [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
 	(Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
 	(Constants.get_host_rrd, (Get, Constants.get_host_rrd_uri, true, [Bool_query_arg "json"], _R_READ_ONLY, []));
+	(Constants.get_sr_rrd, (Get, Constants.get_sr_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
 	(Constants.get_rrd_updates, (Get, Constants.get_rrd_updates_uri, true,
 		[Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
 		Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"], _R_READ_ONLY, []));
@@ -8758,3 +8869,4 @@ let public_http_actions_with_no_rbac_check =
 let extra_permissions = [
 	(extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
 ]
+

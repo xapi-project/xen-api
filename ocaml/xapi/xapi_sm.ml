@@ -50,6 +50,7 @@ let create_from_query_result ~__context q =
 			~configuration:q.configuration
 			~other_config:[]
 			~driver_filename:(Sm_exec.cmd_name q.driver)
+			~required_cluster_stack:q.required_cluster_stack
 	end
 
 let update_from_query_result ~__context (self, r) query_result =
@@ -85,35 +86,6 @@ let update_from_query_result ~__context (self, r) query_result =
 	end
 
 let is_v1 x = version_of_string x < [ 2; 0 ]
-
-(** Update all SMAPIv1 plugins which have been deleted from the filesystem.
-    The SMAPIv2 ones are dynamically discovered so we leave those alone. *)
-let on_xapi_start ~__context =
-	let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
-	let drivers = Sm.supported_drivers () in
-	(* Delete all SM records except those for SMAPIv1 plugins *)
-	List.iter
-		(fun ty ->
-			let self, rc = List.assoc ty existing in
-			if is_v1 rc.API.sM_required_api_version then begin
-				info "Unregistering SM plugin %s since required_api_version (%s) < 2.0 and executable is missing" ty rc.API.sM_required_api_version;
-				try
-					Db.SM.destroy ~__context ~self
-				with _ -> ()
-			end
-		) (List.set_difference (List.map fst existing) drivers);
-	(* Create all missing SMAPIv1 plugins *)
-	List.iter
-		(fun ty ->
-			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
-			create_from_query_result ~__context query_result
-		) (List.set_difference drivers (List.map fst existing));
-	(* Update all existing SMAPIv1 plugins *)
-	List.iter
-		(fun ty ->
-			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
-			update_from_query_result ~__context (List.assoc ty existing) query_result
-		) (List.intersect drivers (List.map fst existing))
 
 let unregister_plugin ~__context query_result =
 	let open Storage_interface in

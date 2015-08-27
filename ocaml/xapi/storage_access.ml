@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Listext
 open Threadext
 open Xstringext
 module XenAPI = Client.Client
@@ -19,6 +20,26 @@ open Storage_interface
 
 module D=Debug.Make(struct let name="storage_access" end)
 open D
+
+let transform_storage_exn f =
+	try
+		f ()
+	with
+		| Backend_error(code, params) as e ->
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Backend_error_with_backtrace(code, backtrace :: params) as e ->
+			let backtrace = Backtrace.Interop.of_json "SM" backtrace in
+			Backtrace.add e backtrace;
+			Backtrace.reraise e (Api_errors.Server_error(code, params))
+		| Api_errors.Server_error(code, params) as e -> raise e
+		| No_storage_plugin_for_sr sr as e ->
+			Server_helpers.exec_with_new_task "transform_storage_exn"
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
+				)
+		| e ->
+			Backtrace.reraise e (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
 
 exception No_VDI
 
@@ -128,7 +149,8 @@ module SMAPIv1 = struct
 			version = "2.0";
 			required_api_version = "2.0";
 			features = [];
-			configuration = []
+			configuration = [];
+			required_cluster_stack = [];
 		}
 
 		let diagnostics context ~dbg =
@@ -145,11 +167,29 @@ module SMAPIv1 = struct
 
 	module SR = struct
 		include Storage_skeleton.SR
-		let create context ~dbg ~sr ~device_config ~physical_size =
+
+		let probe context ~dbg ~queue ~device_config ~sm_config =
+			let _type =
+				(* SMAPIv1 plugins have no namespaces, so strip off everything up to
+				   the final dot *)
+				try
+					let i = String.rindex queue '.' in
+					String.sub queue (i + 1) (String.length queue -i - 1)
+				with Not_found ->
+					queue in
+			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let task = Context.get_task_id __context in
+					Storage_interface.Raw (Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sm_config)
+				)
+
+		let create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size =
 			Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let subtask_of = Some (Context.get_task_id __context) in
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_label ~__context ~self:sr ~value:name_label;
+					Db.SR.set_name_description ~__context ~self:sr ~value:name_description;
 					let device_config = (Sm.sm_master true) :: device_config in
 					Sm.call_sm_functions ~__context ~sR:sr
 						(fun _ _type ->
@@ -166,6 +206,20 @@ module SMAPIv1 = struct
 									error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
 									raise e
 						)
+				)
+
+		let set_name_label context ~dbg ~sr ~new_name_label =
+			Server_helpers.exec_with_new_task "SR.set_name_label" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_label ~__context ~self:sr ~value:new_name_label
+				)
+
+		let set_name_description context ~dbg ~sr ~new_name_description =
+			Server_helpers.exec_with_new_task "SR.set_name_description" ~subtask_of:(Ref.of_string dbg)
+				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+					Db.SR.set_name_description ~__context ~self:sr ~value:new_name_description
 				)
 
 		let attach context ~dbg ~sr ~device_config =
@@ -241,9 +295,13 @@ module SMAPIv1 = struct
 							try
 								Sm.sr_update device_config _type sr;
 								let r = Db.SR.get_record ~__context ~self:sr in
+								let name_label = r.API.sR_name_label in
+								let name_description = r.API.sR_name_description in
 								let total_space = r.API.sR_physical_size in
 								let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
-								{ total_space; free_space }
+								let clustered = false in
+								let health = Storage_interface.Healthy in
+								{ name_label; name_description; total_space; free_space; clustered; health }
 							with
 								| Smint.Not_implemented_in_backend ->
 									raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
@@ -840,6 +898,55 @@ let external_rpc queue_name uri =
 				uri
 				call
 
+(** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
+    plugins mentioned in the configuration file whitelist. *)
+let on_xapi_start ~__context =
+	let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
+	let explicitly_configured_drivers = List.filter_map (function `Sm x -> Some x | `All -> None) !Xapi_globs.sm_plugins in
+	let smapiv1_drivers = Sm.supported_drivers () in
+	let configured_drivers = explicitly_configured_drivers @ smapiv1_drivers in
+	let in_use_drivers = List.map (fun (rf, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context) in
+	let to_keep = configured_drivers @ in_use_drivers in
+	(* Delete all records which aren't configured or in-use *)
+	List.iter
+		(fun ty ->
+			info "Unregistering SM plugin %s since not in the whitelist and not in-use" ty;
+			let self, _ = List.assoc ty existing in
+			try
+				Db.SM.destroy ~__context ~self
+			with _ -> ()
+		) (List.set_difference (List.map fst existing) to_keep);
+	(* Create all missing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			Xapi_sm.create_from_query_result ~__context query_result
+		) (List.set_difference smapiv1_drivers (List.map fst existing));
+	(* Update all existing SMAPIv1 plugins *)
+	List.iter
+		(fun ty ->
+			let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+			Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) query_result
+		) (List.intersect smapiv1_drivers (List.map fst existing));
+	let smapiv2_drivers = List.set_difference to_keep smapiv1_drivers in
+	(* Create all missing SMAPIv2 plugins *)
+	let query ty =
+		let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+		let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
+		let rpc = external_rpc queue_name uri in
+		let module C = Storage_interface.Client(struct let rpc = rpc end) in
+		let dbg = Context.string_of_task __context in
+		C.Query.query ~dbg in
+	List.iter
+		(fun ty ->
+			Xapi_sm.create_from_query_result ~__context (query ty)
+		) (List.set_difference smapiv2_drivers (List.map fst existing));
+	(* Update all existing SMAPIv2 plugins *)
+	List.iter
+		(fun ty ->
+			Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) (query ty)
+		) (List.intersect smapiv2_drivers (List.map fst existing))
+
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)
     let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
@@ -885,17 +992,6 @@ let unbind ~__context ~pbd =
 let rpc call = Storage_mux.Server.process None call
 
 module Client = Client(struct let rpc = rpc end)
-
-let probe ~__context ~_type ~device_config ~sr_sm_config =
-	let task = Context.get_task_id __context in
-	(* Look for an SMAPIv1 plugin first *)
-	if List.mem _type (Sm.supported_drivers ()) then begin
-		Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sr_sm_config
-	end else begin
-		let result = Client.SR.probe ~dbg:(Ref.string_of task) ~device_config in
-		let sr_strings = List.map (fun sr -> Printf.sprintf "<SR><UUID>%s</UUID></SR>" sr) result.probed_srs in
-		(String.concat "" ("<SRlist>"::sr_strings))^"</SRlist>"
-	end
 
 let print_delta d =
 	debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
@@ -1025,24 +1121,6 @@ let rec events_watch ~__context from =
 		) events;
 	events_watch ~__context next
 
-let transform_storage_exn f =
-	try
-		f ()
-	with
-		| Backend_error(code, params) ->
-			error "Re-raising as %s [ %s ]" code (String.concat "; " params);
-			raise (Api_errors.Server_error(code, params))
-		| Api_errors.Server_error(code, params) as e -> raise e
-		| No_storage_plugin_for_sr sr as e ->
-			Server_helpers.exec_with_new_task "transform_storage_exn"
-				(fun __context ->
-					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
-					Backtrace.reraise e (Api_errors.Server_error(Api_errors.sr_not_attached, [ Ref.string_of sr ]))
-				)
-		| e ->
-			error "Re-raising as INTERNAL_ERROR [ %s ]" (Printexc.to_string e);
-			raise (Api_errors.Server_error(Api_errors.internal_error, [ Printexc.to_string e ]))
-
 let events_from_sm () =
 	ignore(Thread.create (fun () -> 
 		Server_helpers.exec_with_new_task "sm_events"
@@ -1058,8 +1136,8 @@ let events_from_sm () =
 
 let start () =
 	let open Storage_impl.Local_domain_socket in
-	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xcp.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
-	info "Started service on org.xen.xcp.storage";
+	let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
+	info "Started service on org.xen.xapi.storage";
 	let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
 	()
 
@@ -1300,13 +1378,13 @@ let vbd_attach_order ~__context vbds =
 
 let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
 
-let create_sr ~__context ~sr ~physical_size =
+let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
 			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
-			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config physical_size;
+			Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size;
 			unbind ~__context ~pbd
 		)
 

@@ -67,6 +67,7 @@ XAPI_MODULES = $(COMMON) \
 	network \
 	../util/table \
 	balloon \
+	map_check \
 	system_domains \
 	local_work_queue \
 	../xva/xva \
@@ -174,6 +175,7 @@ XAPI_MODULES = $(COMMON) \
 	xha_statefile \
 	xha_metadata_vdi \
 	xha_errno \
+	xha_scripts \
 	static_vdis \
 	monitor_transfer \
 	monitor_types \
