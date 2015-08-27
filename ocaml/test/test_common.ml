@@ -19,13 +19,15 @@ open OUnit
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 
-let string_of_string_list strings =
+let string_of_list string_of list =
 	Printf.sprintf "[%s]"
-		(String.concat "; " strings)
+		(String.concat "; " (List.map string_of list))
+
+let string_of_string_list strings =
+	string_of_list (fun x -> x) strings
 
 let string_of_string_map map =
-	Printf.sprintf "[%s]"
-		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
+	string_of_list (fun (k, v) -> Printf.sprintf "%s: %s" k v) map
 
 let string_of_opt string_of = function
 	| None -> "None"
