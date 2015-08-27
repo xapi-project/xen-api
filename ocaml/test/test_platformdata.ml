@@ -18,19 +18,21 @@ open Test_highlevel
 
 module SanityCheck = Generic.Make(struct
 	module Io = struct
-		type input_t = ((string * string) list * bool)
+		type input_t = ((string * string) list * bool * int64 * int64 * bool)
 		type output_t = (string * string) list
 
 		let string_of_input_t input =
-			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b)"
-				(fst input |> Test_common.string_of_string_map)
-				(snd input)
+			let (platformdata, filter, vcpu_max, vcpu_startup, hvm) = input in
+			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b, vcpu_max = %Ld,
+					 vcpu_at_startup = %Ld, hvm = %b)"
+				(platformdata |> Test_common.string_of_string_map)
+				(filter) (vcpu_max) (vcpu_startup) (hvm)
 
 		let string_of_output_t = Test_common.string_of_string_map
 	end
 
-	let transform (platformdata, filter_out_unknowns) =
-		Xapi_xenops.Platform.sanity_check ~platformdata ~filter_out_unknowns
+	let transform (platformdata, filter_out_unknowns, vcpu_max, vcpu_at_startup, hvm) =
+		Xapi_xenops.Platform.sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns
 
 	let tests =
 		let usb_defaults = [
@@ -44,26 +46,26 @@ module SanityCheck = Generic.Make(struct
 				"pae", "true";
 				"whatever", "def";
 				"viridian", "true";
-			], true),
+			], true, 0L, 0L, false),
 			usb_defaults @
 			[
 				"pae", "true";
 				"viridian", "true";
 			]);
 			(* Check that usb and usb_tablet are turned on by default. *)
-			(([], false),
+			(([], false, 0L, 0L, false),
 			usb_defaults);
 			(* Check that an invalid tsc_mode gets filtered out. *)
-			((["tsc_mode", "17";], false),
+			((["tsc_mode", "17";], false, 0L, 0L, false),
 			usb_defaults);
 			(* Check that an invalid parallel port gets filtered out. *)
-			((["parallel", "/dev/random"], false),
+			((["parallel", "/dev/random"], false, 0L, 0L, false),
 			usb_defaults);
 			(* Check that we can't set usb_tablet to true if usb is false. *)
 			(([
 				"usb", "false";
 				"usb_tablet", "true";
-			], false),
+			], false, 0L, 0L, false),
 			[
 				"usb", "false";
 				"usb_tablet", "false";
@@ -72,13 +74,13 @@ module SanityCheck = Generic.Make(struct
 			(([
 				"usb", "false";
 				"usb_tablet", "false";
-			], false),
+			], false, 0L, 0L, false),
 			[
 				"usb", "false";
 				"usb_tablet", "false";
 			]);
 			(* Check that we can disable the parallel port. *)
-			((["parallel", "none"], false),
+			((["parallel", "none"], false, 0L, 0L, false),
 			usb_defaults @
 			["parallel", "none"]);
 			(* Check that a set of valid fields is unchanged (apart from
@@ -91,7 +93,7 @@ module SanityCheck = Generic.Make(struct
 				"tsc_mode", "2";
 				"viridian", "true";
 				"usb", "true";
-			], false),
+			], false, 0L, 0L, false),
 			[
 				"usb", "true";
 				"usb_tablet", "false";
@@ -106,7 +108,7 @@ module SanityCheck = Generic.Make(struct
 				"pae", "true";
 				"parallel", "/dev/parport0";
 				"tsc_mode", "blah";
-			], false),
+			], false, 0L, 0L, false),
 			usb_defaults @
 			[
 				"pae", "true";
