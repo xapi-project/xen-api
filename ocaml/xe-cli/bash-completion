@@ -112,6 +112,12 @@ _xe()
                 return 0
                 ;;
 
+            sr)
+                IFS=$'\n,'
+                set_completions_for_names 'sr-list' 'name-label' "$value"
+                return 0
+                ;;
+
             params)
                 val=$(final_comma_separated_param "$value")
                 class=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
@@ -354,6 +360,7 @@ _xe()
 
         vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
         hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
+        srselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<sr-selectors>"`
         isdeviceconfig=`echo "${param}" | grep "device-config:"`
         isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
         isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
@@ -377,6 +384,12 @@ _xe()
                 extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
             else
                 extraargs=",host="
+            fi
+        elif [ "${srselectors}" ]; then
+            if [ "${param}" ] ; then
+                extraargs=",sr=,"$(params "sr-list" | sed 's/params=//g')
+            else
+                extraargs=",sr="
             fi
         elif [ "${isvmppbackupschedule}" ]; then
             pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
@@ -436,7 +449,7 @@ params()
 
 set_completions_for_params()
 {
-    local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
+    local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
     set_completions "$v$2" "$3"
 }
 

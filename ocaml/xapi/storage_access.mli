@@ -18,6 +18,9 @@
 val start_smapiv1_servers: unit -> unit
 (** start listening for requests backed by SMAPIv1-style plugins *)
 
+val on_xapi_start: __context:Context.t -> unit
+(** Synchronises the known SM plugins with the SM table *)
+
 val start: unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)
@@ -43,6 +46,9 @@ val make_service: string -> string -> System_domains.service
 
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
+
+(** [external_rpc queue_name uri] for calling a particular storage implementation *)
+val external_rpc: string -> (unit -> string) -> Rpc.call -> Rpc.response
 
 (** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
     to device [userdevice] on domain [domid] *)
@@ -102,14 +108,11 @@ val diagnostics: __context:Context.t -> string
 (** [dp_destroy __context dp allow_leak] attempts to cleanup and detach a given DP *)
 val dp_destroy: __context:Context.t -> string -> bool -> unit
 
-(** [create_sr __context sr physical_size] attempts to create an empty SR *)
-val create_sr: __context:Context.t -> sr:API.ref_SR -> physical_size:int64 -> unit
+(** [create_sr __context sr name_label name_description physical_size] attempts to create an empty SR *)
+val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
-
-(** [probe __context _type device_config sr_sm_config] executes an SR probe *)
-val probe: __context:Context.t -> _type:string -> device_config:(string * string) list -> sr_sm_config:(string * string) list -> string
 
 val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
 

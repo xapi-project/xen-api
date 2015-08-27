@@ -685,10 +685,10 @@ let ha_join_liveset ~__context ~host =
   try
 	Xapi_ha.join_liveset __context host
   with
-  | Xapi_ha.Xha_error Xha_errno.Mtc_exit_bootjoin_timeout ->
+  | Xha_scripts.Xha_error Xha_errno.Mtc_exit_bootjoin_timeout ->
 	  error "HA enable failed with BOOTJOIN_TIMEOUT";
 	  raise (Api_errors.Server_error(Api_errors.ha_failed_to_form_liveset, []))
-  | Xapi_ha.Xha_error Xha_errno.Mtc_exit_can_not_access_statefile ->
+  | Xha_scripts.Xha_error Xha_errno.Mtc_exit_can_not_access_statefile ->
 	  error "HA enable failed with CAN_NOT_ACCESS_STATEFILE";
 	  raise (Api_errors.Server_error(Api_errors.ha_host_cannot_access_statefile, []))
 
@@ -1256,7 +1256,6 @@ let set_localdb_key ~__context ~host ~key ~value =
 
 (* Licensing *)
 
-exception Pool_record_expected_singleton
 let copy_license_to_db ~__context ~host ~features ~additional =
 	let restrict_kvpairs = Features.to_assoc_list features in
 	let license_params = additional @ restrict_kvpairs in
@@ -1639,3 +1638,8 @@ let sync_display ~__context ~host=
 		then Xapi_pci.disable_system_display_device ();
 		Db.Host.set_display ~__context ~self:host ~value:status
 	end
+
+let apply_guest_agent_config ~__context ~host =
+	let pool = Helpers.get_pool ~__context in
+	let config = Db.Pool.get_guest_agent_config ~__context ~self:pool in
+	Xapi_xenops.apply_guest_agent_config ~__context config

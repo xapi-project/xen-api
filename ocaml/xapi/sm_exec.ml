@@ -76,7 +76,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
       Opt.iter (fun sr ->
         if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
           if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
-            raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+            raise (Storage_interface.Backend_error(Api_errors.operation_not_allowed,
               [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
       ) sr_ref;
        let vdi_location = 
@@ -182,15 +182,15 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 				(Xml.parse_string output), stderr
 			with e ->
 				error "Failed to parse result from %s: stdout:%s stderr:%s exception:%s" exe output stderr (Printexc.to_string e);
-				raise (Api_errors.Server_error(Api_errors.sr_backend_failure, [ Printexc.to_string e; output; stderr ]))
+				raise (Storage_interface.Backend_error(Api_errors.sr_backend_failure, [ Printexc.to_string e; output; stderr ]))
 			end
 		with
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
-				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["exit code: " ^ (string_of_int i); output; log ]))
+				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["exit code: " ^ (string_of_int i); output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
-				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["received signal: " ^ (Unixext.string_of_signal i); output; log ]))
+				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["received signal: " ^ (Unixext.string_of_signal i); output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
-				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
+				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
 		end
 	)
     in
@@ -198,25 +198,25 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
     match methodResponse xml with
     | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
     | XMLRPC.Fault(39l, _) ->
-	raise (Api_errors.Server_error (Api_errors.sr_not_empty, []))
+	raise (Storage_interface.Backend_error (Api_errors.sr_not_empty, []))
     | XMLRPC.Fault(24l, _) -> 
-	raise (Api_errors.Server_error (Api_errors.vdi_in_use, []))
+	raise (Storage_interface.Backend_error (Api_errors.vdi_in_use, []))
     | XMLRPC.Fault(16l, _) -> 
-	raise (Api_errors.Server_error (Api_errors.sr_device_in_use, []))
+	raise (Storage_interface.Backend_error (Api_errors.sr_device_in_use, []))
     | XMLRPC.Fault(144l, _) ->
 	(* Any call which returns this 'VDIMissing' error really ought to have
 	   been provided both an SR and VDI reference... *)
 	let sr = default "" (may Ref.string_of call.sr_ref)
 	and vdi = default "" (may Ref.string_of call.vdi_ref) in
-	raise (Api_errors.Server_error (Api_errors.vdi_missing, [ sr; vdi ]))
+	raise (Storage_interface.Backend_error (Api_errors.vdi_missing, [ sr; vdi ]))
 	  
     | XMLRPC.Fault(code, reason) ->
 	let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
-	raise (Api_errors.Server_error(xenapi_code, [ ""; reason; stderr ]))
+	raise (Storage_interface.Backend_error(xenapi_code, [ ""; reason; stderr ]))
 	  
     | XMLRPC.Success [ result ] -> result
 	| _ ->
-		raise (Api_errors.Server_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
+		raise (Storage_interface.Backend_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
  in
   if needs_session
   then with_session call.sr_ref (fun session_id -> do_call { call with session_ref = Some session_id })
@@ -227,7 +227,7 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 (** Some functions to cope with the XML that the SM backends return *)    
 
 let xmlrpc_parse_failure (xml: string) (reason: string) = 
-  raise (Api_errors.Server_error (Api_errors.sr_backend_failure,
+  raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure,
 				  [ ""; "XML parse failure: " ^xml; reason ])) 
 
 let rethrow_parse_failures xml f = 
@@ -325,6 +325,7 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_features = features;
     sr_driver_configuration = configuration;
     sr_driver_text_features = text_features;
+    sr_driver_required_cluster_stack = [];
   }
 
 let sr_get_driver_info driver = 
@@ -337,12 +338,16 @@ let get_supported add_fn =
   let check_driver entry =
       if String.endswith "SR" entry then (
         let driver = String.sub entry 0 (String.length entry - 2) in
-        try
-          Unix.access (cmd_name driver) [ Unix.X_OK ];
-          let i = sr_get_driver_info driver in
-          add_fn driver i;
-        with e ->
-          error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e);
+        if not(Xapi_globs.accept_sm_plugin driver)
+        then info "Skipping SMAPIv1 plugin %s: not in sm-plugins whitelist in configuration file" driver
+        else begin
+          try
+            Unix.access (cmd_name driver) [ Unix.X_OK ];
+            let i = sr_get_driver_info driver in
+            add_fn driver i;
+          with e ->
+            error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e)
+        end
       ) in
 
   List.iter 

@@ -27,6 +27,12 @@ let string_of_string_map map =
 	Printf.sprintf "[%s]"
 		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
 
+let string_of_opt string_of = function
+	| None -> "None"
+	| Some x -> Printf.sprintf "Some %s" (string_of x)
+
+let string_of_string_opt = string_of_opt (fun x -> x)
+
 let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 
@@ -127,7 +133,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
 		?(current_operations=[]) ?(allowed_operations=[])
 		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
-		?(ha_cluster_stack="xhad") () =
+		?(ha_cluster_stack="xhad") ?(guest_agent_config=[]) () =
 	let pool_ref = Ref.make () in
 	Db.Pool.create ~__context ~ref:pool_ref
 		~uuid:(make_uuid ()) ~name_label ~name_description
@@ -137,7 +143,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
 		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
 		~current_operations ~allowed_operations
-		~restrictions ~other_config ~ha_cluster_stack;
+		~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config;
 	pool_ref
 
 let default_sm_features = [
@@ -158,20 +164,21 @@ let default_sm_features = [
 let make_sm ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(_type="sm")
 	?(name_label="") ?(name_description="") ?(vendor="") ?(copyright="")
 	?(version="") ?(required_api_version="") ?(capabilities=[]) ?(features=default_sm_features)
-	?(configuration=[]) ?(other_config=[]) ?(driver_filename="/dev/null") () =
-        Db.SM.create ~__context ~ref:ref ~uuid ~_type ~name_label ~name_description
+	?(configuration=[]) ?(other_config=[]) ?(driver_filename="/dev/null")
+	?(required_cluster_stack=[]) () =
+	Db.SM.create ~__context ~ref:ref ~uuid ~_type ~name_label ~name_description
 		~vendor ~copyright ~version ~required_api_version ~capabilities ~features
-		~configuration ~other_config ~driver_filename;
+		~configuration ~other_config ~driver_filename ~required_cluster_stack;
 	ref
 
 let make_sr ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
 		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="sm")
 		?(content_type="") ?(shared=true) ?(other_config=[]) ?(tags=[]) ?(default_vdi_visibility=true)
-		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) () =
+		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) ?(clustered=false) () =
 	Db.SR.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~virtual_allocation ~physical_utilisation ~physical_size ~_type
 		~content_type ~shared ~other_config ~tags ~default_vdi_visibility ~sm_config ~blobs
-		~local_cache_enabled ~introduced_by;
+		~local_cache_enabled ~introduced_by ~clustered;
 	ref
 
 let make_pbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(host=Ref.make ()) ?(sR=Ref.make ())

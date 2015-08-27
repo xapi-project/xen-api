@@ -115,10 +115,9 @@ let other_pcidevs_of_vm ~__context other_config =
 
 let pci_hiding_key = "xen-pciback.hide"
 let pci_hiding_key_eq = pci_hiding_key ^ "="
-let xen_cmdline_path = "/opt/xensource/libexec/xen-cmdline"
 
 let get_pci_hidden_raw_value () =
-	let cmd = xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
+	let cmd = !Xapi_globs.xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
 	let raw_kv_string = Helpers.get_process_output cmd in
 	(* E.g. "xen-pciback.hide=(0000:00:02.0)(0000:00:02.1)\n" or just "\n" *)
 	if String.startswith pci_hiding_key_eq raw_kv_string then
@@ -160,7 +159,7 @@ let _hide_pci ~__context pci =
 		let devs = p::(get_hidden_pcidevs ()) in
 		let valstr = List.fold_left (fun acc d -> acc ^ (paren_of d)) "" devs in
 		let cmd = Printf.sprintf "%s --set-dom0 %s%s"
-			xen_cmdline_path pci_hiding_key_eq valstr in
+			!Xapi_globs.xen_cmdline_path pci_hiding_key_eq valstr in
 		let _ = Helpers.get_process_output cmd in
 		()
 	)
@@ -179,9 +178,9 @@ let _unhide_pci ~__context pci =
 		let new_value = String.replace bdf_paren "" raw_value in
 		let cmd = match new_value with
 			| "" -> Printf.sprintf "%s --delete-dom0 %s"
-				xen_cmdline_path pci_hiding_key
+				!Xapi_globs.xen_cmdline_path pci_hiding_key
 			| _ -> Printf.sprintf "%s --set-dom0 %s%s"
-				xen_cmdline_path pci_hiding_key_eq new_value
+				!Xapi_globs.xen_cmdline_path pci_hiding_key_eq new_value
 		in
 		let _ = Helpers.get_process_output cmd in
 		()

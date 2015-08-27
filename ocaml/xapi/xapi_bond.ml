@@ -221,71 +221,30 @@ let fix_bond ~__context ~bond =
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
-(* Represents a required property of a bond and its allowed values. *)
-type requirement =
-	{
-		name:string;
-		default_value:string option;
-		is_valid_value:string -> bool;
-	}
-
 let requirements_of_mode = function
 	| `lacp -> [
-		{
-			name = "hashing_algorithm";
+		Map_check.({
+			key = "hashing_algorithm";
 			default_value = Some "tcpudp_ports";
 			is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
-		};
-		{
-			name = "lacp-time";
+		});
+		Map_check.({
+			key = "lacp-time";
 			default_value = Some "slow";
 			is_valid_value = (fun str -> List.mem str ["fast"; "slow"]);
-		};
-		{
-			name = "lacp-aggregation-key";
+		});
+		Map_check.({
+			key = "lacp-aggregation-key";
 			default_value = None;
 			is_valid_value = (fun i -> try ignore (int_of_string i); true with _ -> false);
-		};
-		{
-			name = "lacp-fallback-ab";
+		});
+		Map_check.({
+			key = "lacp-fallback-ab";
 			default_value = Some "true";
 			is_valid_value = (fun str -> List.mem str ["true"; "false"]);
-		};
+		});
 	]
 	| _ -> []
-
-(* Validate a key-value pair against a list of property requirements. *)
-let validate_property requirements (property_name, property_value) =
-	let fail () = raise (Api_errors.Server_error
-		(Api_errors.invalid_value, ["properties"; Printf.sprintf "%s = %s" property_name property_value]))
-	in
-	(* Try to find a required property requirement with this name. *)
-	let requirement =
-		try
-			List.find
-				(fun requirement -> requirement.name = property_name)
-				requirements
-		with Not_found -> fail ()
-	in
-	(* Check whether the proposed value for this property is allowed. *)
-	if not (requirement.is_valid_value property_value) then fail ()
-
-(* Check that a property is present for each requirement. *)
-(* If any are not, add the default value. *)
-let add_defaults requirements properties =
-	let property_is_present requirement = List.exists
-		(fun (property_name, _) -> property_name = requirement.name)
-		properties
-	in
-	List.fold_left
-		(fun acc requirement ->
-			if property_is_present requirement
-			then acc
-			else match requirement.default_value with
-				| None -> acc
-				| Some default_value ->
-					(requirement.name, default_value)::acc)
-		properties requirements
 
 let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
@@ -299,10 +258,10 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let requirements = requirements_of_mode mode in
 	(* Check that each of the supplied properties is valid. *)
 	List.iter
-		(fun property -> validate_property requirements property)
+		(fun property -> Map_check.validate_kvpair "properties" requirements property)
 		properties;
 	(* Add default properties if necessary. *)
-	let properties = add_defaults requirements properties in
+	let properties = Map_check.add_defaults requirements properties in
 
 	(* Prevent someone supplying the same PIF multiple times and bypassing the
 	 * number of bond members check *)
@@ -520,8 +479,8 @@ let set_mode ~__context ~self ~value =
 	(* Set up sensible properties for this bond mode. *)
 	let requirements = requirements_of_mode value in
 	let properties = Db.Bond.get_properties ~__context ~self
-		|> List.filter (fun property -> try ignore(validate_property requirements property); true with _-> false)
-		|> add_defaults requirements
+		|> List.filter (fun property -> try ignore(Map_check.validate_kvpair "properties" requirements property); true with _-> false)
+		|> Map_check.add_defaults requirements
 	in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
 
@@ -530,7 +489,7 @@ let set_mode ~__context ~self ~value =
 let set_property ~__context ~self ~name ~value =
 	let mode = Db.Bond.get_mode ~__context ~self in
 	let requirements = requirements_of_mode mode in
-	validate_property requirements (name, value);
+	Map_check.validate_kvpair "properties" requirements (name, value);
 
 	(* Remove the existing property with this name, then add the new value. *)
 	let properties = List.filter
@@ -545,4 +504,4 @@ let set_property ~__context ~self ~name ~value =
 
 (* Functions to export for testing only *)
 
-let __test_add_lacp_defaults = add_defaults (requirements_of_mode `lacp)
+let __test_add_lacp_defaults = Map_check.add_defaults (requirements_of_mode `lacp)

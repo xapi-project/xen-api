@@ -221,11 +221,19 @@ let insert ~__context ~vbd ~vdi =
 	assert_ok_to_insert ~__context ~vbd ~vdi;
     Xapi_xenops.vbd_insert ~__context ~self:vbd ~vdi
 
+let assert_not_xenprepping ~__context ~vm ~vbd =
+	let other_config = Db.VM.get_other_config ~__context ~self:vm in
+	if List.mem_assoc Xapi_globs.xenprep_other_config_key other_config &&
+		Db.VBD.get_VDI ~__context ~self:vbd = (Helpers.get_xenprep_iso_vdi ~__context)
+	then
+		raise (Api_errors.Server_error(Api_errors.vbd_xenprep_cd_in_use, [ Ref.string_of vbd ]))
+
 let assert_ok_to_eject ~__context ~vbd =
 	let vm = Db.VBD.get_VM ~__context ~self:vbd in
-    assert_removable ~__context ~vbd;
-    assert_not_empty ~__context ~vbd;
-    assert_not_suspended ~__context ~vm
+	assert_removable ~__context ~vbd;
+	assert_not_empty ~__context ~vbd;
+	assert_not_suspended ~__context ~vm;
+	assert_not_xenprepping ~__context ~vm ~vbd
 
 let eject ~__context ~vbd =
 	assert_ok_to_eject ~__context ~vbd;

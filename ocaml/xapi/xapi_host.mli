@@ -296,3 +296,5 @@ val enable_display : __context:Context.t -> host:API.ref_host -> API.host_displa
 val disable_display : __context:Context.t -> host:API.ref_host -> API.host_display
 
 val sync_display : __context:Context.t -> host:API.ref_host -> unit
+
+val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit

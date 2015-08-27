@@ -18,78 +18,202 @@ open Test_highlevel
 open Test_vgpu_common
 open Xapi_vgpu_type
 
-let string_of_vgpu_conf conf =
-	let open Nvidia in
-	Printf.sprintf "%04x %s %04x %04x %Ld"
-		conf.pdev_id
-		(match conf.psubdev_id with
-			| Some id -> Printf.sprintf "Some %04x" id
-			| None -> "None")
-		conf.vdev_id
-		conf.vsubdev_id
-		conf.framebufferlength
-
-let print_vgpu_conf conf =
-	Printf.printf "%s\n" (string_of_vgpu_conf conf)
-
-module OfConfFile = Generic.Make(struct
-	module Io = struct
-		type input_t = string
-		type output_t = Nvidia.vgpu_conf
-
-		let string_of_input_t x = x
-		let string_of_output_t = string_of_vgpu_conf
-	end
-
-	let transform = Nvidia.of_conf_file
-
-	let tests = [
-		"ocaml/test/data/test_vgpu_subdevid.conf",
-		{
-			Nvidia.pdev_id = 0x3333;
-			psubdev_id = Some 0x4444;
-			vdev_id = 0x1111;
-			vsubdev_id = 0x2222;
-			framebufferlength = 0x10000000L;
-			num_heads = 2L;
-			max_instance = 8L;
-			max_x = 1920L;
-			max_y = 1200L;
-			file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
-		};
-		"ocaml/test/data/test_vgpu_nosubdevid.conf",
-		{
-			Nvidia.pdev_id = 0x3333;
-			psubdev_id = None;
-			vdev_id = 0x1111;
-			vsubdev_id = 0x2222;
-			framebufferlength = 0x10000000L;
-			num_heads = 2L;
-			max_instance = 8L;
-			max_x = 1920L;
-			max_y = 1200L;
-			file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
-		};
-	]
-end)
-
-(* This test generates a lot of print --- set skip to false to enable *)
-let skip = true
-
-let print_nv_types () =
-	skip_if skip "Generates print...";
-	try
+module NvidiaTest = struct
+	let string_of_vgpu_conf conf =
+		let open Identifier in
 		let open Nvidia in
-		if (Sys.file_exists nvidia_conf_dir
-			&& Sys.is_directory nvidia_conf_dir) then
-			begin
-				let vgpu_confs = read_config_dir nvidia_conf_dir in
-				List.iter print_vgpu_conf vgpu_confs
-			end else
-				Printf.printf "No NVIDIA conf files found in %s\n" nvidia_conf_dir
-	with e ->
-		print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
-		assert false (* fail *)
+		Printf.sprintf "%04x %s %04x %04x %Ld"
+			conf.identifier.pdev_id
+			(match conf.identifier.psubdev_id with
+				| Some id -> Printf.sprintf "Some %04x" id
+				| None -> "None")
+			conf.identifier.vdev_id
+			conf.identifier.vsubdev_id
+			conf.framebufferlength
+
+	let print_vgpu_conf conf =
+		Printf.printf "%s\n" (string_of_vgpu_conf conf)
+
+	module OfConfFile = Generic.Make(struct
+		module Io = struct
+			type input_t = string
+			type output_t = Nvidia.vgpu_conf
+
+			let string_of_input_t x = x
+			let string_of_output_t = string_of_vgpu_conf
+		end
+
+		let transform = Nvidia.of_conf_file
+
+		let tests = [
+			"ocaml/test/data/test_vgpu_subdevid.conf",
+			Nvidia.({
+				identifier = Identifier.({
+					pdev_id = 0x3333;
+					psubdev_id = Some 0x4444;
+					vdev_id = 0x1111;
+					vsubdev_id = 0x2222;
+				});
+				framebufferlength = 0x10000000L;
+				num_heads = 2L;
+				max_instance = 8L;
+				max_x = 1920L;
+				max_y = 1200L;
+				file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
+			});
+			"ocaml/test/data/test_vgpu_nosubdevid.conf",
+			Nvidia.({
+				identifier = Identifier.({
+					pdev_id = 0x3333;
+					psubdev_id = None;
+					vdev_id = 0x1111;
+					vsubdev_id = 0x2222;
+				});
+				framebufferlength = 0x10000000L;
+				num_heads = 2L;
+				max_instance = 8L;
+				max_x = 1920L;
+				max_y = 1200L;
+				file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
+			});
+		]
+	end)
+
+	(* This test generates a lot of print --- set skip to false to enable *)
+	let skip = true
+
+	let print_nv_types () =
+		skip_if skip "Generates print...";
+		try
+			let open Nvidia in
+			if (Sys.file_exists nvidia_conf_dir
+				&& Sys.is_directory nvidia_conf_dir) then
+				begin
+					let vgpu_confs = read_config_dir nvidia_conf_dir in
+					List.iter print_vgpu_conf vgpu_confs
+				end else
+					Printf.printf "No NVIDIA conf files found in %s\n" nvidia_conf_dir
+		with e ->
+			print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
+			assert false (* fail *)
+end
+
+module IntelTest = struct
+	let string_of_vgpu_conf conf =
+		let open Identifier in
+		let open Intel in
+		Printf.sprintf "%04x %Ld %Ld %Ld %s %b %s"
+			conf.identifier.pdev_id
+			conf.identifier.low_gm_sz
+			conf.identifier.high_gm_sz
+			conf.identifier.fence_sz
+			(string_of_string_opt conf.identifier.monitor_config_file)
+			conf.experimental
+			conf.model_name
+
+	module ReadWhitelistLine = Generic.Make(struct
+		module Io = struct
+			type input_t = string
+			type output_t = Intel.vgpu_conf option
+
+			let string_of_input_t x = x
+			let string_of_output_t = string_of_opt string_of_vgpu_conf
+		end
+
+		let transform line = Intel.read_whitelist_line ~line
+
+		let tests = [
+			(* Test some failure cases. *)
+			"", None;
+			"nonsense123", None;
+			(* Test some success cases. *)
+			"1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			Some {
+				Intel.identifier = Identifier.({
+					pdev_id = 0x1234;
+					low_gm_sz = 128L;
+					high_gm_sz = 384L;
+					fence_sz = 4L;
+					monitor_config_file = Some "/my/file";
+				});
+				experimental = false;
+				model_name = "myvgpu";
+			};
+			"1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			Some {
+				Intel.identifier = Identifier.({
+					pdev_id = 0x1234;
+					low_gm_sz = 128L;
+					high_gm_sz = 384L;
+					fence_sz = 4L;
+					monitor_config_file = Some "/my/file";
+				});
+				experimental = true;
+				model_name = "myvgpu";
+			};
+		]
+	end)
+
+	module ReadWhitelist = Generic.Make(struct
+		module Io = struct
+			type input_t = (string * int) (* whitelist * device_id *)
+			type output_t = Intel.vgpu_conf list
+
+			let string_of_input_t (whitelist, device_id) =
+				Printf.sprintf "(%s, %04x)" whitelist device_id
+			let string_of_output_t confs =
+				List.map string_of_vgpu_conf confs |> string_of_string_list
+		end
+
+		let transform (whitelist, device_id) =
+			Intel.read_whitelist ~whitelist ~device_id |> List.rev
+
+		let tests = [
+			("ocaml/test/data/gvt-g-whitelist-empty", 0x1234), [];
+			("ocaml/test/data/gvt-g-whitelist-missing", 0x1234), [];
+			("ocaml/test/data/gvt-g-whitelist-1234", 0x1234),
+			[
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file1";
+					});
+					experimental = false;
+					model_name = "GVT-g on 1234";
+				});
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file2";
+					});
+					experimental = true;
+					model_name = "GVT-g on 1234 (experimental)";
+				});
+			];
+			("ocaml/test/data/gvt-g-whitelist-1234", 0x5678), [];
+			("ocaml/test/data/gvt-g-whitelist-mixed", 0x1234),
+			[
+				Intel.({
+					identifier = Identifier.({
+						pdev_id = 0x1234;
+						low_gm_sz = 128L;
+						high_gm_sz = 384L;
+						fence_sz = 4L;
+						monitor_config_file = Some "/path/to/file1";
+					});
+					experimental = false;
+					model_name = "GVT-g on 1234";
+				});
+			];
+		]
+	end)
+end
 
 let test_find_or_create () =
 	let __context = make_test_database () in
@@ -190,8 +314,10 @@ let test_vendor_model_lookup () =
 let test =
 	"test_vgpu_type" >:::
 		[
-			"test_of_conf_file" >:: OfConfFile.test;
-			"print_nv_types" >:: print_nv_types;
+			"test_of_conf_file" >:: NvidiaTest.OfConfFile.test;
+			"print_nv_types" >:: NvidiaTest.print_nv_types;
+			"read_whitelist_line" >:: IntelTest.ReadWhitelistLine.test;
+			"read_whitelist" >:: IntelTest.ReadWhitelist.test;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
 			"test_vendor_model_lookup" >:: test_vendor_model_lookup;

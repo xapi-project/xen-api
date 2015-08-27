@@ -428,13 +428,39 @@ module MD = struct
 				warn "Unknown VBD QoS type: %s (try 'ionice')" x;
 				None in
 
-		let backend_kind_keys =
+		let other_config_keys ?(default=None) key =
 			let oc = vbd.API.vBD_other_config in
-			let k = Xapi_globs.vbd_backend_key in
+			let k = key in
 			try
 				let v = List.assoc k oc in
 				[(k, v)]
-			with Not_found -> []
+			with Not_found -> match default with None->[] | Some x->[(k, x)]
+		in
+
+		let in_range ~min ~max ~fallback values =
+			List.map (fun (k,v)-> k,
+				let value = try int_of_string v
+					with _->
+						debug "%s: warning: value %s is not an integer. Using fallback value %d" k v fallback;
+						fallback
+				in
+				string_of_int (
+					if value < min then min
+					else if value > max then max
+					else value
+				)
+			)
+			values
+		in
+
+		let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
+		let poll_duration_keys = in_range ~min:0 ~max:max_int
+			~fallback:0 (* if user provides invalid integer, use 0 = disable polling *)
+			(other_config_keys Xapi_globs.vbd_polling_duration_key ~default:(Some (string_of_int !Xapi_globs.default_vbd3_polling_duration)))
+		in
+		let poll_idle_threshold_keys = in_range ~min:0 ~max:100
+			~fallback:50 (* if user provides invalid float, use 50 = default 50% *)
+			(other_config_keys Xapi_globs.vbd_polling_idle_threshold_key ~default:(Some (string_of_int !Xapi_globs.default_vbd3_polling_idle_threshold)))
 		in
 
 		{
@@ -447,7 +473,7 @@ module MD = struct
 				| `CD -> CDROM
 				| `Floppy -> Floppy);
 			unpluggable = vbd.API.vBD_unpluggable;
-			extra_backend_keys = backend_kind_keys;
+			extra_backend_keys = backend_kind_keys @ poll_duration_keys @ poll_idle_threshold_keys;
 			extra_private_keys = [];
 			qos = qos ty;
 			persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);
@@ -767,6 +793,73 @@ end
 
 open Xenops_interface
 open Fun
+
+module Guest_agent_features = struct
+	module Xapi = struct
+		let auto_update_enabled = "auto_update_enabled"
+		let auto_update_url = "auto_update_url"
+	end
+
+	module Xenopsd = struct
+		let auto_update_enabled = "enabled"
+		let auto_update_url = "update_url"
+
+		let enabled = "1"
+		let disabled = "0"
+	end
+	
+	let auto_update_parameters_of_config config =
+		let auto_update_enabled =
+			match
+				if List.mem_assoc Xapi.auto_update_enabled config
+				then Some
+					(* bool_of_string should be safe as the setter in xapi_pool.ml only
+					 * allows "true" or "false" to be put into the database. *)
+					(bool_of_string (List.assoc Xapi.auto_update_enabled config))
+				else None
+			with
+			| Some true ->  [Xenopsd.auto_update_enabled, Xenopsd.enabled]
+			| Some false -> [Xenopsd.auto_update_enabled, Xenopsd.disabled]
+			| None -> []
+		in
+		let auto_update_url =
+			if List.mem_assoc Xapi.auto_update_url config
+			then [Xenopsd.auto_update_url, List.assoc Xapi.auto_update_url config]
+			else []
+		in
+		auto_update_enabled @ auto_update_url
+
+	let of_config ~__context config =
+		let open Features in
+		let vss =
+			let name = Features.name_of_feature VSS in
+			let licensed = Pool_features.is_enabled ~__context VSS in
+			let parameters = [] in
+			Host.({
+				name;
+				licensed;
+				parameters;
+			})
+		in
+		let guest_agent_auto_update =
+			let name = Features.name_of_feature Guest_agent_auto_update in
+			let licensed =
+				Pool_features.is_enabled ~__context Guest_agent_auto_update in
+			let parameters = auto_update_parameters_of_config config in
+			Host.({
+				name;
+				licensed;
+				parameters;
+			})
+		in
+		[vss; guest_agent_auto_update]
+end
+
+let apply_guest_agent_config ~__context config =
+	let dbg = Context.string_of_task __context in
+	let features = Guest_agent_features.of_config ~__context config in
+	let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+	Client.HOST.update_guest_agent_features dbg features
 
 (* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
 (* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
@@ -1191,8 +1284,27 @@ let update_vm ~__context id =
 										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
 								Xenopsd_metadata.delete ~__context id
 							end;
-							if power_state = `Halted
-							then !trigger_xenapi_reregister ();
+							if power_state = `Halted then (
+								let key = Xapi_globs.xenprep_other_config_key in
+								Xapi_vm_helpers.with_vm_operation ~__context ~self ~doc:"VM.xenprep_completion_check" ~op:`xenprep (fun () ->
+									let other_config = Db.VM.get_other_config ~__context ~self in
+									if List.mem_assoc key other_config &&
+										(List.assoc key other_config = Xapi_globs.xenprep_other_config_iso_inserted) &&
+										not (Xapi_vm_helpers.has_xenprep_iso ~__context ~self)
+									then (
+										(* Setting auto_update_drivers means the VM's virtual hardware platform version must be
+										 * at least high enough for that feature; this will be updated as part of VM start. *)
+										Db.VM.set_auto_update_drivers ~__context ~self ~value:true;
+										Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"Needs_start";
+										Helpers.call_api_functions ~__context (fun rpc session_id ->
+											XenAPI.Task.destroy ~rpc ~session_id ~self:(
+												XenAPI.Async.VM.start ~rpc ~session_id ~vm:self ~start_paused:false ~force:false
+											) (* Mark the task for destruction-after-completion to avoid accumulation of tasks. *)
+										);
+										Db.VM.remove_from_other_config ~__context ~self ~key
+									));
+								!trigger_xenapi_reregister ()
+							);
 						with e ->
 							error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
 					end;

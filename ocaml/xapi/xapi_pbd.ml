@@ -15,7 +15,6 @@
  * @group XenAPI functions
  *)
 
-open Client
 open Db_filter
 open Db_filter_types
 
@@ -146,6 +145,8 @@ let plug ~__context ~self =
 					(fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
+				Xapi_sr_operations.sr_health_check ~__context ~self:sr;
+
 				(* When the plugin is registered it is possible to query the capabilities etc *)
 				Xapi_sm.register_plugin ~__context query_result;
 
@@ -200,11 +201,10 @@ let unplug ~__context ~self =
 			Storage_access.transform_storage_exn
 				(fun () -> C.SR.detach dbg uuid);
 
-			(* This is the last point we can query the plugin's capabilities *)
-			Opt.iter (Xapi_sm.unregister_plugin ~__context) (Storage_mux.query_result_of_sr uuid);
-
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false;
+
+			Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
 			Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
 		end

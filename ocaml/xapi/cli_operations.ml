@@ -1469,9 +1469,26 @@ let sr_probe printer rpc session_id params =
 	let _type = List.assoc "type" params in
 	let device_config = parse_device_config params in
 	let sm_config = read_map_params "sm-config" params in
-	printer (Cli_printer.PList
-		[Client.SR.probe ~rpc ~session_id
-			~host ~_type ~device_config ~sm_config])
+	let txt = Client.SR.probe ~rpc ~session_id ~host ~_type ~device_config ~sm_config in
+	try
+		(* If it's the new format, try to print it more nicely *)
+		let open Storage_interface in
+		match probe_result_of_rpc (Xmlrpc.of_string txt) with
+		| Raw x -> printer (Cli_printer.PList [ x ])
+		| Probe x ->
+			let sr (uri, x) = [
+				"uri", uri;
+				"total_space", Int64.to_string x.total_space;
+				"free_space", Int64.to_string x.free_space;
+			] in
+			if x.srs <> []
+			then printer (Cli_printer.PMsg "The following SRs were found:");
+			printer (Cli_printer.PTable (List.map sr x.srs));
+			if x.uris <> []
+			then printer (Cli_printer.PMsg "The following URIs may contain SRs:");
+			printer (Cli_printer.PList x.uris)
+	with _ ->	
+		printer (Cli_printer.PList [txt])
 
 let sr_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
@@ -1839,6 +1856,24 @@ let select_vm_geneva rpc session_id params =
 		(failwith ("Must select a VM using either vm-name or vm-id: params="
 		^(String.concat "," (List.map (fun (a,b) -> a^"="^b) params))))
 
+let select_srs rpc session_id params ignore_params =
+	let do_filter params =
+		let srs = Client.SR.get_all_records_where rpc session_id "true" in
+		let all_recs = List.map (fun (sr,sr_r) -> let r = sr_record rpc session_id sr in r.setrefrec (sr,sr_r); r) srs in
+
+		let filter_params = List.filter (fun (p,_) ->
+			let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+		(* Filter all the records *)
+		List.fold_left filter_records_on_fields all_recs filter_params
+	in
+	(* try matching sr=<name or uuid> first *)
+	if List.mem_assoc "sr" params
+	then
+		try [sr_record rpc session_id (Client.SR.get_by_uuid rpc session_id (List.assoc "sr" params))]
+		with _ -> do_filter (List.map (fun (k,v) -> if k="sr" then ("name-label",v) else (k,v)) params)
+	else
+		do_filter params
+
 exception Multiple_failure of (string * string) list
 
 let format_message msg =
@@ -1911,6 +1946,20 @@ let do_host_op rpc session_id op params ?(multiple=true) ignore_params =
 					(if not multiple
 					then "Multiple matching hosts found. Operation can only be performed on one host at a time"
 					else "Multiple matching hosts found. --multiple required to complete the operation")
+
+let do_sr_op rpc session_id op params ?(multiple=true) ignore_params =
+	let srs = select_srs rpc session_id params ignore_params in
+	match List.length srs with
+		| 0 -> failwith "No matching hosts found"
+		| 1 -> [ op (List.hd srs) ]
+		| _ ->
+			if multiple && get_bool_param params "multiple" then
+				do_multiple op srs
+			else
+				failwith
+					(if not multiple
+					then "Multiple matching SRs found. Operation can only be performed on one SR at a time"
+					else "Multiple matching SRs found. --multiple required to complete the operation")
 
 (* Execute f; if we get a no_hosts_available error then print a vm diagnostic table and reraise exception *)
 let hook_no_hosts_available printer rpc session_id vm f =
@@ -2037,6 +2086,37 @@ let vm_data_source_forget printer rpc session_id params =
 			let vm=vm.getref () in
 			let ds=List.assoc "data-source" params in
 			Client.VM.forget_data_source_archives rpc session_id vm ds) params ["data-source"])
+
+(* APIs to collect SR level RRDs *)
+let sr_data_source_list printer rpc session_id params =
+	ignore(do_sr_op rpc session_id ~multiple:false
+		(fun sr ->
+			let sr=sr.getref () in
+			let dss = Client.SR.get_data_sources rpc session_id sr in
+			let output = List.map data_source_to_kvs dss in
+			printer (Cli_printer.PTable output)) params [])
+
+let sr_data_source_record printer rpc session_id params =
+	ignore(do_sr_op rpc session_id ~multiple:false
+		(fun sr ->
+			let sr=sr.getref () in
+			let ds=List.assoc "data-source" params in
+			Client.SR.record_data_source rpc session_id sr ds) params ["data-source"])
+
+let sr_data_source_query printer rpc session_id params =
+	ignore(do_sr_op rpc session_id ~multiple:false
+		(fun sr ->
+			let sr=sr.getref () in
+			let ds=List.assoc "data-source" params in
+			let value = Client.SR.query_data_source rpc session_id sr ds in
+			printer (Cli_printer.PList [Printf.sprintf "%f" value])) params ["data-source"])
+
+let sr_data_source_forget printer rpc session_id params =
+	ignore(do_sr_op rpc session_id ~multiple:false
+		(fun sr ->
+			let sr=sr.getref () in
+			let ds=List.assoc "data-source" params in
+			Client.SR.forget_data_source_archives rpc session_id sr ds) params ["data-source"])
 
 let host_data_source_list printer rpc session_id params =
 	ignore(do_host_op rpc session_id ~multiple:false
@@ -2830,6 +2910,12 @@ let vm_cd_insert printer rpc session_id params =
 let vm_xenprep_start printer rpc session_id params =
 	let op vm =
 		Client.VM.xenprep_start rpc session_id (vm.getref ())
+	in
+	ignore (do_vm_op printer rpc session_id op params [])
+
+let vm_xenprep_abort printer rpc session_id params =
+	let op vm =
+		Client.VM.xenprep_abort rpc session_id (vm.getref ())
 	in
 	ignore (do_vm_op printer rpc session_id op params [])
 
