@@ -175,11 +175,9 @@ module Platform = struct
 					raise (Api_errors.Server_error(Api_errors.invalid_value, 
 						["platform:cores-per-socket"; 
 						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
-			with Failure msg -> begin
-				debug "Bingo Boy!!";
+			with Failure msg ->
 				raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; 
 					Printf.sprintf "%s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
-				end
 		end;
 		(* Add usb emulation flags.
 		   Make sure we don't send usb=false and usb_tablet=true,
