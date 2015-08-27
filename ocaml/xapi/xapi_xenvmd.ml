@@ -34,7 +34,7 @@ exception XenvmdFailed of string * string
 
 (* The storage backends know about these paths *)
 let lockfile_path sr = Printf.sprintf "/var/lib/xenvmd/%s.lock" sr
-let configfile_path sr = Printf.sprintf "/etc/xenvm.d/VG_XenStorage-%s.xenvmd.config" sr
+let configfile_path sr = Printf.sprintf "/var/run/nonpersistent/xenvm.d/VG_XenStorage-%s.xenvmd.config" sr
 
 (* We need to be able to talk SMAPIv2 in order to find out which SRs
    are currently attached to this host. For that, we need an RPC
