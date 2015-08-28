@@ -409,7 +409,7 @@ let process root_dir name x =
       (* Stat the SR to look for datasources *)
       let args = Storage.Volume.Types.SR.Stat.In.make
         args.Args.SR.Attach.dbg
-        uri in
+        attach_response (* SR.stat should take the attached URI *) in
       let args = Storage.Volume.Types.SR.Stat.In.rpc_of_t args in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
       >>= fun stat ->
