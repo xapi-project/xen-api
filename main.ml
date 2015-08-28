@@ -88,25 +88,25 @@ let missing_uri () =
 let (>>>=) = Deferred.Result.(>>=)
 
 let fork_exec_rpc root_dir script_name args response_of_rpc =
-  info "%s/%s %s" root_dir script_name (Jsonrpc.to_string args);
+  info "%s %s" script_name (Jsonrpc.to_string args);
   ( Sys.is_file ~follow_symlinks:true script_name
     >>= function
     | `No | `Unknown ->
-      error "%s/%s is not a file" root_dir script_name;
+      error "%s is not a file" script_name;
       return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
     | `Yes -> return (Ok ())
   ) >>>= fun () ->
   ( Unix.access script_name [ `Exec ]
     >>= function
     | Error exn ->
-      error "%s/%s is not executable" root_dir script_name;
+      error "%s is not executable" script_name;
       return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]))
     | Ok () -> return (Ok ())
   ) >>>= fun () ->
   Process.create ~prog:script_name ~args:["--json"] ~working_dir:root_dir ()
   >>= function
   | Error e ->
-    error "%s/%s failed: %s" root_dir script_name (Error.to_string_hum e);
+    error "%s failed: %s" script_name (Error.to_string_hum e);
     return (Error(backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]))
   | Ok p ->
     (* Send the request as json on stdin *)
@@ -121,33 +121,33 @@ let fork_exec_rpc root_dir script_name args response_of_rpc =
       (* Expect an exception and backtrace on stdout *)
       begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
       | Error _ ->
-        error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stdout;
+        error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
         return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
       | Ok response ->
         begin match Or_error.try_with (fun () -> error_of_rpc response) with
         | Error _ ->
-          error "%s/%s failed and printed bad error json: %s" root_dir script_name output.Process.Output.stdout;
+          error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
           return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
         | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
         end
       end
     | Error (`Signal signal) ->
-      error "%s/%s caught a signal and failed" root_dir script_name;
+      error "%s caught a signal and failed" script_name;
       return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
     | Ok () ->
 
       (* Parse the json on stdout *)
       begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
       | Error _ ->
-        error "%s/%s succeeded but printed bad json: %s" root_dir script_name output.Process.Output.stdout;
+        error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
         return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
       | Ok response ->
         begin match Or_error.try_with (fun () -> response_of_rpc response) with
         | Error _ ->
-          error "%s/%s succeeded but printed bad json: %s" root_dir script_name output.Process.Output.stdout;
+          error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
           return (Error (backend_error "SCRIPT_FAILED" [ script_name; "json did not match schema"; output.Process.Output.stdout ]))
         | Ok x ->
-          info "%s/%s succeeded: %s" root_dir script_name output.Process.Output.stdout;
+          info "%s succeeded: %s" script_name output.Process.Output.stdout;
           return (Ok x)
         end
       end
