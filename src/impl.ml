@@ -319,16 +319,11 @@ module TarStream = struct
   }
 
   let make_tar_header prefix counter suffix file_size =
-    Tar.Header.({
-      file_name = Printf.sprintf "%s%08d%s" prefix counter suffix;
-      file_mode = 0o644;
-      user_id = 0;
-      group_id = 0;
-      file_size = Int64.of_int file_size;
-      mod_time = Int64.of_float (Unix.gettimeofday ());
-      link_indicator = Tar.Header.Link.Normal;
-      link_name = ""
-    })      
+    Tar.Header.make
+      ~mod_time:(Int64.of_float (Unix.gettimeofday ()))
+      ~file_mode:0o0644
+      (Printf.sprintf "%s%08d%s" prefix counter suffix)
+      (Int64.of_int file_size)
 end
 
 let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
@@ -713,8 +708,9 @@ let write_stream common s destination source_protocol destination_protocol preze
       Request.write (fun _ -> return ()) request c >>= fun () ->
       Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
       begin match r with
-      | `Eof -> fail (Failure "Unable to parse HTTP response from server: got Eof")
-      | `Invalid s -> fail (Failure (Printf.sprintf "Unable to parse HTTP response from server: got '%s'" s))
+      | `Invalid x -> fail (Failure (Printf.sprintf "Invalid HTTP response: %s"
+      x))
+      | `Eof -> fail (Failure "EOF while parsing HTTP response")
       | `Ok x ->
         let code = Code.code_of_status (Cohttp.Response.status x) in
         if Code.is_success code then begin
