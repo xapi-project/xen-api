@@ -1813,4 +1813,3 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
 	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
 	Xapi_pool_helpers.apply_guest_agent_config ~__context
-
