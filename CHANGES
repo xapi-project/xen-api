@@ -9,6 +9,8 @@
 
 0.7.5 (2014-06-03)
 * Upgrade to cohttp 0.10
+
+0.7.4 (2014-04-09)
 * Fix incorrect handling of tar file prefixes
 
 0.7.3 (2014-04-04)
