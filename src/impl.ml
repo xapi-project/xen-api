@@ -16,6 +16,8 @@ open Common
 open Cmdliner
 open Lwt
 
+external sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
+
 module F = Vhd.F.From_file(Vhd_lwt.IO)
 module In = Vhd.F.From_input(Input)
 module Channel_In = Vhd.F.From_input(struct
@@ -269,10 +271,14 @@ let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
   let p = progress total_work in
 
   ( if not prezeroed then expand_empty s else return s ) >>= fun s ->
-  expand_copy s >>= fun s ->
 
   fold_left (fun work_done x ->
     (match x with
+      | `Copy(fd, sector_start, sector_len) ->
+        let fd = Vhd_lwt.IO.to_file_descr fd in
+        Lwt_unix.LargeFile.lseek fd (Int64.mul 512L sector_start) Unix.SEEK_SET
+        >>= fun (_: int64) ->
+        c.Channels.copy_from fd (Int64.mul 512L sector_len)
       | `Sectors data ->
         c.Channels.really_write data >>= fun () ->
         return Int64.(of_int (Cstruct.len data))
@@ -280,7 +286,7 @@ let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
         c.Channels.skip (Int64.(mul n 512L)) >>= fun () ->
         assert prezeroed;
         return 0L
-      | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Vhd.Element.to_string x))) ) >>= fun work ->
+    ) >>= fun work ->
     let work_done = Int64.add work_done work in
     p work_done;
     return work_done
