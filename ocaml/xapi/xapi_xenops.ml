@@ -2416,7 +2416,7 @@ let suspend ~__context ~self =
 			let sm_config = [
 				Xapi_globs._sm_vm_hint, id;
 				(* Fully inflate the VDI if the SR supports thin provisioning *)
-				Xapi_globs._sm_initial_allocation, "1.0";
+				Xapi_globs._sm_initial_allocation, (Int64.to_string space_needed);
 			] in
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
