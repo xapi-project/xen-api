@@ -56,6 +56,19 @@ module Opt = struct
 	let map f = function None -> None | Some x -> Some (f x)
 end
 
+let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
+  let open Storage_interface.Mirror in
+  Printf.sprintf
+    "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n"
+    id source_vdi dest_vdi
+    (String.concat ","
+      (List.map
+        (function
+          | Receiving -> "Receiving"
+          | Sending -> "Sending")
+        state))
+    failed
+
 let old_main () =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
 	(* Look for url=foo *)
@@ -165,14 +178,9 @@ let old_main () =
 			Client.DATA.MIRROR.stop ~dbg ~id
 		| [ "mirror-list"; ] ->
 			let list = Client.DATA.MIRROR.list ~dbg in
-			let open Storage_interface.Mirror in
-			List.iter (fun (id,status) ->
-				Printf.printf "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n" 
-					id
-					status.source_vdi
-					status.dest_vdi
-					(String.concat "," (List.map (fun s -> match s with | Receiving -> "Receiving" | Sending -> "Sending") status.state))
-					status.failed) list
+			List.iter
+				(fun (id,status) -> Printf.printf "%s" (string_of_mirror id status))
+				list
 		| [ "task-list" ] ->
 			let tasks = Client.TASK.list ~dbg in
 			let open Storage_interface.Task in
@@ -288,14 +296,11 @@ let string_of_file filename =
     Buffer.contents output
 
 let mirror_list common_opts =
-  wrap common_opts (fun () -> 
-      let list = Client.DATA.MIRROR.list ~dbg in
-      let open Storage_interface.Mirror in
-      List.iter (fun (id,status) ->
-          Printf.printf "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n" 
-	    id status.source_vdi status.dest_vdi
-            (String.concat "," (List.map (fun s -> match s with | Receiving -> "Receiving" | Sending -> "Sending") status.state))
-            status.failed) list)
+  wrap common_opts (fun () ->
+    let list = Client.DATA.MIRROR.list ~dbg in
+    List.iter
+      (fun (id,status) -> Printf.printf "%s" (string_of_mirror id status))
+      list)
 
 let sr_attach common_opts sr device_config = match sr with
   | None -> `Error(true, "must supply SR")
