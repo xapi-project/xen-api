@@ -98,10 +98,11 @@ module State = struct
 		| Recv_op _ -> Recv_table active_recv
 		| Copy_op _ -> Copy_table active_copy
 
+	let persist_root = ref "/var/run/nonpersistent"
 	let path_of_table : type a. a table -> string = function
-		| Send_table _ -> "/var/run/nonpersistent/storage_mirrors_send.json"
-		| Recv_table _ -> "/var/run/nonpersistent/storage_mirrors_recv.json"
-		| Copy_table _ -> "/var/run/nonpersistent/storage_mirrors_copy.json"
+		| Send_table _ -> Filename.concat !persist_root "storage_mirrors_send.json"
+		| Recv_table _ -> Filename.concat !persist_root "storage_mirrors_recv.json"
+		| Copy_table _ -> Filename.concat !persist_root "storage_mirrors_copy.json"
 
 	let rpc_of_table : type a. a table -> Rpc.t = function
 		| Send_table send_table -> rpc_of_send_table send_table
@@ -134,6 +135,7 @@ module State = struct
 		to_string table |> Unixext.write_string_to_file (path_of_table table))
 
 	let save () =
+		Unixext.mkdir_rec !persist_root 0o700;
 		save_one (Send_table active_send);
 		save_one (Recv_table active_recv);
 		save_one (Copy_table active_copy)
