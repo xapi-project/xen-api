@@ -548,10 +548,10 @@ let stop ~dbg ~id =
 			raise e
 
 let stat ~dbg ~id =
-	let s1 = State.find_active_receive_mirror id in
-	let s2 = State.find_active_local_mirror id in
+	let recv_opt = State.find_active_receive_mirror id in
+	let send_opt = State.find_active_local_mirror id in
 	let open State in
-	let failed = match s2 with
+	let failed = match send_opt with
 		| Some send_state ->
 			let failed = 
 				try 
@@ -566,18 +566,18 @@ let stat ~dbg ~id =
 		| None -> false
 	in
 	let open Mirror in
-	let state = match (s1,s2) with 
+	let state = match (recv_opt,send_opt) with
 		| (Some _, Some _) -> [Sending; Receiving] 
 		| (Some _, None) -> [Receiving]
 		| (None, Some _) -> [Sending]
 		| (None, None) -> raise (Does_not_exist ("mirror",id))
 	in
 	let (sr,vdi) = of_mirror_id id in
-	let src = match (s1,s2) with
+	let src = match (recv_opt,send_opt) with
 	| (Some receive_state, _) -> receive_state.Receive_state.remote_vdi
 	| (_, Some send_state) -> vdi
 	| _ -> failwith "Invalid" in
-	let dst = match (s1,s2) with
+	let dst = match (recv_opt,send_opt) with
 	| (Some receive_state, _) -> receive_state.Receive_state.leaf_vdi
 	| (_,Some send_state) -> send_state.Send_state.mirror_vdi
 	| _ -> failwith "Invalid" in
