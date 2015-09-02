@@ -130,6 +130,7 @@ module Mirror = struct
 	type state = 
 		| Receiving
 		| Sending
+		| Copying
 
 	type t = {
 		source_vdi : vdi;
