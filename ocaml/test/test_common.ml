@@ -19,13 +19,15 @@ open OUnit
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 
-let string_of_string_list strings =
+let string_of_list string_of list =
 	Printf.sprintf "[%s]"
-		(String.concat "; " strings)
+		(String.concat "; " (List.map string_of list))
+
+let string_of_string_list strings =
+	string_of_list (fun x -> x) strings
 
 let string_of_string_map map =
-	Printf.sprintf "[%s]"
-		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
+	string_of_list (fun (k, v) -> Printf.sprintf "%s: %s" k v) map
 
 let string_of_opt string_of = function
 	| None -> "None"
@@ -47,10 +49,7 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
 		| Some args ->
 			assert_equal ~printer:string_of_string_list ~msg:"Function raised API error with unexpected args" args a
 
-(** Make a simple in-memory database containing a single host and dom0 VM record. *)
-let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
-	let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
-
+let make_localhost ~__context =
 	let host_info = {
 		Create_misc.name_label = "test host";
 		xen_verstring = "unknown";
@@ -74,8 +73,12 @@ let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
 	(* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
 	Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 	Create_misc.ensure_domain_zero_records ~__context host_info;
-	Dbsync_master.create_pool_record ~__context;
+	Dbsync_master.create_pool_record ~__context
 
+(** Make a simple in-memory database containing a single host and dom0 VM record. *)
+let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
+	let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
+	make_localhost ~__context;
 	__context
 
 let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
