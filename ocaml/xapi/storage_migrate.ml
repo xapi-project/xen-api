@@ -550,6 +550,7 @@ let stop ~dbg ~id =
 let stat ~dbg ~id =
 	let recv_opt = State.find_active_receive_mirror id in
 	let send_opt = State.find_active_local_mirror id in
+	let copy_opt = State.find_active_copy id in
 	let open State in
 	let failed = match send_opt with
 		| Some send_state ->
@@ -566,20 +567,19 @@ let stat ~dbg ~id =
 		| None -> false
 	in
 	let open Mirror in
-	let state = match (recv_opt,send_opt) with
-		| (Some _, Some _) -> [Sending; Receiving] 
-		| (Some _, None) -> [Receiving]
-		| (None, Some _) -> [Sending]
-		| (None, None) -> raise (Does_not_exist ("mirror",id))
+	let state =
+		(match recv_opt with Some _ -> [Receiving] | None -> []) @
+		(match send_opt with Some _ -> [Sending]   | None -> []) @
+		(match copy_opt with Some _ -> [Copying]   | None -> [])
 	in
-	let (sr,vdi) = of_mirror_id id in
-	let src = match (recv_opt,send_opt) with
-	| (Some receive_state, _) -> receive_state.Receive_state.remote_vdi
-	| (_, Some send_state) -> vdi
-	| _ -> failwith "Invalid" in
-	let dst = match (recv_opt,send_opt) with
-	| (Some receive_state, _) -> receive_state.Receive_state.leaf_vdi
-	| (_,Some send_state) -> send_state.Send_state.mirror_vdi
+	if state = [] then raise (Does_not_exist ("mirror", id));
+	let src, dst = match (recv_opt, send_opt, copy_opt) with
+	| (Some receive_state, _, _) ->
+		receive_state.Receive_state.remote_vdi, receive_state.Receive_state.leaf_vdi
+	| (_, Some send_state, _) ->
+		snd (of_mirror_id id), send_state.Send_state.mirror_vdi
+	| (_, _, Some copy_state) ->
+		snd (of_copy_id id), copy_state.Copy_state.copy_vdi
 	| _ -> failwith "Invalid" in
 	{ Mirror.source_vdi = src; dest_vdi = dst; state; failed; }
 
