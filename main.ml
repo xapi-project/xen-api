@@ -65,7 +65,8 @@ let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
       (List.map
         (function
           | Receiving -> "Receiving"
-          | Sending -> "Sending")
+          | Sending -> "Sending"
+          | Copying -> "Copying")
         state))
     failed
 
