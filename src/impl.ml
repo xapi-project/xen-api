@@ -651,9 +651,15 @@ let make_stream common source relative_to source_format destination_format =
     ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.raw ?from t
   | "raw", "vhd" ->
+    let source = match Image.of_device source with
+      | Some (`Raw x) -> x (* bypass any tapdisk and use the raw file *)
+      | _ -> source in
     Raw_IO.openfile source false >>= fun t ->
     Raw_input.vhd t
   | "raw", "raw" ->
+    let source = match Image.of_device source with
+      | Some (`Raw x) -> x (* bypass any tapdisk and use the raw file *)
+      | _ -> source in
     Raw_IO.openfile source false >>= fun t ->
     Raw_input.raw t
   | _, _ -> assert false
