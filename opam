@@ -22,4 +22,5 @@ depends: [
   "sha"
   "cohttp" {>="0.12.0"}
   "ssl"
+  "xapi-tapctl"
 ]
