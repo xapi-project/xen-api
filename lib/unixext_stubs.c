@@ -55,7 +55,7 @@ CAMLprim value stub_unixext_fsync (value fd)
 	CAMLreturn(Val_unit);
 }
 	
-extern uint64_t blkgetsize(int fd, uint64_t *psize);
+extern uint64_t stdext_blkgetsize(int fd, uint64_t *psize);
 
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {
@@ -63,7 +63,7 @@ CAMLprim value stub_unixext_blkgetsize64(value fd)
   uint64_t size;
   int c_fd = Int_val(fd);
   /* mirage-block-unix binding: */
-  if (blkgetsize(c_fd, &size)) {
+  if (stdext_blkgetsize(c_fd, &size)) {
     uerror("ioctl(BLKGETSIZE64)", Nothing);
   }
   CAMLreturn(caml_copy_int64(size));

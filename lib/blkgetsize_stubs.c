@@ -33,7 +33,7 @@
 #ifdef __linux__
 #include <linux/fs.h>
 
-int blkgetsize(int fd, uint64_t *psize)
+int stdext_blkgetsize(int fd, uint64_t *psize)
 {
 #ifdef BLKGETSIZE64
   int ret = ioctl(fd, BLKGETSIZE64, psize);
@@ -50,7 +50,7 @@ int blkgetsize(int fd, uint64_t *psize)
 #elif defined(__APPLE__)
 #include <sys/disk.h>
 
-int blkgetsize(int fd, uint64_t *psize)
+int stdext_blkgetsize(int fd, uint64_t *psize)
 {
   unsigned long blocksize = 0;
   int ret = ioctl(fd, DKIOCGETBLOCKSIZE, &blocksize);
@@ -66,7 +66,7 @@ int blkgetsize(int fd, uint64_t *psize)
 #elif defined(__FreeBSD__)
 #include <sys/disk.h>
 
-int blkgetsize(int fd, uint64_t *psize)
+int stdext_blkgetsize(int fd, uint64_t *psize)
 {
   int ret = ioctl(fd, DIOCGMEDIASIZE, psize);
   return ret;
@@ -75,32 +75,3 @@ int blkgetsize(int fd, uint64_t *psize)
 #else
 # error "Unable to query block device size: unsupported platform, please report."
 #endif
-
-/* ocaml/ocaml/unixsupport.c */
-extern void uerror(char *cmdname, value cmdarg);
-#define Nothing ((value) 0)
-
-CAMLprim value stub_blkgetsize(value filename){
-  CAMLparam1(filename);
-  CAMLlocal1(result);
-  uint64_t size_in_bytes;
-  int fd;
-  int success = -1;
-
-  const char *filename_c = strdup(String_val(filename));
-
-  enter_blocking_section();
-  fd = open(filename_c, O_RDONLY, 0);
-  if (blkgetsize(fd, &size_in_bytes) == 0)
-    success = 0;
-  close(fd);
-  leave_blocking_section();
-
-  free((void*)filename_c);
-
-  if (fd == -1) uerror("open", filename);
-  if (success == -1) uerror("BLKGETSIZE", filename);
-
-  result = caml_copy_int64(size_in_bytes);
-  CAMLreturn(result);
-}
