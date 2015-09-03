@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 7a3b08a8ca9b171c31a256d94267a3ba)
+# DO NOT EDIT (digest: 59091d3a878b9b72b98c132652e76c6b)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -29,6 +29,7 @@ true: annot, bin_annot
 <src/main.{native,byte}>: pkg_re.str
 <src/main.{native,byte}>: pkg_sha
 <src/main.{native,byte}>: pkg_sha.sha1
+<src/main.{native,byte}>: pkg_tapctl
 <src/main.{native,byte}>: pkg_tar
 <src/main.{native,byte}>: pkg_threads
 <src/main.{native,byte}>: pkg_uri
