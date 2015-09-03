@@ -73,6 +73,11 @@ let ( ** ) = Int64.mul
 let kib = 1024L
 let mib = kib ** kib
 
+let startswith prefix x =
+	let prefix' = String.length prefix
+	and x' = String.length x in
+	prefix' <= x' && (String.sub x 0 prefix' = prefix)
+
 let (|>) a b = b a
 module Opt = struct
 	let default d = function
@@ -123,8 +128,34 @@ let after f g =
 		g ();
 		raise e
 
+(** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
+    the driver domain corresponding to the frontend device [path] in this domain. *)
+let find_backend_device path =
+	try 
+		let open Xenstore in
+		(* If we're looking at a xen frontend device, see if the backend
+		   is in the same domain. If so check if it looks like a .vhd *)
+		let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
+		let major = rdev / 256 and minor = rdev mod 256 in
+		let link = Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor) in
+		match List.rev (Re_str.split (Re_str.regexp_string "/") link) with
+		| id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
+			let id = int_of_string (String.sub id 4 (String.length id - 4)) in
+			with_xs (fun xs -> 
+				let self = xs.Xs.read "domid" in
+				let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
+				let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
+				match Re_str.split (Re_str.regexp_string "/") backend with
+				| "local" :: "domain" :: bedomid :: _ ->
+					assert (self = bedomid);
+					Some params
+				| _ -> raise Not_found
+			)
+		| _ -> raise Not_found
+	with _ -> None
+
 let with_paused_tapdisk path f =
-	let path = Image.find_backend_device path |> Opt.default path in
+	let path = find_backend_device path |> Opt.default path in
 
 	let context = Tapctl.create () in
 	match Tapctl.of_device context path with
