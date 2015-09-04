@@ -386,8 +386,10 @@ let list ?t ctx =
 		let result = invoke_tap_ctl ctx "list" args in
 		let lines = String.split '\n' result in
 		List.filter_map (fun line ->
+			(* Note the filename can include spaces, for example: *)
+			(* pid=855 minor=0 state=0 args=aio:/run/sr-mount/dev/disk/by-id/ata-WDC_WD2502ABYS-18B7A0_WD-WCAT1H334077-part3/win8 0 *)
 			try 
-				let fields = String.split_f String.isspace line in
+				let fields = String.split ~limit:4 ' ' line in
 				let assoc = List.filter_map (fun field -> 
 					match String.split '=' field with
 						| x::ys -> 

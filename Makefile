@@ -39,3 +39,7 @@ configure:
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
 
 # OASIS_STOP
+#
+reinstall:
+	ocamlfind remove tapctl
+	$(SETUP) -install $(INSTALLFLAGS)
