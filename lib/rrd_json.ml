@@ -66,7 +66,8 @@ let json_metadata_of_ds ?(owner=Rrd.Host) ds buf =
 	let open Ds in
 	let add_string str = Buffer.add_string buf str in
 	let json_line_string ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%s\"%s" n v (if last then "" else ","))
-	and json_line_float  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%.2f\"%s" n v (if last then "" else ",")) in
+	and json_line_float  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%.2f\"%s" n v (if last then "" else ","))
+	and json_line_bool  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%b\"%s" n v (if last then "" else ",")) in
 	begin
 		add_string (Printf.sprintf "\"%s\":{" ds.ds_name);
 		if ds.ds_description != "" then (json_line_string "description" ds.ds_description);
@@ -82,6 +83,7 @@ let json_metadata_of_ds ?(owner=Rrd.Host) ds buf =
 			| Rrd.Gauge -> "absolute"
 			| Rrd.Absolute -> "rate"
 			| Rrd.Derive -> "absolute_to_rate");
+		json_line_bool "default" ds.ds_default;
 		json_line_string "units" ds.ds_units;
 		json_line_float "min" ds.ds_min;
 		json_line_float ~last:true "max" ds.ds_max;
