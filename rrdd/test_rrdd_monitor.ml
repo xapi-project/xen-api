@@ -32,16 +32,16 @@ let string_of_rrd_dump dump =
 
 let check_rrd_hash actual_rrds expected_rrds =
 	assert_equal ~printer:string_of_rrd_dump
-		(List.sort compare (dump_rrd_hash actual_rrds))
 		(List.sort compare expected_rrds)
+		(List.sort compare (dump_rrd_hash actual_rrds))
 
 let check_host_dss expected_dss =
 	match !Rrdd_shared.host_rrd with
 	| None -> assert_failure "host_rrd should have been created"
 	| Some info ->
 		assert_equal ~printer:(String.concat "; ")
-			(List.sort compare (dump_dss info.Rrdd_shared.dss))
 			(List.sort compare expected_dss)
+			(List.sort compare (dump_dss info.Rrdd_shared.dss))
 
 let update_rrds_test ~dss ~uuid_domids ~uuid_srs ~paused_vms
 	~expected_vm_rrds ~expected_sr_rrds ~expected_host_dss = fun ctxt ->
