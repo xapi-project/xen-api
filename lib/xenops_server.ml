@@ -934,7 +934,7 @@ let rec atomics_of_operation = function
 		]
 	| _ -> []
 
-let perform_atomic ~progress_callback ?subtask (op: atomic) (t: Xenops_task.t) : unit =
+let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	Xenops_task.check_cancelling t;
 	match op with
@@ -1254,7 +1254,7 @@ and trigger_cleanup_after_failure op t = match op with
 			immediate_operation t.Xenops_task.dbg id (VM_check_state id)
 	end
 
-and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
+and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
 		| VM_start id ->
@@ -1505,7 +1505,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 			List.iter (fun x -> perform x t) operations
 		| Atomic op ->
 			let progress_callback = progress_callback 0. 1. t in
-			perform_atomic ~progress_callback ?subtask op t
+			perform_atomic ~progress_callback ?subtask ?result op t
 	in
 	let one op =
 		try
@@ -1526,7 +1526,7 @@ and perform ?subtask (op: operation) (t: Xenops_task.t) : unit =
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
 let queue_operation_int dbg id op =
-	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
+	let task = Xenops_task.add tasks dbg (let r = ref None in fun t -> perform ~result:r op t; !r) in
 	Redirector.push id (op, task);
 	task
 
