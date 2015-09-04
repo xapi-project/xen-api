@@ -740,6 +740,23 @@ let request_rdp_on ~__context ~vm =
 let request_rdp_off ~__context ~vm =
 	request_rdp ~__context ~vm ~enabled:false
 
+let run_script ~__context ~vm ~args =
+	(* Args can be any key value pair, which include "username", "password", "script", "interpreter" (optional), and "arguments" (optional). *)
+	let required = [ "username"; "password"; "script" ] in
+	(* let optional = [ "interpreter"; "arguments" ] in *)
+	List.iter (fun a -> if not (List.mem_assoc a args) then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["missing argument"; ""; Printf.sprintf "Argument %s is required." a]))) required;
+	(* Ensure the caller has the VM memory-access level permission i.e. vm-power-admin or higher.
+	   As all the plugin calls share the same role/perms setting, we must do ad-hoc checking here by ourselves. *)
+	let session_id = Xapi_session.get_top ~__context ~self:(Context.get_session_id __context) in
+	if not (Rbac.is_access_allowed ~__context ~session_id ~permission:Rbac_static.permission_VM_checkpoint.Db_actions.role_name_label)
+	then raise (Api_errors.Server_error(Api_errors.rbac_permission_denied, ["vm.call_plugin"; "No permission to run script, must have VM power admin role or higher."]));
+	(* For the moment, we only make use of "script". *)
+	let script = List.assoc "script" args in
+	if String.length script > 1024 then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["length restriction"; ""; "The script length must not exceed 1024 bytes"]));
+	try Xapi_xenops.run_script ~__context ~self:vm script
+	with Xenops_interface.Failed_to_run_script reason -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ reason ]))
+
+
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~vm ~plugin ~fn ~args =
 	if plugin <> "guest-agent-operation" then
@@ -752,6 +769,8 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
 		| "request-rdp-off" ->
 			request_rdp_off ~__context ~vm;
 			""
+		| "run-script" ->
+			run_script ~__context ~vm ~args
 		| _ ->
 			let msg = Printf.sprintf "The requested fn \"%s\" could not be found in plugin \"%s\"." fn plugin in
 			raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "failed to find fn"; msg; msg ]))

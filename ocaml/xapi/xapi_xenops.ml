@@ -2231,6 +2231,20 @@ let request_rdp ~__context ~self enabled =
 			Events_from_xenopsd.wait queue_name dbg id ()
 		)
 
+let run_script ~__context ~self script =
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context ~vm:self queue_name
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.run_script %s %s" id script;
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			let r = Client.VM.run_script dbg id script |> sync_with_task_result __context queue_name in
+			let r = match r with None -> "" | Some rpc -> Jsonrpc.to_string rpc in
+			Events_from_xenopsd.wait queue_name dbg id ();
+			r
+		)
+
 let set_xenstore_data ~__context ~self xsdata =
 	let queue_name = queue_of_vm ~__context ~self in
 	transform_xenops_exn ~__context ~vm:self queue_name
