@@ -20,6 +20,7 @@ open Xenops_helpers
 open Xenstore
 open Xenops_utils
 open Xenops_task
+open Cancel_utils
 
 module D = Debug.Make(struct let name = service_name end)
 open D
@@ -1483,6 +1484,55 @@ module VM = struct
 						let path = Printf.sprintf "/local/domain/%d/control/ts" di.Xenctrl.domid in
 						xs.Xs.write path (if enabled then "1" else "0")
 			)
+
+	let run_script task vm script =
+		let uuid = uuid_of_vm vm in
+		let domid, path =  with_xc_and_xs
+			(fun xc xs ->
+				match di_of_uuid ~xc ~xs Newest uuid with
+				| None -> raise (Does_not_exist("domain", vm.Vm.id))
+				| Some di ->
+					let path = xs.Xs.getdomainpath di.Xenctrl.domid in
+					let _ =
+						try xs.Xs.read (path ^ "/control/feature-xs-batcmd")
+						with _ -> raise (Unimplemented "run-script is not supported on the given VM (or it is still booting)") in
+					di.Xenctrl.domid, path ^ "/control/batcmd") in
+		let () = Xs.transaction ()
+			(fun xs ->
+				let state = try xs.Xs.read (path ^ "/state") with _ -> "" in
+				let () = match state with
+				| "" -> () (* state should normally be empty, unless in exceptional case e.g. xapi restarted previously *)
+				| "IN PROGRESS" ->
+					raise (Failed_to_run_script "A residual run-script instance in progress, either wait for its completion or reboot the VM.")
+				| _ ->
+					info "Found previous run_script state %s leftover (either not started or completed), remove." state;
+					xs.Xs.rm path in
+				xs.Xs.write (path ^ "/script") script;
+				xs.Xs.write (path ^ "/state") "READY") in
+		let watch_succ = List.map
+			(fun s -> Watch.map (fun _ -> ()) (Watch.value_to_become (path ^ "/state") s))
+			[ "SUCCESS"; "TRUNCATED"; "FAILURE"] in
+		let watch_fail = [Watch.key_to_disappear path] in
+		let succ, flag, rc, stdout, stderr = Xs.with_xs (fun xs ->
+			let succ = cancellable_watch (Domain domid) watch_succ watch_fail task ~xs ~timeout:86400. () in
+			let flag = try xs.Xs.read (path ^ "/state") with _ -> "" in
+			let rc = try xs.Xs.read (path ^ "/return") with _ -> "" in
+			let stdout =  try xs.Xs.read (path ^ "/stdout") with _ -> "" in
+			let stderr = try xs.Xs.read (path ^ "/stderr") with _ -> "" in
+			xs.Xs.rm path;
+			succ, flag, rc, stdout, stderr) in
+		if not succ then Xenops_task.raise_cancelled task;
+		let truncate s =
+			let len = String.length s in
+			if len < 1024 || len = 1024 && flag <> "TRUNCATED" then s
+			else String.sub s 0 (min len 1024) ^ " (truncated)" in
+		let stdout, stderr = truncate stdout, truncate stderr in
+		let rc_opt = try Some (Int64.of_string rc) with _ -> None in
+		match flag, rc_opt with
+		| ("SUCCESS" | "TRUNCATED"), Some rc_int  ->
+			Rpc.Dict [("rc", Rpc.Int rc_int); ("stdout", Rpc.String stdout); ("stderr", Rpc.String stderr)]
+		| _, _ ->
+			raise (Failed_to_run_script (Printf.sprintf "flag = %s, rc = %s, stdour = %s, stderr = %s" flag rc stdout stderr))
 
 	let set_domain_action_request vm request =
 		let uuid = uuid_of_vm vm in

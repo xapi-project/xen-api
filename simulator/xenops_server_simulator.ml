@@ -362,6 +362,7 @@ module VM = struct
 	let get_state vm = Mutex.execute m (get_state_nolock vm)
 
 	let request_rdp vm enabled = ()
+	let run_script _ vm script = Rpc.Dict [("rc", Rpc.Int 0L); ("stdout", Rpc.String ""); ("stderr", Rpc.String "")]
 	let set_domain_action_request vm request = ()
 	let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 

@@ -83,6 +83,7 @@ type atomic =
 	| VM_pause of Vm.id
 	| VM_unpause of Vm.id
 	| VM_request_rdp of (Vm.id * bool)
+	| VM_run_script of (Vm.id * string)
 	| VM_set_domain_action_request of (Vm.id * domain_action_request option)
 	| VM_create_device_model of (Vm.id * bool)
 	| VM_destroy_device_model of Vm.id
@@ -1080,6 +1081,11 @@ let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_t
 		| VM_request_rdp (id, enabled) ->
 			debug "VM.request_rdp %s %b" id enabled;
 			B.VM.request_rdp (VM_DB.read_exn id) enabled
+		| VM_run_script (id, script) ->
+			debug "VM.run_script %s %s" id script;
+			let res = B.VM.run_script t (VM_DB.read_exn id) script in
+			VM_DB.signal id;
+			(match result with None -> () | Some r -> r := Some res)
 		| VM_set_domain_action_request (id, dar) ->
 			debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
 			B.VM.set_domain_action_request (VM_DB.read_exn id) dar
@@ -1239,6 +1245,7 @@ and trigger_cleanup_after_failure op t = match op with
 		| VM_pause id
 		| VM_unpause id
 		| VM_request_rdp (id, _)
+		| VM_run_script (id, _)
 		| VM_set_domain_action_request (id, _)
 		| VM_create_device_model (id, _)
 		| VM_destroy_device_model id
@@ -1858,6 +1865,8 @@ module VM = struct
 	let unpause _ dbg id = queue_operation dbg id (Atomic(VM_unpause id))
 
 	let request_rdp _ dbg id enabled = queue_operation dbg id (Atomic(VM_request_rdp (id, enabled)))
+
+	let run_script _ dbg id script = queue_operation dbg id (Atomic(VM_run_script (id, script)))
 
 	let set_xsdata _ dbg id xsdata = queue_operation dbg id (Atomic (VM_set_xsdata (id, xsdata)))
 
