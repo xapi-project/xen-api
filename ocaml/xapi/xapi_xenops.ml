@@ -2055,8 +2055,8 @@ let success_task queue_name f dbg id =
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
 			match t.Task.state with
-				| Task.Completed _ -> f t
-				| Task.Failed x -> 
+				| Task.Completed r -> f t;r.Task.result
+				| Task.Failed x ->
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
 					let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
 					Backtrace.add exn bt;
@@ -2183,13 +2183,15 @@ let update_debug_info __context t =
 				debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task) (Printexc.to_string e)
 		) debug_info
 
-let sync_with_task __context queue_name x =
+let sync_with_task_result __context queue_name x =
 	let dbg = Context.string_of_task __context in
 	x |> register_task __context queue_name |> wait_for_task queue_name dbg |> unregister_task __context queue_name |> success_task queue_name (update_debug_info __context) dbg
 
+let sync_with_task __context queue_name x = sync_with_task_result __context queue_name x |> ignore
+
 let sync __context queue_name x =
 	let dbg = Context.string_of_task __context in
-	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg
+	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg |> ignore
 
 let pause ~__context ~self =
 	let queue_name = queue_of_vm ~__context ~self in
