@@ -39,7 +39,7 @@ let create_fresh_rrd use_min_max dss =
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD. *)
-let update_rrds timestamp dss (uuid_domids : (string * int) list) (uuid_srs : string list) paused_vms =
+let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
@@ -128,6 +128,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) (uuid_srs : st
 				(*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
 				log_backtrace ()
 		in
+		let uuid_srs = List.filter_map (fun (ty, ds) -> match ty with SR x -> Some x | _ -> None) dss in
 		List.iter do_sr uuid_srs;
 
 		let host_dss = List.filter_map (fun (ty, ds) -> match ty with | Host -> Some ds | _ -> None) dss in
