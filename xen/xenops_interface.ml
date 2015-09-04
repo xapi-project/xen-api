@@ -64,6 +64,7 @@ exception Not_enough_memory of int64
 exception Cancelled of string
 exception Storage_backend_error of (string * (string list))
 exception PCIBack_not_loaded
+exception Failed_to_run_script of string
 
 type debug_info = string
 
@@ -597,6 +598,7 @@ module VM = struct
 	external pause: debug_info -> Vm.id -> Task.id = ""
 	external unpause: debug_info -> Vm.id -> Task.id = ""
 	external request_rdp: debug_info -> Vm.id -> bool -> Task.id = ""
+	external run_script: debug_info -> Vm.id -> string -> Task.id = ""
 	external set_xsdata: debug_info -> Vm.id -> (string * string) list -> Task.id = ""
 	external set_vcpus: debug_info -> Vm.id -> int -> Task.id = ""
 	external set_shadow_multiplier : debug_info -> Vm.id -> float -> Task.id = ""
