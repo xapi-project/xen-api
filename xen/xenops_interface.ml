@@ -489,8 +489,8 @@ end
 module Task = struct
 	type id = string
 
-	type async_result = unit
-		
+	type async_result = Rpc.t
+
 	type completion_t = {
 		duration : float;
 		result : async_result option
