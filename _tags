@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 87e2609bb063ea0c0d4d7f9df6cc22d2)
+# DO NOT EDIT (digest: 59091d3a878b9b72b98c132652e76c6b)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -15,28 +15,36 @@ true: annot, bin_annot
 "_darcs": -traverse
 "_darcs": not_hygienic
 # Executable vhd-tool
+<src/main.{native,byte}>: use_libvhd-tool_stubs
 <src/main.{native,byte}>: pkg_cmdliner
 <src/main.{native,byte}>: pkg_cohttp
 <src/main.{native,byte}>: pkg_cohttp.lwt
 <src/main.{native,byte}>: pkg_io-page.unix
 <src/main.{native,byte}>: pkg_lwt
+<src/main.{native,byte}>: pkg_lwt.preemptive
+<src/main.{native,byte}>: pkg_lwt.syntax
 <src/main.{native,byte}>: pkg_lwt.unix
 <src/main.{native,byte}>: pkg_nbd
 <src/main.{native,byte}>: pkg_nbd.lwt
 <src/main.{native,byte}>: pkg_re.str
 <src/main.{native,byte}>: pkg_sha
 <src/main.{native,byte}>: pkg_sha.sha1
+<src/main.{native,byte}>: pkg_tapctl
 <src/main.{native,byte}>: pkg_tar
+<src/main.{native,byte}>: pkg_threads
 <src/main.{native,byte}>: pkg_uri
 <src/main.{native,byte}>: pkg_vhd-format
 <src/main.{native,byte}>: pkg_vhd-format.lwt
 <src/main.{native,byte}>: custom
 # Executable sparse_dd
+<src/sparse_dd.{native,byte}>: use_libsparse_dd_stubs
 <src/sparse_dd.{native,byte}>: pkg_cmdliner
 <src/sparse_dd.{native,byte}>: pkg_cohttp
 <src/sparse_dd.{native,byte}>: pkg_cohttp.lwt
 <src/sparse_dd.{native,byte}>: pkg_io-page.unix
 <src/sparse_dd.{native,byte}>: pkg_lwt
+<src/sparse_dd.{native,byte}>: pkg_lwt.preemptive
+<src/sparse_dd.{native,byte}>: pkg_lwt.syntax
 <src/sparse_dd.{native,byte}>: pkg_lwt.unix
 <src/sparse_dd.{native,byte}>: pkg_nbd
 <src/sparse_dd.{native,byte}>: pkg_nbd.lwt
@@ -60,6 +68,8 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: pkg_cohttp.lwt
 <src/*.ml{,i,y}>: pkg_io-page.unix
 <src/*.ml{,i,y}>: pkg_lwt
+<src/*.ml{,i,y}>: pkg_lwt.preemptive
+<src/*.ml{,i,y}>: pkg_lwt.syntax
 <src/*.ml{,i,y}>: pkg_lwt.unix
 <src/*.ml{,i,y}>: pkg_nbd
 <src/*.ml{,i,y}>: pkg_nbd.lwt
@@ -78,6 +88,31 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: pkg_xenstore.unix
 <src/*.ml{,i,y}>: pkg_xenstore_transport
 <src/*.ml{,i,y}>: pkg_xenstore_transport.unix
+"src/sendfile64_stubs.c": pkg_cmdliner
+"src/sendfile64_stubs.c": pkg_cohttp
+"src/sendfile64_stubs.c": pkg_cohttp.lwt
+"src/sendfile64_stubs.c": pkg_io-page.unix
+"src/sendfile64_stubs.c": pkg_lwt
+"src/sendfile64_stubs.c": pkg_lwt.preemptive
+"src/sendfile64_stubs.c": pkg_lwt.syntax
+"src/sendfile64_stubs.c": pkg_lwt.unix
+"src/sendfile64_stubs.c": pkg_nbd
+"src/sendfile64_stubs.c": pkg_nbd.lwt
+"src/sendfile64_stubs.c": pkg_re.str
+"src/sendfile64_stubs.c": pkg_sha
+"src/sendfile64_stubs.c": pkg_sha.sha1
+"src/sendfile64_stubs.c": pkg_tapctl
+"src/sendfile64_stubs.c": pkg_tar
+"src/sendfile64_stubs.c": pkg_threads
+"src/sendfile64_stubs.c": pkg_uri
+"src/sendfile64_stubs.c": pkg_vhd-format
+"src/sendfile64_stubs.c": pkg_vhd-format.lwt
+"src/sendfile64_stubs.c": pkg_xcp
+"src/sendfile64_stubs.c": pkg_xenstore
+"src/sendfile64_stubs.c": pkg_xenstore.client
+"src/sendfile64_stubs.c": pkg_xenstore.unix
+"src/sendfile64_stubs.c": pkg_xenstore_transport
+"src/sendfile64_stubs.c": pkg_xenstore_transport.unix
 <src/sparse_dd.{native,byte}>: custom
 # OASIS_STOP
 <src/chunked.ml>: syntax_camlp4o, pkg_cstruct.syntax

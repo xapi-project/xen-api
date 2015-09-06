@@ -1,8 +1,16 @@
+0.7.7 (2015-04-27)
+* opam: generate a $NAME.install file
+* make: fix conditional compilation when --disable-xenserver set
+* now compatible with tar-format.0.2.1 and tar-format.0.3.0
+* travis: use new opam 1.2 workflow
+
 0.7.6 (2014-11-04)
 * Upgrade to cohttp 0.12.0 API
 
 0.7.5 (2014-06-03)
-* Upgrade to cohttp 0.11.2
+* Upgrade to cohttp 0.10
+
+0.7.4 (2014-04-09)
 * Fix incorrect handling of tar file prefixes
 
 0.7.3 (2014-04-04)

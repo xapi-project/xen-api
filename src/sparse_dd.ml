@@ -67,13 +67,16 @@ let options =
     "machine", Arg.Set machine_readable_progress, (fun () -> string_of_bool !machine_readable_progress), "emit machine-readable output";
 ]
 
-open Xenstore
-
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
 let ( ** ) = Int64.mul
 let kib = 1024L
 let mib = kib ** kib
+
+let startswith prefix x =
+	let prefix' = String.length prefix
+	and x' = String.length x in
+	prefix' <= x' && (String.sub x 0 prefix' = prefix)
 
 let (|>) a b = b a
 module Opt = struct
@@ -116,10 +119,14 @@ module Progress = struct
 		end
 end
 
-let startswith prefix x =
-	let prefix' = String.length prefix
-	and x' = String.length x in
-	prefix' <= x' && (String.sub x 0 prefix' = prefix)
+let after f g =
+	try
+		let r = f () in
+		g ();
+		r
+	with e ->
+		g ();
+		raise e
 
 (** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
     the driver domain corresponding to the frontend device [path] in this domain. *)
@@ -146,34 +153,6 @@ let find_backend_device path =
 			)
 		| _ -> raise Not_found
 	with _ -> None
-(** [vhd_of_device path] returns (Some vhd) where 'vhd' is the vhd leaf backing a particular device [path] or None.
-    [path] may either be a blktap2 device *or* a blkfront device backed by a blktap2 device. If the latter then
-    the script must be run in the same domain as blkback. *)
-let vhd_of_device path =
-	let tapdisk_of_path path =
-		try 
-			match Tapctl.of_device (Tapctl.create ()) path with
-			| _, _, (Some ("vhd", vhd)) -> Some vhd
-			| _, _, _ -> raise Not_found
-		with Tapctl.Not_blktap ->
-			debug "Device %s is not controlled by blktap" path;
-			None
-		| Tapctl.Not_a_device ->
-			debug "%s is not a device" path;
-			None
-		| _ -> 
-			debug "Device %s has an unknown driver" path;
-			None in
-	find_backend_device path |> Opt.default path |> tapdisk_of_path
-
-let after f g =
-	try
-		let r = f () in
-		g ();
-		r
-	with e ->
-		g ();
-		raise e
 
 let with_paused_tapdisk path f =
 	let path = find_backend_device path |> Opt.default path in
@@ -303,17 +282,18 @@ let _ =
 	);
 
 	debug "src = %s; dest = %s; base = %s; size = %Ld" src dest (Opt.default "None" base) size;
-	let src_vhd = vhd_of_device src in
-	let dest_vhd = vhd_of_device dest in
-	let base_vhd = match base with
+	let src_image = Image.of_device src in
+	let dest_image = Image.of_device dest in
+	let base_image = match base with
 		| None -> None
-		| Some x -> vhd_of_device x in
-	debug "src_vhd = %s; dest_vhd = %s; base_vhd = %s" (Opt.default "None" src_vhd) (Opt.default "None" dest_vhd) (Opt.default "None" base_vhd);
+		| Some x -> Image.of_device x in
+	let to_string = function None -> "None" | Some x -> Image.to_string x in
+	debug "src_image = %s; dest_image = %s; base_image = %s" (to_string src_image) (to_string dest_image) (to_string base_image);
 
 	(* Add the directory of the vhd to the search path *)
-	let vhd_search_path = match src_vhd with
-	| None -> vhd_search_path
-	| Some x -> vhd_search_path ^ ":" ^ (Filename.dirname x) in
+	let vhd_search_path = match src_image with
+	| Some (`Vhd x) -> vhd_search_path ^ ":" ^ (Filename.dirname x)
+	| _ -> vhd_search_path in
 
 	let common = Common.make false false true vhd_search_path in
 
@@ -322,7 +302,10 @@ let _ =
         if !experimental_writes_bypass_tapdisk
 	then warn "experimental_writes_bypass_tapdisk set: this may cause data corruption";
 
-	let relative_to = base_vhd in
+	let relative_to = match base_image with
+	| Some (`Vhd x) -> Some x
+	| Some (`Raw _) -> None
+	| None -> None in
 
 	let rewrite_url device_or_url =
 		(* Ensure device_or_url is a valid URL, and apply our encryption policy *)
@@ -349,8 +332,8 @@ let _ =
 		end in
 
 	let open Lwt in
-	let stream_t, destination, destination_format = match !experimental_reads_bypass_tapdisk, src, src_vhd, !experimental_writes_bypass_tapdisk, dest, dest_vhd with
-        | true, _, Some vhd, true, _, Some vhd' ->
+	let stream_t, destination, destination_format = match !experimental_reads_bypass_tapdisk, src, src_image, !experimental_writes_bypass_tapdisk, dest, dest_image with
+        | true, _, Some (`Vhd vhd), true, _, Some (`Vhd vhd') ->
 		prezeroed := false; (* the physical disk will have vhd metadata and other stuff on it *)
 		info "streaming from vhd %s (relative to %s) to vhd %s" vhd (string_opt relative_to) vhd';
         	let t = Impl.make_stream common vhd relative_to "vhd" "vhd" in
@@ -358,15 +341,20 @@ let _ =
 	| false, _, _, true, _, _ ->
 		error "Not implemented: writes bypass tapdisk while reads go through tapdisk";
 		failwith "Not implemented: writing bypassing tapdisk while reading through tapdisk"
-	| false, _, Some vhd, false, _, _ ->
+	| false, _, Some (`Vhd vhd), false, _, _ ->
 		let dest = rewrite_url dest in
 		info "streaming from raw %s using BAT from %s (relative to %s) to raw %s" src vhd (string_opt relative_to) dest;
 		let t = Impl.make_stream common (src ^ ":" ^ vhd) relative_to "hybrid" "raw" in
 		t, dest, "raw"
-        | true, _, Some vhd, _, _, _ ->
+        | true, _, Some (`Vhd vhd), _, _, _ ->
 		let dest = rewrite_url dest in
 		info "streaming from vhd %s (relative to %s) to raw %s" vhd (string_opt relative_to) dest;
         	let t = Impl.make_stream common vhd relative_to "vhd" "raw" in
+		t, dest, "raw"
+        | _, _, Some (`Raw raw), _, _, _ ->
+		let dest = rewrite_url dest in
+		info "streaming from raw %s (relative to %s) to raw %s" raw (string_opt relative_to) dest;
+        	let t = Impl.make_stream common raw relative_to "raw" "raw" in
 		t, dest, "raw"
         | _, device, None, _, _, _ ->
 		let dest = rewrite_url dest in

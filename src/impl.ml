@@ -16,6 +16,8 @@ open Common
 open Cmdliner
 open Lwt
 
+external sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
+
 module F = Vhd.F.From_file(Vhd_lwt.IO)
 module In = Vhd.F.From_input(Input)
 module Channel_In = Vhd.F.From_input(struct
@@ -269,10 +271,14 @@ let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
   let p = progress total_work in
 
   ( if not prezeroed then expand_empty s else return s ) >>= fun s ->
-  expand_copy s >>= fun s ->
 
   fold_left (fun work_done x ->
     (match x with
+      | `Copy(fd, sector_start, sector_len) ->
+        let fd = Vhd_lwt.IO.to_file_descr fd in
+        Lwt_unix.LargeFile.lseek fd (Int64.mul 512L sector_start) Unix.SEEK_SET
+        >>= fun (_: int64) ->
+        c.Channels.copy_from fd (Int64.mul 512L sector_len)
       | `Sectors data ->
         c.Channels.really_write data >>= fun () ->
         return Int64.(of_int (Cstruct.len data))
@@ -280,7 +286,7 @@ let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
         c.Channels.skip (Int64.(mul n 512L)) >>= fun () ->
         assert prezeroed;
         return 0L
-      | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Vhd.Element.to_string x))) ) >>= fun work ->
+    ) >>= fun work ->
     let work_done = Int64.add work_done work in
     p work_done;
     return work_done
@@ -319,16 +325,11 @@ module TarStream = struct
   }
 
   let make_tar_header prefix counter suffix file_size =
-    Tar.Header.({
-      file_name = Printf.sprintf "%s%08d%s" prefix counter suffix;
-      file_mode = 0o644;
-      user_id = 0;
-      group_id = 0;
-      file_size = Int64.of_int file_size;
-      mod_time = Int64.of_float (Unix.gettimeofday ());
-      link_indicator = Tar.Header.Link.Normal;
-      link_name = ""
-    })      
+    Tar.Header.make
+      ~mod_time:(Int64.of_float (Unix.gettimeofday ()))
+      ~file_mode:0o0644
+      (Printf.sprintf "%s%08d%s" prefix counter suffix)
+      (Int64.of_int file_size)
 end
 
 let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
@@ -599,6 +600,20 @@ let socket sockaddr =
 
 let colon = Re_str.regexp_string ":"
 
+let retry common allowed_exns retries f =
+  let rec aux n =
+    if n <= 0 then f ()
+    else
+      try_lwt f ()
+      with
+      | exn when List.mem exn allowed_exns ->
+        if common.Common.debug then
+          Printf.fprintf stderr "warning: caught %s; will retry %d more time%s...\n%!"
+            (Printexc.to_string exn) retries (if retries=1 then "" else "s");
+        Lwt_unix.sleep 1. >>= fun () ->
+        aux (retries - 1) in
+  aux retries
+
 let make_stream common source relative_to source_format destination_format =
   match source_format, destination_format with
   | "hybrid", "raw" ->
@@ -606,7 +621,7 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      Vhd_IO.openchain ~path vhd false >>= fun t ->
+      retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
       ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.raw ?from raw t
@@ -618,7 +633,7 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      Vhd_IO.openchain ~path vhd false >>= fun t ->
+      retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
       ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.vhd ?from raw t
@@ -627,18 +642,24 @@ let make_stream common source relative_to source_format destination_format =
     end
   | "vhd", "vhd" ->
     let path = common.path @ [ Filename.dirname source ] in
-    Vhd_IO.openchain ~path source false >>= fun t ->
+    retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
     ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.vhd ?from t
   | "vhd", "raw" ->
     let path = common.path @ [ Filename.dirname source ] in
-    Vhd_IO.openchain ~path source false >>= fun t ->
+    retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
     ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.raw ?from t
   | "raw", "vhd" ->
+    let source = match Image.of_device source with
+      | Some (`Raw x) -> x (* bypass any tapdisk and use the raw file *)
+      | _ -> source in
     Raw_IO.openfile source false >>= fun t ->
     Raw_input.vhd t
   | "raw", "raw" ->
+    let source = match Image.of_device source with
+      | Some (`Raw x) -> x (* bypass any tapdisk and use the raw file *)
+      | _ -> source in
     Raw_IO.openfile source false >>= fun t ->
     Raw_input.raw t
   | _, _ -> assert false
@@ -699,8 +720,9 @@ let write_stream common s destination source_protocol destination_protocol preze
       Request.write (fun _ -> return ()) request c >>= fun () ->
       Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
       begin match r with
-      | `Eof -> fail (Failure "Unable to parse HTTP response from server: got Eof")
-      | `Invalid s -> fail (Failure (Printf.sprintf "Unable to parse HTTP response from server: got '%s'" s))
+      | `Invalid x -> fail (Failure (Printf.sprintf "Invalid HTTP response: %s"
+      x))
+      | `Eof -> fail (Failure "EOF while parsing HTTP response")
       | `Ok x ->
         let code = Code.code_of_status (Cohttp.Response.status x) in
         if Code.is_success code then begin
