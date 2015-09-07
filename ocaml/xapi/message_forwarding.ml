@@ -60,11 +60,11 @@ let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
-	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	let hostname = Db.Host.get_address ~__context ~self:host in
+	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	Pervasiveext.finally
 		(fun ()->f session_id (remote_rpc_fn __context hostname task_opt))
-		(fun ()->Server_helpers.exec_with_new_task ~session_id "local logout in message forwarder" (fun __context -> Xapi_session.logout ~__context))
+		(fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
 let call_slave_with_local_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
 	let hostname = Db.Host.get_address ~__context ~self:host in
