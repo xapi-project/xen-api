@@ -34,6 +34,8 @@ let cache_sr_lock = Mutex.create ()
 let default_ssl_port = 443
 let https_port = ref default_ssl_port
 
+let sr_rrds_location = Constants.rrd_location
+
 (** Pool secret. *)
 let get_pool_secret () =
 	try
