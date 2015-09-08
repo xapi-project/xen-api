@@ -845,4 +845,21 @@ let read_rrd ~__context ~sr ~vdi =
 			)
 		)
 
+module Rrdd = Rrd_client.Client
+
+let push_sr_rdds ~__context ~sr ~vdi =
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	let sr_rrds_path = Rrdd.sr_rrds_path ~uid:sr_uuid in
+	let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
+	begin match gzipped_rrds with
+	| None -> debug "stats vdi doesn't have rdds"
+	| Some x ->
+		let len = String.length x in
+		Helpers.touch_file sr_rrds_path;
+		let fd = Unix.openfile sr_rrds_path [Unix.O_RDWR] 0 in
+		ignore (Unix.write fd x 0 len);
+		Unix.close fd;
+		Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
+	end
+
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)

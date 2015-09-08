@@ -3725,8 +3725,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 				(* Check if SR has SR_STATS capability then create SR-stats VDI *)
 				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then
-					Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr
+				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then begin
+					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
+					Xapi_vdi.push_sr_rdds ~__context ~sr:sr ~vdi:vdi
+				end
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);

@@ -36,9 +36,11 @@ let create_rrd_vdi ~__context ~sr =
 			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
 		in
 		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
 	end
 	| vdi :: _ ->
-		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr)
+		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
 
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi = 
