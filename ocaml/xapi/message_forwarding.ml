@@ -3734,6 +3734,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.unplug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			(* Check if SR has SR_STATS capability then copy RRDs to SR-stats VDI *)
+			let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+			if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then begin
+				let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
+				Xapi_vdi.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:true
+			end;
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->

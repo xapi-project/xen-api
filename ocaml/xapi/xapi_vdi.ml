@@ -862,4 +862,16 @@ let push_sr_rdds ~__context ~sr ~vdi =
 		Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
 	end
 
+let copy_sr_rdds ~__context ~sr ~vdi ~archive =
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	if archive then
+		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
+	let sr_rrds_path = Rrdd.sr_rrds_path ~uid:sr_uuid in
+	let rrd_size = (Unix.stat sr_rrds_path).Unix.st_size in
+	let buff = String.make rrd_size '\000' in
+	let fd = Unix.openfile sr_rrds_path [Unix.O_RDONLY] 0 in
+	ignore (Unix.read fd buff 0 rrd_size);
+	Unix.close fd;
+	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:buff
+
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
