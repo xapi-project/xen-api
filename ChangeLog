@@ -1,3 +1,8 @@
+0.9.6 (9-Sep-2015):
+* SRs now have `name_label` and `name_description`
+* pull out logging code into a function
+* log state of copying mirrors
+
 0.9.5 (14-Aug-2015):
 * VDIs now have optional uuids
 
