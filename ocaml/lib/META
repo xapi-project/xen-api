@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2cfdb41f14fdd75d7630f5b05b752ca4)
-version = "0.4.0"
+# DO NOT EDIT (digest: b2361ad65c80dd273d5e42a0d785cab3)
+version = "0.7"
 description = "Xapi storage interfaces"
 requires = "rpclib cmdliner re.str"
 archive(byte) = "storage.cma"
