@@ -1,6 +1,6 @@
 OASISFormat: 0.2
 Name:        xapi-storage-script
-Version:     0.7
+Version:     0.12.0
 Synopsis:    Adapter which allows xapi to call storage scripts
 Authors:     David Scott
 License:     LGPL-2.1 with OCaml linking exception

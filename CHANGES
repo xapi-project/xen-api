@@ -1,3 +1,11 @@
+0.12.0 (9-Sep-2015)
+- Add support for `required cluster stack`
+- Register and deregister rrd datasources
+- Plumb through SR.probe
+- Add support for `clustered` and `health`
+- Plumb through SR `name` and `description`
+- Clarify that SR.stat should take the attached URI
+
 0.8.0 (15-Jul-2015)
 - Plumb through clone on boot (VDI.epoch_begin, VDI.epoch_end)
 
