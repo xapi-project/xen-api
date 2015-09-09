@@ -479,7 +479,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
 	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
 	if not(Pool_role.is_master ())
-	then log_and_ignore_exn ( fun () -> Rrdd.send_host_rrd_to_master ~master_address:(Pool_role.get_master_address () ));
+	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
 	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
 	log_and_ignore_exn Rrdd.backup_rrds;
 
@@ -953,7 +953,7 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
+		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()))
 	)
 
 let get_servertime ~__context ~host =
@@ -1391,7 +1391,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		log_and_ignore_exn (fun () -> Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
+		log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end

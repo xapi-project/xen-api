@@ -208,25 +208,23 @@ let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
 				ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
 		)
 
-let host_for_vm ~__context ~vm_uuid =
+let is_vm_on_localhost ~__context ~(vm_uuid : string) : bool =
+  let localhost = Helpers.get_localhost ~__context in
 	let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
-	Db.VM.get_resident_on ~__context ~self:vm
+	let vm_host = Db.VM.get_resident_on ~__context ~self:vm in
+	localhost = vm_host
 
 let push_rrd ~__context ~(vm_uuid : string) : unit =
-	let vm_host = host_for_vm ~__context ~vm_uuid in
-	if vm_host = (Helpers.get_localhost ~__context) then
-		let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-		log_and_ignore_exn (fun () -> Rrdd.push_rrd_local ~vm_uuid ~domid )
-	else
-		let remote_address = Db.Host.get_address ~__context ~self:vm_host in
-		log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote ~vm_uuid ~remote_address)
+	let is_on_localhost = is_vm_on_localhost ~__context ~vm_uuid in
+	let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
+	log_and_ignore_exn (Rrdd.push_rrd ~vm_uuid ~domid ~is_on_localhost)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
 	let remote_address = match remote_address with
 		| None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
 		| Some a -> a
 	in
-	log_and_ignore_exn ( fun () ->
+	log_and_ignore_exn (
 		Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid
 	)
 
@@ -237,7 +235,12 @@ module Deprecated = struct
 		try int_of_string (List.assoc Constants.rrd_update_interval other_config)
 		with _ -> 0
 
-	let load_rrd ~__context ~uuid =
+	let load_rrd ~__context ~uuid ~is_host =
+		let domid =
+			match is_host with
+			| true -> 0
+			| false -> vm_uuid_to_domid ~__context ~uuid
+		in
 		let timescale = get_timescale ~__context in
-		log_and_ignore_exn (fun () -> (Rrdd.Deprecated.load_rrd ~uuid ~timescale ~master_address:(try Some (Pool_role.get_master_address() ) with _ -> None)))
+		log_and_ignore_exn (Rrdd.Deprecated.load_rrd ~uuid ~domid ~is_host ~timescale)
 end
