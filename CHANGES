@@ -1,3 +1,13 @@
+0.14.0 (09-Sep-2015):
+* support directories full of configuration file fragment overrides
+* storage: add `required_cluster_stack`
+* use queue prefix `org.xen.xapi` instead of `org.xen.xcp`
+* storage: redefine `SR.probe`
+* storage: add `clustered` and `health` for mirror monitoring
+* storage: plumb through `name_label` and `name_description`
+* guests: add guest agent licensing interface
+* storage: add `Copying` state for mirrors
+
 0.13.0 (14-Aug-2015):
 * storage: add `persistent` to VBDs
 * storage: `vdi_info` includes an optional uuid
