@@ -505,3 +505,5 @@ let vm_has_checkpoint = "VM_HAS_CHECKPOINT"
 let mirror_failed = "MIRROR_FAILED"
 let too_many_storage_migrates = "TOO_MANY_STORAGE_MIGRATES"
 let unimplemented_in_sm_backend = "UNIMPLEMENTED_IN_SM_BACKEND"
+
+let vm_call_plugin_rate_limit = "VM_CALL_PLUGIN_RATE_LIMIT"

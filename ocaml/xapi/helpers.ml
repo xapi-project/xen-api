@@ -962,6 +962,15 @@ let clone_suspended_vm_enabled ~__context =
       && (List.assoc Xapi_globs.pool_allow_clone_suspended_vm other_config = "true")
   with _ -> false
 
+(** Indicate whether run-script should be allowed on VM plugin guest-agent-operation *)
+let guest_agent_run_script_enabled ~__context =
+	try
+		let pool = get_pool ~__context in
+		let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+		List.mem_assoc Xapi_globs.pool_allow_guest_agent_run_script other_config
+		&& (List.assoc Xapi_globs.pool_allow_guest_agent_run_script other_config = "true")
+	with _ -> false
+
 (* OEM Related helper functions *)
 let is_oem ~__context ~host =
   let software_version = Db.Host.get_software_version ~__context ~self:host in
@@ -1327,6 +1336,7 @@ module type POLICY = sig
 		(** Used by operations like VM.start which want to paper over transient glitches but want to fail
 		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
 	val fail_quickly : t
+	val fail_immediately: t
 	val wait : __context:Context.t -> t -> exn -> t
 end
 
@@ -1381,6 +1391,12 @@ module Repeat_with_uniform_backoff : POLICY = struct
 		maximum_delay = 2.;
 		max_total_wait = 120.;
 		wait_so_far = 0.
+	}
+	let fail_immediately = {
+		minimum_delay = 0.;
+		maximum_delay = 3.;
+		max_total_wait = min_float;
+		wait_so_far = 0.;
 	}
 	let wait ~__context (state: t) (e: exn) =
 		if state.wait_so_far >= state.max_total_wait then raise e;

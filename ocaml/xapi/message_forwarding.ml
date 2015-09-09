@@ -1215,9 +1215,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vif_operations ~__context ~vm
 
 		let call_plugin ~__context ~vm ~plugin ~fn ~args =
-			info "VM.call_plugin: VM = '%s'" (vm_uuid ~__context vm);
+			let censor_kws = ["password"] in (* We could censor "username" too, but the current decision was to leave it there. *)
+			let argstrs = List.map (fun (k, v) -> Printf.sprintf "args:%s = '%s'" k (if List.exists (String.has_substr k) censor_kws then "(omitted)" else v)) args in
+			info "VM.call_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; %s" (vm_uuid ~__context vm) plugin fn (String.concat "; " argstrs);
 			let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin
+			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
@@ -1323,7 +1325,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					(* Before doing the shutdown we might need to cancel existing operations *)
 					List.iter (fun (task,op) ->
-						if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot ] then (
+						if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot; `call_plugin ] then (
 							(* At the end of the cancellation, if the VM is on a slave then the task doing
 							 * the cancellation will be marked complete (successful).  This would be premature
 							 * for the current task since it still has work to do: first possibly some more
@@ -1372,7 +1374,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					(* Before doing the reboot we might need to cancel existing operations *)
 					List.iter (fun (task,op) ->
-						if List.mem op [ `clean_shutdown; `clean_reboot ] then (
+						if List.mem op [ `clean_shutdown; `clean_reboot; `call_plugin ] then (
 							(* We must do the cancelling in a subtask: see hard_shutdown comment for reason. *)
 							Server_helpers.exec_with_subtask ~__context
 								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_reboot")

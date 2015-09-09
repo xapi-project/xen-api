@@ -740,10 +740,60 @@ let request_rdp_on ~__context ~vm =
 let request_rdp_off ~__context ~vm =
 	request_rdp ~__context ~vm ~enabled:false
 
+let run_script ~__context ~vm ~args =
+	(* Args can be any key value pair, which include "username", "password", "script", "interpreter" (optional), and "arguments" (optional). *)
+	if not (Helpers.guest_agent_run_script_enabled ~__context)
+	then raise (Api_errors.Server_error(Api_errors.feature_restricted, []));
+	let required = [ "username"; "password"; "script" ] in
+	(* let optional = [ "interpreter"; "arguments" ] in *)
+	List.iter (fun a -> if not (List.mem_assoc a args) then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["missing argument"; ""; Printf.sprintf "Argument %s is required." a]))) required;
+	(* Ensure the caller has the VM memory-access level permission i.e. vm-power-admin or higher.
+	   As all the plugin calls share the same role/perms setting, we must do ad-hoc checking here by ourselves. *)
+	let session_id = Xapi_session.get_top ~__context ~self:(Context.get_session_id __context) in
+	if not (Rbac.is_access_allowed ~__context ~session_id ~permission:Rbac_static.permission_VM_checkpoint.Db_actions.role_name_label)
+	then raise (Api_errors.Server_error(Api_errors.rbac_permission_denied, ["vm.call_plugin"; "No permission to run script, must have VM power admin role or higher."]));
+	(* For the moment, we only make use of "script". *)
+	let script = List.assoc "script" args in
+	if String.length script > 1024 then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["length restriction"; ""; "The script length must not exceed 1024 bytes"]));
+	try Xapi_xenops.run_script ~__context ~self:vm script
+	with Xenops_interface.Failed_to_run_script reason -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ reason ]))
+
+
+(* A temporal database holding the latest calling log for each VM. It's fine for it to be host local as a VM won't be resident on two hosts at the same time, nor does it migrate that frequently *)
+
+let call_plugin_latest = Hashtbl.create 37
+let call_plugin_latest_m = Mutex.create ()
+
+let record_call_plugin_latest vm =
+	let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
+	Mutex.execute call_plugin_latest_m (fun () ->
+		let now = Oclock.gettime Oclock.monotonic in
+		(* First do a round of GC *)
+		let to_gc = ref [] in
+		Hashtbl.iter
+			(fun v t ->
+				if Int64.sub now t > interval
+				then to_gc := v :: !to_gc)
+			call_plugin_latest;
+		List.iter (Hashtbl.remove call_plugin_latest) !to_gc;
+		(* Then calculate the schedule *)
+		let to_wait =
+			if Hashtbl.mem call_plugin_latest vm then
+				let t = Hashtbl.find call_plugin_latest vm in
+				Int64.sub (Int64.add t interval) now
+			else 0L in
+		if to_wait > 0L then
+			raise (Api_errors.Server_error (Api_errors.vm_call_plugin_rate_limit, [ Ref.string_of vm; string_of_float !Xapi_globs.vm_call_plugin_interval; string_of_float (Int64.to_float to_wait /. 1e9) ]))
+		else
+			Hashtbl.replace call_plugin_latest vm now
+	)
+
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~vm ~plugin ~fn ~args =
 	if plugin <> "guest-agent-operation" then
 		raise (Api_errors.Server_error(Api_errors.xenapi_missing_plugin, [ plugin ]));
+	(* throttle plugin calls, hold a call if there are frequent attempts *)
+	record_call_plugin_latest vm;
 	try
 		match fn with
 		| "request-rdp-on" ->
@@ -752,6 +802,8 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
 		| "request-rdp-off" ->
 			request_rdp_off ~__context ~vm;
 			""
+		| "run-script" ->
+			run_script ~__context ~vm ~args
 		| _ ->
 			let msg = Printf.sprintf "The requested fn \"%s\" could not be found in plugin \"%s\"." fn plugin in
 			raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "failed to find fn"; msg; msg ]))
