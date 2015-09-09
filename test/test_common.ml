@@ -60,12 +60,13 @@ let make_random_datasource () =
 			else Rrd.Derive
 		end
 	in
+	let default = Random.bool () in
 	owner,
 	Ds.ds_make ~name:"test_ds"
 		~description:"A datasource"
 		~value
 		~ty
-		~default:false
+		~default
 		~units:"things" ()
 
 let make_random_payload timestamp datasource_count =
