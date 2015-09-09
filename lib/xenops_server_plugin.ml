@@ -89,6 +89,7 @@ module type S = sig
 
 		val get_state: Vm.t -> Vm.state
 		val request_rdp: Vm.t -> bool -> unit
+		val run_script: Xenops_task.t -> Vm.t -> string -> Rpc.t
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
