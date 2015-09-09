@@ -1,3 +1,8 @@
+0.12.0 (09-Sep-2015):
+* Use `xl pci-plug` and `xl pci-unplug`
+* Write licensing information to Xenstore
+* Write guest agent xenstore keys in a transaction
+
 0.11.0 (14-Aug-2015):
 * Replace 'xcp' in alternatives path with 'xapi'
 * Use 'xl pci-attach' for PCI passthrough
