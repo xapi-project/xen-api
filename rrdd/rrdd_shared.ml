@@ -120,7 +120,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	);
 	debug "Sending RRD complete."
 
-let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
+let archive_rrd ?(remote_address = None) ~uuid ~rrd () =
 	let local, address = match remote_address with
 		| None -> true, ""
 		| Some x -> false, x
