@@ -121,9 +121,13 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	debug "Sending RRD complete."
 
 let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
-	match remote_address with
-	| None -> begin
-		debug "Archiving RRD for object uuid=%s to local disk" uuid;
+	let local, address = match remote_address with
+		| None -> true, ""
+		| Some x -> false, x
+	in
+	debug "Archiving RRD for object uuid=%s %s" uuid
+		(if local then "to local disk" else "to remote master");
+	if local then begin
 		try
 			(* Stash away the rrd onto disk. *)
 			let exists =
@@ -145,9 +149,8 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
 		with e ->
 			(*debug "Caught exception: %s" (ExnHelper.string_of_exn e);*)
 			log_backtrace();
-	end 
-	| Some x -> begin
+	end else begin
 		(* Stream it to the master to store, or maybe to a host in the migrate case *)
-		debug "Archiving RRD for object uuid=%s to remote master" uuid;
-		send_rrd ~address:x ~to_archive:true ~uuid ~rrd ()
+		debug "About to send to master.";
+		send_rrd ~address ~to_archive:true ~uuid ~rrd ()
 	end

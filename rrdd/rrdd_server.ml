@@ -38,16 +38,14 @@ let archive_rrd _ ~vm_uuid ?(remote_address = None) : unit =
 				raise exn
 		in
 		Mutex.unlock mutex;
-		try
-			let rrd = List.assoc vm_uuid vrrds in
-			archive_rrd_internal ~remote_address ~uuid:vm_uuid ~rrd ()
-		with Not_found -> ()
-	end
+		let rrd = List.assoc vm_uuid vrrds in
+		archive_rrd_internal ~remote_address ~uuid:vm_uuid ~rrd
+	end ()
 
 let backup_rrds _ ?(remote_address = None) () : unit =
 	debug "backing up rrds %s" (match remote_address with
 				| None -> "locally"
-				| Some x -> Printf.sprintf "remotely at %s" x);
+				|Some x -> Printf.sprintf "remotely at %s" x);
 	let total_cycles = 5 in
 	let cycles_tried = ref 0 in
 	while !cycles_tried < total_cycles do
@@ -126,15 +124,17 @@ module Deprecated = struct
 					debug "RRD loaded from local filesystem for object uuid=%s" uuid;
 					rrd
 				with e ->
-					match master_address with
-					| None -> begin
+                                        let is_master, address = match master_address with
+                                                | None -> true, ""
+                                                | Some x -> false, x
+                                        in
+					if is_master then begin
 						info "Failed to load RRD from local filesystem: metrics not available for uuid=%s" uuid;
 						raise e
-					end
-					| Some x -> begin
+					end else begin
 						debug "Failed to load RRD from local filesystem for object uuid=%s; asking master" uuid;
 						try
-							let rrd = pull_rrd_from_master ~uuid ~master_address:x in
+							let rrd = pull_rrd_from_master ~uuid ~master_address:address in
 							debug "RRD pulled from master for object uuid=%s" uuid;
 							rrd
 						with e ->
