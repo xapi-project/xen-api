@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: d55a2e6095260ca5f881288f73ad307c)
-version = "0.11.0"
+# DO NOT EDIT (digest: 5586ee166df30de6e433138bcd3d4222)
+version = "0.12.0"
 description = "XenServer domain managers"
 requires =
 "threads threads.posix uuidm xmlm cohttp uri rpclib rpclib.syntax forkexec fd-send-recv xcp xcp.xen xcp.storage sexplib sexplib.syntax xcp uutf xenstore xenstore.unix xenstore_transport xenstore_transport.unix oclock"
