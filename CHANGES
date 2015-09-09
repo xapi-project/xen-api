@@ -1,3 +1,8 @@
+0.12.0 (09-Sep-2015):
+* add sr_rrd, rrd_updates http handler for SR-level RRDs
+* expose the control interface over a message queue
+* preliminary support for SR-level RRDs
+
 0.11.0 (14-Aug-2015):
 * rrd: remove notion of master and slave from the interface
 
