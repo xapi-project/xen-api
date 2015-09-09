@@ -113,6 +113,6 @@ end
 
 module Deprecated = struct
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
-	external load_rrd : uuid:string -> timescale:int -> 
-                ?master_address:string option -> unit = ""
+	external load_rrd : uuid:string -> master_address:string -> is_master:bool ->
+		timescale:int -> unit = ""
 end
