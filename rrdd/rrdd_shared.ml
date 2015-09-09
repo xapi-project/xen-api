@@ -120,10 +120,11 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	);
 	debug "Sending RRD complete."
 
-let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
-	match remote_address with
-	| None -> begin
-		debug "Archiving RRD for object uuid=%s to local disk" uuid;
+let archive_rrd ?(save_stats_locally = Pool_role_shared.is_master ()) ~uuid
+		~rrd () =
+	debug "Archiving RRD for object uuid=%s %s" uuid
+		(if save_stats_locally then "to local disk" else "to remote master");
+	if save_stats_locally then begin
 		try
 			(* Stash away the rrd onto disk. *)
 			let exists =
@@ -145,9 +146,9 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
 		with e ->
 			(*debug "Caught exception: %s" (ExnHelper.string_of_exn e);*)
 			log_backtrace();
-	end 
-	| Some x -> begin
+	end else begin
 		(* Stream it to the master to store, or maybe to a host in the migrate case *)
-		debug "Archiving RRD for object uuid=%s to remote master" uuid;
-		send_rrd ~address:x ~to_archive:true ~uuid ~rrd ()
+		debug "About to send to master.";
+		let address = Pool_role_shared.get_master_address () in
+		send_rrd ~address ~to_archive:true ~uuid ~rrd ()
 	end
