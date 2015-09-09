@@ -48,6 +48,8 @@ type interdomain_info = {
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
+external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
+	unit -> unit = ""
 external push_rrd_local : vm_uuid:string -> domid:int -> unit -> unit = ""
 external push_rrd_remote : vm_uuid:string -> remote_address:string -> unit -> unit = ""
 external remove_rrd : uuid:string -> unit -> unit = ""
@@ -112,6 +114,6 @@ end
 
 module Deprecated = struct
 	(* Could change timescale to sum type, e.g. Slow | Fast.*)
-	external load_rrd : uuid:string -> master_address:string -> is_master:bool ->
+	external load_rrd : uuid:string -> domid:int -> is_host:bool ->
 		timescale:int -> unit -> unit = ""
 end
