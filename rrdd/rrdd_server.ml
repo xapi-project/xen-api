@@ -28,8 +28,8 @@ open D
 let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
-let backup_rrds _ ?(remote_address = None) () : unit =
-	debug "backing up rrds";
+let backup_rrds _ ?(save_stats_locally = true) () : unit =
+	debug "backup safe_stats_locally=%b" save_stats_locally;
 	let total_cycles = 5 in
 	let cycles_tried = ref 0 in
 	while !cycles_tried < total_cycles do
@@ -47,13 +47,13 @@ let backup_rrds _ ?(remote_address = None) () : unit =
 				(fun (uuid, rrd) ->
 					debug "Backup: saving RRD for VM uuid=%s to local disk" uuid;
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-					archive_rrd ~remote_address ~uuid ~rrd ()
+					archive_rrd ~save_stats_locally ~uuid ~rrd ()
 				) vrrds;
 			match !host_rrd with
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
 				let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-				archive_rrd ~remote_address ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
+				archive_rrd ~save_stats_locally ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
 			| None -> ()
 		end else begin
 			cycles_tried := 1 + !cycles_tried;
@@ -153,26 +153,6 @@ let push_rrd _ ~(vm_uuid : string) ~(domid : int) ~(is_on_localhost : bool) ()
 				~rrd:(Rrd.copy_rrd rrd) ()
 	with _ -> ()
 
-let get_rrd ~vm_uuid =
-	let path = Constants.rrd_location ^ "/" ^ vm_uuid in
-	rrd_of_gzip path
-
-let push_rrd_local _ ~vm_uuid ~domid () : unit =
-	try
-		let rrd = get_rrd ~vm_uuid in
-		debug "Pushing RRD for VM uuid=%s locally" vm_uuid;
-		Mutex.execute mutex (fun _ ->
-			Hashtbl.replace vm_rrds vm_uuid {rrd; dss=[]; domid}
-		)
-	with _ -> ()
-
-let push_rrd_remote _ ~vm_uuid ~remote_address () : unit =
-	try
-		let rrd = get_rrd ~vm_uuid in
-		debug "Pushing RRD for VM uuid=%s remotely" vm_uuid;
-		send_rrd ~address:remote_address ~to_archive:false ~uuid:vm_uuid ~rrd:(Rrd.copy_rrd rrd) ()
-	with _ -> ()
-
 (** Remove an RRD from the local filesystem, if it exists. *)
 let remove_rrd _ ~(uuid : string) () : unit =
 	let path = Constants.rrd_location ^ "/" ^ uuid in
@@ -209,12 +189,12 @@ let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
 
 (* Called on host shutdown/reboot to send the Host RRD to the master for
  * backup. Note all VMs will have been shutdown by now. *)
-let send_host_rrd_to_master _ ~master_address () =
+let send_host_rrd_to_master _ () =
 	match !host_rrd with
 	| Some rrdi ->
 		debug "sending host RRD to master";
 		let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-		send_rrd ~address:master_address ~to_archive:true ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
+		archive_rrd ~save_stats_locally:false ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
 	| None -> ()
 
 let add_ds ~rrdi ~ds_name =

@@ -120,14 +120,11 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	);
 	debug "Sending RRD complete."
 
-let archive_rrd ?(remote_address = None) ~uuid ~rrd () =
-	let local, address = match remote_address with
-		| None -> true, ""
-		| Some x -> false, x
-	in
+let archive_rrd ?(save_stats_locally = Pool_role_shared.is_master ()) ~uuid
+		~rrd () =
 	debug "Archiving RRD for object uuid=%s %s" uuid
-		(if local then "to local disk" else "to remote master");
-	if local then begin
+		(if save_stats_locally then "to local disk" else "to remote master");
+	if save_stats_locally then begin
 		try
 			(* Stash away the rrd onto disk. *)
 			let exists =
@@ -152,5 +149,6 @@ let archive_rrd ?(remote_address = None) ~uuid ~rrd () =
 	end else begin
 		(* Stream it to the master to store, or maybe to a host in the migrate case *)
 		debug "About to send to master.";
+		let address = Pool_role_shared.get_master_address () in
 		send_rrd ~address ~to_archive:true ~uuid ~rrd ()
 	end
