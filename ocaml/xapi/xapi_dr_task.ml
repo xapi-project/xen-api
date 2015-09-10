@@ -88,8 +88,6 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
 				Client.SR.forget ~rpc ~session_id ~sr)
 
-(* Add SR records to the database. *)
-(* The SR records will have their introduced_by field set to the DR_task. *)
 let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
