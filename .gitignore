@@ -27,3 +27,5 @@ python/build
 python/d.py
 python/v.py
 python/p.py
+*.pyc
+*.pyo
