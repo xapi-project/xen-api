@@ -82,11 +82,13 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 				Xapi_dr.wait_until_sr_is_ready ~__context ~sr;
 				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task
 			with e ->
+				Backtrace.is_important e;
 				(* Clean up if anything goes wrong. *)
 				warn "Could not successfully attach SR %s - caught %s" sr_record.uuid (Printexc.to_string e);
 				let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
-				Client.SR.forget ~rpc ~session_id ~sr)
+				Client.SR.forget ~rpc ~session_id ~sr;
+				raise e)
 
 let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
