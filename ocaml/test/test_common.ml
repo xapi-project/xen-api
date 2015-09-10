@@ -16,6 +16,9 @@ open API
 open Fun
 open OUnit
 
+(* A directory to use for temporary files. *)
+let working_area = "/tmp/xapi-test"
+
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 

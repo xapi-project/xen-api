@@ -60,11 +60,11 @@ let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
-	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	let hostname = Db.Host.get_address ~__context ~self:host in
+	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	Pervasiveext.finally
 		(fun ()->f session_id (remote_rpc_fn __context hostname task_opt))
-		(fun ()->Server_helpers.exec_with_new_task ~session_id "local logout in message forwarder" (fun __context -> Xapi_session.logout ~__context))
+		(fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
 let call_slave_with_local_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
 	let hostname = Db.Host.get_address ~__context ~self:host in
@@ -1215,9 +1215,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vif_operations ~__context ~vm
 
 		let call_plugin ~__context ~vm ~plugin ~fn ~args =
-			info "VM.call_plugin: VM = '%s'" (vm_uuid ~__context vm);
+			let censor_kws = ["password"] in (* We could censor "username" too, but the current decision was to leave it there. *)
+			let argstrs = List.map (fun (k, v) -> Printf.sprintf "args:%s = '%s'" k (if List.exists (String.has_substr k) censor_kws then "(omitted)" else v)) args in
+			info "VM.call_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; %s" (vm_uuid ~__context vm) plugin fn (String.concat "; " argstrs);
 			let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin
+			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
@@ -1321,9 +1323,19 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
-				  List.iter (fun (task,op) ->
-				    if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot ] then
-				      try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
+					(* Before doing the shutdown we might need to cancel existing operations *)
+					List.iter (fun (task,op) ->
+						if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot; `call_plugin ] then (
+							(* At the end of the cancellation, if the VM is on a slave then the task doing
+							 * the cancellation will be marked complete (successful).  This would be premature
+							 * for the current task since it still has work to do: first possibly some more
+							 * cancellations, then definitely the VM hard_shutdown. Therefore we must spawn
+							 * a new task to do the cancellation. (But no need to go via API call.) *)
+							Server_helpers.exec_with_subtask ~__context
+								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_shutdown")
+								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
+						)
+					) (Db.VM.get_current_operations ~__context ~self:vm);
 
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
@@ -1360,11 +1372,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_reboot ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot" ~op:`hard_reboot
 				(fun () ->
-				  List.iter (fun (task,op) ->
-				    if List.mem op [ `clean_shutdown; `clean_reboot ] then
-				      try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
-
-
+					(* Before doing the reboot we might need to cancel existing operations *)
+					List.iter (fun (task,op) ->
+						if List.mem op [ `clean_shutdown; `clean_reboot; `call_plugin ] then (
+							(* We must do the cancelling in a subtask: see hard_shutdown comment for reason. *)
+							Server_helpers.exec_with_subtask ~__context
+								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_reboot")
+								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
+						)
+					) (Db.VM.get_current_operations ~__context ~self:vm);
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 						(fun vbds ->
 							with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach

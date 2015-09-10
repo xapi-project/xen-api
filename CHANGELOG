@@ -1,3 +1,19 @@
+1.9.80 (2015-09-09):
+ * storage: plugging on a slave before a master is now an error
+ * xenvmd is restarted over master transitions
+ * preliminary support for SR-level RRDs
+ * storage: a plugin can have cluster stack constraints
+ * support for a windows VM drivers upgrade tool 'xenprep'
+ * change queue prefix to org.xen.xapi
+ * add XenAPI extension mechanism
+ * add LVHD thin provisioning upgrade API
+ * support polling modes for VBDs
+ * storage: a plugin can report cluster/mirror health
+ * storage: many updates to SMAPIv3
+ * storage: generate an alert when a cluster/mirror is degraded
+ * storage: add rawhba and lvmofcoe to the whitelist
+ * fix `sm-cli mirror-list`
+
 1.9.70 (2015-08-14):
  * add originator for `login_with_password`
  * new API: VM.import
