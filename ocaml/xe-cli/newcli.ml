@@ -187,7 +187,6 @@ let parse_args =
     | arg :: args ->
         match parse_eql arg with
         | Some(k, v) when set_keyword(k,v) -> process_args args
-        | Some(k, v) -> (k ^ "=" ^ String.escaped v) :: process_args args
         | _ -> arg :: process_args args in
 
   fun args ->
