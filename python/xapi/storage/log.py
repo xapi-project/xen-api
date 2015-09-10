@@ -48,7 +48,7 @@ def error(message, *args, **kwargs):
 
 
 def log_call_argv():
-    info("ffs called as: %s" % (sys.argv))
+    info("called as: %s" % (sys.argv))
 
 
 def handle_unhandled_exceptions(exception_type, exception_value,
