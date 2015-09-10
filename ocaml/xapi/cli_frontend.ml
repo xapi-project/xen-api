@@ -2818,7 +2818,7 @@ let parse_commandline arg_list =
      params = params}
   with 
   | e ->
-    error "Rethowing %s as ParseError \"\"" (Printexc.to_string e);
+    error "Rethrowing %s as ParseError \"\"" (Printexc.to_string e);
     Backtrace.reraise e (ParseError "")
 
 (* ----------------------------------------------------------------------

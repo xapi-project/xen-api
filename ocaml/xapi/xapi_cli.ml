@@ -88,7 +88,7 @@ let do_rpcs req s username password minimal cmd session args =
     try
       Hashtbl.find cmdtable cmdname
     with Not_found as e ->
-      error "Rethowing Not_found as Unknown_command %s" cmdname;
+      error "Rethrowing Not_found as Unknown_command %s" cmdname;
       Backtrace.reraise e (Unknown_command cmdname) in
   (* Forward if we're not the master, and if the cspec doesn't contain the key 'neverforward' *)
   let do_forward =  
