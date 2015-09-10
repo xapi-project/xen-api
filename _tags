@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d57ec38dd1ab64266c81400bbc575d18)
+# DO NOT EDIT (digest: 76fa96e6edac33c29cf074bb5b0859c0)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -44,6 +44,17 @@ true: annot, bin_annot
 "lib/sockopt_stubs.c": pkg_xenstore_transport
 "lib/sockopt_stubs.c": pkg_xenstore_transport.unix
 "lib/sockopt_stubs.c": pkg_xmlm
+# Executable set_domain_uuid
+<tools/set_domain_uuid.{native,byte}>: oasis_executable_set_domain_uuid_byte
+<tools/*.ml{,i,y}>: oasis_executable_set_domain_uuid_byte
+<tools/set_domain_uuid.{native,byte}>: oasis_executable_set_domain_uuid_native
+<tools/*.ml{,i,y}>: oasis_executable_set_domain_uuid_native
+<tools/set_domain_uuid.{native,byte}>: pkg_cmdliner
+<tools/set_domain_uuid.{native,byte}>: pkg_uuidm
+<tools/set_domain_uuid.{native,byte}>: pkg_xenctrl
+<tools/*.ml{,i,y}>: pkg_cmdliner
+<tools/*.ml{,i,y}>: pkg_uuidm
+<tools/*.ml{,i,y}>: pkg_xenctrl
 # Executable suspend_image_viewer
 <lib/suspend_image_viewer.{native,byte}>: oasis_executable_suspend_image_viewer_byte
 <lib/*.ml{,i,y}>: oasis_executable_suspend_image_viewer_byte
