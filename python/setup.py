@@ -4,6 +4,6 @@ setup (name = "xapi-storage",
       description='Xapi storage interface',
       author='David Scott',
       author_email='dave@recoil.org',
-      url='https://github.com/djs55/xapi-storage/',
+      url='https://github.com/xapi-project/xapi-storage/',
       packages=['xapi'],
 )
