@@ -92,24 +92,3 @@ class ListAction(argparse.Action):
             getattr(namespace, self.dest)[k] = v
         else:
             setattr(namespace, self.dest, { k: v })
-
-# Well-known feature flags understood by xapi ##############################
-# XXX: add an enum to the IDL?
-
-feature_sr_probe = "SR_PROBE"
-feature_sr_update = "SR_UPDATE"
-feature_sr_supports_local_caching = "SR_SUPPORTS_LOCAL_CACHING"
-feature_vdi_create = "VDI_CREATE"
-feature_vdi_delete = "VDI_DELETE"
-feature_vdi_attach = "VDI_ATTACH"
-feature_vdi_detach = "VDI_DETACH"
-feature_vdi_resize = "VDI_RESIZE"
-feature_vdi_resize_online = "VDI_RESIZE_ONLINE"
-feature_vdi_clone = "VDI_CLONE"
-feature_vdi_snapshot = "VDI_SNAPSHOT"
-feature_vdi_activate = "VDI_ACTIVATE"
-feature_vdi_deactivate = "VDI_DEACTIVATE"
-feature_vdi_update = "VDI_UPDATE"
-feature_vdi_introduce = "VDI_INTRODUCE"
-feature_vdi_generate_config = "VDI_GENERATE_CONFIG"
-feature_vdi_reset_on_boot = "VDI_RESET_ON_BOOT"
