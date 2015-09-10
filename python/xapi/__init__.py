@@ -117,87 +117,6 @@ class ListAction(argparse.Action):
         else:
             setattr(namespace, self.dest, { k: v })
 
-# Helper function to daemonise ##############################################
-def daemonize():
-    def fork():
-        try:
-            if os.fork() > 0:
-                # parent
-                os._exit(0)
-        except OSError, e:
-            print >>sys.stderr, "fork() failed: %s" % e
-            traceback.print_exc()
-            raise
-    fork()
-    os.umask(0)
-    os.chdir("/")
-    os.setsid()
-    fork()
-    devnull = open("/dev/null", "r")
-    os.dup2(devnull.fileno(), sys.stdin.fileno())
-    devnull = open("/dev/null", "aw")
-    os.dup2(devnull.fileno(), sys.stdout.fileno())
-    os.dup2(devnull.fileno(), sys.stderr.fileno())
-
-from SocketServer import UnixStreamServer
-from SimpleXMLRPCServer import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler, SimpleXMLRPCDispatcher
-from xmlrpclib import ServerProxy, Fault, Transport
-from socket import socket, SOL_SOCKET, SO_REUSEADDR, AF_UNIX, SOCK_STREAM
-
-# Server XMLRPC from any HTTP POST path #####################################
-
-class RequestHandler(SimpleXMLRPCRequestHandler):
-    rpc_paths = []
-    def do_OPTIONS(self):
-        log("running options thingy")
-        self.send_response(200, "ok")
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS, GET')
-        self.send_header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
-
-
-class UnixServer(UnixStreamServer, SimpleXMLRPCDispatcher):
-    def __init__(self, addr, requestHandler=RequestHandler):
-        self.logRequests = 0
-        if os.path.exists(addr):
-            os.unlink(addr)
-        dir = os.path.dirname(addr)
-        if not(os.path.exists(dir)):
-            os.makedirs(dir)
-        SimpleXMLRPCDispatcher.__init__(self)
-        UnixStreamServer.__init__(self, addr, requestHandler)
-
-class TCPServer(SimpleXMLRPCServer):
-    def __init__(self, ip, port, requestHandler=RequestHandler):
-        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=requestHandler)
-    def server_bind(self):
-        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        SimpleXMLRPCServer.server_bind(self)
-
-# This is a hack to patch slow socket.getfqdn calls that
-# BaseHTTPServer (and its subclasses) make.
-# See: http://bugs.python.org/issue6085
-# See: http://www.answermysearches.com/xmlrpc-server-slow-in-python-how-to-fix/2140/
-import BaseHTTPServer
-
-def _bare_address_string(self):
-    host, port = self.client_address[:2]
-    return '%s' % host
-
-BaseHTTPServer.BaseHTTPRequestHandler.address_string = \
-        _bare_address_string
-
-# This is a hack to allow_none by default, which only became settable in
-# python 2.5's SimpleXMLRPCServer
-
-import xmlrpclib
-
-original_dumps = xmlrpclib.dumps
-def dumps(params, methodname=None, methodresponse=None, encoding=None,
-          allow_none=1):
-    return original_dumps(params, methodname, methodresponse, encoding, allow_none)
-xmlrpclib.dumps = dumps
-
 # Well-known feature flags understood by xapi ##############################
 # XXX: add an enum to the IDL?
 
@@ -218,6 +137,3 @@ feature_vdi_update = "VDI_UPDATE"
 feature_vdi_introduce = "VDI_INTRODUCE"
 feature_vdi_generate_config = "VDI_GENERATE_CONFIG"
 feature_vdi_reset_on_boot = "VDI_RESET_ON_BOOT"
-
-def connect():
-    return xmlrpclib.Server("http://localhost:80")
