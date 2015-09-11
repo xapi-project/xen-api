@@ -314,6 +314,7 @@ let shared_db_pool_key = "shared_db_sr"
 (* Names of storage parameters *)
 let _sm_vm_hint = "vmhint"
 let _sm_epoch_hint = "epochhint"
+let _sm_initial_allocation = "initial_allocation"
 
 let i18n_key = "i18n-key"
 let i18n_original_value_prefix = "i18n-original-value-"

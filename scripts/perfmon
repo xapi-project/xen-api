@@ -295,6 +295,7 @@ class RRDUpdates:
         self.params = dict()
         self.params['start'] = int(time.time()) - interval # interval seconds ago
         self.params['host'] = 'true'   # include data for host (as well as for VMs)
+        self.params['sr_uuid'] = 'all' # include data for all SRs attached to this host
         self.params['cf'] = 'AVERAGE'  # consolidation function, each sample averages 12 from the 5 second RRD
         self.params['interval'] = str(rrd_step) # distinct from the perfmon interval
         self.report = RRDReport()      # data structure updated by RRDContentHandler
@@ -345,7 +346,7 @@ class RRDUpdates:
 
 
 # Consolidation functions:
-supported_consolidation_functions = [ 'sum', 'average', 'max', 'get_percent_fs_usage', 'get_percent_log_fs_usage', 'get_percent_mem_usage' ]
+supported_consolidation_functions = [ 'sum', 'average', 'max', 'get_percent_fs_usage', 'get_percent_log_fs_usage', 'get_percent_mem_usage', 'get_percent_sr_usage' ]
 
 def average(mylist):
     return sum(mylist)/float(len(mylist))
@@ -392,6 +393,17 @@ def get_percent_mem_usage(ignored):
         return float(mem_in_use + swap_in_use) / memdict['MemTotal']
     except Exception, e:
         log_err("Error %s in get_percent_mem_usage, return 0.0 instead" % e)
+        return 0.0
+
+def get_percent_sr_usage(mylist):
+    """Get the percent usage of the SR. Input list should be exactly two items: [physical_utilisation, size]"""
+    try:
+        if len(mylist) != 2:
+            raise Exception("Incorrect number of values to consolidate: %d (exactly 2 values)" % len(mylist))
+        physical_utilisation, size = mylist[0:2]
+        return float(physical_utilisation) / size
+    except Exception, e:
+        log_err("Error %s in get_percent_sr_usage, return 0.0 instead" % e)
         return 0.0
 
 class VariableConfig:
@@ -693,6 +705,49 @@ class VMMonitor(ObjectMonitor):
         elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
         else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
 
+class SRMonitor(ObjectMonitor):
+    """Object that maintains state of one SR
+
+    Configured by writing an xml string into an other-config key, e.g.
+    xe sr-param-set uuid=$vmuuid other-config:perfmon=\
+       '<config><variable><name value="physical_utilisation"/><alarm_trigger_level value="0.8"/></variable></config>'
+
+    Notes:
+     - Multiple <variable> nodes allowed
+     - full list of child nodes is
+       * name: what to call the variable (no default)
+       * alarm_priority: the priority of the messages generated (default '3')
+       * alarm_trigger_level: level of value that triggers an alarm (no default)
+       * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
+       * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
+       * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
+       * consolidation_fn: how to combine variables from rrd_updates into one value
+         (default is 'get_percent_sr_usage' for 'physical_utilistation', & 'sum' for everything else)
+       * rrd_regex matches the names of variables from (xe sr-data-sources-list uuid=$sruuid) used to compute value
+         (has default for "physical_utilistaion")
+    """
+    def __init__(self, *args):
+        self.monitortype = "SR"
+        ObjectMonitor.__init__(self, *args)
+        print_debug("Created SRMonitor with uuid %s" % self.uuid)
+
+    def get_default_variable_config(self, variable_name, config_tag):
+        "This allows user to not specify full set of tags for each variable in xml config"
+        if config_tag == 'consolidation_fn':
+            if variable_name == 'physical_utilisation': return 'get_percent_sr_usage'
+            else: return 'sum'
+        elif config_tag == 'rrd_regex':
+            if variable_name == 'physical_utilisation': return 'physical_utilisation|size'
+            else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
+        elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
+        elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
+        elif config_tag == 'alarm_trigger_level':
+            if variable_name == "physical_utilistaion": return '0.8'  # trigger when 80% full
+            else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
+        elif config_tag == 'alarm_trigger_sense':       return 'high' # trigger if *above*
+        elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
+        else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
+
 class HOSTMonitor(ObjectMonitor):
     """Object that maintains state of one Host
     
@@ -975,7 +1030,11 @@ def main():
     # monitors for vms running on this host.
     # This dictionary uses uuids to lookup each monitor object
     vm_mon_lookup = {}
-    
+
+    # monitors for srs plugged on this host
+    # This dictionary uses uuids to lookup each monitor object
+    sr_mon_lookup = {}
+
     # The monitor for the host
     host_mon = None
     
@@ -1035,7 +1094,22 @@ def main():
             else:
                 # check if the config has changed, e.g. by XenCenter
                 host_mon.refresh_config()
-            
+
+            # List of SRs present in rrd_updates
+            sr_uuid_list = rrd_updates.get_uuid_list_by_objtype('sr')
+            print_debug("sr_uuid_list = %s" % sr_uuid_list)
+
+            # Remove monitors for SRs no longer listed in the rrd_updates page
+            for uuid in sr_mon_lookup.keys():
+                if uuid not in sr_uuid_list:
+                    sr_mon_lookup.pop(uuid)
+            # Create monitors for SRs that have just appeared in rrd_updates page
+            for uuid in sr_uuid_list:
+                if uuid not in sr_mon_lookup.keys():
+                    sr_mon_lookup[uuid] = SRMonitor(uuid)
+                else:
+                    sr_mon_lookup[uuid].refresh_config()
+
             # Go through each vm_mon and update it using the rrd_udpates - this may generate alarms
             for vm_mon in vm_mon_lookup.values():
                 vm_mon.process_rrd_updates(rrd_updates, session)
@@ -1043,6 +1117,10 @@ def main():
             # Ditto for the host_mon
             if host_mon:
                 host_mon.process_rrd_updates(rrd_updates, session)
+
+            # And for the sr_mons
+            for sr_mon in sr_mon_lookup.values():
+                sr_mon.process_rrd_updates(rrd_updates, session)
 
         except socket.error, e:
             if e.args[0] == 111:
