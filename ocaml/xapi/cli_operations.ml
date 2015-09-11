@@ -2040,12 +2040,25 @@ let vm_memory_target_wait printer rpc session_id params =
 			let vm=vm.getref () in
 			Client.VM.wait_memory_target_live rpc session_id vm) params [])
 
-let vm_call_plugin printer rpc session_id params =
+let vm_call_plugin fd printer rpc session_id params =
 	let vm_uuid = List.assoc "vm-uuid" params in
 	let vm = Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let plugin = List.assoc "plugin" params in
 	let fn = List.assoc "fn" params in
 	let args = read_map_params "args" params in
+	(* Syntax interpretation: args:key:file=filename equals args:key=filename_content *)
+	let convert ((k,v) as p) =
+		match String.split ~limit:2 ':' k with
+		| key :: "file" :: [] ->
+			 begin
+				 match get_client_file fd v with
+				 | Some s -> (key, s)
+				 | None ->
+					 marshal fd (Command (PrintStderr (Printf.sprintf "Failed to read file %s\n" v)));
+					 raise (ExitWithError 1)
+			 end
+		| _ -> p in
+	let args = List.map convert args in
 	let result = Client.VM.call_plugin rpc session_id vm plugin fn args in
 	printer (Cli_printer.PList [ result ])
 
