@@ -1,3 +1,8 @@
+0.7.8 (2015-09-11)
+* add retry loop around reading BAT (@simonjbeaumont)
+* support sparse raw files (@djs55)
+* support copying via sendfile64 (@djs55)
+
 0.7.7 (2015-04-27)
 * opam: generate a $NAME.install file
 * make: fix conditional compilation when --disable-xenserver set
