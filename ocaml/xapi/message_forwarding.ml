@@ -2349,6 +2349,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.backup_rrds rpc session_id host delay)
 
+		let backup_sr_rrds ~__context ~host ~delay =
+			let local_fn = Local.Host.backup_sr_rrds ~host ~delay in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.backup_sr_rrds rpc session_id host delay);
+			let srs = Xapi_sr.srs_with_rrds ~__context in
+			if srs <> ref [] then begin
+				List.iter (fun sr ->
+					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
+					Xapi_vdi.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:false) !srs
+			end
+
 		let compute_free_memory ~__context ~host =
 			info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context  host);
 			Local.Host.compute_free_memory ~__context ~host

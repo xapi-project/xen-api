@@ -956,6 +956,12 @@ let backup_rrds ~__context ~host ~delay =
 		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()))
 	)
 
+let backup_sr_rrds ~__context ~host ~delay =
+	Xapi_periodic_scheduler.add_to_queue "SR RRD backup" Xapi_periodic_scheduler.OneShot
+	delay (fun _ ->
+		log_and_ignore_exn (Rrdd.backup_sr_rrds)
+	)
+
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())
 
