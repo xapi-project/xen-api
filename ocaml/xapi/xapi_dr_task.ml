@@ -61,7 +61,6 @@ let parse_sr_probe xml =
 (* Make a best-effort attempt to create an SR and associate it with the DR_task. *)
 (* If anything goes wrong, unplug all PBDs which were created, and forget the SR. *)
 let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_record =
-	let hosts = Db.Host.get_all ~__context in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			(* Create the SR record. *)
@@ -74,10 +73,11 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 			in
 			try
 				(* Create and plug PBDs. *)
-				List.iter (fun host ->
-					debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
-					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
+				Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context
+					(fun ~rpc ~session_id ~host ->
+						debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
+						let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+						Client.PBD.plug ~rpc ~session_id ~self:pbd);
 				(* Wait until the asynchronous scan is complete and metadata_latest has been updated for all metadata VDIs. *)
 				Xapi_dr.wait_until_sr_is_ready ~__context ~sr;
 				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task

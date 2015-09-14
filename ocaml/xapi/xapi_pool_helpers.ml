@@ -122,6 +122,10 @@ let call_fn_on_hosts ~__context hosts f =
 			raise (snd (List.hd errs))
 		end)
 
+let call_fn_on_master_then_slaves ~__context f =
+	let hosts = get_master_slaves_list ~__context in
+	call_fn_on_hosts ~__context hosts f
+
 (* Note: fn exposed in .mli *)
 (** Call the function on the slaves first. When those calls have all
  *  returned, call the function on the master. *)
