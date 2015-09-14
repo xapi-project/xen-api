@@ -15,7 +15,7 @@ let test_payload = Rrd_protocol.({
 			~description:"A test integer"
 			~value:(Rrd.VT_Int64 5678L)
 			~ty:Rrd.Gauge
-			~default:false
+			~default:true
 			~units:"things" ();
 		Rrd.VM "test_vm",
 		Ds.ds_make ~name:"test_float1"
@@ -60,12 +60,13 @@ let make_random_datasource () =
 			else Rrd.Derive
 		end
 	in
+	let default = Random.bool () in
 	owner,
 	Ds.ds_make ~name:"test_ds"
 		~description:"A datasource"
 		~value
 		~ty
-		~default:false
+		~default
 		~units:"things" ()
 
 let make_random_payload timestamp datasource_count =
