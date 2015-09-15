@@ -854,11 +854,7 @@ let push_sr_rdds ~__context ~sr ~vdi =
 	begin match gzipped_rrds with
 	| None -> debug "stats vdi doesn't have rdds"
 	| Some x ->
-		let len = String.length x in
-		Helpers.touch_file sr_rrds_path;
-		let fd = Unix.openfile sr_rrds_path [Unix.O_RDWR] 0 in
-		ignore (Unix.write fd x 0 len);
-		Unix.close fd;
+		Unixext.write_string_to_file sr_rrds_path x;
 		Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
 	end
 
@@ -867,11 +863,7 @@ let copy_sr_rdds ~__context ~sr ~vdi ~archive =
 	if archive then
 		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
 	let sr_rrds_path = Rrdd.sr_rrds_path ~uid:sr_uuid in
-	let rrd_size = (Unix.stat sr_rrds_path).Unix.st_size in
-	let buff = String.make rrd_size '\000' in
-	let fd = Unix.openfile sr_rrds_path [Unix.O_RDONLY] 0 in
-	ignore (Unix.read fd buff 0 rrd_size);
-	Unix.close fd;
-	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:buff
+	let contents = Unixext.string_of_file sr_rrds_path in
+	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
