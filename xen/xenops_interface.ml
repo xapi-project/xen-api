@@ -576,7 +576,6 @@ module HOST = struct
 	external get_total_memory_mib: debug_info -> int64 = ""
 	external send_debug_keys: debug_info -> string -> unit = ""
 	external set_worker_pool_size: debug_info -> int -> unit = ""
-	external mask_features: debug_info -> string -> string -> string = ""
 	external update_guest_agent_features: debug_info ->
 		Host.guest_agent_feature list -> unit = ""
 end
