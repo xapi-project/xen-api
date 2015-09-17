@@ -23,6 +23,7 @@ let pygrub = ref "pygrub"
 let eliloader = ref "eliloader"
 let legacy_conv_tool = ref "convert-legacy-stream"
 let verify_libxc_v2 = ref "verify-stream-v2"
+let cpu_info_file = ref "/etc/xensource/boot_time_cpus"
 
 open Unix
 
@@ -49,7 +50,8 @@ let essentials = [
 ]
 
 let nonessentials = [
-	X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool"
+	X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool";
+	R_OK, "cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 ]
 
 let make_resources ~essentials ~nonessentials =

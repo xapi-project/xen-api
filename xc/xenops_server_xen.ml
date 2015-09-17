@@ -483,6 +483,87 @@ let get_stubdom ~xs domid =
 module HOST = struct
 	include Xenops_server_skeleton.HOST
 
+	let stat () =
+		(* The boot-time CPU info is copied into a file in @ETCDIR@/ in the xenservices init script;
+		   we use that to generate CPU records from. This ensures that if xapi is started after someone has
+		   modified dom0's VCPUs we don't change out host config... [Important to get this right, otherwise
+		   pool homogeneity checks fail] *)
+		let get_cpuinfo () =
+			let cpu_info_file =
+				try Unix.access !Path.cpu_info_file [ Unix.F_OK ]; !Path.cpu_info_file
+				with _ -> "/proc/cpuinfo" in
+			let in_chan = open_in cpu_info_file in
+			let tbl = Hashtbl.create 32 in
+			let rec get_lines () =
+				let s = input_line in_chan in
+				begin
+					try
+						let i = String.index s ':' in
+						let k = String.trim (String.sub s 0 i) in
+						let v =
+							if String.length s < i + 2
+							then ""
+							else String.sub s (i + 2) (String.length s - i - 2)
+						in
+						Hashtbl.add tbl k v
+					with e ->
+						info "cpuinfo: skipping line [%s]" s
+				end;
+				if s <> "" then get_lines ()
+			in
+			get_lines ();
+			close_in in_chan;
+			let find key =
+				if Hashtbl.mem tbl key
+				then Hashtbl.find tbl key
+				else "unknown" in
+			find "vendor_id",
+			find "model name",
+			find "cpu MHz",
+			find "flags",
+			find "stepping",
+			find "model",
+			find "cpu family"
+		in
+		let vendor, modelname, speed, flags, stepping, model, family = get_cpuinfo () in
+
+		with_xc_and_xs
+			(fun xc xs ->
+				let open Xenctrl in
+				let p = physinfo xc in
+				let cpu_count = p.nr_cpus in
+				let socket_count = p.nr_cpus / (p.threads_per_core * p.cores_per_socket) in
+				
+				let features = get_featureset xc Featureset_host in
+				let features_pv = get_featureset xc Featureset_pv in
+				let features_hvm = get_featureset xc Featureset_hvm in
+				
+				let v = version xc in
+				let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
+				let xen_capabilities = version_capabilities xc in
+				
+				{
+					Host.cpu_info = {
+						Host.cpu_count;
+						socket_count;
+						vendor;
+						speed;
+						modelname;
+						family;
+						model;
+						stepping;
+						flags;
+						features;
+						features_pv;
+						features_hvm;
+					};
+					hypervisor = {
+						Host.version = xen_version_string;
+						capabilities = xen_capabilities;
+					}
+				}
+			)
+			
 	let get_console_data () =
 		with_xc_and_xs
 			(fun xc xs ->
