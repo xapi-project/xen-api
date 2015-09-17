@@ -23,23 +23,22 @@ let init () = ()
 
 module HOST = struct
 	let stat () = {
-		Host.nr_cpus = 0;
-		cpu_info = {
-			Host.vendor = "unknown";
+		Host.cpu_info = {
+			Host.cpu_count = 0;
+			socket_count = 0;
+			vendor = "unknown";
 			speed = "";
 			modelname = "";
 			family = "";
 			model = "";
 			stepping = "";
 			flags = "";
-			features = "";
-			features_after_reboot = "";
-			physical_features = "";
-			maskable = "";
+			features = [| |];
+			features_pv = [| |];
+			features_hvm = [| |];
 		};
 		hypervisor = {
-			Host.name = "unknown";
-			version = "";
+			Host.version = "";
 			capabilities = "";
 		}
 	}
