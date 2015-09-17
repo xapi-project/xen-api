@@ -45,7 +45,6 @@ module HOST = struct
 	let get_console_data () = ""
 	let get_total_memory_mib () = 0L
 	let send_debug_keys _ = ()
-	let mask_features features mask = features
 	let update_guest_agent_features _ = ()
 end
 module VM = struct

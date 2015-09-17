@@ -1796,14 +1796,6 @@ module HOST = struct
 				WorkerPool.set_size size
 			) ()
 
-	let mask_features _ dbg features mask =
-		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "HOST.mask_features %s %s" features mask;
-				let module B = (val get_backend () : S) in
-				B.HOST.mask_features features mask
-			) ()
-
 	let update_guest_agent_features _ dbg features =
 		Debug.with_thread_associated dbg
 			(fun () ->
