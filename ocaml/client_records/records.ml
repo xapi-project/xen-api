@@ -527,6 +527,7 @@ let pool_record rpc session_id pool =
 					Client.Pool.remove_from_guest_agent_config rpc session_id pool k)
 				~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
 				();
+			make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_cpu_info) ~get_map:(fun () -> (x ()).API.pool_cpu_info) ();
 		]}
 
 let subject_record rpc session_id subject = 
