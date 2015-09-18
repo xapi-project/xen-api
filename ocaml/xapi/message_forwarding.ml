@@ -3721,27 +3721,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
 						Client.SR.update rpc session_id sr
-					);
-
-				(* Check if SR has SR_STATS capability and sr master then create SR-stats VDI *)
-				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-				if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
-					(Helpers.i_am_srmaster ~__context ~sr)) then begin
-					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-					Xapi_vdi.push_sr_rdds ~__context ~sr:sr ~vdi:vdi
-				end
+					)
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.unplug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
-			(* Check if SR has SR_STATS capability and sr master then copy RRDs to SR-stats VDI *)
-			let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-			if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
-				(Helpers.i_am_srmaster ~__context ~sr)) then begin
-				let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-				Xapi_vdi.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:true
-			end;
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
