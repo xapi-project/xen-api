@@ -425,6 +425,20 @@ let create_host_cpu ~__context =
 	let host = Helpers.get_localhost ~__context in
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 	
+	(* Fill in Pool.cpu_info if empty. If so, this implies that this is a new pool
+	 * and the localhost is its only member and therefore the master. *)
+	let pool = Helpers.get_pool ~__context in
+	if Db.Pool.get_cpu_info ~__context ~self:pool = [] then begin
+		let cpu = [
+			"cpu_count", string_of_int stat.cpu_info.cpu_count;
+			"socket_count", string_of_int stat.cpu_info.socket_count;
+			"vendor", stat.cpu_info.vendor;
+			"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
+			"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
+		] in
+		Db.Pool.set_cpu_info ~__context ~self:pool ~value:cpu
+	end;
+		
 	(* Recreate all Host_cpu objects *)
 	
 	(* Not all /proc/cpuinfo files contain MHz information. *)
