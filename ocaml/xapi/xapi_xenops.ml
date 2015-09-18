@@ -140,6 +140,7 @@ module Platform = struct
 	(* Other keys we might want to write to the platform map. *)
 	let timeoffset = "timeoffset"
 	let generation_id = "generation-id"
+	let featureset = "featureset"
 
 	(* Helper functions. *)
 	let is_true ~key ~platformdata ~default =
@@ -754,6 +755,17 @@ module MD = struct
 				| _ -> vm.API.vM_generation_id in
 			(Platform.generation_id, genid) :: platformdata
 		in
+		(* Add the CPUID feature set for the VM to the platform data. *)
+		let featureset =
+			let pool = Helpers.get_pool ~__context in
+			let cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+			let field = if Helpers.is_hvm vm then "features_hvm" else "features_pv" in
+			if List.mem_assoc field cpu_info then
+				List.assoc field cpu_info
+			else
+				"" (* TODO: Handle this error!! *)
+		in
+		let platformdata = (Platform.featureset, featureset) :: platformdata in
 
 		let pci_msitranslate = true in (* default setting *)
 		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
