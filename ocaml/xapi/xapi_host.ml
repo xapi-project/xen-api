@@ -950,10 +950,19 @@ let has_extension ~__context ~name =
 let sync_data ~__context ~host =
   Xapi_sync.sync_host __context host (* Nb, no attempt to wrap exceptions yet *)
 
+let copy_srs_rrds ~__context () =
+	let srs = Xapi_sr.srs_with_rrds ~__context in
+	if !srs <> [] then begin
+		List.iter (fun sr ->
+			let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
+			Xapi_vdi_helpers.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:false) !srs
+	end
+
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()))
+		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()));
+		log_and_ignore_exn (copy_srs_rrds ~__context)
 	)
 
 let get_servertime ~__context ~host =

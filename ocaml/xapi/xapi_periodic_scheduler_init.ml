@@ -39,14 +39,15 @@ let register () =
   (* Periodic backup of RRDs *)
   let rrdbackup_timer = 
     if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 5.0 else !Xapi_globs.rrd_backup_interval in
-  let rrdbackup_func () =
-    Server_helpers.exec_with_new_task "rrdbackup_func"
-      (fun __context ->
-	let hosts = Db.Host.get_all ~__context in
-	Helpers.call_api_functions ~__context 
-	  (fun rpc session_id -> 
-	    ignore(List.fold_left (fun delay host -> Client.Client.Host.backup_rrds rpc session_id host delay; (delay +. 60.0)) 0.0 hosts)))
-  in
+	let rrdbackup_func () =
+		Server_helpers.exec_with_new_task "rrdbackup_func"
+			(fun __context ->
+				let hosts = Db.Host.get_all ~__context in
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						ignore(List.fold_left (fun delay host -> Client.Client.Host.backup_rrds rpc session_id host delay; (delay +. 60.0)) 0.0 hosts))
+			)
+	in
   let rrdbackup_delay = 
     if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 6.0 else 3600.0 in
 
