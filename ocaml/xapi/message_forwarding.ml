@@ -2349,17 +2349,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.backup_rrds rpc session_id host delay)
 
-		let backup_sr_rrds ~__context ~host ~delay =
-			let local_fn = Local.Host.backup_sr_rrds ~host ~delay in
-			do_op_on ~local_fn ~__context ~host
-				(fun session_id rpc -> Client.Host.backup_sr_rrds rpc session_id host delay);
-			let srs = Xapi_sr.srs_with_rrds ~__context in
-			if srs <> ref [] then begin
-				List.iter (fun sr ->
-					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-					Xapi_vdi.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:false) !srs
-			end
-
 		let compute_free_memory ~__context ~host =
 			info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context  host);
 			Local.Host.compute_free_memory ~__context ~host
@@ -3734,9 +3723,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						Client.SR.update rpc session_id sr
 					);
 
-				(* Check if SR has SR_STATS capability then create SR-stats VDI *)
+				(* Check if SR has SR_STATS capability and sr master then create SR-stats VDI *)
 				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then begin
+				if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
+					(Helpers.i_am_srmaster ~__context ~sr)) then begin
 					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
 					Xapi_vdi.push_sr_rdds ~__context ~sr:sr ~vdi:vdi
 				end
@@ -3745,9 +3735,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.unplug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
-			(* Check if SR has SR_STATS capability then copy RRDs to SR-stats VDI *)
+			(* Check if SR has SR_STATS capability and sr master then copy RRDs to SR-stats VDI *)
 			let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-			if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then begin
+			if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
+				(Helpers.i_am_srmaster ~__context ~sr)) then begin
 				let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
 				Xapi_vdi.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:true
 			end;

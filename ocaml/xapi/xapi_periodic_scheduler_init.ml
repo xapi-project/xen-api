@@ -45,10 +45,7 @@ let register () =
 				let hosts = Db.Host.get_all ~__context in
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
-						ignore(List.fold_left (fun delay host -> Client.Client.Host.backup_rrds rpc session_id host delay; (delay +. 60.0)) 0.0 hosts));
-				Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						ignore(List.fold_left (fun delay host -> Client.Client.Host.backup_sr_rrds rpc session_id host delay; (delay +. 60.0)) 0.0 hosts))
+						ignore(List.fold_left (fun delay host -> Client.Client.Host.backup_rrds rpc session_id host delay; (delay +. 60.0)) 0.0 hosts))
 			)
 	in
   let rrdbackup_delay = 

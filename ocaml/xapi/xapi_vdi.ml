@@ -849,7 +849,7 @@ module Rrdd = Rrd_client.Client
 
 let push_sr_rdds ~__context ~sr ~vdi =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-	let sr_rrds_path = Rrdd.sr_rrds_path ~uid:sr_uuid in
+	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
 	let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
 	begin match gzipped_rrds with
 	| None -> debug "stats vdi doesn't have rdds"
@@ -862,7 +862,7 @@ let copy_sr_rdds ~__context ~sr ~vdi ~archive =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	if archive then
 		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
-	let sr_rrds_path = Rrdd.sr_rrds_path ~uid:sr_uuid in
+	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
 	let contents = Unixext.string_of_file sr_rrds_path in
 	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents
 

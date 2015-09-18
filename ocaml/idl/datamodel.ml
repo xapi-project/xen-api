@@ -4122,16 +4122,6 @@ let host_backup_rrds = call ~flags:[`Session]
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
-let host_backup_sr_rrds = call ~flags:[`Session]
-  ~name:"backup_sr_rrds"
-  ~in_oss_since:None
-  ~in_product_since:rel_dundee
-  ~params:[Ref _host, "host", "Schedule a backup of the SR RRDs of this host";
-	   Float, "delay", "Delay in seconds from when the call is received to perform the backup"]
-  ~doc:"This causes the SR RRDs to be backed up to the host"
-  ~allowed_roles:_R_POOL_ADMIN
-  ()
-
 let host_get_servertime = call ~flags:[`Session]
   ~name:"get_servertime"
   ~in_oss_since:None
@@ -4554,7 +4544,6 @@ let host =
 		 host_tickle_heartbeat;
 		 host_sync_data;
 		 host_backup_rrds;
-		 host_backup_sr_rrds;
 		 host_create_new_blob;
 		 host_call_plugin;
 		 host_get_servertime;
