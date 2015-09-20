@@ -81,6 +81,20 @@ let backup_rrds _ ?(save_stats_locally = true) () : unit =
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
 					archive_rrd ~save_stats_locally ~uuid ~rrd ()
 				) vrrds;
+			let srrds =
+				try
+					Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) sr_rrds []
+				with exn ->
+					Mutex.unlock mutex;
+					raise exn
+			in
+			Mutex.unlock mutex;
+			List.iter
+				(fun (uuid, rrd) ->
+					debug "Backup: saving RRD for SR uuid=%s to local disk" uuid;
+					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
+					archive_rrd ~uuid ~rrd ()
+				) srrds;
 			match !host_rrd with
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
