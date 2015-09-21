@@ -24,7 +24,7 @@ function reset {
 function forget {
 	logger "Forgetting host: $HOSTUUID"
 	IFS=","
-	for i in `xe sr-list host-uuid=$HOSTUUID --minimal`
+	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
 	do
 		logger "Calling xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID"
 		xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID
