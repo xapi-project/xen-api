@@ -67,6 +67,14 @@ Usage:
 " Sys.argv.(0)
 
 
+let get_deprecated_attribute_string version =
+  if version =  None then ""
+  else "[Obsolete]"  
+
+let get_deprecated_attribute message =
+  let version = message.msg_release.internal_deprecated_since in
+    get_deprecated_attribute_string version
+
 let _ =
   try
     ignore (parse_cmdline
