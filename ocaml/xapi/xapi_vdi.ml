@@ -128,6 +128,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 				| `forget ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
+					else if List.mem record.Db_actions.vDI_type [ `rrd ]
+					then Some (Api_errors.vdi_has_rrds, [_ref])
 					else None
 				| `destroy ->
 					if sr_type = "udev"
@@ -135,6 +137,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					else
 						if is_tools_sr
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+						else if List.mem record.Db_actions.vDI_type [ `rrd ]
+						then Some (Api_errors.vdi_has_rrds, [_ref])
 						else
 							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 							then Some (Api_errors.ha_is_enabled, [])

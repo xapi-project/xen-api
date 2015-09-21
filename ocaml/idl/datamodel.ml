@@ -966,6 +966,8 @@ let _ =
     ~doc:"The operation could not proceed because necessary VDIs were already locked at the storage level." ();
   error Api_errors.vdi_readonly [ "vdi" ]
     ~doc:"The operation required write access but this VDI is read-only" ();
+  error Api_errors.vdi_has_rrds [ "vdi" ]
+    ~doc:"The operation cannot be performed because this VDI has rrd stats" ();
   error Api_errors.vdi_too_small [ "vdi"; "minimum size" ]
     ~doc:"The VDI is too small. Please resize it to at least the minimum size." ();
   error Api_errors.vdi_not_sparse [ "vdi" ]
