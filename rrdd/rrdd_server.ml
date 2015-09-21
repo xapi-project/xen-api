@@ -25,6 +25,38 @@ open Rrdd_shared
 module D = Debug.Make(struct let name="rrdd_server" end)
 open D
 
+let sr_rrds_path _ ~(sr_uuid : string) : string =
+	Filename.concat sr_rrds_location (sr_uuid ^ ".gz")
+
+let archive_sr_rrd _ ~(sr_uuid : string) : unit =
+	if Mutex.try_lock mutex then begin
+		let srrds =
+			try
+				Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) sr_rrds []
+			with exn ->
+				Mutex.unlock mutex;
+				raise exn
+		in
+		Mutex.unlock mutex;
+		try
+			let rrd = List.assoc sr_uuid srrds in
+			archive_rrd ~uuid:sr_uuid ~rrd ()
+		with Not_found -> ()
+	end
+
+let get_sr_rrd ~sr_uuid =
+	let path = Filename.concat sr_rrds_location sr_uuid in
+	rrd_of_gzip path
+
+let push_sr_rrd _ ~(sr_uuid : string) : unit =
+	try
+		let rrd = get_sr_rrd ~sr_uuid in
+		debug "Pushing RRD for SR uuid=%s locally" sr_uuid;
+		Mutex.execute mutex (fun _ ->
+			Hashtbl.replace sr_rrds sr_uuid {rrd; dss=[]; domid=0}
+		)
+	with _ -> ()
+
 let has_vm_rrd _ ~(vm_uuid : string) =
 	Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
@@ -49,6 +81,20 @@ let backup_rrds _ ?(save_stats_locally = true) () : unit =
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
 					archive_rrd ~save_stats_locally ~uuid ~rrd ()
 				) vrrds;
+			let srrds =
+				try
+					Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) sr_rrds []
+				with exn ->
+					Mutex.unlock mutex;
+					raise exn
+			in
+			Mutex.unlock mutex;
+			List.iter
+				(fun (uuid, rrd) ->
+					debug "Backup: saving RRD for SR uuid=%s to local disk" uuid;
+					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
+					archive_rrd ~uuid ~rrd ()
+				) srrds;
 			match !host_rrd with
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
