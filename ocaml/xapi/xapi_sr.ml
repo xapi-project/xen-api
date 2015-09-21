@@ -126,7 +126,7 @@ let scanning_thread () = Debug.with_thread_named "scanning_thread" (fun () ->
 
 let sr_cache = ref []
 
-let update_physical_utilisation ~__context =
+let srs_with_rrds ~__context =
 	let srs = Helpers.get_all_plugged_srs ~__context in
 	(* Remove SRs from sr_cache if they are no more available *)
 	sr_cache := List.filter (fun sr -> (List.mem sr srs)) !sr_cache;
@@ -134,15 +134,19 @@ let update_physical_utilisation ~__context =
 	let is_stats_sr ~__context sr =
 		let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
 		if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
-			(Helpers.i_am_srmaster ~__context ~sr))
-			then true else false
+			(Helpers.i_am_srmaster ~__context ~sr)) then true else false
 	in
 	let srs_to_be_added = List.filter (fun sr -> (List.mem sr !sr_cache = false) && (is_stats_sr ~__context sr)) srs in
 	sr_cache := !sr_cache @ srs_to_be_added;
+	sr_cache
+
+let update_physical_utilisation ~__context =
+	let srs = srs_with_rrds ~__context in
 	(* Update the physical utilisation db field of cached SRs *)
 	List.iter (fun sr ->
 		let new_value = Rrdd.query_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:"physical_utilisation" in
-		Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.of_float new_value)) !sr_cache
+		Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.of_float new_value)
+		) !srs
 
 let physical_utilisation_thread ~__context () =
 	while true do
