@@ -651,29 +651,38 @@ and gen_exposed_method out_chan cls msg curParams =
   let paramsDoc = get_params_doc msg classname curParams in
   let callParams = exposed_call_params msg classname curParams in
   let publishInfo = get_published_info_message msg cls in
+  let deprecatedInfo = get_deprecated_info_message msg in
+  let deprecatedAttribute = get_deprecated_attribute msg in 
+  let deprecatedInfoString = (if deprecatedInfo = "" then "" else "\n        /// "^deprecatedInfo) in
+  let deprecatedAttributeString = (if deprecatedAttribute = "" then "" else "\n        "^deprecatedAttribute) in
   print "
         /// <summary>
-        /// %s%s
-        /// </summary>%s
+        /// %s%s%s
+        /// </summary>%s%s
         public static %s %s(%s)
         {
             %s;
         }\n"
     msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+    deprecatedInfoString
     paramsDoc
-    exposed_ret_type msg.msg_name paramSignature
+    deprecatedAttributeString 
+    exposed_ret_type  
+    msg.msg_name paramSignature
     (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result);
   if msg.msg_async then 
     print "
         /// <summary>
-        /// %s%s
-        /// </summary>%s
+        /// %s%s%s
+        /// </summary>%s%s
         public static XenRef<Task> async_%s(%s)
         {
             return XenRef<Task>.Create(session.proxy.async_%s(%s).parse());
         }\n"
       msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+      deprecatedInfoString
       paramsDoc
+      deprecatedAttributeString
       msg.msg_name paramSignature
       proxyMsgName callParams
 

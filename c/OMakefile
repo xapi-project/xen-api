@@ -50,7 +50,7 @@ else
   export
 
 section
-  OCamlProgram(gen_c_binding, gen_c_binding helper ../licence)
+  OCamlProgram(gen_c_binding, gen_c_binding helper ../licence ../CommonFunctions)
 
 
 .PHONY: c_source
