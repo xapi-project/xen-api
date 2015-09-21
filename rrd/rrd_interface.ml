@@ -47,6 +47,9 @@ type interdomain_info = {
 (* The interface is defined by extern function declarations. *)
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
+external sr_rrds_path : sr_uuid:string -> string = ""
+external archive_sr_rrd : sr_uuid:string -> unit = ""
+external push_sr_rrd : sr_uuid:string -> unit = ""
 
 external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
 	unit -> unit = ""
