@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 
-import os
 import sys
-import time
-import socket
 import traceback
-import syslog
 import json
 import argparse
 
@@ -45,9 +41,9 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if type(code) <> type("") and type(code) <> type(u""):
+        if not isinstance(code, str) and not isinstance(code, unicode):
             raise (TypeError("string", repr(code)))
-        if type(params) <> type([]):
+        if not isinstance(params, list):
             raise (TypeError("list", repr(params)))
         self.code = code
         self.params = params
@@ -88,7 +84,8 @@ class UnmarshalException(InternalError):
 
     def __init__(self, thing, ty, desc):
         InternalError.__init__(
-            self, "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
+            self,
+            "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
 
 
 class TypeError(InternalError):
@@ -117,7 +114,8 @@ class ListAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         k = values[0]
         v = values[1]
-        if hasattr(namespace, self.dest) and getattr(namespace, self.dest) is not None:
+        if ((hasattr(namespace, self.dest)
+             and getattr(namespace, self.dest) is not None)):
             getattr(namespace, self.dest)[k] = v
         else:
             setattr(namespace, self.dest, {k: v})
