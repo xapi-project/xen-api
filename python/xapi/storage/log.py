@@ -14,8 +14,7 @@ def configure_logging():
     _LOGGER.setLevel(LOG_LEVEL)
 
     formatter = logging.Formatter(
-        '%(asctime)s - [%(process)d] - %(levelname)s - %(message)s',
-        '%Y-%m-%d %H:%M:%S')
+        'SMAPIv3: [%(process)d] - %(levelname)s - %(message)s')
 
     handlers = []
 
