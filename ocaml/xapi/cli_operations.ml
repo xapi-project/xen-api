@@ -4184,23 +4184,6 @@ let host_get_cpu_features printer rpc session_id params =
 	let features = List.assoc "features" cpu_info in
 	printer (Cli_printer.PMsg features)
 
-let host_set_cpu_features printer rpc session_id params =
-	let host =
-		if List.mem_assoc "uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	let features = List.assoc "features" params in
-	Client.Host.set_cpu_features rpc session_id host features
-
-let host_reset_cpu_features printer rpc session_id params =
-	let host =
-		if List.mem_assoc "uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	Client.Host.reset_cpu_features rpc session_id host
-
 let host_enable_display printer rpc session_id params =
 	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let result = Client.Host.enable_display rpc session_id host in

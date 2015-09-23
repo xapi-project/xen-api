@@ -4331,6 +4331,7 @@ let host_set_cpu_features = call ~flags:[`Session]
     String, "features", "The features string (32 hexadecimal digits)"
   ]
   ~allowed_roles:_R_POOL_OP
+  ~lifecycle:[Published, rel_midnight_ride, ""; Removed, rel_dundee, "Manual CPU feature setting was removed"]
   ()
   
 let host_reset_cpu_features = call ~flags:[`Session]
@@ -4341,6 +4342,7 @@ let host_reset_cpu_features = call ~flags:[`Session]
     Ref _host, "host", "The host"
   ]
   ~allowed_roles:_R_POOL_OP
+  ~lifecycle:[Published, rel_midnight_ride, ""; Removed, rel_dundee, "Manual CPU feature setting was removed"]
   ()
 
 let host_reset_networking = call

@@ -259,12 +259,6 @@ val apply_edition_internal : __context:Context.t -> host:API.ref_host ->
 
 (** {2 CPU Feature Masking} *)
  
-(** Set the CPU features to be used after a reboot, if the given features string is valid. *)
-val set_cpu_features : __context:Context.t -> host:API.ref_host -> features:string -> unit
-
-(** Remove the feature mask, such that after a reboot all features of the CPU are enabled. *)
-val reset_cpu_features : __context:Context.t -> host:API.ref_host -> unit
-
 (** Control the local caching behaviour of the host *)
 val enable_local_storage_caching : __context:Context.t -> host:API.ref_host -> sr:API.ref_SR -> unit
 val disable_local_storage_caching : __context:Context.t -> host:API.ref_host -> unit
