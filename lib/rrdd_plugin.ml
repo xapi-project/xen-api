@@ -147,15 +147,29 @@ module Reporter = struct
 			(module D : Debug.DEBUG)
 			?(neg_shift=0.5)
 			~uid
-			~protocol =
+			~protocol ~overdue_count =
 		let next_reading =
 			RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol
 		in
 		let wait_time = next_reading -. neg_shift in
 		let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
-		if wait_time > 0. then Thread.delay wait_time
-		else
-			D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time)
+		(* overdue count - 0 if there is no overdue; +1 if there is overdue *)
+		if wait_time > 0. then begin
+			Thread.delay wait_time;
+			0
+		end
+		else begin
+			if (overdue_count > 1) then begin
+				(* if register returns negative more than once in a succession, 
+				the thread should get delayed till things are normal back again *)
+				let backoff_time = 2. ** ((float_of_int (overdue_count) -. 1.)) in
+				D.debug "rrdd says next reading is overdue, seems like rrdd is busy; 
+					Backing off for %.1f seconds" backoff_time; 
+				Thread.delay (backoff_time);
+			end
+			else D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time);
+			overdue_count + 1 (* overdue count incremented *)
+		end
 
 	let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
 		let running = ref true in
@@ -214,12 +228,14 @@ module Reporter = struct
 			let _, writer =
 				Rrd_writer.FileWriter.create id (choose_protocol protocol)
 			in
+			let overdue_count = ref 0 in
 			let report () =
-				wait_until_next_reading
+				overdue_count := wait_until_next_reading
 					(module D)
 					~neg_shift
 					~uid
-					~protocol;
+					~protocol 
+					~overdue_count:!overdue_count;
 				let payload = Rrd_protocol.({
 					timestamp = Utils.now ();
 					datasources = dss_f ();
