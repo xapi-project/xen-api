@@ -38,6 +38,9 @@ open Getopt
 
 open Datamodel_types
 open Dm_api
+
+open CommonFunctions
+
 module TypeSet = Set.Make(struct
                 type t = Datamodel_types.ty
                 let compare = compare
@@ -591,14 +594,18 @@ and message_signature needed classname message =
           | None -> []
   in
   let params = joined ", " (param needed) (front @ message.msg_params) in
-    sprintf "bool\n%s(%s)" (messagename classname message.msg_name) params
+  let deprecatedMessage = get_deprecated_info_message message in
+    sprintf "%sbool\n%s(%s)" (if deprecatedMessage = "" then "" else "/*" ^ deprecatedMessage ^ "*/\n")
+                             (messagename classname message.msg_name) params
 
 
 and message_signature_async needed classname message =
   let sessionParam = {param_type=Ref "session"; param_name="session"; param_doc=""; param_release=message.msg_release; param_default = None} in
   let taskParam= {param_type=Ref "task"; param_name="*result"; param_doc=""; param_release=message.msg_release; param_default = None} in
   let params = joined ", " (param needed) (sessionParam :: (taskParam :: message.msg_params)) in
-    sprintf "bool\n%s(%s)" (messagename_async classname message.msg_name) params
+  let deprecatedMessage = get_deprecated_info_message message in
+    sprintf "%sbool\n%s(%s)" (if deprecatedMessage = "" then "" else "/*" ^ deprecatedMessage ^ "*/\n")
+                             (messagename_async classname message.msg_name) params
 
 
 and param needed p =
