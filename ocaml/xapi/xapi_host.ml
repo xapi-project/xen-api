@@ -1326,52 +1326,6 @@ let reset_networking ~__context ~host =
 		Db.PIF.destroy ~__context ~self;
 	) local_pifs
 
-(* CPU feature masking *)
-
-let set_cpu_features ~__context ~host ~features =
-	debug "Set CPU features";
-	(* check restrictions *)
-	if not (Pool_features.is_enabled ~__context Features.CPU_masking) then
-		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
-
-	let cpuid = Cpuid.read_cpu_info () in
-
-	(* parse features string *)
-	let features =
-		try Cpuid.string_to_features features
-		with Cpuid.InvalidFeatureString e ->
-			raise (Api_errors.Server_error (Api_errors.invalid_feature_string, [e]))
-	in
-
-	(* check masking is possible *)
-	begin try
-		Cpuid.assert_maskability cpuid cpuid.Cpuid.manufacturer features
-	with
-	| Cpuid.MaskingNotSupported e ->
-		raise (Api_errors.Server_error (Api_errors.cpu_feature_masking_not_supported, [e]))
-	| Cpuid.InvalidFeatureString e ->
-		raise (Api_errors.Server_error (Api_errors.invalid_feature_string, [e]))
-	| Cpuid.ManufacturersDiffer -> () (* cannot happen *)
-	end;
-
-	(* add masks to Xen command line *)
-	ignore (Xen_cmdline.delete_cpuid_masks ["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
-	let new_masks = Cpuid.xen_masking_string cpuid features in
-	ignore (Xen_cmdline.set_cpuid_masks new_masks);
-
-	(* update database *)
-	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-	let cpu_info = List.replace_assoc "features_after_reboot" (Cpuid.features_to_string features) cpu_info in
-	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
-
-let reset_cpu_features ~__context ~host =
-	debug "Reset CPU features";
-	ignore (Xen_cmdline.delete_cpuid_masks ["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
-	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-	let physical_features = List.assoc "physical_features" cpu_info in
-	let cpu_info = List.replace_assoc "features_after_reboot" physical_features cpu_info in
-	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
-
 (* Local storage caching *)
 
 let enable_local_storage_caching ~__context ~host ~sr =

@@ -2446,16 +2446,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.refresh_pack_info ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.refresh_pack_info rpc session_id host)
 
-		let set_cpu_features ~__context ~host ~features =
-			info "Host.set_cpu_features: host = '%s'; features = '%s'" (host_uuid ~__context host) features;
-			let local_fn = Local.Host.set_cpu_features ~host ~features in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_cpu_features rpc session_id host features)
-
-		let reset_cpu_features ~__context ~host =
-			info "Host.reset_cpu_features: host = '%s'" (host_uuid ~__context host);
-			let local_fn = Local.Host.reset_cpu_features ~host in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reset_cpu_features rpc session_id host)
-
 		let reset_networking ~__context ~host =
 			info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);
 			Local.Host.reset_networking ~__context ~host
