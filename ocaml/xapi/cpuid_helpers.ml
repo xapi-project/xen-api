@@ -21,6 +21,11 @@ open D
 let vendor_key = "vendor"
 let features_key = "features"
 
+let string_of_features features =
+	Array.map (fun word -> Printf.sprintf "%8.8Lx" word) features
+		|> Array.to_list
+		|> String.concat "-"
+
 let get_pool_feature_mask ~__context ~remote =
 	try
 		let other_config =
