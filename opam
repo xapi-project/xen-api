@@ -11,5 +11,5 @@ depends: [
   "xapi-stdext"
   "xapi-idl"
   "xapi-libs-transitional"
-  "xapi-rrd-transport"
+  "xapi-rrd-transport" {>= "0.9.0"}
 ]
