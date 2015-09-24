@@ -33,11 +33,20 @@ Library xenopsd
   BuildDepends:       threads, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, xcp.storage, sexplib, sexplib.syntax, xcp, uutf, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, oclock
   CSources:	      sockopt_stubs.c
 
+Executable set_domain_uuid
+  CompiledObject:     best
+  Path:               tools
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
+  MainIs:             set_domain_uuid.ml
+  Install:            false
+  BuildDepends:       xenctrl, uuidm, cmdliner
+
 Executable suspend_image_viewer
   CompiledObject:     best
   Path:               lib
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             suspend_image_viewer.ml
   Install:            false
   BuildDepends:       xenopsd, cmdliner
@@ -45,8 +54,8 @@ Executable suspend_image_viewer
 Executable xenopsd_xc_main
   CompiledObject:     best
   Path:               xc
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             xenops_xc_main.ml
   Build$:             flag(xen)
   Custom:             true
@@ -57,8 +66,8 @@ Executable xenopsd_xc_main
 Executable watch_test
   CompiledObject:     best
   Path:               xc
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             watch_test.ml
   Install:            false
   BuildDepends:       xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads
@@ -66,8 +75,8 @@ Executable watch_test
 Executable xenopsd_simulator
   CompiledObject:     best
   Path:               simulator
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             xenops_simulator_main.ml
   Build$:             flag(simulator)
   Custom:             true
@@ -77,8 +86,8 @@ Executable xenopsd_simulator
 Executable xenopsd_libvirt_main
   CompiledObject:     best
   Path:               libvirt
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             xenops_libvirt_main.ml
   Build$:             flag(libvirt)
   Custom:             true
@@ -88,8 +97,8 @@ Executable xenopsd_libvirt_main
 Executable xenopsd_xenlight_main
   CompiledObject:     best
   Path:               xl
-  ByteOpt:            -warn-error +a
-  NativeOpt:          -warn-error +a
+  ByteOpt:            -warn-error +a-3
+  NativeOpt:          -warn-error +a-3
   MainIs:             xenops_xl_main.ml
   Build$:             flag(xenlight)
   Custom:             true

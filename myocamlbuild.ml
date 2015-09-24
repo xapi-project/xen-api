@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 07dbb8f708985c17d8b9a78102a8a695) *)
+(* DO NOT EDIT (digest: c4687943ad9b35db36fce435aeae72fd) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -628,233 +628,270 @@ let package_default =
             [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
           (["oasis_library_xenopsd_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+          (["oasis_executable_set_domain_uuid_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
+          ([
+              "oasis_executable_set_domain_uuid_native";
+              "ocaml";
+              "link";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
+          ([
+              "oasis_executable_set_domain_uuid_byte";
+              "ocaml";
+              "ocamldep";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
+          ([
+              "oasis_executable_set_domain_uuid_native";
+              "ocaml";
+              "ocamldep";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
+          ([
+              "oasis_executable_set_domain_uuid_byte";
+              "ocaml";
+              "compile";
+              "byte"
+           ],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
+          ([
+              "oasis_executable_set_domain_uuid_native";
+              "ocaml";
+              "compile";
+              "native"
+           ],
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_byte";
               "ocaml";
               "link";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_native";
               "ocaml";
               "link";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_byte";
               "ocaml";
               "ocamldep";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_byte";
               "ocaml";
               "compile";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_suspend_image_viewer_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_xenopsd_xc_main_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xc_main_native";
               "ocaml";
               "link";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xc_main_byte";
               "ocaml";
               "ocamldep";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xc_main_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xc_main_byte";
               "ocaml";
               "compile";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xc_main_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_watch_test_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_watch_test_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_watch_test_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_watch_test_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_watch_test_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_watch_test_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_byte";
               "ocaml";
               "link";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_native";
               "ocaml";
               "link";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_byte";
               "ocaml";
               "ocamldep";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_byte";
               "ocaml";
               "compile";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_simulator_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_byte";
               "ocaml";
               "link";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_native";
               "ocaml";
               "link";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_byte";
               "ocaml";
               "ocamldep";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_byte";
               "ocaml";
               "compile";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_libvirt_main_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_byte";
               "ocaml";
               "link";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_native";
               "ocaml";
               "link";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_byte";
               "ocaml";
               "ocamldep";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_native";
               "ocaml";
               "ocamldep";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_byte";
               "ocaml";
               "compile";
               "byte"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])]);
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           ([
               "oasis_executable_xenopsd_xenlight_main_native";
               "ocaml";
               "compile";
               "native"
            ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a"])])
+            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])])
        ];
      includes =
        [
@@ -870,6 +907,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 874 "myocamlbuild.ml"
+# 911 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
