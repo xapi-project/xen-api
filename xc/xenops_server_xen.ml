@@ -1523,9 +1523,10 @@ module VM = struct
 			succ, flag, rc, stdout, stderr) in
 		if not succ then Xenops_task.raise_cancelled task;
 		let truncate s =
+			let mark = " (truncated)" in
 			let len = String.length s in
-			if len < 1024 || len = 1024 && flag <> "TRUNCATED" then s
-			else String.sub s 0 (min len 1024) ^ " (truncated)" in
+			if len >= 1024 || flag = "TRUNCATED" && len > 1024 - String.length mark
+			then String.sub s 0 (1024 - String.length mark) ^ mark else s in
 		let stdout, stderr = truncate stdout, truncate stderr in
 		let rc_opt = try Some (Int64.of_string rc) with _ -> None in
 		match flag, rc_opt with
