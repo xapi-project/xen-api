@@ -479,7 +479,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
 	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
 	if not(Pool_role.is_master ())
-	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
+	then log_and_ignore_exn ( Rrdd.send_host_rrd_to_master ~master_address:(Pool_role.get_master_address () ));
 	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
 	log_and_ignore_exn Rrdd.backup_rrds;
 
@@ -961,7 +961,7 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()));
+		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None));
 		log_and_ignore_exn (fun () ->
 			List.iter (fun sr ->
 				Xapi_sr.maybe_copy_sr_rrds ~__context ~sr
