@@ -39,11 +39,11 @@ let create_fresh_rrd use_min_max dss =
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD. *)
-let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms paused_vms =
+let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
-	let to_send_back = Mutex.execute mutex (fun _ ->
+	Mutex.execute mutex (fun _ ->
 		let out_of_date, by_how_much =
 			match !host_rrd with
 			| None -> false, 0.
@@ -51,16 +51,6 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 		in
 		if out_of_date then
 			error "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
-		let registered = Hashtblext.fold_keys vm_rrds in
-		let gone_vms = List.filter (fun vm -> not (List.mem_assoc vm uuid_domids)) registered in
-		let to_send_back = List.map (fun uuid -> uuid, Hashtbl.find vm_rrds uuid) gone_vms in
-		(* Don't send back rebooting VMs! *)
-		let to_send_back = List.filter (fun (uuid, _) ->
-			let rebooting = (List.exists (fun uuid' -> uuid = uuid') rebooting_vms) in
-			if rebooting then debug "Ignoring disappeared VM which is rebooting";
-			not rebooting
-		) to_send_back in
-		List.iter (fun (uuid, _) -> Hashtbl.remove vm_rrds uuid) to_send_back;
 		let do_vm (vm_uuid, domid) =
 			try
 				let dss = List.filter_map (fun (ty, ds) -> match ty with | VM x -> if x = vm_uuid then Some ds else None | _ -> None) dss in
@@ -169,8 +159,4 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 				Rrd.ds_update_named rrd timestamp ~new_domid:false
 					(List.map (fun ds -> (ds.ds_name, (ds.ds_value,ds.ds_pdp_transform_function))) host_dss)
 		end;
-		to_send_back
 	)
-	in List.iter (fun (uuid, rrdi) ->
-		debug "Sending back RRD for VM uuid=%s" uuid;
-		archive_rrd_internal ~uuid ~rrd:rrdi.rrd ()) to_send_back
