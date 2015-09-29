@@ -122,9 +122,9 @@ let load_rrd_from_local_filesystem uuid =
 module Deprecated = struct
 	(* DEPRECATED *)
 	(* Fetch an RRD from the master *)
-	let pull_rrd_from_master ~uuid ~is_host =
+	let pull_rrd_from_master ~uuid ~master_address =
 		let pool_secret = get_pool_secret () in
-		let uri = if is_host then Constants.get_host_rrd_uri else Constants.get_vm_rrd_uri in
+		let uri = Constants.get_host_rrd_uri in
 		(* Add in "dbsync = true" to the query to make sure the master
 		 * doesn't try to redirect here! *)
 		let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
@@ -132,7 +132,6 @@ module Deprecated = struct
 			Http.Request.make ~user_agent:Constants.rrdd_user_agent
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
-		let master_address = Pool_role_shared.get_master_address () in
 		let transport = SSL(SSL.make (), master_address, !Rrdd_shared.https_port) in
 		with_transport transport (
 			with_http request (fun (response, s) ->
@@ -151,8 +150,8 @@ module Deprecated = struct
 	 * 1. For the local host after a xapi restart or host restart.
 	 * 2. For running VMs after a xapi restart.
 	 * It is now only used to load the host's RRD after xapi restart. *)
-	let load_rrd _ ~(uuid : string) ~(domid : int) ~(is_host : bool)
-			~(timescale : int) () : unit =
+	let load_rrd _ ~(uuid : string) ~master_address ~(is_master : bool)
+		~(timescale : int) () : unit =
 		try
 			let rrd =
 				try
@@ -160,13 +159,13 @@ module Deprecated = struct
 					debug "RRD loaded from local filesystem for object uuid=%s" uuid;
 					rrd
 				with e ->
-					if Pool_role_shared.is_master () then begin
+					if is_master then begin
 						info "Failed to load RRD from local filesystem: metrics not available for uuid=%s" uuid;
 						raise e
 					end else begin
 						debug "Failed to load RRD from local filesystem for object uuid=%s; asking master" uuid;
 						try
-							let rrd = pull_rrd_from_master ~uuid ~is_host in
+							let rrd = pull_rrd_from_master ~uuid ~master_address in
 							debug "RRD pulled from master for object uuid=%s" uuid;
 							rrd
 						with e ->
@@ -174,13 +173,7 @@ module Deprecated = struct
 							raise e
 					end
 			in
-			Mutex.execute mutex (fun () ->
-				if is_host
-				then begin
-					host_rrd := Some {rrd; dss = []; domid}
-				end else
-					Hashtbl.replace vm_rrds uuid {rrd; dss = []; domid}
-			)
+			Mutex.execute mutex (fun () -> host_rrd := Some {rrd; dss = []; domid = 0} )
 		with _ -> ()
 end
 
