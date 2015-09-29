@@ -273,7 +273,7 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_load_rrd (fun () -> 
     (* Load the host rrd *)
     Rrdd_proxy.Deprecated.load_rrd ~__context
-      ~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true
+      ~uuid:(Helpers.get_localhost_uuid ())
   );
 
   (* maybe record host memory properties in database *)
