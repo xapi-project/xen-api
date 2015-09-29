@@ -57,6 +57,7 @@ external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit = ""
 external send_host_rrd_to_master : master_address:string -> unit = ""
 external backup_rrds : ?remote_address:string option -> unit -> unit = ""
+external archive_rrd : vm_uuid:string -> remote_address:string option -> unit = ""
 
 external archive_sr_rrd : sr_uuid:string -> string = ""
 external push_sr_rrd : sr_uuid:string -> path:string -> unit = ""
