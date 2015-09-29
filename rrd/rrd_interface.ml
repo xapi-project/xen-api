@@ -50,13 +50,13 @@ exception Archive_failed of string
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
 
-external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
-	unit -> unit = ""
+external push_rrd_local : vm_uuid:string -> domid:int -> unit -> unit = ""
+external push_rrd_remote : vm_uuid:string -> remote_address:string -> unit -> unit = ""
 external remove_rrd : uuid:string -> unit -> unit = ""
 external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
-external send_host_rrd_to_master : unit -> unit = ""
-external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
+external send_host_rrd_to_master : master_address:string -> unit -> unit = ""
+external backup_rrds : ?remote_address:string option -> unit -> unit = ""
 
 external archive_sr_rrd : sr_uuid:string -> string = ""
 external push_sr_rrd : sr_uuid:string -> path:string -> unit = ""
