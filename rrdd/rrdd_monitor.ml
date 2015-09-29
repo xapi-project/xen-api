@@ -173,4 +173,4 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) rebooting_vms 
 	)
 	in List.iter (fun (uuid, rrdi) ->
 		debug "Sending back RRD for VM uuid=%s" uuid;
-		archive_rrd ~uuid ~rrd:rrdi.rrd ()) to_send_back
+		archive_rrd_internal ~uuid ~rrd:rrdi.rrd ()) to_send_back
