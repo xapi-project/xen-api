@@ -371,11 +371,11 @@ and get_process_record_method_if_exists classname classType has_uuid has_name =
     if not (List.mem classname expose_get_all_messages_for)
     then  sprintf ""
     else  sprintf "
-    
+
         protected override void ProcessRecord()
         {
             GetSession();
-            
+
             var records = %s.get_all_records(session);
 
             foreach (var record in records)
@@ -446,8 +446,7 @@ and get_process_record_method_if_exists classname classType has_uuid has_name =
 and print_methods_class classname has_uuid has_name =
   let classType = (qualified_class_name classname) in
   sprintf "
-        #region Cmdlet Methods%s
-        
+        #region Cmdlet Methods%s        
         #endregion
     }
 }\n"
