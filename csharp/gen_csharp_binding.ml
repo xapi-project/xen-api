@@ -68,8 +68,9 @@ Usage:
 
 
 let get_deprecated_attribute_string version =
-  if version =  None then ""
-  else "[Obsolete]"  
+  match version with
+  | None -> ""
+  | Some versionString -> "[Deprecated(\"" ^ get_release_name versionString ^ "\")]"  
 
 let get_deprecated_attribute message =
   let version = message.msg_release.internal_deprecated_since in
@@ -538,8 +539,9 @@ namespace XenAPI
   List.iter (gen_exposed_method_overloads out_chan cls) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
 
   (* Don't create duplicate get_all_records call *)
-  if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) then
-    gen_exposed_method out_chan cls (get_all_records_method cls.name) [];
+  if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) &&
+     List.mem cls.name expose_get_all_messages_for
+  then gen_exposed_method out_chan cls (get_all_records_method cls.name) [];
 
   List.iter (gen_exposed_field out_chan cls) contents;
 

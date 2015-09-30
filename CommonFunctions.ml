@@ -124,7 +124,7 @@ and get_first_release_string release =
 and get_deprecated_info_message_string version = 
   match version with
   | None -> ""
-  | Some x -> sprintf "Deprecated since %s. " (get_release_name x)
+  | Some x -> sprintf "Deprecated since %s." (get_release_name x)
 
 and get_prototyped_release lifecycle =
   match lifecycle with

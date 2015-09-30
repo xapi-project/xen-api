@@ -354,7 +354,7 @@ and decl_messages needed classname messages =
 and decl_message needed classname message =
   let message_sig = message_signature needed classname message in
   let messageAsyncVersion = decl_message_async needed classname message in
-    sprintf "%s\nextern %s;\n%s" (get_message_comment message) message_sig messageAsyncVersion
+    sprintf "%s\n%sextern %s;\n%s" (get_message_comment message) (get_deprecated_message message) message_sig messageAsyncVersion
 
 
 and decl_message_async needed classname message =
@@ -362,7 +362,7 @@ and decl_message_async needed classname message =
   (
     let messageSigAsync = message_signature_async needed classname message in
     needed := StringSet.add "task_decl" !needed;
-    sprintf "\n%s\nextern %s;\n" (get_message_comment message) messageSigAsync
+    sprintf "\n%s\n%sextern %s;\n" (get_message_comment message) (get_deprecated_message message) messageSigAsync
   )
   else
     ""
@@ -405,7 +405,7 @@ and impl_message needed classname message =
   in
   
   let messageAsyncImpl=impl_message_async needed classname message in
-    sprintf "%s\n{\n%s\n%s}\n%s" message_sig param_decl result_bits messageAsyncImpl
+    sprintf "%s%s\n{\n%s\n%s}\n%s" (get_deprecated_message message) message_sig param_decl result_bits messageAsyncImpl
 
 
 and impl_message_async needed classname message =
@@ -429,7 +429,7 @@ and impl_message_async needed classname message =
       in
       
       let result_bits = abstract_result_handling_async needed classname message.msg_name param_count in
-        sprintf "\n%s\n{\n%s\n%s}" messageSigAsync param_decl result_bits
+        sprintf "\n%s%s\n{\n%s\n%s}" (get_deprecated_message message) messageSigAsync param_decl result_bits
   )
   else
     ""
@@ -585,6 +585,10 @@ and abstract_type record = function
 
   | Record n -> sprintf "%s_abstract_type_" (record_typename n)
 
+and get_deprecated_message message =
+  let deprecatedMessage = get_deprecated_info_message message in
+    if deprecatedMessage = "" then sprintf "" else sprintf "/* " ^ deprecatedMessage ^ " */\n"
+
 
 and message_signature needed classname message =
   let front = 
@@ -594,18 +598,14 @@ and message_signature needed classname message =
           | None -> []
   in
   let params = joined ", " (param needed) (front @ message.msg_params) in
-  let deprecatedMessage = get_deprecated_info_message message in
-    sprintf "%sbool\n%s(%s)" (if deprecatedMessage = "" then "" else "/*" ^ deprecatedMessage ^ "*/\n")
-                             (messagename classname message.msg_name) params
+    sprintf "bool\n%s(%s)" (messagename classname message.msg_name) params
 
 
 and message_signature_async needed classname message =
   let sessionParam = {param_type=Ref "session"; param_name="session"; param_doc=""; param_release=message.msg_release; param_default = None} in
   let taskParam= {param_type=Ref "task"; param_name="*result"; param_doc=""; param_release=message.msg_release; param_default = None} in
   let params = joined ", " (param needed) (sessionParam :: (taskParam :: message.msg_params)) in
-  let deprecatedMessage = get_deprecated_info_message message in
-    sprintf "%sbool\n%s(%s)" (if deprecatedMessage = "" then "" else "/*" ^ deprecatedMessage ^ "*/\n")
-                             (messagename_async classname message.msg_name) params
+    sprintf "bool\n%s(%s)" (messagename_async classname message.msg_name) params
 
 
 and param needed p =
