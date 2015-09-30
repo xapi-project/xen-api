@@ -3670,12 +3670,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.plug rpc session_id self));
-			(* Consider scanning the SR now. Note:
-			   1. the current context contains a completed real task and we should not reuse it for what is
-			   effectively another call.
-			   2. the SR should still be locked by the current PBD.plug operation so it is safe to use
-			   the internal scan function directly.
-			*)
+			(* Consider scanning the SR now. Note the current context contains a
+			 * completed real task and we should not reuse it for what is effectively
+			 * another call. *)
 			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
 				(* Only handle metadata VDIs when attaching shared storage to the master. *)
 				let should_handle_metadata_vdis =
