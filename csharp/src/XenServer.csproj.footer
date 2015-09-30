@@ -1,5 +1,6 @@
     <Compile Include="Event.cs" />
     <Compile Include="EventHelpers.cs" />
+    <Compile Include="DeprecatedAttribute.cs" />
     <Compile Include="Failure.cs" />
     <Compile Include="FriendlyErrorNames.Designer.cs">
       <AutoGen>True</AutoGen>

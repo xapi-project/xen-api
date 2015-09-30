@@ -367,15 +367,15 @@ and print_parameters_class obj classname =
         #endregion\n"
     (print_xenobject_params obj classname false false true)
 
-and print_methods_class classname has_uuid has_name =
-  let classType = (qualified_class_name classname) in
-  sprintf "
-        #region Cmdlet Methods
-
+and get_process_record_method_if_exists classname classType has_uuid has_name =
+    if not (List.mem classname expose_get_all_messages_for)
+    then  sprintf ""
+    else  sprintf "
+    
         protected override void ProcessRecord()
         {
             GetSession();
-
+            
             var records = %s.get_all_records(session);
 
             foreach (var record in records)
@@ -409,10 +409,7 @@ and print_methods_class classname has_uuid has_name =
 
             UpdateSessions();
         }
-
-        #endregion
-    }
-}\n"
+    "
     classType
     classType
     (if has_name then sprintf "
@@ -442,6 +439,22 @@ and print_methods_class classname has_uuid has_name =
             }"
     else "")
     (exposed_class_name classname)    
+
+
+
+
+and print_methods_class classname has_uuid has_name =
+  let classType = (qualified_class_name classname) in
+  sprintf "
+        #region Cmdlet Methods%s
+        
+        #endregion
+    }
+}\n"
+
+    (get_process_record_method_if_exists classname classType has_uuid has_name)
+
+    
 
 
 (*********************************)
