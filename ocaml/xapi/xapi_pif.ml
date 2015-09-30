@@ -333,7 +333,8 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed () =
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics 
+		~managed ?(disallow_unplug=false) () =
 	let bridge = bridge_naming_convention device in
 
 	(* If we are not told which network to use,
@@ -360,7 +361,7 @@ let introduce_internal
 		~mTU ~vLAN ~metrics ~physical ~currently_attached:false
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
 		~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
-		~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
+		~other_config:[] ~disallow_unplug ~ipv6_configuration_mode:`None
 		~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
 		~properties:default_properties ~capabilities:capabilities in
 
@@ -495,17 +496,25 @@ let scan ~__context ~host =
 			(List.map fst t.device_to_mac_table)
 			(List.map snd t.pif_to_device_table) in
 
-	let non_managed_devices =
+	let non_managed_devices, disallow_unplug_devices =
 		if Sys.file_exists !Xapi_globs.non_managed_pifs then
 			try
 				let output, _ = Forkhelpers.execute_command_get_output !Xapi_globs.non_managed_pifs [] in
-				String.split_f String.isspace output
+				let dsplit = String.split '\n' output in
+				match dsplit with
+				| [] | [""] | "" :: "" :: _ ->
+					debug "No boot from SAN interface found";
+					[], []
+				| m :: u :: _ ->
+					String.split_f String.isspace m, String.split_f String.isspace u
+				| m :: _ ->
+					String.split_f String.isspace m, []
 			with e ->
 				warn "Error when executing script %s: %s; ignoring" !Xapi_globs.non_managed_pifs (Printexc.to_string e);
-				[]
+				[], []
 		else begin
 			debug "Script %s not found; ignoring" !Xapi_globs.non_managed_pifs;
-			[]
+			[], []
 		end
 	in
 
@@ -515,10 +524,11 @@ let scan ~__context ~host =
 			let mAC = List.assoc device t.device_to_mac_table in
 			let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
 			let managed = not (List.mem device non_managed_devices) in
+			let disallow_unplug = (List.mem device disallow_unplug_devices) in
 			let (_: API.ref_PIF) =
 				introduce_internal
 					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device ~managed () in
+					~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug () in
 			())
 		(devices_not_yet_represented_by_pifs);
 
