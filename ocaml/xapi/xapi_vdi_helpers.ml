@@ -232,7 +232,7 @@ module VDI_CStruct = struct
 end
 
 (* Write the rrd stats to the rrd-stats vdi *)
-let write_rrd ~__context ~sr ~vdi ~text =
+let write_rrd ~__context ~vdi ~text =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 			(fun fd ->
@@ -249,7 +249,7 @@ let write_rrd ~__context ~sr ~vdi ~text =
 		)
 
 (* Read the rrd stats from the rrd-stats vdi *)
-let read_rrd ~__context ~sr ~vdi =
+let read_rrd ~__context ~vdi =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device  __context rpc session_id vdi `RW
 			(fun fd ->
@@ -279,7 +279,7 @@ let maybe_push_sr_rrds ~__context ~sr =
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
 		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
-		let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
+		let gzipped_rrds = read_rrd ~__context ~vdi:vdi in
 		begin match gzipped_rrds with
 			| None -> debug "stats vdi doesn't have rdds"
 			| Some x ->
@@ -295,4 +295,4 @@ let maybe_copy_sr_rrds ~__context ~sr ~archive =
 			Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
 		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
 		let contents = Unixext.string_of_file sr_rrds_path in
-		write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents
+		write_rrd ~__context ~vdi:vdi ~text:contents
