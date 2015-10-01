@@ -954,8 +954,8 @@ let copy_srs_rrds ~__context () =
 	let srs = Xapi_sr.srs_with_rrds ~__context in
 	if !srs <> [] then begin
 		List.iter (fun sr ->
-			let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-			Xapi_vdi_helpers.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:false) !srs
+			let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
+			Xapi_vdi_helpers.copy_sr_rrds ~__context ~sr:sr ~vdi:vdi ~archive:false) !srs
 	end
 
 let backup_rrds ~__context ~host ~delay =

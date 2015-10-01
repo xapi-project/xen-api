@@ -157,8 +157,8 @@ let plug ~__context ~self =
 				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
 				if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
 				(Helpers.i_am_srmaster ~__context ~sr)) then begin
-					let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-					Xapi_vdi_helpers.push_sr_rdds ~__context ~sr:sr ~vdi:vdi
+					let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
+					Xapi_vdi_helpers.push_sr_rrds ~__context ~sr:sr ~vdi:vdi
 				end
 			end
 
@@ -173,8 +173,8 @@ let unplug ~__context ~self =
 			let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
 			if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
 			(Helpers.i_am_srmaster ~__context ~sr)) then begin
-				let vdi = Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr in
-				Xapi_vdi_helpers.copy_sr_rdds ~__context ~sr:sr ~vdi:vdi ~archive:true
+				let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
+				Xapi_vdi_helpers.copy_sr_rrds ~__context ~sr:sr ~vdi:vdi ~archive:true
 			end;
 
 			if Db.Host.get_enabled ~__context ~self:host

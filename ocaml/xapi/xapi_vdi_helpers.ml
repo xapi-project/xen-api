@@ -23,7 +23,7 @@ open Threadext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let create_rrd_vdi ~__context ~sr =
+let find_or_create_rrd_vdi ~__context ~sr =
 	let open Db_filter_types in
 	match Db.VDI.get_refs_where ~__context ~expr:(And (
 		Eq (Field "SR", Literal (Ref.string_of sr)),
@@ -268,7 +268,7 @@ let read_rrd ~__context ~sr ~vdi =
 
 module Rrdd = Rrd_client.Client
 
-let push_sr_rdds ~__context ~sr ~vdi =
+let push_sr_rrds ~__context ~sr ~vdi =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
 	let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
@@ -279,7 +279,7 @@ let push_sr_rdds ~__context ~sr ~vdi =
 			Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
 	end
 
-let copy_sr_rdds ~__context ~sr ~vdi ~archive =
+let copy_sr_rrds ~__context ~sr ~vdi ~archive =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	if archive then
 		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
