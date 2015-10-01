@@ -268,6 +268,12 @@ let read_rrd ~__context ~sr ~vdi =
 
 module Rrdd = Rrd_client.Client
 
+let should_manage_stats_vdi ~__context ~sr =
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+	Smint.(has_capability Sr_stats sr_features)
+	&& Helpers.i_am_srmaster ~__context ~sr
+
 let push_sr_rrds ~__context ~sr ~vdi =
 	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in

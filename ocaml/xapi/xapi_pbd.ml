@@ -152,14 +152,6 @@ let plug ~__context ~self =
 
 				(* The allowed-operations depend on the capabilities *)
 				Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-
-				(* Check if SR has SR_STATS capability and sr master then create SR-stats VDI*)
-				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-				if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
-				(Helpers.i_am_srmaster ~__context ~sr)) then begin
-					let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
-					Xapi_vdi_helpers.push_sr_rrds ~__context ~sr:sr ~vdi:vdi
-				end
 			end
 
 let unplug ~__context ~self =
@@ -168,14 +160,6 @@ let unplug ~__context ~self =
 		begin
 			let host = Db.PBD.get_host ~__context ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
-
-			(* Check if SR has SR_STATS capability and sr master then copy RRDs to SR-stats VDI *)
-			let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-			if (Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) &&
-			(Helpers.i_am_srmaster ~__context ~sr)) then begin
-				let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
-				Xapi_vdi_helpers.copy_sr_rrds ~__context ~sr:sr ~vdi:vdi ~archive:true
-			end;
 
 			if Db.Host.get_enabled ~__context ~self:host
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;
