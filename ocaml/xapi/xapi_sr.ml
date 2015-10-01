@@ -615,6 +615,54 @@ let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
 	blob
 
+let find_or_create_rrd_vdi ~__context ~sr =
+	let open Db_filter_types in
+	match Db.VDI.get_refs_where ~__context ~expr:(And (
+		Eq (Field "SR", Literal (Ref.string_of sr)),
+		Eq (Field "type", Literal "rrd")
+	))
+	with
+	| [] -> begin
+		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
+			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size:(Int64.of_int 4194304)
+			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
+		in
+		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+	end
+	| vdi :: _ ->
+		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+
+let should_manage_stats ~__context ~sr =
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+	Smint.(has_capability Sr_stats sr_features)
+	&& Helpers.i_am_srmaster ~__context ~sr
+
+let maybe_push_sr_rrds ~__context ~sr =
+	if should_manage_stats ~__context ~sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
+		let gzipped_rrds = Xapi_vdi_helpers.read_raw ~__context ~vdi in
+		begin match gzipped_rrds with
+			| None -> debug "stats vdi doesn't have rdds"
+			| Some x ->
+				Unixext.write_string_to_file sr_rrds_path x;
+				Rrdd.push_sr_rrd ~sr_uuid
+		end
+
+let maybe_copy_sr_rrds ~__context ~sr ~archive =
+	if should_manage_stats ~__context ~sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		if archive then
+			Rrdd.archive_sr_rrd ~sr_uuid;
+		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
+		let contents = Unixext.string_of_file sr_rrds_path in
+		Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
+
 (* APIs for accessing SR level stats *)
 let get_data_sources ~__context ~sr =
 	List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_sr_dss ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr))
