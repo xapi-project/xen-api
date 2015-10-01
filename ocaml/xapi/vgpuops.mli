@@ -19,7 +19,10 @@
 
 (** Assign a list of PCI devices to a VM for GPU passthrough, store them in
 	other_config:vgpu_pci *)
-val create_vgpus :
+val create_virtual_gpus :
+  __context:Context.t -> (API.ref_VM * API.vM_t) -> bool -> API.ref_host -> unit
+
+val create_passthrough_gpus :
   __context:Context.t -> (API.ref_VM * API.vM_t) -> bool -> unit
 
 (** Check whether a VM has the platform flag that indicates its VGPU is being

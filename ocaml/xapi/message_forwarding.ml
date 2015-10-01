@@ -779,7 +779,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Helpers.set_boot_record ~__context ~self:vm snapshot
 			end;
 			(* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
-			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host
+			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
+			(* Creating the VGPU so that concurrent calls can consider this vgpu *)
+			let vmr = Db.VM.get_record ~__context ~self:vm in
+			Vgpuops.create_virtual_gpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm) host
 
 		(* For start/start_on/resume/resume_on/migrate *)
 		let finally_clear_host_operation ~__context ~host ?host_op () = match host_op with

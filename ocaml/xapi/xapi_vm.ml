@@ -188,7 +188,7 @@ let set_xenstore_data ~__context ~self ~value =
 
 let start ~__context ~vm ~start_paused ~force =
 	let vmr = Db.VM.get_record ~__context ~self:vm in
-	Vgpuops.create_vgpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
+	Vgpuops.create_passthrough_gpus ~__context (vm, vmr) (Helpers.will_boot_hvm ~__context ~self:vm);
 	if vmr.API.vM_ha_restart_priority = Constants.ha_restart
 	then begin
 		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
