@@ -17,7 +17,7 @@ let get_vhd_vsize filename =
       | Fragment.Footer x ->
 	let size = x.Footer.current_size in
 	Printf.printf "%Ld\n" size;
-	exit 1
+	exit 0
       | _ ->
 	()
       end;
