@@ -274,22 +274,25 @@ let should_manage_stats_vdi ~__context ~sr =
 	Smint.(has_capability Sr_stats sr_features)
 	&& Helpers.i_am_srmaster ~__context ~sr
 
-let push_sr_rrds ~__context ~sr ~vdi =
-	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
-	let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
-	begin match gzipped_rrds with
-		| None -> debug "stats vdi doesn't have rdds"
-		| Some x ->
-			Unixext.write_string_to_file sr_rrds_path x;
-			Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
-	end
+let maybe_push_sr_rrds ~__context ~sr =
+	if should_manage_stats_vdi ~__context ~sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
+		let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
+		begin match gzipped_rrds with
+			| None -> debug "stats vdi doesn't have rdds"
+			| Some x ->
+				Unixext.write_string_to_file sr_rrds_path x;
+				Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
+		end
 
-let copy_sr_rrds ~__context ~sr ~vdi ~archive =
-	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-	if archive then
-		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
-	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
-	let contents = Unixext.string_of_file sr_rrds_path in
-	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents
-
+let maybe_copy_sr_rrds ~__context ~sr ~archive =
+	if should_manage_stats_vdi ~__context ~sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		if archive then
+			Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
+		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
+		let contents = Unixext.string_of_file sr_rrds_path in
+		write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents

@@ -3715,9 +3715,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Xapi_dr.signal_sr_is_processing ~__context:__scan_context ~sr;
 				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr);
 
-				if Xapi_vdi_helpers.should_manage_stats_vdi ~__context ~sr then
-					let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
-					Xapi_vdi_helpers.push_sr_rrds ~__context ~sr:sr ~vdi:vdi;
+				Xapi_vdi_helpers.maybe_push_sr_rrds ~__context ~sr;
 
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
@@ -3731,10 +3729,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
-					if Xapi_vdi_helpers.should_manage_stats_vdi ~__context ~sr then
-						let vdi = Xapi_vdi_helpers.find_or_create_rrd_vdi ~__context ~sr:sr in
-						Xapi_vdi_helpers.copy_sr_rrds ~__context ~sr:sr ~vdi:vdi ~archive:true;
-
+					Xapi_vdi_helpers.maybe_copy_sr_rrds ~__context ~sr ~archive:true;
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.unplug rpc session_id self))
 	end
