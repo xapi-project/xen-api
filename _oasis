@@ -28,3 +28,11 @@ Executable "sparse_dd"
   Install:            false
   BuildDepends:       lwt, lwt.unix, lwt.syntax, lwt.preemptive, threads, vhd-format, vhd-format.lwt, cmdliner, nbd, nbd.lwt, uri, cohttp (>= 0.12.0), cohttp.lwt, xenstore, xenstore.client, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads, tapctl, xcp, sha, sha.sha1, tar, io-page.unix, re.str
   CSources:           sendfile64_stubs.c
+
+Executable get_vhd_vsize
+  CompiledObject:     best
+  Path:               src
+  MainIs:             get_vhd_vsize.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, vhd-format, vhd-format.lwt, cstruct, io-page.unix, threads
