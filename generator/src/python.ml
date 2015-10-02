@@ -298,7 +298,7 @@ let commandline_parse env i m =
         Line (sprintf "\"\"\"%s\"\"\"" m.Method.description);
       ] @ [
         Line "# in --json mode we don't have any other arguments";
-        Line "if '--json' in sys.argv:";
+        Line "if ('--json' in sys.argv or '-j' in sys.argv):";
         Block [
             Line "return json.loads(sys.stdin.readline(),)";
         ];
