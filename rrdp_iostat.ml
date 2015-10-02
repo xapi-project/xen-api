@@ -367,8 +367,10 @@ end
 module Stats_value = struct
 	type t =
 		{
-			io_throughput_read_mb : float;
-			io_throughput_write_mb : float;
+			rd_bytes : int64;
+			wr_bytes : int64;
+			rd_avg_usecs : int64;
+			wr_avg_usecs : int64;
 			iops_read : int64;
 			iops_write : int64;
 			iowait : float;
@@ -377,8 +379,10 @@ module Stats_value = struct
 
 	let empty =
 		{
-			io_throughput_read_mb = 0.;
-			io_throughput_write_mb = 0.;
+			rd_bytes = 0L;
+			wr_bytes = 0L;
+			rd_avg_usecs = 0L;
+			wr_avg_usecs = 0L;
 			iops_read = 0L;
 			iops_write = 0L;
 			iowait = 0.;
@@ -397,8 +401,16 @@ module Stats_value = struct
 					if stat >= last_stat then Int64.sub stat last_stat else stat
 				in
 				{
-					io_throughput_read_mb = to_float (stats_diff_get 13) /. 1048576.;
-					io_throughput_write_mb = to_float (stats_diff_get 14) /. 1048576.;
+					rd_bytes = stats_diff_get 13;
+					wr_bytes = stats_diff_get 14;
+					rd_avg_usecs =
+						if (stats_diff_get 0) > 0L then
+							Int64.div (stats_diff_get 3) (stats_diff_get 0)
+						else 0L;
+					wr_avg_usecs =
+						if (stats_diff_get 4) > 0L then
+							Int64.div (stats_diff_get 7) (stats_diff_get 4)
+						else 0L;
 					iops_read = stats_diff_get 0;
 					iops_write = stats_diff_get 4;
 					iowait = to_float (stats_diff_get 10) /. 1000.;
@@ -410,8 +422,16 @@ module Stats_value = struct
 				| Some last_s3 -> last_s3
 				in
 				{
-					io_throughput_read_mb = (to_float (s3.st_rd_sect -- last_s3.st_rd_sect)) *. 512. /. 1048576.;
-					io_throughput_write_mb = (to_float (s3.st_wr_sect -- last_s3.st_wr_sect)) *. 512. /. 1048576.;
+					rd_bytes = Int64.mul (Int64.sub s3.st_rd_sect last_s3.st_rd_sect) 512L;
+					wr_bytes = Int64.mul (Int64.sub s3.st_wr_sect last_s3.st_wr_sect) 512L;
+					rd_avg_usecs =
+						if s3.st_rd_cnt > 0L then
+							Int64.div s3.st_rd_sum_usecs s3.st_rd_cnt
+						else 0L;
+					wr_avg_usecs =
+						if s3.st_wr_cnt > 0L then
+							Int64.div s3.st_wr_sum_usecs s3.st_wr_cnt
+						else 0L;
 					iops_read = s3.st_rd_cnt -- last_s3.st_rd_cnt;
 					iops_write = s3.st_wr_cnt -- last_s3.st_wr_cnt;
 					iowait = to_float ((s3.st_rd_sum_usecs ++ s3.st_wr_sum_usecs) -- (last_s3.st_rd_sum_usecs ++ last_s3.st_wr_sum_usecs)) /. 1000000.0;
@@ -422,8 +442,10 @@ module Stats_value = struct
 		let (++) = Int64.add in
 		List.fold_left (fun acc v ->
 			{
-				io_throughput_read_mb = acc.io_throughput_read_mb +. v.io_throughput_read_mb;
-				io_throughput_write_mb = acc.io_throughput_write_mb +. v.io_throughput_write_mb;
+				rd_bytes = acc.rd_bytes ++ v.rd_bytes;
+				rd_avg_usecs = acc.rd_avg_usecs ++ v.rd_avg_usecs;
+				wr_bytes = acc.wr_bytes ++ v.wr_bytes;
+				wr_avg_usecs = acc.wr_avg_usecs ++ v.wr_avg_usecs;
 				iops_read = acc.iops_read ++ v.iops_read;
 				iops_write = acc.iops_write ++ v.iops_write;
 				iowait = acc.iowait +. v.iowait;
@@ -433,18 +455,22 @@ module Stats_value = struct
 	let make_ds ~owner ~name ~key_format (value : t) =
 		let ds_make = Ds.ds_make ~default:true in
 		[
-			owner, ds_make ~name:(key_format "io_throughput_read")
-				~description:("Data read from the " ^ name ^ ", in MiB/s")
-				~value:(Rrd.VT_Float value.io_throughput_read_mb)
-				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
-			owner, ds_make ~name:(key_format "io_throughput_write")
-				~description:("Data written to the " ^ name ^ ", in MiB/s")
-				~value:(Rrd.VT_Float value.io_throughput_write_mb)
-				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
-			owner, ds_make ~name:(key_format "io_throughput_total")
-				~description:("All " ^ name ^ " I/O, in MiB/s")
-				~value:(Rrd.VT_Float (value.io_throughput_read_mb +. value.io_throughput_write_mb))
-				~ty:Rrd.Absolute ~units:"MiB/s" ~min:0. ();
+			owner, ds_make ~name:(key_format "read")
+				~description:("Reads from device " ^ name ^ ", in B/s")
+				~value:(Rrd.VT_Int64 value.rd_bytes)
+				~ty:Rrd.Derive ~units:"B/s" ~min:0.0 ();
+			owner, ds_make ~name:(key_format "write")
+				~description:("Writes from device " ^ name ^ ", in B/s")
+				~value:(Rrd.VT_Int64 value.wr_bytes)
+				~ty:Rrd.Derive ~units:"B/s" ~min:0.0 ();
+			owner, ds_make ~name:(key_format "read_latency")
+				~description:("Read latency from device " ^ name ^ ", in microseconds")
+				~value:(Rrd.VT_Int64 value.rd_avg_usecs)
+				~ty:Rrd.Gauge ~units:"μs" ~min:0.0 ();
+			owner, ds_make ~name:(key_format "write_latency")
+				~description:("Write latency from device " ^ name ^ ", in microseconds")
+				~value:(Rrd.VT_Int64 value.wr_avg_usecs)
+				~ty:Rrd.Gauge ~units:"μs" ~min:0.0 ();
 			owner, ds_make ~name:(key_format "iops_read")
 				~description:"Read requests per second"
 				~value:(Rrd.VT_Int64 value.iops_read)
