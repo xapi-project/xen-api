@@ -956,7 +956,7 @@ let backup_rrds ~__context ~host ~delay =
 		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()));
 		log_and_ignore_exn (fun () ->
 			List.iter (fun sr ->
-				Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ~archive:false
+				Xapi_sr.maybe_copy_sr_rrds ~__context ~sr
 			) (Helpers.get_all_plugged_srs ~__context)
 		)
 	)

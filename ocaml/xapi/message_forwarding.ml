@@ -3731,7 +3731,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
-					Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ~archive:true;
+					Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.unplug rpc session_id self))
 	end

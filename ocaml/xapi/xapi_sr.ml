@@ -622,12 +622,11 @@ let maybe_push_sr_rrds ~__context ~sr =
 				Rrdd.push_sr_rrd ~sr_uuid
 		end
 
-let maybe_copy_sr_rrds ~__context ~sr ~archive =
+let maybe_copy_sr_rrds ~__context ~sr =
 	if should_manage_stats ~__context sr then
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
 		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-		if archive then
-			Rrdd.archive_sr_rrd ~sr_uuid;
+		Rrdd.archive_sr_rrd ~sr_uuid;
 		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
 		let contents = Unixext.string_of_file sr_rrds_path in
 		Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
