@@ -235,8 +235,7 @@ let read_raw ~__context ~vdi =
 				let mapping = Bigarray.(Array1.map_file fd char c_layout false VDI_CStruct.vdi_size) in
 				let cstruct = Cstruct.of_bigarray mapping in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
-					error "Failure on raw vdi read, vdi is not formatted";
-					(* Nothing to return, VDI is not formatted *)
+					debug "Attempted read from raw VDI but VDI not formatted: returning None";
 					None
 				end
 				else
