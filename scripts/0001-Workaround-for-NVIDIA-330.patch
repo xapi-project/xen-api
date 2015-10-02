@@ -33,7 +33,7 @@ index c9919df..98eaf6d 100644
      "XAPI SERVER STARTING", [], print_server_starting_message;
 +    "NVIDIA-130 workaround", [], nvidia_130_workaround;
      "Parsing inventory file", [], Xapi_inventory.read_inventory;
-     "Config (from file) for outgoing stunnels", [], set_stunnel_legacy_inv;
+     "Config (from file) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_inv ~__context;
      "Setting stunnel timeout", [], set_stunnel_timeout;
 -- 
 1.9.1
