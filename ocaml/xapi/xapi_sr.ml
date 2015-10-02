@@ -653,10 +653,14 @@ let physical_utilisation_thread ~__context () =
 		Thread.delay 120.;
 		try
 			List.iter (fun sr ->
-				let new_value = Rrdd.query_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:"physical_utilisation" in
-				Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.of_float new_value)
+				let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+				try
+					let value = Rrdd.query_sr_ds ~sr_uuid ~ds_name:"physical_utilisation" |> Int64.of_float in
+					Db.SR.set_physical_utilisation ~__context ~self:sr ~value
+				with Rrd_interface.Internal_error("Not_found") ->
+					debug "Cannot update physical unilisation for SR %s: RRD unavailable" sr_uuid
 				) (srs_to_update ())
-		with e -> debug "Exception in SR physical utilisation scanning thread: %s" (Printexc.to_string e)
+		with e -> warn "Exception in SR physical utilisation scanning thread: %s" (Printexc.to_string e)
 	done
 
 (* APIs for accessing SR level stats *)
