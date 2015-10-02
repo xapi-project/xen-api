@@ -1167,7 +1167,6 @@ module VM = struct
 				Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
 			);
 
-			Domain.cpuid_apply ~xc ~hvm:(will_be_hvm vm) domid;
 			debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
 			let k = vm.Vm.id in
 			let d = DB.read_exn vm.Vm.id in
