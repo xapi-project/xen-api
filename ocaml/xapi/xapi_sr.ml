@@ -603,14 +603,14 @@ let find_or_create_rrd_vdi ~__context ~sr =
 		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
 		vdi
 
-let should_manage_stats ~__context ~sr =
+let should_manage_stats ~__context sr =
 	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
 	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
 	Smint.(has_capability Sr_stats sr_features)
 	&& Helpers.i_am_srmaster ~__context ~sr
 
 let maybe_push_sr_rrds ~__context ~sr =
-	if should_manage_stats ~__context ~sr then
+	if should_manage_stats ~__context sr then
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
 		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
@@ -623,7 +623,7 @@ let maybe_push_sr_rrds ~__context ~sr =
 		end
 
 let maybe_copy_sr_rrds ~__context ~sr ~archive =
-	if should_manage_stats ~__context ~sr then
+	if should_manage_stats ~__context sr then
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
 		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 		if archive then
@@ -633,15 +633,21 @@ let maybe_copy_sr_rrds ~__context ~sr ~archive =
 		Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
 
 let physical_utilisation_thread ~__context () =
-	let sr_cache = ref [] in
+	let module SRMap =
+		Map.Make(struct type t = [`SR] Ref.t let compare = compare end) in
+
+	let sr_cache : bool SRMap.t ref = ref SRMap.empty in
 
 	let srs_to_update () =
-		let srs = Helpers.get_all_plugged_srs ~__context in
-		(* Remove SRs from the cache if they are no longer plugged *)
-		sr_cache := List.filter (fun sr -> List.mem sr srs) !sr_cache;
-		let srs_to_be_added = List.filter (fun sr -> not (List.mem sr !sr_cache) && should_manage_stats ~__context ~sr) srs in
-		sr_cache := !sr_cache @ srs_to_be_added;
-		!sr_cache in
+		let plugged_srs = Helpers.get_all_plugged_srs ~__context in
+		(* Remove SRs that are no longer plugged *)
+		sr_cache := SRMap.filter (fun sr _ -> List.mem sr plugged_srs) !sr_cache;
+		(* Cache wether we should manage stats for newly plugged SRs *)
+		sr_cache := List.fold_left (fun m sr ->
+			if SRMap.mem sr m then m
+			else SRMap.add sr (should_manage_stats ~__context sr) m
+		) !sr_cache plugged_srs;
+		SRMap.(filter (fun _ b -> b) !sr_cache |> bindings) |> List.map fst in
 
 	while true do
 		Thread.delay 120.;
