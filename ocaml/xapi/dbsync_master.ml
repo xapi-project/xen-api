@@ -65,13 +65,25 @@ let set_master_pool_reference ~__context =
     Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context) 
     
 let set_pool_defaults ~__context =
-	(* If Pool.other_config has no cpuid_feature_mask_key yet, fill in the default. *)
+	let open Xapi_xenops_queue in
+	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+	let dbg = Context.string_of_task __context in
+	let stat = Client.HOST.stat dbg in
+
+	(* Fill in Pool.cpu_info if empty. If so, this implies that this is a new pool
+	 * and the localhost is its only member and therefore the master. *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
-	if not (List.mem_assoc Xapi_globs.cpuid_feature_mask_key other_config) then
-		Db.Pool.add_to_other_config ~__context ~self:pool
-			~key:Xapi_globs.cpuid_feature_mask_key
-			~value:Xapi_globs.cpuid_default_feature_mask
+	if Db.Pool.get_cpu_info ~__context ~self:pool = [] then begin
+		let open Xenops_interface.Host in
+	        let cpu = [
+			"cpu_count", string_of_int stat.cpu_info.cpu_count;
+			"socket_count", string_of_int stat.cpu_info.socket_count;
+			"vendor", stat.cpu_info.vendor;
+			"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
+			"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
+		] in
+		Db.Pool.set_cpu_info ~__context ~self:pool ~value:cpu
+	end
 
 let refresh_console_urls ~__context =
   List.iter
