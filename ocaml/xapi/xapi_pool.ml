@@ -280,45 +280,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		
 		(* Check CPUs *)
 		
-		let master_cpu_info = master.API.host_cpu_info in
-		let my_cpu_info = Db.Host.get_cpu_info ~__context ~self:me in
-		let pool_other_config = 
+		let my_cpu_vendor = Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor" in
+		let pool_cpu_vendor = 
 			let pool = List.hd (Client.Pool.get_all rpc session_id) in
-			Client.Pool.get_other_config rpc session_id pool
+			Client.Pool.get_cpu_info rpc session_id pool |> List.assoc "vendor"
 		in
-		let mask =
-			try
-				let features = List.assoc Xapi_globs.cpuid_feature_mask_key pool_other_config in
-				Some (Cpuid.string_to_features features)
-			with _ -> None
-		in
-		let get_comparable_fields cpu_info =
-			List.assoc "vendor" cpu_info,
-			let features = List.assoc "features" cpu_info in
-			match mask with
-			| None -> features
-			| Some mask ->
-				let features = Cpuid.string_to_features features in
-				let relevant_features = Cpuid.mask_features features mask in
-				Cpuid.features_to_string relevant_features
-		in
-		let my_cpus_compare = get_comparable_fields my_cpu_info in
-		let master_cpus_compare = get_comparable_fields master_cpu_info in
-
-		let print_cpu cpu = debug "%s, %s"
-			(List.assoc "vendor" cpu) (List.assoc "features" cpu) in
 		debug "Pool pre-join CPU homogeneity check:";
-		debug "Slave CPUs:";
-		print_cpu my_cpu_info;
-		debug "Master CPUs:";
-		print_cpu master_cpu_info;
-		begin match mask with
-		| Some mask ->
-			debug "User-defined feature mask on pool: %s" (Cpuid.features_to_string mask)
-		| None -> ()
-		end;
+		debug "Slave CPUs: %s" my_cpu_vendor;
+		debug "Pool CPUs: %s" pool_cpu_vendor;
 
-		if my_cpus_compare <> master_cpus_compare then
+		if my_cpu_vendor <> pool_cpu_vendor then
 			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["CPUs differ"])) in
 
 	let assert_not_joining_myself () =
