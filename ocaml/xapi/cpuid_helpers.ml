@@ -22,7 +22,7 @@ let vendor_key = "vendor"
 let features_key = "features"
 
 let string_of_features features =
-	Array.map (fun word -> Printf.sprintf "%08Lx" word) features
+	Array.map (Printf.sprintf "%08Lx") features
 		|> Array.to_list
 		|> String.concat "-"
 
