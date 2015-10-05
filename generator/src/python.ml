@@ -298,9 +298,11 @@ let commandline_parse env i m =
         Line (sprintf "\"\"\"%s\"\"\"" m.Method.description);
       ] @ [
         Line "# in --json mode we don't have any other arguments";
-        Line "if '--json' in sys.argv:";
+        Line "if ('--json' in sys.argv or '-j' in sys.argv):";
         Block [
-            Line "return json.loads(sys.stdin.readline(),)";
+            Line "jsondict = json.loads(sys.stdin.readline(),)";
+            Line "jsondict['json'] = True";
+            Line "return jsondict";
         ];
         Line (sprintf "parser = argparse.ArgumentParser(description='%s')" m.Method.description);
         Line "parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)";
