@@ -26,6 +26,14 @@ let string_of_features features =
 		|> Array.to_list
 		|> String.concat "-"
 
+exception InvalidFeatureString of string
+let features_of_string str =
+	let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
+	try Stringext.split ~on:'-' str 
+		|> Array.of_list
+		|> Array.map (scanf "%08Lx%!")
+	with _ -> raise (InvalidFeatureString str)
+
 let get_pool_feature_mask ~__context ~remote =
 	try
 		let other_config =

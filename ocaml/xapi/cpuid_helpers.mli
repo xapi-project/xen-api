@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+exception InvalidFeatureString of string
 val string_of_features : int64 array -> string
+val features_of_string : string -> int64 array
 
 val populate_cpu_flags :
   __context:Context.t ->
