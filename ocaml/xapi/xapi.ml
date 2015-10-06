@@ -963,6 +963,7 @@ let server_init() =
 			"Starting SR physical utilisation scanning", [Startup.OnThread], (Xapi_sr.physical_utilisation_thread ~__context);
 			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
 			"Stats reporting thread", [], Xapi_stats.start;
+			"Consider enabling host", [], (fun () -> Xapi_host_helpers.consider_enabling_host ~__context);
     ];
 						    
     if !debug_dummy_data then (
