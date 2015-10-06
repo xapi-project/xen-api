@@ -32,7 +32,7 @@ type traced_operation = [
     `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
 ] with sexp
 type traced_operation_list = traced_operation list with sexp
-val trace: traced_operation_list -> unit
+val trace: traced_operation_list -> unit Lwt.t
 
 val logging_thread: unit -> unit Lwt.t
 (** starts the background logging thread: this reads from a
