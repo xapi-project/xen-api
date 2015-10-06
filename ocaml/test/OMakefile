@@ -26,6 +26,7 @@ OCAML_OBJS = \
 	../idl/api_lowlevel \
 	mock \
 	test_highlevel \
+	test_printers \
 	test_common \
 	test_basic \
 	test_helpers \
