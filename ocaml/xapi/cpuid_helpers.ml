@@ -56,12 +56,23 @@ let get_host_compatibility_info ~__context ~host ~remote =
 	let features = List.assoc cpu_info_features_key cpu_info in
 	(vendor, features)
 
-(* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
+(* Populate last_boot_CPU_flags with the vendor and feature set.
+ * On VM.start, the feature set is inherited from the pool level (PV or HVM).
+ *)
 let populate_cpu_flags ~__context ~vm ~host =
-	let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote:None in
+	let pool = Helpers.get_pool ~__context in
+	let cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+	let features_key =
+		if Helpers.will_boot_hvm ~__context ~self:vm then
+			cpu_info_features_hvm_key
+		else
+			cpu_info_features_pv_key
+	in
+	let cpu_vendor = List.assoc cpu_info_vendor_key cpu_info in
+	let cpu_features = List.assoc features_key cpu_info in
 	let vm_cpu_flags = [
-		(cpu_info_vendor_key, host_cpu_vendor);
-		(cpu_info_features_key, host_cpu_features);]
+		(cpu_info_vendor_key, cpu_vendor);
+		(cpu_info_features_key, cpu_features);]
 	in
 	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:vm_cpu_flags
 
