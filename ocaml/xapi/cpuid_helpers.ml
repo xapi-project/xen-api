@@ -14,12 +14,10 @@
 
 open Fun
 open Listext
+open Xapi_globs
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
-
-let vendor_key = "vendor"
-let features_key = "features"
 
 let string_of_features features =
 	Array.map (Printf.sprintf "%08Lx") features
@@ -62,16 +60,16 @@ let get_host_compatibility_info ~__context ~host ~remote =
 		| None -> Db.Host.get_cpu_info ~__context ~self:host
 		| Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
 	in
-	let vendor = List.assoc vendor_key cpu_info in
-	let features = List.assoc features_key cpu_info in
+	let vendor = List.assoc cpu_info_vendor_key cpu_info in
+	let features = List.assoc cpu_info_features_key cpu_info in
 	(vendor, features)
 
 (* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
 let populate_cpu_flags ~__context ~vm ~host =
 	let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote:None in
 	let vm_cpu_flags = [
-		(vendor_key, host_cpu_vendor);
-		(features_key, host_cpu_features);]
+		(cpu_info_vendor_key, host_cpu_vendor);
+		(cpu_info_features_key, host_cpu_features);]
 	in
 	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:vm_cpu_flags
 
@@ -84,16 +82,16 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
 		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote in
 		let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-		if List.mem_assoc vendor_key vm_cpu_info then begin
+		if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
 			(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
-			let vm_cpu_vendor = List.assoc vendor_key vm_cpu_info in
+			let vm_cpu_vendor = List.assoc cpu_info_vendor_key vm_cpu_info in
 			debug "VM last booted on CPU of vendor %s; host CPUs are of vendor %s" vm_cpu_vendor host_cpu_vendor;
 			if vm_cpu_vendor <> host_cpu_vendor then
 				fail "VM last booted on a host which had a CPU from a different vendor."
 		end;
-		if List.mem_assoc features_key vm_cpu_info then begin
+		if List.mem_assoc cpu_info_features_key vm_cpu_info then begin
 			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
-			let vm_cpu_features = List.assoc features_key vm_cpu_info in
+			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
 			let pool_mask = get_pool_feature_mask ~__context ~remote in
 			let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
