@@ -757,13 +757,10 @@ module MD = struct
 		in
 		(* Add the CPUID feature set for the VM to the platform data. *)
 		let featureset =
-			let pool = Helpers.get_pool ~__context in
-			let cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
-			let field = if Helpers.is_hvm vm then "features_hvm" else "features_pv" in
-			if List.mem_assoc field cpu_info then
-				List.assoc field cpu_info
+			if List.mem_assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags then
+				List.assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags
 			else
-				"" (* TODO: Handle this error!! *)
+				failwith "VM's CPU featureset not initialised"
 		in
 		let platformdata = (Platform.featureset, featureset) :: platformdata in
 
