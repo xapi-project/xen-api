@@ -51,6 +51,7 @@ OCAML_OBJS = \
 	test_xenopsd_metadata \
 	test_ca121350 \
 	test_workload_balancing \
+	test_cpuid_helpers \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
