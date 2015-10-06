@@ -40,6 +40,7 @@ let base_suite =
 			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
 			Test_workload_balancing.test;
+			Test_cpuid_helpers.test;
 			(* Test_ca121350.test; *)
 		]
 

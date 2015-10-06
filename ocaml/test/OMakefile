@@ -26,6 +26,7 @@ OCAML_OBJS = \
 	../idl/api_lowlevel \
 	mock \
 	test_highlevel \
+	test_printers \
 	test_common \
 	test_basic \
 	test_helpers \
@@ -50,6 +51,7 @@ OCAML_OBJS = \
 	test_xenopsd_metadata \
 	test_ca121350 \
 	test_workload_balancing \
+	test_cpuid_helpers \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
