@@ -113,6 +113,29 @@ module ParseFailure = Generic.Make (struct
 end)
 
 
+module ZeroExtend = Generic.Make (struct
+	module Io = struct
+		type input_t = int64 array * int
+		type output_t = int64 array
+		let string_of_input_t = Test_printers.(pair (array int64) int)
+		let string_of_output_t = Test_printers.(array int64)
+	end
+
+	let transform = fun (arr, len) -> Cpuid_helpers.zero_extend arr len
+
+	let tests = [
+		([| 1L |], 2), [| 1L; 0L |];
+		([| 1L |], 1), [| 1L; |];
+		([| |], 2), [| 0L; 0L |];
+		([| |], 1), [| 0L |];
+		([| |], 0), [| |];
+		([| 1L; 2L |], 0), [| |];
+		([| 1L; 2L |], 1), [| 1L |];
+		([| 1L; 2L |], 2), [| 1L; 2L |];
+	]
+end)
+
+
 let test =
 	"test_cpuid_helpers" >:::
 		[
@@ -122,4 +145,6 @@ let test =
 				RoundTripFeaturesToFeatures.tests;
 			"test_parse_failure" >:::
 				ParseFailure.tests;
+			"test_zero_extend" >::: 
+				ZeroExtend.tests;
 		]
