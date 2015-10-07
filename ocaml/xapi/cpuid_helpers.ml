@@ -32,6 +32,11 @@ let features_of_string str =
 		|> Array.map (scanf "%08Lx%!")
 	with _ -> raise (InvalidFeatureString str)
 
+let zero_extend arr len =
+	let new_arr = Array.make len 0L in 
+	Array.blit arr 0 new_arr 0 (min len (Array.length arr));
+	new_arr
+
 let get_pool_feature_mask ~__context ~remote =
 	try
 		let other_config =
