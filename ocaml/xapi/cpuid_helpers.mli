@@ -26,4 +26,5 @@ val assert_vm_is_compatible :
   host:[ `host ] API.Ref.t ->
   ?remote:(Rpc.call -> Rpc.response Client.Id.t) * 'a Ref.t -> unit -> unit
 
+val extend : int64 array -> int64 array -> int64 array
 val zero_extend : int64 array -> int -> int64 array
