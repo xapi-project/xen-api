@@ -78,6 +78,24 @@ let get_host_compatibility_info ~__context ~host ~remote =
 	let features = List.assoc cpu_info_features_key cpu_info in
 	(vendor, features)
 
+(** Upgrade a VM's feature set based on the host's one, if needed.
+ *  The output will be a feature set that is the same length as the host's
+ *  set, with a prefix equal to the VM's set, and extended where needed.
+ *  If the current VM set has 4 words, then we assume it was last running on
+ *  a host that did not support "feature levelling v2". In that case, we cannot
+ *  be certain about which host features it was using, so we'll extend the set
+ *  with all current host features. Otherwise we'll zero-extend. *)
+let upgrade_features vm host =
+	let vm' = vm |> features_of_string in
+	let host' = host |> features_of_string in
+	let upgraded =
+		if Array.length vm' <= 4 then
+			extend vm' host'
+		else
+			zero_extend vm' (Array.length host')
+	in
+	upgraded |> string_of_features
+
 (* Populate last_boot_CPU_flags with the vendor and feature set.
  * On VM.start, the feature set is inherited from the pool level (PV or HVM).
  *)
