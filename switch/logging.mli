@@ -39,3 +39,12 @@ val logging_thread: unit -> unit Lwt.t
     fixed-size logging buffer and writes to the physical log.
     If log items are dropped due to the buffer overflowing then
     this fact is guaranteed to be logged. *)
+
+module Lwt_logger : sig
+  val debug: ('a, unit, string, unit Lwt.t) format4 -> 'a
+  val info:  ('a, unit, string, unit Lwt.t) format4 -> 'a
+  val warn:  ('a, unit, string, unit Lwt.t) format4 -> 'a
+  val error: ('a, unit, string, unit Lwt.t) format4 -> 'a
+
+  val trace: traced_operation_list -> unit Lwt.t
+end

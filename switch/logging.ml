@@ -66,6 +66,7 @@ let get (logger: logger) =
 let program = Filename.basename Sys.argv.(0)
 
 let ignore_fmt fmt = Printf.ksprintf (fun _ -> ()) fmt
+let ignore_fmt_lwt fmt = Printf.ksprintf (fun _ -> Lwt.return ()) fmt
 
 (* General system logging *)
 let logger = create 512
@@ -81,6 +82,10 @@ let string_of_level = function
 let log level key (fmt: (_,_,_,_) format4) =
   let level = string_of_level level in
   Printf.ksprintf logger.push ("[%5s|%s] " ^^ fmt) level key
+
+let log_lwt level key (fmt: (_,_,_,_) format4) =
+  let level = string_of_level level in
+  Printf.ksprintf (fun x -> logger.push x; Lwt.return ()) ("[%5s|%s] " ^^ fmt) level key
 
 (* let debug = log Debug key *)
 let debug fmt = ignore_fmt fmt
@@ -105,3 +110,11 @@ let rec logging_thread () =
          return ()
       ) lines in
   logging_thread ()
+
+module Lwt_logger = struct
+  let debug fmt = ignore_fmt_lwt fmt
+  let info fmt = log_lwt Info program fmt 
+  let warn fmt = log_lwt Warn program fmt
+  let error fmt = log_lwt Error program fmt
+  let trace _ = Lwt.return ()
+end
