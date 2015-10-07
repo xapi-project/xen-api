@@ -29,7 +29,7 @@
 #
 
 
-if (Get-Variable XenServer_Environment_Initialized -ValueOnly -ErrorAction SilentlyContinue)
+if((Test-Path variable:XenServer_Environment_Initialized) -eq $true)
 {
     return
 }
