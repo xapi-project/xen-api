@@ -474,6 +474,9 @@
   <data name="PATCH_APPLY_FAILED" xml:space="preserve">
     <value>The update failed to apply.  View output for more details.</value>
   </data>
+  <data name="PATCH_PRECHECK_FAILED_ISO_MOUNTED" xml:space="preserve">
+    <value>XenServer Tools ISO must be ejected from all running VMs in the pool.</value>
+  </data>
   <data name="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING" xml:space="preserve">
     <value>The update precheck stage failed: prerequisite updates are missing.</value>
   </data>
