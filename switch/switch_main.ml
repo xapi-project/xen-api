@@ -129,7 +129,7 @@ let make_server config =
     >>= fun () ->
     return (Q.queues_of_sexp (Sexplib.Sexp.of_string txt)) in
 
-  let module Redo_log = Shared_block.Journal.Make(Logging)(Block)(Time)(Clock)(Q.Op) in
+  let module Redo_log = Shared_block.Journal.Make(Logging.Lwt_logger)(Block)(Time)(Clock)(Q.Op) in
 
   (* In-memory cache *)
   let queues = ref Q.empty in
