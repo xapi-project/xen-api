@@ -95,7 +95,7 @@ type traced_operation = [
     `Suspend_ack ] * [ `Int64 of int64 | `Bool of bool ]
 ] with sexp
 type traced_operation_list = traced_operation list with sexp
-let trace _ = ()
+let trace _ = Lwt.return ()
 
 let rec logging_thread () =
   lwt lines = get logger in
