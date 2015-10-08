@@ -16,9 +16,17 @@ exception InvalidFeatureString of string
 val string_of_features : int64 array -> string
 val features_of_string : string -> int64 array
 
-val populate_cpu_flags :
+val reset_cpu_flags :
   __context:Context.t ->
-  vm:[ `VM ] API.Ref.t -> host:[ `host ] API.Ref.t -> unit
+  vm:[ `VM ] API.Ref.t ->
+  host:[ `host ] API.Ref.t ->
+  unit
+
+val update_cpu_flags :
+  __context:Context.t ->
+  vm:[ `VM ] API.Ref.t ->
+  host:[ `host ] API.Ref.t ->
+  unit
 
 val assert_vm_is_compatible :
   __context:Context.t ->

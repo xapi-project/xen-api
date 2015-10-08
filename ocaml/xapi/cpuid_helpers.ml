@@ -78,6 +78,17 @@ let get_host_compatibility_info ~__context ~host ~remote =
 	let features = List.assoc cpu_info_features_key cpu_info in
 	(vendor, features)
 
+let get_flags_for_vm ~__context vm cpu_info =
+	let features_key =
+		if Helpers.will_boot_hvm ~__context ~self:vm then
+			cpu_info_features_hvm_key
+		else
+			cpu_info_features_pv_key
+	in
+	let vendor = List.assoc cpu_info_vendor_key cpu_info in
+	let features = List.assoc features_key cpu_info in
+	(vendor, features)
+
 (** Upgrade a VM's feature set based on the host's one, if needed.
  *  The output will be a feature set that is the same length as the host's
  *  set, with a prefix equal to the VM's set, and extended where needed.
@@ -96,25 +107,41 @@ let upgrade_features vm host =
 	in
 	upgraded |> string_of_features
 
-(* Populate last_boot_CPU_flags with the vendor and feature set.
- * On VM.start, the feature set is inherited from the pool level (PV or HVM).
- *)
-let populate_cpu_flags ~__context ~vm ~host =
-	let pool = Helpers.get_pool ~__context in
-	let cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
-	let features_key =
-		if Helpers.will_boot_hvm ~__context ~self:vm then
-			cpu_info_features_hvm_key
-		else
-			cpu_info_features_pv_key
+let set_flags ~__context self vendor features =
+	let value = [
+		cpu_info_vendor_key, vendor;
+		cpu_info_features_key, features;
+	] in
+	debug "VM's CPU features set to: %s" features;
+	Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
+
+(* Reset last_boot_CPU_flags with the vendor and feature set.
+ * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
+let reset_cpu_flags ~__context ~vm ~host =
+	let pool_vendor, pool_features =
+		let pool = Helpers.get_pool ~__context in
+		let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+		get_flags_for_vm ~__context vm pool_cpu_info
 	in
-	let cpu_vendor = List.assoc cpu_info_vendor_key cpu_info in
-	let cpu_features = List.assoc features_key cpu_info in
-	let vm_cpu_flags = [
-		(cpu_info_vendor_key, cpu_vendor);
-		(cpu_info_features_key, cpu_features);]
+	set_flags ~__context vm pool_vendor pool_features
+		
+(* Update last_boot_CPU_flags with the vendor and feature set.
+ * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
+let update_cpu_flags ~__context ~vm ~host =
+	let current_features =
+		let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+		try
+			List.assoc cpu_info_features_key flags
+		with Not_found -> ""
 	in
-	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:vm_cpu_flags
+	debug "VM last boot CPU features: %s" current_features;
+	let host_vendor, host_features =
+		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+		get_flags_for_vm ~__context vm host_cpu_info
+	in
+	let new_features = upgrade_features current_features host_features in
+	if new_features <> current_features then
+		set_flags ~__context vm host_vendor new_features
 
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
