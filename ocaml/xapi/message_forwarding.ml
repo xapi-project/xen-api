@@ -649,6 +649,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
 				(pool_uuid ~__context self) key;
 			Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+		let allocate_sanlock_id ~__context ~self ~host =
+			info "Pool.allocate_sanlock_id: pool = '%s'; host = '%s'"
+				(pool_uuid ~__context self) (host_uuid ~__context host);
+			Local.Pool.allocate_sanlock_id ~__context ~self ~host
+
+		let return_sanlock_id ~__context ~self ~host =
+			info "Pool.return_sanlock_id: pool = '%s'; host = '%s'"
+				(pool_uuid ~__context self) (host_uuid ~__context host);
+			Local.Pool.return_sanlock_id ~__context ~self ~host
 	end
 
 	module VM = struct

@@ -577,6 +577,8 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
   let metrics = Ref.make () in
   make_new_metrics_object metrics;
 
+  let default_sanlock_id = 1L in
+
   let host_is_us = (uuid=(Helpers.get_localhost_uuid ())) in
   Db.Host.create ~__context ~ref:host
 	~current_operations:[] ~allowed_operations:[]
@@ -610,7 +612,12 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~guest_VCPUs_params:[]
 	~display:`enabled
 	~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
+	~sanlock_id:default_sanlock_id
   ;
+
+  (* Write the sanlock host_id locally *)
+  Xapi_host_helpers.save_sanlock_id ~__context ~host:host ~id:default_sanlock_id;
+
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us;

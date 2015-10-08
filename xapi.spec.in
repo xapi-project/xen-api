@@ -312,6 +312,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/xapi-rolling-upgrade
 @OPTDIR@/libexec/xha-lc
 @OPTDIR@/libexec/xe-syslog-reconfigure
+@OPTDIR@/libexec/set-lvm-hostid.sh
 @OPTDIR@/packages/post-install-scripts/debian-etch
 @OPTDIR@/packages/post-install-scripts/debug
 /etc/xensource/udhcpd.skel

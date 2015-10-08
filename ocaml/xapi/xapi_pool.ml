@@ -426,6 +426,15 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 				~chipset_info:host.API.host_chipset_info
 			in
 
+			(* Allocate a sanlock host_id *)
+			let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+			let id = Client.Pool.allocate_sanlock_id ~rpc ~session_id ~self:pool ~host:ref in
+			(* TODO should really fail the pool-join if this returns an error. Or make it into a pre-join assertion that we can get a host_id. *)
+			debug "Obtained sanlock host_id %Ld from master" id;
+
+			(* Save the sanlock host_id locally *)
+			Xapi_host_helpers.save_sanlock_id ~__context ~host:ref ~id;
+
 			(* Copy other-config into newly created host record: *)
 			no_exn (fun () -> Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:host.API.host_other_config) ();
 
@@ -819,6 +828,12 @@ let eject ~__context ~host =
 		debug "Pool.eject: unplugging PBDs";
 		(* unplug all my PBDs; will deliberately fail if any unplugs fail *)
 		unplug_pbds ~__context host;
+
+		debug "Pool.eject: returning sanlock host_id to pool's freelist";
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.Pool.return_sanlock_id rpc session_id pool host);
+
+		(* TODO set the sanlock host_id back to 1? Or just sensibly reinitialise the pool free-list for the case when this host might become a pool-master. *)
 
 		debug "Pool.eject: disabling external authentication in slave-to-be-ejected";
 		(* disable the external authentication of this slave being ejected *)
@@ -1813,3 +1828,32 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
 	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
 	Xapi_pool_helpers.apply_guest_agent_config ~__context
+
+let sanlock_freelist_m = Mutex.create ()
+
+let allocate_sanlock_id ~__context ~self ~host =
+	(* Atomically choose a host_id from the pool's sanlock freelist, set it in the host object, and remove it from the freelist *)
+	Mutex.execute sanlock_freelist_m
+		(fun () ->
+			let freelist = Db.Pool.get_sanlock_freelist ~__context ~self in
+			debug "Sanlock freelist is [%s]" (String.concat "; " (List.map Int64.to_string freelist));
+			match freelist with
+			| id :: xs ->
+				Db.Host.set_sanlock_id ~__context ~self:host ~value:id;
+				Db.Pool.set_sanlock_freelist ~__context ~self ~value:xs;
+				debug "Allocated id %Ld to host %s (%s)" id (Ref.string_of host) (Db.Host.get_hostname ~__context ~self:host);
+				id
+			| _ ->
+				raise (Api_errors.Server_error(Api_errors.pool_sanlock_freelist_empty, []))
+		)
+
+let return_sanlock_id ~__context ~self ~host =
+	(* Atomically return this host's host_id to the pool's sanlock freelist *)
+	Mutex.execute sanlock_freelist_m
+		(fun () ->
+			let id = Db.Host.get_sanlock_id ~__context ~self:host in
+			let freelist = Db.Pool.get_sanlock_freelist ~__context ~self in
+			debug "Returning id %Ld to sanlock freelist [%s]" id (String.concat "; " (List.map Int64.to_string freelist));
+			Db.Host.set_sanlock_id ~__context ~self:host ~value:0L;
+			Db.Pool.set_sanlock_freelist ~__context ~self ~value:(id :: freelist)
+		)

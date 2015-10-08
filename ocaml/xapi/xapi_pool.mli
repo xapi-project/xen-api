@@ -198,3 +198,7 @@ val add_to_guest_agent_config :
 	__context:Context.t -> self:API.ref_pool -> key:string -> value:string -> unit
 val remove_from_guest_agent_config :
 	__context:Context.t -> self:API.ref_pool -> key:string -> unit
+
+val allocate_sanlock_id : __context:Context.t -> self:API.ref_pool -> host:API.ref_host -> int64
+
+val return_sanlock_id : __context:Context.t -> self:API.ref_pool -> host:API.ref_host -> unit

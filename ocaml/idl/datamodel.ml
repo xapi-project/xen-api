@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 90
+let schema_minor_vsn = 91
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -67,7 +67,7 @@ let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 90
+let dundee_release_schema_minor_vsn = 91
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = cream_release_schema_major_vsn
@@ -830,6 +830,8 @@ let _ =
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
   error Api_errors.pool_auth_disable_failed_permission_denied ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
+  error Api_errors.pool_sanlock_freelist_empty []
+    ~doc:"The sanlock freelist is empty for this pool." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -4638,6 +4640,7 @@ let host =
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
 	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
+	field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VInt 1L)) ~ty:Int "sanlock_id" "The sanlock host_id for this host";
  ])
 	()
 
@@ -6724,6 +6727,29 @@ let pool_remove_from_guest_agent_config = call
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
+let pool_allocate_sanlock_id = call
+	~name:"allocate_sanlock_id"
+	~in_product_since:rel_dundee
+	~doc:"Allocate a sanlock host_id to a host"
+	~params:[
+		Ref _pool, "self", "The pool";
+		Ref _host, "host", "The host needing a host_id";
+	]
+	~result:(Int, "The allocated host_id")
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let pool_return_sanlock_id = call
+	~name:"return_sanlock_id"
+	~in_product_since:rel_dundee
+	~doc:"Return a sanlock host_id to the pool freelist"
+	~params:[
+		Ref _pool, "self", "The pool";
+		Ref _host, "host", "The host";
+	]
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -6795,6 +6821,8 @@ let pool =
 			; pool_has_extension
 			; pool_add_to_guest_agent_config
 			; pool_remove_from_guest_agent_config
+			; pool_allocate_sanlock_id
+			; pool_return_sanlock_id
 			]
 		~contents:
 			([uid ~in_oss_since:None _pool] @
@@ -6827,6 +6855,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
 			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
+			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Set Int) ~default_value:(Some (VSet [])) "sanlock_freelist" "Free sanlock host_ids that can be allocated to hosts joining this pool."
 			] @ (allowed_and_current_operations pool_operations) @
 			[ field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "guest_agent_config" "Pool-wide guest agent configuration information"
 			])

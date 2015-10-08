@@ -527,6 +527,7 @@ let pool_record rpc session_id pool =
 					Client.Pool.remove_from_guest_agent_config rpc session_id pool k)
 				~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
 				();
+			make_field ~name:"sanlock-freelist" ~get:(fun () -> String.concat "; " (List.map Int64.to_string (x ()).API.pool_sanlock_freelist)) ();
 		]}
 
 let subject_record rpc session_id subject = 
@@ -1086,6 +1087,7 @@ let host_record rpc session_id host =
 			make_field ~name:"virtual-hardware-platform-versions" 
 				~get:(fun () -> String.concat "; " (List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions)) 
 				~get_set:(fun () -> List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions) ();
+			make_field ~name:"sanlock-id" ~get:(fun () -> Int64.to_string (x ()).API.host_sanlock_id) ();
 		]}
 
 let vdi_record rpc session_id vdi =

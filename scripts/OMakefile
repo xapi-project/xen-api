@@ -121,6 +121,7 @@ install:
 	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(BINDIR)
 	$(IPROG) hfx_filename $(DESTDIR)$(BINDIR)
 	$(IPROG) pv2hvm $(DESTDIR)$(BINDIR)
+	$(IPROG) set-lvm-hostid.sh $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	$(IDATA) license-check $(DESTDIR)/etc/cron.daily/
 	mkdir -p $(DESTDIR)/opt/xensource/gpg

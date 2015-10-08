@@ -268,3 +268,21 @@ let consider_enabling_host ~__context =
 	debug "Xapi_host_helpers.consider_enabling_host called";
 	consider_enabling_host_request ~__context
 
+
+let save_sanlock_id ~__context ~host ~id =
+	(* We assume this id has already been allocated to this host. We now write it to the LVM local config file. *)
+	(* Note: this is only safe to do when there are no plugged PBDs for shared SRs on this host *)
+	(* TODO have an assert for this *)
+
+	debug "save_sanlock_id: Writing id %Ld to /etc/lvm/lvmlocal.conf" id;
+
+	if Sys.file_exists !Xapi_globs.set_lvm_hostid then
+		try
+			ignore (Forkhelpers.execute_command_get_output !Xapi_globs.set_lvm_hostid [ Int64.to_string id ])
+		with e ->
+			error "Error when executing script %s: %s" !Xapi_globs.set_lvm_hostid (Printexc.to_string e)
+			(* TODO throw an exception too *)
+	else begin
+		error "Script %s not found" !Xapi_globs.set_lvm_hostid
+		(* TODO throw an exception too *)
+	end

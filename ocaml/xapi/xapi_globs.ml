@@ -836,6 +836,8 @@ let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
  * with PIF.managed = false during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
 
+let set_lvm_hostid = ref "/opt/xensource/libexec/set-lvm-hostid.sh"
+
 let manage_xenvmd = ref true
 
 let sr_health_check_task_label = "SR Recovering"
