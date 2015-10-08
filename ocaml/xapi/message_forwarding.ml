@@ -1116,7 +1116,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
-										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
@@ -1175,7 +1174,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 													Client.VM.start
 														rpc session_id vm start_paused force)
 										);
-									Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 									Xapi_vm_helpers.start_delay ~__context ~vm;
 								)));
 			update_vbd_operations ~__context ~vm;
@@ -1511,7 +1509,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 								let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
-								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
 							);
 					)
@@ -1545,7 +1542,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								(fun () ->
 									do_op_on ~local_fn ~__context ~host
 										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force));
-							Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 						);
 				);
 			update_vbd_operations ~__context ~vm;
@@ -1591,6 +1587,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
 				(fun () ->
+					(* Update CPU feature set, which will be passed to xenopsd *)
+					Cpuid_helpers.update_cpu_flags ~__context ~vm ~host;
 					(* Make sure the target has enough memory to receive the VM *)
 					let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 					(* MTC:  An MTC-protected VM has a peer VM on the destination host to which

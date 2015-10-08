@@ -205,6 +205,10 @@ let start ~__context ~vm ~start_paused ~force =
 	(* This makes sense here while the available versions are 0 and 1.
 	 * If/when we introduce version 2, we must reassess this. *)
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
+	
+	(* Reset CPU feature set, which will be passed to xenopsd *)
+	let host = Helpers.get_localhost ~__context in
+	Cpuid_helpers.reset_cpu_flags ~__context ~vm ~host;
 
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
@@ -349,6 +353,9 @@ let resume ~__context ~vm ~start_paused ~force =
 	let host = Helpers.get_localhost ~__context in
 	if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
+	(* Update CPU feature set, which will be passed to xenopsd *)
+	Cpuid_helpers.update_cpu_flags ~__context ~vm ~host;
+	
 	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
