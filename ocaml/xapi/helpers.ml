@@ -1183,13 +1183,6 @@ let vm_string_to_assoc vm_string =
 	| SExpr.Node l -> List.map assoc_of_node l
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"]))
 
-let i_am_srmaster ~__context ~sr =
-  (* Assuming there is a plugged in PBD on this host then
-     we are an 'srmaster' IFF: we are a pool master and this is a shared SR
-                               OR this is a non-shared SR *)
-  let shared = Db.SR.get_shared ~__context ~self:sr in
-  (Pool_role.is_master () && shared) || not(shared)
-
 let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
@@ -1208,6 +1201,9 @@ let get_srmaster ~__context ~sr =
 	       (Api_errors.sr_has_multiple_pbds,
 		List.map (fun pbd -> Db.PBD.get_uuid ~__context ~self:pbd) pbds))
   end
+
+let i_am_srmaster ~__context ~sr =
+	get_srmaster ~__context ~sr = get_localhost ~__context
 
 let get_all_plugged_srs ~__context =
 	let pbds = Db.PBD.get_all ~__context in

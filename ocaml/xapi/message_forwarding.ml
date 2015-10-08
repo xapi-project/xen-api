@@ -3670,12 +3670,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.plug rpc session_id self));
-			(* Consider scanning the SR now. Note:
-			   1. the current context contains a completed real task and we should not reuse it for what is
-			   effectively another call.
-			   2. the SR should still be locked by the current PBD.plug operation so it is safe to use
-			   the internal scan function directly.
-			*)
+			(* Consider scanning the SR now. Note the current context contains a
+			 * completed real task and we should not reuse it for what is effectively
+			 * another call. *)
 			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
 				(* Only handle metadata VDIs when attaching shared storage to the master. *)
 				let should_handle_metadata_vdis =
@@ -3714,9 +3711,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					end else
 						debug "SR %s is not shared or is being plugged to a slave - not handling metadata VDIs at this point." (sr_uuid ~__context sr)
 				in
+				let callback () =
+					handle_metadata_vdis ();
+					Xapi_sr.maybe_push_sr_rrds ~__context ~sr;
+				in
 				if should_handle_metadata_vdis then
 					Xapi_dr.signal_sr_is_processing ~__context:__scan_context ~sr;
-				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr);
+				Xapi_sr.scan_one ~__context:__scan_context ~callback sr);
 
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
@@ -3730,6 +3731,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
+					Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.unplug rpc session_id self))
 	end

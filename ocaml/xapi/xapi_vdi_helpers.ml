@@ -23,25 +23,6 @@ open Threadext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let create_rrd_vdi ~__context ~sr =
-	let open Db_filter_types in
-	match Db.VDI.get_refs_where ~__context ~expr:(And (
-		Eq (Field "SR", Literal (Ref.string_of sr)),
-		Eq (Field "type", Literal "rrd")
-	))
-	with
-	| [] -> begin
-		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
-			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size:(Int64.of_int 4194304)
-			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
-		in
-		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
-		vdi
-	end
-	| vdi :: _ ->
-		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
-		vdi
-
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi = 
   if not (Db.VDI.get_managed ~__context ~self:vdi)
@@ -225,65 +206,39 @@ module VDI_CStruct = struct
 		curr_text
 
 	(* Format the vdi for the first time *)
-	let format_rrd_vdi cstruct =
+	let format_raw_vdi cstruct =
 		set_magic_number cstruct;
 		set_version cstruct
 
 end
 
-(* Write the rrd stats to the rrd-stats vdi *)
-let write_rrd ~__context ~sr ~vdi ~text =
+let write_raw ~__context ~vdi ~text =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 			(fun fd ->
 				let mapping = Bigarray.(Array1.map_file fd char c_layout true VDI_CStruct.vdi_size) in
 				let cstruct = Cstruct.of_bigarray mapping in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
-					VDI_CStruct.format_rrd_vdi cstruct;
+					VDI_CStruct.format_raw_vdi cstruct;
 				let new_text_len = String.length text in
 				if new_text_len >= (VDI_CStruct.vdi_size - VDI_CStruct.vdi_format_length) then
-					error "Failure on rrd-stats vdi write, text length is more than 4MiB"
+					error "Failure on raw vdi write, text length is more than 4MiB"
 				else
 					VDI_CStruct.write_to_vdi cstruct text new_text_len
 			)
 		)
 
-(* Read the rrd stats from the rrd-stats vdi *)
-let read_rrd ~__context ~sr ~vdi =
+let read_raw ~__context ~vdi =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device  __context rpc session_id vdi `RW
 			(fun fd ->
 				let mapping = Bigarray.(Array1.map_file fd char c_layout false VDI_CStruct.vdi_size) in
 				let cstruct = Cstruct.of_bigarray mapping in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
-					error "Failure on rrd-stats vdi read, vdi is not formatted";
-					(* Nothing to return, VDI is not formatted *)
+					debug "Attempted read from raw VDI but VDI not formatted: returning None";
 					None
 				end
 				else
 					Some (VDI_CStruct.read_from_vdi cstruct)
 			)
 		)
-
-
-module Rrdd = Rrd_client.Client
-
-let push_sr_rdds ~__context ~sr ~vdi =
-	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
-	let gzipped_rrds = read_rrd ~__context ~sr:sr ~vdi:vdi in
-	begin match gzipped_rrds with
-		| None -> debug "stats vdi doesn't have rdds"
-		| Some x ->
-			Unixext.write_string_to_file sr_rrds_path x;
-			Rrdd.push_sr_rrd ~sr_uuid:sr_uuid
-	end
-
-let copy_sr_rdds ~__context ~sr ~vdi ~archive =
-	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-	if archive then
-		Rrdd.archive_sr_rrd ~sr_uuid:sr_uuid;
-	let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid:sr_uuid in
-	let contents = Unixext.string_of_file sr_rrds_path in
-	write_rrd ~__context ~sr:sr ~vdi:vdi ~text:contents
-
