@@ -32,10 +32,19 @@ let features_of_string str =
 		|> Array.map (scanf "%08Lx%!")
 	with _ -> raise (InvalidFeatureString str)
 
-let zero_extend arr len =
-	let new_arr = Array.make len 0L in 
-	Array.blit arr 0 new_arr 0 (min len (Array.length arr));
+(** If arr0 is shorter than arr1, extend arr0 with elements from arr1 up to the
+ *  length of arr1. Otherwise, truncate arr0 to the length of arr1. *)
+let extend arr0 arr1 =
+	let new_arr = Array.copy arr1 in
+	let len = min (Array.length arr0) (Array.length arr1) in
+	Array.blit arr0 0 new_arr 0 len;
 	new_arr
+
+(** If arr is shorter than len elements, extend with zeros up to len elements.
+ *  Otherwise, truncate arr to len elements. *)
+let zero_extend arr len =
+	let zero_arr = Array.make len 0L in 
+	extend arr zero_arr
 
 let get_pool_feature_mask ~__context ~remote =
 	try
@@ -69,25 +78,70 @@ let get_host_compatibility_info ~__context ~host ~remote =
 	let features = List.assoc cpu_info_features_key cpu_info in
 	(vendor, features)
 
-(* Populate last_boot_CPU_flags with the vendor and feature set.
- * On VM.start, the feature set is inherited from the pool level (PV or HVM).
- *)
-let populate_cpu_flags ~__context ~vm ~host =
-	let pool = Helpers.get_pool ~__context in
-	let cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+let get_flags_for_vm ~__context vm cpu_info =
 	let features_key =
 		if Helpers.will_boot_hvm ~__context ~self:vm then
 			cpu_info_features_hvm_key
 		else
 			cpu_info_features_pv_key
 	in
-	let cpu_vendor = List.assoc cpu_info_vendor_key cpu_info in
-	let cpu_features = List.assoc features_key cpu_info in
-	let vm_cpu_flags = [
-		(cpu_info_vendor_key, cpu_vendor);
-		(cpu_info_features_key, cpu_features);]
+	let vendor = List.assoc cpu_info_vendor_key cpu_info in
+	let features = List.assoc features_key cpu_info in
+	(vendor, features)
+
+(** Upgrade a VM's feature set based on the host's one, if needed.
+ *  The output will be a feature set that is the same length as the host's
+ *  set, with a prefix equal to the VM's set, and extended where needed.
+ *  If the current VM set has 4 words, then we assume it was last running on
+ *  a host that did not support "feature levelling v2". In that case, we cannot
+ *  be certain about which host features it was using, so we'll extend the set
+ *  with all current host features. Otherwise we'll zero-extend. *)
+let upgrade_features vm host =
+	let vm' = vm |> features_of_string in
+	let host' = host |> features_of_string in
+	let upgraded =
+		if Array.length vm' <= 4 then
+			extend vm' host'
+		else
+			zero_extend vm' (Array.length host')
 	in
-	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:vm_cpu_flags
+	upgraded |> string_of_features
+
+let set_flags ~__context self vendor features =
+	let value = [
+		cpu_info_vendor_key, vendor;
+		cpu_info_features_key, features;
+	] in
+	debug "VM's CPU features set to: %s" features;
+	Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
+
+(* Reset last_boot_CPU_flags with the vendor and feature set.
+ * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
+let reset_cpu_flags ~__context ~vm ~host =
+	let pool_vendor, pool_features =
+		let pool = Helpers.get_pool ~__context in
+		let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+		get_flags_for_vm ~__context vm pool_cpu_info
+	in
+	set_flags ~__context vm pool_vendor pool_features
+		
+(* Update last_boot_CPU_flags with the vendor and feature set.
+ * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
+let update_cpu_flags ~__context ~vm ~host =
+	let current_features =
+		let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+		try
+			List.assoc cpu_info_features_key flags
+		with Not_found -> ""
+	in
+	debug "VM last boot CPU features: %s" current_features;
+	let host_vendor, host_features =
+		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+		get_flags_for_vm ~__context vm host_cpu_info
+	in
+	let new_features = upgrade_features current_features host_features in
+	if new_features <> current_features then
+		set_flags ~__context vm host_vendor new_features
 
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =

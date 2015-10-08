@@ -113,6 +113,28 @@ module ParseFailure = Generic.Make (struct
 end)
 
 
+module Extend = Generic.Make (struct
+	module Io = struct
+		type input_t = int64 array * int64 array
+		type output_t = int64 array
+		let string_of_input_t = Test_printers.(pair (array int64) (array int64))
+		let string_of_output_t = Test_printers.(array int64)
+	end
+
+	let transform = fun (arr0, arr1) -> Cpuid_helpers.extend arr0 arr1
+
+	let tests = [
+		([| |], [| |]), [| |];
+		([| |], [| 0L; 2L |]), [| 0L; 2L |];
+		([| 1L |], [| |]), [| |];
+		([| 1L |], [| 0L |]), [| 1L |];
+		([| 1L |], [| 0L; 2L |]), [| 1L; 2L |];
+		([| 1L; 0L |], [| 0L; 2L |]), [| 1L; 0L |];
+		([| 1L; 0L |], [| 0L; 2L; 4L; 9L |]), [| 1L; 0L; 4L; 9L |];
+	]
+end)
+
+
 module ZeroExtend = Generic.Make (struct
 	module Io = struct
 		type input_t = int64 array * int
@@ -136,6 +158,33 @@ module ZeroExtend = Generic.Make (struct
 end)
 
 
+module Upgrade = Generic.Make (struct
+	module Io = struct
+		type input_t = string * string
+		type output_t = string
+		let string_of_input_t = Test_printers.(pair string string)
+		let string_of_output_t = Test_printers.string
+	end
+
+	let transform = fun (vm, host) -> Cpuid_helpers.upgrade_features vm host
+
+	let tests = [
+		("", "0000000a-0000000b-0000000c-0000000d-0000000e"),
+			"0000000a-0000000b-0000000c-0000000d-0000000e";
+		("00000001-00000002-00000003-00000004", "0000000a-0000000b-0000000c-0000000d-0000000e"),
+			"00000001-00000002-00000003-00000004-0000000e";
+		("00000001-00000002-00000003-00000004", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f"),
+			"00000001-00000002-00000003-00000004-0000000e-0000000f";
+		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e"),
+			"00000001-00000002-00000003-00000004-00000005";
+		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f"),
+			"00000001-00000002-00000003-00000004-00000005-00000000";
+		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f-000000aa"),
+			"00000001-00000002-00000003-00000004-00000005-00000000-00000000";
+	]
+end)
+
+
 let test =
 	"test_cpuid_helpers" >:::
 		[
@@ -145,6 +194,10 @@ let test =
 				RoundTripFeaturesToFeatures.test;
 			"test_parse_failure" >:: 
 				ParseFailure.test;
+			"test_extend" >::
+				Extend.test;
 			"test_zero_extend" >:: 
 				ZeroExtend.test;
+			"test_upgrade" >::
+				Upgrade.test;
 		]
