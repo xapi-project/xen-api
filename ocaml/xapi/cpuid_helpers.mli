@@ -36,4 +36,5 @@ val assert_vm_is_compatible :
 
 val extend : int64 array -> int64 array -> int64 array
 val zero_extend : int64 array -> int -> int64 array
+val intersect : int64 array -> int64 array -> int64 array
 val upgrade_features : string -> string -> string
