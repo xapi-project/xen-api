@@ -97,16 +97,6 @@ let maybe_apply_mask mask features =
 	| Some mask' -> Cpuid.mask_features features mask'
 	| None -> features
 
-let get_host_compatibility_info ~__context ~host ~remote =
-	let cpu_info =
-		match remote with
-		| None -> Db.Host.get_cpu_info ~__context ~self:host
-		| Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
-	in
-	let vendor = List.assoc cpu_info_vendor_key cpu_info in
-	let features = List.assoc cpu_info_features_key cpu_info in
-	(vendor, features)
-
 let get_flags_for_vm ~__context vm cpu_info =
 	let features_key =
 		if Helpers.will_boot_hvm ~__context ~self:vm then
@@ -172,6 +162,14 @@ let update_cpu_flags ~__context ~vm ~host =
 	if new_features <> current_features then
 		set_flags ~__context vm host_vendor new_features
 
+let get_host_compatibility_info ~__context ~vm ~host ~remote =
+	let cpu_info =
+		match remote with
+		| None -> Db.Host.get_cpu_info ~__context ~self:host
+		| Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
+	in
+	get_flags_for_vm ~__context vm cpu_info
+
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 	let fail msg =
@@ -179,7 +177,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			[Ref.string_of vm; Ref.string_of host; msg]))
 	in
 	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
-		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote in
+		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ~remote in
 		let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
 		if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
 			(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
