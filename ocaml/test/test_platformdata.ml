@@ -24,12 +24,12 @@ module SanityCheck = Generic.Make(struct
 		let string_of_input_t (platformdata, filter, vcpu_max, vcpu_startup, hvm) =
 			Printf.sprintf "(platformdata = %s, filter_out_unknowns = %b, vcpu_max = %Ld,
 					 vcpu_at_startup = %Ld, hvm = %b)"
-				(platformdata |> Test_common.string_of_string_map)
+				(platformdata |> Test_printers.(assoc_list string string))
 				(filter) (vcpu_max) (vcpu_startup) (hvm)
 
 		let string_of_output_t = function
 			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
-			| Either.Right e -> Printf.sprintf "Right %s" (e |> Test_common.string_of_string_map)
+			| Either.Right e -> Printf.sprintf "Right %s" (e |> Test_printers.(assoc_list string string))
 	end
 
 	let transform (platformdata, filter_out_unknowns, vcpu_max, vcpu_at_startup, hvm) =
