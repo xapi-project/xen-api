@@ -46,6 +46,28 @@ let zero_extend arr len =
 	let zero_arr = Array.make len 0L in 
 	extend arr zero_arr
 
+
+(** Calculate the intersection of two feature sets.
+ *  Intersection with the empty set is treated as identity, so that intersection
+ *  can be folded easily starting with an accumulator of [||].
+ *  If both sets are non-empty and of differing lengths, set is longer than the other, the shorter one is zero-extended to match it.
+ *  The returned set is the same length as the longer of the two arguments.  *)
+let intersect left right =
+	match left, right with
+	| [| |], _ -> right
+	| _, [| |] -> left
+	| _, _ ->
+		let len_left = Array.length left in
+		let len_right = Array.length right in
+		
+		let out = Array.make (max len_left len_right) 0L in
+		
+		for i = 0 to (min len_left len_right) - 1 do
+			out.(i) <- Int64.logand left.(i) right.(i)
+		done;
+		out
+
+
 let get_pool_feature_mask ~__context ~remote =
 	try
 		let other_config =

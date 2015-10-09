@@ -158,6 +158,34 @@ module ZeroExtend = Generic.Make (struct
 end)
 
 
+module Intersect = Generic.Make (struct
+	module Io = struct
+		type input_t = int64 array * int64 array
+		type output_t = int64 array
+		let string_of_input_t = Test_printers.(pair (array int64) (array int64))
+		let string_of_output_t = Test_printers.(array int64)
+	end
+
+	let transform = fun (a, b) -> Cpuid_helpers.intersect a b
+
+	let tests = [
+		(* Intersect should follow monoid laws - identity and commutativity *)
+		([| |], [| |]),            [| |];
+		([| 1L; 2L; 3L |], [| |]), [| 1L; 2L; 3L |];
+		([| |], [| 1L; 2L; 3L |]), [| 1L; 2L; 3L |];
+
+		([| 7L; 3L |], [| 5L; |]), [| 5L; 0L |];
+		([| 5L; |], [| 7L; 3L |]), [| 5L; 0L |];
+
+		([| 1L |],         [| 1L |]),      [| 1L |];
+		([| 1L |],         [| 1L; 0L |]),  [| 1L; 0L |];
+
+		([| 1L; 2L; 3L |], [| 1L; 1L; 1L |]), [| 1L; 0L; 1L |];
+		([| 1L; 2L; 3L |], [| 0L; 0L; 0L |]), [| 0L; 0L; 0L |];
+	]
+end)
+
+
 module Upgrade = Generic.Make (struct
 	module Io = struct
 		type input_t = string * string
@@ -198,6 +226,8 @@ let test =
 				Extend.test;
 			"test_zero_extend" >:: 
 				ZeroExtend.test;
+			"test_intersect" >:: 
+				Intersect.test;
 			"test_upgrade" >::
 				Upgrade.test;
 		]
