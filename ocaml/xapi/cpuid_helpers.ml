@@ -46,7 +46,6 @@ let zero_extend arr len =
 	let zero_arr = Array.make len 0L in 
 	extend arr zero_arr
 
-
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
@@ -74,28 +73,6 @@ let features_hvm = Map_check.field "features_hvm" features
 let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
-
-let get_pool_feature_mask ~__context ~remote =
-	try
-		let other_config =
-			match remote with
-			| None ->
-				let pool = Helpers.get_pool ~__context in
-				Db.Pool.get_other_config ~__context ~self:pool
-			| Some (rpc, session_id) ->
-				let pool = List.hd (Client.Client.Pool.get_all rpc session_id) in
-				Client.Client.Pool.get_other_config rpc session_id pool
-		in
-		let mask_string = List.assoc Xapi_globs.cpuid_feature_mask_key other_config in
-		debug "Found pool feature mask: %s" mask_string;
-		Some (Cpuid.string_to_features mask_string)
-	with _ ->
-		None
-
-let maybe_apply_mask mask features =
-	match mask with
-	| Some mask' -> Cpuid.mask_features features mask'
-	| None -> features
 
 let get_flags_for_vm ~__context vm cpu_info =
 	let features_key =
@@ -190,9 +167,8 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
 			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-			let pool_mask = get_pool_feature_mask ~__context ~remote in
-			let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
-			let host_cpu_features' = host_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
+			let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features in
+			let host_cpu_features' = host_cpu_features |> Cpuid.string_to_features in
 			if not((Cpuid.mask_features vm_cpu_features' host_cpu_features') = vm_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
