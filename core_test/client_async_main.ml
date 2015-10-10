@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+module P = Printf
+
 open Core.Std
 open Async.Std
 
@@ -57,7 +59,7 @@ let main () =
       loop ()
   ) >>= fun () ->
   let time = Time.diff (Time.now()) start in
-  Printf.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec time);
+  P.printf "Finished %d RPCs in %.02f\n%!" !counter (Time.Span.to_sec time);
   Client.rpc ~t ~queue:!name ~body:shutdown () >>|= fun _ ->
   Shutdown.exit 0
 
@@ -67,7 +69,7 @@ let _ =
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
     "-payload", Arg.Set_string payload, (Printf.sprintf "payload of message to send (default %s)" !payload);
     "-secs", Arg.String (fun x -> timeout := Some (Float.of_string x)), (Printf.sprintf "number of seconds to repeat the same message for (default %s)" (match !timeout with None -> "None" | Some x -> Float.to_string x));
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+  ] (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Send a message to a name, optionally waiting for a response";
   let (_: 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())

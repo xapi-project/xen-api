@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+module P = Printf
+
 open Core.Std
 open Async.Std
 
@@ -42,7 +44,7 @@ let _ =
   Arg.parse [
     "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+  ] (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name";
 
   let (_: 'a Deferred.t) = main () in
