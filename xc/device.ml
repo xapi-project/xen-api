@@ -15,6 +15,7 @@
 open Printf
 
 open Xenops_utils
+open Xenops_interface
 
 open Device_common
 open Xenstore
@@ -1056,10 +1057,16 @@ let bind_to_pciback devstr =
 	write_string_to_file bind devstr
 
 let bind_to_i915 devstr =
-	(* No need to explicitly bind, as the driver will auto-bind on load. *)
 	debug "pci: binding device %s to i915" devstr;
-	let (_:string * string) =
-		Forkhelpers.execute_command_get_output !Path.modprobe ["i915"] in ()
+	let is_loaded = Unixext.file_lines_fold (
+		fun loaded line ->
+			loaded || match Xstringext.String.split ' ' line with "i915" :: _ -> true | _ -> false
+	) false "/proc/modules" in
+	if not is_loaded then ignore (Forkhelpers.execute_command_get_output !Path.modprobe ["i915"]);
+	match get_driver devstr	with
+	| None -> write_string_to_file (Filename.concat sysfs_i915 "bind") devstr
+	| Some (Supported I915) -> ()
+	| Some drv -> raise (Internal_error (Printf.sprintf "Fail to bind to i915, device is bound to %s" (string_of_driver drv)))
 
 let bind_to_nvidia devstr =
 	debug "pci: binding device %s to nvidia" devstr;
