@@ -106,7 +106,7 @@ let do_it uri string =
 	>>= function
 		| Ok x -> return x
 		| Error e ->
-			Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
+			eprintf "Caught: %s\n%!" (exn_to_string e);
 			failwith "XXX: figure out how core/async handles errors"
 
 let make ?(timeout=30.) uri call =

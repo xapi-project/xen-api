@@ -35,7 +35,7 @@ let main () =
 	>>= fun vms ->
 	List.iter
 		~f:(fun (vm, vm_rec) ->
-			Printf.printf "VM %s\n%!" vm_rec.API.vM_name_label
+			printf "VM %s\n%!" vm_rec.API.vM_name_label
 		) vms;
 	Session.logout rpc session_id
 	>>= fun () ->
@@ -48,7 +48,7 @@ let _ =
 		"-uri", Arg.Set_string uri, (Printf.sprintf "URI of server to connect to (default %s)" !uri);
 		"-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
 		"-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
-	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
+	] (fun x -> eprintf "Ignoring argument: %s\n" x)
 		"Simple example which lists VMs found on a pool";
 
 	let (_: unit Deferred.t) = main () in

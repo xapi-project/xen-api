@@ -27,19 +27,19 @@ let debug fmt =
         Printf.ksprintf
                 (fun txt ->
                         if !enable_debug
-                        then Printf.fprintf stderr "%s\n%!" txt
+                        then eprintf "%s\n%!" txt
                 ) fmt
 
 let error fmt =
         Printf.ksprintf
                 (fun txt ->
-                        Printf.fprintf stderr "Error: %s\n%!" txt
+                        eprintf "Error: %s\n%!" txt
                 ) fmt
 
 let info fmt =
         Printf.ksprintf
                 (fun txt ->
-                        Printf.fprintf stderr "%s\n%!" txt
+                        eprintf "%s\n%!" txt
                 ) fmt
 let exn_to_string = function
 	| Api_errors.Server_error(code, params) ->
@@ -129,7 +129,7 @@ let _ =
 		"-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
 		"-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
                 "-debug", Arg.Set enable_debug, (Printf.sprintf "Enable debug logging (default %b)" !enable_debug);
-	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
+	] (fun x -> eprintf "Ignoring argument: %s\n" x)
 		"Simple example which tracks the server state via events";
 
 	let (_: unit Deferred.t) = main () in
