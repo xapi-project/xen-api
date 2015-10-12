@@ -2,4 +2,7 @@ language: c
 install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
 script: bash -ex .travis-opam.sh && bash -ex .coveralls.sh
 env:
-  - OCAML_VERSION=4.02 PACKAGE=mirage-block-volume PRE_INSTALL_HOOK="opam pin add shared-block-ring git://github.com/djs55/shared-block-ring#nobisect -y && opam pin add conduit git://github.com/djs55/ocaml-conduit#unix-domain -y"
+  global:
+    - OCAML_VERSION=4.02
+    - PACKAGE=message-switch
+    - PINS="shared-block-ring:git://github.com/mirage/shared-block-ring"
