@@ -53,7 +53,6 @@ let list : 'a printer -> 'a list printer = fun pr x ->
 	x |> List.map pr |> String.concat "; " |> bracket "[" "]"
 
 (* Print an association list as "key: value; key: value" *)
-let assoc_list : 'a printer -> 'b printer -> ('a * 'b) list printer = fun pr_a pr_b x -> 
-	let pr = assoc_pair pr_a pr_b in
-	x |> List.map pr |> String.concat "; "
+let assoc_list : 'a printer -> 'b printer -> ('a * 'b) list printer = fun pr_a pr_b x ->
+	x |> (assoc_pair pr_a pr_b |> list)
 
