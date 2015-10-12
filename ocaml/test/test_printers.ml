@@ -19,6 +19,7 @@ type 'a printer = 'a -> string
 
 (** Printers for basic types *)
 
+let unit      : unit printer      = (fun () -> "()")
 let int64     : int64 printer     = Printf.sprintf "%Ld"
 let int32     : int32 printer     = Printf.sprintf "%ld"
 let nativeint : nativeint printer = Printf.sprintf "%nd"
@@ -35,6 +36,11 @@ let option : 'a printer -> 'a option printer = fun pr x ->
 	match x with
 	| None -> "None"
 	| Some s -> pr s |> Printf.sprintf "Some %s"
+
+let either : 'a printer -> 'b printer -> ('a, 'b) Either.t printer = fun pr_a pr_b x ->
+	match x with
+	| Either.Left a ->  pr_a a |> Printf.sprintf "Left %s"
+	| Either.Right b -> pr_b b |> Printf.sprintf "Right %s"
 
 (* Utility function to bracket a string *)
 let bracket l r x = Printf.sprintf "%s%s%s" l x r

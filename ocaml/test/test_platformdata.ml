@@ -27,9 +27,7 @@ module SanityCheck = Generic.Make(struct
 				(platformdata |> Test_printers.(assoc_list string string))
 				(filter) (vcpu_max) (vcpu_startup) (hvm)
 
-		let string_of_output_t = function
-			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
-			| Either.Right e -> Printf.sprintf "Right %s" (e |> Test_printers.(assoc_list string string))
+		let string_of_output_t = Test_printers.(either exn (assoc_list string string))
 	end
 
 	let transform (platformdata, filter_out_unknowns, vcpu_max, vcpu_at_startup, hvm) =

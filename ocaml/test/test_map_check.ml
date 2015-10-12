@@ -75,9 +75,7 @@ module ValidateKVPair = Generic.Make(struct
 		let string_of_input_t (requirements, key, value) =
 			Printf.sprintf "%s, %s, %s"
 				((Test_printers.list string_of_requirement) requirements) key value
-		let string_of_output_t = function
-			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
-			| Either.Right () -> "Right ()"
+		let string_of_output_t = Test_printers.(either exn unit)
 	end
 
 	let transform (requirements, key, value) =
