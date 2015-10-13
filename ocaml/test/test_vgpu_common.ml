@@ -145,14 +145,10 @@ let string_of_vgpu_type vgpu_type =
 
 let string_of_pgpu_state pgpu =
 	Printf.sprintf "{supported: %s; enabled: %s; resident: %s; scheduled: %s}"
-		(Test_printers.(list string)
-			(List.map string_of_vgpu_type pgpu.supported_VGPU_types))
-		(Test_printers.(list string)
-			(List.map string_of_vgpu_type pgpu.enabled_VGPU_types))
-		(Test_printers.(list string)
-			(List.map string_of_vgpu_type pgpu.resident_VGPU_types))
-		(Test_printers.(list string)
-			(List.map string_of_vgpu_type pgpu.scheduled_VGPU_types))
+		(Test_printers.(list string_of_vgpu_type) pgpu.supported_VGPU_types)
+		(Test_printers.(list string_of_vgpu_type) pgpu.enabled_VGPU_types)
+		(Test_printers.(list string_of_vgpu_type) pgpu.resident_VGPU_types)
+		(Test_printers.(list string_of_vgpu_type) pgpu.scheduled_VGPU_types)
 
 let make_vgpu ~__context
 		?(resident_on=Ref.null)
