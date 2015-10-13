@@ -26,8 +26,8 @@ type vm_config = {
 
 let string_of_vm_config conf =
 	Printf.sprintf "other_config = %s, platform = %s"
-		(string_of_string_map conf.oc)
-		(string_of_string_map conf.platform)
+		(Test_printers.(assoc_list string string) conf.oc)
+		(Test_printers.(assoc_list string string) conf.platform)
 
 let load_vm_config __context conf =
 	let (_: API.ref_VM) = make_vm ~__context

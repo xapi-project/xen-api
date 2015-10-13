@@ -22,8 +22,8 @@ type host_license_state = {
 }
 
 let string_of_host_license_state state =
-	Printf.sprintf "{license_params = %s; edition = %s"
-		(Test_common.string_of_string_map state.license_params)
+	Printf.sprintf "{license_params = %s; edition = %s}"
+		(Test_printers.(assoc_list string string) state.license_params)
 		state.edition
 
 let string_of_date_opt = function
@@ -134,10 +134,8 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = host_license_state list
 		type output_t = (string * string) list
 
-		let string_of_input_t input =
-			Printf.sprintf "[%s]"
-				(List.map string_of_host_license_state input |> String.concat "; ")
-		let string_of_output_t = Test_common.string_of_string_map
+		let string_of_input_t = Test_printers.(list string_of_host_license_state)
+		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
 	module State = XapiDb
 

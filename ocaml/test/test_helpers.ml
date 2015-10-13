@@ -29,17 +29,17 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_pif pif =
 			Printf.sprintf "[device = %s; management = %b; other_config = %s]"
 				pif.device pif.management
-				(string_of_string_map pif.other_config)
+				(Test_printers.(assoc_list string string) pif.other_config)
 		
-		let string_of_input_t (pifs, mgmt_pif) =
-			Printf.sprintf "([%s], %s)"
-				(String.concat "; " (List.map string_of_pif pifs))
-				(string_of_opt (fun x -> x) mgmt_pif)
+		let string_of_input_t =
+			Test_printers.(assoc_pair
+				(list string_of_pif)
+				(option string))
 				
-		let string_of_output_t (gateway, dns) =
-			Printf.sprintf "[gateway = %s; dns = %s]"
-				(string_of_opt (fun x -> x) gateway)
-				(string_of_opt (fun x -> x) dns)
+		let string_of_output_t =
+			Test_printers.(assoc_pair
+				(option string)
+				(option string))
 	end
 	module State = XapiDb
 	

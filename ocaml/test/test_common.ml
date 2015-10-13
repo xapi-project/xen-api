@@ -22,22 +22,6 @@ let working_area = "/tmp/xapi-test"
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 
-let string_of_list string_of list =
-	Printf.sprintf "[%s]"
-		(String.concat "; " (List.map string_of list))
-
-let string_of_string_list strings =
-	string_of_list (fun x -> x) strings
-
-let string_of_string_map map =
-	string_of_list (fun (k, v) -> Printf.sprintf "%s: %s" k v) map
-
-let string_of_opt string_of = function
-	| None -> "None"
-	| Some x -> Printf.sprintf "Some %s" (string_of x)
-
-let string_of_string_opt = string_of_opt (fun x -> x)
-
 let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 
@@ -50,7 +34,7 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
 		match args with
 		| None -> ()
 		| Some args ->
-			assert_equal ~printer:string_of_string_list ~msg:"Function raised API error with unexpected args" args a
+			assert_equal ~printer:Test_printers.(list string) ~msg:"Function raised API error with unexpected args" args a
 
 let make_localhost ~__context =
 	let host_info = {

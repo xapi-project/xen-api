@@ -107,7 +107,7 @@ module IntelTest = struct
 			conf.identifier.low_gm_sz
 			conf.identifier.high_gm_sz
 			conf.identifier.fence_sz
-			(string_of_string_opt conf.identifier.monitor_config_file)
+			(Test_printers.(option string) conf.identifier.monitor_config_file)
 			conf.experimental
 			conf.model_name
 
@@ -117,7 +117,7 @@ module IntelTest = struct
 			type output_t = Intel.vgpu_conf option
 
 			let string_of_input_t x = x
-			let string_of_output_t = string_of_opt string_of_vgpu_conf
+			let string_of_output_t = Test_printers.option string_of_vgpu_conf
 		end
 
 		let transform line = Intel.read_whitelist_line ~line
@@ -161,8 +161,8 @@ module IntelTest = struct
 
 			let string_of_input_t (whitelist, device_id) =
 				Printf.sprintf "(%s, %04x)" whitelist device_id
-			let string_of_output_t confs =
-				List.map string_of_vgpu_conf confs |> string_of_string_list
+			let string_of_output_t =
+				Test_printers.list string_of_vgpu_conf
 		end
 
 		let transform (whitelist, device_id) =

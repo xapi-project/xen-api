@@ -19,11 +19,7 @@ open Test_highlevel
 
 let string_of_requirement requirement =
 	Printf.sprintf "{key = \"%s\"; default_value = \"%s\"}"
-		requirement.key (string_of_string_opt requirement.default_value)
-
-let string_of_requirements requirements =
-	List.map string_of_requirement requirements
-	|> string_of_string_list
+		requirement.key (Test_printers.(option string) requirement.default_value)
 
 let true_fun = (fun _ -> true)
 
@@ -34,11 +30,11 @@ module AddDefaults = Generic.Make(struct
 		type input_t = (requirement list) * ((string * string) list)
 		type output_t = (string * string) list
 
-		let string_of_input_t (requirements, old_map) =
-			Printf.sprintf "%s, %s"
-				(string_of_requirements requirements)
-				(string_of_string_map old_map)
-		let string_of_output_t = string_of_string_map
+		let string_of_input_t =
+			Test_printers.(assoc_pair
+				(list string_of_requirement)
+				(assoc_list string string))
+		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
 
 	let transform (requirements, old_map) = add_defaults requirements old_map
@@ -78,10 +74,8 @@ module ValidateKVPair = Generic.Make(struct
 
 		let string_of_input_t (requirements, key, value) =
 			Printf.sprintf "%s, %s, %s"
-				(string_of_requirements requirements) key value
-		let string_of_output_t = function
-			| Either.Left e -> Printf.sprintf "Left %s" (Printexc.to_string e)
-			| Either.Right () -> "Right ()"
+				((Test_printers.list string_of_requirement) requirements) key value
+		let string_of_output_t = Test_printers.(either exn unit)
 	end
 
 	let transform (requirements, key, value) =
