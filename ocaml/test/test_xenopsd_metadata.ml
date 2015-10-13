@@ -53,9 +53,7 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		type output_t = string option
 
 		let string_of_input_t = string_of_vm_config
-		let string_of_output_t = function
-			| Some s -> Printf.sprintf "Some %s" s
-			| None -> "None"
+		let string_of_output_t = Test_printers.(option string)
 	end
 
 	module State = XapiDb
@@ -199,7 +197,7 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 		type output_t = int
 
 		let string_of_input_t = string_of_vm_config
-		let string_of_output_t = string_of_int
+		let string_of_output_t = Test_printers.int
 	end
 
 	module State = XapiDb

@@ -38,12 +38,10 @@ module CompareDates = Generic.Make(struct
 		type input_t = (Date.iso8601 option * Date.iso8601 option)
 		type output_t = int
 
-		let string_of_input_t input =
-			Printf.sprintf "(%s, %s)"
-				(string_of_date_opt (fst input))
-				(string_of_date_opt (snd input))
+		let string_of_input_t =
+			Test_printers.(assoc_pair (option Date.to_string) (option Date.to_string))
 
-		let string_of_output_t = string_of_int
+		let string_of_output_t = Test_printers.int
 	end
 
 	let transform (date1, date2) = Xapi_pool_license.compare_dates date1 date2
@@ -64,11 +62,10 @@ module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = Date.iso8601 option list
 		type output_t = Date.iso8601 option
 
-		let string_of_input_t input =
-			Printf.sprintf "[%s]"
-				(input |> List.map string_of_date_opt |> String.concat "; ")
+		let string_of_input_t =
+			Test_printers.(list (option Date.to_string))
 
-		let string_of_output_t = string_of_date_opt
+		let string_of_output_t = Test_printers.option Date.to_string
 	end
 	module State = XapiDb
 
@@ -102,9 +99,8 @@ module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = string list
 		type output_t = string
 
-		let string_of_input_t input =
-			Printf.sprintf "[%s]" (String.concat "; " input)
-		let string_of_output_t = (fun x -> x)
+		let string_of_input_t = Test_printers.(list string)
+		let string_of_output_t = Test_printers.string
 	end
 	module State = XapiDb
 
