@@ -464,7 +464,7 @@ let create_chipset_info ~__context =
 			else
 				"false"
 		with _ ->
-			warn "Not running on xen; assuming I/O vierualization disabled";
+			warn "Not running on xen; assuming I/O virtualization disabled";
 			"false" in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info
