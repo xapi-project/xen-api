@@ -10,7 +10,8 @@ main_dir = "/etc/xensource/static-vdis"
 xapi_storage_script = "/usr/libexec/xapi-storage-script"
 
 def call_volume_plugin(name, command, args):
-    args = [ xapi_storage_script + "/volume/org.xen.xcp.storage." + name + "/" + command, "static-vdis" ] + args
+    args = [(xapi_storage_script + "/volume/org.xen.xapi.storage." + name + "/"
+             + command), "static-vdis"] + args
     output = subprocess.check_output(args)
     return json.loads(output)
 

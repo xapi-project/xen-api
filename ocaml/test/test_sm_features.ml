@@ -33,13 +33,10 @@ type sm_data_sequence = {
 	sm: sm_object;
 }
 
-let string_of_feature_list =
-	string_of_string_list ++ (List.map Smint.string_of_feature)
-
 let string_of_sm_object sm =
 	Printf.sprintf "{capabilities = %s; features = %s}"
-		(string_of_string_list sm.capabilities)
-		(string_of_string_list
+		(Test_printers.(list string) sm.capabilities)
+		(Test_printers.(list string)
 			(List.map
 				(fun (capability, version) -> Printf.sprintf "%s/%Ld" capability version)
 				sm.features))
@@ -161,8 +158,8 @@ module ParseSMAPIv1Features = Generic.Make(struct
 		type input_t = string list
 		type output_t = Smint.feature list
 
-		let string_of_input_t = string_of_string_list
-		let string_of_output_t = string_of_feature_list
+		let string_of_input_t = Test_printers.(list string)
+		let string_of_output_t = Test_printers.(list Smint.string_of_feature)
 	end
 
 	let transform = Smint.parse_capability_int64_features
@@ -178,8 +175,8 @@ module CreateSMAPIv2Features = Generic.Make(struct
 		type input_t = Smint.feature list
 		type output_t = string list
 
-		let string_of_input_t = string_of_feature_list
-		let string_of_output_t = string_of_string_list
+		let string_of_input_t = Test_printers.(list Smint.string_of_feature)
+		let string_of_output_t = Test_printers.(list string)
 	end
 
 	let transform = List.map Smint.string_of_feature
@@ -197,7 +194,7 @@ module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = string list
 		type output_t = sm_object
 
-		let string_of_input_t = string_of_string_list
+		let string_of_input_t = Test_printers.(list string)
 		let string_of_output_t = string_of_sm_object
 	end
 

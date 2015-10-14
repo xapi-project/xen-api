@@ -883,16 +883,24 @@ let set_hostname_live ~__context ~host ~hostname =
 
 let m_ssl_legacy = Mutex.create ()
 
+let set_stunnel_legacy ~__context legacy =
+	debug "Setting stunnel legacy runtime config to %b" legacy;
+	Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy;
+	debug "Resetting long running stunnel clients e.g. master connection";
+	Master_connection.force_connection_reset ();
+	debug "Resetting long running stunnel server proxy";
+	Xapi_mgmt_iface.reconfigure_stunnel ~__context;
+	info "Updating stunnel legacy inventory to %b." legacy;
+	Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool legacy)
+
 let set_ssl_legacy ~__context ~self ~value =
 	(* Use the mutex to ensure inventory and DB are consistent. *)
 	Mutex.execute m_ssl_legacy (fun () ->
 		let old = Db.Host.get_ssl_legacy ~__context ~self in
-		info "set_ssl_legacy %B where old=%B" value old;
-		Db.Host.set_ssl_legacy ~__context ~self ~value;
-		Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool value);
 		if old <> value then (
-			Stunnel.set_legacy_protocol_and_ciphersuites_allowed value;
-			Xapi_mgmt_iface.reconfigure_stunnel ~__context
+			info "set_ssl_legacy %B where old=%B" value old;
+			Db.Host.set_ssl_legacy ~__context ~self ~value;
+			set_stunnel_legacy ~__context value
 		)
 	)
 
