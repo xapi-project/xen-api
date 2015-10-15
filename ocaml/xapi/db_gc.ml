@@ -262,7 +262,7 @@ let check_host_liveness ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   List.iter check_host all_hosts
 
-let timeout_sessions_common ~__context sessions limit session_group =
+let timeout_sessions_common ~__context sessions limit session_group do_limit_check =
   let unused_sessions = List.filter
     (fun (x, _) -> 
 	  let rec is_session_unused s = 
@@ -291,7 +291,7 @@ let timeout_sessions_common ~__context sessions limit session_group =
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
-    if List.length young <= limit
+    if not do_limit_check || List.length young <= limit
     then young, [] (* keep them all *)
     else 
       (* Need to reverse sort by last active and drop the oldest *)
@@ -312,7 +312,7 @@ let last_session_log_time = ref None
 
 let timeout_sessions ~__context =
 	let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-
+	let do_limit_check = List.length all_sessions > Xapi_globs.max_sessions * 2 in
 	let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
 	let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
 	let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
@@ -340,11 +340,11 @@ let timeout_sessions ~__context =
 	begin
 		Hashtbl.iter
 			(fun key ss -> match key with
-			| `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig)
-			| `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name))
+			| `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig) do_limit_check
+			| `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name) do_limit_check) 
 			session_groups;
-		timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
-		timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
+		timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external" do_limit_check;
+		timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal" do_limit_check;
   end
 
 let probation_pending_tasks = Hashtbl.create 53
