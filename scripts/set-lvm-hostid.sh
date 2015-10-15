@@ -7,4 +7,4 @@
 ID=${1}
 FILE=/etc/lvm/lvmlocal.conf
 
-sed -i '/host_id/s/ = .*$/ = '${ID}'/; /host_id/s/# //' ${FILE}
+sed -i '/host_id/s/ = .*$/ = '${ID}'/; /# host_id/s/# //' ${FILE}
