@@ -64,27 +64,6 @@ let set_master_pool_reference ~__context =
 	let pool = Helpers.get_pool ~__context in
 	Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context)
 
-let set_pool_defaults ~__context =
-	let open Xapi_xenops_queue in
-	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-	let dbg = Context.string_of_task __context in
-	let stat = Client.HOST.stat dbg in
-
-	(* Fill in Pool.cpu_info if empty. If so, this implies that this is a new pool
-	 * and the localhost is its only member and therefore the master. *)
-	let pool = Helpers.get_pool ~__context in
-	if Db.Pool.get_cpu_info ~__context ~self:pool = [] then begin
-		let open Xenops_interface.Host in
-	        let cpu = [
-			"cpu_count", string_of_int stat.cpu_info.cpu_count;
-			"socket_count", string_of_int stat.cpu_info.socket_count;
-			"vendor", stat.cpu_info.vendor;
-			"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
-			"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
-		] in
-		Db.Pool.set_cpu_info ~__context ~self:pool ~value:cpu
-	end
-
 let refresh_console_urls ~__context =
   List.iter
     (fun console ->
@@ -228,7 +207,6 @@ let update_env __context =
   set_master_pool_reference ~__context;
   set_master_ip ~__context;
   set_master_live ~__context;
-  set_pool_defaults ~__context;
 
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
