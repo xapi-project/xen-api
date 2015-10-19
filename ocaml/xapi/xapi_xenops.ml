@@ -107,6 +107,7 @@ module Platform = struct
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
+	let featureset = "featureset"
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -133,12 +134,12 @@ module Platform = struct
 		vga;
 		vgpu_pci_id;
 		vgpu_config;
+		featureset;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
 	let timeoffset = "timeoffset"
 	let generation_id = "generation-id"
-	let featureset = "featureset"
 
 	(* Helper functions. *)
 	let is_true ~key ~platformdata ~default =
@@ -779,13 +780,18 @@ module MD = struct
 			(Platform.generation_id, genid) :: platformdata
 		in
 		(* Add the CPUID feature set for the VM to the platform data. *)
-		let featureset =
-			if List.mem_assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags then
-				List.assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags
+		let platformdata =
+			if not (List.mem_assoc Platform.featureset platformdata) then
+				let featureset =
+					if List.mem_assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags then
+						List.assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags
+					else
+						failwith "VM's CPU featureset not initialised"
+				in
+				(Platform.featureset, featureset) :: platformdata
 			else
-				failwith "VM's CPU featureset not initialised"
+				platformdata
 		in
-		let platformdata = (Platform.featureset, featureset) :: platformdata in
 
 		let pci_msitranslate = true in (* default setting *)
 		(* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
