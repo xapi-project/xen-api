@@ -194,7 +194,10 @@ module Upgrade = Generic.Make (struct
 		let string_of_output_t = Test_printers.string
 	end
 
-	let transform = fun (vm, host) -> Cpuid_helpers.upgrade_features vm host
+	let transform = fun (vm, host) ->
+		let host' = Cpuid_helpers.features_of_string host in
+		let vm' = Cpuid_helpers.features_of_string vm in
+		Cpuid_helpers.upgrade_features host' vm' |> Cpuid_helpers.string_of_features
 
 	let tests = [
 		("", "0000000a-0000000b-0000000c-0000000d-0000000e"),

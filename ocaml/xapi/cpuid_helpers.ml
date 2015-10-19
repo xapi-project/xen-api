@@ -92,16 +92,11 @@ let get_flags_for_vm ~__context vm cpu_info =
  *  a host that did not support "feature levelling v2". In that case, we cannot
  *  be certain about which host features it was using, so we'll extend the set
  *  with all current host features. Otherwise we'll zero-extend. *)
-let upgrade_features vm host =
-	let vm' = vm |> features_of_string in
-	let host' = host |> features_of_string in
-	let upgraded =
-		if Array.length vm' <= 4 then
-			extend vm' host'
-		else
-			zero_extend vm' (Array.length host')
-	in
-	upgraded |> string_of_features
+let upgrade_features host vm =
+	if Array.length vm <= 4 then
+		extend vm host
+	else
+		zero_extend vm (Array.length host)
 
 let set_flags ~__context self vendor features =
 	let value = [
@@ -135,7 +130,8 @@ let update_cpu_flags ~__context ~vm ~host =
 		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
 		get_flags_for_vm ~__context vm host_cpu_info
 	in
-	let new_features = upgrade_features current_features host_features in
+	let new_features = upgrade_features (features_of_string host_features) (features_of_string current_features)
+		|> string_of_features in
 	if new_features <> current_features then
 		set_flags ~__context vm host_vendor new_features
 
