@@ -626,6 +626,8 @@ let cpu_info_features_key = "features"
 let cpu_info_features_pv_key = "features_pv"
 let cpu_info_features_hvm_key = "features_hvm"
 
+let cpu_features_dontcare_mask = ref ""
+
 (** Path to trigger file for Network Reset. *)
 let network_reset_trigger = "/tmp/network-reset"
 
@@ -983,6 +985,9 @@ let other_options = [
 
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
     (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
+
+  "cpu-features-dontcare-mask", Arg.Set_string cpu_features_dontcare_mask,
+    (fun () -> !cpu_features_dontcare_mask), "Mask of CPU features that should not prevent a VM migration";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options

@@ -143,6 +143,14 @@ let get_host_compatibility_info ~__context ~vm ~host ~remote =
 	in
 	get_flags_for_vm ~__context vm cpu_info
 
+let apply_dontcare_mask fs =
+	try
+		let mask = features_of_string !Xapi_globs.cpu_features_dontcare_mask in
+		extend mask fs |> intersect fs
+	with InvalidFeatureString s ->
+		warn "Invalid CPU features don't-care mask (%s). Ignoring." s;
+		fs
+
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 	let fail msg =
@@ -163,8 +171,17 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
 			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-			let host_cpu_features' = host_cpu_features |> features_of_string in
-			let vm_cpu_features' = vm_cpu_features |> features_of_string |> upgrade_features host_cpu_features' in
+			let host_cpu_features' =
+				host_cpu_features
+				|> features_of_string
+				|> apply_dontcare_mask
+			in
+			let vm_cpu_features' =
+				vm_cpu_features
+				|> features_of_string
+				|> upgrade_features host_cpu_features'
+				|> apply_dontcare_mask
+			in
 			if not((intersect vm_cpu_features' host_cpu_features') = vm_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
