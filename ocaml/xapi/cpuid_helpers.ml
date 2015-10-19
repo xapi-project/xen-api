@@ -163,8 +163,8 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
 			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-			let vm_cpu_features' = vm_cpu_features |> features_of_string in
 			let host_cpu_features' = host_cpu_features |> features_of_string in
+			let vm_cpu_features' = vm_cpu_features |> features_of_string |> upgrade_features host_cpu_features' in
 			if not((intersect vm_cpu_features' host_cpu_features') = vm_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
