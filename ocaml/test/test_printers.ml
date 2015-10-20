@@ -48,6 +48,18 @@ let bracket l r x = Printf.sprintf "%s%s%s" l x r
 let pair : 'a printer -> 'b printer -> ('a * 'b) printer = fun pr_a pr_b (a, b) ->
 	[pr_a a; pr_b b] |> String.concat ", " |> bracket "(" ")"
 
+let tuple3 : 'a printer -> 'b printer -> 'c printer -> 
+	('a * 'b * 'c) printer = fun pr_a pr_b pr_c (a, b, c) ->
+	[pr_a a; pr_b b; pr_c c] |> String.concat ", " |> bracket "(" ")"
+
+let tuple4 : 'a printer -> 'b printer -> 'c printer -> 'd printer -> 
+	('a * 'b * 'c * 'd) printer = fun pr_a pr_b pr_c pr_d (a, b, c, d) ->
+	[pr_a a; pr_b b; pr_c c; pr_d d] |> String.concat ", " |> bracket "(" ")"
+
+let tuple5 : 'a printer -> 'b printer -> 'c printer -> 'd printer -> 'e printer -> 
+	('a * 'b * 'c * 'd * 'e) printer = fun pr_a pr_b pr_c pr_d pr_e (a, b, c, d, e) ->
+	[pr_a a; pr_b b; pr_c c; pr_d d; pr_e e] |> String.concat ", " |> bracket "(" ")"
+
 (* Print a pair from an association list as "key: value" *)
 let assoc_pair : 'a printer -> 'b printer -> ('a * 'b) printer = fun pr_a pr_b (a, b) ->
 	[pr_a a; pr_b b] |> String.concat ": "
