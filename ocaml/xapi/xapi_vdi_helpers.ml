@@ -193,20 +193,20 @@ module VDI_CStruct = struct
 	let get_data_length cstruct =
 		Cstruct.BE.get_uint32 cstruct length_offset
 
-	(* Write the string to the vdi *)
-	let write_to_vdi cstruct text text_len =
+	(* Write the string to the cstruct *)
+	let write cstruct text text_len =
 		Cstruct.blit_from_string text default_offset cstruct data_offset text_len;
 		set_data_length cstruct (Int32.of_int text_len)
 
-	(* Read the string from the vdi *)
-	let read_from_vdi cstruct =
+	(* Read the string from the cstruct *)
+	let read cstruct =
 		let curr_len = Int32.to_int (get_data_length cstruct) in
 		let curr_text = String.make curr_len '\000' in
 		Cstruct.blit_to_string cstruct data_offset curr_text default_offset curr_len;
 		curr_text
 
-	(* Format the vdi for the first time *)
-	let format_raw_vdi cstruct =
+	(* Format the cstruct for the first time *)
+	let format cstruct =
 		set_magic_number cstruct;
 		set_version cstruct
 
@@ -221,11 +221,14 @@ let write_raw ~__context ~vdi ~text =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 			(fun fd ->
-				let mapping = Bigarray.(Array1.map_file fd char c_layout true VDI_CStruct.vdi_size) in
-				let cstruct = Cstruct.of_bigarray mapping in
+				let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
+				let cstruct = Cstruct.of_string contents in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
-					VDI_CStruct.format_raw_vdi cstruct;
-				VDI_CStruct.write_to_vdi cstruct text (String.length text)
+					VDI_CStruct.format cstruct;
+				VDI_CStruct.write cstruct text (String.length text);
+				Unix.ftruncate fd 0;
+				Unixext.seek_to fd 0 |> ignore;
+				Unixext.really_write_string fd (VDI_CStruct.read cstruct);
 			)
 		)
 
@@ -233,13 +236,13 @@ let read_raw ~__context ~vdi =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device  __context rpc session_id vdi `RW
 			(fun fd ->
-				let mapping = Bigarray.(Array1.map_file fd char c_layout false VDI_CStruct.vdi_size) in
-				let cstruct = Cstruct.of_bigarray mapping in
+				let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
+				let cstruct = Cstruct.of_string contents in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
 					debug "Attempted read from raw VDI but VDI not formatted: returning None";
 					None
 				end
 				else
-					Some (VDI_CStruct.read_from_vdi cstruct)
+					Some (VDI_CStruct.read cstruct)
 			)
 		)
