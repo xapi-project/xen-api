@@ -38,4 +38,5 @@ val create_root_user : __context:Context.t -> unit
 val make_software_version : __context:Context.t -> (string * string) list
 
 val create_host_cpu : __context:Context.t -> unit
+val create_pool_cpuinfo : __context:Context.t -> unit
 val create_chipset_info : __context:Context.t -> unit

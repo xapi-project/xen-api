@@ -444,6 +444,33 @@ let create_host_cpu ~__context =
 			~features:"" ~other_config:[])
 	done
 
+
+let create_pool_cpuinfo ~__context =
+	let all_host_cpus = List.map 
+		(fun (_, s) -> s.API.host_cpu_info) 
+		(Db.Host.get_all_records ~__context) in
+	debug "create_pool_cpuinfo: Found %d host CPUs" (List.length all_host_cpus);
+
+	let merge pool host =
+		let open Map_check in
+		let open Cpuid_helpers in
+		pool
+		|> setf vendor (getf vendor host)
+		|> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
+		|> setf socket_count ((getf socket_count host) + (getf socket_count pool))
+		|> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+		|> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+	in
+
+	let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""] in
+	let pool_cpuinfo = List.fold_left merge zero all_host_cpus in
+	let pool = Helpers.get_pool ~__context in
+	debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d" 
+		(Map_check.getf Cpuid_helpers.socket_count pool_cpuinfo)
+		(Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo);
+	Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo
+		
+
 let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
@@ -464,7 +491,7 @@ let create_chipset_info ~__context =
 			else
 				"false"
 		with _ ->
-			warn "Not running on xen; assuming I/O vierualization disabled";
+			warn "Not running on xen; assuming I/O virtualization disabled";
 			"false" in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info

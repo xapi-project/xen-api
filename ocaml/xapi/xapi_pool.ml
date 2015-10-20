@@ -845,11 +845,7 @@ let eject ~__context ~host =
 		debug "Pool.eject: deleting Host record (the point of no return)";
 		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
 		Db.Host.destroy ~__context ~self:host;
-
-		debug "Pool.eject: resetting CPU features";
-		(* Clear the CPU feature masks from the Xen command line *)
-		ignore (Xen_cmdline.delete_cpuid_masks
-			["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
+		Create_misc.create_pool_cpuinfo ~__context;
 
 		(* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
 		begin try
