@@ -60,8 +60,16 @@ let field : string -> 'a pickler -> 'a field =
                 	|> List.remove_assoc name
                 	|> cons (name, to_string value))
 
-let getf : 'a field -> assoc_list -> 'a = 
-	fun (of_string, _) record -> of_string record
+let getf : ?default:'a -> 'a field -> assoc_list -> 'a =
+	fun ?default (of_string, _) record ->
+		try of_string record
+		with Not_found as e ->
+			match default with
+			| None ->
+				Backtrace.is_important e;
+				raise e
+			| Some d -> d
+
 let setf : 'a field -> 'a -> assoc_list -> assoc_list = 
 	fun (_, to_string) value record -> to_string value record
 
