@@ -51,5 +51,5 @@ end)
 let test =
 	"test_http" >:::
 		[
-			"test_fix_cookie" >:: FixCookie.test;
+			"test_fix_cookie" >::: FixCookie.tests;
 		]

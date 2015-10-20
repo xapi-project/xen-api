@@ -93,5 +93,5 @@ end))
 let test =
 	"test_pgpu_helpers" >:::
 		[
-			"test_get_remaining_capacity" >:: GetRemainingCapacity.test;
+			"test_get_remaining_capacity" >::: GetRemainingCapacity.tests;
 		]

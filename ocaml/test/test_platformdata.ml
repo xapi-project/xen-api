@@ -157,5 +157,5 @@ end)
 let test =
 	"platformdata" >:::
 		[
-			"test_platform_sanity_check" >:: SanityCheck.test
+			"test_platform_sanity_check" >::: SanityCheck.tests
 		]

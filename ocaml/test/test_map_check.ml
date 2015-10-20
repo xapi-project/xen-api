@@ -102,6 +102,6 @@ end)
 let test =
 	"test_map_check" >:::
 		[
-			"test_add_defaults" >:: AddDefaults.test;
-			"test_validate_kvpair" >:: ValidateKVPair.test;
+			"test_add_defaults" >::: AddDefaults.tests;
+			"test_validate_kvpair" >::: ValidateKVPair.tests;
 		]
