@@ -213,6 +213,101 @@ module Upgrade = Generic.Make (struct
 end)
 
 
+module Accessors = Generic.Make (struct
+	module Io = struct
+		type input_t = (string * string) list
+		type output_t = string * int * int * int64 array * int64 array
+		let string_of_input_t = Test_printers.(assoc_list string string)
+		let string_of_output_t = Test_printers.(tuple5 string int int (array int64) (array int64))
+	end
+
+	let transform = fun record -> 
+		let open Map_check in
+			getf vendor record, 
+			getf socket_count record, 
+			getf cpu_count record,
+			getf features_pv record, 
+			getf features_hvm record
+
+	let tests = [
+		["vendor", "Intel"; "socket_count", "1"; "cpu_count", "1";
+		 "features_pv", "00000001-00000002-00000003";
+		 "features_hvm", "0000000a-0000000b-0000000c"], 
+		 ("Intel", 1, 1, [| 1L; 2L; 3L |], [| 0xaL; 0xbL; 0xcL |]);
+		["vendor", "Amd"; "socket_count", "6"; "cpu_count", "24";
+		 "features_pv", "00000001";
+		 "features_hvm", ""], 
+		 ("Amd", 6, 24, [| 1L |], [| |]);
+	]
+end)
+
+module Setters = Generic.Make (struct
+	module Io = struct
+		type input_t = string * int * int * int64 array * int64 array
+		type output_t = (string * string) list
+		let string_of_input_t = Test_printers.(tuple5 string int int (array int64) (array int64))
+		let string_of_output_t = Test_printers.(assoc_list string string)
+	end
+
+	let transform = fun (name, sockets, cpus, pv, hvm)  -> 
+		let open Map_check in
+			[]
+			|> setf vendor name
+			|> setf socket_count sockets
+			|> setf cpu_count cpus
+			|> setf features_pv pv
+			|> setf features_hvm hvm
+			|> List.sort compare
+
+	let tests = [
+		("Intel", 1, 1, [| 1L; 2L; 3L |], [| 0xaL; 0xbL; 0xcL |]),
+		List.sort compare ["vendor", "Intel"; 
+                 "socket_count", "1"; "cpu_count", "1";
+		 "features_pv", "00000001-00000002-00000003";
+		 "features_hvm", "0000000a-0000000b-0000000c"];
+
+		("Amd", 6, 24, [| 1L |], [| |]),
+		List.sort compare ["vendor", "Amd"; 
+                 "socket_count", "6"; "cpu_count", "24";
+		 "features_pv", "00000001";
+		 "features_hvm", ""]
+	]
+end)
+
+
+module Modifiers = Generic.Make (struct
+	module Io = struct
+		type input_t = (string * string) list
+		type output_t = (string * string) list
+		let string_of_input_t = Test_printers.(assoc_list string string)
+		let string_of_output_t = Test_printers.(assoc_list string string)
+	end
+
+	let transform = fun record -> 
+		let open Map_check in
+			record 
+			|> setf vendor (getf vendor record)
+			|> setf socket_count (getf socket_count record)
+			|> setf cpu_count (getf cpu_count record)
+			|> setf features_pv (getf features_pv record)
+			|> setf features_hvm (getf features_hvm record)
+			|> List.sort compare
+
+	let tests = [
+		["cpu_count", "1";
+		 "features_hvm", "0000000a-0000000b-0000000c";
+		 "features_pv", "00000001-00000002-00000003";
+		 "socket_count", "1"; 
+		 "vendor", "Intel"],
+		["cpu_count", "1";
+		 "features_hvm", "0000000a-0000000b-0000000c";
+		 "features_pv", "00000001-00000002-00000003";
+		 "socket_count", "1"; 
+		 "vendor", "Intel"];
+	]
+end)
+
+
 let test =
 	"test_cpuid_helpers" >:::
 		[
@@ -230,4 +325,10 @@ let test =
 				Intersect.test;
 			"test_upgrade" >::
 				Upgrade.test;
+			"test_accessors" >::
+				Accessors.test;
+			"test_setters" >::
+				Setters.test;
+			"test_modifiers" >::
+				Modifiers.test;
 		]
