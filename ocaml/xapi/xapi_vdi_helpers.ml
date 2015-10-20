@@ -213,6 +213,11 @@ module VDI_CStruct = struct
 end
 
 let write_raw ~__context ~vdi ~text =
+	if String.length text >= VDI_CStruct.(vdi_size - vdi_format_length) then
+		let error_msg =
+			Printf.sprintf "Cannot write %d bytes to raw VDI. Capacity = %d bytes"
+				(String.length text) VDI_CStruct.(vdi_size - vdi_format_length) in
+		ignore (failwith error_msg);
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 			(fun fd ->
@@ -220,11 +225,7 @@ let write_raw ~__context ~vdi ~text =
 				let cstruct = Cstruct.of_bigarray mapping in
 				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
 					VDI_CStruct.format_raw_vdi cstruct;
-				let new_text_len = String.length text in
-				if new_text_len >= (VDI_CStruct.vdi_size - VDI_CStruct.vdi_format_length) then
-					error "Failure on raw vdi write, text length is more than 4MiB"
-				else
-					VDI_CStruct.write_to_vdi cstruct text new_text_len
+				VDI_CStruct.write_to_vdi cstruct text (String.length text)
 			)
 		)
 
