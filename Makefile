@@ -27,7 +27,6 @@ uninstall:
 	ocamlfind remove pciutil
 	ocamlfind remove http-svr
 	ocamlfind remove gzip
-	ocamlfind remove cpuid
 
 reinstall: uninstall
 	$(SETUP) -install $(REINSTALLFLAGS)

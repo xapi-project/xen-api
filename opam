@@ -5,7 +5,6 @@ build: [
   [make "install" "BINDIR=%{bin}%"]
 ]
 remove: [
-  ["ocamlfind" "remove" "cpuid"]
   ["ocamlfind" "remove" "gzip"]
   ["ocamlfind" "remove" "http-svr"]
   ["ocamlfind" "remove" "log"]
