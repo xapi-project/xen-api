@@ -66,10 +66,17 @@ let intersect left right =
 		done;
 		out
 
+let is_subset_or_equal left right =
+	intersect left right = left
+
+let is_subset left right =
+	is_subset_or_equal left right && not (left = right)
+
 (** Field definitions for checked string map access *)
-let features     = Map_check.pickler features_of_string string_of_features
-let features_pv  = Map_check.field "features_pv" features
-let features_hvm = Map_check.field "features_hvm" features
+let features_t   = Map_check.pickler features_of_string string_of_features
+let features     = Map_check.field "features" features_t
+let features_pv  = Map_check.field "features_pv" features_t
+let features_hvm = Map_check.field "features_hvm" features_t
 let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
@@ -165,7 +172,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
 			let host_cpu_features' = host_cpu_features |> features_of_string in
 			let vm_cpu_features' = vm_cpu_features |> features_of_string |> upgrade_features host_cpu_features' in
-			if not((intersect vm_cpu_features' host_cpu_features') = vm_cpu_features') then
+			if not(is_subset_or_equal vm_cpu_features' host_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
 	end
