@@ -831,10 +831,11 @@ let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
 
-(* The ibft-to-ignore script returns NICs listed in the ISCSI Boot Firmware Table.
- * These NICs (probably just one for now) are used to boot from, and should be marked
- * with PIF.managed = false during a PIF.scan. *)
-let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
+(* The bfs-interfaces script returns boot from SAN NICs.
+ * All ISCSI Boot Firmware Table (ibft) NICs should be marked
+ * with PIF.managed = false and all FCoE boot from SAN * NICs
+ * should be set with disallow-unplug=true, during a PIF.scan. *)
+let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
 let manage_xenvmd = ref true
 
