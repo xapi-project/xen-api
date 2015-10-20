@@ -46,7 +46,6 @@ let zero_extend arr len =
 	let zero_arr = Array.make len 0L in 
 	extend arr zero_arr
 
-
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
@@ -75,38 +74,6 @@ let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
 
-let get_pool_feature_mask ~__context ~remote =
-	try
-		let other_config =
-			match remote with
-			| None ->
-				let pool = Helpers.get_pool ~__context in
-				Db.Pool.get_other_config ~__context ~self:pool
-			| Some (rpc, session_id) ->
-				let pool = List.hd (Client.Client.Pool.get_all rpc session_id) in
-				Client.Client.Pool.get_other_config rpc session_id pool
-		in
-		let mask_string = List.assoc Xapi_globs.cpuid_feature_mask_key other_config in
-		debug "Found pool feature mask: %s" mask_string;
-		Some (Cpuid.string_to_features mask_string)
-	with _ ->
-		None
-
-let maybe_apply_mask mask features =
-	match mask with
-	| Some mask' -> Cpuid.mask_features features mask'
-	| None -> features
-
-let get_host_compatibility_info ~__context ~host ~remote =
-	let cpu_info =
-		match remote with
-		| None -> Db.Host.get_cpu_info ~__context ~self:host
-		| Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
-	in
-	let vendor = List.assoc cpu_info_vendor_key cpu_info in
-	let features = List.assoc cpu_info_features_key cpu_info in
-	(vendor, features)
-
 let get_flags_for_vm ~__context vm cpu_info =
 	let features_key =
 		if Helpers.will_boot_hvm ~__context ~self:vm then
@@ -125,16 +92,11 @@ let get_flags_for_vm ~__context vm cpu_info =
  *  a host that did not support "feature levelling v2". In that case, we cannot
  *  be certain about which host features it was using, so we'll extend the set
  *  with all current host features. Otherwise we'll zero-extend. *)
-let upgrade_features vm host =
-	let vm' = vm |> features_of_string in
-	let host' = host |> features_of_string in
-	let upgraded =
-		if Array.length vm' <= 4 then
-			extend vm' host'
-		else
-			zero_extend vm' (Array.length host')
-	in
-	upgraded |> string_of_features
+let upgrade_features host vm =
+	if Array.length vm <= 4 then
+		extend vm host
+	else
+		zero_extend vm (Array.length host)
 
 let set_flags ~__context self vendor features =
 	let value = [
@@ -168,9 +130,26 @@ let update_cpu_flags ~__context ~vm ~host =
 		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
 		get_flags_for_vm ~__context vm host_cpu_info
 	in
-	let new_features = upgrade_features current_features host_features in
+	let new_features = upgrade_features (features_of_string host_features) (features_of_string current_features)
+		|> string_of_features in
 	if new_features <> current_features then
 		set_flags ~__context vm host_vendor new_features
+
+let get_host_compatibility_info ~__context ~vm ~host ~remote =
+	let cpu_info =
+		match remote with
+		| None -> Db.Host.get_cpu_info ~__context ~self:host
+		| Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
+	in
+	get_flags_for_vm ~__context vm cpu_info
+
+let apply_dontcare_mask fs =
+	try
+		let mask = features_of_string !Xapi_globs.cpu_features_dontcare_mask in
+		extend mask fs |> intersect fs
+	with InvalidFeatureString s ->
+		warn "Invalid CPU features don't-care mask (%s). Ignoring." s;
+		fs
 
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
@@ -179,7 +158,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			[Ref.string_of vm; Ref.string_of host; msg]))
 	in
 	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
-		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~host ~remote in
+		let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ~remote in
 		let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
 		if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
 			(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
@@ -192,10 +171,18 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
 			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-			let pool_mask = get_pool_feature_mask ~__context ~remote in
-			let vm_cpu_features' = vm_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
-			let host_cpu_features' = host_cpu_features |> Cpuid.string_to_features |> maybe_apply_mask pool_mask in
-			if not((Cpuid.mask_features vm_cpu_features' host_cpu_features') = vm_cpu_features') then
+			let host_cpu_features' =
+				host_cpu_features
+				|> features_of_string
+				|> apply_dontcare_mask
+			in
+			let vm_cpu_features' =
+				vm_cpu_features
+				|> features_of_string
+				|> upgrade_features host_cpu_features'
+				|> apply_dontcare_mask
+			in
+			if not((intersect vm_cpu_features' host_cpu_features') = vm_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
 	end
