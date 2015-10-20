@@ -67,6 +67,13 @@ let intersect left right =
 		done;
 		out
 
+(** Field definitions for checked string map access *)
+let features     = Map_check.pickler features_of_string string_of_features
+let features_pv  = Map_check.field "features_pv" features
+let features_hvm = Map_check.field "features_hvm" features
+let cpu_count    = Map_check.(field "cpu_count" int)
+let socket_count = Map_check.(field "socket_count" int)
+let vendor       = Map_check.(field "vendor" string)
 
 let get_pool_feature_mask ~__context ~remote =
 	try

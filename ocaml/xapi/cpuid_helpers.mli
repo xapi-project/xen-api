@@ -38,3 +38,9 @@ val extend : int64 array -> int64 array -> int64 array
 val zero_extend : int64 array -> int -> int64 array
 val intersect : int64 array -> int64 array -> int64 array
 val upgrade_features : string -> string -> string
+
+val vendor : string Map_check.field
+val cpu_count : int Map_check.field
+val socket_count : int Map_check.field
+val features_pv : int64 array Map_check.field
+val features_hvm : int64 array Map_check.field
