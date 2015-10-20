@@ -33,12 +33,6 @@ Library xenctrlext
   CSources: xenctrlext_stubs.c
   BuildDepends: xenctrl, xenstore-compat
 
-Library xenutils
-  Path: xen-utils
-  Findlibname: xen-utils
-  Modules: Xen_cmdline
-  BuildDepends: stdext, threads, forkexec
-
 Library pciutil
   Path: pciutil
   Findlibname: pciutil

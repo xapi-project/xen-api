@@ -19,7 +19,6 @@ uninstall:
 	ocamlfind remove xml-light2
 	ocamlfind remove xenstore-compat
 	ocamlfind remove xenctrlext
-	ocamlfind remove xen-utils
 	ocamlfind remove uuid
 	ocamlfind remove stunnel
 	ocamlfind remove sha1

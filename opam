@@ -15,7 +15,6 @@ remove: [
   ["ocamlfind" "remove" "uuid"]
   ["ocamlfind" "remove" "xenctrlext"]
   ["ocamlfind" "remove" "xenstore-compat"]
-  ["ocamlfind" "remove" "xen-utils"]
   ["ocamlfind" "remove" "xml-light2"]
 ]
 os: ["linux"]
