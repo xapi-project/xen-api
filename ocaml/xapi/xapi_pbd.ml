@@ -127,6 +127,21 @@ let check_plugged_on_master_constraint ~__context ~self =
 			raise Api_errors.(Server_error(sr_detached_on_master,
 				[Ref.string_of self; Ref.string_of master]))
 
+let check_unplugged_on_slaves_constraint ~__context ~self =
+	if Db.SR.get_shared ~__context ~self && Pool_role.is_master () then
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let pbds = Db.SR.get_PBDs ~__context ~self in
+		let plugged_slaves =
+			List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds
+			|> List.map (fun self -> Db.PBD.get_host ~__context ~self)
+			|> List.filter ((<>) master) in
+		match plugged_slaves with
+		| slave::_ ->
+			raise Api_errors.(Server_error(sr_attached_on_slave,
+				[Ref.string_of self; Ref.string_of slave]))
+		| _ -> ()
+
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
@@ -161,6 +176,7 @@ let unplug ~__context ~self =
 		begin
 			let host = Db.PBD.get_host ~__context ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			check_unplugged_on_slaves_constraint ~__context ~self:sr;
 
 			if Db.Host.get_enabled ~__context ~self:host
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;
