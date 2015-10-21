@@ -23,6 +23,7 @@ open Xstringext
 open Db_filter
 open Db_filter_types
 open Network
+module XenAPI = Client.Client
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -403,6 +404,8 @@ let make_software_version ~__context =
 
 let create_host_cpu ~__context =
 	let open Xapi_xenops_queue in
+	let open Map_check in
+	let open Cpuid_helpers in
 	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 	let dbg = Context.string_of_task __context in
 	let stat = Client.HOST.stat dbg in
@@ -423,7 +426,32 @@ let create_host_cpu ~__context =
 		"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
 	] in
 	let host = Helpers.get_localhost ~__context in
+	let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+	debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+		(Map_check.getf Cpuid_helpers.socket_count cpu)
+		(Map_check.getf Cpuid_helpers.cpu_count cpu)
+		(Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
+		(Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
+
+	let before = getf ~default:[||] features_hvm old_cpu_info in
+	let after = stat.cpu_info.features_hvm in
+	if before <> after && before <> [||] then begin
+		let lost = is_subset (intersect before after) before in
+		let gained = is_subset (intersect before after) after in
+		let body = Printf.sprintf "The CPU features of host have changed.%s%s"
+			(if lost then " Some features have gone away." else "")
+			(if gained then " Some features were added." else "")
+		in
+		info "%s" body;
+
+		if not (Helpers.rolling_upgrade_in_progress ~__context) then
+			let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
+			let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
+	end;
 	
 	(* Recreate all Host_cpu objects *)
 	
@@ -448,14 +476,14 @@ let create_host_cpu ~__context =
 
 
 let create_pool_cpuinfo ~__context =
+	let open Map_check in
+	let open Cpuid_helpers in
+
 	let all_host_cpus = List.map 
 		(fun (_, s) -> s.API.host_cpu_info) 
 		(Db.Host.get_all_records ~__context) in
-	debug "create_pool_cpuinfo: Found %d host CPUs" (List.length all_host_cpus);
 
 	let merge pool host =
-		let open Map_check in
-		let open Cpuid_helpers in
 		pool
 		|> setf vendor (getf vendor host)
 		|> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
@@ -467,10 +495,32 @@ let create_pool_cpuinfo ~__context =
 	let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""] in
 	let pool_cpuinfo = List.fold_left merge zero all_host_cpus in
 	let pool = Helpers.get_pool ~__context in
-	debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d" 
+	let old_cpuinfo = Db.Pool.get_cpu_info ~__context ~self:pool in
+	debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
 		(Map_check.getf Cpuid_helpers.socket_count pool_cpuinfo)
-		(Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo);
-	Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo
+		(Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo)
+		(Map_check.getf Cpuid_helpers.features_hvm pool_cpuinfo |> string_of_features)
+		(Map_check.getf Cpuid_helpers.features_pv pool_cpuinfo |> string_of_features);
+	Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo;
+
+	let before = getf ~default:[||] features_hvm old_cpuinfo in
+	let after = getf ~default:[||] features_hvm pool_cpuinfo in
+	if before <> after && before <> [||] then begin
+		let lost = is_subset (intersect before after) before in
+		let gained = is_subset (intersect before after) after in
+		let body = Printf.sprintf "The pool-level CPU features have changed.%s%s"
+			(if lost then " Some features have gone away." else "")
+			(if gained then " Some features were added." else "")
+		in
+		info "%s" body;
+
+		if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 then
+			let (name, priority) = if lost then Api_messages.pool_cpu_features_down else Api_messages.pool_cpu_features_up in
+			let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
+	end
 		
 
 let create_chipset_info ~__context =
