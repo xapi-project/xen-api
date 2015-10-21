@@ -196,8 +196,8 @@ end))
 let test =
 	"pool_license" >:::
 		[
-			"test_compare_dates" >:: CompareDates.test;
-			"test_pool_expiry_date" >:: PoolExpiryDate.test;
-			"test_pool_edition" >:: PoolEdition.test;
-			"test_pool_license_state" >:: PoolLicenseState.test;
+			"test_compare_dates" >::: CompareDates.tests;
+			"test_pool_expiry_date" >::: PoolExpiryDate.tests;
+			"test_pool_edition" >::: PoolEdition.tests;
+			"test_pool_license_state" >::: PoolLicenseState.tests;
 		]

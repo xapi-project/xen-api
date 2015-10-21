@@ -230,7 +230,7 @@ end))
 let test =
 	"test_xenopsd_metadata" >:::
 		[
-			"test_hvm_serial" >:: HVMSerial.test;
-			"test_videomode" >:: VideoMode.test;
-			"test_videoram" >:: VideoRam.test;
+			"test_hvm_serial" >::: HVMSerial.tests;
+			"test_videomode" >::: VideoMode.tests;
+			"test_videoram" >::: VideoRam.tests;
 		]
