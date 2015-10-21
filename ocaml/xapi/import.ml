@@ -1380,6 +1380,39 @@ let read_map_params name params =
 	let filter_params = List.filter (fun (p,_) -> (Xstringext.String.startswith name p) && (String.length p > len)) params in
 	List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
 
+let with_error_handling f =
+	try f ()
+	with
+	| IFailure failure ->
+		 begin
+			 match failure with
+			 | Cannot_handle_chunked ->
+				  error "import code cannot handle chunked encoding";
+				 raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
+			 | Some_checksums_failed ->
+				  error "some checksums failed";
+				 raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
+			 | Failed_to_find_object id ->
+				  error "Failed to find object with ID: %s" id;
+				 raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
+			 | Attached_disks_not_found ->
+				  error "Cannot import guest with currently attached disks which cannot be found";
+				 raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
+			 | Unexpected_file (expected, actual) ->
+				  let hex = Tar_unix.Header.to_hex in
+				  error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
+					  expected (hex expected) actual (hex actual);
+				  raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
+		 end
+	| Api_errors.Server_error(code, params) as e ->
+		 raise e
+	| End_of_file ->
+		 error "Prematurely reached end-of-file during import";
+		raise (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
+	| e ->
+		 error "Import caught exception: %s" (ExnHelper.string_of_exn e);
+		raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
+
 (** Import metadata only *)
 let metadata_handler (req: Request.t) s _ =
 	debug "metadata_handler called";
@@ -1414,6 +1447,7 @@ let metadata_handler (req: Request.t) s _ =
 					assert_compatable ~__context header.version;
 					if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
+					with_error_handling (fun () ->
 					let state = handle_all __context config rpc session_id header.objects in
 					let table = state.table in
 					let on_cleanup_stack = state.cleanup in
@@ -1435,6 +1469,7 @@ let metadata_handler (req: Request.t) s _ =
 							cleanup on_cleanup_stack;
 						end;
 						raise e
+					)
 				)))
 
 let stream_import __context rpc session_id s content_length refresh_session config =
@@ -1577,7 +1612,7 @@ let handler (req: Request.t) s _ =
 								Http_svr.headers s (Http.http_400_badrequest ());
 								raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 							end;
-							try
+							with_error_handling (fun () ->
 								let refresh_external =
 									if List.mem_assoc "session_id" all then begin
 										let external_session_id = List.assoc "session_id" all in
@@ -1608,36 +1643,7 @@ let handler (req: Request.t) s _ =
 									Http_svr.headers s headers;
 									debug "Reading XML";
 								ignore(stream_import __context rpc session_id s content_length refresh_session config);
-							with
-							| IFailure failure ->
-								begin
-									match failure with
-									| Cannot_handle_chunked ->
-										error "import code cannot handle chunked encoding";
-										raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
-									| Some_checksums_failed ->
-										error "some checksums failed";
-										raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
-									| Failed_to_find_object id ->
-										error "Failed to find object with ID: %s" id;
-										raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
-									| Attached_disks_not_found ->
-										error "Cannot import guest with currently attached disks which cannot be found";
-										raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
-									| Unexpected_file (expected, actual) ->
-										let hex = Tar_unix.Header.to_hex in
-										error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
-										expected (hex expected) actual (hex actual);
-										raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
-								end
-							| Api_errors.Server_error(code, params) as e ->
-								raise e
-							| End_of_file ->
-								error "Prematurely reached end-of-file during import";
-								raise (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
-							| e ->
-								error "Import caught exception: %s" (ExnHelper.string_of_exn e);
-								raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
+							)
 					)
 		);
 		debug "import successful")
