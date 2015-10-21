@@ -1013,6 +1013,8 @@ let _ =
     ~doc:"The SR is currently being used as a local cache SR." ();
   error Api_errors.clustered_sr_degraded [ "sr" ]
     ~doc:"An SR is using clustered local storage. It is not safe to reboot a host at the moment." ();
+  error Api_errors.sr_detached_on_master [ "sr"; "host" ]
+    ~doc:"The SR is currently detached on the master." ();
 
   error Api_errors.sm_plugin_communication_failure ["sm"]
     ~doc:"The SM plugin did not respond to a query." ();
