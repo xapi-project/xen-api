@@ -366,10 +366,11 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
   let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  (* Verify that the location field is unique in this SR *)
+  (* Verify that the location field is unique in this SR - ignore if the vdi is being introduced with same location*)
   List.iter
     (fun vdi ->
        if Db.VDI.get_location ~__context ~self:vdi = location
+            && Db.VDI.get_uuid ~__context ~self:vdi <> uuid
        then raise (Api_errors.Server_error (Api_errors.location_not_unique, [ Ref.string_of sR; location ]))
     ) (Db.SR.get_VDIs ~__context ~self:sR);
   let task = Context.get_task_id __context in	
