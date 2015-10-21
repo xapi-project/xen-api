@@ -113,19 +113,19 @@ let check_sharing_constraint ~__context ~self =
 	end
 
 let check_plugged_on_master_constraint ~__context ~self =
-  if Db.SR.get_shared ~__context ~self && not (Pool_role.is_master ()) then begin
-    let pool = Helpers.get_pool ~__context in
-    let master = Db.Pool.get_master ~__context ~self:pool in
-    let pbds = Db.SR.get_PBDs ~__context ~self in
-    let master_pbd =
-      try List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = master) pbds
-      with _ ->
-	raise (Api_errors.Server_error(Api_errors.sr_no_pbds, []))
-    in
-    if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
-      raise (Api_errors.Server_error(Api_errors.sr_detached_on_master, []))
-  end
-	  
+	if Db.SR.get_shared ~__context ~self && not (Pool_role.is_master ()) then begin
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let pbds = Db.SR.get_PBDs ~__context ~self in
+		let master_pbd =
+			try List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = master) pbds
+			with _ ->
+				raise (Api_errors.Server_error(Api_errors.sr_no_pbds, []))
+		in
+		if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
+			raise (Api_errors.Server_error(Api_errors.sr_detached_on_master, []))
+	end
+
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
