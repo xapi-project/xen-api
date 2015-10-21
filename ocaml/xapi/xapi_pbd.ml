@@ -120,7 +120,8 @@ let check_plugged_on_master_constraint ~__context ~self =
 		let master_pbd =
 			try List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = master) pbds
 			with _ ->
-				raise (Api_errors.Server_error(Api_errors.sr_no_pbds, []))
+				raise Api_errors.(Server_error(sr_detached_on_master,
+					[Ref.string_of self; Ref.string_of master]))
 		in
 		if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
 			raise Api_errors.(Server_error(sr_detached_on_master,
