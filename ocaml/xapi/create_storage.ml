@@ -104,8 +104,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
   if not(all_pbds_ok) then begin
     let obj_uuid = Helpers.get_localhost_uuid () in
     Xapi_alert.add ~msg:Api_messages.pbd_plug_failed_on_server_start ~cls:`Host ~obj_uuid ~body:"";
-  end;
-  Xapi_host_helpers.consider_enabling_host ~__context
+  end
       
 
 let create_storage_localhost rpc session_id : unit =
