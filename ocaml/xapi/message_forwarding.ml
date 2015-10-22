@@ -2025,8 +2025,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let set_ssl_legacy ~__context ~self ~value =
 			info "Host.set_ssl_legacy: host = '%s'; value = %b" (host_uuid ~__context self) value;
-			let	local_fn = Local.Host.set_ssl_legacy ~self ~value in
-			do_op_on ~local_fn ~__context ~host:self (fun session_id rpc -> Client.Host.set_ssl_legacy rpc session_id self value)
+			let success () =
+				if Db.Host.get_ssl_legacy ~__context ~self = value
+				then Some ()
+				else None
+			in
+			let local_fn = Local.Host.set_ssl_legacy ~self ~value in
+			let fn () =
+				do_op_on ~local_fn ~__context ~host:self
+					(fun session_id rpc ->
+						Client.Host.set_ssl_legacy rpc session_id self value)
+			in
+			tolerate_connection_loss fn success 30.
 
 		let ha_disable_failover_decisions ~__context ~host =
 			info "Host.ha_disable_failover_decisions: host = '%s'" (host_uuid ~__context  host);
