@@ -7294,7 +7294,7 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
+	field ~qualifier:StaticRO ~in_product_since:rel_dundee ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
     ])
 	()
 
