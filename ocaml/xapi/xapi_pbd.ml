@@ -113,34 +113,36 @@ let check_sharing_constraint ~__context ~sr =
 	end
 
 let check_plugged_on_master_constraint ~__context ~sr =
-	if Db.SR.get_shared ~__context ~self:sr && not (Pool_role.is_master ()) then
+	if Db.SR.get_shared ~__context ~self:sr then
 		let pool = Helpers.get_pool ~__context in
 		let master = Db.Pool.get_master ~__context ~self:pool in
-		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-		let master_pbd =
-			try List.find (fun self -> Db.PBD.get_host ~__context ~self = master) pbds
-			with _ ->
-				raise Api_errors.(Server_error(sr_detached_on_master,
-					[Ref.string_of sr; Ref.string_of master]))
-		in
-		if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
+		let plugged_master_pbds = [
+			Eq (Field "SR", Literal (Ref.string_of sr));
+			Eq (Field "host", Literal (Ref.string_of master));
+			Eq (Field "currently_attached", Literal "true");
+		] in
+		let expr = List.fold_left (fun acc p -> And (acc, p)) True plugged_master_pbds in
+		match Db.PBD.get_records_where ~__context ~expr with
+		| [] ->
 			raise Api_errors.(Server_error(sr_detached_on_master,
 				[Ref.string_of sr; Ref.string_of master]))
+		| _ -> ()
 
 let check_unplugged_on_slaves_constraint ~__context ~sr =
-	if Db.SR.get_shared ~__context ~self:sr && Pool_role.is_master () then
+	if Db.SR.get_shared ~__context ~self:sr then
 		let pool = Helpers.get_pool ~__context in
 		let master = Db.Pool.get_master ~__context ~self:pool in
-		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-		let plugged_slaves =
-			List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds
-			|> List.map (fun self -> Db.PBD.get_host ~__context ~self)
-			|> List.filter ((<>) master) in
-		match plugged_slaves with
-		| slave::_ ->
+		let plugged_slave_pbds = [
+			Eq (Field "SR", Literal (Ref.string_of sr));
+			Not (Eq (Field "host", Literal (Ref.string_of master)));
+			Eq (Field "currently_attached", Literal "true");
+		] in
+		let expr = List.fold_left (fun acc p -> And (acc, p)) True plugged_slave_pbds in
+		match Db.PBD.get_records_where ~__context ~expr with
+		| (_, pbd)::_ ->
 			raise Api_errors.(Server_error(sr_attached_on_slave,
-				[Ref.string_of sr; Ref.string_of slave]))
-		| _ -> ()
+				[Ref.string_of sr; Ref.string_of pbd.API.pBD_host]))
+		| [] -> ()
 
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
@@ -154,7 +156,8 @@ let plug ~__context ~self =
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				check_sharing_constraint ~__context ~sr;
-				check_plugged_on_master_constraint ~__context ~sr;
+				if not (Helpers.i_am_srmaster ~__context ~sr) then
+					check_plugged_on_master_constraint ~__context ~sr;
 				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.transform_storage_exn
@@ -176,7 +179,8 @@ let unplug ~__context ~self =
 		begin
 			let host = Db.PBD.get_host ~__context ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
-			check_unplugged_on_slaves_constraint ~__context ~sr;
+			if Helpers.i_am_srmaster ~__context ~sr then
+				check_unplugged_on_slaves_constraint ~__context ~sr;
 
 			if Db.Host.get_enabled ~__context ~self:host
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;
