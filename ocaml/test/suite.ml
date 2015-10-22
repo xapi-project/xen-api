@@ -42,6 +42,7 @@ let base_suite =
 			Test_xenopsd_metadata.test;
 			Test_workload_balancing.test;
 			(* Test_ca121350.test; *)
+			Test_pbd.test
 		]
 
 let handlers = [

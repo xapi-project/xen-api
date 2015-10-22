@@ -3665,73 +3665,55 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PBD.plug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.plug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			let is_shared_sr = Db.SR.get_shared ~__context ~self:sr in
+			let is_master_pbd =
+				let pbd_host = Db.PBD.get_host ~__context ~self in
+				let master_host = Helpers.get_localhost ~__context in
+				pbd_host = master_host in
 
 			SR.with_sr_marked ~__context ~sr ~doc:"PBD.plug" ~op:`plug
 				(fun () ->
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.plug rpc session_id self));
-			(* Consider scanning the SR now. Note the current context contains a
-			 * completed real task and we should not reuse it for what is effectively
-			 * another call. *)
-			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
-				(* Only handle metadata VDIs when attaching shared storage to the master. *)
-				let should_handle_metadata_vdis =
-					let pbd_host = Db.PBD.get_host ~__context:__scan_context ~self in
-					let master = Db.Pool.get_master ~__context:__scan_context ~self:(Helpers.get_pool ~__context:__scan_context) in
-					(pbd_host = master) && (Db.SR.get_shared ~__context:__scan_context ~self:sr)
-				in
-				let handle_metadata_vdis () =
-					if should_handle_metadata_vdis then begin
-						debug "Shared SR %s is being plugged to master - handling metadata VDIs." (sr_uuid ~__context sr);
-						let metadata_vdis = List.filter
-							(fun vdi -> Db.VDI.get_type ~__context:__scan_context ~self:vdi = `metadata)
-							(Db.SR.get_VDIs ~__context:__scan_context ~self:sr)
-						in
-						let pool = Helpers.get_pool ~__context:__scan_context in
-						let (vdis_of_this_pool, vdis_of_foreign_pool) = List.partition
-							(fun vdi -> Db.VDI.get_metadata_of_pool ~__context:__scan_context ~self:vdi = pool)
-							metadata_vdis
-						in
-						debug "Adding foreign pool metadata VDIs to cache: [%s]"
-							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_foreign_pool));
-						Xapi_dr.add_vdis_to_cache ~__context:__scan_context ~vdis:vdis_of_foreign_pool;
-						debug "Found metadata VDIs created by this pool: [%s]"
-							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_this_pool));
-						if vdis_of_this_pool <> [] then begin
-							let target_vdi = List.hd vdis_of_this_pool in
-							let vdi_uuid = Db.VDI.get_uuid ~__context:__scan_context ~self:target_vdi in
-							try
-								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~get_vdi_callback:(fun () -> target_vdi);
-								debug "Re-enabled database replication to VDI %s" vdi_uuid
-							with e ->
-								debug "Could not re-enable database replication to VDI %s - caught %s"
-									vdi_uuid (Printexc.to_string e)
-						end;
-						Xapi_dr.signal_sr_is_ready ~__context:__scan_context ~sr
-					end else
-						debug "SR %s is not shared or is being plugged to a slave - not handling metadata VDIs at this point." (sr_uuid ~__context sr)
-				in
-				let callback () =
-					handle_metadata_vdis ();
-					Xapi_sr.maybe_push_sr_rrds ~__context ~sr;
-				in
-				if should_handle_metadata_vdis then
-					Xapi_dr.signal_sr_is_processing ~__context:__scan_context ~sr;
-				Xapi_sr.scan_one ~__context:__scan_context ~callback sr);
 
-				Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						Client.SR.update rpc session_id sr
-					)
+			(* We always plug the master PBD first and unplug it last. If this is the
+			 * first PBD plugged for this SR (proxy: the PBD being plugged is for the
+			 * master) then we should perform an initial SR scan and perform some
+			 * asynchronous start-of-day operations in the callback.
+			 * Note the current context contains a completed real task and we should
+			 * not reuse it for what is effectively another call. *)
+			if is_master_pbd then
+				Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __context ->
+					let should_handle_metadata_vdis = is_shared_sr in
+
+					if should_handle_metadata_vdis then
+						Xapi_dr.signal_sr_is_processing ~__context ~sr;
+
+					let sr_scan_callback () =
+						if is_shared_sr then begin
+							Xapi_dr.handle_metadata_vdis ~__context ~sr;
+							Xapi_dr.signal_sr_is_ready ~__context ~sr;
+						end;
+						Xapi_sr.maybe_push_sr_rrds ~__context ~sr;
+						Xapi_sr.update ~__context ~sr;
+					in
+
+					Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr;
+				)
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.unplug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			let is_master_pbd =
+				let pbd_host = Db.PBD.get_host ~__context ~self in
+				let master_host = Helpers.get_localhost ~__context in
+				pbd_host = master_host in
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
-					Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
+					if is_master_pbd then
+						Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.unplug rpc session_id self))
 	end

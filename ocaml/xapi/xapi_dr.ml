@@ -129,6 +129,34 @@ let read_vdi_cache_record ~vdi =
 			else
 				None)
 
+let handle_metadata_vdis ~__context ~sr =
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	debug "Shared SR %s is being plugged to master - handling metadata VDIs." sr_uuid;
+	let metadata_vdis = List.filter
+		(fun vdi -> Db.VDI.get_type ~__context ~self:vdi = `metadata)
+		(Db.SR.get_VDIs ~__context ~self:sr)
+	in
+	let pool = Helpers.get_pool ~__context in
+	let (vdis_of_this_pool, vdis_of_foreign_pool) = List.partition
+		(fun vdi -> Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
+		metadata_vdis
+	in
+	debug "Adding foreign pool metadata VDIs to cache: [%s]"
+		(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context ~self:vdi) vdis_of_foreign_pool));
+	add_vdis_to_cache ~__context ~vdis:vdis_of_foreign_pool;
+	debug "Found metadata VDIs created by this pool: [%s]"
+		(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context ~self:vdi) vdis_of_this_pool));
+	if vdis_of_this_pool <> [] then begin
+		let target_vdi = List.hd vdis_of_this_pool in
+		let vdi_uuid = Db.VDI.get_uuid ~__context ~self:target_vdi in
+		try
+			Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback:(fun () -> target_vdi);
+			debug "Re-enabled database replication to VDI %s" vdi_uuid
+		with e ->
+			debug "Could not re-enable database replication to VDI %s - caught %s"
+				vdi_uuid (Printexc.to_string e)
+	end
+
 (* ------------ Providing signalling that an SR is ready for DR ------------- *)
 
 let processing_srs : API.ref_SR list ref = ref []
