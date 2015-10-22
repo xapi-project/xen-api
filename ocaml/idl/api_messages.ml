@@ -108,3 +108,6 @@ let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" 3L (*'A s
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" 3L (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
 
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" 3L (* A link in a bond went down or came back up *) (* Previously missing from table *)
+
+let host_cpu_features_changed = addMessage "HOST_CPU_FEATURES_CHANGED" 5L
+let pool_cpu_features_changed = addMessage "POOL_CPU_FEATURES_CHANGED" 5L
