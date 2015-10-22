@@ -24,13 +24,10 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = (pgpu_state * vgpu_type)
 		type output_t = int64
 
-		let string_of_input_t (pgpu, vgpu_type) =
-			Printf.sprintf
-				"(pgpu: %s, test vgpu_type: %s)"
-				(string_of_pgpu_state pgpu)
-				(string_of_vgpu_type vgpu_type)
+		let string_of_input_t =
+			Test_printers.(assoc_pair string_of_pgpu_state string_of_vgpu_type)
 
-		let string_of_output_t = Int64.to_string
+		let string_of_output_t = Test_printers.int64
 	end
 
 	module State = XapiDb
@@ -96,5 +93,5 @@ end))
 let test =
 	"test_pgpu_helpers" >:::
 		[
-			"test_get_remaining_capacity" >:: GetRemainingCapacity.test;
+			"test_get_remaining_capacity" >::: GetRemainingCapacity.tests;
 		]

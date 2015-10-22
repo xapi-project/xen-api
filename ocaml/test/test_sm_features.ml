@@ -232,7 +232,7 @@ end))
 let test =
 	"test_sm_features" >:::
 		[
-			"test_parse_smapiv1_features" >:: ParseSMAPIv1Features.test;
-			"test_create_smapiv2_features" >:: CreateSMAPIv2Features.test;
-			"test_create_sm_object" >:: CreateSMObject.test;
+			"test_parse_smapiv1_features" >::: ParseSMAPIv1Features.tests;
+			"test_create_smapiv2_features" >::: CreateSMAPIv2Features.tests;
+			"test_create_sm_object" >::: CreateSMObject.tests;
 		]

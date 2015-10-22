@@ -314,10 +314,10 @@ let test_vendor_model_lookup () =
 let test =
 	"test_vgpu_type" >:::
 		[
-			"test_of_conf_file" >:: NvidiaTest.OfConfFile.test;
+			"test_of_conf_file" >::: NvidiaTest.OfConfFile.tests;
 			"print_nv_types" >:: NvidiaTest.print_nv_types;
-			"read_whitelist_line" >:: IntelTest.ReadWhitelistLine.test;
-			"read_whitelist" >:: IntelTest.ReadWhitelist.test;
+			"read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
+			"read_whitelist" >::: IntelTest.ReadWhitelist.tests;
 			"test_find_or_create" >:: test_find_or_create;
 			"test_identifier_lookup" >:: test_identifier_lookup;
 			"test_vendor_model_lookup" >:: test_vendor_model_lookup;
