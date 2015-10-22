@@ -64,9 +64,9 @@ let getf : ?default:'a -> 'a field -> assoc_list -> 'a =
 	fun ?default (of_string, _) record ->
 		try of_string record
 		with Not_found as e ->
+			Backtrace.is_important e;
 			match default with
 			| None ->
-				Backtrace.is_important e;
 				raise e
 			| Some d -> d
 
