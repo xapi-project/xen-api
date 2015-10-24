@@ -1,6 +1,9 @@
 A simple in-memory message broker/queue/switch
 ==============================================
 
+[![Build Status](https://travis-ci.org/xapi-project/message-switch.svg?branch=master)](https://travis-ci.org/xapi-project/message-switch)
+[![Coverage Status](https://coveralls.io/repos/xapi-project/message-switch/badge.svg?branch=master)](https://coveralls.io/r/xapi-project/message-switch?branch=master)
+
 This is a simple in-memory message broker (or "queue" or "switch"). A deployment
 consists of one switch server process and multiple clients. A low-level protocol
 allows clients to connect to the switch server process and:
