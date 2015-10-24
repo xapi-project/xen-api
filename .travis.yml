@@ -1,8 +1,11 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh && bash -ex .coveralls.sh
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
+script: bash -ex .travis-opam.sh && bash -ex travis-coveralls.sh
 env:
   global:
     - OCAML_VERSION=4.02
     - PACKAGE=message-switch
     - PINS="shared-block-ring:git://github.com/mirage/shared-block-ring"
+    - COV_CONF="./configure"

@@ -49,7 +49,6 @@ install: setup.bin
 #test: setup.bin build
 #	@./setup.bin -test
 test:
-	rm -f bisect* # stale results
 	./basic-rpc-test.sh
 
 
