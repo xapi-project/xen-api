@@ -1111,7 +1111,7 @@ let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_t
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
 			let vgpus : Vgpu.t list = VGPU_DB.vgpus id |> vgpu_plug_order in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus []
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
 			let vm = VM_DB.read_exn id in
@@ -1139,7 +1139,7 @@ let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_t
 			then failwith (Printf.sprintf "%s doesn't exist" id);
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
-			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
+			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data []
 		| VM_delay (id, t) ->
 			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t

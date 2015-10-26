@@ -125,7 +125,7 @@ let destroy_nolock vm () =
 	(* Idempotent *)
 	if DB.exists vm.Vm.id then DB.delete vm.Vm.id
 
-let build_nolock vm vbds vifs vgpus () =
+let build_nolock vm vbds vifs vgpus extras () =
 	debug "Domain.build vm=%s" vm.Vm.id;
 	debug "setting built <- true";
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.built = true }
@@ -153,7 +153,7 @@ let request_shutdown_nolock vm reason () =
 let save_nolock vm _ data () =
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.suspended = true }
 
-let restore_nolock vm vbds vifs data () =
+let restore_nolock vm vbds vifs data extras () =
 	DB.write vm.Vm.id { DB.read_exn vm.Vm.id with Domain.built = true }
 
 let do_pause_unpause_nolock vm paused () =
@@ -347,14 +347,14 @@ module VM = struct
 	let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
 	let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
 	let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
-	let build ?restore_fd _ vm vbds vifs vgpus = Mutex.execute m (build_nolock vm vbds vifs vgpus)
+	let build ?restore_fd _ vm vbds vifs vgpus extras = Mutex.execute m (build_nolock vm vbds vifs vgpus extras)
 	let create_device_model _ vm vbds vifs vgpus _ = Mutex.execute m (create_device_model_nolock vm)
 	let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true
 
 	let save _ cb vm flags data = Mutex.execute m (save_nolock vm flags data)
-	let restore _ cb vm vbds vifs data = Mutex.execute m (restore_nolock vm vbds vifs data)
+	let restore _ cb vm vbds vifs data extras = Mutex.execute m (restore_nolock vm vbds vifs data extras)
 
 	let s3suspend _ vm = ()
 	let s3resume _ vm = ()

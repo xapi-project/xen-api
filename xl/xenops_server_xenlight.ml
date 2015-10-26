@@ -1953,7 +1953,7 @@ module VM = struct
 	) Newest task vm
 
 	(*let create task memory_upper_bound vm vbds =*)
-	let build ?restore_fd task vm vbds vifs vgpus =
+	let build ?restore_fd task vm vbds vifs vgpus extras =
 		let memory_upper_bound = None in
 		let k = vm.Vm.id in
 
@@ -2449,7 +2449,7 @@ module VM = struct
 					)
 			) Oldest task vm
 
-	let restore task progress_callback vm vbds vifs data =
+	let restore task progress_callback vm vbds vifs data extras =
 		with_xs (fun xs ->
 			with_data ~xs task data false (fun fd ->
 				let vbds = List.filter (fun vbd -> vbd.Vbd.mode = Vbd.ReadOnly) vbds in
@@ -2459,7 +2459,7 @@ module VM = struct
 					error "VM = %s; read invalid save file signature: \"%s\"" vm.Vm.id read_signature;
 					raise Restore_signature_mismatch
 				end;
-				build ~restore_fd:fd task vm vbds vifs []
+				build ~restore_fd:fd task vm vbds vifs [] extras
 			)
 		)
 

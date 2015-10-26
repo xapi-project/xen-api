@@ -68,7 +68,7 @@ module type S = sig
 		val add: Vm.t -> unit
 		val remove: Vm.t -> unit
 		val create: Xenops_task.t -> int64 option -> Vm.t -> unit
-		val build: ?restore_fd:Unix.file_descr -> Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> unit (* XXX cancel *)
+		val build: ?restore_fd:Unix.file_descr -> Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list ->  unit (* XXX cancel *)
 		val create_device_model: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> bool -> unit
 		val destroy_device_model: Xenops_task.t -> Vm.t -> unit
 		val destroy: Xenops_task.t -> Vm.t -> unit
@@ -82,7 +82,7 @@ module type S = sig
 		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
 
 		val save: Xenops_task.t -> progress_cb -> Vm.t -> flag list -> data -> unit
-		val restore: Xenops_task.t -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> unit
+		val restore: Xenops_task.t -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> string list -> unit
 
 		val s3suspend: Xenops_task.t -> Vm.t -> unit
 		val s3resume: Xenops_task.t -> Vm.t -> unit
