@@ -44,20 +44,17 @@ let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 	debug "Creating passthrough VGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
 	let pgpus = List.intersect compatible_pgpus available_pgpus in
-	let rec reserve_one = function
+	let rec choose_pgpu = function
 		| [] -> None
 		| pgpu :: remaining ->
 			try
 				Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context
 					~self:pgpu ~vgpu_type:vgpu.type_ref;
-				let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-				if Pciops.reserve ~__context pci then
-					Some (pgpu, pci)
-				else failwith "Could not reserve PCI" (* will retry remaining *)
-			with _ -> reserve_one remaining
+				Some (pgpu, Db.PGPU.get_PCI ~__context ~self:pgpu)
+			with _ -> choose_pgpu remaining
 	in
 	Threadext.Mutex.execute m (fun () ->
-		match reserve_one pgpus with
+		match choose_pgpu pgpus with
 		| None ->
 			raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
 				Ref.string_of vm;
