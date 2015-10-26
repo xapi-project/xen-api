@@ -3821,7 +3821,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let atomic_set_resident_on ~__context ~self ~value =
 			info "VGPU.atomic_set_resident_on: VGPU = '%s'; PGPU = '%s'"
 				(vgpu_uuid ~__context self) (pgpu_uuid ~__context value);
-			Local.VGPU.atomic_set_resident_on ~__context ~self ~value
+			(* Need to prevent the host chooser being run while these fields are being modified *)
+			Helpers.with_global_lock
+				(fun () ->
+					Db.VGPU.set_resident_on ~__context ~self ~value;
+					Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
+				)
 	end
 
 	module VGPU_type = struct end
