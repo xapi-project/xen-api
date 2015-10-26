@@ -1715,6 +1715,20 @@ let update_pci ~__context id =
 							 * assigned or unassigned. *)
 							Pciops.unreserve ~__context pci;
 
+							match vgpu_opt with
+							| Some vgpu -> begin
+								let scheduled =
+									Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+								in
+								if Db.is_valid_ref __context scheduled && state.plugged
+								then
+									Helpers.call_api_functions ~__context
+										(fun rpc session_id ->
+											XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+												~self:vgpu ~value:scheduled)
+							end
+							| None -> ();
+
 							Opt.iter
 								(fun vgpu ->
 									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
