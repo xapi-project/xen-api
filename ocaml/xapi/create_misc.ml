@@ -403,11 +403,31 @@ let create_host_cpu ~__context =
 	let open Xapi_xenops_queue in
 	let open Map_check in
 	let open Cpuid_helpers in
+	let open Xenops_interface.Host in
 	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
 	let dbg = Context.string_of_task __context in
 	let stat = Client.HOST.stat dbg in
 
-	let open Xenops_interface.Host in
+	(* To support VMs migrated from hosts that do not support the new CPU levelling ("levelling v2"),
+	 * the "features" key is set to (approximately) what it would be on such hosts.
+	 * To do this, we take the HVM features of the host, and add in any features that we don't care
+	 * about for migration, such that the absence of such features will not cause a migration to be
+	 * disallowed from the sender. *)
+	let features_compat =
+		let features = Array.sub stat.cpu_info.features_hvm 0 4 in
+		try
+			let dontcares = one_extend (features_of_string !Xapi_globs.cpu_features_dontcare_mask) 4 in
+			let dontcares = Array.sub dontcares 0 4 in
+			Array.mapi (fun i f ->
+				dontcares.(i)
+				|> Int64.lognot
+				|> Int64.logand 0xffffffffL
+				|> Int64.logor f
+			) features
+		with InvalidFeatureString _ ->
+			features
+	in
+
 	let cpu = [
 		"cpu_count", string_of_int stat.cpu_info.cpu_count;
 		"socket_count", string_of_int stat.cpu_info.socket_count;
@@ -418,7 +438,7 @@ let create_host_cpu ~__context =
 		"model", stat.cpu_info.model;
 		"stepping", stat.cpu_info.stepping;
 		"flags", stat.cpu_info.flags;
-		"features", Cpuid_helpers.string_of_features stat.cpu_info.features;
+		"features", Cpuid_helpers.string_of_features features_compat;
 		"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
 		"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
 	] in
