@@ -1111,7 +1111,12 @@ let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_t
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
 			let vgpus : Vgpu.t list = VGPU_DB.vgpus id |> vgpu_plug_order in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus
+			let extras : string list = match PCI_DB.pcis id |> pci_plug_order with
+			| [] -> []
+			| pcis  ->
+				 let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
+				 [ "-pci_passthrough"; String.concat "," sbdfs] in
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus extras
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
 			let vm = VM_DB.read_exn id in
@@ -1139,7 +1144,12 @@ let perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_t
 			then failwith (Printf.sprintf "%s doesn't exist" id);
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
-			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
+			let extras : string list = match PCI_DB.pcis id with
+			| [] -> []
+			| pcis  ->
+				 let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
+				 [ "-pci_passthrough"; String.concat "," sbdfs] in
+			B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data extras
 		| VM_delay (id, t) ->
 			debug "VM %s: waiting for %.2f before next VM action" id t;
 			Thread.delay t
