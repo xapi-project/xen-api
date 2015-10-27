@@ -617,7 +617,7 @@ let maybe_push_sr_rrds ~__context ~sr =
 		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
 		let gzipped_rrds = Xapi_vdi_helpers.read_raw ~__context ~vdi in
 		begin match gzipped_rrds with
-			| None -> debug "stats vdi doesn't have rdds"
+			| None -> debug "Stats VDI has no SR RRDs"
 			| Some x ->
 				Unixext.write_string_to_file sr_rrds_path x;
 				Rrdd.push_sr_rrd ~sr_uuid
