@@ -1960,7 +1960,32 @@ module VM = struct
 				   Any changes will take place on next reboot. *)
 				if DB.exists id
 				then debug "Overwriting VM metadata for VM: %s" id;
-				let vm = add' md.Metadata.vm in
+				let platformdata = md.Metadata.vm.Vm.platformdata in
+				debug "Platformdata:featureset=%s" (try List.assoc "featureset" platformdata with Not_found -> "(absent)");
+				let platformdata =
+					(* If platformdata does not contain a featureset, then we are importing
+					 * a VM that comes from a levelling-v1 host. In this case, give it a featureset
+					 * that contains all features that this host has to offer. *)
+					if not (List.mem_assoc "featureset" platformdata) then
+						let string_of_features features =
+							Array.map (Printf.sprintf "%08Lx") features
+								|> Array.to_list
+								|> String.concat "-"
+						in
+						let fs =
+							let stat = B.HOST.stat () in
+							(match md.Metadata.vm.Vm.ty with
+								| HVM _ -> Host.(stat.cpu_info.features_hvm)
+								| _ -> Host.(stat.cpu_info.features_pv))
+							|> string_of_features
+						in
+						debug "Setting Platformdata:featureset=%s" fs;
+						("featureset", fs) :: platformdata
+					else
+						platformdata
+				in
+				let vm = add' {md.Metadata.vm with platformdata} in
+				
 				let vbds = List.map
 					(fun x ->
 						(* If receiving an HVM migration from XS 6.2 or earlier, the hd*
