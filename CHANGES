@@ -1,3 +1,6 @@
+0.9.10 (27-Oct-2015)
+* use non-blocking Async print functions
+
 0.9.9 (15-Aug-2015)
 * support for RRD updates
 * API changes corresponding to XenServer dundee aplha 3, including
