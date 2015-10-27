@@ -592,8 +592,9 @@ let find_or_create_rrd_vdi ~__context ~sr =
 	))
 	with
 	| [] -> begin
+		let virtual_size = Int64.of_int Xapi_vdi_helpers.VDI_CStruct.vdi_size in
 		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
-			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size:(Int64.of_int 4194304)
+			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size
 			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
 		in
 		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
