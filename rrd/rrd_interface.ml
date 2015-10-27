@@ -44,12 +44,11 @@ type interdomain_info = {
 	shared_page_refs: int list;
 }
 
+exception Archive_failed of string
+
 (* The interface is defined by extern function declarations. *)
 
 external has_vm_rrd : vm_uuid:string -> bool = ""
-external sr_rrds_path : sr_uuid:string -> string = ""
-external archive_sr_rrd : sr_uuid:string -> unit = ""
-external push_sr_rrd : sr_uuid:string -> unit = ""
 
 external push_rrd : vm_uuid:string -> domid:int -> is_on_localhost:bool ->
 	unit -> unit = ""
@@ -58,6 +57,9 @@ external migrate_rrd : ?session_id:string -> remote_address:string ->
 	vm_uuid:string -> host_uuid:string -> unit -> unit = ""
 external send_host_rrd_to_master : unit -> unit = ""
 external backup_rrds : ?save_stats_locally:bool -> unit -> unit = ""
+
+external archive_sr_rrd : sr_uuid:string -> string = ""
+external push_sr_rrd : sr_uuid:string -> path:string -> unit = ""
 
 external add_host_ds : ds_name:string -> unit = ""
 external forget_host_ds : ds_name:string -> unit = ""
