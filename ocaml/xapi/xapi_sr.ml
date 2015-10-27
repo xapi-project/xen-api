@@ -613,24 +613,26 @@ let should_manage_stats ~__context sr =
 let maybe_push_sr_rrds ~__context ~sr =
 	if should_manage_stats ~__context sr then
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
-		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
-		let gzipped_rrds = Xapi_vdi_helpers.read_raw ~__context ~vdi in
-		begin match gzipped_rrds with
-			| None -> debug "stats vdi doesn't have rdds"
-			| Some x ->
-				Unixext.write_string_to_file sr_rrds_path x;
-				Rrdd.push_sr_rrd ~sr_uuid
-		end
+		match Xapi_vdi_helpers.read_raw ~__context ~vdi with
+		| None -> debug "Stats VDI has no SR RRDs"
+		| Some x ->
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			let tmp_path = Filename.temp_file "push_sr_rrds" ".gz" in
+			finally (fun () ->
+				Unixext.write_string_to_file tmp_path x;
+				Rrdd.push_sr_rrd ~sr_uuid ~path:tmp_path
+			) (fun () -> Unixext.unlink_safe tmp_path)
 
 let maybe_copy_sr_rrds ~__context ~sr =
 	if should_manage_stats ~__context sr then
 		let vdi = find_or_create_rrd_vdi ~__context ~sr in
 		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-		Rrdd.archive_sr_rrd ~sr_uuid;
-		let sr_rrds_path = Rrdd.sr_rrds_path ~sr_uuid in
-		let contents = Unixext.string_of_file sr_rrds_path in
-		Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
+		try
+			let archive_path = Rrdd.archive_sr_rrd ~sr_uuid in
+			let contents = Unixext.string_of_file archive_path in
+			Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
+		with Rrd_interface.Archive_failed(msg) ->
+			warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
 let physical_utilisation_thread ~__context () =
 	let module SRMap =
