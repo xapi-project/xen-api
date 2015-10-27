@@ -38,8 +38,6 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
 let vgpus_of_vm ~__context vm_r =
 	List.map (vgpu_of_vgpu ~__context vm_r) vm_r.API.vM_VGPUs
 
-let m = Mutex.create ()
-
 let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 	debug "Creating passthrough VGPUs";
 	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
@@ -53,19 +51,17 @@ let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
 				Some (pgpu, Db.PGPU.get_PCI ~__context ~self:pgpu)
 			with _ -> choose_pgpu remaining
 	in
-	Threadext.Mutex.execute m (fun () ->
-		match choose_pgpu pgpus with
-		| None ->
-			raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-				Ref.string_of vm;
-				Ref.string_of vgpu.gpu_group_ref
-			]))
-		| Some (pgpu, pci) ->
-			Db.VGPU.set_scheduled_to_be_resident_on ~__context
-				~self:vgpu.vgpu_ref ~value:pgpu;
-			List.filter (fun g -> g <> pgpu) available_pgpus,
-			pci :: pcis
-	)
+	match choose_pgpu pgpus with
+	| None ->
+		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+			Ref.string_of vm;
+			Ref.string_of vgpu.gpu_group_ref
+		]))
+	| Some (pgpu, pci) ->
+		Db.VGPU.set_scheduled_to_be_resident_on ~__context
+			~self:vgpu.vgpu_ref ~value:pgpu;
+		List.filter (fun g -> g <> pgpu) available_pgpus,
+		pci :: pcis
 
 let add_pcis_to_vm ~__context host vm passthru_vgpus =
 	let pcis =
@@ -122,25 +118,23 @@ let create_virtual_vgpu ~__context host vm vgpu =
 				Some pgpu
 			with _ -> allocate_vgpu vgpu_type remaining_pgpus
 	in
-	Threadext.Mutex.execute m (fun () ->
-		let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
-				(fun pgpu ->
-				Helpers.call_api_functions ~__context (fun rpc session_id ->
-						Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
-						~self:pgpu ~vgpu_type:vgpu.type_ref))
-				pgpus
-		in
-		match allocate_vgpu vgpu.type_ref sorted_pgpus with
-		| None ->
-			raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
-				Ref.string_of vm;
-				Ref.string_of vgpu.gpu_group_ref;
-				Ref.string_of vgpu.type_ref
-			]))
-		| Some pgpu ->
-			Db.VGPU.set_scheduled_to_be_resident_on ~__context
-				~self:vgpu.vgpu_ref ~value:pgpu;
-	)
+	let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
+			(fun pgpu ->
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+					Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
+					~self:pgpu ~vgpu_type:vgpu.type_ref))
+			pgpus
+	in
+	match allocate_vgpu vgpu.type_ref sorted_pgpus with
+	| None ->
+		raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
+			Ref.string_of vm;
+			Ref.string_of vgpu.gpu_group_ref;
+			Ref.string_of vgpu.type_ref
+		]))
+	| Some pgpu ->
+		Db.VGPU.set_scheduled_to_be_resident_on ~__context
+			~self:vgpu.vgpu_ref ~value:pgpu
 
 let add_vgpus_to_vm ~__context host vm vgpus =
 	(* Only support a maximum of one virtual GPU per VM for now. *)
