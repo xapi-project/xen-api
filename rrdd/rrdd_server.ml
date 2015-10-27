@@ -21,36 +21,38 @@ open Pervasiveext
 open Xstringext
 open Threadext
 open Rrdd_shared
+open Rrd_interface
 
 module D = Debug.Make(struct let name="rrdd_server" end)
 open D
 
-let sr_rrds_path _ ~(sr_uuid : string) : string =
-	Filename.concat sr_rrds_location (sr_uuid ^ ".gz")
-
-let archive_sr_rrd _ ~(sr_uuid : string) : unit =
-	if Mutex.try_lock mutex then begin
-		let srrds =
-			try
-				Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) sr_rrds []
-			with exn ->
-				Mutex.unlock mutex;
-				raise exn
-		in
-		Mutex.unlock mutex;
-		try
-			let rrd = List.assoc sr_uuid srrds in
-			archive_rrd ~uuid:sr_uuid ~rrd ()
-		with Not_found -> ()
-	end
-
-let get_sr_rrd ~sr_uuid =
-	let path = Filename.concat sr_rrds_location sr_uuid in
-	rrd_of_gzip path
-
-let push_sr_rrd _ ~(sr_uuid : string) : unit =
+let archive_sr_rrd _ ~(sr_uuid : string) : string =
+	let sr_rrd = Mutex.execute mutex (fun () ->
+		try (Hashtbl.find sr_rrds sr_uuid)
+		with Not_found ->
+			let msg = Printf.sprintf "No RRD found for SR: %s." sr_uuid in
+			raise (Archive_failed(msg))
+	) in
 	try
-		let rrd = get_sr_rrd ~sr_uuid in
+		archive_rrd ~uuid:sr_uuid ~rrd:sr_rrd.rrd ();
+		let archive_path =
+			Filename.concat Constants.rrd_location (sr_uuid ^ ".gz") in
+		if not (Unixext.file_exists archive_path) then begin
+			let msg = Printf.sprintf "Archive not found: %s." archive_path in
+			raise (Archive_failed(msg))
+		end;
+		archive_path
+	with e ->
+		let msg = Printf.sprintf "Exception raised: %s." (Printexc.to_string e) in
+		raise (Archive_failed(msg))
+
+let push_sr_rrd _ ~(sr_uuid : string) ~(path : string) : unit =
+	try
+		let path =
+			if Filename.check_suffix path ".gz"
+			then Filename.chop_suffix path ".gz"
+			else path in
+		let rrd = rrd_of_gzip path in
 		debug "Pushing RRD for SR uuid=%s locally" sr_uuid;
 		Mutex.execute mutex (fun _ ->
 			Hashtbl.replace sr_rrds sr_uuid {rrd; dss=[]; domid=0}
