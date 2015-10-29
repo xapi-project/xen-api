@@ -153,19 +153,6 @@ let introduce  ~__context ~uuid ~name_label
 let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
 	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
-
-(** Before destroying an SR record, unplug and destroy referencing PBDs. If any of these
-    operations fails, the ensuing exception should keep the SR record around. *)
-let unplug_and_destroy_pbds ~__context ~self =
-	let pbds = Db.SR.get_PBDs ~__context ~self in
-	Helpers.call_api_functions
-		(fun rpc session_id ->
-			List.iter
-				(fun pbd ->
-					Client.PBD.unplug ~rpc ~session_id ~self:pbd;
-					Client.PBD.destroy ~rpc ~session_id ~self:pbd)
-				pbds)
-
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
