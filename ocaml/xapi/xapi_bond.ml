@@ -288,7 +288,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [ Db.PIF.get_device_name ~__context ~self] ));
 			if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
 			then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
-			let pool = List.hd (Db.Pool.get_all ~__context) in
+			let pool = Helpers.get_pool ~__context in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
 			then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 			if Db.PIF.get_managed ~__context ~self <> true
@@ -424,7 +424,7 @@ let destroy ~__context ~self =
 		let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
 
 		(* CA-86573: forbid the deletion of a bond involving the mgmt interface if HA is on *)
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = Helpers.get_pool ~__context in
 		if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self:master
 		then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
 

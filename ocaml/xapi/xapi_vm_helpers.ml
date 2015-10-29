@@ -607,7 +607,7 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 	| _ ->
 		let choices =
 			if prefer_slaves then
-				let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+				let master = Helpers.get_master ~__context in
 				List.filter ((<>) master) choices
 			else choices in
 		List.nth choices (Random.int (List.length choices))

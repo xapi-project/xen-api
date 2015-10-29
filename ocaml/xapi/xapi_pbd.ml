@@ -114,8 +114,7 @@ let check_sharing_constraint ~__context ~sr =
 
 let check_plugged_on_master_constraint ~__context ~sr =
 	if Db.SR.get_shared ~__context ~self:sr then
-		let pool = Helpers.get_pool ~__context in
-		let master = Db.Pool.get_master ~__context ~self:pool in
+		let master = Helpers.get_master ~__context in
 		let plugged_master_pbds = [
 			Eq (Field "SR", Literal (Ref.string_of sr));
 			Eq (Field "host", Literal (Ref.string_of master));
@@ -130,8 +129,7 @@ let check_plugged_on_master_constraint ~__context ~sr =
 
 let check_unplugged_on_slaves_constraint ~__context ~sr =
 	if Db.SR.get_shared ~__context ~self:sr then
-		let pool = Helpers.get_pool ~__context in
-		let master = Db.Pool.get_master ~__context ~self:pool in
+		let master = Helpers.get_master ~__context in
 		let plugged_slave_pbds = [
 			Eq (Field "SR", Literal (Ref.string_of sr));
 			Not (Eq (Field "host", Literal (Ref.string_of master)));
@@ -186,7 +184,7 @@ let unplug ~__context ~self =
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
 			(* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
-			let pool = List.hd (Db.Pool.get_all ~__context) in
+			let pool = Helpers.get_pool ~__context in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
 				let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
 				let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in

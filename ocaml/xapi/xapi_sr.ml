@@ -153,19 +153,6 @@ let introduce  ~__context ~uuid ~name_label
 let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
 	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
-
-(** Before destroying an SR record, unplug and destroy referencing PBDs. If any of these
-    operations fails, the ensuing exception should keep the SR record around. *)
-let unplug_and_destroy_pbds ~__context ~self =
-	let pbds = Db.SR.get_PBDs ~__context ~self in
-	Helpers.call_api_functions
-		(fun rpc session_id ->
-			List.iter
-				(fun pbd ->
-					Client.PBD.unplug ~rpc ~session_id ~self:pbd;
-					Client.PBD.destroy ~rpc ~session_id ~self:pbd)
-				pbds)
-
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
@@ -221,8 +208,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			let create_on_host host =
 				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
 			in
-			let pool = Helpers.get_pool ~__context in
-			let master = Db.Pool.get_master ~__context ~self:pool in
+			let master = Helpers.get_master ~__context in
 			let hosts = master :: (List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)) in
 			List.map create_on_host hosts
 		else

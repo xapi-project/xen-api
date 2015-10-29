@@ -91,8 +91,7 @@ let ha_disable_in_progress ~__context =
 
 let get_master_slaves_list_with_fn ~__context fn =
 	let _unsorted_hosts = Db.Host.get_all ~__context in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
 	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
 		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);

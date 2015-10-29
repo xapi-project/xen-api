@@ -182,7 +182,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
 	let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
 	let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
 	if Helpers.is_sr_shared ~__context ~self then
-		let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+		let master = Helpers.get_master ~__context in
 		let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
 		(* shared SR operations must happen on the master *)
 		match Listext.List.intersect pbds_to_consider master_pbds with

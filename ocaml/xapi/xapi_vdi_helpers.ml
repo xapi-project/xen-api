@@ -35,8 +35,7 @@ let metadata_replication : ((API.ref_VDI, (API.ref_VBD * Redo_log.redo_log)) Has
 	Hashtbl.create Xapi_globs.redo_log_max_instances
 
 let get_master_dom0 ~__context =
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let vms = Db.Host.get_resident_VMs ~__context ~self:master in
 	List.hd (List.filter (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) vms)
 

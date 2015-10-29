@@ -770,7 +770,7 @@ let local_management_reconfigure ~__context ~interface =
 
 let management_reconfigure ~__context ~pif =
 	(* Disallow if HA is enabled *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -805,7 +805,7 @@ let management_reconfigure ~__context ~pif =
 
 let management_disable ~__context =
   (* Disallow if HA is enabled *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
+  let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -1290,7 +1290,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
 
 let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
 	else
