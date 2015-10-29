@@ -581,6 +581,9 @@ let get_shared_srs ~__context =
 
 let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 
+let get_master ~__context =
+	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
+
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
