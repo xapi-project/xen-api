@@ -153,6 +153,20 @@ let introduce  ~__context ~uuid ~name_label
 let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
 	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
+let get_pbds ~__context ~self ~attached ~master_pos =
+	let master = Helpers.get_master ~__context in
+	let master_condition = Eq (Field "host", Literal (Ref.string_of master)) in
+	let sr_condition = Eq (Field "SR", Literal (Ref.string_of self)) in
+	let plugged_condition = Eq (Field "currently_attached", Literal (string_of_bool attached)) in
+	let all = List.fold_left (fun acc p -> And (acc, p)) True in
+	let master_pbds = Db.PBD.get_refs_where ~__context
+		~expr:(all [master_condition; sr_condition; plugged_condition]) in
+	let slave_pbds = Db.PBD.get_refs_where ~__context
+		~expr:(all [Not master_condition; sr_condition; plugged_condition]) in
+	match master_pos with
+	| `First -> master_pbds @ slave_pbds
+	| `Last -> slave_pbds @ master_pbds
+
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
