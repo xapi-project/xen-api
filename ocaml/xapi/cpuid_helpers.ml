@@ -46,6 +46,12 @@ let zero_extend arr len =
 	let zero_arr = Array.make len 0L in 
 	extend arr zero_arr
 
+(** If arr is shorter than len elements, extend with 32-bit ones up to len elements.
+ *  Otherwise, truncate arr to len elements. *)
+let one_extend arr len =
+	let one_arr = Array.make len 0xffffffffL in (* we only use the lower 32 bits *)
+	extend arr one_arr
+
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
