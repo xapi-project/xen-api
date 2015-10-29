@@ -184,7 +184,7 @@ let unplug ~__context ~self =
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
 			(* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
-			let pool = List.hd (Db.Pool.get_all ~__context) in
+			let pool = Helpers.get_pool ~__context in
 			if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
 				let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
 				let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in

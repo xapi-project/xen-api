@@ -117,7 +117,7 @@ let upgrade_wlb_configuration = {
     version = (fun _ -> true);
     fn = fun ~__context ->
 		(* there can be only one pool *)
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = Helpers.get_pool ~__context in
 		(* get a Secret reference that makes sense, if there is no password ("")
 		   then use null, otherwise convert if clear-text and else keep what's
 		   there *)

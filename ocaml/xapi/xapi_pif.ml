@@ -184,7 +184,7 @@ let assert_no_protection_enabled ~__context ~self =
 	 * then refuse to reconfigure the interface at all *)
 	if Db.PIF.get_currently_attached ~__context ~self
 	then begin
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = Helpers.get_pool ~__context in
 		if Db.Pool.get_ha_enabled ~__context ~self:pool
 		then raise (Api_errors.Server_error
 			(Api_errors.ha_is_enabled, []))

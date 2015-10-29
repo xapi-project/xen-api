@@ -57,6 +57,11 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
+let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
+
+let get_master ~__context =
+	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
+
 let get_primary_ip_addr ~__context iface primary_address_type =
 	if iface = "" then
 		None
@@ -411,7 +416,7 @@ let string_of_boot_method = function
    the db for the first time). In that context you cannot be in rolling upgrade mode *)
 let rolling_upgrade_in_progress ~__context =
 	try
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = get_pool ~__context in
 		List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool)
 	with _ ->
 		false
@@ -578,11 +583,6 @@ let is_sr_shared ~__context ~self = List.length (Db.SR.get_PBDs ~__context ~self
 let get_shared_srs ~__context =
   let srs = Db.SR.get_all ~__context in
   List.filter (fun self -> is_sr_shared ~__context ~self) srs
-
-let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
-
-let get_master ~__context =
-	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
 
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
