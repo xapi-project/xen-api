@@ -588,9 +588,8 @@ let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
 let is_pool_master ~__context ~host =
-	let pool = get_pool ~__context in
 	let host_id = Db.Host.get_uuid ~__context ~self:host in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	let master_id = Db.Host.get_uuid ~__context ~self:master in
 	host_id = master_id
 
@@ -681,8 +680,7 @@ let host_versions_not_decreasing ~__context ~host_from ~host_to =
 
 let is_platform_version_same_on_master ~__context ~host =
 	if is_pool_master ~__context ~host then true else
-	let pool = get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	compare_host_platform_versions ~__context (LocalObject master) (LocalObject host) = 0
 
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
@@ -1189,9 +1187,8 @@ let vm_string_to_assoc vm_string =
 let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let pool = get_pool ~__context in
   if shared
-  then Db.Pool.get_master ~__context ~self:pool
+  then get_master ~__context
   else begin
     match List.length pbds with
     | 0 ->

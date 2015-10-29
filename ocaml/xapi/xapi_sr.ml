@@ -208,8 +208,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			let create_on_host host =
 				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
 			in
-			let pool = Helpers.get_pool ~__context in
-			let master = Db.Pool.get_master ~__context ~self:pool in
+			let master = Helpers.get_master ~__context in
 			let hosts = master :: (List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)) in
 			List.map create_on_host hosts
 		else

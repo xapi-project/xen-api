@@ -99,8 +99,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
 			[Printf.sprintf "Disaster recovery not supported on SRs of type %s" _type]));
 	(* Probe the specified device for SRs. *)
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let probe_result = Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			Client.SR.probe ~rpc ~session_id

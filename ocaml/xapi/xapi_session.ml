@@ -149,8 +149,7 @@ let revalidate_external_session ~__context ~session =
 	if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered session) then
 
 	(* 1. is the external authentication disabled in the pool? *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
 	if auth_type = ""
 	then begin (* if so, we must immediatelly destroy this external session *)
@@ -722,8 +721,7 @@ let create_readonly_session ~__context ~uname =
 	debug "Creating readonly session.";
 	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
 	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
 		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
 		~auth_user_name:uname ~rbac_permissions

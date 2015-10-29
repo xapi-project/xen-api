@@ -779,7 +779,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
 		if host <> Ref.null then host else
-			Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+			Helpers.get_master ~__context in
 
 	let migration_type =
 		try
