@@ -109,5 +109,7 @@ let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALR
 
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" 3L (* A link in a bond went down or came back up *) (* Previously missing from table *)
 
-let host_cpu_features_changed = addMessage "HOST_CPU_FEATURES_CHANGED" 5L
-let pool_cpu_features_changed = addMessage "POOL_CPU_FEATURES_CHANGED" 5L
+let host_cpu_features_down = addMessage "HOST_CPU_FEATURES_CHANGED" 3L
+let host_cpu_features_up = addMessage "HOST_CPU_FEATURES_CHANGED" 5L
+let pool_cpu_features_down = addMessage "POOL_CPU_FEATURES_CHANGED" 5L
+let pool_cpu_features_up = addMessage "POOL_CPU_FEATURES_CHANGED" 5L
