@@ -736,7 +736,12 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			Impl.SR.set_name_description context ~dbg ~sr ~new_name_description
 
 		let attach context ~dbg ~sr ~device_config =
-			info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg sr (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) device_config));
+			let censor_key = ["password"] in
+			let device_config_str = String.concat "; " (List.map (fun (k, v) ->
+				let v' = (if List.exists (Xstringext.String.has_substr k) censor_key then "(omitted)" else v) in
+				(k ^ ":" ^ v')) device_config)
+			in
+			info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg sr device_config_str;
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
