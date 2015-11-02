@@ -26,6 +26,7 @@ let int       : int printer       = Printf.sprintf "%d"
 let string    : string printer    = Printf.sprintf "%S"
 let char      : char printer      = Printf.sprintf "%C"
 let float     : float printer     = Printf.sprintf "%F" 
+let bool      : bool printer      = Printf.sprintf "%B" 
 let exn       : exn printer       = Printexc.to_string
 
 
