@@ -311,6 +311,54 @@ module Modifiers = Generic.Make (struct
 end)
 
 
+module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = (string * string) list
+		type output_t = string list
+
+		let string_of_input_t = Test_printers.(list (pair string string))
+		let string_of_output_t = Test_printers.(list string)
+	end
+	module State = XapiDb
+
+	let features_hvm = "feedface-feedface"
+	let features_pv  = "deadbeef-deadbeef"
+
+	let load_input __context vms =
+		let cpu_info = [
+			"cpu_count", "1";
+			"socket_count", "1";
+			"vendor", "Abacus";
+			"features_pv", features_pv;
+			"features_hvm", features_hvm;
+		] and master = Test_common.make_host ~__context () in
+		Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
+		ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
+
+		List.iter
+			(fun (name_label, hVM_boot_policy) ->
+				ignore (Test_common.make_vm ~__context ~name_label 
+					~hVM_boot_policy ()))
+			vms
+
+	let extract_output __context vms =
+		let get_flags (label, _) =
+			let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+			Cpuid_helpers.reset_cpu_flags ~__context ~vm;
+			let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+			try List.assoc Xapi_globs.cpu_info_features_key flags 
+			with Not_found -> ""
+		in List.map get_flags vms
+		
+
+	(* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
+	let tests = [
+		(["a", "BIOS order"], [features_hvm]);
+		(["a", ""], [features_pv]);
+		(["a", "BIOS order"; "b", ""], [features_hvm; features_pv]);
+	]
+end))
+
 let test =
 	"test_cpuid_helpers" >:::
 		[
@@ -334,4 +382,6 @@ let test =
 				Setters.tests;
 			"test_modifiers" >:::
 				Modifiers.tests;
+			"test_reset_cpu_flags" >:::
+				ResetCPUFlags.tests;
 		]
