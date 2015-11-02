@@ -353,7 +353,7 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 	let features_hvm = "feedface-feedface"
 	let features_pv  = "deadbeef-deadbeef"
 
-	let load_input __context vms =
+	let load_input __context cases =
 		let cpu_info = [
 			"cpu_count", "1";
 			"socket_count", "1";
@@ -364,17 +364,17 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 		Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
 		ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
 
-		List.iter
+		let vms = List.map
 			(fun (name_label, hVM_boot_policy) ->
-				ignore (Test_common.make_vm ~__context ~name_label 
-					~hVM_boot_policy ()))
-			vms
+				Test_common.make_vm ~__context ~name_label 
+					~hVM_boot_policy ())
+			cases in
+		List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
 
 	let extract_output __context vms =
 		let get_flags (label, _) =
-			let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-			Cpuid_helpers.reset_cpu_flags ~__context ~vm;
-			let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+			let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+			let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
 			try List.assoc Xapi_globs.cpu_info_features_key flags 
 			with Not_found -> ""
 		in List.map get_flags vms
