@@ -115,7 +115,7 @@ let set_flags ~__context self vendor features =
 
 (* Reset last_boot_CPU_flags with the vendor and feature set.
  * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
-let reset_cpu_flags ~__context ~vm ~host =
+let reset_cpu_flags ~__context ~vm =
 	let pool_vendor, pool_features =
 		let pool = Helpers.get_pool ~__context in
 		let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
