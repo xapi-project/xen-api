@@ -186,30 +186,31 @@ module Intersect = Generic.Make (struct
 end)
 
 
-module IsSubsetOrEqual = Generic.Make (struct
+module Comparisons = Generic.Make (struct
 	module Io = struct
 		type input_t = int64 array * int64 array
-		type output_t = bool
+		type output_t = (bool * bool)
 		let string_of_input_t = Test_printers.(pair (array int64) (array int64))
-		let string_of_output_t = Test_printers.bool
+		let string_of_output_t = Test_printers.(pair bool bool)
 	end
 
-	let transform = fun (a, b) -> Cpuid_helpers.is_subset_or_equal a b
+	let transform = fun (a, b) -> 
+		Cpuid_helpers.(is_subset_or_equal a b, is_subset a b)
 
 	let tests = [
 		(* Some of this behaviour is counterintuitive because
                    feature flags are automatically zero-extended when 
                    compared *)
-		([| |], [| |]),            true;
-		([| 1L; 2L; 3L |], [| |]), true;
-		([| |], [| 1L; 2L; 3L |]), false;
+		([| |], [| |]),            (true, false);
+		([| 1L; 2L; 3L |], [| |]), (true, true);
+		([| |], [| 1L; 2L; 3L |]), (false, false);
 
-		([| 7L; 3L |], [| 5L; |]), false;
-		([| 5L; |], [| 7L; 3L |]), false;
+		([| 7L; 3L |], [| 5L; |]), (false, false);
+		([| 5L; |], [| 7L; 3L |]), (false, false);
 
-		([| 1L |],     [| 1L |]),     true;
-		([| 1L |],     [| 1L; 0L |]), false;
-		([| 1L; 0L |], [| 1L |]),     true;
+		([| 1L |],     [| 1L |]),     (true, false);
+		([| 1L |],     [| 1L; 0L |]), (false, false);
+		([| 1L; 0L |], [| 1L |]),     (true, true);
 	]
 end)
 
@@ -402,8 +403,8 @@ let test =
 				ZeroExtend.tests;
 			"test_intersect" >:::
 				Intersect.tests;
-			"test_is_subset_or_equal" >::: 
-				IsSubsetOrEqual.tests;
+			"test_comparisons" >::: 
+				Comparisons.tests;
 			"test_upgrade" >:::
 				Upgrade.tests;
 			"test_accessors" >:::
