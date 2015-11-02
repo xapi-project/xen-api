@@ -415,8 +415,22 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 					debug "Failed to locally authenticate user %s from %s: %s" uname (Context.get_origin __context) msg;
 					
 					(* 2. then against the external auth service *)
-					
-					(* 2.1. we first authenticate the user using the external authentication plugin *)
+					(* 2.1. we first check the external auth service status *)
+					let rec waiting_event_hook_auth_on_xapi_initialize_succeeded seconds =
+						if not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded then
+						begin
+							if seconds <= 0 then
+								let msg = (Printf.sprintf "External authentication %s service still initializing" auth_type) in
+								error "%s" msg;
+								thread_delay_and_raise_error uname msg ~error:Api_errors.session_invalid
+							else
+								debug "External authentication %s service initializing..." auth_type;
+								Thread.delay 1.0;
+								waiting_event_hook_auth_on_xapi_initialize_succeeded (seconds-1);
+						end
+					in
+					waiting_event_hook_auth_on_xapi_initialize_succeeded 120;
+					(* 2.2. we then authenticate the usee using the external authentication plugin *)
 					(* so that we know that he/she exists there *)
 					let subject_identifier = (try
 						begin
