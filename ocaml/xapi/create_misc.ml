@@ -463,7 +463,7 @@ let create_host_cpu ~__context =
 		info "%s" body;
 
 		if not (Helpers.rolling_upgrade_in_progress ~__context) then
-			let (name, priority) = Api_messages.host_cpu_features_changed in
+			let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
 			let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
 			ignore (Xapi_message.create ~__context ~name ~priority ~cls:`Host ~obj_uuid ~body)
 	end;
@@ -529,8 +529,8 @@ let create_pool_cpuinfo ~__context =
 		in
 		info "%s" body;
 
-		if not (Helpers.rolling_upgrade_in_progress ~__context) then
-			let (name, priority) = Api_messages.pool_cpu_features_changed in
+		if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 then
+			let (name, priority) = if lost then Api_messages.pool_cpu_features_down else Api_messages.pool_cpu_features_up in
 			let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
 			ignore (Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid ~body)
 	end
