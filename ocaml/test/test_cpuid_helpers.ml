@@ -186,6 +186,34 @@ module Intersect = Generic.Make (struct
 end)
 
 
+module IsSubsetOrEqual = Generic.Make (struct
+	module Io = struct
+		type input_t = int64 array * int64 array
+		type output_t = bool
+		let string_of_input_t = Test_printers.(pair (array int64) (array int64))
+		let string_of_output_t = Test_printers.bool
+	end
+
+	let transform = fun (a, b) -> Cpuid_helpers.is_subset_or_equal a b
+
+	let tests = [
+		(* Some of this behaviour is counterintuitive because
+                   feature flags are automatically zero-extended when 
+                   compared *)
+		([| |], [| |]),            true;
+		([| 1L; 2L; 3L |], [| |]), true;
+		([| |], [| 1L; 2L; 3L |]), false;
+
+		([| 7L; 3L |], [| 5L; |]), false;
+		([| 5L; |], [| 7L; 3L |]), false;
+
+		([| 1L |],     [| 1L |]),     true;
+		([| 1L |],     [| 1L; 0L |]), false;
+		([| 1L; 0L |], [| 1L |]),     true;
+	]
+end)
+
+
 module Upgrade = Generic.Make (struct
 	module Io = struct
 		type input_t = string * string
@@ -374,6 +402,8 @@ let test =
 				ZeroExtend.test;
 			"test_intersect" >:: 
 				Intersect.test;
+			"test_is_subset_or_equal" >:: 
+				IsSubsetOrEqual.test;
 			"test_upgrade" >::
 				Upgrade.test;
 			"test_accessors" >::
