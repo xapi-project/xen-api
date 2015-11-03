@@ -208,8 +208,7 @@ let start ~__context ~vm ~start_paused ~force =
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	
 	(* Reset CPU feature set, which will be passed to xenopsd *)
-	let host = Helpers.get_localhost ~__context in
-	Cpuid_helpers.reset_cpu_flags ~__context ~vm ~host;
+	Cpuid_helpers.reset_cpu_flags ~__context ~vm;
 
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
