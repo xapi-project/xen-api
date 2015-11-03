@@ -478,6 +478,89 @@ module UpdateCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 	]
 end))
 
+module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		type input_t = string * string * (string * string) list
+		type output_t = (exn, unit) Either.t
+
+		let string_of_input_t = 
+			Test_printers.(tuple3 string string (assoc_list string string))
+		let string_of_output_t = Test_printers.(either exn unit)
+	end
+	module State = XapiDb
+
+	let features_hvm = "feedface-feedface"
+	let features_pv  = "deadbeef-deadbeef"
+
+	let load_input __context (name_label, hVM_boot_policy, last_boot_flags) =
+		let cpu_info = [
+			"cpu_count", "1";
+			"socket_count", "1";
+			"vendor", "Abacus";
+			"features_pv", features_pv;
+			"features_hvm", features_hvm;
+		] and master = Test_common.make_host ~__context () in
+		Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
+		ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
+		let self = Test_common.make_vm ~__context ~name_label ~hVM_boot_policy () in
+		Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
+		Db.VM.set_power_state ~__context ~self ~value:`Running
+
+	let extract_output __context (label, _, _) =
+		let host = List.hd @@ Db.Host.get_all ~__context in
+		let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+		try Either.Right (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
+		with 
+		(* Filter out opaquerefs which make matching this exception difficult *)
+		| Api_errors.Server_error (vm_incompatible_with_this_host, data) -> 
+			Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
+		| e -> Either.Left e
+		
+	let tests = [
+		(* HVM *)
+		("a", "BIOS order",
+		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
+		              cpu_info_features_key, features_hvm])),
+		Either.Right ();
+
+		("a", "BIOS order",
+		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
+		              cpu_info_features_key, "cafecafe-cafecafe"])),
+		Either.Left Api_errors.(Server_error 
+			(vm_incompatible_with_this_host, 
+                         ["VM last booted on a CPU with features this host's CPU does not have."]));
+
+		("a", "BIOS order",
+		 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
+		              cpu_info_features_key, features_hvm])),
+		Either.Left Api_errors.(Server_error 
+			(vm_incompatible_with_this_host, 
+                         ["VM last booted on a host which had a CPU from a different vendor."]));
+
+		(* PV *)
+		("a", "",
+		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
+		              cpu_info_features_key, features_pv])),
+		Either.Right ();
+
+		("a", "",
+		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
+		              cpu_info_features_key, "cafecafe-cafecafe"])),
+		Either.Left Api_errors.(Server_error 
+			(vm_incompatible_with_this_host, 
+                         ["VM last booted on a CPU with features this host's CPU does not have."]));
+
+		("a", "",
+		 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
+		              cpu_info_features_key, features_pv])),
+		Either.Left Api_errors.(Server_error 
+			(vm_incompatible_with_this_host, 
+                         ["VM last booted on a host which had a CPU from a different vendor."]));
+
+
+	]
+end))
+
 let test =
 	"test_cpuid_helpers" >:::
 		[
@@ -507,4 +590,6 @@ let test =
 				ResetCPUFlags.test;
 			"test_update_cpu_flags" >::
 				UpdateCPUFlags.test;
+			"test_assert_vm_is_compatible" >::
+				AssertVMIsCompatible.test;
 		]
