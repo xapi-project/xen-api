@@ -149,8 +149,7 @@ let revalidate_external_session ~__context ~session =
 	if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered session) then
 
 	(* 1. is the external authentication disabled in the pool? *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
 	if auth_type = ""
 	then begin (* if so, we must immediatelly destroy this external session *)
@@ -416,8 +415,22 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 					debug "Failed to locally authenticate user %s from %s: %s" uname (Context.get_origin __context) msg;
 					
 					(* 2. then against the external auth service *)
-					
-					(* 2.1. we first authenticate the user using the external authentication plugin *)
+					(* 2.1. we first check the external auth service status *)
+					let rec waiting_event_hook_auth_on_xapi_initialize_succeeded seconds =
+						if not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded then
+						begin
+							if seconds <= 0 then
+								let msg = (Printf.sprintf "External authentication %s service still initializing" auth_type) in
+								error "%s" msg;
+								thread_delay_and_raise_error uname msg ~error:Api_errors.session_invalid
+							else
+								debug "External authentication %s service initializing..." auth_type;
+								Thread.delay 1.0;
+								waiting_event_hook_auth_on_xapi_initialize_succeeded (seconds-1);
+						end
+					in
+					waiting_event_hook_auth_on_xapi_initialize_succeeded 120;
+					(* 2.2. we then authenticate the usee using the external authentication plugin *)
 					(* so that we know that he/she exists there *)
 					let subject_identifier = (try
 						begin
@@ -722,8 +735,7 @@ let create_readonly_session ~__context ~uname =
 	debug "Creating readonly session.";
 	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
 	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
 		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
 		~auth_user_name:uname ~rbac_permissions

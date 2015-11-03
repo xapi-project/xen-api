@@ -54,7 +54,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	(* I cannot join a Pool if I have HA already enabled on me *)
 	let ha_is_not_enable_on_me () =
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = Helpers.get_pool ~__context in
 		if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
 			error "Cannot join pool as HA is enabled";
 			raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
@@ -772,7 +772,7 @@ let unplug_pbds ~__context host =
 (* This means eject me, since will have been forwarded from master  *)
 let eject ~__context ~host =
 	(* If HA is enabled then refuse *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool
 	then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -1780,4 +1780,3 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
 	Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
 	Xapi_pool_helpers.apply_guest_agent_config ~__context
-

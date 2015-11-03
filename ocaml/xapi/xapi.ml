@@ -692,7 +692,7 @@ let set_stunnel_timeout () =
 
 (* Consult inventory, because to do DB lookups we must contact the
  * master, and to do that we need to start an outgoing stunnel. *)
-let set_stunnel_legacy_inv () =
+let set_stunnel_legacy_inv ~__context () =
   let s = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true" in
   let legacy = try
 	  bool_of_string s
@@ -700,22 +700,18 @@ let set_stunnel_legacy_inv () =
 	  error "Invalid inventory value for %s: expected a Boolean; found %s" Xapi_inventory._stunnel_legacy s;
 	  raise e
   in
-  debug "Setting client stunnel legacy %b based on inventory lookup." legacy;
-  Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy
+  Xapi_host.set_stunnel_legacy ~__context legacy
 
 (* Consult database, in case inventory was out of date due to a DB change while
  * we were shut down. *)
 let set_stunnel_legacy_db ~__context () =
+  let legacy_cur = Stunnel.is_legacy_protocol_and_ciphersuites_allowed () in
   let localhost = Helpers.get_localhost ~__context in
-  let legacy = Db.Host.get_ssl_legacy ~__context ~self:localhost in
-  debug "Setting client stunnel legacy %b based on database lookup." legacy;
-  Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy;
-  let inv = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true" in
-  let s = string_of_bool legacy in
-  if (s <> inv) then (
-    info "Host.ssl_legacy differs from inventory %s. Updating inventory to %s." Xapi_inventory._stunnel_legacy s;
-    Xapi_inventory.update Xapi_inventory._stunnel_legacy (s);
-  )
+  let legacy_db = Db.Host.get_ssl_legacy ~__context ~self:localhost in
+  if legacy_db <> legacy_cur then begin
+    debug "Stunnel legacy (current) = %b,  stunnel legacy (DB) = %b, reconfig based on DB" legacy_cur legacy_db;
+    Xapi_host.set_stunnel_legacy ~__context legacy_db
+  end
 
 let server_init() =
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
@@ -820,7 +816,7 @@ let server_init() =
     Startup.run ~__context [
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
-    "Config (from file) for outgoing stunnels", [], set_stunnel_legacy_inv;
+    "Config (from file) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_inv ~__context;
     "Setting stunnel timeout", [], set_stunnel_timeout;
     "Initialising local database", [], init_local_database;
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
@@ -852,7 +848,6 @@ let server_init() =
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
-    "Config (from DB) for outgoing stunnels", [], set_stunnel_legacy_db ~__context;
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
@@ -925,6 +920,7 @@ let server_init() =
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
+      "Reconfig (from DB) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_db ~__context;
       "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
@@ -961,6 +957,7 @@ let server_init() =
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
 			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
+			"Starting SR physical utilisation scanning", [Startup.OnThread], (Xapi_sr.physical_utilisation_thread ~__context);
 			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
 			"Stats reporting thread", [], Xapi_stats.start;
     ];

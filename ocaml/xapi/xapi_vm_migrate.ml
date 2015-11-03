@@ -306,15 +306,20 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
 			let location = Db.VDI.get_location ~__context ~self:vdi in
 			let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
-			(* XXX PR-1255: eject any CDROMs for now *)
-			if Db.VBD.get_type ~__context ~self:vbd = `CD then begin
-				if not (is_intra_pool && Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null) || snapshot) then begin
+			if Db.VBD.get_type ~__context ~self:vbd = `CD then
+				let to_eject =
+					(* No need to eject if it's intra-pool and the CD VDI isn't moving *)
+					if is_intra_pool then Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null)
+					(* For cross-pool, assert_can_migrate must have already been called before this, so we know the receiver can handle all the CDs.
+					   The only exception is live domain instances for which xenopsd doesn't handle the CD mapping at the moment, hence we should eject. *)
+					else not (Db.VM.get_is_a_snapshot ~__context ~self:vm) && Db.VM.get_power_state ~__context ~self:vm <> `Suspended in
+				if to_eject then begin
 					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
 					Helpers.call_api_functions ~__context
 						(fun rpc session_id -> XenAPI.VBD.eject ~rpc ~session_id ~vbd)
 				end;
 				None
-			end else begin
+			else begin
 				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
 				Some (vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror)
 			end
@@ -774,7 +779,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
 		if host <> Ref.null then host else
-			Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+			Helpers.get_master ~__context in
 
 	let migration_type =
 		try

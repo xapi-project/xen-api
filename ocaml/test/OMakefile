@@ -47,12 +47,14 @@ OCAML_OBJS = \
 	test_vgpu_common \
 	test_pgpu \
 	test_pgpu_helpers \
+	test_storage_migrate_state \
 	test_vm_helpers \
 	test_xenopsd_metadata \
 	test_ca121350 \
 	test_workload_balancing \
 	test_cpuid_helpers \
 	test_pool_cpuinfo \
+	test_pbd \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 

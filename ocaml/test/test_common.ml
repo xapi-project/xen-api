@@ -16,22 +16,11 @@ open API
 open Fun
 open OUnit
 
+(* A directory to use for temporary files. *)
+let working_area = "/tmp/xapi-test"
+
 (** Utility functions *)
 let id (x : 'a) : 'a = x
-
-let string_of_string_list strings =
-	Printf.sprintf "[%s]"
-		(String.concat "; " strings)
-
-let string_of_string_map map =
-	Printf.sprintf "[%s]"
-		(List.map (fun (k, v) -> k ^ ": " ^ v) map |> String.concat "; ")
-
-let string_of_opt string_of = function
-	| None -> "None"
-	| Some x -> Printf.sprintf "Some %s" (string_of x)
-
-let string_of_string_opt = string_of_opt (fun x -> x)
 
 let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
@@ -45,12 +34,9 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
 		match args with
 		| None -> ()
 		| Some args ->
-			assert_equal ~printer:string_of_string_list ~msg:"Function raised API error with unexpected args" args a
+			assert_equal ~printer:Test_printers.(list string) ~msg:"Function raised API error with unexpected args" args a
 
-(** Make a simple in-memory database containing a single host and dom0 VM record. *)
-let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
-	let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
-
+let make_localhost ~__context =
 	let host_info = {
 		Create_misc.name_label = "test host";
 		xen_verstring = "unknown";
@@ -74,8 +60,12 @@ let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
 	(* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
 	Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 	Create_misc.ensure_domain_zero_records ~__context host_info;
-	Dbsync_master.create_pool_record ~__context;
+	Dbsync_master.create_pool_record ~__context
 
+(** Make a simple in-memory database containing a single host and dom0 VM record. *)
+let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
+	let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
+	make_localhost ~__context;
 	__context
 
 let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
@@ -90,16 +80,18 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
-		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) ?(generation_id="0:0") ?(hardware_platform_version=0L) () =
+		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
+		?(generation_id="0:0") ?(hardware_platform_version=0L)
+		?(auto_update_drivers=false) () =
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
-        ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
+		~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown
 		~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk 
 		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
-		~version ~generation_id ~hardware_platform_version
+		~version ~generation_id ~hardware_platform_version ~auto_update_drivers
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")

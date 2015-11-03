@@ -128,6 +128,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 				| `forget ->
 					if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.ha_is_enabled, [])
+					else if List.mem record.Db_actions.vDI_type [ `rrd ]
+					then Some (Api_errors.vdi_has_rrds, [_ref])
 					else None
 				| `destroy ->
 					if sr_type = "udev"
@@ -135,6 +137,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					else
 						if is_tools_sr
 						then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+						else if List.mem record.Db_actions.vDI_type [ `rrd ]
+						then Some (Api_errors.vdi_has_rrds, [_ref])
 						else
 							if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 							then Some (Api_errors.ha_is_enabled, [])
@@ -172,6 +176,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					Some (Api_errors.vdi_is_sharable, [ _ref ])
 				| `snapshot when reset_on_boot ->
 					Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+				| `snapshot ->
+				  if List.exists (fun (_, op) -> op = `copy) current_ops
+					then Some (Api_errors.operation_not_allowed, ["Snapshot operation not allowed during copy."])
+				  else None
 				| `copy ->
 					if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 					then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
@@ -358,10 +366,11 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
   let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  (* Verify that the location field is unique in this SR *)
+  (* Verify that the location field is unique in this SR - ignore if the vdi is being introduced with same location*)
   List.iter
     (fun vdi ->
        if Db.VDI.get_location ~__context ~self:vdi = location
+            && Db.VDI.get_uuid ~__context ~self:vdi <> uuid
        then raise (Api_errors.Server_error (Api_errors.location_not_unique, [ Ref.string_of sR; location ]))
     ) (Db.SR.get_VDIs ~__context ~self:sR);
   let task = Context.get_task_id __context in	

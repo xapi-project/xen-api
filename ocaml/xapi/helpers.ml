@@ -57,6 +57,11 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
+let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
+
+let get_master ~__context =
+	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
+
 let get_primary_ip_addr ~__context iface primary_address_type =
 	if iface = "" then
 		None
@@ -411,7 +416,7 @@ let string_of_boot_method = function
    the db for the first time). In that context you cannot be in rolling upgrade mode *)
 let rolling_upgrade_in_progress ~__context =
 	try
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = get_pool ~__context in
 		List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool)
 	with _ ->
 		false
@@ -579,15 +584,12 @@ let get_shared_srs ~__context =
   let srs = Db.SR.get_all ~__context in
   List.filter (fun self -> is_sr_shared ~__context ~self) srs
 
-let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
-
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
 let is_pool_master ~__context ~host =
-	let pool = get_pool ~__context in
 	let host_id = Db.Host.get_uuid ~__context ~self:host in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	let master_id = Db.Host.get_uuid ~__context ~self:master in
 	host_id = master_id
 
@@ -678,8 +680,7 @@ let host_versions_not_decreasing ~__context ~host_from ~host_to =
 
 let is_platform_version_same_on_master ~__context ~host =
 	if is_pool_master ~__context ~host then true else
-	let pool = get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	compare_host_platform_versions ~__context (LocalObject master) (LocalObject host) = 0
 
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
@@ -962,6 +963,15 @@ let clone_suspended_vm_enabled ~__context =
       && (List.assoc Xapi_globs.pool_allow_clone_suspended_vm other_config = "true")
   with _ -> false
 
+(** Indicate whether run-script should be allowed on VM plugin guest-agent-operation *)
+let guest_agent_run_script_enabled ~__context =
+	try
+		let pool = get_pool ~__context in
+		let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+		List.mem_assoc Xapi_globs.pool_allow_guest_agent_run_script other_config
+		&& (List.assoc Xapi_globs.pool_allow_guest_agent_run_script other_config = "true")
+	with _ -> false
+
 (* OEM Related helper functions *)
 let is_oem ~__context ~host =
   let software_version = Db.Host.get_software_version ~__context ~self:host in
@@ -1174,19 +1184,11 @@ let vm_string_to_assoc vm_string =
 	| SExpr.Node l -> List.map assoc_of_node l
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"]))
 
-let i_am_srmaster ~__context ~sr =
-  (* Assuming there is a plugged in PBD on this host then
-     we are an 'srmaster' IFF: we are a pool master and this is a shared SR
-                               OR this is a non-shared SR *)
-  let shared = Db.SR.get_shared ~__context ~self:sr in
-  (Pool_role.is_master () && shared) || not(shared)
-
 let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let pool = get_pool ~__context in
   if shared
-  then Db.Pool.get_master ~__context ~self:pool
+  then get_master ~__context
   else begin
     match List.length pbds with
     | 0 ->
@@ -1199,6 +1201,9 @@ let get_srmaster ~__context ~sr =
 	       (Api_errors.sr_has_multiple_pbds,
 		List.map (fun pbd -> Db.PBD.get_uuid ~__context ~self:pbd) pbds))
   end
+
+let i_am_srmaster ~__context ~sr =
+	get_srmaster ~__context ~sr = get_localhost ~__context
 
 let get_all_plugged_srs ~__context =
 	let pbds = Db.PBD.get_all ~__context in
@@ -1327,6 +1332,7 @@ module type POLICY = sig
 		(** Used by operations like VM.start which want to paper over transient glitches but want to fail
 		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
 	val fail_quickly : t
+	val fail_immediately: t
 	val wait : __context:Context.t -> t -> exn -> t
 end
 
@@ -1381,6 +1387,12 @@ module Repeat_with_uniform_backoff : POLICY = struct
 		maximum_delay = 2.;
 		max_total_wait = 120.;
 		wait_so_far = 0.
+	}
+	let fail_immediately = {
+		minimum_delay = 0.;
+		maximum_delay = 3.;
+		max_total_wait = min_float;
+		wait_so_far = 0.;
 	}
 	let wait ~__context (state: t) (e: exn) =
 		if state.wait_so_far >= state.max_total_wait then raise e;

@@ -13,6 +13,6 @@ HOSTNAME=$1
 sed -i -e "s/^\(HOSTNAME=\).*$/\1$1/g" /etc/sysconfig/network
 
 # Set current hostname
-hostname "$HOSTNAME"
+hostnamectl set-hostname "$HOSTNAME"
 
 exit 0

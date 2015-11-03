@@ -60,11 +60,11 @@ let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
 	XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
-	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	let hostname = Db.Host.get_address ~__context ~self:host in
+	let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
 	Pervasiveext.finally
 		(fun ()->f session_id (remote_rpc_fn __context hostname task_opt))
-		(fun ()->Server_helpers.exec_with_new_task ~session_id "local logout in message forwarder" (fun __context -> Xapi_session.logout ~__context))
+		(fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
 let call_slave_with_local_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
 	let hostname = Db.Host.get_address ~__context ~self:host in
@@ -182,7 +182,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
 	let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
 	let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
 	if Helpers.is_sr_shared ~__context ~self then
-		let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+		let master = Helpers.get_master ~__context in
 		let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
 		(* shared SR operations must happen on the master *)
 		match Listext.List.intersect pbds_to_consider master_pbds with
@@ -649,7 +649,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
 				(pool_uuid ~__context self) key;
 			Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
-
 	end
 
 	module VM = struct
@@ -1214,9 +1213,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			update_vif_operations ~__context ~vm
 
 		let call_plugin ~__context ~vm ~plugin ~fn ~args =
-			info "VM.call_plugin: VM = '%s'" (vm_uuid ~__context vm);
+			let censor_kws = ["password"] in (* We could censor "username" too, but the current decision was to leave it there. *)
+			let argstrs = List.map (fun (k, v) -> Printf.sprintf "args:%s = '%s'" k (if List.exists (String.has_substr k) censor_kws then "(omitted)" else v)) args in
+			info "VM.call_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; %s" (vm_uuid ~__context vm) plugin fn (String.concat "; " argstrs);
 			let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
-			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin
+			with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
@@ -1320,9 +1321,19 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
-				  List.iter (fun (task,op) ->
-				    if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot ] then
-				      try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
+					(* Before doing the shutdown we might need to cancel existing operations *)
+					List.iter (fun (task,op) ->
+						if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot; `call_plugin ] then (
+							(* At the end of the cancellation, if the VM is on a slave then the task doing
+							 * the cancellation will be marked complete (successful).  This would be premature
+							 * for the current task since it still has work to do: first possibly some more
+							 * cancellations, then definitely the VM hard_shutdown. Therefore we must spawn
+							 * a new task to do the cancellation. (But no need to go via API call.) *)
+							Server_helpers.exec_with_subtask ~__context
+								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_shutdown")
+								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
+						)
+					) (Db.VM.get_current_operations ~__context ~self:vm);
 
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
@@ -1359,11 +1370,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_reboot ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot" ~op:`hard_reboot
 				(fun () ->
-				  List.iter (fun (task,op) ->
-				    if List.mem op [ `clean_shutdown; `clean_reboot ] then
-				      try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ()) (Db.VM.get_current_operations ~__context ~self:vm);
-
-
+					(* Before doing the reboot we might need to cancel existing operations *)
+					List.iter (fun (task,op) ->
+						if List.mem op [ `clean_shutdown; `clean_reboot; `call_plugin ] then (
+							(* We must do the cancelling in a subtask: see hard_shutdown comment for reason. *)
+							Server_helpers.exec_with_subtask ~__context
+								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_reboot")
+								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
+						)
+					) (Db.VM.get_current_operations ~__context ~self:vm);
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 						(fun vbds ->
 							with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
@@ -2008,8 +2023,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let set_ssl_legacy ~__context ~self ~value =
 			info "Host.set_ssl_legacy: host = '%s'; value = %b" (host_uuid ~__context self) value;
-			let	local_fn = Local.Host.set_ssl_legacy ~self ~value in
-			do_op_on ~local_fn ~__context ~host:self (fun session_id rpc -> Client.Host.set_ssl_legacy rpc session_id self value)
+			let success () =
+				if Db.Host.get_ssl_legacy ~__context ~self = value
+				then Some ()
+				else None
+			in
+			let local_fn = Local.Host.set_ssl_legacy ~self ~value in
+			let fn () =
+				do_op_on ~local_fn ~__context ~host:self
+					(fun session_id rpc ->
+						Client.Host.set_ssl_legacy rpc session_id self value)
+			in
+			tolerate_connection_loss fn success 30.
 
 		let ha_disable_failover_decisions ~__context ~host =
 			info "Host.ha_disable_failover_decisions: host = '%s'" (host_uuid ~__context  host);
@@ -3638,76 +3663,55 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "PBD.plug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.plug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			let is_shared_sr = Db.SR.get_shared ~__context ~self:sr in
+			let is_master_pbd =
+				let pbd_host = Db.PBD.get_host ~__context ~self in
+				let master_host = Helpers.get_localhost ~__context in
+				pbd_host = master_host in
 
 			SR.with_sr_marked ~__context ~sr ~doc:"PBD.plug" ~op:`plug
 				(fun () ->
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.plug rpc session_id self));
-			(* Consider scanning the SR now. Note:
-			   1. the current context contains a completed real task and we should not reuse it for what is
-			   effectively another call.
-			   2. the SR should still be locked by the current PBD.plug operation so it is safe to use
-			   the internal scan function directly.
-			*)
-			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
-				(* Only handle metadata VDIs when attaching shared storage to the master. *)
-				let should_handle_metadata_vdis =
-					let pbd_host = Db.PBD.get_host ~__context:__scan_context ~self in
-					let master = Db.Pool.get_master ~__context:__scan_context ~self:(Helpers.get_pool ~__context:__scan_context) in
-					(pbd_host = master) && (Db.SR.get_shared ~__context:__scan_context ~self:sr)
-				in
-				let handle_metadata_vdis () =
-					if should_handle_metadata_vdis then begin
-						debug "Shared SR %s is being plugged to master - handling metadata VDIs." (sr_uuid ~__context sr);
-						let metadata_vdis = List.filter
-							(fun vdi -> Db.VDI.get_type ~__context:__scan_context ~self:vdi = `metadata)
-							(Db.SR.get_VDIs ~__context:__scan_context ~self:sr)
-						in
-						let pool = Helpers.get_pool ~__context:__scan_context in
-						let (vdis_of_this_pool, vdis_of_foreign_pool) = List.partition
-							(fun vdi -> Db.VDI.get_metadata_of_pool ~__context:__scan_context ~self:vdi = pool)
-							metadata_vdis
-						in
-						debug "Adding foreign pool metadata VDIs to cache: [%s]"
-							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_foreign_pool));
-						Xapi_dr.add_vdis_to_cache ~__context:__scan_context ~vdis:vdis_of_foreign_pool;
-						debug "Found metadata VDIs created by this pool: [%s]"
-							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_this_pool));
-						if vdis_of_this_pool <> [] then begin
-							let target_vdi = List.hd vdis_of_this_pool in
-							let vdi_uuid = Db.VDI.get_uuid ~__context:__scan_context ~self:target_vdi in
-							try
-								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~get_vdi_callback:(fun () -> target_vdi);
-								debug "Re-enabled database replication to VDI %s" vdi_uuid
-							with e ->
-								debug "Could not re-enable database replication to VDI %s - caught %s"
-									vdi_uuid (Printexc.to_string e)
+
+			(* We always plug the master PBD first and unplug it last. If this is the
+			 * first PBD plugged for this SR (proxy: the PBD being plugged is for the
+			 * master) then we should perform an initial SR scan and perform some
+			 * asynchronous start-of-day operations in the callback.
+			 * Note the current context contains a completed real task and we should
+			 * not reuse it for what is effectively another call. *)
+			if is_master_pbd then
+				Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __context ->
+					let should_handle_metadata_vdis = is_shared_sr in
+
+					if should_handle_metadata_vdis then
+						Xapi_dr.signal_sr_is_processing ~__context ~sr;
+
+					let sr_scan_callback () =
+						if is_shared_sr then begin
+							Xapi_dr.handle_metadata_vdis ~__context ~sr;
+							Xapi_dr.signal_sr_is_ready ~__context ~sr;
 						end;
-						Xapi_dr.signal_sr_is_ready ~__context:__scan_context ~sr
-					end else
-						debug "SR %s is not shared or is being plugged to a slave - not handling metadata VDIs at this point." (sr_uuid ~__context sr)
-				in
-				if should_handle_metadata_vdis then
-					Xapi_dr.signal_sr_is_processing ~__context:__scan_context ~sr;
-				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr);
+						Xapi_sr.maybe_push_sr_rrds ~__context ~sr;
+						Xapi_sr.update ~__context ~sr;
+					in
 
-				Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						Client.SR.update rpc session_id sr
-					);
-
-				(* Check if SR has SR_STATS capability then create SR-stats VDI *)
-				let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-				if Smint.(has_capability Sr_stats (Xapi_sr_operations.features_of_sr ~__context sr_record)) then
-					Xapi_vdi_helpers.create_rrd_vdi ~__context ~sr:sr
+					Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr;
+				)
 
 		let unplug ~__context ~self =
 			info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
 			let local_fn = Local.PBD.unplug ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			let is_master_pbd =
+				let pbd_host = Db.PBD.get_host ~__context ~self in
+				let master_host = Helpers.get_localhost ~__context in
+				pbd_host = master_host in
 
 			with_unplug_locks ~__context ~sr ~pbd:self
 				(fun () ->
+					if is_master_pbd then
+						Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
 					forward_pbd_op ~local_fn ~__context ~self
 						(fun session_id rpc -> Client.PBD.unplug rpc session_id self))
 	end

@@ -40,8 +40,7 @@ let stunnel_m = Mutex.create ()
 let restart_stunnel_nomutex ~__context ~accept =
 	info "Restarting stunnel (accepting connections on %s)" accept;
 	let back_compat ~__context =
-		let localhost = Helpers.get_localhost ~__context in
-		if Db.Host.get_ssl_legacy ~__context ~self:localhost
+		if Stunnel.is_legacy_protocol_and_ciphersuites_allowed ()
 		then [ "back_compat_6_5" ]
 		else []
 	in

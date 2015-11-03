@@ -294,6 +294,9 @@ let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
+(* Indicates whether we should allow run-script inside VM *)
+let pool_allow_guest_agent_run_script = "allow_guest_agent_run_script"
+
 (* Size of a VDI to store the shared database on *)
 let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
 
@@ -311,6 +314,7 @@ let shared_db_pool_key = "shared_db_sr"
 (* Names of storage parameters *)
 let _sm_vm_hint = "vmhint"
 let _sm_epoch_hint = "epochhint"
+let _sm_initial_allocation = "initial_allocation"
 
 let i18n_key = "i18n-key"
 let i18n_original_value_prefix = "i18n-original-value-"
@@ -751,6 +755,9 @@ let default_vbd3_polling_duration = ref 1000
 (** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
 let default_vbd3_polling_idle_threshold = ref 50
 
+(** The minimal time gap between attempts to call plugin on a particular VM *)
+let vm_call_plugin_interval = ref 10.
+
 let nowatchdog = ref false
 
 (* Path to the pool configuration file. *)
@@ -824,10 +831,11 @@ let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
 
-(* The ibft-to-ignore script returns NICs listed in the ISCSI Boot Firmware Table.
- * These NICs (probably just one for now) are used to boot from, and should be marked
- * with PIF.managed = false during a PIF.scan. *)
-let non_managed_pifs = ref "/opt/xensource/libexec/ibft-to-ignore"
+(* The bfs-interfaces script returns boot from SAN NICs.
+ * All ISCSI Boot Firmware Table (ibft) NICs should be marked
+ * with PIF.managed = false and all FCoE boot from SAN * NICs
+ * should be set with disallow-unplug=true, during a PIF.scan. *)
+let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
 let manage_xenvmd = ref true
 
@@ -881,6 +889,7 @@ let xapi_globs_spec =
 	  "redo_log_connect_delay", Float redo_log_connect_delay;
 	  "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
 	  "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
+	  "vm_call_plugin_interval", Float vm_call_plugin_interval;
 	]
 
 let options_of_xapi_globs_spec = 

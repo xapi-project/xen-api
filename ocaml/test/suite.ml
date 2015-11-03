@@ -37,12 +37,14 @@ let base_suite =
 			Test_vgpu_type.test;
 			Test_pgpu.test;
 			Test_pgpu_helpers.test;
+			Test_storage_migrate_state.test;
 			Test_vm_helpers.test;
 			Test_xenopsd_metadata.test;
 			Test_workload_balancing.test;
 			Test_cpuid_helpers.test;
 			Test_pool_cpuinfo.test;
 			(* Test_ca121350.test; *)
+			Test_pbd.test
 		]
 
 let handlers = [
@@ -72,7 +74,8 @@ let harness_init () =
 let harness_destroy () = ()
 
 let () =
-	Inventory.inventory_filename := "/tmp/xapi-test/xcp-inventory";
+	Inventory.inventory_filename :=
+		Filename.concat Test_common.working_area "xcp-inventory";
 	harness_init ();
 	ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
 	harness_destroy ();

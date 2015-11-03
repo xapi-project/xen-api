@@ -403,13 +403,23 @@ let get_patch_to_local ~__context ~self =
 open Db_filter
 open Db_filter_types
 
-let patch_is_applied_to ~__context ~patch ~host =
-  let expr = 
-    And (Eq (Field "pool_patch", Literal (Ref.string_of patch)), 
-         Eq (Field "host",  Literal (Ref.string_of host))) 
-  in
-  let result = Db.Host_patch.get_records_where ~__context ~expr in
-    (List.length result) > 0
+let patch_apply_in_progress ~__context ~patch ~host =
+	let message = Printf.sprintf "Applying the same patch on %s is in progress. If you believe this is not true or the patching process is hung/frozen, try to restart the toolstack or host." (Db.Host.get_name_label ~__context ~self:host) in
+	raise (Api_errors.Server_error (Api_errors.other_operation_in_progress, ["Pool_patch"; Ref.string_of patch; message]))
+
+(* The [get_patch_applied_to] gives the patching status of a pool patch on the given host. It
+   returns [None] if the patch is not on the host, i.e. no corresponding host_patch;
+   returns [Some (ref, true)] if it's on the host and fully applied (as host_patch [ref]);
+   returns [Some (ref, false)] if it's on the host but isn't applied yet or the application is in progress. *)
+let get_patch_applied_to ~__context ~patch ~host =
+	let expr =
+		And (Eq (Field "pool_patch", Literal (Ref.string_of patch)),
+		     Eq (Field "host",  Literal (Ref.string_of host)))
+	in
+	let result = Db.Host_patch.get_records_where ~__context ~expr in
+	match result with
+	| [] -> None
+	| (rf, rc) :: _ -> Some (rf, rc.API.host_patch_applied)
 
 let patch_applied_dir = "/var/patch/applied"
 
@@ -430,31 +440,41 @@ let write_patch_applied ~__context ~self =
           debug "error from patch application: %s" log;
           raise exn      
 
-let write_patch_applied_db ~__context ?date ~self ~host () =
-  let date = match date with
-    | Some d -> d
-    | None -> Unix.gettimeofday ()
-  in
-  let uuid = Uuid.make_uuid () in
-  let r = Ref.make () in
-    Db.Host_patch.create ~__context
-      ~ref:r
-      ~uuid:(Uuid.to_string uuid)
-      ~host
-      ~pool_patch:self
-      ~timestamp_applied:(Date.of_float date)
-      ~name_label:""
-      ~name_description:""
-      ~version:""
-      ~filename:""
-      ~applied:true
-      ~size:Int64.zero
-      ~other_config:[]
 
-let update_db_apply_patch ~__context ~patch ~date =
-  let host = !Xapi_globs.localhost_ref in
-    if not (patch_is_applied_to ~__context ~patch ~host)
-    then write_patch_applied_db ~__context ~date ~self:patch ~host ()
+let write_patch_applied_db ~__context ?date ?(applied=true) ~self ~host () =
+	let date = Date.of_float (match date with
+	| Some d -> d
+	| None -> Unix.gettimeofday ())
+	in
+	match get_patch_applied_to ~__context ~patch:self ~host with
+	| Some(r, is_applied) ->
+		 if not (is_applied = applied) then begin
+			 Db.Host_patch.set_timestamp_applied ~__context ~self:r ~value:date;
+			 Db.Host_patch.set_applied ~__context ~self:r ~value:applied
+		 end
+	| None ->
+		let uuid = Uuid.make_uuid () in
+		let r = Ref.make () in
+		Db.Host_patch.create ~__context
+			~ref:r
+			~uuid:(Uuid.to_string uuid)
+			~host
+			~pool_patch:self
+			~timestamp_applied:date
+			~name_label:""
+			~name_description:""
+			~version:""
+			~filename:""
+			~applied
+			~size:Int64.zero
+			~other_config:[]
+
+let erase_patch_applied_db ~__context ~self ~host () =
+	match get_patch_applied_to ~__context ~patch:self ~host with
+	| Some (r, _) ->
+		 debug "Removing Host_patch record for patch %s" (Ref.string_of self);
+		 Db.Host_patch.destroy ~__context ~self:r
+	| None -> ()
 
 let update_db ~__context =
   (* We need to check the patch_applied_dir for applied patches and check they are present in the db *)
@@ -495,8 +515,9 @@ let update_db ~__context =
 	 Helpers.log_exn_continue msg 
 	   (fun () ->
 	      debug "%s" msg;
-	      let time = List.assoc pp pool_patch_to_mtime in
-	      update_db_apply_patch ~__context ~patch:pp ~date:time) ()) new_pool_patches;
+	      let date = List.assoc pp pool_patch_to_mtime in
+	      let host = Helpers.get_localhost ~__context in
+	      write_patch_applied_db ~__context ~date ~self:pp ~host ()) ()) new_pool_patches;
     List.iter
       (fun pp ->
 	 let msg = Printf.sprintf "Removing Host_patch record for patch %s" (Ref.string_of pp) in
@@ -622,8 +643,11 @@ let apply ~__context ~self ~host =
   then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-apply"]));
 
   (* 1st, check patch isn't already applied *)
-  if patch_is_applied_to ~__context ~patch:self ~host
-  then raise (Api_errors.Server_error(Api_errors.patch_already_applied, [ Ref.string_of self ]));
+  let () = match get_patch_applied_to ~__context ~patch:self ~host with
+  | Some (r, applied) ->
+    if applied then raise (Api_errors.Server_error(Api_errors.patch_already_applied, [ Ref.string_of self ]))
+    else patch_apply_in_progress ~__context ~patch:self ~host
+  | None -> () in
 
   (* 2nd, get the patch from the master (no-op if we're the master) *)
   get_patch_to_local ~__context ~self;
@@ -634,6 +658,7 @@ let apply ~__context ~self ~host =
  
     (* 4th, apply the patch *)
     begin
+      write_patch_applied_db ~__context ~applied:false ~self ~host ();
       match execute_patch path [ "apply" ] with
         | Success(output, _) ->
 	        debug "executing patch successful";
@@ -651,6 +676,7 @@ let apply ~__context ~self ~host =
 		
         | Failure(log, exn) ->
 		debug "error from patch application: %s" log;
+           	erase_patch_applied_db ~__context ~self ~host ();
            	let error_string = "Backup files already present" in
            	if List.length (Xstringext.String.find_all error_string log) = 0 then
                		raise (Api_errors.Server_error(Api_errors.patch_apply_failed, [log]))
@@ -663,11 +689,15 @@ let apply ~__context ~self ~host =
                    		raise (Bad_precheck_xml "Could not find element info")
            	end
     end
-    
+
 let pool_apply ~__context ~self =
   let hosts =
     List.filter 
-      (fun x->not (patch_is_applied_to ~__context ~patch:self ~host:x || is_oem ~__context ~host:x)) 
+      (fun x ->
+         not (is_oem ~__context ~host:x)
+         && match get_patch_applied_to ~__context ~patch:self ~host:x with
+           | None -> true
+           | Some (_, applied) -> not applied &&  patch_apply_in_progress ~__context ~patch:self ~host:x)
       (Db.Host.get_all ~__context) 
   in
   let (_: string list) = 
@@ -702,7 +732,7 @@ let pool_clean ~__context ~self =
 
 let destroy ~__context ~self = 
   let hosts = Db.Host.get_all ~__context in
-  let applied = List.exists (fun host -> patch_is_applied_to ~__context ~patch:self ~host) hosts in
+  let applied = List.exists (fun host -> get_patch_applied_to ~__context ~patch:self ~host <> None ) hosts in
 
   if applied
   then raise (Api_errors.Server_error(Api_errors.patch_is_applied, []));

@@ -30,7 +30,7 @@ def install(session, args):
         raise ArgumentError("VDI parameter invalid")
 
     process = subprocess.Popen([
-        "/opt/xensource/debug/with-vdi", vdi, "/opt/xensource/bin/xe-install-supplemental-pack"],
+        "/opt/xensource/debug/with-vdi", vdi, "/opt/xensource/bin/xe-install-supplemental-pack"] + (["-b"] if args.has_key("upgrade") else []),
         shell = False,
         stdout = subprocess.PIPE,    
         close_fds = True)

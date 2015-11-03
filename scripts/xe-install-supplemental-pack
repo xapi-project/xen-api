@@ -6,7 +6,7 @@ function usage()
 {
   echo "
 Usage:
-        $0 <filename.iso>
+        $0 <filename.iso> [-b]
 " >&2
   exit 1
 }
@@ -14,8 +14,10 @@ Usage:
 if [ -n "$DEVICE" ]
 then
   iso="/dev/$DEVICE"
+  upgrade=$1
 else
   iso="$1"
+  upgrade=$2
 fi
 
 set -u
@@ -47,5 +49,5 @@ trap cleanup ERR
 
 mount -o loop,ro "$iso" "$tempdir"
 pushd "$tempdir" >/dev/null
-./install
+./install $upgrade
 cleanup

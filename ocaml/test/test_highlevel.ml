@@ -88,17 +88,21 @@ module Generic = struct
 	(* Create functions which will actually run a test or tests. *)
 	module Make(T: STATELESS_TEST) = struct
 		let test_equal ~input ~expected_output =
-			let actual_output = T.transform input in
-			assert_equal
-				~msg:(Printf.sprintf
-					"Failure: input = %s, output = %s, expected output = %s"
-					(T.Io.string_of_input_t input)
-					(T.Io.string_of_output_t actual_output)
-					(T.Io.string_of_output_t expected_output))
-				actual_output expected_output
+			let title = Printf.sprintf "%s -> %s" 
+				(T.Io.string_of_input_t input)
+				(T.Io.string_of_output_t expected_output) in
+			title >:: (fun () -> 
+				let actual_output = T.transform input in
+				assert_equal
+					~msg:(Printf.sprintf
+						"Failure: input = %s, output = %s, expected output = %s"
+						(T.Io.string_of_input_t input)
+						(T.Io.string_of_output_t actual_output)
+						(T.Io.string_of_output_t expected_output))
+					actual_output expected_output)
 
-		let test () =
-			List.iter
+		let tests =
+			List.map
 				(fun (input, expected_output) -> test_equal ~input ~expected_output)
 				T.tests
 	end

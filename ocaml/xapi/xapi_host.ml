@@ -479,7 +479,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
 	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
 	if not(Pool_role.is_master ())
-	then log_and_ignore_exn ( fun () -> Rrdd.send_host_rrd_to_master ~master_address:(Pool_role.get_master_address () ));
+	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
 	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
 	log_and_ignore_exn Rrdd.backup_rrds;
 
@@ -581,7 +581,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
   Db.Host.create ~__context ~ref:host
 	~current_operations:[] ~allowed_operations:[]
 	~software_version:(Xapi_globs.software_version ())
-	~enabled:true
+	~enabled:false
 	~aPI_version_major:Xapi_globs.api_version_major
 	~aPI_version_minor:Xapi_globs.api_version_minor
 	~aPI_version_vendor:Xapi_globs.api_version_vendor
@@ -770,7 +770,7 @@ let local_management_reconfigure ~__context ~interface =
 
 let management_reconfigure ~__context ~pif =
 	(* Disallow if HA is enabled *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -805,7 +805,7 @@ let management_reconfigure ~__context ~pif =
 
 let management_disable ~__context =
   (* Disallow if HA is enabled *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
+  let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -883,16 +883,24 @@ let set_hostname_live ~__context ~host ~hostname =
 
 let m_ssl_legacy = Mutex.create ()
 
+let set_stunnel_legacy ~__context legacy =
+	debug "Setting stunnel legacy runtime config to %b" legacy;
+	Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy;
+	debug "Resetting long running stunnel clients e.g. master connection";
+	Master_connection.force_connection_reset ();
+	debug "Resetting long running stunnel server proxy";
+	Xapi_mgmt_iface.reconfigure_stunnel ~__context;
+	info "Updating stunnel legacy inventory to %b." legacy;
+	Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool legacy)
+
 let set_ssl_legacy ~__context ~self ~value =
 	(* Use the mutex to ensure inventory and DB are consistent. *)
 	Mutex.execute m_ssl_legacy (fun () ->
 		let old = Db.Host.get_ssl_legacy ~__context ~self in
-		info "set_ssl_legacy %B where old=%B" value old;
-		Db.Host.set_ssl_legacy ~__context ~self ~value;
-		Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool value);
 		if old <> value then (
-			Stunnel.set_legacy_protocol_and_ciphersuites_allowed value;
-			Xapi_mgmt_iface.reconfigure_stunnel ~__context
+			info "set_ssl_legacy %B where old=%B" value old;
+			Db.Host.set_ssl_legacy ~__context ~self ~value;
+			set_stunnel_legacy ~__context value
 		)
 	)
 
@@ -953,7 +961,12 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
+		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()));
+		log_and_ignore_exn (fun () ->
+			List.iter (fun sr ->
+				Xapi_sr.maybe_copy_sr_rrds ~__context ~sr
+			) (Helpers.get_all_plugged_srs ~__context)
+		)
 	)
 
 let get_servertime ~__context ~host =
@@ -1277,7 +1290,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
 
 let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
 	else
@@ -1345,7 +1358,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		log_and_ignore_exn (fun () -> Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
+		log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end
