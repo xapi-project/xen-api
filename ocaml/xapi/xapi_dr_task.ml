@@ -137,15 +137,22 @@ let create ~__context ~_type ~device_config ~whitelist =
 	dr_task
 
 let destroy ~__context ~self =
+	let open Db_filter_types in
 	let introduced_SRs = Db.DR_task.get_introduced_SRs ~__context ~self in
 	List.iter (fun sr ->
-		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-		(* Unplug all PBDs associated with this SR. *)
+		let master = Helpers.get_master ~__context in
+		let master_condition = Eq (Field "host", Literal (Ref.string_of master)) in
+		let sr_condition = Eq (Field "SR", Literal (Ref.string_of sr)) in
+		let master_pbds = Db.PBD.get_refs_where ~__context
+			~expr:(And (master_condition, sr_condition)) in
+		let slave_pbds = Db.PBD.get_refs_where ~__context
+			~expr:(And ((Not master_condition), sr_condition)) in
+		(* Unplug all PBDs associated with this SR, leaving master PBDs until last. *)
 		List.iter (fun pbd ->
 			debug "Unplugging PBD %s" (Db.PBD.get_uuid ~__context ~self:pbd);
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> Client.PBD.unplug ~rpc ~session_id ~self:pbd)
-		) pbds;
+		) (List.rev_append slave_pbds master_pbds);
 		(* Forget the SR. *)
 		debug "Forgetting SR %s (%s)" (Db.SR.get_uuid ~__context ~self:sr) (Db.SR.get_name_label ~__context ~self:sr);
 		Helpers.call_api_functions ~__context

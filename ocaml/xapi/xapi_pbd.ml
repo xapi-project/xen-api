@@ -99,9 +99,9 @@ let partition_metadata_vdis_by_pool ~__context ~sr =
 		(fun vdi -> Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
 		metadata_vdis
 
-let check_sharing_constraint ~__context ~self =
-	if not(Db.SR.get_shared ~__context ~self) then begin
-		let pbds = Db.SR.get_PBDs ~__context ~self in
+let check_sharing_constraint ~__context ~sr =
+	if not(Db.SR.get_shared ~__context ~self:sr) then begin
+		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 		(* Filter out the attached PBDs which aren't connected to this host *)
 		let me = Helpers.get_localhost ~__context in
 		let others = List.filter (fun self ->
@@ -109,23 +109,41 @@ let check_sharing_constraint ~__context ~self =
 				Db.PBD.get_host ~__context ~self <> me) pbds in
 		if others <> []
 		then raise (Api_errors.Server_error(Api_errors.sr_not_sharable,
-		[ Ref.string_of self; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
+		[ Ref.string_of sr; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
 	end
 
-let check_plugged_on_master_constraint ~__context ~self =
-  if Db.SR.get_shared ~__context ~self && not (Pool_role.is_master ()) then begin
-    let pool = Helpers.get_pool ~__context in
-    let master = Db.Pool.get_master ~__context ~self:pool in
-    let pbds = Db.SR.get_PBDs ~__context ~self in
-    let master_pbd =
-      try List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = master) pbds
-      with _ ->
-	raise (Api_errors.Server_error(Api_errors.sr_no_pbds, []))
-    in
-    if not (Db.PBD.get_currently_attached ~__context ~self:master_pbd) then
-      raise (Api_errors.Server_error(Api_errors.sr_detached_on_master, []))
-  end
-	  
+let check_plugged_on_master_constraint ~__context ~sr =
+	if Db.SR.get_shared ~__context ~self:sr then
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let plugged_master_pbds = [
+			Eq (Field "SR", Literal (Ref.string_of sr));
+			Eq (Field "host", Literal (Ref.string_of master));
+			Eq (Field "currently_attached", Literal "true");
+		] in
+		let expr = List.fold_left (fun acc p -> And (acc, p)) True plugged_master_pbds in
+		match Db.PBD.get_records_where ~__context ~expr with
+		| [] ->
+			raise Api_errors.(Server_error(sr_detached_on_master,
+				[Ref.string_of sr; Ref.string_of master]))
+		| _ -> ()
+
+let check_unplugged_on_slaves_constraint ~__context ~sr =
+	if Db.SR.get_shared ~__context ~self:sr then
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		let plugged_slave_pbds = [
+			Eq (Field "SR", Literal (Ref.string_of sr));
+			Not (Eq (Field "host", Literal (Ref.string_of master)));
+			Eq (Field "currently_attached", Literal "true");
+		] in
+		let expr = List.fold_left (fun acc p -> And (acc, p)) True plugged_slave_pbds in
+		match Db.PBD.get_records_where ~__context ~expr with
+		| (_, pbd)::_ ->
+			raise Api_errors.(Server_error(sr_attached_on_slave,
+				[Ref.string_of sr; Ref.string_of pbd.API.pBD_host]))
+		| [] -> ()
+
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
@@ -137,8 +155,9 @@ let plug ~__context ~self =
 		if not currently_attached then
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
-				check_sharing_constraint ~__context ~self:sr;
-				check_plugged_on_master_constraint ~__context ~self:sr;
+				check_sharing_constraint ~__context ~sr;
+				if not (Helpers.i_am_srmaster ~__context ~sr) then
+					check_plugged_on_master_constraint ~__context ~sr;
 				let dbg = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.transform_storage_exn
@@ -160,6 +179,8 @@ let unplug ~__context ~self =
 		begin
 			let host = Db.PBD.get_host ~__context ~self in
 			let sr = Db.PBD.get_SR ~__context ~self in
+			if Helpers.i_am_srmaster ~__context ~sr then
+				check_unplugged_on_slaves_constraint ~__context ~sr;
 
 			if Db.Host.get_enabled ~__context ~self:host
 			then abort_if_storage_attached_to_protected_vms ~__context ~self;

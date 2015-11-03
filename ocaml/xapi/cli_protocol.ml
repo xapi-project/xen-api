@@ -113,13 +113,13 @@ let marshal_list f x =
 type context = string * int (* offset *)
 
 let unmarshal_int32 (s, offset) = 
-  let (<<) a b = Int32.shift_left a b
-  and (||) a b = Int32.logor a b in
+  let (<<<) a b = Int32.shift_left a b
+  and (|||) a b = Int32.logor a b in
   let a = Int32.of_int (int_of_char (s.[offset + 0])) 
   and b = Int32.of_int (int_of_char (s.[offset + 1])) 
   and c = Int32.of_int (int_of_char (s.[offset + 2])) 
   and d = Int32.of_int (int_of_char (s.[offset + 3])) in
-  (a << 0) || (b << 8) || (c << 16) || (d << 24), (s, offset + 4)
+  (a <<< 0) ||| (b <<< 8) ||| (c <<< 16) ||| (d <<< 24), (s, offset + 4)
 
 let unmarshal_int pos = 
   let x, pos = unmarshal_int32 pos in

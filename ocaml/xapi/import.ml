@@ -899,31 +899,28 @@ module VBD : HandlerTools = struct
 			(* If the VBD is supposed to be attached to a PV guest (which doesn't support
 				 currently_attached empty drives) then throw a fatal error. *)
 			let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
+
+			let has_booted_hvm =
+				let lbr = try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm in
+				lbr.API.vM_HVM_boot_policy <> "" in
+
 			(* In the case of dry_run live migration, don't check for
 				 missing disks as CDs will be ejected before the real migration. *)
 			let dry_run, live = match config.import_type with
 			| Metadata_import {dry_run = dry_run; live = live} -> dry_run, live
 			| _ -> false, false
 			in
-			if not (dry_run && live) then
-				begin
-					if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
-					(* It's only ok if it's a CDROM attached to an HVM guest *)
-					let has_booted_hvm =
-						let lbr =
-							try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm
-						in
-						lbr.API.vM_HVM_boot_policy <> ""
-					in
-					if not(vbd_record.API.vBD_type = `CD && has_booted_hvm)
-					then raise (IFailure Attached_disks_not_found)
-				end
+			if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
+				(* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
+				let will_eject = dry_run && live && original_vm.API.vM_power_state <> `Suspended in
+				if not (vbd_record.API.vBD_type = `CD && (has_booted_hvm || will_eject))
+				then raise (IFailure Attached_disks_not_found)
 			end;
 
 			let vbd_record = { vbd_record with API.vBD_VM = vm } in
 			match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
 			| `CD, false | `Floppy, false  ->
-				if original_vm.API.vM_power_state <> `Suspended then
+				if has_booted_hvm || original_vm.API.vM_power_state <> `Suspended then
 					Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
 				else
 					Create vbd_record
@@ -1380,6 +1377,39 @@ let read_map_params name params =
 	let filter_params = List.filter (fun (p,_) -> (Xstringext.String.startswith name p) && (String.length p > len)) params in
 	List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
 
+let with_error_handling f =
+	try f ()
+	with
+	| IFailure failure ->
+		 begin
+			 match failure with
+			 | Cannot_handle_chunked ->
+				  error "import code cannot handle chunked encoding";
+				 raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
+			 | Some_checksums_failed ->
+				  error "some checksums failed";
+				 raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
+			 | Failed_to_find_object id ->
+				  error "Failed to find object with ID: %s" id;
+				 raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
+			 | Attached_disks_not_found ->
+				  error "Cannot import guest with currently attached disks which cannot be found";
+				 raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
+			 | Unexpected_file (expected, actual) ->
+				  let hex = Tar_unix.Header.to_hex in
+				  error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
+					  expected (hex expected) actual (hex actual);
+				  raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
+		 end
+	| Api_errors.Server_error(code, params) as e ->
+		 raise e
+	| End_of_file ->
+		 error "Prematurely reached end-of-file during import";
+		raise (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
+	| e ->
+		 error "Import caught exception: %s" (ExnHelper.string_of_exn e);
+		raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
+
 (** Import metadata only *)
 let metadata_handler (req: Request.t) s _ =
 	debug "metadata_handler called";
@@ -1414,6 +1444,7 @@ let metadata_handler (req: Request.t) s _ =
 					assert_compatable ~__context header.version;
 					if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
+					with_error_handling (fun () ->
 					let state = handle_all __context config rpc session_id header.objects in
 					let table = state.table in
 					let on_cleanup_stack = state.cleanup in
@@ -1435,6 +1466,7 @@ let metadata_handler (req: Request.t) s _ =
 							cleanup on_cleanup_stack;
 						end;
 						raise e
+					)
 				)))
 
 let stream_import __context rpc session_id s content_length refresh_session config =
@@ -1577,7 +1609,7 @@ let handler (req: Request.t) s _ =
 								Http_svr.headers s (Http.http_400_badrequest ());
 								raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 							end;
-							try
+							with_error_handling (fun () ->
 								let refresh_external =
 									if List.mem_assoc "session_id" all then begin
 										let external_session_id = List.assoc "session_id" all in
@@ -1608,36 +1640,7 @@ let handler (req: Request.t) s _ =
 									Http_svr.headers s headers;
 									debug "Reading XML";
 								ignore(stream_import __context rpc session_id s content_length refresh_session config);
-							with
-							| IFailure failure ->
-								begin
-									match failure with
-									| Cannot_handle_chunked ->
-										error "import code cannot handle chunked encoding";
-										raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
-									| Some_checksums_failed ->
-										error "some checksums failed";
-										raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
-									| Failed_to_find_object id ->
-										error "Failed to find object with ID: %s" id;
-										raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
-									| Attached_disks_not_found ->
-										error "Cannot import guest with currently attached disks which cannot be found";
-										raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
-									| Unexpected_file (expected, actual) ->
-										let hex = Tar_unix.Header.to_hex in
-										error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
-										expected (hex expected) actual (hex actual);
-										raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
-								end
-							| Api_errors.Server_error(code, params) as e ->
-								raise e
-							| End_of_file ->
-								error "Prematurely reached end-of-file during import";
-								raise (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
-							| e ->
-								error "Import caught exception: %s" (ExnHelper.string_of_exn e);
-								raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
+							)
 					)
 		);
 		debug "import successful")
