@@ -237,9 +237,9 @@ class Dom0MemUsageAlarmETG(EmailTextGenerator):
 
     def generate_body(self):
         return \
-            'The memory demand on "%s" is about %.1f%% of the physical memory of the domain. ' \
+            'The memory required by the control domain on "%s" is about %.1f%% of its allocated memory.' \
             'Occasional performance degradation can be expected when memory swapping is forced to happen.\n' \
-            'This alarm is set to be triggered when the ratio of the memory demand to the physical memory is beyond %.1f%%.\n' \
+            'This alarm is set to be triggered when the memory required by the control domain is above %.1f%% of its allocated memory.\n' \
             '\n' % \
             (self.params['name_label'],
              self.value * 100.0,
