@@ -68,5 +68,5 @@ end))
 let test =
 	"pool_cpuinfo" >:::
 		[
-			"test_pool_cpuinfo" >:: PoolCpuinfo.test;
+			"test_pool_cpuinfo" >::: PoolCpuinfo.tests;
 		]

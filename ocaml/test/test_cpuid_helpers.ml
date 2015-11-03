@@ -564,34 +564,34 @@ end))
 let test =
 	"test_cpuid_helpers" >:::
 		[
-			"test_string_of_features" >:: StringOfFeatures.test;
-			"test_features_of_string" >:: FeaturesOfString.test;
-			"test_roundtrip_features_to_features" >:: 
-				RoundTripFeaturesToFeatures.test;
-			"test_roundtrip_string_to_features" >:: 
-				RoundTripStringToString.test;
-			"test_parse_failure" >:: 
-				ParseFailure.test;
-			"test_extend" >::
-				Extend.test;
-			"test_zero_extend" >:: 
-				ZeroExtend.test;
-			"test_intersect" >:: 
-				Intersect.test;
-			"test_comparisons" >:: 
-				Comparisons.test;
-			"test_upgrade" >::
-				Upgrade.test;
-			"test_accessors" >::
-				Accessors.test;
-			"test_setters" >::
-				Setters.test;
-			"test_modifiers" >::
-				Modifiers.test;
-			"test_reset_cpu_flags" >::
-				ResetCPUFlags.test;
-			"test_update_cpu_flags" >::
-				UpdateCPUFlags.test;
-			"test_assert_vm_is_compatible" >::
-				AssertVMIsCompatible.test;
+			"test_string_of_features" >::: StringOfFeatures.tests;
+			"test_features_of_string" >::: FeaturesOfString.tests;
+			"test_roundtrip_features_to_features" >::: 
+				RoundTripFeaturesToFeatures.tests;
+			"test_roundtrip_string_to_features" >::: 
+				RoundTripStringToString.tests;
+			"test_parse_failure" >::: 
+				ParseFailure.tests;
+			"test_extend" >:::
+				Extend.tests;
+			"test_zero_extend" >::: 
+				ZeroExtend.tests;
+			"test_intersect" >::: 
+				Intersect.tests;
+			"test_comparisons" >::: 
+				Comparisons.tests;
+			"test_upgrade" >:::
+				Upgrade.tests;
+			"test_accessors" >:::
+				Accessors.tests;
+			"test_setters" >:::
+				Setters.tests;
+			"test_modifiers" >:::
+				Modifiers.tests;
+			"test_reset_cpu_flags" >:::
+				ResetCPUFlags.tests;
+			"test_update_cpu_flags" >:::
+				UpdateCPUFlags.tests;
+			"test_assert_vm_is_compatible" >:::
+				AssertVMIsCompatible.tests;
 		]
