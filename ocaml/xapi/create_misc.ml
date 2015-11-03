@@ -23,6 +23,7 @@ open Xstringext
 open Db_filter
 open Db_filter_types
 open Network
+module XenAPI = Client.Client
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -465,7 +466,9 @@ let create_host_cpu ~__context =
 		if not (Helpers.rolling_upgrade_in_progress ~__context) then
 			let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
 			let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
-			ignore (Xapi_message.create ~__context ~name ~priority ~cls:`Host ~obj_uuid ~body)
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
 	end;
 	
 	(* Recreate all Host_cpu objects *)
@@ -532,7 +535,9 @@ let create_pool_cpuinfo ~__context =
 		if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 then
 			let (name, priority) = if lost then Api_messages.pool_cpu_features_down else Api_messages.pool_cpu_features_up in
 			let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
-			ignore (Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid ~body)
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
 	end
 		
 
