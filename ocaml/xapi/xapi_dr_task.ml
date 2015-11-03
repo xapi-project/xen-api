@@ -61,7 +61,6 @@ let parse_sr_probe xml =
 (* Make a best-effort attempt to create an SR and associate it with the DR_task. *)
 (* If anything goes wrong, unplug all PBDs which were created, and forget the SR. *)
 let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_record =
-	let hosts = Db.Host.get_all ~__context in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			(* Create the SR record. *)
@@ -74,22 +73,23 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 			in
 			try
 				(* Create and plug PBDs. *)
-				List.iter (fun host ->
-					debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
-					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
+				Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context
+					(fun ~rpc ~session_id ~host ->
+						debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
+						let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+						Client.PBD.plug ~rpc ~session_id ~self:pbd);
 				(* Wait until the asynchronous scan is complete and metadata_latest has been updated for all metadata VDIs. *)
 				Xapi_dr.wait_until_sr_is_ready ~__context ~sr;
 				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task
 			with e ->
+				Backtrace.is_important e;
 				(* Clean up if anything goes wrong. *)
 				warn "Could not successfully attach SR %s - caught %s" sr_record.uuid (Printexc.to_string e);
-				let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+				let pbds = Xapi_sr.get_pbds ~__context ~self:sr ~attached:true ~master_pos:`Last in
 				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
-				Client.SR.forget ~rpc ~session_id ~sr)
+				Client.SR.forget ~rpc ~session_id ~sr;
+				raise e)
 
-(* Add SR records to the database. *)
-(* The SR records will have their introduced_by field set to the DR_task. *)
 let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
@@ -99,8 +99,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
 			[Printf.sprintf "Disaster recovery not supported on SRs of type %s" _type]));
 	(* Probe the specified device for SRs. *)
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let probe_result = Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			Client.SR.probe ~rpc ~session_id
@@ -137,10 +136,10 @@ let create ~__context ~_type ~device_config ~whitelist =
 	dr_task
 
 let destroy ~__context ~self =
+	let open Db_filter_types in
 	let introduced_SRs = Db.DR_task.get_introduced_SRs ~__context ~self in
 	List.iter (fun sr ->
-		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-		(* Unplug all PBDs associated with this SR. *)
+		let pbds = Xapi_sr.get_pbds ~__context ~self:sr ~attached:true ~master_pos:`Last in
 		List.iter (fun pbd ->
 			debug "Unplugging PBD %s" (Db.PBD.get_uuid ~__context ~self:pbd);
 			Helpers.call_api_functions ~__context

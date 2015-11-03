@@ -61,9 +61,9 @@ let set_master_live ~__context =
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
 
 let set_master_pool_reference ~__context =
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-    Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context) 
-    
+	let pool = Helpers.get_pool ~__context in
+	Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context)
+
 let refresh_console_urls ~__context =
   List.iter
     (fun console ->

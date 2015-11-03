@@ -966,6 +966,8 @@ let _ =
     ~doc:"The operation could not proceed because necessary VDIs were already locked at the storage level." ();
   error Api_errors.vdi_readonly [ "vdi" ]
     ~doc:"The operation required write access but this VDI is read-only" ();
+  error Api_errors.vdi_has_rrds [ "vdi" ]
+    ~doc:"The operation cannot be performed because this VDI has rrd stats" ();
   error Api_errors.vdi_too_small [ "vdi"; "minimum size" ]
     ~doc:"The VDI is too small. Please resize it to at least the minimum size." ();
   error Api_errors.vdi_not_sparse [ "vdi" ]
@@ -1011,6 +1013,10 @@ let _ =
     ~doc:"The SR is currently being used as a local cache SR." ();
   error Api_errors.clustered_sr_degraded [ "sr" ]
     ~doc:"An SR is using clustered local storage. It is not safe to reboot a host at the moment." ();
+  error Api_errors.sr_detached_on_master [ "sr"; "host" ]
+    ~doc:"The SR is currently detached on the master." ();
+  error Api_errors.sr_attached_on_slave [ "sr"; "host" ]
+    ~doc:"The SR is currently attached on non-master host." ();
 
   error Api_errors.sm_plugin_communication_failure ["sm"]
     ~doc:"The SM plugin did not respond to a query." ();
@@ -1287,7 +1293,10 @@ let _ =
 		~doc:"This operation is not allowed as the VM is part of an appliance." ();
 
 	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
-		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ()
+		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ();
+
+	error Api_errors.vm_call_plugin_rate_limit ["VM"; "interval"; "wait"]
+		~doc:"There is a minimal interval required between consecutive plugin calls made on the same VM, please wait before retry." ()
 
 
 let _ =
@@ -7288,7 +7297,7 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
+	field ~qualifier:StaticRO ~in_product_since:rel_dundee ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "True if the Windows Update feature is enabled on the VM; false otherwise";
     ])
 	()
 

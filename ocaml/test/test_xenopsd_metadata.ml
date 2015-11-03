@@ -26,8 +26,8 @@ type vm_config = {
 
 let string_of_vm_config conf =
 	Printf.sprintf "other_config = %s, platform = %s"
-		(string_of_string_map conf.oc)
-		(string_of_string_map conf.platform)
+		(Test_printers.(assoc_list string string) conf.oc)
+		(Test_printers.(assoc_list string string) conf.platform)
 
 let load_vm_config __context conf =
 	let (self: API.ref_VM) = make_vm ~__context
@@ -58,9 +58,7 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		type output_t = string option
 
 		let string_of_input_t = string_of_vm_config
-		let string_of_output_t = function
-			| Some s -> Printf.sprintf "Some %s" s
-			| None -> "None"
+		let string_of_output_t = Test_printers.(option string)
 	end
 
 	module State = XapiDb
@@ -204,7 +202,7 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 		type output_t = int
 
 		let string_of_input_t = string_of_vm_config
-		let string_of_output_t = string_of_int
+		let string_of_output_t = Test_printers.int
 	end
 
 	module State = XapiDb
@@ -237,7 +235,7 @@ end))
 let test =
 	"test_xenopsd_metadata" >:::
 		[
-			"test_hvm_serial" >:: HVMSerial.test;
-			"test_videomode" >:: VideoMode.test;
-			"test_videoram" >:: VideoRam.test;
+			"test_hvm_serial" >::: HVMSerial.tests;
+			"test_videomode" >::: VideoMode.tests;
+			"test_videoram" >::: VideoRam.tests;
 		]

@@ -56,8 +56,7 @@ let prepare_database_for_restore ~old_context ~new_context =
        "no other masters" check we remove all hosts from the backup except the master. *)
 
 	(* Look up the pool master: *)
-	let pool = Helpers.get_pool ~__context:new_context in
-	let master = Db.Pool.get_master ~__context:new_context ~self:pool in
+	let master = Helpers.get_master ~__context:new_context in
 
 	(* Remove all slaves from the database *)
 	List.iter (fun self -> 

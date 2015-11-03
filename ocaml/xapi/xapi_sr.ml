@@ -153,18 +153,19 @@ let introduce  ~__context ~uuid ~name_label
 let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
 	raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
-
-(** Before destroying an SR record, unplug and destroy referencing PBDs. If any of these
-    operations fails, the ensuing exception should keep the SR record around. *)
-let unplug_and_destroy_pbds ~__context ~self =
-	let pbds = Db.SR.get_PBDs ~__context ~self in
-	Helpers.call_api_functions
-		(fun rpc session_id ->
-			List.iter
-				(fun pbd ->
-					Client.PBD.unplug ~rpc ~session_id ~self:pbd;
-					Client.PBD.destroy ~rpc ~session_id ~self:pbd)
-				pbds)
+let get_pbds ~__context ~self ~attached ~master_pos =
+	let master = Helpers.get_master ~__context in
+	let master_condition = Eq (Field "host", Literal (Ref.string_of master)) in
+	let sr_condition = Eq (Field "SR", Literal (Ref.string_of self)) in
+	let plugged_condition = Eq (Field "currently_attached", Literal (string_of_bool attached)) in
+	let all = List.fold_left (fun acc p -> And (acc, p)) True in
+	let master_pbds = Db.PBD.get_refs_where ~__context
+		~expr:(all [master_condition; sr_condition; plugged_condition]) in
+	let slave_pbds = Db.PBD.get_refs_where ~__context
+		~expr:(all [Not master_condition; sr_condition; plugged_condition]) in
+	match master_pos with
+	| `First -> master_pbds @ slave_pbds
+	| `Last -> slave_pbds @ master_pbds
 
 let probe ~__context ~host ~device_config ~_type ~sm_config =
 	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
@@ -221,8 +222,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			let create_on_host host =
 				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
 			in
-			let pool = Helpers.get_pool ~__context in
-			let master = Db.Pool.get_master ~__context ~self:pool in
+			let master = Helpers.get_master ~__context in
 			let hosts = master :: (List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)) in
 			List.map create_on_host hosts
 		else
@@ -583,6 +583,87 @@ let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 	let blob = Xapi_blob.create ~__context ~mime_type ~public in
 	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
 	blob
+
+let find_or_create_rrd_vdi ~__context ~sr =
+	let open Db_filter_types in
+	match Db.VDI.get_refs_where ~__context ~expr:(And (
+		Eq (Field "SR", Literal (Ref.string_of sr)),
+		Eq (Field "type", Literal "rrd")
+	))
+	with
+	| [] -> begin
+		let virtual_size = Int64.of_int Xapi_vdi_helpers.VDI_CStruct.vdi_size in
+		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
+			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size
+			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
+		in
+		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+	end
+	| vdi :: _ ->
+		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+
+let should_manage_stats ~__context sr =
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+	Smint.(has_capability Sr_stats sr_features)
+	&& Helpers.i_am_srmaster ~__context ~sr
+
+let maybe_push_sr_rrds ~__context ~sr =
+	if should_manage_stats ~__context sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		match Xapi_vdi_helpers.read_raw ~__context ~vdi with
+		| None -> debug "Stats VDI has no SR RRDs"
+		| Some x ->
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			let tmp_path = Filename.temp_file "push_sr_rrds" ".gz" in
+			finally (fun () ->
+				Unixext.write_string_to_file tmp_path x;
+				Rrdd.push_sr_rrd ~sr_uuid ~path:tmp_path
+			) (fun () -> Unixext.unlink_safe tmp_path)
+
+let maybe_copy_sr_rrds ~__context ~sr =
+	if should_manage_stats ~__context sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		try
+			let archive_path = Rrdd.archive_sr_rrd ~sr_uuid in
+			let contents = Unixext.string_of_file archive_path in
+			Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
+		with Rrd_interface.Archive_failed(msg) ->
+			warn "Archiving of SR RRDs to stats VDI failed: %s" msg
+
+let physical_utilisation_thread ~__context () =
+	let module SRMap =
+		Map.Make(struct type t = [`SR] Ref.t let compare = compare end) in
+
+	let sr_cache : bool SRMap.t ref = ref SRMap.empty in
+
+	let srs_to_update () =
+		let plugged_srs = Helpers.get_all_plugged_srs ~__context in
+		(* Remove SRs that are no longer plugged *)
+		sr_cache := SRMap.filter (fun sr _ -> List.mem sr plugged_srs) !sr_cache;
+		(* Cache wether we should manage stats for newly plugged SRs *)
+		sr_cache := List.fold_left (fun m sr ->
+			if SRMap.mem sr m then m
+			else SRMap.add sr (should_manage_stats ~__context sr) m
+		) !sr_cache plugged_srs;
+		SRMap.(filter (fun _ b -> b) !sr_cache |> bindings) |> List.map fst in
+
+	while true do
+		Thread.delay 120.;
+		try
+			List.iter (fun sr ->
+				let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+				try
+					let value = Rrdd.query_sr_ds ~sr_uuid ~ds_name:"physical_utilisation" |> Int64.of_float in
+					Db.SR.set_physical_utilisation ~__context ~self:sr ~value
+				with Rrd_interface.Internal_error("Not_found") ->
+					debug "Cannot update physical unilisation for SR %s: RRD unavailable" sr_uuid
+				) (srs_to_update ())
+		with e -> warn "Exception in SR physical utilisation scanning thread: %s" (Printexc.to_string e)
+	done
 
 (* APIs for accessing SR level stats *)
 let get_data_sources ~__context ~sr =

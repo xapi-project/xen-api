@@ -117,7 +117,7 @@ let upgrade_wlb_configuration = {
     version = (fun _ -> true);
     fn = fun ~__context ->
 		(* there can be only one pool *)
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = Helpers.get_pool ~__context in
 		(* get a Secret reference that makes sense, if there is no password ("")
 		   then use null, otherwise convert if clear-text and else keep what's
 		   there *)
@@ -304,6 +304,24 @@ let upgrade_ha_restart_priority = {
 		List.iter update_vm all_vms
 }
 
+<<<<<<< HEAD
+=======
+let upgrade_cpu_flags = {
+	description = "Upgrading last_boot_CPU flags for all running VMs";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let should_update_vm vm =
+			let power_state = Db.VM.get_power_state ~__context ~self:vm in
+			List.mem power_state [`Running; `Suspended]
+		in
+		let all_vms = Db.VM.get_all ~__context in
+		let vms_to_update = List.filter should_update_vm all_vms in
+		let master = Helpers.get_master ~__context in
+		List.iter (fun vm -> Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host:master)
+			vms_to_update
+}
+
+>>>>>>> master
 (* To deal with the removal of the "Auto-start on server boot" feature in Boston, *)
 (* all VMs with the other_config flag "auto_poweron" set to true will have *)
 (* ha_restart_priority set to "best-effort". *)

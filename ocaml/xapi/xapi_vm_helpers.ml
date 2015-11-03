@@ -103,6 +103,7 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
+		~auto_update_drivers
 		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -170,7 +171,7 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
-		~auto_update_drivers:false
+		~auto_update_drivers
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -607,7 +608,7 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 	| _ ->
 		let choices =
 			if prefer_slaves then
-				let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+				let master = Helpers.get_master ~__context in
 				List.filter ((<>) master) choices
 			else choices in
 		List.nth choices (Random.int (List.length choices))
@@ -858,8 +859,8 @@ let vif_inclusive_range a b =
    may be further restricted. *)
 
 let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 3
-let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 15
-let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 15
+let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 254
+let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 254
 let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
 let allowed_VBD_devices_HVM_floppy     = List.map (fun x -> Device_number.make (Device_number.Floppy, x, 0)) (inclusive_range 0 1)
 
@@ -1087,9 +1088,9 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 
 (** Add to the VM's current operations, call a function and then remove from the
 	current operations. Ensure the allowed_operations are kept up to date. *)
-let with_vm_operation ~__context ~self ~doc ~op f =
+let with_vm_operation ~__context ~self ~doc ~op ?policy f =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
-	Helpers.retry_with_global_lock ~__context ~doc
+	Helpers.retry_with_global_lock ~__context ~doc ?policy
 		(fun () ->
 			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
 			Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;

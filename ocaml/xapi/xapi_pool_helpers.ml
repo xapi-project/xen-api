@@ -91,8 +91,7 @@ let ha_disable_in_progress ~__context =
 
 let get_master_slaves_list_with_fn ~__context fn =
 	let _unsorted_hosts = Db.Host.get_all ~__context in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in (* anything not a master *)
 	debug "MASTER=%s, SLAVES=%s" (Db.Host.get_name_label ~__context ~self:master)
 		(List.fold_left (fun str h -> (str^","^(Db.Host.get_name_label ~__context ~self:h))) "" slaves);
@@ -106,26 +105,33 @@ let get_master_slaves_list ~__context =
 let get_slaves_list ~__context =
 	get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
 
+let call_fn_on_hosts ~__context hosts f =
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let errs = List.fold_left
+			(fun acc host ->
+				try
+					f ~rpc ~session_id ~host;
+					acc
+				with x ->
+					(host,x)::acc) [] hosts
+		in
+		if List.length errs > 0 then begin
+			warn "Exception raised while performing operation on hosts:";
+			List.iter (fun (host,x) -> warn "Host: %s error: %s" (Ref.string_of host) (ExnHelper.string_of_exn x)) errs;
+			raise (snd (List.hd errs))
+		end)
+
+let call_fn_on_master_then_slaves ~__context f =
+	let hosts = get_master_slaves_list ~__context in
+	call_fn_on_hosts ~__context hosts f
+
 (* Note: fn exposed in .mli *)
 (** Call the function on the slaves first. When those calls have all
  *  returned, call the function on the master. *)
 let call_fn_on_slaves_then_master ~__context f =
-  (* Get list with master as LAST element: important for ssl_legacy calls *)
-  let hosts = List.rev (get_master_slaves_list ~__context) in
-  Helpers.call_api_functions ~__context (fun rpc session_id -> 
-    let errs = List.fold_left 
-      (fun acc host -> 
-	try
-	  f ~rpc ~session_id ~host;
-	  acc
-	with x -> 
-	  (host,x)::acc) [] hosts
-    in
-    if List.length errs > 0 then begin
-      warn "Exception raised while performing operation on hosts:";
-      List.iter (fun (host,x) -> warn "Host: %s error: %s" (Ref.string_of host) (ExnHelper.string_of_exn x)) errs;
-      raise (snd (List.hd errs))
-    end)
+	(* Get list with master as LAST element: important for ssl_legacy calls *)
+	let hosts = List.rev (get_master_slaves_list ~__context) in
+	call_fn_on_hosts ~__context hosts f
 
 let apply_guest_agent_config ~__context =
 	let f ~rpc ~session_id ~host =

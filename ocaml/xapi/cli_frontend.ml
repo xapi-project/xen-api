@@ -1370,8 +1370,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
     {
       reqd=["vm-uuid"; "plugin"; "fn"];
       optn=["args:"];
-      help="Calls the function within the plugin on the given vm with optional arguments.";
-      implementation=No_fd Cli_operations.vm_call_plugin;
+      help="Calls the function within the plugin on the given vm with optional arguments (args:key=value). To pass a \"value\" string with special characters in it (e.g. new line), an alternative syntax args:key:file=local_file can be used in place, where the content of local_file will be retrieved and assigned to \"key\" as a whole.";
+      implementation=With_fd Cli_operations.vm_call_plugin;
       flags=[];
     };
 
@@ -2800,7 +2800,7 @@ let parse_commandline arg_list =
      params = params}
   with 
   | e ->
-    error "Rethowing %s as ParseError \"\"" (Printexc.to_string e);
+    error "Rethrowing %s as ParseError \"\"" (Printexc.to_string e);
     Backtrace.reraise e (ParseError "")
 
 (* ----------------------------------------------------------------------

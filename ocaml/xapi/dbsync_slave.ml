@@ -260,14 +260,14 @@ let update_env __context sync_keys =
       let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
       let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
       Db.SR.set_local_cache_enabled ~__context ~self:cache_sr ~value:true;
-      log_and_ignore_exn (fun () -> Rrdd.set_cache_sr ~sr_uuid:cache_sr_uuid)
+      log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:cache_sr_uuid)
     with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
   );
 
   switched_sync Xapi_globs.sync_load_rrd (fun () -> 
     (* Load the host rrd *)
     Rrdd_proxy.Deprecated.load_rrd ~__context
-      ~uuid:(Helpers.get_localhost_uuid ())
+      ~uuid:(Helpers.get_localhost_uuid ()) ~is_host:true
   );
 
   (* maybe record host memory properties in database *)

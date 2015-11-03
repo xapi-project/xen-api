@@ -592,8 +592,7 @@ let start_heartbeat_thread() = Debug.with_thread_named "heartbeat" (fun () ->
 
 	Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
 		let localhost = Helpers.get_localhost __context in
-		let pool = Helpers.get_pool __context in
-		let master = Db.Pool.get_master ~__context ~self:pool in
+		let master = Helpers.get_master ~__context in
 		let address = Db.Host.get_address ~__context ~self:master in
 
 		if localhost=master then () else begin

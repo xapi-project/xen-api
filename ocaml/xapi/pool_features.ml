@@ -28,7 +28,7 @@ let pool_features_of_list hosts =
 	List.fold_left Listext.List.intersect all_features hosts
 
 let get_pool_features ~__context =
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool)
 
 let is_enabled ~__context f =
@@ -36,7 +36,7 @@ let is_enabled ~__context f =
 	List.mem f pool_features
 
 let update_pool_features ~__context =
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	let pool_restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
 	let hosts = List.map
 		(fun (_, host_r) -> host_r.API.host_license_params)

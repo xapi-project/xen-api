@@ -228,6 +228,7 @@ val introduce_internal :
   vLAN_master_of:[ `VLAN ] Ref.t ->
   ?metrics:[ `PIF_metrics ] Ref.t ->
   managed:bool ->
+  ?disallow_unplug:bool ->
   unit ->
   [ `PIF ] Ref.t
   

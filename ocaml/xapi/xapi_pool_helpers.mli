@@ -23,6 +23,14 @@ val ha_disable_in_progress : __context:Context.t -> bool
 
 val ha_enable_in_progress : __context:Context.t -> bool
 
+(** Call the function on the master, then on each of the slaves in turn. Useful
+    when attaching an SR to all hosts in the pool. *)
+val call_fn_on_master_then_slaves :
+	__context:Context.t ->
+	(rpc:(Rpc.call -> Rpc.response) ->
+	session_id:API.ref_session -> host:API.ref_host -> 'a) ->
+	unit
+
 (** Call the function on the slaves first. When those calls have all
  *  returned, call the function on the master. *)
 val call_fn_on_slaves_then_master :

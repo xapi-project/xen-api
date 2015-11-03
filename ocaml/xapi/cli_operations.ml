@@ -252,7 +252,7 @@ let diagnostic_license_status printer rpc session_id params =
 	String.sub host_r.API.host_uuid 0 8;
 	"-"; "-"; "-"; "-"; "-" ]) invalid in
 	let __context = Context.make "diagnostic_license_status" in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
 	let pool_free = List.fold_left (||) false (List.map (fun h -> h.edition = "free") host_licenses) in
 	let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
@@ -1478,8 +1478,10 @@ let sr_probe printer rpc session_id params =
 		| Probe x ->
 			let sr (uri, x) = [
 				"uri", uri;
-				"total_space", Int64.to_string x.total_space;
-				"free_space", Int64.to_string x.free_space;
+				"name-label", x.name_label;
+				"name-description", x.name_description;
+				"total-space", Int64.to_string x.total_space;
+				"free-space", Int64.to_string x.free_space;
 			] in
 			if x.srs <> []
 			then printer (Cli_printer.PMsg "The following SRs were found:");
@@ -1616,7 +1618,8 @@ let vm_create printer rpc session_id params =
 		~suspend_SR:Ref.null
 		~version:0L
 		~generation_id:""
-		~hardware_platform_version:0L in
+		~hardware_platform_version:0L
+		~auto_update_drivers:false in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
@@ -2038,12 +2041,25 @@ let vm_memory_target_wait printer rpc session_id params =
 			let vm=vm.getref () in
 			Client.VM.wait_memory_target_live rpc session_id vm) params [])
 
-let vm_call_plugin printer rpc session_id params =
+let vm_call_plugin fd printer rpc session_id params =
 	let vm_uuid = List.assoc "vm-uuid" params in
 	let vm = Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let plugin = List.assoc "plugin" params in
 	let fn = List.assoc "fn" params in
 	let args = read_map_params "args" params in
+	(* Syntax interpretation: args:key:file=filename equals args:key=filename_content *)
+	let convert ((k,v) as p) =
+		match String.split ~limit:2 ':' k with
+		| key :: "file" :: [] ->
+			 begin
+				 match get_client_file fd v with
+				 | Some s -> (key, s)
+				 | None ->
+					 marshal fd (Command (PrintStderr (Printf.sprintf "Failed to read file %s\n" v)));
+					 raise (ExitWithError 1)
+			 end
+		| _ -> p in
+	let args = List.map convert args in
 	let result = Client.VM.call_plugin rpc session_id vm plugin fn args in
 	printer (Cli_printer.PList [ result ])
 

@@ -153,7 +153,7 @@ module Platform = struct
 		with Not_found ->
 			default
 
-	let sanity_check ~platformdata ~filter_out_unknowns =
+	let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns =
 		(* Filter out unknown flags, if applicable *)
 		let platformdata =
 			if filter_out_unknowns
@@ -166,6 +166,21 @@ module Platform = struct
 				(fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
 				platformdata
 		in
+		(* Sanity check for HVM domains with invalid VCPU configuration*)
+		if hvm && (List.mem_assoc "cores-per-socket" platformdata) then
+		begin
+			try
+				let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
+				(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
+				if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) 
+					|| ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
+					raise (Api_errors.Server_error(Api_errors.invalid_value, 
+						["platform:cores-per-socket"; 
+						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
+			with Failure msg ->
+				raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; 
+					Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
+		end;
 		(* Add usb emulation flags.
 		   Make sure we don't send usb=false and usb_tablet=true,
 		   as that wouldn't make sense. *)
@@ -742,6 +757,9 @@ module MD = struct
 		let platformdata =
 			Platform.sanity_check
 				~platformdata:vm.API.vM_platform
+				~vcpu_max:vm.API.vM_VCPUs_max
+				~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
+				~hvm:(Helpers.will_boot_hvm ~__context ~self:vmref)
 				~filter_out_unknowns:
 					(not(Pool_features.is_enabled ~__context Features.No_platform_filter))
 		in
@@ -2052,8 +2070,8 @@ let success_task queue_name f dbg id =
 		(fun () ->
 			let t = Client.TASK.stat dbg id in
 			match t.Task.state with
-				| Task.Completed _ -> f t
-				| Task.Failed x -> 
+				| Task.Completed r -> f t;r.Task.result
+				| Task.Failed x ->
 					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
 					let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
 					Backtrace.add exn bt;
@@ -2180,13 +2198,15 @@ let update_debug_info __context t =
 				debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task) (Printexc.to_string e)
 		) debug_info
 
-let sync_with_task __context queue_name x =
+let sync_with_task_result __context queue_name x =
 	let dbg = Context.string_of_task __context in
 	x |> register_task __context queue_name |> wait_for_task queue_name dbg |> unregister_task __context queue_name |> success_task queue_name (update_debug_info __context) dbg
 
+let sync_with_task __context queue_name x = sync_with_task_result __context queue_name x |> ignore
+
 let sync __context queue_name x =
 	let dbg = Context.string_of_task __context in
-	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg
+	x |> wait_for_task queue_name dbg |> success_task queue_name (update_debug_info __context) dbg |> ignore
 
 let pause ~__context ~self =
 	let queue_name = queue_of_vm ~__context ~self in
@@ -2224,6 +2244,20 @@ let request_rdp ~__context ~self enabled =
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.request_rdp dbg id enabled |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg id ()
+		)
+
+let run_script ~__context ~self script =
+	let queue_name = queue_of_vm ~__context ~self in
+	transform_xenops_exn ~__context ~vm:self queue_name
+		(fun () ->
+			let id = id_of_vm ~__context ~self in
+			debug "xenops: VM.run_script %s %s" id script;
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			let r = Client.VM.run_script dbg id script |> sync_with_task_result __context queue_name in
+			let r = match r with None -> "" | Some rpc -> Jsonrpc.to_string rpc in
+			Events_from_xenopsd.wait queue_name dbg id ();
+			r
 		)
 
 let set_xenstore_data ~__context ~self xsdata =
@@ -2428,7 +2462,11 @@ let suspend ~__context ~self =
 			(* XXX: this needs to be at boot time *)
 			let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
 			let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
-			let sm_config = [Xapi_globs._sm_vm_hint, id] in
+			let sm_config = [
+				Xapi_globs._sm_vm_hint, id;
+				(* Fully inflate the VDI if the SR supports thin provisioning *)
+				Xapi_globs._sm_initial_allocation, (Int64.to_string space_needed);
+			] in
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id ->
 					let vdi =

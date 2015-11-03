@@ -23,23 +23,6 @@ open Threadext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let create_rrd_vdi ~__context ~sr =
-	let open Db_filter_types in
-	match Db.VDI.get_refs_where ~__context ~expr:(And (
-		Eq (Field "SR", Literal (Ref.string_of sr)),
-		Eq (Field "type", Literal "rrd")
-	))
-	with
-	| [] -> begin
-		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
-			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size:(Int64.of_int 4194304)
-			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
-		in
-		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
-	end
-	| vdi :: _ ->
-		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr)
-
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi = 
   if not (Db.VDI.get_managed ~__context ~self:vdi)
@@ -52,8 +35,7 @@ let metadata_replication : ((API.ref_VDI, (API.ref_VBD * Redo_log.redo_log)) Has
 	Hashtbl.create Xapi_globs.redo_log_max_instances
 
 let get_master_dom0 ~__context =
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 	let vms = Db.Host.get_resident_VMs ~__context ~self:master in
 	List.hd (List.filter (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) vms)
 
@@ -178,3 +160,88 @@ let database_ref_of_vdi ~__context ~vdi =
 		(fun () -> Helpers.call_api_functions ~__context
 			(fun rpc session_id -> Sm_fs_ops.with_block_attached_device  __context rpc session_id vdi `RW database_ref_of_device))
 
+module VDI_CStruct = struct
+
+	let magic_number = 0x7ada7adal
+	let magic_number_offset = 0
+	let version = 1l
+	let version_offset = 4
+	let length_offset = 8
+	let data_offset = 12
+	let vdi_format_length = 12 (* VDI format takes 12bytes *)
+	let vdi_size = 4194304 (* 4MiB *)
+	let default_offset = 0
+
+	(* Set the magic number *)
+	let set_magic_number cstruct =
+		Cstruct.BE.set_uint32 cstruct magic_number_offset magic_number
+
+	(* Get the magic number *)
+	let get_magic_number cstruct =
+		Cstruct.BE.get_uint32 cstruct magic_number_offset
+
+	(* Set the version *)
+	let set_version cstruct =
+		Cstruct.BE.set_uint32 cstruct version_offset version
+
+	(* Set the data length *)
+	let set_data_length cstruct len =
+		Cstruct.BE.set_uint32 cstruct length_offset len
+
+	(* Get the data length *)
+	let get_data_length cstruct =
+		Cstruct.BE.get_uint32 cstruct length_offset
+
+	(* Write the string to the cstruct *)
+	let write cstruct text text_len =
+		Cstruct.blit_from_string text default_offset cstruct data_offset text_len;
+		set_data_length cstruct (Int32.of_int text_len)
+
+	(* Read the string from the cstruct *)
+	let read cstruct =
+		let curr_len = Int32.to_int (get_data_length cstruct) in
+		let curr_text = String.make curr_len '\000' in
+		Cstruct.blit_to_string cstruct data_offset curr_text default_offset curr_len;
+		curr_text
+
+	(* Format the cstruct for the first time *)
+	let format cstruct =
+		set_magic_number cstruct;
+		set_version cstruct
+
+end
+
+let write_raw ~__context ~vdi ~text =
+	if String.length text >= VDI_CStruct.(vdi_size - vdi_format_length) then
+		let error_msg =
+			Printf.sprintf "Cannot write %d bytes to raw VDI. Capacity = %d bytes"
+				(String.length text) VDI_CStruct.(vdi_size - vdi_format_length) in
+		ignore (failwith error_msg);
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
+			(fun fd ->
+				let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
+				let cstruct = Cstruct.of_string contents in
+				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
+					VDI_CStruct.format cstruct;
+				VDI_CStruct.write cstruct text (String.length text);
+				Unix.ftruncate fd 0;
+				Unixext.seek_to fd 0 |> ignore;
+				Unixext.really_write_string fd (VDI_CStruct.read cstruct);
+			)
+		)
+
+let read_raw ~__context ~vdi =
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Sm_fs_ops.with_open_block_attached_device  __context rpc session_id vdi `RW
+			(fun fd ->
+				let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
+				let cstruct = Cstruct.of_string contents in
+				if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
+					debug "Attempted read from raw VDI but VDI not formatted: returning None";
+					None
+				end
+				else
+					Some (VDI_CStruct.read cstruct)
+			)
+		)

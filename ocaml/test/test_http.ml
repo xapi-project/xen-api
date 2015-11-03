@@ -20,8 +20,8 @@ module FixCookie = Generic.Make(struct
 		type input_t = (string * string) list
 		type output_t = (string * string) list
 
-		let string_of_input_t = Test_common.string_of_string_map
-		let string_of_output_t = Test_common.string_of_string_map
+		let string_of_input_t = Test_printers.(assoc_list string string)
+		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
 
 	let transform = Xapi_services.fix_cookie
@@ -51,5 +51,5 @@ end)
 let test =
 	"test_http" >:::
 		[
-			"test_fix_cookie" >:: FixCookie.test;
+			"test_fix_cookie" >::: FixCookie.tests;
 		]
