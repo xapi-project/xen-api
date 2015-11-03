@@ -568,6 +568,8 @@ let test =
 			"test_features_of_string" >:: FeaturesOfString.test;
 			"test_roundtrip_features_to_features" >:: 
 				RoundTripFeaturesToFeatures.test;
+			"test_roundtrip_string_to_features" >:: 
+				RoundTripStringToString.test;
 			"test_parse_failure" >:: 
 				ParseFailure.test;
 			"test_extend" >::
