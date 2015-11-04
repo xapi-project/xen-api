@@ -252,6 +252,56 @@ let check_no_pbds_attached ~__context ~sr =
 	if List.length all_pbds_attached_to_this_sr > 0
 		then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
 
+let find_or_create_rrd_vdi ~__context ~sr =
+	let open Db_filter_types in
+	match Db.VDI.get_refs_where ~__context ~expr:(And (
+		Eq (Field "SR", Literal (Ref.string_of sr)),
+		Eq (Field "type", Literal "rrd")
+	))
+	with
+	| [] -> begin
+		let virtual_size = Int64.of_int Xapi_vdi_helpers.VDI_CStruct.vdi_size in
+		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
+			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size
+			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
+		in
+		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+	end
+	| vdi :: _ ->
+		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
+		vdi
+
+let should_manage_stats ~__context sr =
+	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
+	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+	Smint.(has_capability Sr_stats sr_features)
+	&& Helpers.i_am_srmaster ~__context ~sr
+
+let maybe_push_sr_rrds ~__context ~sr =
+	if should_manage_stats ~__context sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		match Xapi_vdi_helpers.read_raw ~__context ~vdi with
+		| None -> debug "Stats VDI has no SR RRDs"
+		| Some x ->
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			let tmp_path = Filename.temp_file "push_sr_rrds" ".gz" in
+			finally (fun () ->
+				Unixext.write_string_to_file tmp_path x;
+				Rrdd.push_sr_rrd ~sr_uuid ~path:tmp_path
+			) (fun () -> Unixext.unlink_safe tmp_path)
+
+let maybe_copy_sr_rrds ~__context ~sr =
+	if should_manage_stats ~__context sr then
+		let vdi = find_or_create_rrd_vdi ~__context ~sr in
+		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+		try
+			let archive_path = Rrdd.archive_sr_rrd ~sr_uuid in
+			let contents = Unixext.string_of_file archive_path in
+			Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
+		with Rrd_interface.Archive_failed(msg) ->
+			warn "Archiving of SR RRDs to stats VDI failed: %s" msg
+
 (* Remove SR record from database without attempting to remove SR from disk.
    Fail if any PBD still is attached (plugged); force the user to unplug it
    first. *)
@@ -282,8 +332,12 @@ let destroy  ~__context ~sr =
 			if local_cache_sr = sr then
 				raise (Api_errors.Server_error(Api_errors.sr_is_cache_sr, [ Ref.string_of host ]));
 		) all_hosts;
-	
-	Storage_access.destroy_sr ~__context ~sr;
+
+	let vdis_to_destroy =
+		if should_manage_stats ~__context sr then [find_or_create_rrd_vdi ~__context ~sr]
+		else [] in
+
+	Storage_access.destroy_sr ~__context ~sr ~and_vdis:vdis_to_destroy;
 	
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
@@ -583,56 +637,6 @@ let create_new_blob ~__context ~sr ~name ~mime_type ~public =
 	let blob = Xapi_blob.create ~__context ~mime_type ~public in
 	Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
 	blob
-
-let find_or_create_rrd_vdi ~__context ~sr =
-	let open Db_filter_types in
-	match Db.VDI.get_refs_where ~__context ~expr:(And (
-		Eq (Field "SR", Literal (Ref.string_of sr)),
-		Eq (Field "type", Literal "rrd")
-	))
-	with
-	| [] -> begin
-		let virtual_size = Int64.of_int Xapi_vdi_helpers.VDI_CStruct.vdi_size in
-		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.create ~rpc ~session_id
-			~name_label:"SR-stats VDI" ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size
-			~_type:`rrd ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
-		in
-		debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
-		vdi
-	end
-	| vdi :: _ ->
-		debug "Found existing SR-stats VDI vdi=%s on sr=%s" (Ref.string_of vdi) (Ref.string_of sr);
-		vdi
-
-let should_manage_stats ~__context sr =
-	let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-	let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-	Smint.(has_capability Sr_stats sr_features)
-	&& Helpers.i_am_srmaster ~__context ~sr
-
-let maybe_push_sr_rrds ~__context ~sr =
-	if should_manage_stats ~__context sr then
-		let vdi = find_or_create_rrd_vdi ~__context ~sr in
-		match Xapi_vdi_helpers.read_raw ~__context ~vdi with
-		| None -> debug "Stats VDI has no SR RRDs"
-		| Some x ->
-			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-			let tmp_path = Filename.temp_file "push_sr_rrds" ".gz" in
-			finally (fun () ->
-				Unixext.write_string_to_file tmp_path x;
-				Rrdd.push_sr_rrd ~sr_uuid ~path:tmp_path
-			) (fun () -> Unixext.unlink_safe tmp_path)
-
-let maybe_copy_sr_rrds ~__context ~sr =
-	if should_manage_stats ~__context sr then
-		let vdi = find_or_create_rrd_vdi ~__context ~sr in
-		let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-		try
-			let archive_path = Rrdd.archive_sr_rrd ~sr_uuid in
-			let contents = Unixext.string_of_file archive_path in
-			Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
-		with Rrd_interface.Archive_failed(msg) ->
-			warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
 let physical_utilisation_thread ~__context () =
 	let module SRMap =
