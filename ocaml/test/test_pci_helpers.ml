@@ -13,7 +13,6 @@
  *)
 
 open OUnit
-open Test_highlevel
 open Xapi_pci_helpers
 
 (* This test generates a lot of print --- set skip to false to enable *)

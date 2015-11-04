@@ -108,6 +108,6 @@ let test =
 	Storage_migrate.State.persist_root := Test_common.working_area;
 	"test_storage_migrate_state" >:::
 		[
-			"test_map_of" >:: MapOf.test;
+			"test_map_of" >::: MapOf.tests;
 			"test_clear" >:: test_clear;
 		]

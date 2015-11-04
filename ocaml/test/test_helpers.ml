@@ -125,5 +125,5 @@ let test =
 	"test_helpers" >:::
 		[
 			"test_vm_agility_with_vgpu" >:: test_vm_agility_with_vgpu;
-			"test_determine_gateway" >:: DetermineGateway.test;
+			"test_determine_gateway" >::: DetermineGateway.tests;
 		]
