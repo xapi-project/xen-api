@@ -112,7 +112,7 @@ val dp_destroy: __context:Context.t -> string -> bool -> unit
 val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> unit
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
-val destroy_sr: __context:Context.t -> sr:API.ref_SR -> unit
+val destroy_sr: __context:Context.t -> sr:API.ref_SR -> and_vdis:(API.ref_VDI list) -> unit
 
 val event_wait: Storage_interface.debug_info -> (Storage_interface.Dynamic.id -> bool) -> unit
 

@@ -1425,22 +1425,27 @@ let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
 
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
    It would be better not to plug in the PBD, so that other API calls will be blocked. *)
-let destroy_sr ~__context ~sr =
+let destroy_sr ~__context ~sr ~and_vdis =
 	transform_storage_exn
 		(fun () ->
 			let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
 			let (_ : query_result) = bind ~__context ~pbd in
 			let dbg = Ref.string_of (Context.get_task_id __context) in
-			Client.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config;
+			let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+			Client.SR.attach dbg sr_uuid pbd_t.API.pBD_device_config;
 			(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 			Pervasiveext.finally
 				(fun () ->
 					try
-						Client.SR.destroy dbg (Db.SR.get_uuid ~__context ~self:sr)
+						List.iter (fun vdi ->
+							let location = Db.VDI.get_location ~__context ~self:vdi in
+							Client.VDI.destroy dbg sr_uuid location)
+						and_vdis;
+						Client.SR.destroy dbg sr_uuid
 					with exn ->
 						(* Clean up: SR is left attached if destroy fails *)
-						Client.SR.detach dbg (Db.SR.get_uuid ~__context ~self:sr);
+						Client.SR.detach dbg sr_uuid;
 						raise exn
 				)
 				(fun () -> 
