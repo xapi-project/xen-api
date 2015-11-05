@@ -596,6 +596,9 @@ Authorized Roles: {1}</value>
   <data name="SESSION_NOT_REGISTERED" xml:space="preserve">
     <value>This session {0} is not registered to receive events.  You must call event.register before event.next.  The session handle you are using is echoed.</value>
   </data>
+  <data name="SR_ATTACHED_ON_SLAVE" xml:space="preserve">
+    <value>The SR is currently attached on a host other than the master.</value>
+  </data>
   <data name="SR_BACKEND_FAILURE" xml:space="preserve">
     <value>The SR failed to complete the operation</value>
   </data>
