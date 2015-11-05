@@ -19,20 +19,16 @@
 
 (** Define an equivalent blktap3 statistics record *)
 type blktap3_stats = {
-	st_ds_req : int64;
-	st_f_req  : int64;
-	st_oo_req : int64;
-	st_rd_req : int64;
-	st_rd_cnt : int64;
-	st_rd_sect: int64;
-	st_rd_sum_usecs : int64;
-	st_rd_max_usecs : int64;
-	st_wr_req : int64;
-	st_wr_cnt : int64;
-	st_wr_sect: int64;
-	st_wr_sum_usecs : int64;
-	st_wr_max_usecs : int64;
-	st_mem_mode : bool;
+	read_reqs_submitted: int64;
+	read_reqs_completed: int64;
+	read_sectors: int64;
+	read_total_ticks: int64;
+	write_reqs_submitted: int64;
+	write_reqs_completed: int64;
+	write_sectors: int64;
+	write_total_ticks: int64;
+	io_errors: int64;
+	low_mem_mode: bool;
 }
 
 (** Obtain a blktap3 statistics record using the stubs *)

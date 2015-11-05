@@ -19,8 +19,8 @@
 */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <errno.h>
-#include <blktap/blktap3.h>
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -28,6 +28,7 @@
 #include <caml/fail.h>
 #include <caml/unixsupport.h>
 
+#include <blktap/tapdisk-metrics-stats.h>
 
 CAMLprim value stub_get_blktap3_stats(value filename)
 {
@@ -36,32 +37,28 @@ CAMLprim value stub_get_blktap3_stats(value filename)
 	CAMLlocal1(stats);
 
 	FILE *c_fd;
-	struct blkback_stats c_stats;
+	struct stats c_stats;
 
 	c_fd = fopen(String_val(filename), "rb");
 
 	if (!c_fd) uerror("fopen", Nothing);
-	if (fread(&c_stats, sizeof(struct blkback_stats), 1, c_fd) < 1) uerror("fread", Nothing);
+	if (fread(&c_stats, sizeof(struct stats), 1, c_fd) < 1) uerror("fread", Nothing);
 
-	stats = caml_alloc_tuple(14);
+	stats = caml_alloc_tuple(10);
 
-	Store_field(stats, 0, caml_copy_int64((int64_t) c_stats.st_ds_req));
-	Store_field(stats, 1, caml_copy_int64((int64_t) c_stats.st_f_req));
-	Store_field(stats, 2, caml_copy_int64((int64_t) c_stats.st_oo_req));
-	Store_field(stats, 3, caml_copy_int64((int64_t) c_stats.st_rd_req));
-	Store_field(stats, 4, caml_copy_int64((int64_t) c_stats.st_rd_cnt));
-	Store_field(stats, 5, caml_copy_int64((int64_t) c_stats.st_rd_sect));
-	Store_field(stats, 6, caml_copy_int64((int64_t) c_stats.st_rd_sum_usecs));
-	Store_field(stats, 7, caml_copy_int64((int64_t) c_stats.st_rd_max_usecs));
-	Store_field(stats, 8, caml_copy_int64((int64_t) c_stats.st_wr_req));
-	Store_field(stats, 9, caml_copy_int64((int64_t) c_stats.st_wr_cnt));
-	Store_field(stats, 10, caml_copy_int64((int64_t) c_stats.st_wr_sect));
-	Store_field(stats, 11, caml_copy_int64((int64_t) c_stats.st_wr_sum_usecs));
-	Store_field(stats, 12, caml_copy_int64((int64_t) c_stats.st_wr_max_usecs));
+	Store_field(stats, 0, caml_copy_int64((int64_t) c_stats.read_reqs_submitted));
+	Store_field(stats, 1, caml_copy_int64((int64_t) c_stats.read_reqs_completed));
+	Store_field(stats, 2, caml_copy_int64((int64_t) c_stats.read_sectors));
+	Store_field(stats, 3, caml_copy_int64((int64_t) c_stats.read_total_ticks));
+	Store_field(stats, 4, caml_copy_int64((int64_t) c_stats.write_reqs_submitted));
+	Store_field(stats, 5, caml_copy_int64((int64_t) c_stats.write_reqs_completed));
+	Store_field(stats, 6, caml_copy_int64((int64_t) c_stats.write_sectors));
+	Store_field(stats, 7, caml_copy_int64((int64_t) c_stats.write_total_ticks));
+	Store_field(stats, 8, caml_copy_int64((int64_t) c_stats.io_errors));
 	if ((c_stats.flags) & BT3_LOW_MEMORY_MODE)
-		Store_field(stats, 13, Val_true);
+		Store_field(stats, 9, Val_true);
 	else
-		Store_field(stats, 13, Val_false);
+		Store_field(stats, 9, Val_false);
 
 	fclose(c_fd);
 
