@@ -2602,6 +2602,7 @@ module VM = struct
 							| Xenlight.SHUTDOWN_REASON_REBOOT -> Needs_reboot
 							| Xenlight.SHUTDOWN_REASON_SUSPEND -> Needs_suspend
 							| Xenlight.SHUTDOWN_REASON_CRASH -> Needs_crashdump
+							| Xenlight.SHUTDOWN_REASON_WATCHDOG -> Needs_reboot
 							| _ -> Needs_poweroff) (* unexpected *)
 						else begin match Domain.get_action_request ~xs d.domid with
 							| Some "poweroff" -> Some Needs_poweroff

@@ -1565,6 +1565,7 @@ module VM = struct
 							| 1 -> Needs_reboot
 							| 2 -> Needs_suspend
 							| 3 -> Needs_crashdump
+							| 4 -> Needs_reboot
 							| _ -> Needs_poweroff) (* unexpected *)
 						else begin match Domain.get_action_request ~xs d.Xenctrl.domid with
 							| Some "poweroff" -> Some Needs_poweroff
