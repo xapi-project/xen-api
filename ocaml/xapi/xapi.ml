@@ -978,7 +978,6 @@ let server_init() =
       in
 
     Startup.run ~__context [
-      "searching for latest tools VDI", [ Startup.NoExnRaising ], Xapi_pv_driver_version.get_latest_tools_vsn;
       "fetching database backup", [ Startup.OnlySlave; Startup.NoExnRaising ],
          (fun () -> Pool_db_backup.fetch_database_backup ~master_address:(Pool_role.get_master_address())
 	                                                 ~pool_secret:!Xapi_globs.pool_secret ~force:None);
