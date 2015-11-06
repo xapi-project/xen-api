@@ -91,7 +91,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	| `snapshot
 	| `update_allowed_operations
 	| `query_services
-	| `xenprep
 	                                -> all_power_states
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
@@ -116,7 +115,6 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	let state_machine () = 
 		let current_state = List.map snd current_ops in
 		match op with
-			| `xenprep
 			| `hard_shutdown
 				-> not (List.mem op current_state)
 			| `hard_reboot -> not (List.exists

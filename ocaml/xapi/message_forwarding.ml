@@ -1950,21 +1950,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let host = Db.PBD.get_host ~__context ~self:pbd in
 			do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
 
-		let xenprep_start ~__context ~self =
-			info "VM.xenprep_start: VM = '%s'" (vm_uuid ~__context self);
-			Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
-			let local_fn = Local.VM.xenprep_start ~self in
-			with_vm_operation ~__context ~self ~doc:"VM.xenprep_start" ~op:`xenprep (fun () ->
-				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
-			)
-
-		let xenprep_abort ~__context ~self =
-			info "VM.xenprep_abort: VM = '%s'" (vm_uuid ~__context self);
-			let local_fn = Local.VM.xenprep_abort ~self in
-			with_vm_operation ~__context ~self ~doc:"VM.xenprep_abort" ~op:`xenprep (fun () ->
-				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_abort rpc session_id self)
-			)
-
 	end
 
 	module VM_metrics = struct
