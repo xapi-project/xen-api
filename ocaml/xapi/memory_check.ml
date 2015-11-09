@@ -54,13 +54,16 @@ type accounting_policy =
 		(** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
 	| Dynamic_min
 		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
+	| Actual
 
 (** Common logic of vm_compute_start_memory and vm_compute_used_memory *)
-let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max =
+let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max ~memory_actual =
 	match policy with
 		| Dynamic_min -> memory_dynamic_min
 		| Dynamic_max -> memory_dynamic_max
 		| Static_max -> memory_static_max
+		| Actual -> memory_actual
+
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
 memory, to start a VM. If the given VM is a PV guest and if memory ballooning
@@ -69,7 +72,7 @@ target (since PV guests are able to start in a pre-ballooned state). If memory
 ballooning is not enabled or if the VM is an HVM guest, this function returns
 values derived from the VM's static memory maximum (since currently HVM guests
 are not able to start in a pre-ballooned state). *)
-let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
+let vm_compute_start_memory ~__context ?(policy=Dynamic_min) ?(memory_actual=0L) vm_record =
 	if Xapi_fist.disable_memory_checks ()
 	then (0L, 0L)
 	else
@@ -77,7 +80,8 @@ let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
 			~policy: policy
 			~memory_dynamic_min: vm_record.API.vM_memory_dynamic_min
 			~memory_dynamic_max: vm_record.API.vM_memory_dynamic_max
-			~memory_static_max:  vm_record.API.vM_memory_static_max in
+			~memory_static_max:  vm_record.API.vM_memory_static_max 
+			~memory_actual: memory_actual in
 		vm_compute_required_memory vm_record
 			(XenopsMemory.kib_of_bytes_used memory_required)
 
@@ -95,7 +99,8 @@ let vm_compute_used_memory ~__context policy vm_ref =
 		~memory_dynamic_min: vm_main_record.API.vM_memory_dynamic_min
 		(* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
 		~memory_dynamic_max: vm_main_record.API.vM_memory_dynamic_max 
-		~memory_static_max:  vm_boot_record.API.vM_memory_static_max in
+		~memory_static_max:  vm_boot_record.API.vM_memory_static_max 
+		~memory_actual:0L in
 	memory_required +++ vm_main_record.API.vM_memory_overhead
 
 let vm_compute_resume_memory ~__context vm_ref =

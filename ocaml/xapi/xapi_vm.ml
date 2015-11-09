@@ -57,7 +57,8 @@ let assert_can_boot_here ~__context ~self ~host =
 	let snapshot = Db.VM.get_record ~__context ~self in
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self;
-	assert_can_boot_here ~__context ~self ~host ~snapshot ()
+	let do_migrate_check = if Db.VM.get_power_state ~__context ~self <> `Running then false else true in
+	assert_can_boot_here ~__context ~self ~host ~snapshot ~do_migrate_check ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
 	let snapshot = Db.VM.get_record ~__context ~self:vm in

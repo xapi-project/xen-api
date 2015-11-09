@@ -795,7 +795,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	| `intra_pool host ->
 		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
+		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ~do_migrate_check:true ();
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
