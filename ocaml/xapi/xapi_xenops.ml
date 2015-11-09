@@ -1694,12 +1694,12 @@ let update_pci ~__context id =
 					let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
 
 					(* Assumption: a VM can have only one vGPU *)
-					let gpu =
+					let vgpu_opt =
 						let pci_class = Db.PCI.get_class_id ~__context ~self:pci in
 						if Xapi_pci.(is_class_of_kind Display_controller @@ int_of_id pci_class)
 						then
 							match Db.VM.get_VGPUs ~__context ~self:vm with
-								| x :: _ -> Some x
+								| vgpu :: _ -> Some vgpu
 								| _ -> None
 						else None in
 					let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
@@ -1711,15 +1711,25 @@ let update_pci ~__context id =
 							else if (not attached_in_db) && state.plugged
 							then Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
 
-							(* Release any temporary reservations of this PCI device, as it is now permanently
-							 * assigned or unassigned. *)
-							Pciops.unreserve ~__context pci;
+							match vgpu_opt with
+							| Some vgpu -> begin
+								let scheduled =
+									Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+								in
+								if Db.is_valid_ref __context scheduled && state.plugged
+								then
+									Helpers.call_api_functions ~__context
+										(fun rpc session_id ->
+											XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+												~self:vgpu ~value:scheduled)
+							end
+							| None -> ();
 
 							Opt.iter
-								(fun gpu ->
+								(fun vgpu ->
 									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-									Db.VGPU.set_currently_attached ~__context ~self:gpu ~value:state.plugged
-								) gpu
+									Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
+								) vgpu_opt
 						) info;
 					Xenops_cache.update_pci id (Opt.map snd info);
 				end

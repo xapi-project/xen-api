@@ -293,10 +293,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
-	  let up_to_date = Xapi_pv_driver_version.is_up_to_date (Xapi_pv_driver_version.of_guest_metrics (Some gmr)) in
 
-	  (* CA-18034: If viridian flag isn't in there and we have current PV drivers then shove it in the metadata for next boot... *)
-	  if up_to_date then begin
+	  (* CA-18034: If viridian flag isn't in there and we have Orlando-or-newer Windows PV drivers then shove it in the metadata for next boot... *)
+	  if Xapi_pv_driver_version.is_windows_and_orlando_or_newer gmr then begin
 		  let platform = Db.VM.get_platform ~__context ~self in
 		  if not(List.mem_assoc Xapi_globs.viridian_key_name platform) then begin
 			  info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.viridian_key_name Xapi_globs.default_viridian_key_value;
@@ -306,7 +305,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 		  end
 	  end;
 
-	  (* We base some of our allowed-operations decisions on the PV driver version *)
+	  (* We base some of our allowed-operations decisions on the presence/absence of PV drivers *)
 	  if pv_drivers_version_cached <> pv_drivers_version then begin
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 	  end;	  

@@ -44,11 +44,6 @@ let api_version_string =
 let api_version_vendor = "XenSource"
 let api_version_vendor_implementation = []
 
-(* version of latest tools ISO in filesystem *)
-let tools_version_none = (-1, -1, -1, -1)
-
-let tools_version = ref tools_version_none
-
 (* client min/max version range *)
 (* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
  * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
