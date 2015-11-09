@@ -173,6 +173,8 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 					when lack_feature "feature-suspend"
 						-> some_err Api_errors.vm_lacks_feature_suspend
 			| _ -> None
+	(* N.B. In the pattern matching above, "pat1 | pat2 | pat3" counts as
+	 * one pattern, and the whole thing can be guarded by a "when" clause. *)
 
 (* templates support clone operations, destroy and cross-pool migrate (if not default),
    export, provision, and memory settings change *)
