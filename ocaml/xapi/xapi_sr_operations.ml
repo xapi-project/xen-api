@@ -113,7 +113,13 @@ let valid_operations ~__context record _ref' : table =
 		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
 
 	(* If the SR contains any managed VDIs, destroy is not allowed. *)
-	if (Db.VDI.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "managed", Literal "true")))) <> [] then
+	let all = List.fold_left (fun acc p -> And(acc, p)) True in
+	let only_stats_vdis_constraints = [
+		Eq(Field "SR", Literal _ref);
+		Eq(Field "managed", Literal "true");
+		Not(Eq(Field "type", Literal "rrd"));
+	] in
+	if (Db.VDI.get_records_where ~__context ~expr:(all only_stats_vdis_constraints)) <> [] then
 		set_errors Api_errors.sr_not_empty [] [`destroy];
 
   let safe_to_parallelise = [ ] in
