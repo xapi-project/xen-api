@@ -62,12 +62,7 @@ let destroy ~__context ~self =
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["vGPU currently attached to a running VM"]));
 	Db.VGPU.destroy ~__context ~self
 
-let resident_mutex = Mutex.create ()
-let atomic_set_resident_on ~__context ~self ~value =
-	Threadext.Mutex.execute resident_mutex
-		(fun () ->
-			Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
-			Db.VGPU.set_resident_on ~__context ~self ~value)
+let atomic_set_resident_on ~__context ~self ~value = assert false
 
 let copy ~__context ~vm vgpu =
 	let all = Db.VGPU.get_record ~__context ~self:vgpu in

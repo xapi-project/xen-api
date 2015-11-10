@@ -779,7 +779,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				Helpers.set_boot_record ~__context ~self:vm snapshot
 			end;
 			(* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
-			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host
+			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
+			Vgpuops.create_vgpus ~__context host (vm, snapshot)
+				(Helpers.will_boot_hvm ~__context ~self:vm)
 
 		(* For start/start_on/resume/resume_on/migrate *)
 		let finally_clear_host_operation ~__context ~host ?host_op () = match host_op with
@@ -1945,21 +1947,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let pbd = choose_pbd_for_sr ~__context ~self:sr () in
 			let host = Db.PBD.get_host ~__context ~self:pbd in
 			do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
-
-		let xenprep_start ~__context ~self =
-			info "VM.xenprep_start: VM = '%s'" (vm_uuid ~__context self);
-			Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running;
-			let local_fn = Local.VM.xenprep_start ~self in
-			with_vm_operation ~__context ~self ~doc:"VM.xenprep_start" ~op:`xenprep (fun () ->
-				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_start rpc session_id self)
-			)
-
-		let xenprep_abort ~__context ~self =
-			info "VM.xenprep_abort: VM = '%s'" (vm_uuid ~__context self);
-			let local_fn = Local.VM.xenprep_abort ~self in
-			with_vm_operation ~__context ~self ~doc:"VM.xenprep_abort" ~op:`xenprep (fun () ->
-				forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc -> Client.VM.xenprep_abort rpc session_id self)
-			)
 
 	end
 
@@ -3807,7 +3794,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let atomic_set_resident_on ~__context ~self ~value =
 			info "VGPU.atomic_set_resident_on: VGPU = '%s'; PGPU = '%s'"
 				(vgpu_uuid ~__context self) (pgpu_uuid ~__context value);
-			Local.VGPU.atomic_set_resident_on ~__context ~self ~value
+			(* Need to prevent the host chooser being run while these fields are being modified *)
+			Helpers.with_global_lock
+				(fun () ->
+					Db.VGPU.set_resident_on ~__context ~self ~value;
+					Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
+				)
 	end
 
 	module VGPU_type = struct end

@@ -824,15 +824,15 @@ let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 let is_tools_sr_cache = ref []
 let tools_sr_memoised = ref None
-let xenprep_iso_vdi_memoised = ref None
-let tools_sr_and_iso_m = Mutex.create () (* Use for all the above refs *)
+(* Use this mutex for the above refs, and probably for any refs
+ * of future ISO VDIs we might add alongside the tools ISO. *)
+let tools_sr_and_iso_m = Mutex.create ()
 
 let clear_tools_sr_cache () =
 	Mutex.execute tools_sr_and_iso_m
 		(fun () ->
 			is_tools_sr_cache := []
 			;tools_sr_memoised := None
-			;xenprep_iso_vdi_memoised := None
 		)
 
 (** Returns true if this SR is the XenSource Tools SR *)
@@ -892,27 +892,6 @@ let get_tools_sr ~__context =
 		List.hd srs
 	in
 	get_with_memo ~seeker:seek_tools_sr ~memo:tools_sr_memoised ~mtx:tools_sr_and_iso_m
-
-(** Returns the xenprep iso from the XenSource Tools SR.
-  * Fails if there is not exactly one such VDI. *)
-(* We need to specify the type because otherwise the compiler can't work it out
- * and gives an error on the line defining xenprep_iso_vdi_memoised. *)
-let get_xenprep_iso_vdi ~__context : [ `VDI ] API.Ref.t =
-	let seek_xenprep_iso_vdi () =
-		let cd_name = Xapi_globs.xenprep_iso_name_label in
-		let sr = get_tools_sr ~__context in
-		let vdis =
-			Db.VDI.get_refs_where ~__context ~expr:(
-				And (
-					Eq (Field "SR", Literal (Ref.string_of sr)),
-					Eq (Field "name__label", Literal cd_name)
-				)
-			) in
-		if List.length vdis <> 1 then failwith
-			("get_xenprep_iso_vdi failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
-		List.hd vdis
-	in
-	get_with_memo ~seeker:seek_xenprep_iso_vdi ~memo:xenprep_iso_vdi_memoised ~mtx:tools_sr_and_iso_m
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =

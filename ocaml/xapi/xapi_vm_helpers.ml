@@ -925,12 +925,6 @@ let allowed_VIF_devices ~__context ~vm =
 	let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
 	List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
-let has_xenprep_iso ~__context ~self =
-	let vdi = Helpers.get_xenprep_iso_vdi ~__context in
-	let vbds = Db.VM.get_VBDs ~__context ~self in
-	let vbds = List.filter (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd = vdi) vbds in
-	vbds <> []
-
 let delete_guest_metrics ~__context ~self:vm =
 	(* Delete potentially stale guest metrics object *)
 	let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in

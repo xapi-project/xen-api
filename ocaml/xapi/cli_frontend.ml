@@ -1375,24 +1375,6 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[];
     };
 
-   "vm-xenprep-start",
-    {
-      reqd=[];
-      optn=[];
-      help="Inserts the XenPrep ISO into the VM's CD drive to begin the process of removing superseded PV drivers in preparation for triggering automatic installation of new ones.";
-      implementation=No_fd Cli_operations.vm_xenprep_start;
-      flags=[Vm_selectors];
-    };
-
-   "vm-xenprep-abort",
-    {
-      reqd=[];
-      optn=[];
-      help="A best-effort attempt to abandon the XenPrep process and eject the ISO. If the process has started already in the guest then it may continue, but then XenServer will not update the VM's settings.";
-      implementation=No_fd Cli_operations.vm_xenprep_abort;
-      flags=[Vm_selectors];
-    };
-
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];

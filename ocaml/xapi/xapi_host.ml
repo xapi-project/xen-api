@@ -1134,6 +1134,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 		in ignore(Extauth.call_extauth_hook_script_in_host_wrapper ~__context host Extauth.event_name_after_extauth_enable ~call_plugin_fn);
 
 		debug "external authentication service type %s for service name %s enabled successfully in host %s" auth_type service_name host_name_label;
+		Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true;
 
 		(* CA-24856: detect non-homogeneous external-authentication config in this host *)
 		detect_nonhomogeneous_external_auth_in_host ~__context ~host;
