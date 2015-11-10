@@ -149,9 +149,10 @@ let has_feature ~vmgmr ~feature =
  *  react helpfully. *)
 let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 	if power_state <> `Running ||
+		(* PV guests offer support implicitly *)
 		not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
 		has_pv_drivers (of_guest_metrics vmgmr) (* Full PV drivers imply all features *)
-	then None (* PV guests offer support implicitly *)
+	then None
 	else
 		let some_err e =
 			Some (e, [ Ref.string_of ref ])
@@ -166,7 +167,12 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 			| `changing_VCPUs_live
 					when lack_feature "feature-vcpu-hotplug"
 						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
+			| `suspend | `checkpoint | `pool_migrate | `migrate_send
+					when lack_feature "feature-suspend"
+						-> some_err Api_errors.vm_lacks_feature_suspend
 			| _ -> None
+	(* N.B. In the pattern matching above, "pat1 | pat2 | pat3" counts as
+	 * one pattern, and the whole thing can be guarded by a "when" clause. *)
 
 (* templates support clone operations, destroy and cross-pool migrate (if not default),
    export, provision, and memory settings change *)
