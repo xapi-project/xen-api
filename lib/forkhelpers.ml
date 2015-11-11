@@ -31,6 +31,7 @@ let string_of_pidty (fd, pid) = Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.
 
 exception Subprocess_failed of int
 exception Subprocess_killed of int
+exception Subprocess_timeout
 
 let waitpid (sock, pid) =
 	let status = Fecomms.read_raw_rpc sock in
@@ -167,7 +168,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     close_fds
 
 
-let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
+let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?(timeout=infinity) cmd args =
 	let to_close = ref [] in
 	let close fd =
 		if List.mem fd !to_close then begin
@@ -186,25 +187,26 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) c
 					Unixext.really_write_string wr str;
 					close wr;
 				) stdinandpipes;
-				match Fecomms.read_raw_rpc sock with
-					| Fe.Finished x -> Unix.close sock; x
-					| _ -> Unix.close sock; failwith "Communications error"	    
+				match Unix.select [sock] [] [] timeout with
+				| ([s],_,_) -> waitpid (sock,pid)
+				| _ ->
+					Unix.kill pid Sys.sigkill;
+					ignore (waitpid (sock,pid));
+					raise Subprocess_timeout
 			)) with
-			| Success(out,Success(err,(status))) -> 
+			| Success(out,Success(err,(pid, status))) ->
 				begin
 					match status with
-						| Fe.WEXITED 0 -> (out,err)
-						| Fe.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
-						| Fe.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
-						| Fe.WSIGNALED n -> raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
+						| Unix.WEXITED 0 -> (out,err)
+						| e -> raise (Spawn_internal_error(err,out,e))
 				end
 			| Success(_,Failure(_,exn))
 			| Failure(_, exn) ->
 				raise exn)
 		(fun () -> List.iter Unix.close !to_close)
 
-let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) cmd args =
-	execute_command_get_output_inner ?env ?stdin:None ~syslog_stdout cmd args
+let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) ?timeout cmd args =
+	execute_command_get_output_inner ?env ?stdin:None ?timeout ~syslog_stdout cmd args
 
-let execute_command_get_output_send_stdin ?env ?(syslog_stdout=NoSyslogging) cmd args stdin =
-	execute_command_get_output_inner ?env ~stdin ~syslog_stdout cmd args
+let execute_command_get_output_send_stdin ?env ?(syslog_stdout=NoSyslogging) ?timeout cmd args stdin =
+	execute_command_get_output_inner ?env ~stdin ~syslog_stdout ?timeout cmd args
