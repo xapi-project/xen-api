@@ -622,6 +622,10 @@ module HOST = struct
 									value)
 							feature.Host.parameters)
 					features))
+
+	let upgrade_cpu_features features is_hvm =
+		with_xc_and_xs
+			(fun xc _ -> Xenctrl.upgrade_oldstyle_featuremask xc features is_hvm)
 end
 
 module VM = struct

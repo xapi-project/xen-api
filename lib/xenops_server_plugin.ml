@@ -62,6 +62,7 @@ module type S = sig
 		val get_total_memory_mib: unit -> int64
 		val send_debug_keys: string -> unit
 		val update_guest_agent_features : Host.guest_agent_feature list -> unit
+		val upgrade_cpu_features : int64 array -> bool -> int64 array
 	end
 	module VM : sig
 		val add: Vm.t -> unit

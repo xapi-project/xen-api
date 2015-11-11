@@ -1805,6 +1805,14 @@ module HOST = struct
 				let module B = (val get_backend () : S) in
 				B.HOST.update_guest_agent_features features
 			) ()
+
+	let upgrade_cpu_features _ dbg features is_hvm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.upgrade_cpu_features";
+				let module B = (val get_backend () : S) in
+				B.HOST.upgrade_cpu_features features is_hvm
+			) ()
 end
 
 module VM = struct
