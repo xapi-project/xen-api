@@ -738,6 +738,7 @@ class SRMonitor(ObjectMonitor):
             else: return 'sum'
         elif config_tag == 'rrd_regex':
             if variable_name == 'physical_utilisation': return 'physical_utilisation|size'
+            elif variable_name == "sr_io_throughput_total_per_host": return '_$_DUMMY__' # (these are to drive Host RRDs and so are handled by the HOSTMonitor)
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
