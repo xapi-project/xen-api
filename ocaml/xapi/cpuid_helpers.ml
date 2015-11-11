@@ -99,11 +99,24 @@ let get_flags_for_vm ~__context vm cpu_info =
  *  a host that did not support "feature levelling v2". In that case, we cannot
  *  be certain about which host features it was using, so we'll extend the set
  *  with all current host features. Otherwise we'll zero-extend. *)
-let upgrade_features host vm =
-	if Array.length vm <= 4 then
-		extend vm host
-	else
-		zero_extend vm (Array.length host)
+let upgrade_features ~__context ~vm host_features vm_features =
+	let len = Array.length vm_features in
+	let upgraded_features =
+		if len <= 4 then
+			let open Xapi_xenops_queue in
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+			let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
+			let vm_features' = Client.HOST.upgrade_cpu_features dbg vm_features is_hvm in
+			extend vm_features' host_features
+		else
+			zero_extend vm_features (Array.length host_features)
+	in
+	if Array.length upgraded_features > len then
+		debug "VM featureset upgraded from %s to %s"
+			(string_of_features vm_features)
+			(string_of_features upgraded_features);
+	upgraded_features
 
 let set_flags ~__context self vendor features =
 	let value = [
@@ -137,7 +150,8 @@ let update_cpu_flags ~__context ~vm ~host =
 		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
 		get_flags_for_vm ~__context vm host_cpu_info
 	in
-	let new_features = upgrade_features (features_of_string host_features) (features_of_string current_features)
+	let new_features = upgrade_features ~__context ~vm
+		(features_of_string host_features) (features_of_string current_features)
 		|> string_of_features in
 	if new_features <> current_features then
 		set_flags ~__context vm host_vendor new_features
@@ -171,8 +185,12 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 			let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
 			debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
 			let host_cpu_features' = host_cpu_features |> features_of_string in
-			let vm_cpu_features' = vm_cpu_features |> features_of_string |> upgrade_features host_cpu_features' in
-			if not(is_subset_or_equal vm_cpu_features' host_cpu_features') then
+			let vm_cpu_features' =
+				vm_cpu_features
+				|> features_of_string
+				|> upgrade_features ~__context ~vm host_cpu_features'
+			in
+			if not (is_subset_or_equal vm_cpu_features' host_cpu_features') then
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 		end
 	end

@@ -38,7 +38,6 @@ val zero_extend : int64 array -> int -> int64 array
 val intersect : int64 array -> int64 array -> int64 array
 val is_subset_or_equal : int64 array -> int64 array -> bool
 val is_subset : int64 array -> int64 array -> bool
-val upgrade_features : int64 array -> int64 array -> int64 array
 
 val vendor : string Map_check.field
 val cpu_count : int Map_check.field
