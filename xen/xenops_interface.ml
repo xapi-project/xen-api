@@ -578,6 +578,8 @@ module HOST = struct
 	external set_worker_pool_size: debug_info -> int -> unit = ""
 	external update_guest_agent_features: debug_info ->
 		Host.guest_agent_feature list -> unit = ""
+	external upgrade_cpu_features: debug_info ->
+		int64 array -> bool -> int64 array = ""
 end
 
 module VM = struct
