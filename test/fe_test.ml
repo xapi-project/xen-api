@@ -70,8 +70,24 @@ let one x =
 			 (if x.stderr then Some fd else None)
 			 table exe args)
 
+let test_delay () =
+  let start = Unix.gettimeofday () in
+  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid()) in
+  let args = ["sleep"] in
+  try
+    Forkhelpers.execute_command_get_output ~timeout:4.0 exe args;
+    failwith "Failed to timeout"
+  with
+  | Forkhelpers.Subprocess_timeout ->
+    Printf.printf "Caught timeout exception after %f seconds\n%!" (Unix.gettimeofday () -. start);
+    ()
+  | e ->
+    failwith (Printf.sprintf "Failed with unexpected exception: %s" (Printexc.to_string e))
+
 
 let master () = 
+  test_delay ();
+  Printf.printf "\nCompleted timeout test\n";
   let combinations = shuffle (all_combinations ()) in
   Printf.printf "Starting %d tests\n" (List.length combinations);
   let i = ref 0 in
@@ -86,6 +102,7 @@ let master () =
   in
   List.iter (update_progress one) combinations;
   Printf.printf "\nCompleted %d tests\n" (List.length combinations)
+
 
 let fail x =
   Unixext.write_string_to_file "/tmp/fe-test.log" x;
@@ -118,6 +135,10 @@ let slave = function
 		if total_fds <> (List.length filtered)
 		then fail (Printf.sprintf "Expected %d fds; /proc/%d/fd has %d: %s" total_fds pid (List.length filtered) ls)
 
+let sleep () =
+  Unix.sleep 5;
+  Printf.printf "Ok\n"
+
 let usage () =
   Printf.printf "Usage:\n";
   Printf.printf " %s - perform a test of the fe service\n" Sys.argv.(0);
@@ -125,6 +146,7 @@ let usage () =
 
 let _ = 
   match Array.to_list Sys.argv with
+  | _ :: "sleep" :: _ -> sleep ()
   | _ :: "slave" :: rest -> slave rest
   | _ :: [] -> master ()
   | _ -> usage ()
