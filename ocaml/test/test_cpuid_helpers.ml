@@ -215,36 +215,6 @@ module Comparisons = Generic.Make (struct
 end)
 
 
-module Upgrade = Generic.Make (struct
-	module Io = struct
-		type input_t = string * string
-		type output_t = string
-		let string_of_input_t = Test_printers.(pair string string)
-		let string_of_output_t = Test_printers.string
-	end
-
-	let transform = fun (vm, host) ->
-		let host' = Cpuid_helpers.features_of_string host in
-		let vm' = Cpuid_helpers.features_of_string vm in
-		Cpuid_helpers.upgrade_features host' vm' |> Cpuid_helpers.string_of_features
-
-	let tests = [
-		("", "0000000a-0000000b-0000000c-0000000d-0000000e"),
-			"0000000a-0000000b-0000000c-0000000d-0000000e";
-		("00000001-00000002-00000003-00000004", "0000000a-0000000b-0000000c-0000000d-0000000e"),
-			"00000001-00000002-00000003-00000004-0000000e";
-		("00000001-00000002-00000003-00000004", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f"),
-			"00000001-00000002-00000003-00000004-0000000e-0000000f";
-		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e"),
-			"00000001-00000002-00000003-00000004-00000005";
-		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f"),
-			"00000001-00000002-00000003-00000004-00000005-00000000";
-		("00000001-00000002-00000003-00000004-00000005", "0000000a-0000000b-0000000c-0000000d-0000000e-0000000f-000000aa"),
-			"00000001-00000002-00000003-00000004-00000005-00000000-00000000";
-	]
-end)
-
-
 module Accessors = Generic.Make (struct
 	module Io = struct
 		type input_t = (string * string) list
@@ -389,95 +359,6 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 end))
 
 
-module UpdateCPUFlags = Generic.Make(Generic.EncapsulateState(struct
-	module Io = struct
-		type input_t = (string * string * (string * string) list) list
-		type output_t = string list
-
-		let string_of_input_t = 
-			Test_printers.(list 
-				(tuple3 string string (assoc_list string string)))
-		let string_of_output_t = Test_printers.(list string)
-	end
-	module State = XapiDb
-
-	let features_hvm = "feedface-feedface"
-	let features_pv  = "deadbeef-deadbeef"
-
-	let load_input __context cases =
-		let cpu_info = [
-			"cpu_count", "1";
-			"socket_count", "1";
-			"vendor", "Abacus";
-			"features_pv", features_pv;
-			"features_hvm", features_hvm;
-		] and master = Test_common.make_host ~__context () in
-		Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
-		ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
-
-		let vms = List.map
-			(fun (name_label, hVM_boot_policy, last_boot_flags) ->
-				let self = Test_common.make_vm ~__context ~name_label 
-					~hVM_boot_policy () in
-				Db.VM.set_last_boot_CPU_flags ~__context ~self 
-					~value:last_boot_flags;
-				self)
-			cases in
-		List.iter (fun vm -> Cpuid_helpers.update_cpu_flags ~__context ~vm ~host:master) vms
-
-	let extract_output __context vms =
-		let get_flags (label, _, _) =
-			let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-			let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
-			try List.assoc Xapi_globs.cpu_info_features_key flags 
-			with Not_found -> ""
-		in List.map get_flags vms
-		
-	let tests = [
-		(* HVM *)
-		(["a", "BIOS order", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe-cafecafe"])], 
-		 ["cafecafe-cafecafe"]);
-		(["a", "BIOS order", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe"])], 
-		 ["cafecafe-feedface"]);
-		(["a", "BIOS order", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe-feedface"])], 
-		 ["cafecafe-feedface"]);
-		(["a", "BIOS order", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, ""])], 
-		 ["feedface-feedface"]);
-		(["a", "BIOS order", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus"])], 
-		 ["feedface-feedface"]);
-
-		(* PV *)
-		(["a", "", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe-cafecafe"])], 
-		 ["cafecafe-cafecafe"]);
-		(["a", "", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe"])], 
-		 ["cafecafe-deadbeef"]);
-		(["a", "", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, "cafecafe-deadbeef"])], 
-		 ["cafecafe-deadbeef"]);
-		(["a", "", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus";
-		               cpu_info_features_key, ""])], 
-		 ["deadbeef-deadbeef"]);
-		(["a", "", 
-		  Xapi_globs.([cpu_info_vendor_key, "Abacus"])], 
-		 ["deadbeef-deadbeef"]);
-	]
-end))
-
 module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = string * string * (string * string) list
@@ -580,8 +461,6 @@ let test =
 				Intersect.tests;
 			"test_comparisons" >::: 
 				Comparisons.tests;
-			"test_upgrade" >:::
-				Upgrade.tests;
 			"test_accessors" >:::
 				Accessors.tests;
 			"test_setters" >:::
@@ -590,8 +469,6 @@ let test =
 				Modifiers.tests;
 			"test_reset_cpu_flags" >:::
 				ResetCPUFlags.tests;
-			"test_update_cpu_flags" >:::
-				UpdateCPUFlags.tests;
 			"test_assert_vm_is_compatible" >:::
 				AssertVMIsCompatible.tests;
 		]
