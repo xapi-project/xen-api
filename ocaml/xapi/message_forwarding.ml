@@ -835,10 +835,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
 		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
-		let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op ?(do_migrate_check=false) f =
+		let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
 			Helpers.with_global_lock
 				(fun () ->
-					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ~do_migrate_check ();
+					Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ?host_op ();
 					(* NB in the case of migrate although we are about to increase free memory on the sending host
 					   we ignore this because if a failure happens while a VM is in-flight it will still be considered
 					   on both hosts, potentially breaking the failover plan. *)
@@ -1606,7 +1606,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					   have to be revisited since the destination VM would already be occupying memory
 					   and there won't be any need to account for its memory. *)
 					let dest_vm = Mtc.get_peer_vm_or_self ~__context ~self:vm in
-					reserve_memory_for_vm ~__context ~vm:dest_vm ~host ~snapshot ~host_op:`vm_migrate ~do_migrate_check:true
+					reserve_memory_for_vm ~__context ~vm:dest_vm ~host ~snapshot ~host_op:`vm_migrate
 						(fun () ->
 							forward_vm_op ~local_fn ~__context ~vm
 								(fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
@@ -3408,7 +3408,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							let host =
 								if host <> Ref.null then host else
 									let choose_fn ~host =
-										Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ~do_migrate_check:true();
+										Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ~host_op:`vm_migrate ();
 										Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
 									Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn () in
 							(snapshot, host) in
