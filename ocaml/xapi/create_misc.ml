@@ -484,12 +484,18 @@ let create_pool_cpuinfo ~__context =
 		(Db.Host.get_all_records ~__context) in
 
 	let merge pool host =
-		pool
-		|> setf vendor (getf vendor host)
-		|> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
-		|> setf socket_count ((getf socket_count host) + (getf socket_count pool))
-		|> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
-		|> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+		try
+			pool
+			|> setf vendor (getf vendor host)
+			|> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
+			|> setf socket_count ((getf socket_count host) + (getf socket_count pool))
+			|> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+			|> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+		with Not_found -> 
+			(* If the host doesn't have all the keys we expect, assume that we
+			   are in the middle of an RPU and it has not yet been upgraded, so
+			   it should be ignored when calculating the pool level *) 
+			pool
 	in
 
 	let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""] in
