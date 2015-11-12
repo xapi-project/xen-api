@@ -57,7 +57,7 @@ _xe()
         local vms args
 
         case "$param" in
-            filename|file-name)
+            filename|file-name|license-file)
                 IFS=$'\n,'
                 # Here we actually WANT file name completion, so using compgen is OK.
                 COMPREPLY=( $(compgen -f ${value}) )

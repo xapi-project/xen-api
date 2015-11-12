@@ -2979,6 +2979,22 @@ let host_careful_op op fd printer rpc session_id params =
 let host_forget x = host_careful_op Client.Host.destroy x
 let host_declare_dead x = host_careful_op (fun ~rpc ~session_id ~self -> Client.Host.declare_dead ~rpc ~session_id ~host:self) x
 
+let host_license_add fd printer rpc session_id params =
+	let host =
+		if List.mem_assoc "host-uuid" params then
+			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
+		else
+			get_host_from_session rpc session_id in
+	let license_file = List.assoc "license-file" params in
+	match get_client_file fd license_file with
+		| Some license ->
+			debug "Checking license [%s]" license;
+			Client.Host.license_apply rpc session_id host (Base64.encode license);
+			marshal fd (Command (Print "License applied."))
+		| None ->
+			marshal fd (Command (PrintStderr "Failed to read license file\n"));
+			raise (ExitWithError 1)
+
 let host_license_view printer rpc session_id params =
 	let host =
 		if List.mem_assoc "host-uuid" params then

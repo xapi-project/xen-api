@@ -773,6 +773,14 @@ let cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd not_implemented;
       flags=[];
     };    
+    "host-license-add",
+    {
+      reqd=["license-file"];
+      optn=[];
+      help="COMPAT MODE: ";
+      implementation=With_fd Cli_operations.host_license_add;
+      flags=[];
+    };    
     "host-vm-list",
     { 
       reqd=[];
