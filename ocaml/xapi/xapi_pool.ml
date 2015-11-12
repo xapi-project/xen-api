@@ -659,7 +659,12 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	()
 
+let assert_pooling_licensed ~__context =
+	if (not (Pool_features.is_enabled ~__context Features.Pooling))
+	then raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
 let join_common ~__context ~master_address ~master_username ~master_password ~force =
+	assert_pooling_licensed ~__context;
 	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
 	(* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
 	a host that does not support pooling then an error will be thrown at this stage *)
