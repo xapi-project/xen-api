@@ -6443,7 +6443,7 @@ let pool_initialize_wlb = call
   ~params:[String, "wlb_url", "The ip address and port to use when accessing the wlb server";
     String, "wlb_username", "The username used to authenticate with the wlb server";
     String, "wlb_password", "The password used to authenticate with the wlb server";
-    String, "xenserver_username", "The usernamed used by the wlb server to authenticate with the xenserver";
+    String, "xenserver_username", "The username used by the wlb server to authenticate with the xenserver";
     String, "xenserver_password", "The password used by the wlb server to authenticate with the xenserver"]
   ~allowed_roles:_R_POOL_OP
    ()
