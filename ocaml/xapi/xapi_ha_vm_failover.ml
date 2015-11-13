@@ -117,7 +117,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 	   this code will do nothing. *)
 
 	(* Note further that we simulate the start of offline protected VMs *using this function* (ie by the background HA 
-	   thread). If the user makes their own poor placement decisisions via explicit VM.start/VM.start_on then the plan
+	   thread). If the user makes their own poor placement decisions via explicit VM.start/VM.start_on then the plan
 	   may evaporate. This is no different to (eg) the user migrating a VM and breaking the plan. *)
 
 	(* Note further that we consider the amount of host memory free using the current VM configurations (thanks to the
