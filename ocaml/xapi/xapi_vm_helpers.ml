@@ -481,12 +481,12 @@ let assert_host_supports_hvm ~__context ~self ~host =
 	if not(host_supports_hvm) then
 		raise (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of self]))
 
-let assert_enough_memory_available ~__context ~self ~host ~snapshot ?host_op ()=
+let assert_enough_memory_available ~__context ~self ~host ~snapshot ?operation ()=
 	let host_mem_available =
 		Memory_check.host_compute_free_memory_with_maximum_compression
 			~__context ~host (Some self) in
 	let vm_metrics = Db.VM.get_metrics ~__context ~self in
-	let policy = match host_op with
+	let policy = match operation with
 		| Some op -> if op <> `vm_migrate then Memory_check.Dynamic_min else Memory_check.Actual
 		| None -> Memory_check.Dynamic_min in
 	let main, shadow =
@@ -526,7 +526,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot ?host_op ()=
 
  * XXX: we ought to lock this otherwise we may violate our constraints under load
  *)
-let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(do_memory_check=true) ?host_op () =
+let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(do_memory_check=true) ?operation () =
 	debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
 	validate_basic_parameters ~__context ~self ~snapshot;
 	assert_host_is_live ~__context ~host;
@@ -542,7 +542,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
 	if Helpers.will_boot_hvm ~__context ~self then
 		assert_host_supports_hvm ~__context ~self ~host;
 	if do_memory_check then
-		assert_enough_memory_available ~__context ~self ~host ~snapshot ?host_op ();
+		assert_enough_memory_available ~__context ~self ~host ~snapshot ?operation ();
 	debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =

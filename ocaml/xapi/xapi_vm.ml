@@ -60,7 +60,7 @@ let assert_can_boot_here ~__context ~self ~host =
 	if Db.VM.get_power_state ~__context ~self <> `Running then 
 		assert_can_boot_here ~__context ~self ~host ~snapshot ()
 	else 
-		assert_can_boot_here ~__context ~self ~host ~snapshot ~host_op:`vm_migrate ()
+		assert_can_boot_here ~__context ~self ~host ~snapshot ~operation:`vm_migrate ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
 	let snapshot = Db.VM.get_record ~__context ~self:vm in
