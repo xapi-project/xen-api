@@ -48,6 +48,8 @@ type accounting_policy =
 		(** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
 	| Dynamic_min
 		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
+	| Actual
+		(** use memory_actual: liberal: use memory actual when VM migrate. *)
 
 (** Return a host's memory summary from live database contents. *)
 val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
@@ -56,7 +58,7 @@ val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
 val vm_compute_required_memory : API.vM_t -> int64 -> int64 * int64
 
 val vm_compute_start_memory : __context:Context.t ->
-	?policy:accounting_policy -> API.vM_t -> int64 * int64
+	?policy:accounting_policy -> ?vm_metrics:[`VM_metrics] Ref.t -> API.vM_t -> int64 * int64
 
 val vm_compute_used_memory : __context:Context.t -> accounting_policy ->
 	[`VM] Ref.t -> int64

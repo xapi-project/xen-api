@@ -54,13 +54,16 @@ type accounting_policy =
 		(** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
 	| Dynamic_min
 		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
+	| Actual
+		(** use memory_actual: liberal: use memory actual when VM migrate. *)
 
 (** Common logic of vm_compute_start_memory and vm_compute_used_memory *)
-let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max =
+let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max ~memory_static_max ~memory_actual =
 	match policy with
 		| Dynamic_min -> memory_dynamic_min
 		| Dynamic_max -> memory_dynamic_max
 		| Static_max -> memory_static_max
+		| Actual -> memory_actual
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
 memory, to start a VM. If the given VM is a PV guest and if memory ballooning
@@ -69,15 +72,19 @@ target (since PV guests are able to start in a pre-ballooned state). If memory
 ballooning is not enabled or if the VM is an HVM guest, this function returns
 values derived from the VM's static memory maximum (since currently HVM guests
 are not able to start in a pre-ballooned state). *)
-let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
+let vm_compute_start_memory ~__context ?(policy=Dynamic_min) ?vm_metrics vm_record =
 	if Xapi_fist.disable_memory_checks ()
 	then (0L, 0L)
 	else
+		let memory_actual = match vm_metrics with
+		| Some vmm -> Db.VM_metrics.get_memory_actual ~__context ~self:vmm
+		| None -> vm_record.API.vM_memory_dynamic_min in
 		let memory_required = choose_memory_required
 			~policy: policy
 			~memory_dynamic_min: vm_record.API.vM_memory_dynamic_min
 			~memory_dynamic_max: vm_record.API.vM_memory_dynamic_max
-			~memory_static_max:  vm_record.API.vM_memory_static_max in
+			~memory_static_max:  vm_record.API.vM_memory_static_max 
+			~memory_actual in
 		vm_compute_required_memory vm_record
 			(XenopsMemory.kib_of_bytes_used memory_required)
 
@@ -89,13 +96,16 @@ let vm_compute_used_memory ~__context policy vm_ref =
 	if Xapi_fist.disable_memory_checks () then 0L else
 	let vm_main_record = Db.VM.get_record ~__context ~self:vm_ref in
 	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
+	let vm_metrics = Db.VM.get_metrics ~__context ~self:vm_ref in
+	let memory_actual = Db.VM_metrics.get_memory_actual ~__context ~self:vm_metrics in
 
 	let memory_required = choose_memory_required
 		~policy: policy
 		~memory_dynamic_min: vm_main_record.API.vM_memory_dynamic_min
 		(* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
 		~memory_dynamic_max: vm_main_record.API.vM_memory_dynamic_max 
-		~memory_static_max:  vm_boot_record.API.vM_memory_static_max in
+		~memory_static_max:  vm_boot_record.API.vM_memory_static_max 
+		~memory_actual in
 	memory_required +++ vm_main_record.API.vM_memory_overhead
 
 let vm_compute_resume_memory ~__context vm_ref =
