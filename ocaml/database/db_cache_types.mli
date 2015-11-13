@@ -73,7 +73,7 @@ module type MAP = sig
         val touch : Time.t -> string -> value -> t -> t
         (** [touch now key default t] returns a new map which is the same as [t] except:
             if there is a value associated with [t] then its modification time is set to [now];
-            if there is no value asssociated with [t] then one is created with value [default].
+            if there is no value associated with [t] then one is created with value [default].
             On exit there will be a binding of [key] whose modification time is [now] *)
 end
 
