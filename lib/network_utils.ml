@@ -35,32 +35,30 @@ let bonding_dir = "/proc/net/bonding/"
 let dhcp6c = "/sbin/dhcp6c"
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 
-let call_script ?(log_successful_output=false) script args =
+let call_script ?(log_successful_output=false) ?(timeout=60.0) script args =
 	try
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
 		let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
 		info "%s %s" script (String.concat " " args);
-
-        	let readme, writeme = Unix.pipe () in
-                let pid = Forkhelpers.safe_close_and_exec ~env None (Some writeme) None [] script args in
-		Unix.close writeme;
-		(* assume output is never larger than a pipe buffer *)
-		let (_: (int * Unix.process_status)) = Forkhelpers.waitpid pid in
-		let output = String.make 16384 '\000' in
-		let n = Unix.read readme output 0 (String.length output) in
-		Unix.close readme;
-		String.sub output 0 n
+		let (out,err) = Forkhelpers.execute_command_get_output ~env ~timeout script args in
+		out
 	with
 	| Unix.Unix_error (e, a, b) ->
 		error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
 		error "Assuming script %s doesn't exist" script;
 		raise (Script_missing script)
-	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n)->
-		error "Call '%s %s' exited with code %d [stdout = '%s'; stderr = '%s']" script
-			(String.concat " " args) n stdout stderr;
+	| Forkhelpers.Spawn_internal_error(stderr, stdout, e)->
+		let message =
+			match e with
+			| Unix.WEXITED n -> Printf.sprintf "Exit code %d" n
+			| Unix.WSIGNALED s -> Printf.sprintf "Signaled %d" s (* Note that this is the internal ocaml signal number, see Sys module *)
+			| Unix.WSTOPPED s -> Printf.sprintf "Stopped %d" s
+		in
+		error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
+			(String.concat " " args) message stdout stderr;
 		raise (Script_error ["script", script; "args", String.concat " " args; "code",
-			string_of_int n; "stdout", stdout; "stderr", stderr])
+			message; "stdout", stdout; "stderr", stderr])
 
 module Sysfs = struct
 	let list () =
@@ -549,7 +547,7 @@ end
 
 module Fcoe = struct
 	let call ?(log=false) args =
-		call_script ~log_successful_output:log !fcoedriver args
+		call_script ~log_successful_output:log ~timeout:10.0 !fcoedriver args
 
 	let get_capabilities name =
 		try
