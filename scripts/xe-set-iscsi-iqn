@@ -32,3 +32,5 @@ fi
 
 ${XE} host-param-remove uuid=${INSTALLATION_UUID} param-name=${configmap} param-key=${configkey} || true
 ${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}-${configkey}=${iqn}
+
+echo "InitiatorName=${iqn}" > /etc/iscsi/initiatorname.iscsi
