@@ -571,7 +571,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	Db.Host_metrics.create ~__context ~ref
 	  ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
 	  ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
-  let name_description = "Default install of XenServer"
+  let name_description = "Default install"
   and host = Ref.make () in
 
   let metrics = Ref.make () in

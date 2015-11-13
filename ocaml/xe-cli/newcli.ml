@@ -629,7 +629,7 @@ let main () =
       exit_status := 0;
       usage ();
   | Not_a_cli_server ->
-      error "Failed to contact a running XenServer management agent.\n";
+      error "Failed to contact a running management agent.\n";
       error "Try specifying a server name and port.\n";
       usage();
   | Protocol_version_mismatch x ->
