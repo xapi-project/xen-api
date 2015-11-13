@@ -74,7 +74,12 @@ module PoolCpuinfo = Generic.Make(Generic.EncapsulateState(struct
 
 		([cpu_info "Abacus" "10" "1" "01230123-5a5a5a5a" "00000002"; 
 		  cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242"], 
-		 cpu_info "Abacus" "11" "11" "01230101-00004242" "00000002")
+		 cpu_info "Abacus" "11" "11" "01230101-00004242" "00000002");
+
+		(* CA-188665: Test a pool containing an old host which doesn't have the new feature keys *)
+		([cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002"; 
+		  ["cpu_count", "1"; "features", "ffff1111-a5a56666"; "socket_count", "1"; "vendor", "Abacus"]],
+		 cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002");
 	]
 end))
 
