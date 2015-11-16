@@ -16,6 +16,7 @@
 (* open Api_lowlevel *)
 module OU = Ocaml_utils
 module DT = Datamodel_types
+module DU = Datamodel_utils
 module DM = Datamodel
 module O = Ocaml_syntax
 module Client = Gen_client
@@ -93,7 +94,7 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
       () in
 
   let obj (obj: obj) =
-    let messages = List.filter (fun x -> not (List.exists (fun (l, _, _) -> l = DT.Removed) x.DT.msg_lifecycle)) obj.messages in
+    let messages = List.filter (fun x -> not (DU.has_been_removed x.DT.msg_lifecycle)) obj.messages in
     let fields = List.map (fun x -> O.Module.Let (operation obj x)) messages in
     O.Module.make
     ~name:(OU.ocaml_of_obj_name obj.DT.name)
