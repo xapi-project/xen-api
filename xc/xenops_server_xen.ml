@@ -2602,15 +2602,6 @@ module DEBUG = struct
 						| Some di ->
 							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
 				)
-		| "halt", [ k ] ->
-			let uuid = uuid_of_string k in
-			with_xc_and_xs
-				(fun xc xs ->
-					match di_of_uuid ~xc ~xs Newest uuid with
-						| None -> raise (Does_not_exist("domain", k))
-						| Some di ->
-							Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Halt
-				)
 		| _ ->
 			debug "DEBUG.trigger cmd=%s Unimplemented" cmd;
 			raise (Unimplemented(cmd))

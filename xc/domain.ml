@@ -291,7 +291,7 @@ let shutdown_to_xc_shutdown = function
 	| Reboot   -> Xenctrl.Reboot
 	| Suspend  -> Xenctrl.Suspend
 	| Crash    -> Xenctrl.Crash
-	| Halt     -> Xenctrl.Halt
+	| Halt     -> Xenctrl.Poweroff
 	| S3Suspend -> raise (Invalid_argument "unknown")
 	| Unknown _-> raise (Invalid_argument "unknown")
 
