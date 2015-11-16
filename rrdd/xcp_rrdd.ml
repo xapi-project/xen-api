@@ -463,8 +463,20 @@ let handle_exn log f default =
 		default
 	)
 
+let uuid_blacklist = [
+	"00000000-0000-0000";
+	"deadbeef-dead-beef" ]
+
 let read_all_dom0_stats xc =
-	let domains = Xenctrl.domain_getinfolist xc 0 in
+	let uuid_of_domain d =
+		Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
+	let domains =
+		List.filter
+			(fun d ->
+				let uuid = uuid_of_domain d in
+				let first = String.sub uuid 0 18 in
+				not (List.mem first uuid_blacklist))
+			(Xenctrl.domain_getinfolist xc 0) in
 	let timestamp = Unix.gettimeofday () in
 	let uuid_of_domain d =
 		Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
