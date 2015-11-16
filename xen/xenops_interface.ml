@@ -545,6 +545,7 @@ module Host = struct
 		features: int64 array;
 		features_pv: int64 array;
 		features_hvm: int64 array;
+		features_oldstyle: int64 array;
 	}
 	type hypervisor = {
 		version: string;
