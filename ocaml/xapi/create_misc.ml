@@ -421,7 +421,9 @@ let create_host_cpu ~__context =
 		"model", stat.cpu_info.model;
 		"stepping", stat.cpu_info.stepping;
 		"flags", stat.cpu_info.flags;
-		"features", Cpuid_helpers.string_of_features stat.cpu_info.features;
+		(* To support VMs migrated from hosts which do not support CPU levelling v2,
+		   set the "features" key to what it would be on such hosts. *)
+		"features", Cpuid_helpers.string_of_features stat.cpu_info.features_oldstyle;
 		"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
 		"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
 	] in
