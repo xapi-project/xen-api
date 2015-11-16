@@ -66,7 +66,8 @@ let archive_rrd _ ~vm_uuid ~remote_address : unit =
 	Mutex.execute mutex (fun () ->
 		try
 			let rrd = (Hashtbl.find vm_rrds vm_uuid).rrd in
-			archive_rrd_internal ~remote_address ~uuid:vm_uuid ~rrd ()
+			archive_rrd_internal ~remote_address ~uuid:vm_uuid ~rrd ();
+			Hashtbl.remove vm_rrds vm_uuid
 		with Not_found -> ())
 
 let backup_rrds _ ?(remote_address = None) () : unit =
