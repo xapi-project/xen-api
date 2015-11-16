@@ -66,6 +66,9 @@ let creedence_release_schema_minor_vsn = 72
 let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
+let indigo_release_schema_major_vsn = 5
+let indigo_release_schema_minor_vsn = 74
+
 let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 90
 
