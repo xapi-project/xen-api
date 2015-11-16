@@ -1299,7 +1299,7 @@ let apply_edition ~__context ~host ~edition ~force =
 		let additional = if force then ["force", "true"] else [] in
 		apply_edition_internal ~__context ~host ~edition ~additional
 
-let license_apply ~__context ~host ~contents =
+let license_add ~__context ~host ~contents =
 	let license = Base64.decode contents in
 	let tmp = "/tmp/new_license" in
 	let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
