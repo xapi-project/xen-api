@@ -168,7 +168,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     close_fds
 
 
-let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?(timeout=infinity) cmd args =
+let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?(timeout=(-1.0)) cmd args =
 	let to_close = ref [] in
 	let close fd =
 		if List.mem fd !to_close then begin

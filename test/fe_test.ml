@@ -84,9 +84,20 @@ let test_delay () =
   | e ->
     failwith (Printf.sprintf "Failed with unexpected exception: %s" (Printexc.to_string e))
 
+let test_notimeout () =
+  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid()) in
+  let args = ["sleep"] in
+  try
+    Forkhelpers.execute_command_get_output exe args;
+    ()
+  with
+  | e ->
+    failwith (Printf.sprintf "Failed with unexpected exception: %s" (Printexc.to_string e))
+
 
 let master () = 
   test_delay ();
+  test_notimeout ();
   Printf.printf "\nCompleted timeout test\n";
   let combinations = shuffle (all_combinations ()) in
   Printf.printf "Starting %d tests\n" (List.length combinations);
