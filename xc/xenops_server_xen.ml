@@ -537,6 +537,7 @@ module HOST = struct
 				let features = get_featureset xc Featureset_host in
 				let features_pv = get_featureset xc Featureset_pv in
 				let features_hvm = get_featureset xc Featureset_hvm in
+				let features_oldstyle = oldstyle_featuremask xc in
 				
 				let v = version xc in
 				let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
@@ -556,6 +557,7 @@ module HOST = struct
 						features;
 						features_pv;
 						features_hvm;
+						features_oldstyle;
 					};
 					hypervisor = {
 						Host.version = xen_version_string;

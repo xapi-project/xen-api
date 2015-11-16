@@ -36,6 +36,7 @@ module HOST = struct
 			features = [| |];
 			features_pv = [| |];
 			features_hvm = [| |];
+			features_oldstyle = [| |];
 		};
 		hypervisor = {
 			Host.version = "";
