@@ -107,7 +107,10 @@ let create ~__context ~name_label ~name_description
 		~has_vendor_device
 		: API.ref_VM =
 
-	(* NB parameter validation is delayed until VM.start *)
+	if auto_update_drivers then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+
+	(* NB apart from the above, parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.make_uuid () in
 	let vm_ref = Ref.make () in
