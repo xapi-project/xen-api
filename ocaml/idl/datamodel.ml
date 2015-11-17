@@ -416,8 +416,8 @@ let _ =
     ~doc:"Your license has expired.  Please contact your support representative." ();
   error Api_errors.license_processing_error []
     ~doc:"There was an error processing your license.  Please contact your support representative." ();
-  error Api_errors.license_restriction []
-    ~doc:"This operation is not allowed under your license.  Please contact your support representative." ();
+  error Api_errors.license_restriction ["feature"]
+    ~doc:"This operation is not allowed because your license lacks a needed feature.  Please contact your support representative." ();
   error Api_errors.license_cannot_downgrade_in_pool []
     ~doc:"Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on hosts separately." ();
   error Api_errors.license_does_not_support_pooling []
