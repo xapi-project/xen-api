@@ -654,6 +654,7 @@ let destroy ~__context ~self =
   Xapi_hooks.host_post_declare_dead ~__context ~host:self ~reason:Xapi_hooks.reason__dbdestroy;
 
   Db.Host.destroy ~__context ~self;
+  Create_misc.create_pool_cpuinfo ~__context;
   List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains
 
 let declare_dead ~__context ~host =
