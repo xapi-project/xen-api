@@ -775,6 +775,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 	let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
+	if copy && (Db.VM.get_auto_update_drivers ~__context ~self:vm) then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
