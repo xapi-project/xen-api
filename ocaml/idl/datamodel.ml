@@ -1560,7 +1560,9 @@ let vm_clone = call
 	    Ref _vm, "vm", "The VM to be cloned";
 	    String, "new_name", "The name of the cloned VM"
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
+	  ;Api_errors.license_restriction
+  ]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -1577,7 +1579,9 @@ let vm_copy = call
 	    String, "new_name", "The name of the copied VM";
 	    Ref _sr, "sr", "An SR to copy all the VM's disks into (if an invalid reference then it uses the existing SRs)";
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
+	  ;Api_errors.license_restriction
+  ]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
