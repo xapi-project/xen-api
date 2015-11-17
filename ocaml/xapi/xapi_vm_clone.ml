@@ -184,12 +184,17 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 
 (* return a new VM record, in appropriate power state and having the good metrics. *)
 let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
+	let all = Db.VM.get_record_internal ~__context ~self:vm in
+	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
+	if (all.Db_actions.vM_auto_update_drivers && not (
+		is_a_snapshot
+		|| all.Db_actions.vM_is_a_template
+		|| Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
+	) then raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.PCI_device_for_auto_update]));
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
-	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 	let current_op =
 		match disk_op with
 		| Disk_op_clone -> `clone
