@@ -195,6 +195,11 @@ let on_dom0_networking_change ~__context =
 			end
 	end;
 	Helpers.update_domain_zero_name ~__context localhost new_hostname;
+	(* Running update-issue service on best effort basis *)
+	try
+		ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
+		ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
+	with _ -> ();
 	debug "Signalling anyone waiting for the management IP address to change";
 	Mutex.execute management_ip_mutex
 		(fun () -> Condition.broadcast management_ip_cond)
