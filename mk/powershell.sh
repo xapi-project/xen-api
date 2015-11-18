@@ -30,7 +30,7 @@
 
 set -e
 
-FRAMEWORKDIR="${ROOT}/WINDOWS/Microsoft.NET/Framework/v3.5"
+FRAMEWORKDIR="${ROOT}/WINDOWS/Microsoft.NET/Framework/v4.0.30319"
 CSC="$FRAMEWORKDIR/csc.exe"
 # see http://www.interact-sw.co.uk/iangblog/2005/09/12/cmdspawnerror
 SYSPATHS="${ROOT}/WINDOWS/:${ROOT}/WINDOWS/System32:${ROOT}/WINDOWS/System32/wbem"
