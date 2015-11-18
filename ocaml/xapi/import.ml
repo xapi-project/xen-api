@@ -423,7 +423,7 @@ module VM : HandlerTools = struct
 			let vm = log_reraise
 				("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
 				(fun value ->
-					let vm = Client.VM.create_from_record rpc session_id value in
+					let vm = Xapi_vm_helpers.create_from_record_internal ~__context ~enforce_licence:false ~r:value in
 					if config.full_restore then Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid;
 					vm)
 				vm_record in
