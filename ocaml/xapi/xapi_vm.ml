@@ -407,13 +407,7 @@ let create ~__context
 		~auto_update_drivers
 		~has_vendor_device
 		: API.ref_VM =
-	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
-	(* Add random mac_seed if there isn't one specified already *)
-	let other_config =
-		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
-		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
-		else other_config
-	in
+
 	create ~__context
 		~name_label
 		~name_description

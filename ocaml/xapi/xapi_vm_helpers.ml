@@ -109,7 +109,13 @@ let create ~__context ~name_label ~name_description
 
 	if auto_update_drivers then
 		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
-
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config
+	in
 	(* NB apart from the above, parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.make_uuid () in
