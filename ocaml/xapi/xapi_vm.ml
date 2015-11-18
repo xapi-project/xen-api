@@ -959,6 +959,11 @@ let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
 
 let assert_can_set_auto_update_drivers ~__context ~self ~value =
+	if value
+	(* Do the check even for templates, because snapshots are templates and
+	 * we allow restoration of a VM from a snapshot. *)
+	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self in
 	let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
