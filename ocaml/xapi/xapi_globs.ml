@@ -210,6 +210,9 @@ let base_template_name_key = "base_template_name"
 let vbd_task_key = "task_id"
 let related_to_key = "related_to"
 
+(* other-config keys to sync over when mirroring/remapping/importing a VDI *)
+let vdi_other_config_sync_keys = [ "config-drive" ]
+
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
 
