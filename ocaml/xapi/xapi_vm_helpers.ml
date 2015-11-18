@@ -104,11 +104,18 @@ let create ~__context ~name_label ~name_description
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~enforce_licence
 		: API.ref_VM =
 
-	if auto_update_drivers && not is_a_template then
+	if auto_update_drivers && enforce_licence && not is_a_template then
 		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
-
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config
+	in
 	(* NB apart from the above, parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.make_uuid () in
