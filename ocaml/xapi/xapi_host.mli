@@ -247,6 +247,8 @@ val copy_license_to_db :
 
 val license_add : __context:Context.t -> host:API.ref_host -> contents:string -> unit
 
+val license_remove : __context:Context.t -> host:API.ref_host -> unit
+
 (** Attempt to activate the given edition.
  *  In needed, the function automatically checks v6 licenses in and out
  *  from the license server (via the v6 daemon). If the requested edition is not

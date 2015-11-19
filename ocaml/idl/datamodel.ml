@@ -4027,6 +4027,19 @@ let host_license_add = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_license_remove = call
+	~name:"license_remove"
+	~in_oss_since:None
+	~lifecycle:[
+		Published, rel_indigo, "";
+	]
+	~params:[
+		Ref _host, "host", "The host from which any license will be removed"
+	]
+	~doc:"Remove any license file from the specified host, and switch that host to the unlicensed edition"
+	~allowed_roles:_R_POOL_OP
+	()
+
 let host_create_params =
   [
     {param_type=String; param_name="uuid"; param_doc="unique identifier/object reference"; param_release=rio_release; param_default=None};
@@ -4501,7 +4514,7 @@ let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_license_add; host_create; host_destroy; 
+      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_license_add; host_license_remove; host_create; host_destroy; 
 		  host_power_on;
 		 host_set_license_params;
 		 host_emergency_ha_disable;

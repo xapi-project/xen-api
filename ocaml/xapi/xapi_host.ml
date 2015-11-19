@@ -1322,6 +1322,12 @@ let license_add ~__context ~host ~contents =
 			Unixext.unlink_safe tmp
 		)
 
+let license_remove ~__context ~host =
+	let edition', features, additional =
+		V6client.apply_edition ~__context "" ["license_file", ""] in
+	Db.Host.set_edition ~__context ~self:host ~value:edition';
+	copy_license_to_db ~__context ~host ~features ~additional
+
 (* Supplemental packs *)
 
 let refresh_pack_info ~__context ~host =

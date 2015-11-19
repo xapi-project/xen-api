@@ -2209,6 +2209,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.Host.license_add ~host ~contents in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.license_add rpc session_id host contents)
 
+		let license_remove ~__context ~host =
+			info "Host.license_remove: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.license_remove ~host in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.license_remove rpc session_id host)
+
 		let assert_can_evacuate ~__context ~host =
 			info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host);
 			Local.Host.assert_can_evacuate ~__context ~host
