@@ -36,18 +36,24 @@ module type WATCH_ACTIONS = sig
 	val domain_disappeared : Xenctrl.handle -> Xenstore.Xs.xsh -> int -> unit
 end
 
-let watch ~xs path =
+let watch ~xs token path =
 	debug "xenstore watch %s" path;
-	xs.Xs.watch path path
+	try
+		xs.Xs.watch path token
+	with Xs_protocol.Eexist ->
+		debug "xenstore watch on %s threw Xs_protocol.Eexist" path
+	
 
-let unwatch ~xs path =
+let unwatch ~xs token path =
 	try
 		debug "xenstore unwatch %s" path;
-		xs.Xs.unwatch path path
+		xs.Xs.unwatch path token
 	with Xs_protocol.Enoent _ ->
 		debug "xenstore unwatch %s threw Xs_protocol.Enoent" path
 
 let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
+
+let token_of_domain domid = Printf.sprintf "domain/%d" domid
 
 module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 
@@ -82,7 +88,8 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 				let add_watches_for_domain xs domid uuid =
 					debug "Adding watches for: domid %d" domid;
                                         Actions.domain_appeared xc xs domid;
-					List.iter (watch ~xs) (Actions.interesting_paths_for_domain domid uuid);
+					let token = token_of_domain domid in
+					List.iter (watch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
 					uuids := IntMap.add domid uuid !uuids;
 					watches := IntSet.add domid !watches in
 
@@ -91,7 +98,8 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
                                         Actions.domain_disappeared xc xs domid;
 					if IntMap.mem domid !uuids then begin
 						let uuid = IntMap.find domid !uuids in
-						List.iter (unwatch ~xs) (Actions.interesting_paths_for_domain domid uuid);
+						let token = token_of_domain domid in
+						List.iter (unwatch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
 						watches := IntSet.remove domid !watches;
 						uuids := IntMap.remove domid !uuids;
 					end in

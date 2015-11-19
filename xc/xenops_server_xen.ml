@@ -2354,8 +2354,9 @@ module Actions = struct
 		device_watches := IntMap.add domid [] !device_watches
 
 	let domain_disappeared xc xs domid =
+		let token = Xenstore_watch.token_of_domain domid in
 		List.iter (fun d ->
-			List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device d)
+			List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device d)
 		) (try IntMap.find domid !device_watches with Not_found -> []);
 		device_watches := IntMap.remove domid !device_watches;
 
@@ -2368,7 +2369,8 @@ module Actions = struct
 		let open Device_common in
 		debug "Adding watches for: %s" (string_of_device device);
 		let domid = device.frontend.domid in
-		List.iter (Xenstore_watch.watch ~xs) (watches_of_device device);
+		let token = Xenstore_watch.token_of_domain domid in
+		List.iter (Xenstore_watch.watch ~xs token) (watches_of_device device);
 		device_watches := IntMap.add domid (device :: (IntMap.find domid !device_watches)) !device_watches
 
 	let remove_device_watch xs device =
@@ -2376,7 +2378,8 @@ module Actions = struct
 		debug "Removing watches for: %s" (string_of_device device);
 		let domid = device.frontend.domid in
 		let current = IntMap.find domid !device_watches in
-		List.iter (Xenstore_watch.unwatch ~xs) (watches_of_device device);
+		let token = Xenstore_watch.token_of_domain domid in
+		List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device device);
 		device_watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !device_watches
 
 	let watch_fired xc xs path domains watches =
