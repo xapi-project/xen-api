@@ -210,6 +210,9 @@ let base_template_name_key = "base_template_name"
 let vbd_task_key = "task_id"
 let related_to_key = "related_to"
 
+(* other-config keys to sync over when mirroring/remapping/importing a VDI *)
+let vdi_other_config_sync_keys = [ "config-drive" ]
+
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
 
@@ -814,6 +817,10 @@ let gpg_homedir = ref "/opt/xensource/gpg"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
+let update_issue_script = ref "update-issue"
+
+let kill_process_script = ref "killall"
+
 let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
@@ -1042,6 +1049,8 @@ module Resources = struct
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
 		"xenvmd", xenvmd_path, "Xenvmd executable for thin-provisioned block storage";
+		"update-issue", update_issue_script, "Running update-service when configuring the management interface";
+		"killall", kill_process_script, "Executed to kill process";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";

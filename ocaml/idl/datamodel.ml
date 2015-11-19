@@ -6445,7 +6445,7 @@ let pool_initialize_wlb = call
   ~params:[String, "wlb_url", "The ip address and port to use when accessing the wlb server";
     String, "wlb_username", "The username used to authenticate with the wlb server";
     String, "wlb_password", "The password used to authenticate with the wlb server";
-    String, "xenserver_username", "The usernamed used by the wlb server to authenticate with the xenserver";
+    String, "xenserver_username", "The username used by the wlb server to authenticate with the xenserver";
     String, "xenserver_password", "The password used by the wlb server to authenticate with the xenserver"]
   ~allowed_roles:_R_POOL_OP
    ()
@@ -7201,7 +7201,7 @@ let vm =
 	field ~writer_roles:_R_VM_OP ~qualifier:DynamicRO ~ty:vm_power_state "power_state" "Current power state of the machine";
 	namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
 
-	field ~ty:Int "user_version" "a user version number for this machine";
+	field ~ty:Int "user_version" "Creators of VMs and templates may store version information here.";
 	field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
 	field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 

@@ -186,8 +186,17 @@ let intra_pool_fix_suspend_sr ~__context host vm =
 
 let intra_pool_vdi_remap ~__context vm vdi_map =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let vdis_and_callbacks =
-		List.map (fun self -> Db.VBD.get_VDI ~__context ~self, fun v -> Db.VBD.set_VDI ~__context ~self ~value:v) vbds in
+	let vdis_and_callbacks = List.map (fun vbd ->
+		let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+		let callback mapto =
+			Db.VBD.set_VDI ~__context ~self:vbd ~value:mapto;
+			let other_config_record = Db.VDI.get_other_config ~__context ~self:vdi in
+			List.iter (fun key ->
+				Db.VDI.remove_from_other_config ~__context ~self:mapto ~key;
+				try Db.VDI.add_to_other_config ~__context ~self:mapto ~key ~value:(List.assoc key other_config_record) with Not_found -> ()
+			) Xapi_globs.vdi_other_config_sync_keys in
+		vdi, callback
+	) vbds in
 	let suspend_vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 	let vdis_and_callbacks =
 		if suspend_vdi = Ref.null then vdis_and_callbacks

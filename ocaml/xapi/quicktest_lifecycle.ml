@@ -145,7 +145,7 @@ let one s vm test =
 					| { api = None; parallel_op = Some x } ->
 						let reason = match x with
 							| Internal_reboot -> Xenctrl.Reboot
-							| Internal_halt -> Xenctrl.Halt
+							| Internal_halt -> Xenctrl.Poweroff
 							| Internal_crash -> Xenctrl.Crash
 							| Internal_suspend -> Xenctrl.Suspend in
 						begin 

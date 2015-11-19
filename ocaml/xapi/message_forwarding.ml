@@ -139,7 +139,7 @@ let map_with_drop ?(doc = "performing unknown operation") f xs =
 	let one x =
 		try [ f x ]
 		with e ->
-			debug "Caught exception while %s in message forwarder: %s" (ExnHelper.string_of_exn e) doc; [] in
+			debug "Caught exception while %s in message forwarder: %s" doc (ExnHelper.string_of_exn e); [] in
 	List.concat (List.map one xs)
 		(* Iterate a function across a list, ignoring applications which throw an exception *)
 let iter_with_drop ?(doc = "performing unknown operation") f xs =
@@ -152,13 +152,13 @@ let iter_with_drop ?(doc = "performing unknown operation") f xs =
 let log_exn ?(doc = "performing unknown operation") f x =
 	try f x
 	with e ->
-		debug "Caught exception while %s in message forwarder: %s" (ExnHelper.string_of_exn e) doc;
+		debug "Caught exception while %s in message forwarder: %s" doc (ExnHelper.string_of_exn e);
 		raise e
 
 let log_exn_ignore ?(doc = "performing unknown operation") f x =
 	try f x
 	with e ->
-		debug "Ignoring exception while %s in message forwarder: %s" (ExnHelper.string_of_exn e) doc
+		debug "Ignoring exception while %s in message forwarder: %s" doc (ExnHelper.string_of_exn e)
 
 (**************************************************************************************)
 
