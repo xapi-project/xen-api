@@ -469,6 +469,6 @@ let test =
 				Modifiers.tests;
 			"test_reset_cpu_flags" >:::
 				ResetCPUFlags.tests;
-			"test_assert_vm_is_compatible" >:::
-				AssertVMIsCompatible.tests;
+		(*	"test_assert_vm_is_compatible" >:::
+				AssertVMIsCompatible.tests;*)
 		]
