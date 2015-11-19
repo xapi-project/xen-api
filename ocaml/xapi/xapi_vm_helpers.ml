@@ -104,9 +104,19 @@ let create ~__context ~name_label ~name_description
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~enforce_licence
 		: API.ref_VM =
 
-	(* NB parameter validation is delayed until VM.start *)
+	if auto_update_drivers && enforce_licence && not is_a_template then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config
+	in
+	(* NB apart from the above, parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.make_uuid () in
 	let vm_ref = Ref.make () in
@@ -177,6 +187,54 @@ let create ~__context ~name_label ~name_description
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	update_memory_overhead ~__context ~vm:vm_ref;
 	vm_ref
+
+let create_from_record_internal ~__context ~enforce_licence ~r =
+	create ~__context ~enforce_licence
+		~name_label:r.API.vM_name_label
+		~name_description:r.API.vM_name_description
+		~user_version:r.API.vM_user_version
+		~is_a_template:r.API.vM_is_a_template
+		~affinity:r.API.vM_affinity
+		~memory_target:r.API.vM_memory_target
+		~memory_static_max:r.API.vM_memory_static_max
+		~memory_dynamic_max:r.API.vM_memory_dynamic_max
+		~memory_dynamic_min:r.API.vM_memory_dynamic_min
+		~memory_static_min:r.API.vM_memory_static_min
+		~vCPUs_params:r.API.vM_VCPUs_params
+		~vCPUs_max:r.API.vM_VCPUs_max
+		~vCPUs_at_startup:r.API.vM_VCPUs_at_startup
+		~actions_after_shutdown:r.API.vM_actions_after_shutdown
+		~actions_after_reboot:r.API.vM_actions_after_reboot
+		~actions_after_crash:r.API.vM_actions_after_crash
+		~pV_bootloader:r.API.vM_PV_bootloader
+		~pV_kernel:r.API.vM_PV_kernel
+		~pV_ramdisk:r.API.vM_PV_ramdisk
+		~pV_args:r.API.vM_PV_args
+		~pV_bootloader_args:r.API.vM_PV_bootloader_args
+		~pV_legacy_args:r.API.vM_PV_legacy_args
+		~hVM_boot_policy:r.API.vM_HVM_boot_policy
+		~hVM_boot_params:r.API.vM_HVM_boot_params
+		~hVM_shadow_multiplier:r.API.vM_HVM_shadow_multiplier
+		~platform:r.API.vM_platform
+		~pCI_bus:r.API.vM_PCI_bus
+		~other_config:r.API.vM_other_config
+		~recommendations:r.API.vM_recommendations
+		~xenstore_data:r.API.vM_xenstore_data
+		~ha_always_run:r.API.vM_ha_always_run
+		~ha_restart_priority:r.API.vM_ha_restart_priority
+		~tags:r.API.vM_tags
+		~blocked_operations:r.API.vM_blocked_operations
+		~protection_policy:r.API.vM_protection_policy
+		~is_snapshot_from_vmpp:r.API.vM_is_snapshot_from_vmpp
+		~appliance:r.API.vM_appliance
+		~start_delay:r.API.vM_start_delay
+		~shutdown_delay:r.API.vM_shutdown_delay
+		~order:r.API.vM_order
+		~suspend_SR:r.API.vM_suspend_SR
+		~version:r.API.vM_version
+		~generation_id:r.API.vM_generation_id
+		~hardware_platform_version:r.API.vM_hardware_platform_version
+		~auto_update_drivers:r.API.vM_auto_update_drivers
 
 let destroy  ~__context ~self =
 	(* Used to be a call to hard shutdown here, but this will be redundant *)

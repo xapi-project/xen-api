@@ -416,8 +416,8 @@ let _ =
     ~doc:"Your license has expired.  Please contact your support representative." ();
   error Api_errors.license_processing_error []
     ~doc:"There was an error processing your license.  Please contact your support representative." ();
-  error Api_errors.license_restriction []
-    ~doc:"This operation is not allowed under your license.  Please contact your support representative." ();
+  error Api_errors.license_restriction ["feature"]
+    ~doc:"This operation is not allowed because your license lacks a needed feature.  Please contact your support representative." ();
   error Api_errors.license_cannot_downgrade_in_pool []
     ~doc:"Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on hosts separately." ();
   error Api_errors.license_does_not_support_pooling []
@@ -1558,7 +1558,9 @@ let vm_clone = call
 	    Ref _vm, "vm", "The VM to be cloned";
 	    String, "new_name", "The name of the cloned VM"
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
+	  ;Api_errors.license_restriction
+  ]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -1575,7 +1577,9 @@ let vm_copy = call
 	    String, "new_name", "The name of the copied VM";
 	    Ref _sr, "sr", "An SR to copy all the VM's disks into (if an invalid reference then it uses the existing SRs)";
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
+	  ;Api_errors.license_restriction
+  ]
   ~allowed_roles:_R_VM_ADMIN
   ()
 

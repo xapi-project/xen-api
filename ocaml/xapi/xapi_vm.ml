@@ -404,13 +404,7 @@ let create ~__context
 		~hardware_platform_version
 		~auto_update_drivers
 		: API.ref_VM =
-	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
-	(* Add random mac_seed if there isn't one specified already *)
-	let other_config =
-		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
-		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
-		else other_config
-	in
+
 	create ~__context
 		~name_label
 		~name_description
@@ -457,6 +451,7 @@ let create ~__context
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~enforce_licence:true
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -1062,6 +1057,11 @@ let query_services ~__context ~self =
 	raise (Api_errors.Server_error(Api_errors.not_implemented, [ "query_services" ]))
 
 let assert_can_set_auto_update_drivers ~__context ~self ~value =
+	if value && not (Db.VM.get_auto_update_drivers ~__context ~self)
+	(* Do the check even for templates, because snapshots are templates and
+	 * we allow restoration of a VM from a snapshot. *)
+	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self in
 	let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
