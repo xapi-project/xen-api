@@ -45,7 +45,7 @@ PowerShellVersion = '4.0'
 PowerShellHostName = ''
 PowerShellHostVersion = ''
 DotNetFrameworkVersion = '4.5'
-# CLRVersion = '2.0'
+CLRVersion = '4.0.30319'
 ProcessorArchitecture = 'None'
 
 #Contents
