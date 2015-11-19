@@ -2092,7 +2092,15 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Add a license to a host.";
       implementation=With_fd Cli_operations.host_license_add;
       flags=[];
-    };    
+    };
+   "host-license-remove",
+    {
+      reqd=[];
+      optn=["host-uuid"];
+      help="Remove any licensing applied to a host.";
+      implementation=No_fd Cli_operations.host_license_remove;
+      flags=[];
+    };
    "host-license-view",
     {
       reqd=[];

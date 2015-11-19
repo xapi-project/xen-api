@@ -2995,6 +2995,14 @@ let host_license_add fd printer rpc session_id params =
 			marshal fd (Command (PrintStderr "Failed to read license file\n"));
 			raise (ExitWithError 1)
 
+let host_license_remove printer rpc session_id params =
+	let host =
+		if List.mem_assoc "host-uuid" params then
+			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
+		else
+			get_host_from_session rpc session_id in
+	Client.Host.license_remove rpc session_id host
+
 let host_license_view printer rpc session_id params =
 	let host =
 		if List.mem_assoc "host-uuid" params then
