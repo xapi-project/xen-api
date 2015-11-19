@@ -7198,7 +7198,7 @@ let vm =
 	field ~writer_roles:_R_VM_OP ~qualifier:DynamicRO ~ty:vm_power_state "power_state" "Current power state of the machine";
 	namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
 
-	field ~ty:Int "user_version" "a user version number for this machine";
+	field ~ty:Int "user_version" "Creators of VMs and templates may store version information here.";
 	field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
 	field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 
