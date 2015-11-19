@@ -358,7 +358,7 @@ namespace XenAPI
                 {
                     SslStream sslStream = new SslStream(stream, false,
                         new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
-                    sslStream.AuthenticateAsClient("");
+                    sslStream.AuthenticateAsClient("", null, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true);
 
                     stream = sslStream;
                 }
