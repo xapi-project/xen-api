@@ -6,3 +6,6 @@
 _build
 setup.data
 setup.log
+
+travis_coveralls.sh
+.coverage/
