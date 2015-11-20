@@ -112,10 +112,11 @@ let upgrade_features ~__context ~vm host_features vm_features =
 		else
 			zero_extend vm_features (Array.length host_features)
 	in
-	if Array.length upgraded_features > len then
+	if vm_features <> upgraded_features then begin
 		debug "VM featureset upgraded from %s to %s"
 			(string_of_features vm_features)
 			(string_of_features upgraded_features);
+	end;
 	upgraded_features
 
 let set_flags ~__context self vendor features =
@@ -190,8 +191,10 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 				|> features_of_string
 				|> upgrade_features ~__context ~vm host_cpu_features'
 			in
-			if not (is_subset_or_equal vm_cpu_features' host_cpu_features') then
+			if not (is_subset_or_equal vm_cpu_features' host_cpu_features') then begin
+				debug "VM CPU features (%s) are not compatible with host CPU features (%s)\n" (string_of_features vm_cpu_features') (string_of_features host_cpu_features');
 				fail "VM last booted on a CPU with features this host's CPU does not have."
+			end
 		end
 	end
 
