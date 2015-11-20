@@ -35,6 +35,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.Serialization;
 
@@ -358,7 +359,7 @@ namespace XenAPI
                 {
                     SslStream sslStream = new SslStream(stream, false,
                         new RemoteCertificateValidationCallback(ValidateServerCertificate), null);
-                    sslStream.AuthenticateAsClient("");
+                    sslStream.AuthenticateAsClient("", null, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true);
 
                     stream = sslStream;
                 }
