@@ -1,14 +1,6 @@
 open OUnit
 open Test_common
 
-let get_shared_file_names shared_file_count =
-	let rec aux acc = function
-		| 0 -> acc
-		| shared_file_count ->
-			aux (make_shared_file () :: acc) (shared_file_count - 1)
-	in
-	aux [] shared_file_count
-
 let sync_string = "ready"
 
 let send_ready sock =
