@@ -478,8 +478,6 @@ let read_all_dom0_stats xc =
 				not (List.mem first uuid_blacklist))
 			(Xenctrl.domain_getinfolist xc 0) in
 	let timestamp = Unix.gettimeofday () in
-	let uuid_of_domain d =
-		Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
 	let domain_paused d = d.Xenctrl.paused in
 	let my_paused_domain_uuids =
 		List.map uuid_of_domain (List.filter domain_paused domains) in
