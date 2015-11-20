@@ -112,10 +112,11 @@ let upgrade_features ~__context ~vm host_features vm_features =
 		else
 			zero_extend vm_features (Array.length host_features)
 	in
-	if Array.length upgraded_features > len then
+	if vm_features <> upgraded_features then begin
 		debug "VM featureset upgraded from %s to %s"
 			(string_of_features vm_features)
 			(string_of_features upgraded_features);
+	end;
 	upgraded_features
 
 let set_flags ~__context self vendor features =
