@@ -30,9 +30,9 @@
 
 set -e
 
-FRAMEWORKDIR="${ROOT}/WINDOWS/Microsoft.NET/Framework/v3.5"
+FRAMEWORKDIR="${ROOT}/WINDOWS/Microsoft.NET/Framework/v4.0.30319"
 MSBUILD="$FRAMEWORKDIR/MSBuild.exe"
-SDKDIR="${ROOT}/Program Files/Microsoft SDKs/Windows/v6.0A/bin"
+SDKDIR="${ROOT}/Program Files (x86)/Microsoft SDKs/Windows/v8.0A/bin/NETFX 4.0 Tools"
 RESGEN="$SDKDIR/ResGen.exe"
 SNK="~/.ssh/xs.net.snk"
 

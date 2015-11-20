@@ -41,11 +41,11 @@ CompanyName = 'Citrix Systems, Inc'
 Copyright = 'Copyright (c) Citrix Systems, Inc. All rights reserved.'
 
 # Requirements
-PowerShellVersion = '2.0'
+PowerShellVersion = '4.0'
 PowerShellHostName = ''
 PowerShellHostVersion = ''
-DotNetFrameworkVersion = '3.5'
-CLRVersion = '2.0'
+DotNetFrameworkVersion = '4.5'
+CLRVersion = '4.0.30319'
 ProcessorArchitecture = 'None'
 
 #Contents
