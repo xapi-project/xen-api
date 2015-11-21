@@ -88,13 +88,6 @@ let parse_payload ~(json : string) : payload =
 		{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 	with _ -> raise Invalid_payload
 
-let to_dss text =
-	let length_str = "0x" ^ (String.sub text length_start length_bytes) in
-	let length = int_of_string length_str in
-	let checksum = String.sub text checksum_start checksum_bytes in
-	let payload = String.sub text payload_start length in
-	length, checksum, (parse_payload payload)
-
 let make_payload_reader () =
 	let last_checksum = ref "" in
 	(fun cs ->
