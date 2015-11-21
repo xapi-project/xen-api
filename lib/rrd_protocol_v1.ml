@@ -109,7 +109,7 @@ let make_payload_reader () =
 
 let write_payload alloc_cstruct payload =
 	let json =
-		Rrd_json.json_of_dss ~hdr:default_header payload.timestamp payload.datasources
+		Rrd_json.json_of_dss ~header:default_header payload.timestamp payload.datasources
 	in
 	let length = String.length json in
 	let cs = alloc_cstruct length in
