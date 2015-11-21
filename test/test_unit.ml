@@ -80,7 +80,7 @@ let test_reader_cleanup protocol =
 			assert_raises
 				~msg:"cleanup should fail after cleanup"
 				Rrd_io.Resource_closed
-				(fun () -> reader.Rrd_reader.read_payload ()))
+				(fun () -> reader.Rrd_reader.cleanup ()))
 		(fun (_, writer) -> writer.Rrd_writer.cleanup ())
 		()
 
