@@ -66,10 +66,13 @@ let intersect left right =
 		done;
 		out
 
+(** is_subset_or_equal left right returns true if left is a subset of right *)
 let is_subset_or_equal left right =
 	intersect left right = left
 
-let is_subset left right =
+(** is_strict_subset left right returns true if left is a strict subset of right 
+    (left is a subset of right, but left and right are not equal) *)
+let is_strict_subset left right =
 	is_subset_or_equal left right && not (left = right)
 
 (** Field definitions for checked string map access *)
