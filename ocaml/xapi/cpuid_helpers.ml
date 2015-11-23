@@ -73,7 +73,7 @@ let is_subset left right =
 (** is_strict_subset left right returns true if left is a strict subset of right 
     (left is a subset of right, but left and right are not equal) *)
 let is_strict_subset left right =
-	is_subset left right && not (left = right)
+	(is_subset left right) && (left <> right)
 
 (** Field definitions for checked string map access *)
 let features_t   = Map_check.pickler features_of_string string_of_features
