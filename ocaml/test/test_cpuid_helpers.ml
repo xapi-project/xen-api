@@ -195,7 +195,7 @@ module Comparisons = Generic.Make (struct
 	end
 
 	let transform = fun (a, b) -> 
-		Cpuid_helpers.(is_subset_or_equal a b, is_subset a b)
+		Cpuid_helpers.(is_subset a b, is_strict_subset a b)
 
 	let tests = [
 		(* Some of this behaviour is counterintuitive because

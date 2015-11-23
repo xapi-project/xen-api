@@ -66,11 +66,14 @@ let intersect left right =
 		done;
 		out
 
-let is_subset_or_equal left right =
+(** is_subset left right returns true if left is a subset of right *)
+let is_subset left right =
 	intersect left right = left
 
-let is_subset left right =
-	is_subset_or_equal left right && not (left = right)
+(** is_strict_subset left right returns true if left is a strict subset of right 
+    (left is a subset of right, but left and right are not equal) *)
+let is_strict_subset left right =
+	(is_subset left right) && (left <> right)
 
 (** Field definitions for checked string map access *)
 let features_t   = Map_check.pickler features_of_string string_of_features
@@ -191,7 +194,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
 				|> features_of_string
 				|> upgrade_features ~__context ~vm host_cpu_features'
 			in
-			if not (is_subset_or_equal vm_cpu_features' host_cpu_features') then begin
+			if not (is_subset vm_cpu_features' host_cpu_features') then begin
 				debug "VM CPU features (%s) are not compatible with host CPU features (%s)\n" (string_of_features vm_cpu_features') (string_of_features host_cpu_features');
 				fail "VM last booted on a CPU with features this host's CPU does not have."
 			end
