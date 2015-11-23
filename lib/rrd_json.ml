@@ -46,21 +46,19 @@ let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
 		(* end; *)
 	end
 
-let json_of_dss ?hdr timestamp (dss : (Rrd.ds_owner * Ds.ds) list) =
+let json_of_dss ~header timestamp (dss : (Rrd.ds_owner * Ds.ds) list) =
 	let buf = Buffer.create 100 in
 	List.iter (fun (owner, ds) -> json_of_ds ~owner ds buf) dss;
 	let dss = Buffer.contents buf in
-	let payload = 
+	let payload =
 		Printf.sprintf "{\n  \"timestamp\": %Ld,\n  \"datasources\": {\n%s\n  }\n}" timestamp
 			(if String.length dss > 0 then (String.sub dss 0 (String.length dss - 2)) else "")
-	in 
-	let header = match hdr with
-		| Some hdrstr ->
-			(Printf.sprintf "%s%08x\n%s\n" hdrstr (String.length payload) 
-				(Digest.to_hex (Digest.string payload)))
-		| None -> ""
 	in
-	Printf.sprintf "%s%s\n" header payload
+	Printf.sprintf "%s%08x\n%s\n%s\n"
+		header
+		(String.length payload)
+		(Digest.to_hex (Digest.string payload))
+		payload
 
 (** Write the JSON metadata of datasource [ds] (i.e. not the value itself) to
  * buffer [buf]. [owner] is Host unless specified. *)

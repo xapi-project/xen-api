@@ -14,6 +14,7 @@ depends: [
   "cmdliner"
   "cstruct" {>= "1.0.1"}
   "crc"
+  "stringext"
   "xapi-idl" {>= "0.10.0"}
   "xapi-rrd" {>= "0.10.1"}
   "xen-gnt"
