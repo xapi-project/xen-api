@@ -1,0 +1,59 @@
+OASISFormat:  0.4
+Name:         xapi
+Version:      0.0.0
+Synopsis:     Description here
+Authors:      Xapi Project
+License:      LGPL-2.1 with OCaml linking exception
+Plugins:      DevFiles(0.4), META (0.4)
+BuildTools:   ocamlbuild
+
+Library ocaml_backend
+  Path:             ocaml/idl/ocaml_backend
+  Install:          false
+  InternalModules:  Ref
+  BuildDepends:     sexpr,
+                    uuid
+
+Library database
+  Path:             ocaml/database
+  Install:          false
+  InternalModules:  Escaping,
+                    Schema
+  BuildDepends:     sexplib.syntax,
+                    sexpr,
+                    threads,
+                    xcp
+
+Library datamodel
+  Path:             ocaml/idl
+  Install:          false
+  InternalModules:  Datamodel,
+                    Api_errors
+  BuildDepends:     ocaml_backend,
+                    database,
+                    rpclib.syntax,
+                    stdext,
+                    threads,
+                    xml-light2,
+                    http-svr
+
+Executable gen_api_main
+  Path:             ocaml/idl/ocaml_backend
+  Install:          false
+  MainIs:           gen_api_main.ml
+  CompiledObject:   best
+  ByteOpt:          -warn-error +1..45
+  NativeOpt:        -warn-error +1..45
+  BuildDepends:     datamodel,
+                    stdext,
+                    threads
+
+Library client
+  Path:             ocaml/autogen
+  Install:          false
+  InternalModules:  Client
+  BuildDepends:     datamodel,
+                    http-svr,
+                    rpclib.syntax,
+                    stdext,
+                    threads
