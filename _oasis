@@ -19,7 +19,8 @@ Library database
   Install:          false
   InternalModules:  Escaping,
                     Schema
-  BuildDepends:     sexplib.syntax,
+  BuildDepends:     rpclib.syntax,
+                    sexplib.syntax,
                     sexpr,
                     threads,
                     xcp
@@ -48,12 +49,22 @@ Executable gen_api_main
                     stdext,
                     threads
 
-Library client
+Library autogen
   Path:             ocaml/autogen
   Install:          false
-  InternalModules:  Client
-  BuildDepends:     datamodel,
+  InternalModules:  Client,
+                    Db_actions
+  BuildDepends:     database,
+                    datamodel,
                     http-svr,
                     rpclib.syntax,
                     stdext,
                     threads
+
+Executable xapi
+  Path:             ocaml/xapi
+  Install:          false
+  MainIs:           xapi.ml
+  CompiledObject:   best
+  ByteOpt:          -warn-error +1..45
+  NativeOpt:        -warn-error +1..45
