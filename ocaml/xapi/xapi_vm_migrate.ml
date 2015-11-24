@@ -57,6 +57,17 @@ open Storage_interface
 open Listext
 open Fun
 
+let assert_vdi_on_rawhba ~__context ~vdi_map ~remote_rpc ~session_id =
+	List.iter (fun (vdi, sr) ->
+		let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
+		(* Check VDIs must not be present on rawHBA source SR 
+		 * OR VDIs must not be mirrored to rawHBA destination SR
+		 * *)
+		if (Db.SR.get_type ~__context ~self:source_sr = "rawhba") ||
+		(XenAPI.SR.get_type remote_rpc session_id sr = "rawhba") then
+			raise (Api_errors.Server_error(Api_errors.vdi_on_rawhba_sr, [Ref.string_of vdi]))
+	) vdi_map
+
 let assert_licensed_storage_motion ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
@@ -826,6 +837,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			~host_to;
 		(* Check the host can support the VM's required version of virtual hardware platform *)
 		Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
+		(* Check VDIs are not on rawHBA SR *)
+		assert_vdi_on_rawhba ~__context ~vdi_map ~remote_rpc ~session_id;
 
 		(*Check that the remote host is enabled and not in maintenance mode*)
 		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in
