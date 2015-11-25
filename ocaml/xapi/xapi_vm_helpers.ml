@@ -649,6 +649,7 @@ let vm_can_run_on_host __context vm snapshot do_memory_check host =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
 		Db.Host_metrics.get_live ~__context ~self:host_metrics in
 	let host_can_run_vm () =
+		Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 		assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ();
 		true in
 	let host_evacuate_in_progress =
