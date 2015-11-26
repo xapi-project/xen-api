@@ -625,9 +625,9 @@ end
 
 (** Called by MTC in Orlando Update 1 to temporarily block the VM restart thread. *)
 let ha_prevent_restarts_for __context seconds =
-	let pool = Helpers.get_pool ~__context in
-	if not(Db.Pool.get_ha_enabled ~__context ~self:pool)
-	then raise (Api_errors.Server_error(Api_errors.ha_not_enabled, []));
+	(* Even if HA is not enabled, this should still go ahead (rather than doing
+	 * a successful no-op) in case HA is about to be enabled within the specified
+	 * number of seconds. Raising an error here caused CA-189075. *)
 	Monitor.prevent_restarts_for seconds
 
 
