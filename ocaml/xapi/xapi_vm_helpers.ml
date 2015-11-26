@@ -637,7 +637,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 (** Performs an expensive and comprehensive check to determine whether the
 given [guest] can run on the given [host]. Returns true if and only if the
 guest can run on the host. *)
-let vm_can_run_on_host __context vm snapshot do_memory_check host =
+let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
 	let host_has_proper_version () =
 		if Helpers.rolling_upgrade_in_progress ~__context
 		then
@@ -691,7 +691,7 @@ let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
 (** Selects a single host from the set of all hosts on which the given [vm]
 can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
-	let validate_host = vm_can_run_on_host __context vm snapshot true in
+	let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
 	let all_hosts = Db.Host.get_all ~__context in
 	try
 		match Db.VM.get_VGPUs ~__context ~self:vm with
@@ -722,7 +722,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
 			select_host_from host_lists
 	with Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
 		debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
-		let validate_host = vm_can_run_on_host __context vm snapshot false in
+		let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false in
 		Xapi_vm_placement.select_host __context vm validate_host all_hosts
 
 (* choose_host_for_vm will use WLB as long as it is enabled and there *)
