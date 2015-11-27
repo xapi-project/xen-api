@@ -74,7 +74,7 @@ let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
 			| [ _, plugin ] -> plugin.API.sM_capabilities
 			| _ -> []
 		in
-		if not (List.exists (fun cp -> cp = "Vdi_snapshot") sm_capabilities) then
+		if not (List.exists (fun cp -> cp = Smint.(string_of_capability Vdi_snapshot)) sm_capabilities) then
 			raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
 	) vdi_map
 
