@@ -806,7 +806,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
 			~host_to:(Helpers.LocalObject dest_host_ref);
-		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+		if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
@@ -829,7 +829,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[dest_host]));
 
 		(* Check that the VM's required CPU features are available on the host *)
-		if (not force) && live then
+		if not force then
 			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
 				~remote:(remote_rpc, session_id) ();
 
