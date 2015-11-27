@@ -802,34 +802,36 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	in
 	match migration_type with
 	| `intra_pool host ->
-		if (not force) && live then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
-		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
 			~host_to:(Helpers.LocalObject dest_host_ref);
+		if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
 			raise (Api_errors.Server_error(Api_errors.not_implemented, [
 				"VIF mapping is not supported for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
-		if (not force) && live then
-			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
-				~remote:(remote_rpc, session_id) ();
-		let power_state = Db.VM.get_power_state ~__context ~self:vm in
-		(* The copy mode is only allow on stopped VM *)
-		if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
-		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
+		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.LocalObject source_host_ref)
 			~host_to;
+		let power_state = Db.VM.get_power_state ~__context ~self:vm in
+		(* The copy mode is only allow on stopped VM *)
+		if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
 		(* Check the host can support the VM's required version of virtual hardware platform *)
 		Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
 
 		(*Check that the remote host is enabled and not in maintenance mode*)
 		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in
 		if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[dest_host]));
+
+		(* Check that the VM's required CPU features are available on the host *)
+		if not force then
+			Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:dest_host_ref
+				~remote:(remote_rpc, session_id) ();
 
 		(* Ignore vdi_map for now since we won't be doing any mirroring. *)
 		try
