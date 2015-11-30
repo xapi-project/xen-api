@@ -150,15 +150,18 @@ let update_cpu_flags ~__context ~vm ~host =
 		with Not_found -> ""
 	in
 	debug "VM last boot CPU features: %s" current_features;
-	let host_vendor, host_features =
-		let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-		get_flags_for_vm ~__context vm host_cpu_info
-	in
-	let new_features = upgrade_features ~__context ~vm
-		(features_of_string host_features) (features_of_string current_features)
-		|> string_of_features in
-	if new_features <> current_features then
-		set_flags ~__context vm host_vendor new_features
+	try
+		let host_vendor, host_features =
+			let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+			get_flags_for_vm ~__context vm host_cpu_info
+		in
+		let new_features = upgrade_features ~__context ~vm
+			(features_of_string host_features) (features_of_string current_features)
+			|> string_of_features in
+		if new_features <> current_features then
+			set_flags ~__context vm host_vendor new_features
+	with Not_found ->
+		debug "Host does not have new levelling feature keys - not upgrading VM's flags"
 
 let get_host_compatibility_info ~__context ~vm ~host ~remote =
 	let cpu_info =
