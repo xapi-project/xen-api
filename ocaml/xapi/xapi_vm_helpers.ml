@@ -47,6 +47,8 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
+	if (Db.VM.get_auto_update_drivers ~__context ~self)
+	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 	let m = Db.VM.get_metrics ~__context ~self in
 	if not value then begin
 		try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.of_float (Unix.gettimeofday ()))
