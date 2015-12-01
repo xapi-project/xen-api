@@ -1300,24 +1300,28 @@ let apply_edition ~__context ~host ~edition ~force =
 		apply_edition_internal ~__context ~host ~edition ~additional
 
 let license_add ~__context ~host ~contents =
-	let license = Base64.decode contents in
+	let license =
+		try
+			Base64.decode contents
+		with _ ->
+			error "Base64 decoding of supplied license has failed";
+			raise Api_errors.(Server_error(license_processing_error, []))
+	in
 	let tmp = "/tmp/new_license" in
-	let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-	let length = String.length license in
-	let written = Unix.write fd license 0 length in
-	Unix.close fd;
 	finally
 		(fun () ->
-			if written <> length then begin
-				debug "Short write!";
-				raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
+			begin try
+				Unixext.write_string_to_file tmp license
+			with _ ->
+				let s = "Failed to write temporary file." in
+				raise Api_errors.(Server_error(internal_error, [s]))
 			end;
 			let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
 			Db.Host.set_edition ~__context ~self:host ~value:edition';
 			copy_license_to_db ~__context ~host ~features ~additional
 		)
 		(fun () ->
-			(* The language will have been moved to a standard location if it was valid, and
+			(* The license will have been moved to a standard location if it was valid, and
 			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
 			Unixext.unlink_safe tmp
 		)
