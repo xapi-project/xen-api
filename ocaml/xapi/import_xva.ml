@@ -92,6 +92,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~generation_id:""
 				~hardware_platform_version:0L
 				~auto_update_drivers:false
+				~has_vendor_device:false
 			      in
 
                  TaskHelper.operate_on_db_task ~__context

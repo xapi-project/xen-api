@@ -217,7 +217,9 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~version:0L
 		~generation_id:""
 		~hardware_platform_version:0L
-		~auto_update_drivers:false;
+		~auto_update_drivers:false
+		~has_vendor_device:false
+	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol =
