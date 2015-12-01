@@ -1371,6 +1371,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 						| Handshake.Success -> ()
 						| Handshake.Error msg ->
 							error "cannot transmit vm to host: %s" msg;
+							raise (Internal_error msg)
 					end;
 					debug "Synchronisation point 1";
 
@@ -1400,13 +1401,12 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
 
 			(* set up the destination domain *)
-			perform_atomics (
-				simplify [VM_create (id, Some memory_limit);] @
-				(* Perform as many operations as possible on the destination domain before pausing the original domain *)
-				(atomics_of_operation (VM_restore_vifs id))
-			) t;
-
 			(try
+				perform_atomics (
+					simplify [VM_create (id, Some memory_limit);] @
+					(* Perform as many operations as possible on the destination domain before pausing the original domain *)
+					(atomics_of_operation (VM_restore_vifs id))
+				) t;
 				Handshake.send s Handshake.Success
 			with e ->
 				Handshake.send s (Handshake.Error (Printexc.to_string e));
