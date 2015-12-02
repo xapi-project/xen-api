@@ -35,13 +35,13 @@ let bonding_dir = "/proc/net/bonding/"
 let dhcp6c = "/sbin/dhcp6c"
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 
-let call_script ?(log_successful_output=false) ?(timeout=60.0) script args =
+let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
 	try
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
 		let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
 		info "%s %s" script (String.concat " " args);
-		let (out,err) = Forkhelpers.execute_command_get_output ~env ~timeout script args in
+		let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
 		out
 	with
 	| Unix.Unix_error (e, a, b) ->
@@ -509,7 +509,7 @@ module Dhclient = struct
 				| _ -> l) [] options in
 		write_conf_file ~ipv6 interface options;
 		let ipv6' = if ipv6 then ["-6"] else [] in
-		call_script ~log_successful_output:true dhclient (ipv6' @ gw_opt @ ["-q";
+		call_script ~log_successful_output:true ~timeout:None dhclient (ipv6' @ gw_opt @ ["-q";
 			"-pf"; pid_file ~ipv6 interface;
 			"-lf"; lease_file ~ipv6 interface;
 			"-cf"; conf_file ~ipv6 interface;
@@ -547,7 +547,7 @@ end
 
 module Fcoe = struct
 	let call ?(log=false) args =
-		call_script ~log_successful_output:log ~timeout:10.0 !fcoedriver args
+		call_script ~log_successful_output:log ~timeout:(Some 10.0) !fcoedriver args
 
 	let get_capabilities name =
 		try
