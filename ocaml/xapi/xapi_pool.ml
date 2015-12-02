@@ -852,6 +852,10 @@ let eject ~__context ~host =
 		Db.Host.destroy ~__context ~self:host;
 		Create_misc.create_pool_cpuinfo ~__context;
 
+		(* Update pool features, in case this host had a different license to the
+		 * rest of the pool. *)
+		Pool_features.update_pool_features ~__context;
+
 		(* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
 		begin try
 			let my_control_domain = List.find (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
