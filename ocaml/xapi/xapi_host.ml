@@ -655,7 +655,8 @@ let destroy ~__context ~self =
 
   Db.Host.destroy ~__context ~self;
   Create_misc.create_pool_cpuinfo ~__context;
-  List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains
+  List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains;
+  Pool_features.update_pool_features ~__context
 
 let declare_dead ~__context ~host =
 	precheck_destroy_declare_dead ~__context ~self:host "declare_dead";
