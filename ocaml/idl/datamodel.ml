@@ -7269,7 +7269,8 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "Does nothing at present. Might never be released/published.";
+	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "Does nothing at present. To be removed before Dundee release, once other code no longer refers to it.";
+	field ~qualifier:RW ~lifecycle:[Prototyped, rel_dundee, "Initial definition of field so other code can refer to it."] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "Does nothing at present. Intended to replace auto_update_drivers to control the presence of the C000 PCI device.";
     ])
 	()
 

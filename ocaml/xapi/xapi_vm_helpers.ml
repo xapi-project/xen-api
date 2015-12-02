@@ -104,6 +104,7 @@ let create ~__context ~name_label ~name_description
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~has_vendor_device
 		: API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -172,6 +173,7 @@ let create ~__context ~name_label ~name_description
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~has_vendor_device
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;

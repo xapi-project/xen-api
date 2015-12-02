@@ -405,6 +405,7 @@ let create ~__context
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~has_vendor_device
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -459,6 +460,7 @@ let create ~__context
 		~generation_id
 		~hardware_platform_version
 		~auto_update_drivers
+		~has_vendor_device
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
