@@ -69,7 +69,7 @@ let valid_operations ~__context record _ref' : table =
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm
-  then (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
+  then (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with
   | Some(code, params) -> set_errors code params [ `plug; `unplug ]
   | None -> ());
 

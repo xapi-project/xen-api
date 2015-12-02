@@ -45,6 +45,7 @@ type feature =
 	| Integrated_GPU
 	| VSS
 	| Guest_agent_auto_update
+	| PCI_device_for_auto_update
 	with rpc
 
 type orientation = Positive | Negative
@@ -79,6 +80,7 @@ let keys_of_features =
 		Integrated_GPU, ("restrict_integrated_gpu_passthrough", Negative, "iGPU");
 		VSS, ("restrict_vss", Negative, "VSS");
 		Guest_agent_auto_update, ("restrict_guest_agent_auto_update", Negative, "GAAU");
+		PCI_device_for_auto_update, ("restrict_pci_device_for_auto_update", Negative, "PciAU");
 	]
 
 let name_of_feature f =

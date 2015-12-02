@@ -608,7 +608,7 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 	| _ ->
 		let choices =
 			if prefer_slaves then
-				let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+				let master = Helpers.get_master ~__context in
 				List.filter ((<>) master) choices
 			else choices in
 		List.nth choices (Random.int (List.length choices))
@@ -924,12 +924,6 @@ let allowed_VIF_devices ~__context ~vm =
 	let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
 	let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
 	List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
-
-let has_xenprep_iso ~__context ~self =
-	let vdi = Helpers.get_xenprep_iso_vdi ~__context in
-	let vbds = Db.VM.get_VBDs ~__context ~self in
-	let vbds = List.filter (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd = vdi) vbds in
-	vbds <> []
 
 let delete_guest_metrics ~__context ~self:vm =
 	(* Delete potentially stale guest metrics object *)

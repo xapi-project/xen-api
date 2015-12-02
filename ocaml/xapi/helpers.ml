@@ -57,6 +57,11 @@ let checknull f =
   try f() with
       _ -> "<not in database>"
 
+let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
+
+let get_master ~__context =
+	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
+
 let get_primary_ip_addr ~__context iface primary_address_type =
 	if iface = "" then
 		None
@@ -411,7 +416,7 @@ let string_of_boot_method = function
    the db for the first time). In that context you cannot be in rolling upgrade mode *)
 let rolling_upgrade_in_progress ~__context =
 	try
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let pool = get_pool ~__context in
 		List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool)
 	with _ ->
 		false
@@ -579,18 +584,12 @@ let get_shared_srs ~__context =
   let srs = Db.SR.get_all ~__context in
   List.filter (fun self -> is_sr_shared ~__context ~self) srs
 
-let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
-
-let get_master ~__context =
-	Db.Pool.get_master ~__context ~self:(get_pool ~__context)
-
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
 let is_pool_master ~__context ~host =
-	let pool = get_pool ~__context in
 	let host_id = Db.Host.get_uuid ~__context ~self:host in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	let master_id = Db.Host.get_uuid ~__context ~self:master in
 	host_id = master_id
 
@@ -681,8 +680,7 @@ let host_versions_not_decreasing ~__context ~host_from ~host_to =
 
 let is_platform_version_same_on_master ~__context ~host =
 	if is_pool_master ~__context ~host then true else
-	let pool = get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = get_master ~__context in
 	compare_host_platform_versions ~__context (LocalObject master) (LocalObject host) = 0
 
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
@@ -826,15 +824,15 @@ let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 let is_tools_sr_cache = ref []
 let tools_sr_memoised = ref None
-let xenprep_iso_vdi_memoised = ref None
-let tools_sr_and_iso_m = Mutex.create () (* Use for all the above refs *)
+(* Use this mutex for the above refs, and probably for any refs
+ * of future ISO VDIs we might add alongside the tools ISO. *)
+let tools_sr_and_iso_m = Mutex.create ()
 
 let clear_tools_sr_cache () =
 	Mutex.execute tools_sr_and_iso_m
 		(fun () ->
 			is_tools_sr_cache := []
 			;tools_sr_memoised := None
-			;xenprep_iso_vdi_memoised := None
 		)
 
 (** Returns true if this SR is the XenSource Tools SR *)
@@ -894,27 +892,6 @@ let get_tools_sr ~__context =
 		List.hd srs
 	in
 	get_with_memo ~seeker:seek_tools_sr ~memo:tools_sr_memoised ~mtx:tools_sr_and_iso_m
-
-(** Returns the xenprep iso from the XenSource Tools SR.
-  * Fails if there is not exactly one such VDI. *)
-(* We need to specify the type because otherwise the compiler can't work it out
- * and gives an error on the line defining xenprep_iso_vdi_memoised. *)
-let get_xenprep_iso_vdi ~__context : [ `VDI ] API.Ref.t =
-	let seek_xenprep_iso_vdi () =
-		let cd_name = Xapi_globs.xenprep_iso_name_label in
-		let sr = get_tools_sr ~__context in
-		let vdis =
-			Db.VDI.get_refs_where ~__context ~expr:(
-				And (
-					Eq (Field "SR", Literal (Ref.string_of sr)),
-					Eq (Field "name__label", Literal cd_name)
-				)
-			) in
-		if List.length vdis <> 1 then failwith
-			("get_xenprep_iso_vdi failed: found "^(string_of_int (List.length vdis))^" ISOs with name_label="^cd_name^" in tools SR");
-		List.hd vdis
-	in
-	get_with_memo ~seeker:seek_xenprep_iso_vdi ~memo:xenprep_iso_vdi_memoised ~mtx:tools_sr_and_iso_m
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
@@ -1189,9 +1166,8 @@ let vm_string_to_assoc vm_string =
 let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let pool = get_pool ~__context in
   if shared
-  then Db.Pool.get_master ~__context ~self:pool
+  then get_master ~__context
   else begin
     match List.length pbds with
     | 0 ->

@@ -322,7 +322,7 @@ module Monitor = struct
 						let heartbeat_latency = float_of_int local.Xha_interface.LiveSetInformation.RawStatus.heartbeat_latency /. 1000. -. (float_of_int timeouts.Timeouts.heart_beat_interval) in
 						let xapi_latency = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.xapi_healthcheck_latency) /. 1000. in
 						let statefile_latencies = List.map (fun vdi -> let open Rrd.Statefile_latency in {id = vdi.Static_vdis.uuid; latency = Some statefile}) statefiles in
-						log_and_ignore_exn (Rrdd.HA.enable_and_update ~statefile_latencies ~heartbeat_latency ~xapi_latency)
+						log_and_ignore_exn (fun () -> Rrdd.HA.enable_and_update ~statefile_latencies ~heartbeat_latency ~xapi_latency)
 					) liveset.Xha_interface.LiveSetInformation.raw_status_on_local_host;
 
 				(* All hosts: create alerts from per-host warnings (if available) *)
@@ -625,9 +625,9 @@ end
 
 (** Called by MTC in Orlando Update 1 to temporarily block the VM restart thread. *)
 let ha_prevent_restarts_for __context seconds =
-	let pool = Helpers.get_pool ~__context in
-	if not(Db.Pool.get_ha_enabled ~__context ~self:pool)
-	then raise (Api_errors.Server_error(Api_errors.ha_not_enabled, []));
+	(* Even if HA is not enabled, this should still go ahead (rather than doing
+	 * a successful no-op) in case HA is about to be enabled within the specified
+	 * number of seconds. Raising an error here caused CA-189075. *)
 	Monitor.prevent_restarts_for seconds
 
 

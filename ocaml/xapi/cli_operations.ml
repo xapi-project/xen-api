@@ -252,7 +252,7 @@ let diagnostic_license_status printer rpc session_id params =
 	String.sub host_r.API.host_uuid 0 8;
 	"-"; "-"; "-"; "-"; "-" ]) invalid in
 	let __context = Context.make "diagnostic_license_status" in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
 	let pool_free = List.fold_left (||) false (List.map (fun h -> h.edition = "free") host_licenses) in
 	let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
@@ -2922,18 +2922,6 @@ let vm_cd_insert printer rpc session_id params =
 		Client.VBD.insert rpc session_id cd (List.hd vdis)
 	in
 	ignore(do_vm_op printer rpc session_id op params ["cd-name"])
-
-let vm_xenprep_start printer rpc session_id params =
-	let op vm =
-		Client.VM.xenprep_start rpc session_id (vm.getref ())
-	in
-	ignore (do_vm_op printer rpc session_id op params [])
-
-let vm_xenprep_abort printer rpc session_id params =
-	let op vm =
-		Client.VM.xenprep_abort rpc session_id (vm.getref ())
-	in
-	ignore (do_vm_op printer rpc session_id op params [])
 
 let host_careful_op op fd printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in

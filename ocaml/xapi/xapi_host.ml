@@ -479,7 +479,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
 
 	(* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
 	if not(Pool_role.is_master ())
-	then log_and_ignore_exn Rrdd.send_host_rrd_to_master;
+	then log_and_ignore_exn ( fun () -> Rrdd.send_host_rrd_to_master ~master_address:(Pool_role.get_master_address () ));
 	(* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
 	log_and_ignore_exn Rrdd.backup_rrds;
 
@@ -770,7 +770,7 @@ let local_management_reconfigure ~__context ~interface =
 
 let management_reconfigure ~__context ~pif =
 	(* Disallow if HA is enabled *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -805,7 +805,7 @@ let management_reconfigure ~__context ~pif =
 
 let management_disable ~__context =
   (* Disallow if HA is enabled *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
+  let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
@@ -961,7 +961,7 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
 	Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
 	delay (fun _ ->
-		log_and_ignore_exn (Rrdd.backup_rrds ~save_stats_locally:(Pool_role.is_master ()));
+		log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None));
 		log_and_ignore_exn (fun () ->
 			List.iter (fun sr ->
 				Xapi_sr.maybe_copy_sr_rrds ~__context ~sr
@@ -1134,6 +1134,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 		in ignore(Extauth.call_extauth_hook_script_in_host_wrapper ~__context host Extauth.event_name_after_extauth_enable ~call_plugin_fn);
 
 		debug "external authentication service type %s for service name %s enabled successfully in host %s" auth_type service_name host_name_label;
+		Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true;
 
 		(* CA-24856: detect non-homogeneous external-authentication config in this host *)
 		detect_nonhomogeneous_external_auth_in_host ~__context ~host;
@@ -1290,7 +1291,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
 
 let apply_edition ~__context ~host ~edition ~force =
 	(* if HA is enabled do not allow the edition to be changed *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_ha_enabled ~__context ~self:pool then
 		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
 	else
@@ -1404,7 +1405,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		log_and_ignore_exn (Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
+		log_and_ignore_exn (fun () -> Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end

@@ -45,6 +45,7 @@ type feature =
 	| Integrated_GPU               (** Enable use of integrated GPU passthrough *)
 	| VSS                          (** Enable use of VSS *)
 	| Guest_agent_auto_update      (** Enable use of the Windows guest agent auto-update feature. *)
+	| PCI_device_for_auto_update   (** Enable making new VMs with the PCI device that triggers Windows Update. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature

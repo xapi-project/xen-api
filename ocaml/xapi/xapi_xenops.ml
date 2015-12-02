@@ -803,7 +803,7 @@ module MD = struct
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
-			auto_update_drivers = vm.API.vM_auto_update_drivers
+			auto_update_drivers = false
 		}		
 
 
@@ -1303,24 +1303,6 @@ let update_vm ~__context id =
 								Xenopsd_metadata.delete ~__context id
 							end;
 							if power_state = `Halted then (
-								let key = Xapi_globs.xenprep_other_config_key in
-								Xapi_vm_helpers.with_vm_operation ~__context ~self ~doc:"VM.xenprep_completion_check" ~op:`xenprep (fun () ->
-									let other_config = Db.VM.get_other_config ~__context ~self in
-									if List.mem_assoc key other_config &&
-										(List.assoc key other_config = Xapi_globs.xenprep_other_config_iso_inserted) &&
-										not (Xapi_vm_helpers.has_xenprep_iso ~__context ~self)
-									then (
-										(* Setting auto_update_drivers means the VM's virtual hardware platform version must be
-										 * at least high enough for that feature; this will be updated as part of VM start. *)
-										Db.VM.set_auto_update_drivers ~__context ~self ~value:true;
-										Xapi_vm_helpers.db_set_in_other_config ~__context ~self ~key ~value:"Needs_start";
-										Helpers.call_api_functions ~__context (fun rpc session_id ->
-											XenAPI.Task.destroy ~rpc ~session_id ~self:(
-												XenAPI.Async.VM.start ~rpc ~session_id ~vm:self ~start_paused:false ~force:false
-											) (* Mark the task for destruction-after-completion to avoid accumulation of tasks. *)
-										);
-										Db.VM.remove_from_other_config ~__context ~self ~key
-									));
 								!trigger_xenapi_reregister ()
 							);
 						with e ->
@@ -1694,12 +1676,12 @@ let update_pci ~__context id =
 					let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
 
 					(* Assumption: a VM can have only one vGPU *)
-					let gpu =
+					let vgpu_opt =
 						let pci_class = Db.PCI.get_class_id ~__context ~self:pci in
 						if Xapi_pci.(is_class_of_kind Display_controller @@ int_of_id pci_class)
 						then
 							match Db.VM.get_VGPUs ~__context ~self:vm with
-								| x :: _ -> Some x
+								| vgpu :: _ -> Some vgpu
 								| _ -> None
 						else None in
 					let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
@@ -1711,15 +1693,25 @@ let update_pci ~__context id =
 							else if (not attached_in_db) && state.plugged
 							then Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
 
-							(* Release any temporary reservations of this PCI device, as it is now permanently
-							 * assigned or unassigned. *)
-							Pciops.unreserve ~__context pci;
+							match vgpu_opt with
+							| Some vgpu -> begin
+								let scheduled =
+									Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+								in
+								if Db.is_valid_ref __context scheduled && state.plugged
+								then
+									Helpers.call_api_functions ~__context
+										(fun rpc session_id ->
+											XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+												~self:vgpu ~value:scheduled)
+							end
+							| None -> ();
 
 							Opt.iter
-								(fun gpu ->
+								(fun vgpu ->
 									debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-									Db.VGPU.set_currently_attached ~__context ~self:gpu ~value:state.plugged
-								) gpu
+									Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
+								) vgpu_opt
 						) info;
 					Xenops_cache.update_pci id (Opt.map snd info);
 				end

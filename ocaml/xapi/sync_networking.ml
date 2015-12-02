@@ -45,8 +45,7 @@ let fix_bonds ~__context () =
 let copy_bonds_from_master ~__context () =
 	(* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
 	let me = !Xapi_globs.localhost_ref in
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master = Helpers.get_master ~__context in
 
 	let master_bond_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
 		Eq (Field "host", Literal (Ref.string_of master)),

@@ -44,11 +44,6 @@ let api_version_string =
 let api_version_vendor = "XenSource"
 let api_version_vendor_implementation = []
 
-(* version of latest tools ISO in filesystem *)
-let tools_version_none = (-1, -1, -1, -1)
-
-let tools_version = ref tools_version_none
-
 (* client min/max version range *)
 (* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
  * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
@@ -207,10 +202,6 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
-let xenprep_iso_name_label = "xenprep.iso"
-let xenprep_other_config_key = "xenprep_progress"
-let xenprep_other_config_iso_inserted = "ISO_inserted"
-
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 let base_template_name_key = "base_template_name"
@@ -218,6 +209,9 @@ let base_template_name_key = "base_template_name"
 (* Keys to explain the presence of dom0 block-attached VBDs: *)
 let vbd_task_key = "task_id"
 let related_to_key = "related_to"
+
+(* other-config keys to sync over when mirroring/remapping/importing a VDI *)
+let vdi_other_config_sync_keys = [ "config-drive" ]
 
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
@@ -825,6 +819,10 @@ let gpg_homedir = ref "/opt/xensource/gpg"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
+let update_issue_script = ref "update-issue"
+
+let kill_process_script = ref "killall"
+
 let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
@@ -1053,6 +1051,8 @@ module Resources = struct
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
 		"xenvmd", xenvmd_path, "Xenvmd executable for thin-provisioned block storage";
+		"update-issue", update_issue_script, "Running update-service when configuring the management interface";
+		"killall", kill_process_script, "Executed to kill process";
 	]
 	let essential_files = [
 		"pool_config_file", pool_config_file, "Pool configuration file";

@@ -87,7 +87,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
 
   let other_config = 
     try
-      let pool = List.hd (Db.Pool.get_all ~__context) in
+      let pool = Helpers.get_pool ~__context in
       Db.Pool.get_other_config ~__context ~self:pool 
     with _ -> []
   in

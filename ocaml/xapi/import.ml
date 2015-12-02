@@ -736,8 +736,15 @@ module VDI : HandlerTools = struct
 
 	let handle __context config rpc session_id state x precheck_result =
 		match precheck_result with
-		| Found_iso _ | Found_no_iso | Found_disk _ | Skip ->
+		| Found_iso _ | Found_no_iso | Skip ->
 			handle_dry_run __context config rpc session_id state x precheck_result
+		| Found_disk vdi ->
+			handle_dry_run __context config rpc session_id state x precheck_result;
+			let other_config_record = (API.Legacy.From.vDI_t "" x.snapshot).API.vDI_other_config in
+			List.iter (fun key ->
+				Db.VDI.remove_from_other_config ~__context ~self:vdi ~key;
+				try Db.VDI.add_to_other_config ~__context ~self:vdi ~key ~value:(List.assoc key other_config_record) with Not_found -> ()
+			) Xapi_globs.vdi_other_config_sync_keys
 		| Found_no_disk e -> raise e
 		| Create vdi_record -> begin
 			(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)

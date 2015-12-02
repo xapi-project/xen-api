@@ -57,6 +57,27 @@ open Storage_interface
 open Listext
 open Fun
 
+let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
+	(* Get destination host SM record *)
+	let sm_record = XenAPI.SM.get_all_records remote_rpc session_id in
+	List.iter (fun (vdi, sr) ->
+		(* Check VDIs must not be present on SR which doesn't have snapshot capability *)
+		let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
+		let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
+		let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+		if not Smint.(has_capability Vdi_snapshot sr_features) then
+			raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr]));
+		(* Check VDIs must not be mirrored to SR which doesn't have snapshot capability *)
+		let sr_type = XenAPI.SR.get_type remote_rpc session_id sr in
+		let sm_capabilities =
+			match List.filter (fun (_, r) -> r.API.sM_type = sr_type) sm_record with
+			| [ _, plugin ] -> plugin.API.sM_capabilities
+			| _ -> []
+		in
+		if not (List.exists (fun cp -> cp = Smint.(string_of_capability Vdi_snapshot)) sm_capabilities) then
+			raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
+	) vdi_map
+
 let assert_licensed_storage_motion ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
@@ -186,8 +207,17 @@ let intra_pool_fix_suspend_sr ~__context host vm =
 
 let intra_pool_vdi_remap ~__context vm vdi_map =
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let vdis_and_callbacks =
-		List.map (fun self -> Db.VBD.get_VDI ~__context ~self, fun v -> Db.VBD.set_VDI ~__context ~self ~value:v) vbds in
+	let vdis_and_callbacks = List.map (fun vbd ->
+		let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+		let callback mapto =
+			Db.VBD.set_VDI ~__context ~self:vbd ~value:mapto;
+			let other_config_record = Db.VDI.get_other_config ~__context ~self:vdi in
+			List.iter (fun key ->
+				Db.VDI.remove_from_other_config ~__context ~self:mapto ~key;
+				try Db.VDI.add_to_other_config ~__context ~self:mapto ~key ~value:(List.assoc key other_config_record) with Not_found -> ()
+			) Xapi_globs.vdi_other_config_sync_keys in
+		vdi, callback
+	) vbds in
 	let suspend_vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 	let vdis_and_callbacks =
 		if suspend_vdi = Ref.null then vdis_and_callbacks
@@ -779,7 +809,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in
 		if host <> Ref.null then host else
-			Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+			Helpers.get_master ~__context in
 
 	let migration_type =
 		try
@@ -817,6 +847,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			~host_to;
 		(* Check the host can support the VM's required version of virtual hardware platform *)
 		Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
+		(* Check VDIs are not on SR which doesn't have snapshot capability *)
+		assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id;
 
 		(*Check that the remote host is enabled and not in maintenance mode*)
 		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in
