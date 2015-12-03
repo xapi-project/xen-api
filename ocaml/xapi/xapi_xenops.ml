@@ -106,7 +106,6 @@ module Platform = struct
 	let vga = "vga"
 	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
 	let vgpu_config = Xapi_globs.vgpu_config_key
-	let vgpu_extra_args = Xapi_globs.vgpu_extra_args_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
@@ -134,7 +133,6 @@ module Platform = struct
 		vga;
 		vgpu_pci_id;
 		vgpu_config;
-		vgpu_extra_args;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -610,6 +608,14 @@ module MD = struct
 		let config_file =
 			try List.assoc Xapi_globs.vgpu_config_key internal_config
 			with Not_found -> failwith "NVIDIA vGPU config file not specified"
+		in
+		let config_file =
+			try
+				let extra_args =
+					List.assoc Xapi_globs.nvidia_extra_args vgpu.Db_actions.vGPU_other_config
+				in
+				Printf.sprintf "%s,%s" config_file extra_args
+			with Not_found -> config_file
 		in
 		let implementation =
 			Nvidia {

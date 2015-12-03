@@ -496,9 +496,12 @@ let vgpu_manual_setup_key = "vgpu_manual_setup"
 
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
-let vgpu_extra_args_key = "vgpu_extra_args"
 
 let igd_passthru_key = "igd_passthrough"
+
+(* Key added to vgpu other_config to send extra arguments to the display
+ * emulator. *)
+let nvidia_extra_args = "nvidia_extra_args"
 
 let vgt_low_gm_sz = "vgt_low_gm_sz"
 let vgt_high_gm_sz = "vgt_high_gm_sz"
