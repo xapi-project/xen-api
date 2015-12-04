@@ -412,12 +412,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let so_far = ref 0L in
 
 		let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+		let default_sr_ref =
+			XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
 		let suspend_sr_ref =
-			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool in
-			if pool_suspend_SR <> Ref.null then pool_suspend_SR else
-				let host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-				if host_suspend_SR <> Ref.null then host_suspend_SR else
-					XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
+			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
+			and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
+			match pool_suspend_SR, host_suspend_SR with
+			| p_ref, _ when p_ref <> Ref.null -> p_ref
+			| _, h_ref when h_ref <> Ref.null -> h_ref
+			| _ -> default_sr_ref in
+
 
 		let vdi_copy_fun ((vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) as vconf) =
 			TaskHelper.exn_if_cancelling ~__context;
@@ -437,6 +441,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					| false, false ->
 						 if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
 							 let dest_sr_ref = suspend_sr_ref in
+							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+							 (dest_sr_ref, dest_sr)
+						 else if default_sr_ref <> Ref.null then
+							 let dest_sr_ref = default_sr_ref in
 							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 							 (dest_sr_ref, dest_sr)
 						 else
