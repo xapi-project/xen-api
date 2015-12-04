@@ -380,7 +380,8 @@ module Interface = struct
 				else
 					config
 			in
-			debug "** Configuring the following interfaces: %s" (String.concat ", " (List.map (fun (name, _) -> name) config));
+			debug "** Configuring the following interfaces: %s%s" (String.concat ", " (List.map (fun (name, _) -> name) config))
+				(if conservative then " (best effort)" else "");
 			let exec f = if conservative then (try f () with _ -> ()) else f () in
 			List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 				ethtool_settings; ethtool_offload; _} as c)) ->
@@ -783,14 +784,18 @@ module Bridge = struct
 					config
 			in
 			let config = List.sort vlans_go_last config in
-			debug "** Configuring the following bridges: %s"
-				(String.concat ", " (List.map (fun (name, _) -> name) config));
+			let exec f = if conservative then (try f () with _ -> ()) else f () in
+			debug "** Configuring the following bridges: %s%s"
+				(String.concat ", " (List.map (fun (name, _) -> name) config))
+				(if conservative then " (best effort)" else "");
 			List.iter (function (bridge_name, ({ports; vlan; bridge_mac; other_config; _} as c)) ->
 				update_config bridge_name c;
-				create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
-				List.iter (fun (port_name, {interfaces; bond_properties; bond_mac}) ->
-					add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
-				) ports
+				exec (fun () ->
+					create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
+					List.iter (fun (port_name, {interfaces; bond_properties; bond_mac}) ->
+						add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
+					) ports
+				)
 			) config
 		) ()
 end
