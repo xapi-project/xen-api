@@ -315,6 +315,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
 	let vm_and_snapshots = vm :: snapshots in
 	let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
@@ -363,6 +364,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
+
+	(* Assert that every VIF is specified in the VIF map *)
+	List.iter (fun vif ->
+		if not (List.mem_assoc vif vif_map)
+		then
+			let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+			error "VIF:Network map not fully specified for VIF %s" vif_uuid;
+			raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+	) vifs;
 
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
