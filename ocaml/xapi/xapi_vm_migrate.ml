@@ -57,6 +57,27 @@ open Storage_interface
 open Listext
 open Fun
 
+let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
+	(* Get destination host SM record *)
+	let sm_record = XenAPI.SM.get_all_records remote_rpc session_id in
+	List.iter (fun (vdi, sr) ->
+		(* Check VDIs must not be present on SR which doesn't have snapshot capability *)
+		let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
+		let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
+		let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+		if not Smint.(has_capability Vdi_snapshot sr_features) then
+			raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr]));
+		(* Check VDIs must not be mirrored to SR which doesn't have snapshot capability *)
+		let sr_type = XenAPI.SR.get_type remote_rpc session_id sr in
+		let sm_capabilities =
+			match List.filter (fun (_, r) -> r.API.sM_type = sr_type) sm_record with
+			| [ _, plugin ] -> plugin.API.sM_capabilities
+			| _ -> []
+		in
+		if not (List.exists (fun cp -> cp = Smint.(string_of_capability Vdi_snapshot)) sm_capabilities) then
+			raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
+	) vdi_map
+
 let assert_licensed_storage_motion ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
@@ -823,6 +844,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
 		(* Check the host can support the VM's required version of virtual hardware platform *)
 		Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
+		(* Check VDIs are not on SR which doesn't have snapshot capability *)
+		assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id;
 
 		(*Check that the remote host is enabled and not in maintenance mode*)
 		let check_host_enabled = XenAPI.Host.get_enabled remote_rpc session_id (dest_host_ref) in

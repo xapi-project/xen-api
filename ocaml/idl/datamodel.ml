@@ -917,6 +917,8 @@ let _ =
     ~doc:"The VDI mirroring cannot be performed" ();
   error Api_errors.too_many_storage_migrates [ "number" ]
     ~doc:"You reached the maximal number of concurrently migrating VMs." ();
+  error Api_errors.sr_does_not_support_migration [ "sr" ]
+    ~doc:"You attempted to migrate a VDI on SR which doesn't have snapshot capability" ();
   error Api_errors.vm_failed_shutdown_ack []
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
