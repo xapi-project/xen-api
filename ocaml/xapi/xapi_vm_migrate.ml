@@ -423,21 +423,28 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
 			let dest_sr_ref =
+				let log_prefix =
+					Printf.sprintf "Resolving VDI->SR map for VDI %s:" (Db.VDI.get_uuid ~__context ~self:vdi) in
 				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
 				| true, _ ->
-					debug "VDI has been specified in the vdi_map";
+					debug "%s VDI has been specified in the map" log_prefix;
 					List.assoc vdi vdi_map
 				| false, true ->
-					debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
+					debug "%s Snapshot VDI has entry in map for it's snapshot_of link" log_prefix;
 					List.assoc snapshot_of vdi_map
 				| false, false ->
 					begin match List.mem vconf suspends_vdis, suspend_sr_ref <> Ref.null, default_sr_ref <> Ref.null with
-					| true, true, _ -> suspend_sr_ref
-					| true, false, true
-					| false, _, true -> default_sr_ref
+					| true, true, _ ->
+						debug "%s Mapping suspend VDI to remote suspend SR" log_prefix;
+						suspend_sr_ref
+					| true, false, true ->
+						debug "%s Remote suspend SR not set, mapping suspend VDI to remote default SR" log_prefix;
+						default_sr_ref
+					| false, _, true ->
+						debug "Mapping unspecified VDI to remote default SR";
+						default_sr_ref
 					| _ ->
-						let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-						error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
+						error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
 						raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
 					end
 				in
