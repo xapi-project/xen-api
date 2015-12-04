@@ -417,41 +417,31 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let suspend_sr_ref =
 			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
 			and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-			match pool_suspend_SR, host_suspend_SR with
-			| p_ref, _ when p_ref <> Ref.null -> p_ref
-			| _, h_ref when h_ref <> Ref.null -> h_ref
-			| _ -> default_sr_ref in
-
+			if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR in
 
 		let vdi_copy_fun ((vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) as vconf) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
-			let (dest_sr_ref, dest_sr) =
+			let dest_sr_ref =
 				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
-					| true, _ ->
-						    debug "VDI has been specified in the vdi_map";
-							let dest_sr_ref = List.assoc vdi vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, true ->
-					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
-						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, false ->
-						 if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
-							 let dest_sr_ref = suspend_sr_ref in
-							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							 (dest_sr_ref, dest_sr)
-						 else if default_sr_ref <> Ref.null then
-							 let dest_sr_ref = default_sr_ref in
-							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							 (dest_sr_ref, dest_sr)
-						 else
-							 let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-							 error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
-							 raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
+				| true, _ ->
+					debug "VDI has been specified in the vdi_map";
+					List.assoc vdi vdi_map
+				| false, true ->
+					debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
+					List.assoc snapshot_of vdi_map
+				| false, false ->
+					begin match List.mem vconf suspends_vdis, suspend_sr_ref <> Ref.null, default_sr_ref <> Ref.null with
+					| true, true, _ -> suspend_sr_ref
+					| true, false, true
+					| false, _, true -> default_sr_ref
+					| _ ->
+						let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+						error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
+						raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
+					end
 				in
+				let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 
 			(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
@@ -488,7 +478,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			   use case is for a shared raw iSCSI SR (same uuid, same VDI uuid) *)
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			let mirror = if !Xapi_globs.relax_xsm_sr_check then
-				if (dest_sr = sr) then
+				if (dest_sr_uuid = sr) then
 				begin
 					(* Check if the VDI uuid already exists in the target SR *)
 					if (dest_vdi_exists_on_sr vdi_uuid dest_sr_ref true) then
@@ -499,7 +489,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else
 					true
 			else
-				(not is_intra_pool) || (dest_sr <> sr)
+				(not is_intra_pool) || (dest_sr_uuid <> sr)
 			in
 
 			let remote_vdi,remote_vdi_reference,newdp =
@@ -527,10 +517,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					in
 
 					let task = if not do_mirror then
-							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						else begin
 							ignore(Storage_access.register_mirror __context location);
-							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						end
 					in
 
@@ -578,10 +568,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 								mr_mirrored = mirror;
 								mr_local_sr = sr;
 								mr_local_vdi = location;
-								mr_remote_sr = dest_sr;
+								mr_remote_sr = dest_sr_uuid;
 								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = xenops_locator;
-								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
+								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
 
 		let suspends_map = List.map vdi_copy_fun suspends_vdis in
