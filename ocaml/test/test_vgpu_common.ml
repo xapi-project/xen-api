@@ -175,8 +175,8 @@ let make_vgpu ~__context
 		~resident_on
 		~scheduled_to_be_resident_on ()
 
-let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
-	let pCI = Test_common.make_pci ~__context ~host ~functions:1L () in
+let make_pgpu ~__context ?address ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
+	let pCI = Test_common.make_pci ~__context ?pci_id:address ~host ~functions:1L () in
 	let supported_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
