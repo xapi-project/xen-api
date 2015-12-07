@@ -229,10 +229,50 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	]
 end))
 
+module VgpuExtraArgs = Generic.Make(Generic.EncapsulateState(struct
+	open Test_vgpu_common
+
+	module Io = struct
+		type input_t = vm_config
+		type output_t = string
+
+		let string_of_input_t = string_of_vm_config
+		let string_of_output_t = Test_printers.string
+	end
+
+	module State = XapiDb
+
+	let load_input __context conf =
+		let pgpu_ref = make_pgpu ~__context ~address:"0000:07:00.0" default_k1 in
+		let vm_ref = load_vm_config __context conf in
+		let (_ : API.ref_VGPU) =
+			make_vgpu ~__context ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref k100 in
+		()
+
+	let extract_output __context _ =
+		let metadata = run_create_metadata ~__context in
+		match metadata.Metadata.vgpus with
+		| [{Vgpu.implementation = Vgpu.Nvidia nvidia_vgpu}] ->
+			nvidia_vgpu.Vgpu.config_file
+		| _ -> assert_failure "Incorrect vGPU configuration found"
+
+	let tests = [
+		(* No vgpu_extra_args. *)
+		{oc = []; platform = []}, "/usr/share/nvidia/vgx/grid_k100.conf";
+		(* One key-value pair in vgpu_extra_args. *)
+		{oc = []; platform = ["vgpu_extra_args", "foo=bar"]},
+		"/usr/share/nvidia/vgx/grid_k100.conf,foo=bar";
+		(* Two key-value pairs in vgpu_extra_args. *)
+		{oc = []; platform = ["vgpu_extra_args", "foo=bar,baz=123"]},
+		"/usr/share/nvidia/vgx/grid_k100.conf,foo=bar,baz=123";
+	]
+end))
+
 let test =
 	"test_xenopsd_metadata" >:::
 		[
 			"test_hvm_serial" >::: HVMSerial.tests;
 			"test_videomode" >::: VideoMode.tests;
 			"test_videoram" >::: VideoRam.tests;
+			"test_vgpu_extra_args" >::: VgpuExtraArgs.tests;
 		]
