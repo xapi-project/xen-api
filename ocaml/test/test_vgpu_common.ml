@@ -22,7 +22,7 @@ let k100 = {
 	max_resolution_x = 1920L;
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
-	internal_config = [];
+	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x0ff2;
 		psubdev_id = None;
@@ -40,7 +40,7 @@ let k140q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
-	internal_config = [];
+	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k140q.conf"];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x0ff2;
 		psubdev_id = None;
@@ -58,7 +58,7 @@ let k200 = {
 	max_resolution_x = 1920L;
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
-	internal_config = [];
+	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k200.conf"];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
@@ -76,7 +76,7 @@ let k240q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
-	internal_config = [];
+	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k240q.conf"];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
@@ -94,7 +94,7 @@ let k260q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 2L;
-	internal_config = [];
+	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k260q.conf"];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
@@ -151,30 +151,32 @@ let string_of_pgpu_state pgpu =
 		(Test_printers.(list string_of_vgpu_type) pgpu.scheduled_VGPU_types)
 
 let make_vgpu ~__context
+		?(vm_ref=Ref.null)
 		?(resident_on=Ref.null)
 		?(scheduled_to_be_resident_on=Ref.null)
 		vgpu_type =
 	let vgpu_type_ref = find_or_create ~__context vgpu_type in
 	(* For the passthrough VGPU type, create a VM and mark it as attached to the
 	 * PGPU's PCI device. *)
-	let vm_ref_opt =
-		if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
-			&& (Db.is_valid_ref __context resident_on)
-		then begin
-			let vm_ref = Test_common.make_vm ~__context () in
-			let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
-			Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref;
-			Some vm_ref
-		end else None
+	let vm_ref =
+		if Db.is_valid_ref __context vm_ref
+		then vm_ref
+		else Test_common.make_vm ~__context ()
 	in
+	if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
+		&& (Db.is_valid_ref __context resident_on)
+	then begin
+		let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
+		Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref
+	end;
 	Test_common.make_vgpu ~__context
-		~vM:(Opt.default Ref.null vm_ref_opt)
+		~vM:vm_ref
 		~_type:vgpu_type_ref
 		~resident_on
 		~scheduled_to_be_resident_on ()
 
-let make_pgpu ~__context ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
-	let pCI = Test_common.make_pci ~__context ~host ~functions:1L () in
+let make_pgpu ~__context ?address ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
+	let pCI = Test_common.make_pci ~__context ?pci_id:address ~host ~functions:1L () in
 	let supported_VGPU_types =
 		List.map (find_or_create ~__context) pgpu.supported_VGPU_types
 	in
