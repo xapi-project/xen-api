@@ -151,24 +151,26 @@ let string_of_pgpu_state pgpu =
 		(Test_printers.(list string_of_vgpu_type) pgpu.scheduled_VGPU_types)
 
 let make_vgpu ~__context
+		?(vm_ref=Ref.null)
 		?(resident_on=Ref.null)
 		?(scheduled_to_be_resident_on=Ref.null)
 		vgpu_type =
 	let vgpu_type_ref = find_or_create ~__context vgpu_type in
 	(* For the passthrough VGPU type, create a VM and mark it as attached to the
 	 * PGPU's PCI device. *)
-	let vm_ref_opt =
-		if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
-			&& (Db.is_valid_ref __context resident_on)
-		then begin
-			let vm_ref = Test_common.make_vm ~__context () in
-			let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
-			Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref;
-			Some vm_ref
-		end else None
+	let vm_ref =
+		if Db.is_valid_ref __context vm_ref
+		then vm_ref
+		else Test_common.make_vm ~__context ()
 	in
+	if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
+		&& (Db.is_valid_ref __context resident_on)
+	then begin
+		let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
+		Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref
+	end;
 	Test_common.make_vgpu ~__context
-		~vM:(Opt.default Ref.null vm_ref_opt)
+		~vM:vm_ref
 		~_type:vgpu_type_ref
 		~resident_on
 		~scheduled_to_be_resident_on ()
