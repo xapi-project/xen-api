@@ -1590,8 +1590,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
 				(fun () ->
-					(* Update CPU feature set, which will be passed to xenopsd *)
-					Cpuid_helpers.update_cpu_flags ~__context ~vm ~host;
 					(* Make sure the target has enough memory to receive the VM *)
 					let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 					(* MTC:  An MTC-protected VM has a peer VM on the destination host to which
@@ -1609,7 +1607,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							forward_vm_op ~local_fn ~__context ~vm
 								(fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
 			update_vbd_operations ~__context ~vm;
-			update_vif_operations ~__context ~vm
+			update_vif_operations ~__context ~vm;
+			Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
 
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
