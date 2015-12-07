@@ -30,13 +30,12 @@ let string_of_vm_config conf =
 		(Test_printers.(assoc_list string string) conf.platform)
 
 let load_vm_config __context conf =
-	let (_: API.ref_VM) = make_vm ~__context
+	make_vm ~__context
 		~name_label:test_vm_name
 		~hVM_boot_policy:"BIOS order"
 		~other_config:conf.oc
 		~platform:conf.platform
 		()
-	in ()
 
 let run_create_metadata ~__context =
 	let localhost_uuid = Helpers.get_localhost_uuid () in
@@ -58,7 +57,8 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 
 	module State = XapiDb
 
-	let load_input = load_vm_config
+	let load_input __context conf =
+		let (_ : API.ref_VM) = load_vm_config __context conf in ()
 
 	let extract_output __context _ =
 		let metadata = run_create_metadata ~__context in
@@ -135,7 +135,8 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 
 	module State = XapiDb
 
-	let load_input = load_vm_config
+	let load_input __context conf =
+		let (_ : API.ref_VM) = load_vm_config __context conf in ()
 
 	let extract_output __context _ =
 		let metadata = run_create_metadata ~__context in
@@ -202,7 +203,8 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 
 	module State = XapiDb
 
-	let load_input = load_vm_config
+	let load_input __context conf =
+		let (_ : API.ref_VM) = load_vm_config __context conf in ()
 
 	let extract_output __context _ =
 		let metadata = run_create_metadata ~__context in
