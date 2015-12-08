@@ -20,6 +20,7 @@
 
 open Listext
 open Xstringext
+open Threadext
 open Fun
 
 (* We treat versions as '.'-separated integer lists under the usual
@@ -87,27 +88,47 @@ let update_from_query_result ~__context (self, r) query_result =
 
 let is_v1 x = version_of_string x < [ 2; 0 ]
 
+let _serialize_reg =
+	let lock = Mutex.create () in
+	let holder = ref None in
+	begin fun f ->
+		match !holder with
+		|  Some t when t = Thread.self () ->
+			 (* inside a nested layer where the lock is held by myself *)
+			 f ()
+		| _ ->
+			 Mutex.execute lock begin fun () ->
+				 holder := Some (Thread.self ());
+				 Pervasiveext.finally f (fun () -> holder := None)
+			 end
+	end
+
 let unregister_plugin ~__context query_result =
-	let open Storage_interface in
-	let driver = String.lowercase query_result.driver in
-	if is_v1 query_result.required_api_version then begin
-		info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
-	end else begin
-		let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
-		if List.mem_assoc driver existing then begin
-			info "Unregistering SM plugin %s (version %s)" driver query_result.version;
-			try
-				Db.SM.destroy ~__context ~self:(fst (List.assoc driver existing))
-			with _ -> ()
-		end
+	_serialize_reg begin fun () ->
+		let open Storage_interface in
+		let driver = String.lowercase query_result.driver in
+		if is_v1 query_result.required_api_version then begin
+			info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
+		end else
+			List.iter
+				(fun (rf, rc) ->
+					if rc.API.sM_type = driver then
+						try
+							info "Unregistering SM plugin %s (version %s)" driver query_result.version;
+							Db.SM.destroy ~__context ~self:rf
+						with e ->
+							warn "Ignore unregistering SM plugin failure: %s" (Printexc.to_string e))
+				(Db.SM.get_all_records ~__context)
 	end
 
 let register_plugin ~__context query_result =
-	let open Storage_interface in
-	let driver = String.lowercase query_result.driver in
-	if is_v1 query_result.required_api_version then begin
-		info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;		
-	end else begin
-		unregister_plugin ~__context query_result;
-		create_from_query_result ~__context query_result
+	_serialize_reg begin fun () ->
+		let open Storage_interface in
+		let driver = String.lowercase query_result.driver in
+		if is_v1 query_result.required_api_version then begin
+			info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
+		end else begin
+			unregister_plugin ~__context query_result;
+			create_from_query_result ~__context query_result
+		end
 	end
