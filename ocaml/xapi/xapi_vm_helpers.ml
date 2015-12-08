@@ -77,6 +77,17 @@ let set_is_a_template ~__context ~self ~value =
 	end;
 	Db.VM.set_is_a_template ~__context ~self ~value
 
+let create_from_record_without_checking_licence_feature_for_vendor_device ~__context rpc session_id vm_record =
+	let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
+	let auto_update_drivers = vm_record.API.vM_auto_update_drivers in
+	if auto_update_drivers && not (Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
+	then (
+		(* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
+		let vm = mk_vm {vm_record with API.vM_auto_update_drivers = false} in
+		Db.VM.set_auto_update_drivers ~__context ~self:vm ~value:true;
+		vm
+	) else mk_vm vm_record
+
 let create ~__context ~name_label ~name_description
 		~user_version ~is_a_template
 		~affinity
