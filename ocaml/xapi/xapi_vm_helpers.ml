@@ -91,7 +91,7 @@ let create ~__context ~name_label ~name_description
 		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
 		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
 		~platform
-		~pCI_bus ~other_config ~xenstore_data ~recommendations
+		~pCI_bus ~other_config ~recommendations ~xenstore_data
 		~ha_always_run ~ha_restart_priority ~tags
 		~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp
