@@ -319,6 +319,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
 	let vm_and_snapshots = vm :: snapshots in
 	let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
+	let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
 
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
@@ -365,14 +366,29 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
 
-	(* Assert that every VIF is specified in the VIF map *)
-	List.iter (fun vif ->
-		if not (List.mem_assoc vif vif_map)
-		then
+	(* Generate a VIF->Network map from vif_map and implicit mappings *)
+	let vif_map =
+		let mapped_macs =
+			List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
+		List.fold_left (fun map vif ->
 			let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
-			error "VIF:Network map not fully specified for VIF %s" vif_uuid;
-			raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
-	) vifs;
+			let log_prefix =
+				Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
+			match List.filter (fun (v, _) -> v = vif) vif_map with
+			| (_, network)::_ ->
+				debug "%s VIF has been specified in map" log_prefix;
+				(vif, network)::map
+			| [] -> (* Check if another VIF with same MAC address has been mapped *)
+				let mac = Db.VIF.get_MAC ~__context ~self:vif in
+				match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
+				| ((similar, _), network)::_ ->
+					debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
+						log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
+					(vif, network)::map
+				| [] ->
+					error "%s VIF not specified in map and cannot be inferred" log_prefix;
+					raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+		) [] (vifs @ snapshot_vifs) in
 
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
