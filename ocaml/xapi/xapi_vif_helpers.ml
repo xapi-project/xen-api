@@ -143,8 +143,7 @@ let gen_mac(dev, seed) =
 	 take_byte 2 mac_data_2; |]
 
 let assert_locking_licensed ~__context =
-	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	Pool_features.assert_enabled ~__context ~f:Features.VIF_locking
 
 let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 

@@ -79,8 +79,7 @@ let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
 	) vdi_map
 
 let assert_licensed_storage_motion ~__context =
-	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
 let get_ip_from_url url =
 	match Http.Url.of_string url with
