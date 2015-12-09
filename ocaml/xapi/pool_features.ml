@@ -35,6 +35,10 @@ let is_enabled ~__context f =
 	let pool_features = get_pool_features ~__context in
 	List.mem f pool_features
 
+let assert_enabled ~__context ~f =
+	if not (is_enabled ~__context f) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature f]))
+
 let update_pool_features ~__context =
 	let pool = Helpers.get_pool ~__context in
 	let pool_restrictions = Db.Pool.get_restrictions ~__context ~self:pool in

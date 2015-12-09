@@ -177,9 +177,7 @@ let add_to_roles ~__context ~self ~role =
 	
 	(* CP-1224: Free Edition: Attempts to add or remove roles *)
 	(* will fail with a LICENSE_RESTRICTION error.*)
-	if (not (Pool_features.is_enabled ~__context Features.RBAC)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	else
+	Pool_features.assert_enabled ~__context ~f:Features.RBAC;
 
 	if (Xapi_role.is_valid_role ~__context ~role)
 	then
@@ -215,9 +213,7 @@ let remove_from_roles ~__context ~self ~role =
 
 	(* CP-1224: Free Edition: Attempts to add or remove roles *)
 	(* will fail with a LICENSE_RESTRICTION error.*)
-	if not (Pool_features.is_enabled ~__context Features.RBAC) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	else
+	Pool_features.assert_enabled ~__context ~f:Features.RBAC;
 
 	if (List.mem role (Db.Subject.get_roles ~__context ~self))
 	then

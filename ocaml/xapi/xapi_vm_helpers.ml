@@ -47,6 +47,8 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
+	if (Db.VM.get_auto_update_drivers ~__context ~self)
+	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 	let m = Db.VM.get_metrics ~__context ~self in
 	if not value then begin
 		try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.of_float (Unix.gettimeofday ()))
@@ -75,6 +77,17 @@ let set_is_a_template ~__context ~self ~value =
 	end;
 	Db.VM.set_is_a_template ~__context ~self ~value
 
+let create_from_record_without_checking_licence_feature_for_vendor_device ~__context rpc session_id vm_record =
+	let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
+	let auto_update_drivers = vm_record.API.vM_auto_update_drivers in
+	if auto_update_drivers && not (Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
+	then (
+		(* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
+		let vm = mk_vm {vm_record with API.vM_auto_update_drivers = false} in
+		Db.VM.set_auto_update_drivers ~__context ~self:vm ~value:true;
+		vm
+	) else mk_vm vm_record
+
 let create ~__context ~name_label ~name_description
 		~user_version ~is_a_template
 		~affinity
@@ -91,7 +104,7 @@ let create ~__context ~name_label ~name_description
 		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
 		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
 		~platform
-		~pCI_bus ~other_config ~xenstore_data ~recommendations
+		~pCI_bus ~other_config ~recommendations ~xenstore_data
 		~ha_always_run ~ha_restart_priority ~tags
 		~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp
@@ -107,7 +120,16 @@ let create ~__context ~name_label ~name_description
 		~has_vendor_device
 		: API.ref_VM =
 
-	(* NB parameter validation is delayed until VM.start *)
+	if auto_update_drivers then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config
+	in
+	(* NB apart from the above, parameter validation is delayed until VM.start *)
 
 	let uuid = Uuid.make_uuid () in
 	let vm_ref = Ref.make () in

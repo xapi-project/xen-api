@@ -608,8 +608,7 @@ let find_or_create_metadata_vdi ~__context ~sr =
 		vdi
 
 let enable_database_replication ~__context ~sr =
-	if (not (Pool_features.is_enabled ~__context Features.DR)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	Pool_features.assert_enabled ~__context ~f:Features.DR;
 	assert_supports_database_replication ~__context ~sr;
 	let get_vdi_callback = (fun () -> find_or_create_metadata_vdi ~__context ~sr) in
 	Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback

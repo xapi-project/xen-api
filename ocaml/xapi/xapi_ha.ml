@@ -1346,8 +1346,7 @@ let enable __context heartbeat_srs configuration =
 	if Db.Pool.get_ha_enabled ~__context ~self:pool
 	then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-	if not (Pool_features.is_enabled ~__context Features.HA)
-	then raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	Pool_features.assert_enabled ~__context ~f:Features.HA;
 
 	(* Check that all of our 'disallow_unplug' PIFs are currently attached *)
 	let unplugged_ununpluggable_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (

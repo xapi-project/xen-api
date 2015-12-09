@@ -79,8 +79,7 @@ let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
 	) vdi_map
 
 let assert_licensed_storage_motion ~__context =
-	if (not (Pool_features.is_enabled ~__context Features.Storage_motion)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
 let get_ip_from_url url =
 	match Http.Url.of_string url with
@@ -837,6 +836,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let dest_host_ref = Ref.of_string dest_host in
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 	let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
+	if copy && (Db.VM.get_auto_update_drivers ~__context ~self:vm) then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 
 	let source_host_ref =
 		let host = Db.VM.get_resident_on ~__context ~self:vm in

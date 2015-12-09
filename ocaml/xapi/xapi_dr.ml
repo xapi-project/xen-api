@@ -209,8 +209,7 @@ let clear_sr_introduced_by ~__context ~vm =
 let assert_session_allows_dr ~session_id ~action =
 	Server_helpers.exec_with_new_task ~session_id "Checking pool license and session permissions allow DR"
 		(fun __context ->
-			if (not (Pool_features.is_enabled ~__context Features.DR)) then
-				raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+			Pool_features.assert_enabled ~__context ~f:Features.DR;
 			(* Any session can call VM(_appliance).recover since it is marked as readonly *)
 			(* so it can be used by the sessions returned by VDI.open_database. *)
 			(* We need to manually check that a session could legitimately have called VDI.open_database. *)
