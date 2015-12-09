@@ -360,6 +360,9 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 		msg_forward_to = forward_to;
 	}
 
+let errnames_of_call c =
+	List.map (fun e -> e.err_name) c.msg_errors
+
 let assert_operation_valid enum cls self = call 
   ~in_oss_since:None
   ~in_product_since:rel_rio
@@ -1579,9 +1582,7 @@ let vm_copy = call
 	    String, "new_name", "The name of the copied VM";
 	    Ref _sr, "sr", "An SR to copy all the VM's disks into (if an invalid reference then it uses the existing SRs)";
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
-	  ;Api_errors.license_restriction
-  ]
+  ~errs:(errnames_of_call vm_clone)
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -1696,7 +1697,7 @@ let vm_provision = call
 	  ]
   ~in_oss_since:None
   ~in_product_since:rel_rio
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:(errnames_of_call vm_clone)
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -2118,7 +2119,7 @@ let csvm = call
   ~doc:"undocumented. internal use only. This call is deprecated."
   ~params:[Ref _vm, "vm", ""]
   ~result:(Ref _vm, "")
-  ~errs:[]
+  ~errs:(errnames_of_call vm_clone)
   ~hide_from_docs:true
   ~internal_deprecated_since:rel_miami
   ~allowed_roles:_R_VM_ADMIN
@@ -2274,12 +2275,12 @@ let vm_migrate_send = call
 		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
-  ~errs:[Api_errors.vm_bad_power_state]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.license_restriction]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 let vm_assert_can_migrate = call
-~name:"assert_can_migrate"
+	~name:"assert_can_migrate"
 	~in_product_since:rel_tampa
 	~doc:"Assert whether a VM can be migrated to the specified destination."
 	~params:[
@@ -2290,6 +2291,7 @@ let vm_assert_can_migrate = call
 		Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
 		Map (String, String), "options", "Other parameters" ]
 	~allowed_roles:_R_VM_POWER_ADMIN
+	~errs:[Api_errors.license_restriction]
 	()
 
 let vm_s3_suspend = call
