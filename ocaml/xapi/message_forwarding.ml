@@ -1229,10 +1229,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_auto_update_drivers ~__context ~self ~value =
 			info "VM.set_auto_update_drivers: VM = '%s' to %b" (vm_uuid ~__context self) value;
 			Local.VM.set_auto_update_drivers ~__context ~self ~value
-			
-		let assert_can_set_auto_update_drivers ~__context ~self ~value =
-			info "VM.assert_can_set_auto_update_drivers: VM = '%s' to %b " (vm_uuid ~__context self) value;
-			Local.VM.assert_can_set_auto_update_drivers ~__context ~self ~value
 
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
