@@ -176,6 +176,36 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
              branding.BRAND_CONSOLE,
              (self.cls == 'Host') and 'Server' or 'VM')
 
+class MemoryUsageAlarmETG(EmailTextGenerator):
+    def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
+        if not alarm_trigger_period: alarm_trigger_period = 60
+        if cls != 'Host':
+            raise Exception, "programmer error - this alarm should only be available for hosts"
+        self.params = get_host_params(obj_uuid)
+        self.cls = cls
+        self.value = value
+        self.alarm_trigger_period = alarm_trigger_period
+        self.alarm_trigger_level = alarm_trigger_level
+
+    def generate_subject(self):
+        pool_name = pool_name = get_pool_name()
+        return '[%s] %s Alarm: Memory usage on %s "%s"' % (pool_name,
+                   VISUAL_PRODUCT_BRAND, self.cls, self.params['name_label'])
+
+    def generate_body(self):
+        return \
+            'Free memory on %s "%s" has been on average %d KiB for the last %d seconds.\n' \
+            'This alarm is set to be triggered when free memory is less than %d KiB.\n' \
+            '\n' \
+            'For Alarm Settings, please log into your %s Console and click on "Server"->\n' \
+            '"Properties"->"Alerts"\n' % \
+            (self.cls,
+             self.params['name_label'],
+             self.value,
+             self.alarm_trigger_period,
+             self.alarm_trigger_level,
+             branding.BRAND_CONSOLE)
+
 class DiskUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
         if not alarm_trigger_period: alarm_trigger_period = 60
@@ -372,6 +402,8 @@ class XapiMessage:
                 etg = CpuUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
             elif name == 'network_usage':
                 etg = NetworkUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
+            elif name == 'memory_free_kib':
+                etg = MemoryUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
             elif name == 'disk_usage':
                 etg = DiskUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
             elif name == 'fs_usage':
