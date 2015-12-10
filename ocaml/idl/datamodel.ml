@@ -1001,8 +1001,6 @@ let _ =
 		~doc:"This operation is not permitted on VMs containing VDIs in the 'on-boot=reset' mode" ();
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
-  error Api_errors.vif_not_in_map [ "vif" ]
-    ~doc:"This VIF was not mapped to a destination Network in VM.migrate_send operation" () ;
 
   error Api_errors.sr_operation_not_supported [ "sr" ]
     ~doc:"The SR backend does not support the operation (check the SR's allowed operations)" ();

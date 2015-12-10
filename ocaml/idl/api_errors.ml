@@ -224,7 +224,6 @@ let vdi_not_managed = "VDI_NOT_MANAGED"
 let vdi_io_error = "VDI_IO_ERROR"
 let vdi_on_boot_mode_incompatible_with_operation = "VDI_ON_BOOT_MODE_INCOMPATIBLE_WITH_OPERATION"
 let vdi_not_in_map = "VDI_NOT_IN_MAP"
-let vif_not_in_map = "VIF_NOT_IN_MAP"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 let operation_partially_failed = "OPERATION_PARTIALLY_FAILED"
