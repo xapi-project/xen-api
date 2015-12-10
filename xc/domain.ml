@@ -33,7 +33,7 @@ type create_info = {
 	xsdata: (string * string) list;
 	platformdata: (string * string) list;
 	bios_strings: (string * string) list;
-	auto_update_drivers: bool;
+	has_vendor_device: bool;
 } with rpc
 
 type build_hvm_info = {
@@ -253,7 +253,7 @@ let make ~xc ~xs vm_info uuid =
 
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
 
-		xs.Xs.write (dom_path ^ "/control/auto-update-drivers") (if vm_info.auto_update_drivers then "1" else "0");
+		xs.Xs.write (dom_path ^ "/control/has-vendor-device") (if vm_info.has_vendor_device then "1" else "0");
 
 		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
 		   the domid hasn't changed (consider cross-host migrate) *)

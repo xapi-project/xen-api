@@ -118,7 +118,7 @@ type attached_vdi = {
 } with rpc
 
 (* The following module contains left-overs from the "classic" domain.ml 
-   Note: "auto_update_drivers" parameter won't do anything for the libxl backend
+   Note: "has_vendor_device" parameter won't do anything for the libxl backend
 	(i.e. the xenstore key won't be written) *)
 module Domain = struct
 	type create_info = {
@@ -129,7 +129,7 @@ module Domain = struct
 		xsdata: (string * string) list;
 		platformdata: (string * string) list;
 		bios_strings: (string * string) list;
-		auto_update_drivers: bool;
+		has_vendor_device: bool;
 	} with rpc
 
 	type build_hvm_info = {
@@ -1735,7 +1735,7 @@ module VM = struct
 			xsdata = vm.xsdata;
 			platformdata = vm.platformdata @ vcpus;
 			bios_strings = vm.bios_strings;
-			auto_update_drivers = vm.auto_update_drivers;
+			has_vendor_device = vm.has_vendor_device;
 		} in
 		{
 			VmExtra.create_info = create_info;
