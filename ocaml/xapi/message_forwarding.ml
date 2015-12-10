@@ -1116,7 +1116,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
-										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
@@ -1175,7 +1174,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 													Client.VM.start
 														rpc session_id vm start_paused force)
 										);
-									Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 									Xapi_vm_helpers.start_delay ~__context ~vm;
 								)));
 			update_vbd_operations ~__context ~vm;
@@ -1511,7 +1509,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 								let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
-								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
 							);
 					)
@@ -1545,7 +1542,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								(fun () ->
 									do_op_on ~local_fn ~__context ~host
 										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force));
-							Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 						);
 				);
 			update_vbd_operations ~__context ~vm;
@@ -1608,7 +1604,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							forward_vm_op ~local_fn ~__context ~vm
 								(fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
 			update_vbd_operations ~__context ~vm;
-			update_vif_operations ~__context ~vm
+			update_vif_operations ~__context ~vm;
+			Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
 
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
@@ -2454,16 +2451,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.refresh_pack_info ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.refresh_pack_info rpc session_id host)
-
-		let set_cpu_features ~__context ~host ~features =
-			info "Host.set_cpu_features: host = '%s'; features = '%s'" (host_uuid ~__context host) features;
-			let local_fn = Local.Host.set_cpu_features ~host ~features in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_cpu_features rpc session_id host features)
-
-		let reset_cpu_features ~__context ~host =
-			info "Host.reset_cpu_features: host = '%s'" (host_uuid ~__context host);
-			let local_fn = Local.Host.reset_cpu_features ~host in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reset_cpu_features rpc session_id host)
 
 		let reset_networking ~__context ~host =
 			info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);

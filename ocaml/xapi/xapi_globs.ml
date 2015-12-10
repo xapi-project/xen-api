@@ -619,12 +619,10 @@ let old_hp_bios_strings =
 
 (** {2 CPUID feature masking} *)
 
-(** Pool.other_config key to hold the user-defined feature mask, used to
- *  override the feature equality checks at a Pool.join. *)
-let cpuid_feature_mask_key = "cpuid_feature_mask"
-
-(** Default feature mask: EST (base_ecx.7) is ignored. *)
-let cpuid_default_feature_mask = "ffffff7f-ffffffff-ffffffff-ffffffff"
+let cpu_info_vendor_key = "vendor"
+let cpu_info_features_key = "features"
+let cpu_info_features_pv_key = "features_pv"
+let cpu_info_features_hvm_key = "features_hvm"
 
 (** Path to trigger file for Network Reset. *)
 let network_reset_trigger = "/tmp/network-reset"

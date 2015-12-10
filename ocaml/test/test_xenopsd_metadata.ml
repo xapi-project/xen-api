@@ -30,12 +30,19 @@ let string_of_vm_config conf =
 		(Test_printers.(assoc_list string string) conf.platform)
 
 let load_vm_config __context conf =
-	make_vm ~__context
+	let (self: API.ref_VM) = make_vm ~__context
 		~name_label:test_vm_name
 		~hVM_boot_policy:"BIOS order"
 		~other_config:conf.oc
 		~platform:conf.platform
 		()
+	in
+	let flags = [
+		Xapi_globs.cpu_info_vendor_key, "AuthenticAMD";
+		Xapi_globs.cpu_info_features_key, "deadbeef-deadbeef";
+	] in
+	Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:flags;
+	self
 
 let run_create_metadata ~__context =
 	let localhost_uuid = Helpers.get_localhost_uuid () in

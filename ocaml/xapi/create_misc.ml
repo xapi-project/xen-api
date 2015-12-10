@@ -23,6 +23,7 @@ open Xstringext
 open Db_filter
 open Db_filter_types
 open Network
+module XenAPI = Client.Client
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -402,121 +403,133 @@ let make_software_version ~__context =
 	make_packs_info ()
 
 let create_host_cpu ~__context =
-	let get_cpu_layout () =
-                try
-	                let open Xenctrl in
-                        let p = Xenctrl.with_intf (fun xc ->
-	                        Xenctrl.physinfo xc) in
-                        let cpu_count = p.nr_cpus in
-		        let socket_count =
-		        	p.nr_cpus /
-		        	(p.threads_per_core * p.cores_per_socket)
-		        in
-                        cpu_count, socket_count
-		with _ ->
-			warn "Failed to query physical CPU information";
-			1, 1
-	in
-	let trim_end s =
-		let i = ref (String.length s - 1) in
-		while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
-		do
-			decr i
-		done;
-		if !i >= 0 then String.sub s 0 (!i + 1) else "" in
+	let open Xapi_xenops_queue in
+	let open Map_check in
+	let open Cpuid_helpers in
+	let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+	let dbg = Context.string_of_task __context in
+	let stat = Client.HOST.stat dbg in
 
-
-	(* The boot-time CPU info is copied into a file in @ETCDIR@/ in the xenservices init script;
-	   we use that to generate CPU records from. This ensures that if xapi is started after someone has
-	   modified dom0's VCPUs we don't change out host config... [Important to get this right, otherwise
-	   pool homogeneity checks fail] *)
-	let get_cpuinfo () =
-		let cpu_info_file =
-			try Unix.access !Xapi_globs.cpu_info_file [ Unix.F_OK ]; !Xapi_globs.cpu_info_file
-			with _ -> "/proc/cpuinfo" in
-		let in_chan = open_in cpu_info_file in
-		let tbl = Hashtbl.create 32 in
-		let rec get_lines () =
-			let s = input_line in_chan in
-			begin
-				try
-					let i = String.index s ':' in
-					let k = trim_end (String.sub s 0 i) in
-					let v =
-						if String.length s < i + 2
-						then ""
-						else String.sub s (i + 2) (String.length s - i - 2)
-					in
-					Hashtbl.add tbl k v
-				with e ->
-					info "cpuinfo: skipping line [%s]" s
-			end;
-			if s <> "" then get_lines () in
-		get_lines ();
-		close_in in_chan;
-		let find key =
-			if Hashtbl.mem tbl key
-			then Hashtbl.find tbl key
-			else "unknown" in
-		find "vendor_id",
-		find "model name",
-		find "cpu MHz",
-		find "flags",
-		find "stepping",
-		find "model",
-		find "cpu family"
-		in
-	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
-	let cpu_count, socket_count = get_cpu_layout () in
-	let host = Helpers.get_localhost ~__context in
-	
-	(* Fill in Host.cpu_info *)
-	
-	let cpuid = Cpuid.read_cpu_info () in
-	let features = Cpuid.features_to_string cpuid.Cpuid.features in
-	let physical_features = Cpuid.features_to_string cpuid.Cpuid.physical_features in
-	let maskable = match cpuid.Cpuid.maskable with
-		| Cpuid.No -> "no"
-		| Cpuid.Base -> "base"
-		| Cpuid.Full -> "full"
-	in
+	let open Xenops_interface.Host in
 	let cpu = [
-		"cpu_count", string_of_int cpu_count;
-		"socket_count", string_of_int socket_count;
-		"vendor", vendor;
-		"speed", cpu_mhz;
-		"modelname", modelname;
-		"family", family;
-		"model", model;
-		"stepping", stepping;
-		"flags", flags;
-		"features", features;
-		"features_after_reboot", features;
-		"physical_features", physical_features;
-		"maskable", maskable;
+		"cpu_count", string_of_int stat.cpu_info.cpu_count;
+		"socket_count", string_of_int stat.cpu_info.socket_count;
+		"vendor", stat.cpu_info.vendor;
+		"speed", stat.cpu_info.speed;
+		"modelname", stat.cpu_info.modelname;
+		"family", stat.cpu_info.family;
+		"model", stat.cpu_info.model;
+		"stepping", stat.cpu_info.stepping;
+		"flags", stat.cpu_info.flags;
+		(* To support VMs migrated from hosts which do not support CPU levelling v2,
+		   set the "features" key to what it would be on such hosts. *)
+		"features", Cpuid_helpers.string_of_features stat.cpu_info.features_oldstyle;
+		"features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
+		"features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
 	] in
+	let host = Helpers.get_localhost ~__context in
+	let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+	debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+		(Map_check.getf Cpuid_helpers.socket_count cpu)
+		(Map_check.getf Cpuid_helpers.cpu_count cpu)
+		(Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
+		(Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
+	let before = getf ~default:[||] features_hvm old_cpu_info in
+	let after = stat.cpu_info.features_hvm in
+	if before <> after && before <> [||] then begin
+		let lost = is_strict_subset (intersect before after) before in
+		let gained = is_strict_subset (intersect before after) after in
+		let body = Printf.sprintf "The CPU features of host have changed.%s%s"
+			(if lost then " Some features have gone away." else "")
+			(if gained then " Some features were added." else "")
+		in
+		info "%s" body;
+
+		if not (Helpers.rolling_upgrade_in_progress ~__context) then
+			let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
+			let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
+	end;
+	
 	(* Recreate all Host_cpu objects *)
 	
 	(* Not all /proc/cpuinfo files contain MHz information. *)
-	let speed = try Int64.of_float (float_of_string cpu_mhz) with _ -> 0L in
-	let model = try Int64.of_string model with _ -> 0L in
-	let family = try Int64.of_string family with _ -> 0L in
+	let speed = try Int64.of_float (float_of_string stat.cpu_info.speed) with _ -> 0L in
+	let model = try Int64.of_string stat.cpu_info.model with _ -> 0L in
+	let family = try Int64.of_string stat.cpu_info.family with _ -> 0L in
 
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
 	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
-	for i = 0 to cpu_count - 1
+	for i = 0 to stat.cpu_info.cpu_count - 1
 	do
 		let uuid = Uuid.to_string (Uuid.make_uuid ())
 		and ref = Ref.make () in
 		debug "Creating CPU %d: %s" i uuid;
 		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
-			~vendor ~speed ~modelname
-			~utilisation:0. ~flags ~stepping ~model ~family
+			~vendor:stat.cpu_info.vendor ~speed ~modelname:stat.cpu_info.modelname
+			~utilisation:0. ~flags:stat.cpu_info.flags ~stepping:stat.cpu_info.stepping ~model ~family
 			~features:"" ~other_config:[])
 	done
+
+
+let create_pool_cpuinfo ~__context =
+	let open Map_check in
+	let open Cpuid_helpers in
+
+	let all_host_cpus = List.map 
+		(fun (_, s) -> s.API.host_cpu_info) 
+		(Db.Host.get_all_records ~__context) in
+
+	let merge pool host =
+		try
+			pool
+			|> setf vendor (getf vendor host)
+			|> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
+			|> setf socket_count ((getf socket_count host) + (getf socket_count pool))
+			|> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+			|> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+		with Not_found -> 
+			(* If the host doesn't have all the keys we expect, assume that we
+			   are in the middle of an RPU and it has not yet been upgraded, so
+			   it should be ignored when calculating the pool level *) 
+			pool
+	in
+
+	let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""] in
+	let pool_cpuinfo = List.fold_left merge zero all_host_cpus in
+	let pool = Helpers.get_pool ~__context in
+	let old_cpuinfo = Db.Pool.get_cpu_info ~__context ~self:pool in
+	debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+		(Map_check.getf Cpuid_helpers.socket_count pool_cpuinfo)
+		(Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo)
+		(Map_check.getf Cpuid_helpers.features_hvm pool_cpuinfo |> string_of_features)
+		(Map_check.getf Cpuid_helpers.features_pv pool_cpuinfo |> string_of_features);
+	Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo;
+
+	let before = getf ~default:[||] features_hvm old_cpuinfo in
+	let after = getf ~default:[||] features_hvm pool_cpuinfo in
+	if before <> after && before <> [||] then begin
+		let lost = is_strict_subset (intersect before after) before in
+		let gained = is_strict_subset (intersect before after) after in
+		let body = Printf.sprintf "The pool-level CPU features have changed.%s%s"
+			(if lost then " Some features have gone away." else "")
+			(if gained then " Some features were added." else "")
+		in
+		info "%s" body;
+
+		if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 then
+			let (name, priority) = if lost then Api_messages.pool_cpu_features_down else Api_messages.pool_cpu_features_up in
+			let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+			)
+	end
+		
 
 let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
@@ -538,7 +551,7 @@ let create_chipset_info ~__context =
 			else
 				"false"
 		with _ ->
-			warn "Not running on xen; assuming I/O vierualization disabled";
+			warn "Not running on xen; assuming I/O virtualization disabled";
 			"false" in
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info

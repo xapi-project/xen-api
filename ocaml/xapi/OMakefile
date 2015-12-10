@@ -1,5 +1,5 @@
 OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
-             http-svr xen-utils netdev tapctl rpclib xenstore-compat	\
+             http-svr netdev tapctl rpclib xenstore-compat	\
              uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin pci
@@ -25,7 +25,7 @@ XENLIGHT_LINK_FLAGS=-cclib -luuid
 # (the same holds for OCaml packages)
 XEN_OCAML_LIBS = ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xenstore-compat cpuid # xenlight
+XEN_OCAMLPACKS = xenstore-compat xenctrl xenctrlext # xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
 OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
 CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
