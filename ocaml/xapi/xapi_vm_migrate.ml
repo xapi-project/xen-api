@@ -366,7 +366,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
 
 	(* Generate a VIF->Network map from vif_map and implicit mappings *)
-	let vif_map =
+	let infer_vif_map () =
 		let mapped_macs =
 			List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
 		List.fold_left (fun map vif ->
@@ -388,6 +388,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					error "%s VIF not specified in map and cannot be inferred" log_prefix;
 					raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
 		) [] (vifs @ snapshot_vifs) in
+	let vif_map = if not is_intra_pool then infer_vif_map () else vif_map in
 
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
