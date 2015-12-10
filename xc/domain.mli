@@ -199,21 +199,6 @@ val set_machine_address_size: xc: Xenctrl.handle -> domid -> int option -> unit
 (** Suppress spurious page faults for this domain *)
 val suppress_spurious_page_faults: xc: Xenctrl.handle -> domid -> unit
 
-(** CPUID related functions *)
-type cpuid_reg = Eax | Ebx | Ecx | Edx
-type cpuid_rtype = Clear | Set | Default | Same | Keep
-
-type cpuid_config = ((int64 * int64 option) * ((cpuid_reg * (cpuid_rtype array)) list)) list
-
-exception Cpuid_unknown_type of char
-
-val cpuid_reg_of_string : string -> cpuid_reg
-val cpuid_rtype_of_char : char -> cpuid_rtype
-
-val cpuid_set : xc: Xenctrl.handle -> hvm: bool -> domid -> cpuid_config -> cpuid_config
-val cpuid_apply : xc: Xenctrl.handle -> hvm: bool -> domid -> unit
-val cpuid_check : xc: Xenctrl.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
-
 val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
 
 val wait_xen_free_mem : xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> int64 -> bool

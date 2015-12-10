@@ -23,31 +23,31 @@ let init () = ()
 
 module HOST = struct
 	let stat () = {
-		Host.nr_cpus = 0;
-		cpu_info = {
-			Host.vendor = "unknown";
+		Host.cpu_info = {
+			Host.cpu_count = 0;
+			socket_count = 0;
+			vendor = "unknown";
 			speed = "";
 			modelname = "";
 			family = "";
 			model = "";
 			stepping = "";
 			flags = "";
-			features = "";
-			features_after_reboot = "";
-			physical_features = "";
-			maskable = "";
+			features = [| |];
+			features_pv = [| |];
+			features_hvm = [| |];
+			features_oldstyle = [| |];
 		};
 		hypervisor = {
-			Host.name = "unknown";
-			version = "";
+			Host.version = "";
 			capabilities = "";
 		}
 	}
 	let get_console_data () = ""
 	let get_total_memory_mib () = 0L
 	let send_debug_keys _ = ()
-	let mask_features features mask = features
 	let update_guest_agent_features _ = ()
+	let upgrade_cpu_features _ _ = [||]
 end
 module VM = struct
 	let add _ = ()

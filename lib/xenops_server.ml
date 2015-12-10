@@ -1796,14 +1796,6 @@ module HOST = struct
 				WorkerPool.set_size size
 			) ()
 
-	let mask_features _ dbg features mask =
-		Debug.with_thread_associated dbg
-			(fun () ->
-				debug "HOST.mask_features %s %s" features mask;
-				let module B = (val get_backend () : S) in
-				B.HOST.mask_features features mask
-			) ()
-
 	let update_guest_agent_features _ dbg features =
 		Debug.with_thread_associated dbg
 			(fun () ->
@@ -1812,6 +1804,14 @@ module HOST = struct
 						|> Jsonrpc.to_string);
 				let module B = (val get_backend () : S) in
 				B.HOST.update_guest_agent_features features
+			) ()
+
+	let upgrade_cpu_features _ dbg features is_hvm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "HOST.upgrade_cpu_features";
+				let module B = (val get_backend () : S) in
+				B.HOST.upgrade_cpu_features features is_hvm
 			) ()
 end
 
@@ -1968,7 +1968,32 @@ module VM = struct
 				   Any changes will take place on next reboot. *)
 				if DB.exists id
 				then debug "Overwriting VM metadata for VM: %s" id;
-				let vm = add' md.Metadata.vm in
+				let platformdata = md.Metadata.vm.Vm.platformdata in
+				debug "Platformdata:featureset=%s" (try List.assoc "featureset" platformdata with Not_found -> "(absent)");
+				let platformdata =
+					(* If platformdata does not contain a featureset, then we are importing
+					 * a VM that comes from a levelling-v1 host. In this case, give it a featureset
+					 * that contains all features that this host has to offer. *)
+					if not (List.mem_assoc "featureset" platformdata) then
+						let string_of_features features =
+							Array.map (Printf.sprintf "%08Lx") features
+								|> Array.to_list
+								|> String.concat "-"
+						in
+						let fs =
+							let stat = B.HOST.stat () in
+							(match md.Metadata.vm.Vm.ty with
+								| HVM _ -> Host.(stat.cpu_info.features_hvm)
+								| _ -> Host.(stat.cpu_info.features_pv))
+							|> string_of_features
+						in
+						debug "Setting Platformdata:featureset=%s" fs;
+						("featureset", fs) :: platformdata
+					else
+						platformdata
+				in
+				let vm = add' {md.Metadata.vm with platformdata} in
+				
 				let vbds = List.map
 					(fun x ->
 						(* If receiving an HVM migration from XS 6.2 or earlier, the hd*
