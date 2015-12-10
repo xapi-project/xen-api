@@ -314,9 +314,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
 	let vm_and_snapshots = vm :: snapshots in
 	let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
+	let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
 
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
@@ -362,6 +364,30 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
+
+	(* Generate a VIF->Network map from vif_map and implicit mappings *)
+	let vif_map =
+		let mapped_macs =
+			List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
+		List.fold_left (fun map vif ->
+			let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+			let log_prefix =
+				Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
+			match List.filter (fun (v, _) -> v = vif) vif_map with
+			| (_, network)::_ ->
+				debug "%s VIF has been specified in map" log_prefix;
+				(vif, network)::map
+			| [] -> (* Check if another VIF with same MAC address has been mapped *)
+				let mac = Db.VIF.get_MAC ~__context ~self:vif in
+				match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
+				| ((similar, _), network)::_ ->
+					debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
+						log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
+					(vif, network)::map
+				| [] ->
+					error "%s VIF not specified in map and cannot be inferred" log_prefix;
+					raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+		) [] (vifs @ snapshot_vifs) in
 
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
@@ -411,38 +437,44 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let so_far = ref 0L in
 
 		let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+		let default_sr_ref =
+			XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
 		let suspend_sr_ref =
-			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool in
-			if pool_suspend_SR <> Ref.null then pool_suspend_SR else
-				let host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-				if host_suspend_SR <> Ref.null then host_suspend_SR else
-					XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
+			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
+			and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
+			if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR in
 
 		let vdi_copy_fun ((vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) as vconf) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
-			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
-					| true, _ ->
-						    debug "VDI has been specified in the vdi_map";
-							let dest_sr_ref = List.assoc vdi vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, true ->
-					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
-						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, false ->
-						 if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
-							 let dest_sr_ref = suspend_sr_ref in
-							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							 (dest_sr_ref, dest_sr)
-						 else
-							 let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-							 error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
-							 raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
-				in
+			let dest_sr_ref =
+				let is_mapped = List.mem_assoc vdi vdi_map
+				and snapshot_of_is_mapped = List.mem_assoc snapshot_of vdi_map
+				and is_suspend_vdi = List.mem vconf suspends_vdis
+				and remote_has_suspend_sr = suspend_sr_ref <> Ref.null
+				and remote_has_default_sr = default_sr_ref <> Ref.null in
+				let log_prefix =
+					Printf.sprintf "Resolving VDI->SR map for VDI %s:" (Db.VDI.get_uuid ~__context ~self:vdi) in
+				if is_mapped then begin
+					debug "%s VDI has been specified in the map" log_prefix;
+					List.assoc vdi vdi_map
+				end else if snapshot_of_is_mapped then begin
+					debug "%s Snapshot VDI has entry in map for it's snapshot_of link" log_prefix;
+					List.assoc snapshot_of vdi_map
+				end else if is_suspend_vdi && remote_has_suspend_sr then begin
+					debug "%s Mapping suspend VDI to remote suspend SR" log_prefix;
+					suspend_sr_ref
+				end else if is_suspend_vdi && remote_has_default_sr then begin
+					debug "%s Remote suspend SR not set, mapping suspend VDI to remote default SR" log_prefix;
+					default_sr_ref
+				end else if remote_has_default_sr then begin
+					debug "Mapping unspecified VDI to remote default SR";
+					default_sr_ref
+				end else begin
+					error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
+					raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
+				end in
+				let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 
 			(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
@@ -479,7 +511,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			   use case is for a shared raw iSCSI SR (same uuid, same VDI uuid) *)
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			let mirror = if !Xapi_globs.relax_xsm_sr_check then
-				if (dest_sr = sr) then
+				if (dest_sr_uuid = sr) then
 				begin
 					(* Check if the VDI uuid already exists in the target SR *)
 					if (dest_vdi_exists_on_sr vdi_uuid dest_sr_ref true) then
@@ -490,7 +522,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else
 					true
 			else
-				(not is_intra_pool) || (dest_sr <> sr)
+				(not is_intra_pool) || (dest_sr_uuid <> sr)
 			in
 
 			let remote_vdi,remote_vdi_reference,newdp =
@@ -518,10 +550,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					in
 
 					let task = if not do_mirror then
-							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						else begin
 							ignore(Storage_access.register_mirror __context location);
-							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						end
 					in
 
@@ -569,10 +601,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 								mr_mirrored = mirror;
 								mr_local_sr = sr;
 								mr_local_vdi = location;
-								mr_remote_sr = dest_sr;
+								mr_remote_sr = dest_sr_uuid;
 								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = xenops_locator;
-								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
+								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
 
 		let suspends_map = List.map vdi_copy_fun suspends_vdis in
