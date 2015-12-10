@@ -47,7 +47,7 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
-	if (Db.VM.get_auto_update_drivers ~__context ~self)
+	if (Db.VM.get_has_vendor_device ~__context ~self)
 	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 	let m = Db.VM.get_metrics ~__context ~self in
 	if not value then begin
@@ -79,12 +79,12 @@ let set_is_a_template ~__context ~self ~value =
 
 let create_from_record_without_checking_licence_feature_for_vendor_device ~__context rpc session_id vm_record =
 	let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
-	let auto_update_drivers = vm_record.API.vM_auto_update_drivers in
-	if auto_update_drivers && not (Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
+	let has_vendor_device = vm_record.API.vM_has_vendor_device in
+	if has_vendor_device && not (Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
 	then (
 		(* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
-		let vm = mk_vm {vm_record with API.vM_auto_update_drivers = false} in
-		Db.VM.set_auto_update_drivers ~__context ~self:vm ~value:true;
+		let vm = mk_vm {vm_record with API.vM_has_vendor_device = false} in
+		Db.VM.set_has_vendor_device ~__context ~self:vm ~value:true;
 		vm
 	) else mk_vm vm_record
 
@@ -116,11 +116,10 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
-		~auto_update_drivers
 		~has_vendor_device
 		: API.ref_VM =
 
-	if auto_update_drivers then
+	if has_vendor_device then
 		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 	(* Add random mac_seed if there isn't one specified already *)
 	let other_config =
@@ -194,7 +193,6 @@ let create ~__context ~name_label ~name_description
 		~version
 		~generation_id
 		~hardware_platform_version
-		~auto_update_drivers
 		~has_vendor_device
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
@@ -1095,8 +1093,8 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 	let vm_record = Db.VM.get_record ~__context ~self:vm in
 	(* Deduce what we can, but the guest VM might need a higher version. *)
 	let visibly_required_version =
-		if vm_record.API.vM_auto_update_drivers then
-			Xapi_globs.auto_update_drivers
+		if vm_record.API.vM_has_vendor_device then
+			Xapi_globs.has_vendor_device
 		else
 			0L
 	in

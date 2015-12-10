@@ -1226,9 +1226,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.call_plugin rpc session_id vm plugin fn args))
 
-		let set_auto_update_drivers ~__context ~self ~value =
-			info "VM.set_auto_update_drivers: VM = '%s' to %b" (vm_uuid ~__context self) value;
-			Local.VM.set_auto_update_drivers ~__context ~self ~value
+		let set_has_vendor_device ~__context ~self ~value =
+			info "VM.set_has_vendor_device: VM = '%s' to %b" (vm_uuid ~__context self) value;
+			Local.VM.set_has_vendor_device ~__context ~self ~value
 
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);

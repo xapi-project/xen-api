@@ -998,7 +998,7 @@ let all_options = options_of_xapi_globs_spec @ other_options
 
 (* VIRTUAL HARDWARE PLATFORM VERSIONS *)
 
-let auto_update_drivers = 2L
+let has_vendor_device = 2L
 
 (* This set is used as an indicator to show the virtual hardware
    platform versions the current host offers to its guests *)
@@ -1015,11 +1015,11 @@ let host_virtual_hardware_platform_versions = [
 	   the whole history of older host versions. *)
 	1L;
 
-	(* Version two which is "auto_update_drivers" will be the first virtual
-		hardware platform versionto offer the option of an emulated PCI
+	(* Version two which is "has_vendor_device" will be the first virtual
+		hardware platform version to offer the option of an emulated PCI
 		device used to trigger a guest to install or upgrade its PV tools
 		(originally introduced to exploit the Windows Update system). *)
-	auto_update_drivers;
+	has_vendor_device;
 ]
 
 module Resources = struct
