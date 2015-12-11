@@ -202,8 +202,8 @@ let start ~__context ~vm ~start_paused ~force =
 	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
 	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
 
-	(* This makes sense here while the available versions are 0 and 1.
-	 * If/when we introduce version 2, we must reassess this. *)
+	(* This makes sense here while the available versions are 0, 1 and 2.
+	 * If/when we introduce another version, we must reassess this. *)
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	
 	(* Reset CPU feature set, which will be passed to xenopsd *)
@@ -481,6 +481,7 @@ let create ~__context ~name_label ~name_description
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	update_memory_overhead ~__context ~vm:vm_ref;
+	update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref;
 	vm_ref
 
 let destroy  ~__context ~self =
@@ -1096,5 +1097,5 @@ let assert_can_set_has_vendor_device ~__context ~self ~value =
 
 let set_has_vendor_device ~__context ~self ~value =
 	assert_can_set_has_vendor_device ~__context ~self ~value;
-	Db.VM.set_has_vendor_device ~__context ~self ~value
-
+	Db.VM.set_has_vendor_device ~__context ~self ~value;
+	update_vm_virtual_hardware_platform_version ~__context ~vm:self

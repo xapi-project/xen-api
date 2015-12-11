@@ -98,6 +98,7 @@ let create_from_record_without_checking_licence_feature_for_vendor_device ~__con
 		(* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
 		let vm = mk_vm {vm_record with API.vM_has_vendor_device = false} in
 		Db.VM.set_has_vendor_device ~__context ~self:vm ~value:true;
+		update_vm_virtual_hardware_platform_version ~__context ~vm;
 		vm
 	) else mk_vm vm_record
 
