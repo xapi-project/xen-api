@@ -77,6 +77,19 @@ let set_is_a_template ~__context ~self ~value =
 	end;
 	Db.VM.set_is_a_template ~__context ~self ~value
 
+let update_vm_virtual_hardware_platform_version ~__context ~vm =
+	let vm_record = Db.VM.get_record ~__context ~self:vm in
+	(* Deduce what we can, but the guest VM might need a higher version. *)
+	let visibly_required_version =
+		if vm_record.API.vM_has_vendor_device then
+			Xapi_globs.has_vendor_device
+		else
+			0L
+	in
+	let current_version = vm_record.API.vM_hardware_platform_version in
+	if visibly_required_version > current_version then
+		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
+
 let create_from_record_without_checking_licence_feature_for_vendor_device ~__context rpc session_id vm_record =
 	let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
 	let has_vendor_device = vm_record.API.vM_has_vendor_device in
@@ -977,19 +990,6 @@ let vm_fresh_genid ~__context ~self =
 	debug "Refreshing GenID for VM %s to %s" uuid new_genid;
 	Db.VM.set_generation_id ~__context ~self ~value:new_genid ;
 	new_genid
-
-let update_vm_virtual_hardware_platform_version ~__context ~vm =
-	let vm_record = Db.VM.get_record ~__context ~self:vm in
-	(* Deduce what we can, but the guest VM might need a higher version. *)
-	let visibly_required_version =
-		if vm_record.API.vM_has_vendor_device then
-			Xapi_globs.has_vendor_device
-		else
-			0L
-	in
-	let current_version = vm_record.API.vM_hardware_platform_version in
-	if visibly_required_version > current_version then
-		Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
 
 (** Add to the VM's current operations, call a function and then remove from the
 	current operations. Ensure the allowed_operations are kept up to date. *)
