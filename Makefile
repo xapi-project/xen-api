@@ -19,7 +19,6 @@ uninstall:
 	ocamlfind remove xml-light2
 	ocamlfind remove xenstore-compat
 	ocamlfind remove xenctrlext
-	ocamlfind remove xen-utils
 	ocamlfind remove uuid
 	ocamlfind remove stunnel
 	ocamlfind remove sha1
@@ -27,7 +26,6 @@ uninstall:
 	ocamlfind remove pciutil
 	ocamlfind remove http-svr
 	ocamlfind remove gzip
-	ocamlfind remove cpuid
 
 reinstall: uninstall
 	$(SETUP) -install $(REINSTALLFLAGS)
