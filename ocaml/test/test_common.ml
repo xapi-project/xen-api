@@ -82,7 +82,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
 		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
 		?(generation_id="0:0") ?(hardware_platform_version=0L)
-		?(auto_update_drivers=false) () =
+		?(auto_update_drivers=false) ?(has_vendor_device=false) () =
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
 		~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown
@@ -91,7 +91,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
-		~version ~generation_id ~hardware_platform_version ~auto_update_drivers
+		~version ~generation_id ~hardware_platform_version ~auto_update_drivers ~has_vendor_device
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
@@ -125,7 +125,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
 		?(current_operations=[]) ?(allowed_operations=[])
 		?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
-		?(ha_cluster_stack="xhad") ?(guest_agent_config=[]) () =
+		?(ha_cluster_stack="xhad") ?(guest_agent_config=[]) ?(cpu_info=[]) () =
 	let pool_ref = Ref.make () in
 	Db.Pool.create ~__context ~ref:pool_ref
 		~uuid:(make_uuid ()) ~name_label ~name_description
@@ -135,7 +135,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
 		~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
 		~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
 		~current_operations ~allowed_operations
-		~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config;
+		~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config ~cpu_info;
 	pool_ref
 
 let default_sm_features = [
@@ -207,7 +207,7 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 
 let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
 		?(class_name="") ?(vendor_id="") ?(vendor_name="") ?(device_id="")
-		?(device_name="") ?(host=Ref.null) ?(pci_id="") ?(functions=0L)
+		?(device_name="") ?(host=Ref.null) ?(pci_id="0000:00:00.0") ?(functions=0L)
 		?(dependencies=[]) ?(other_config=[]) ?(subsystem_vendor_id="")
 		?(subsystem_vendor_name="") ?(subsystem_device_id="")
 		?(subsystem_device_name="") () =

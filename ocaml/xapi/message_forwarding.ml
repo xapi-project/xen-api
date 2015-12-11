@@ -922,9 +922,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* -------------------------------------------------------------------------- *)
 
 		(* don't forward create. this just makes a db record *)
-		let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id =
+		let create ~__context ~name_label ~name_description =
 			info "VM.create: name_label = '%s' name_description = '%s'" name_label name_description;
-			Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
+			(* Partial application: return a function which will take the dozens of remaining params *)
+			Local.VM.create ~__context ~name_label ~name_description
 
 		(* don't forward destroy. this just deletes db record *)
 		let destroy ~__context ~self =
@@ -1115,7 +1116,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
-										Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
@@ -1174,7 +1174,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 													Client.VM.start
 														rpc session_id vm start_paused force)
 										);
-									Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 									Xapi_vm_helpers.start_delay ~__context ~vm;
 								)));
 			update_vbd_operations ~__context ~vm;
@@ -1228,10 +1227,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_auto_update_drivers ~__context ~self ~value =
 			info "VM.set_auto_update_drivers: VM = '%s' to %b" (vm_uuid ~__context self) value;
 			Local.VM.set_auto_update_drivers ~__context ~self ~value
-			
-		let assert_can_set_auto_update_drivers ~__context ~self ~value =
-			info "VM.assert_can_set_auto_update_drivers: VM = '%s' to %b " (vm_uuid ~__context self) value;
-			Local.VM.assert_can_set_auto_update_drivers ~__context ~self ~value
 
 		let set_xenstore_data ~__context ~self ~value =
 			info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self);
@@ -1514,7 +1509,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 								let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
 									(fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
-								Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 								host
 							);
 					)
@@ -1548,7 +1542,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								(fun () ->
 									do_op_on ~local_fn ~__context ~host
 										(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force));
-							Cpuid_helpers.populate_cpu_flags ~__context ~vm ~host;
 						);
 				);
 			update_vbd_operations ~__context ~vm;
@@ -1611,7 +1604,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							forward_vm_op ~local_fn ~__context ~vm
 								(fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
 			update_vbd_operations ~__context ~vm;
-			update_vif_operations ~__context ~vm
+			update_vif_operations ~__context ~vm;
+			Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
 
 		let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
@@ -2457,16 +2451,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.refresh_pack_info ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.refresh_pack_info rpc session_id host)
-
-		let set_cpu_features ~__context ~host ~features =
-			info "Host.set_cpu_features: host = '%s'; features = '%s'" (host_uuid ~__context host) features;
-			let local_fn = Local.Host.set_cpu_features ~host ~features in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_cpu_features rpc session_id host features)
-
-		let reset_cpu_features ~__context ~host =
-			info "Host.reset_cpu_features: host = '%s'" (host_uuid ~__context host);
-			let local_fn = Local.Host.reset_cpu_features ~host in
-			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reset_cpu_features rpc session_id host)
 
 		let reset_networking ~__context ~host =
 			info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);

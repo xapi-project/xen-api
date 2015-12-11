@@ -141,7 +141,8 @@ val create :
   version:int64 ->
   generation_id:string ->
   hardware_platform_version:int64 ->
-  auto_update_drivers:bool
+  auto_update_drivers:bool ->
+  has_vendor_device:bool
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :

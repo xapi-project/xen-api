@@ -1,5 +1,5 @@
 OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid	\
-             netdev tapctl xenctrl xenctrlext xenstore-compat cpuid	\
+             netdev tapctl xenctrl xenctrlext xenstore-compat	\
              pciutil oclock gzip sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin pci
@@ -53,6 +53,8 @@ OCAML_OBJS = \
 	test_ca121350 \
 	test_workload_balancing \
 	test_pbd \
+	test_cpuid_helpers \
+	test_pool_cpuinfo \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 

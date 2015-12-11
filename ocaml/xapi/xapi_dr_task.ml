@@ -92,8 +92,7 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_reco
 
 let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
-	if (not (Pool_features.is_enabled ~__context Features.DR)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	Pool_features.assert_enabled ~__context ~f:Features.DR;
 	(* Check that the SR type supports metadata. *)
 	if not (List.mem_assoc Smint.Sr_metadata (Sm.features_of_driver _type)) then
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,

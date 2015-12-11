@@ -1619,7 +1619,9 @@ let vm_create printer rpc session_id params =
 		~version:0L
 		~generation_id:""
 		~hardware_platform_version:0L
-		~auto_update_drivers:false in
+		~auto_update_drivers:false
+		~has_vendor_device:false
+	in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
@@ -2285,6 +2287,23 @@ let vm_pause printer rpc session_id params =
 let vm_unpause printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.unpause rpc session_id (vm.getref ())) params [])
 
+(* A helper function for VM install *)
+let is_recommended recommendations_xml fieldname =
+	let rec seek_recommendation i =
+		if Xmlm.eoi i then false
+		else match Xmlm.input i with
+			| `El_start ((ns, tag), attrs)
+				when tag = "restriction" && (List.mem ((ns, "field"), fieldname) attrs)
+					-> List.mem ((ns, "value"), "true") attrs
+			| _ -> seek_recommendation i
+	in
+	let i = Xmlm.make_input (`String (0, recommendations_xml)) in
+	try
+		seek_recommendation i
+	with Xmlm.Error ((line, col), err) ->
+		debug "Invalid VM.recommendations xml at line %d, column %d: %s" line col (Xmlm.error_message err);
+		false
+
 let vm_install_real printer rpc session_id template name description params =
 
 	let sr_ref =
@@ -2361,6 +2380,17 @@ Pool. Please provide an sr-name-label or sr-uuid parameter." in
 		Client.VM.set_name_description rpc session_id new_vm description;
 		Client.VM.set_suspend_SR rpc session_id new_vm suspend_sr_ref;
 		rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
+		let recommendations = Client.VM.get_recommendations rpc session_id template in
+		let licerr = Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.PCI_device_for_auto_update]) in
+		let want_dev = is_recommended recommendations "has-vendor-device" in
+		(
+			try Client.VM.set_has_vendor_device rpc session_id new_vm want_dev
+			with e when e = licerr ->
+				let msg = Printf.sprintf "Licence forbids setting recommended has-vendor-device for VM %s (%s)."
+					(Client.VM.get_uuid rpc session_id new_vm) (Client.VM.get_name_label rpc session_id new_vm) in
+				warn "%s" msg;
+				Cli_printer.PStderr (msg^"\n") |> printer
+		);
 		Client.VM.provision rpc session_id new_vm;
 		(* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *)
 
@@ -4153,23 +4183,6 @@ let host_get_cpu_features printer rpc session_id params =
 	let cpu_info = Client.Host.get_cpu_info rpc session_id host in
 	let features = List.assoc "features" cpu_info in
 	printer (Cli_printer.PMsg features)
-
-let host_set_cpu_features printer rpc session_id params =
-	let host =
-		if List.mem_assoc "uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	let features = List.assoc "features" params in
-	Client.Host.set_cpu_features rpc session_id host features
-
-let host_reset_cpu_features printer rpc session_id params =
-	let host =
-		if List.mem_assoc "uuid" params then
-			Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params)
-		else
-			get_host_from_session rpc session_id in
-	Client.Host.reset_cpu_features rpc session_id host
 
 let host_enable_display printer rpc session_id params =
 	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) in

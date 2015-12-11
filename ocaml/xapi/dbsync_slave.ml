@@ -222,12 +222,6 @@ let resynchronise_pif_params ~__context =
 (** Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context sync_keys =
-  (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
-     Committing commented out vsn of this because it might be useful again..
-  try
-    test_uniqueness_doesnt_kill_us ~__context
-  with e -> debug "Result of uniqueness constraint check = %s" (Printexc.to_string e);
-  *)
 
   (* Helper function to allow us to switch off particular types of syncing *)
   let switched_sync key f =

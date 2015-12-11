@@ -99,9 +99,27 @@ module ValidateKVPair = Generic.Make(struct
 	]
 end)
 
+module Accessors = Generic.Make(struct
+	module Io = struct
+		type input_t = string * (string * string) list
+		type output_t = int
+
+		let string_of_input_t = Test_printers.(pair string (list (pair string string)))
+		let string_of_output_t = Test_printers.int
+	end
+
+	let transform (key, map) =
+		getf (field key int) map
+
+	let tests = [
+        	("a", ["a", "1"]), 1;
+	]
+end)
+
 let test =
 	"test_map_check" >:::
 		[
 			"test_add_defaults" >::: AddDefaults.tests;
 			"test_validate_kvpair" >::: ValidateKVPair.tests;
+			"test_accessors" >::: Accessors.tests;
 		]

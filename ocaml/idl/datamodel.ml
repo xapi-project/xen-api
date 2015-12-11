@@ -360,6 +360,9 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 		msg_forward_to = forward_to;
 	}
 
+let errnames_of_call c =
+	List.map (fun e -> e.err_name) c.msg_errors
+
 let assert_operation_valid enum cls self = call 
   ~in_oss_since:None
   ~in_product_since:rel_rio
@@ -416,8 +419,8 @@ let _ =
     ~doc:"Your license has expired.  Please contact your support representative." ();
   error Api_errors.license_processing_error []
     ~doc:"There was an error processing your license.  Please contact your support representative." ();
-  error Api_errors.license_restriction []
-    ~doc:"This operation is not allowed under your license.  Please contact your support representative." ();
+  error Api_errors.license_restriction ["feature"]
+    ~doc:"This operation is not allowed because your license lacks a needed feature.  Please contact your support representative." ();
   error Api_errors.license_cannot_downgrade_in_pool []
     ~doc:"Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on hosts separately." ();
   error Api_errors.license_does_not_support_pooling []
@@ -1560,7 +1563,9 @@ let vm_clone = call
 	    Ref _vm, "vm", "The VM to be cloned";
 	    String, "new_name", "The name of the cloned VM"
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed
+	  ;Api_errors.license_restriction
+  ]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -1577,7 +1582,7 @@ let vm_copy = call
 	    String, "new_name", "The name of the copied VM";
 	    Ref _sr, "sr", "An SR to copy all the VM's disks into (if an invalid reference then it uses the existing SRs)";
 	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:(errnames_of_call vm_clone)
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -1692,7 +1697,7 @@ let vm_provision = call
 	  ]
   ~in_oss_since:None
   ~in_product_since:rel_rio
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:(errnames_of_call vm_clone)
   ~allowed_roles:_R_VM_ADMIN
   ()
 
@@ -2114,7 +2119,7 @@ let csvm = call
   ~doc:"undocumented. internal use only. This call is deprecated."
   ~params:[Ref _vm, "vm", ""]
   ~result:(Ref _vm, "")
-  ~errs:[]
+  ~errs:(errnames_of_call vm_clone)
   ~hide_from_docs:true
   ~internal_deprecated_since:rel_miami
   ~allowed_roles:_R_VM_ADMIN
@@ -2270,12 +2275,12 @@ let vm_migrate_send = call
 		   Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
            Map (String, String), "options", "Other parameters"]
   ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
-  ~errs:[Api_errors.vm_bad_power_state]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.license_restriction]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 let vm_assert_can_migrate = call
-~name:"assert_can_migrate"
+	~name:"assert_can_migrate"
 	~in_product_since:rel_tampa
 	~doc:"Assert whether a VM can be migrated to the specified destination."
 	~params:[
@@ -2286,6 +2291,7 @@ let vm_assert_can_migrate = call
 		Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
 		Map (String, String), "options", "Other parameters" ]
 	~allowed_roles:_R_VM_POWER_ADMIN
+	~errs:[Api_errors.license_restriction]
 	()
 
 let vm_s3_suspend = call
@@ -2434,16 +2440,6 @@ let vm_set_auto_update_drivers = call
 	~in_product_since:rel_dundee
 	~doc:"Enable or disable PV auto update on Windows vm"
 	~params:[Ref _vm, "self", "The vm to set auto update drivers";
-			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
-	~allowed_roles:_R_VM_OP
-	~doc_tags:[Windows]
-	()
-
-let vm_assert_can_set_auto_update_drivers = call
-	~name:"assert_can_set_auto_update_drivers"
-	~in_product_since:rel_dundee
-	~doc:"Check if PV auto update can be set on Windows vm"
-	~params:[Ref _vm, "self", "The vm to check if auto update drivers can be set";
 			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
 	~allowed_roles:_R_VM_OP
 	~doc_tags:[Windows]
@@ -4333,6 +4329,7 @@ let host_set_cpu_features = call ~flags:[`Session]
     String, "features", "The features string (32 hexadecimal digits)"
   ]
   ~allowed_roles:_R_POOL_OP
+  ~lifecycle:[Published, rel_midnight_ride, ""; Removed, rel_dundee, "Manual CPU feature setting was removed"]
   ()
   
 let host_reset_cpu_features = call ~flags:[`Session]
@@ -4343,6 +4340,7 @@ let host_reset_cpu_features = call ~flags:[`Session]
     Ref _host, "host", "The host"
   ]
   ~allowed_roles:_R_POOL_OP
+  ~lifecycle:[Published, rel_midnight_ride, ""; Removed, rel_dundee, "Manual CPU feature setting was removed"]
   ()
 
 let host_reset_networking = call
@@ -6811,6 +6809,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
 			] @ (allowed_and_current_operations pool_operations) @
 			[ field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "guest_agent_config" "Pool-wide guest agent configuration information"
+			; field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on the pool"
 			])
 		()
 
@@ -7191,7 +7190,6 @@ let vm =
 		vm_query_services;
 		vm_call_plugin;
 		vm_set_auto_update_drivers;
-		vm_assert_can_set_auto_update_drivers;
 		vm_import;
 		]
       ~contents:
@@ -7269,7 +7267,8 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "Does nothing at present. Might never be released/published.";
+	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "Does nothing at present. To be removed before Dundee release, once other code no longer refers to it.";
+	field ~qualifier:RW ~lifecycle:[Prototyped, rel_dundee, "Initial definition of field so other code can refer to it."] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "Does nothing at present. Intended to replace auto_update_drivers to control the presence of the C000 PCI device.";
     ])
 	()
 

@@ -475,8 +475,9 @@ let	create_vm_from_snapshot ~__context ~snapshot =
 		let snap_record = Db.VM.get_record ~__context ~self:snapshot in
 
 		Helpers.call_api_functions ~__context 
-			(fun rpc session_id -> 
-				 let new_vm = Client.VM.create_from_record rpc session_id snap_record in
+			(fun rpc session_id ->
+				 let new_vm = Xapi_vm_helpers.create_from_record_without_checking_licence_feature_for_vendor_device
+					 ~__context rpc session_id snap_record in
 				 begin try
 					 Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid;
 					 copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy ~default_values;

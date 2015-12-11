@@ -183,13 +183,16 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 		""
 
 (* return a new VM record, in appropriate power state and having the good metrics. *)
+(* N.B. always check VM.auto_update_drivers and Features.PCI_device_for_auto_update before calling this,
+ * as is done before the single existing call to this function.
+ * If ever we need to expose this function in the .mli file then we should do the check in the function. *)
 let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~new_power_state =
+	let all = Db.VM.get_record_internal ~__context ~self:vm in
+	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
-	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 	let current_op =
 		match disk_op with
 		| Disk_op_clone -> `clone
@@ -337,6 +340,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~generation_id
 		~hardware_platform_version:all.Db_actions.vM_hardware_platform_version
 		~auto_update_drivers:all.Db_actions.vM_auto_update_drivers
+		~has_vendor_device:all.Db_actions.vM_has_vendor_device
 	;
 
 	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"
@@ -371,6 +375,11 @@ let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
 		in
 
 		let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
+
+		(* Check licence permission before copying disks, since the copy can take a long time.
+		 * We always allow snapshotting a VM, but check before clone/copy of an existing snapshot or template. *)
+		if (Db.VM.get_auto_update_drivers ~__context ~self:vm && not is_a_snapshot) then
+			Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 
 		(* driver params to be passed to storage backend clone operations. *)
 		let driver_params = make_driver_params () in
