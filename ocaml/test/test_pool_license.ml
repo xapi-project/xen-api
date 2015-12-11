@@ -33,6 +33,8 @@ let string_of_date_opt = function
 let f2d = Date.of_float
 let f2d2s = Date.to_string ++ Date.of_float
 
+let edition_to_int = ["edition1", 1; "edition2", 2; "edition3", 3]
+
 module CompareDates = Generic.Make(struct
 	module Io = struct
 		type input_t = (Date.iso8601 option * Date.iso8601 option)
@@ -77,12 +79,12 @@ module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
 				| None -> []
 				| Some date -> ["expiry", (Date.to_string date)]
 				in
-				let (_: API.ref_host) = Test_common.make_host ~__context ~license_params () in ())
+				let (_: API.ref_host) = Test_common.make_host ~__context ~edition:"edition1" ~license_params () in ())
 			expiry_dates
 
 	let extract_output __context _ =
 		let hosts = Db.Host.get_all ~__context in
-		Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts
+		snd (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
 	(* Tuples of ((host expiry date) list, expected pool expiry date) *)
 	let tests = [
@@ -113,25 +115,25 @@ module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
 
 	let extract_output __context _ =
 		let hosts = Db.Host.get_all ~__context in
-		Xapi_pool_license.get_lowest_edition ~__context ~hosts
+		fst (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
 	(* Tuples of ((host edition) list, expected pool edition) *)
 	let tests = [
-		(["free"], "free");
-		(["free"; "per-socket"; "free"; "per-socket"], "free");
-		(["xendesktop"; "xendesktop"; "xendesktop"; "xendesktop"], "xendesktop");
-		(["per-socket"; "per-socket"; "per-socket"], "per-socket");
-		(["xendesktop"; "xendesktop"; "free"; "free"], "free");
+		(["edition1"], "edition1");
+		(["edition1"; "edition2"; "edition1"; "edition3"], "edition1");
+		(["edition2"; "edition2"; "edition2"; "edition2"], "edition2");
+		(["edition3"; "edition3"; "edition3"], "edition3");
+		(["edition2"; "edition2"; "edition1"; "edition1"], "edition1");
 	]
 end))
 
 module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		type input_t = host_license_state list
-		type output_t = (string * string) list
+		type output_t = string * string
 
 		let string_of_input_t = Test_printers.(list string_of_host_license_state)
-		let string_of_output_t = Test_printers.(assoc_list string string)
+		let string_of_output_t = Test_printers.(pair string string)
 	end
 	module State = XapiDb
 
@@ -150,46 +152,45 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
 				~master:(List.hd (Db.Host.get_all ~__context)) () in ()
 
 	let extract_output __context _ =
-		let pool = Helpers.get_pool ~__context in
-		Xapi_pool.get_license_state ~__context ~self:pool
+		let hosts = Db.Host.get_all ~__context in
+		let pool_edition, expiry = Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int in
+		let pool_expiry =
+			match expiry with
+			| None -> "never"
+			| Some date -> if date = Date.of_float License_check.never then "never" else Date.to_string date
+		in
+		pool_edition, pool_expiry
 
 	(* Tuples of (host_license_state list, expected pool license state) *)
 	let tests = [
-		(* A pool of free edition hosts, none of which has an expiry date. *)
-		([
-			{license_params = []; edition = "free"};
-			{license_params = []; edition = "free"};
-			{license_params = []; edition = "free"};
+		(* A pool of edition1 hosts, none of which has an expiry date. *)
+		[
+			{license_params = []; edition = "edition1"};
+			{license_params = []; edition = "edition1"};
+			{license_params = []; edition = "edition1"};
 		],
-		["edition", "free"; "expiry", "never"]);
-		(* A pool of per-socket edition hosts, of which two have expiry dates. *)
-		([
-			{license_params = []; edition = "per-socket"};
-			{license_params = ["expiry", f2d2s 500.0]; edition = "per-socket"};
-			{license_params = ["expiry", f2d2s 350.0]; edition = "per-socket"};
+		("edition1", "never");
+		(* A pool of edition2 hosts, of which two have expiry dates. *)
+		[
+			{license_params = []; edition = "edition2"};
+			{license_params = ["expiry", f2d2s 500.0]; edition = "edition2"};
+			{license_params = ["expiry", f2d2s 350.0]; edition = "edition2"};
 		],
-		["edition", "per-socket"; "expiry", f2d2s 350.0]);
-		(* A pool of per-socket edition hosts, of which none have expiry dates. *)
-		([
-			{license_params = []; edition = "per-socket"};
-			{license_params = []; edition = "per-socket"};
-			{license_params = []; edition = "per-socket"};
+		("edition2", f2d2s 350.0);
+		(* A pool of edition2 hosts, of which none have expiry dates. *)
+		[
+			{license_params = []; edition = "edition2"};
+			{license_params = []; edition = "edition2"};
+			{license_params = []; edition = "edition2"};
 		],
-		["edition", "per-socket"; "expiry", "never"]);
-		(* A pool of xendesktop edition hosts, of which none have expiry dates. *)
-		([
-			{license_params = []; edition = "xendesktop"};
-			{license_params = []; edition = "xendesktop"};
-			{license_params = []; edition = "xendesktop"};
+		("edition2", "never");
+		(* A pool of hosts, some edition2 (with different expiry dates) and some edition1 (no expiry). *)
+		[
+			{license_params = ["expiry", f2d2s 5000.0]; edition = "edition2"};
+			{license_params = []; edition = "edition1"};
+			{license_params = ["expiry", f2d2s 6000.0]; edition = "edition2"};
 		],
-		["edition", "xendesktop"; "expiry", "never"]);
-		(* A pool of hosts, some per-socket (with different expiry dates) and some free. *)
-		([
-			{license_params = ["expiry", f2d2s 5000.0]; edition = "per-socket"};
-			{license_params = []; edition = "free"};
-			{license_params = ["expiry", f2d2s 6000.0]; edition = "per-socket"};
-		],
-		["edition", "free"; "expiry", "never"]);
+		("edition1", "never");
 	]
 end))
 

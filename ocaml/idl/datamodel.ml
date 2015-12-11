@@ -66,6 +66,9 @@ let creedence_release_schema_minor_vsn = 72
 let cream_release_schema_major_vsn = 5
 let cream_release_schema_minor_vsn = 73
 
+let indigo_release_schema_major_vsn = 5
+let indigo_release_schema_minor_vsn = 74
+
 let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 90
 
@@ -683,9 +686,9 @@ let _ =
   error Api_errors.xen_vss_req_error_init_failed [ "vm"; "error_code" ]
     ~doc:"Initialization of the VSS requester failed" ();
   error Api_errors.xen_vss_req_error_prov_not_loaded [ "vm"; "error_code" ]
-    ~doc:"The Citrix XenServer Vss Provider is not loaded" ();
+    ~doc:"The Vss Provider is not loaded" ();
   error Api_errors.xen_vss_req_error_no_volumes_supported [ "vm"; "error_code" ]
-    ~doc:"Could not find any volumes supported by the Citrix XenServer Vss Provider" ();
+    ~doc:"Could not find any volumes supported by the Vss Provider" ();
   error Api_errors.xen_vss_req_error_start_snapshot_set_failed [ "vm"; "error_code" ]
     ~doc:"An attempt to start a new VSS snapshot failed" ();
   error Api_errors.xen_vss_req_error_adding_volume_to_snapset_failed [ "vm"; "error_code" ]
@@ -854,29 +857,29 @@ let _ =
   error Api_errors.wlb_disabled []
     ~doc:"This pool has wlb-enabled set to false." ();
   error Api_errors.wlb_connection_refused []
-    ~doc:"The WLB server refused a connection to XenServer." ();
+    ~doc:"WLB refused a connection to the server." ();
   error Api_errors.wlb_unknown_host []
     ~doc:"The configured WLB server name failed to resolve in DNS." ();
   error Api_errors.wlb_timeout ["configured_timeout"]
     ~doc:"The communication with the WLB server timed out." ();
   error Api_errors.wlb_authentication_failed []
-    ~doc:"The WLB server rejected our configured authentication details." ();
+    ~doc:"WLB rejected our configured authentication details." ();
   error Api_errors.wlb_malformed_request []
-    ~doc:"The WLB server rejected XenServer's request as malformed." ();
+    ~doc:"WLB rejected the server's request as malformed." ();
   error Api_errors.wlb_malformed_response ["method"; "reason"; "response"]
-    ~doc:"The WLB server said something that XenServer wasn't expecting or didn't understand.  The method called on the WLB server, a diagnostic reason, and the response from WLB are returned." ();
+    ~doc:"WLB said something that the server wasn't expecting or didn't understand.  The method called on WLB, a diagnostic reason, and the response from WLB are returned." ();
   error Api_errors.wlb_xenserver_connection_refused []
-    ~doc:"The WLB server reported that XenServer refused it a connection (even though we're connecting perfectly fine in the other direction)." ();
+    ~doc:"WLB reported that the server refused it a connection (even though we're connecting perfectly fine in the other direction)." ();
   error Api_errors.wlb_xenserver_unknown_host []
-    ~doc:"The WLB server reported that its configured server name for this XenServer instance failed to resolve in DNS." ();
+    ~doc:"WLB reported that its configured server name for this server instance failed to resolve in DNS." ();
   error Api_errors.wlb_xenserver_timeout []
-    ~doc:"The WLB server reported that communication with XenServer timed out." ();
+    ~doc:"WLB reported that communication with the server timed out." ();
   error Api_errors.wlb_xenserver_authentication_failed []
-    ~doc:"The WLB server reported that XenServer rejected its configured authentication details." ();
+    ~doc:"WLB reported that the server rejected its configured authentication details." ();
   error Api_errors.wlb_xenserver_malformed_response []
-    ~doc:"The WLB server reported that XenServer said something to it that WLB wasn't expecting or didn't understand." ();
+    ~doc:"WLB reported that the server said something to it that WLB wasn't expecting or didn't understand." ();
   error Api_errors.wlb_internal_error []
-    ~doc:"The WLB server reported an internal error." ();
+    ~doc:"WLB reported an internal error." ();
   error Api_errors.wlb_connection_reset []
     ~doc:"The connection to the WLB server was reset." ();
   error Api_errors.wlb_url_invalid ["url"]
@@ -1127,7 +1130,7 @@ let _ =
   error Api_errors.patch_precheck_failed_out_of_space [ "patch"; "found_space"; "required_required"]
     ~doc:"The patch precheck stage failed: the server does not have enough space." ();
   error Api_errors.patch_precheck_tools_iso_mounted ["patch"]
-    ~doc:"XenServer Tools ISO must be ejected from all running VMs." ();
+    ~doc:"Tools ISO must be ejected from all running VMs." ();
 
   error Api_errors.cannot_find_oem_backup_partition []
     ~doc:"The backup partition to stream the updat to cannot be found" ();
@@ -3978,7 +3981,7 @@ let host_patch =
 
 let host_bugreport_upload = call
   ~name:"bugreport_upload"
-  ~doc:"Run xen-bugtool --yestoall and upload the output to Citrix support"
+  ~doc:"Run xen-bugtool --yestoall and upload the output to support"
   ~in_oss_since:None
   ~in_product_since:rel_rio
   ~params:[ Ref _host, "host", "The host on which to run xen-bugtool";
@@ -4011,6 +4014,32 @@ let host_license_apply = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let host_license_add = call
+  ~name:"license_add"
+  ~in_oss_since:None
+  ~lifecycle:[
+    Published, rel_indigo, "Functionality for parsing license files re-added";
+  ]
+  ~params:[Ref _host, "host", "The host to upload the license to";
+	   String, "contents", "The contents of the license file, base64 encoded"]
+  ~doc:"Apply a new license to a host"
+  ~errs: [Api_errors.license_processing_error]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let host_license_remove = call
+	~name:"license_remove"
+	~in_oss_since:None
+	~lifecycle:[
+		Published, rel_indigo, "";
+	]
+	~params:[
+		Ref _host, "host", "The host from which any license will be removed"
+	]
+	~doc:"Remove any license file from the specified host, and switch that host to the unlicensed edition"
+	~allowed_roles:_R_POOL_OP
+	()
+
 let host_create_params =
   [
     {param_type=String; param_name="uuid"; param_doc="unique identifier/object reference"; param_release=rio_release; param_default=None};
@@ -4022,7 +4051,7 @@ let host_create_params =
     {param_type=String; param_name="external_auth_service_name"; param_doc="name of external authentication service configured; empty if none configured"; param_release=george_release; param_default=Some(VString "")};
     {param_type=Map(String,String); param_name="external_auth_configuration"; param_doc="configuration specific to external authentication service"; param_release=george_release; param_default=Some(VMap [])};
     {param_type=Map(String,String); param_name="license_params"; param_doc="State of the current license"; param_release=midnight_ride_release; param_default=Some(VMap [])};
-    {param_type=String; param_name="edition"; param_doc="XenServer edition"; param_release=midnight_ride_release; param_default=Some(VString "")};
+    {param_type=String; param_name="edition"; param_doc="Product edition"; param_release=midnight_ride_release; param_default=Some(VString "")};
     {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
     {param_type=Ref _sr; param_name="local_cache_sr"; param_doc="The SR that is used as a local cache"; param_release=cowley_release; param_default=(Some (VRef (Ref.string_of Ref.null)))};
     {param_type=Map(String,String); param_name="chipset_info"; param_doc="Information about chipset features"; param_release=boston_release; param_default=Some(VMap [])};
@@ -4485,7 +4514,7 @@ let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_create; host_destroy; 
+      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_license_add; host_license_remove; host_create; host_destroy; 
 		  host_power_on;
 		 host_set_license_params;
 		 host_emergency_ha_disable;
@@ -4604,7 +4633,7 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VString "")) ~ty:String "external_auth_type" "type of external authentication service configured; empty if none configured.";
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VString "")) ~ty:String "external_auth_service_name" "name of external authentication service configured; empty if none configured.";
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "external_auth_configuration" "configuration specific to external authentication service";
-	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "XenServer edition";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "Product edition";
 	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
     field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
@@ -7666,13 +7695,13 @@ let vmpp =
       field ~lifecycle:vmpr_removed ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy" ~default_value:(Some (VEnum "snapshot"));
       field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
       field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule" ~default_value:(Some (VEnum "daily"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
       field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
       field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
       field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
       field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
       field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
+      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
       field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
       field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
       field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";

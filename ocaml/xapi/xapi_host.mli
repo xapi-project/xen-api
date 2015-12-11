@@ -245,7 +245,9 @@ val copy_license_to_db :
 	host:[ `host ] Ref.t ->
 	features:Features.feature list -> additional:(string * string) list -> unit
 
-val license_apply : __context:Context.t -> host:API.ref_host -> contents:string -> unit
+val license_add : __context:Context.t -> host:API.ref_host -> contents:string -> unit
+
+val license_remove : __context:Context.t -> host:API.ref_host -> unit
 
 (** Attempt to activate the given edition.
  *  In needed, the function automatically checks v6 licenses in and out

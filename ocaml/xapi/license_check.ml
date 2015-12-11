@@ -14,6 +14,10 @@
 module L = Debug.Make(struct let name="license" end)
 open Xstringext
 
+let never, _ =
+	let start_of_epoch = Unix.gmtime 0. in
+	Unix.mktime {start_of_epoch with Unix.tm_year = 130}
+
 let get_expiry_date ~__context ~host =
 	let license = Db.Host.get_license_params ~__context ~self:host in
 	if List.mem_assoc "expiry" license

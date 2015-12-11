@@ -659,7 +659,12 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	()
 
+let assert_pooling_licensed ~__context =
+	if (not (Pool_features.is_enabled ~__context Features.Pooling))
+	then raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
 let join_common ~__context ~master_address ~master_username ~master_password ~force =
+	assert_pooling_licensed ~__context;
 	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
 	(* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
 	a host that does not support pooling then an error will be thrown at this stage *)
@@ -846,6 +851,10 @@ let eject ~__context ~host =
 		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
 		Db.Host.destroy ~__context ~self:host;
 		Create_misc.create_pool_cpuinfo ~__context;
+
+		(* Update pool features, in case this host had a different license to the
+		 * rest of the pool. *)
+		Pool_features.update_pool_features ~__context;
 
 		(* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
 		begin try
@@ -1670,23 +1679,17 @@ let disable_local_storage_caching ~__context ~self =
 	else ()
 
 let get_license_state ~__context ~self =
+	let edition_to_int = List.map (fun (e, _, _, i) -> e, i) (V6client.get_editions "get_license_state") in
 	let hosts = Db.Host.get_all ~__context in
-	let pool_edition = Xapi_pool_license.get_lowest_edition ~__context ~hosts in
-	(* If any hosts are free edition then the pool is free edition with no expiry
-	 * date. If all hosts are licensed then the pool has that license, and the
-	 * earliest expiry date applies to the pool. *)
-	let pool_expiry_date =
-		match pool_edition with
-		| "free" -> "never"
-		| _ -> begin
-			match Xapi_pool_license.get_earliest_expiry_date ~__context ~hosts with
-			| None -> "never"
-			| Some date -> Date.to_string date
-		end
+	let pool_edition, expiry = Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int in
+	let pool_expiry =
+		match expiry with
+		| None -> "never"
+		| Some date -> if date = Date.of_float License_check.never then "never" else Date.to_string date
 	in
 	[
 		"edition", pool_edition;
-		"expiry", pool_expiry_date;
+		"expiry", pool_expiry;
 	]
 
 let apply_edition ~__context ~self ~edition =

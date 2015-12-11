@@ -51,7 +51,7 @@ let create_localhost ~__context info =
       Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname ~name_description:"" 
 	~hostname:info.hostname ~address:ip 
 	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
-	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
+	~license_params:[] ~edition:"" ~license_server:["address", "localhost"; "port", "27000"]
 	~local_cache_sr:Ref.null ~chipset_info:[]
     in ()		
 

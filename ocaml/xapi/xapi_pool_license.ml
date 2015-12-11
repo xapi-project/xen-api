@@ -13,6 +13,7 @@
  *)
 
 open Fun
+open Listext
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -25,25 +26,35 @@ let compare_dates (a: Date.iso8601 option) (b: Date.iso8601 option) =
 	| Some _, None -> -1
 	| Some a', Some b' -> compare a' b'
 
-(* Get the earliest expiry date of a list of hosts. *)
-let get_earliest_expiry_date ~__context ~hosts =
-	List.map (fun host -> License_check.get_expiry_date ~__context ~host) hosts
-		|> List.sort compare_dates
-		|> List.hd
-
-(* If any hosts are free edition, then the pool is free edition.
- * Otherwise, the pool has the same edition as the first host.
- * We assume that the pool won't contain a mixture of xendesktop and
- * per-socket licenses. *)
-let get_lowest_edition ~__context ~hosts =
-	let all_editions =
+let get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int =
+	let all_editions_with_expiry =
 		List.map
-			(fun host -> Db.Host.get_edition ~__context ~self:host)
-			hosts
+			(fun host ->
+				Db.Host.get_edition ~__context ~self:host,
+				License_check.get_expiry_date ~__context ~host
+			) hosts
 	in
-	if List.mem "free" all_editions
-	then "free"
-	else List.hd all_editions
+	let pool_edition, _ =
+		List.filter_map (fun (edition, _) ->
+			if List.mem_assoc edition edition_to_int then
+				Some (edition, List.assoc edition edition_to_int)
+			else
+				None
+		) all_editions_with_expiry
+			|> List.sort (fun a b -> compare (snd a) (snd b))
+			|> List.hd
+	in
+
+	(* Get the earliest expiry date of a list of hosts, given a pool edition.
+	 * Only the expiry dates of the hosts that match the edition are taken into account. *)
+	let pool_expiry =
+		List.filter_map
+			(fun (edition, expiry) -> if edition = pool_edition then Some expiry else None)
+			all_editions_with_expiry
+			|> List.sort compare_dates
+			|> List.hd
+	in
+	pool_edition, pool_expiry
 
 (* Separate this logic out from Xapi_pool.apply_edition for testing purposes. *)
 let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
