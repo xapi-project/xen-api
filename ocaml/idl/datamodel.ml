@@ -3358,6 +3358,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
 	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
 	~messages_default_allowed_roles ?(doc_tags=[])(* used in constructor, destructor and explicit obj msgs *)
+	?(msg_lifecycles = [])(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
 	() =
 	let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
 	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
@@ -3394,7 +3395,8 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	in
 	let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
 	{ name = name; description = descr; obj_lifecycle = lifecycle; messages = msgs; contents = contents;
-		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
+		doccomments = doccomments; msg_lifecycles = msg_lifecycles;
+		gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
 		persist = persist; gen_events = gen_events; obj_release = release;
 		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
 		obj_doc_tags = doc_tags;
@@ -7921,6 +7923,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
+    msg_lifecycles = [];
     messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
