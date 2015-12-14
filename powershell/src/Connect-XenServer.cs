@@ -187,7 +187,8 @@ namespace Citrix.XenServer.Commands
                 if (string.IsNullOrEmpty(OpaqueRef[i]))
                 {
                     session = new Session(Url[i]);
-                    session.login_with_password(connUser, connPassword);
+                    var apiVersionString = XenAPI.Helper.APIVersionString(session.APIVersion);
+                    session.login_with_password(connUser, connPassword, apiVersionString, "XenServerPSModule/" + apiVersionString);
                 }
                 else
                 {
