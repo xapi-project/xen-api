@@ -1240,8 +1240,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.clean_shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.clean_shutdown" ~op:`clean_shutdown
 				(fun () ->
-					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.clean_shutdown rpc session_id vm);
-					Xapi_vm_helpers.shutdown_delay ~__context ~vm
+					forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.clean_shutdown rpc session_id vm)
 				);
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
 			let message_body =
@@ -1269,8 +1268,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 								do_op_on ~__context ~local_fn:(Local.VM.hard_shutdown ~vm) ~host:suitable_host (fun session_id rpc -> Client.VM.hard_shutdown rpc session_id vm)
 							end
 						else
-							forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm);
-					Xapi_vm_helpers.shutdown_delay ~__context ~vm
+							forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.shutdown rpc session_id vm)
 				);
 			update_vbd_operations ~__context ~vm;
 			update_vif_operations ~__context ~vm;
@@ -1349,8 +1347,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						else
 							(* if we're nt suspended then just forward to host that has vm running on it: *)
 							forward_vm_op ~vm in
-					policy ~local_fn ~__context (fun session_id rpc -> Client.VM.hard_shutdown rpc session_id vm);
-					Xapi_vm_helpers.shutdown_delay ~__context ~vm
+					policy ~local_fn ~__context (fun session_id rpc -> Client.VM.hard_shutdown rpc session_id vm)
 				);
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
 			let message_body =

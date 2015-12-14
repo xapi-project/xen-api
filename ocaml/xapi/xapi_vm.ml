@@ -255,7 +255,8 @@ let hard_shutdown ~__context ~vm =
 		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
 		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
 	end else
-	Xapi_xenops.shutdown ~__context ~self:vm None
+	Xapi_xenops.shutdown ~__context ~self:vm None;
+	Xapi_vm_helpers.shutdown_delay ~__context ~vm
 
 let clean_reboot ~__context ~vm =
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
@@ -264,7 +265,8 @@ let clean_reboot ~__context ~vm =
 let clean_shutdown_with_timeout ~__context ~vm timeout =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 	debug "Setting ha_always_run on vm=%s as false during VM.clean_shutdown" (Ref.string_of vm);
-	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout)
+	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout);
+	Xapi_vm_helpers.shutdown_delay ~__context ~vm
 
 let clean_shutdown ~__context ~vm =
 	clean_shutdown_with_timeout ~__context ~vm !Xapi_globs.domain_shutdown_total_timeout
