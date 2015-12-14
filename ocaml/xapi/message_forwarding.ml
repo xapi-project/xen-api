@@ -1116,7 +1116,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 										let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 											(fun session_id rpc ->
 												Client.VM.start rpc session_id vm start_paused force) in
-										Xapi_vm_helpers.start_delay ~__context ~vm;
 										host
 									))) in
 			update_vbd_operations ~__context ~vm;
