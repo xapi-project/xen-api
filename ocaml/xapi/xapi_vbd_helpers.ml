@@ -116,6 +116,17 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 	  let bad_ops' = if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops in
       set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] bad_ops');
 
+  (* VBD plug/unplug must fail for current_operations
+   * like [clean_shutdown; hard_shutdown; suspend; pause] on VM *)
+  let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
+  List.iter (fun (task,op) ->
+    if List.mem op [ `clean_shutdown; `hard_shutdown; `suspend; `pause ] then begin
+      let current_op_str = "Current operation on VM:" ^ (Ref.string_of vm) ^ " is "
+        ^ (Record_util.vm_operation_to_string op) in
+      set_errors Api_errors.operation_not_allowed [ current_op_str ] [ `plug; `unplug ]
+    end
+  ) vm_current_ops;
+
   (* HVM guests only support plug/unplug IF they have PV drivers *)
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
