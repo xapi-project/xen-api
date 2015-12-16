@@ -191,7 +191,7 @@ let create_vm id =
 		on_reboot = [ Vm.Start ];
 		pci_msitranslate = true;
 		pci_power_mgmt = false;
-		auto_update_drivers = false;
+		has_vendor_device = false;
 	}
 
 let sl x = Printf.sprintf "[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) x))
@@ -214,7 +214,7 @@ let vm_assert_equal vm vm' =
 	assert_equal ~msg:"on_crash" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.on_crash vm'.on_crash;
 	assert_equal ~msg:"on_shutdown" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.on_shutdown vm'.on_shutdown;
 	assert_equal ~msg:"on_reboot" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.on_reboot vm'.on_reboot;
-	assert_equal ~msg:"auto_update_drivers" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.auto_update_drivers vm'.auto_update_drivers;
+	assert_equal ~msg:"has_vendor_device" ~printer:(fun x -> String.concat ", " (List.map (fun x -> x |> Vm.rpc_of_action |> Jsonrpc.to_string) x)) vm.has_vendor_device vm'.has_vendor_device;
 	let is_hvm vm = match vm.ty with
 		| HVM _ -> true | PV _ -> false in
 	assert_equal ~msg:"HVM-ness" ~printer:string_of_bool (is_hvm vm) (is_hvm vm');
