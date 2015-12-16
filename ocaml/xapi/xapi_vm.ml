@@ -211,11 +211,14 @@ let start ~__context ~vm ~start_paused ~force =
 
 	(* If the VM has any vGPUs, gpumon must remain stopped until the
 	 * VM has started. *)
-	match vmr.API.vM_VGPUs with
-	| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
-	| _ ->
-		Xapi_gpumon.with_gpumon_stopped
-			~f:(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
+	begin
+		match vmr.API.vM_VGPUs with
+		| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
+		| _ ->
+			Xapi_gpumon.with_gpumon_stopped
+				~f:(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
+	end;
+	Xapi_vm_helpers.start_delay ~__context ~vm
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
@@ -252,7 +255,8 @@ let hard_shutdown ~__context ~vm =
 		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
 		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
 	end else
-	Xapi_xenops.shutdown ~__context ~self:vm None
+	Xapi_xenops.shutdown ~__context ~self:vm None;
+	Xapi_vm_helpers.shutdown_delay ~__context ~vm
 
 let clean_reboot ~__context ~vm =
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
@@ -261,7 +265,8 @@ let clean_reboot ~__context ~vm =
 let clean_shutdown_with_timeout ~__context ~vm timeout =
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 	debug "Setting ha_always_run on vm=%s as false during VM.clean_shutdown" (Ref.string_of vm);
-	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout)
+	Xapi_xenops.shutdown ~__context ~self:vm (Some timeout);
+	Xapi_vm_helpers.shutdown_delay ~__context ~vm
 
 let clean_shutdown ~__context ~vm =
 	clean_shutdown_with_timeout ~__context ~vm !Xapi_globs.domain_shutdown_total_timeout
