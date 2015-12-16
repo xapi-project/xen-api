@@ -1619,7 +1619,6 @@ let vm_create printer rpc session_id params =
 		~version:0L
 		~generation_id:""
 		~hardware_platform_version:0L
-		~auto_update_drivers:false
 		~has_vendor_device:false
 	in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
