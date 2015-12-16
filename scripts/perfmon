@@ -1154,8 +1154,8 @@ def main():
         # trust GC to do it on its own
         gc.collect()
 
-        # Sleep for interval +/- dither, exiting early if we recv a cmd
-        timeout = rand(interval - dither, interval + dither)
+        # Sleep for interval + dither, exiting early if we recv a cmd
+        timeout = rand(interval, interval + dither)
         cmdsock.settimeout(timeout)
         try:
             cmd = cmdsock.recv(cmdmaxlen)
