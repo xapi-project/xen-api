@@ -62,6 +62,14 @@ Library xcp_memory
   Modules:            Memory_interface, Memory_client
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
+Library xapi_v6
+  CompiledObject:     best
+  Path:               v6
+  Findlibname:        v6
+  Findlibparent:      xcp
+  Modules:            V6_interface, V6_client
+  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+
 Executable channel_helper
   CompiledObject:     best
   Path:               lib
