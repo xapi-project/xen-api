@@ -210,7 +210,7 @@ let host_license_of_r host_r editions =
   in
   let edition = host_r.API.host_edition in
   let edition_short = List.hd
-      (List.filter_map (fun (a, _, b, _) -> if a = edition then Some b else None) editions) in
+      (List.filter_map (fun (a, (_, b, _)) -> if a = edition then Some b else None) editions) in
   {
     hostname = host_r.API.host_hostname;
     uuid = host_r.API.host_uuid;
@@ -223,7 +223,7 @@ let host_license_of_r host_r editions =
 let diagnostic_license_status printer rpc session_id params =
   let hosts = Client.Host.get_all_records rpc session_id in
   let heading = [ "Hostname"; "UUID"; "Features"; "Code"; "Free"; "Expiry"; "Days left" ] in
-  let editions = V6client.get_editions "diagnostic_license_status" in
+  let editions = V6_client.get_editions "diagnostic_license_status" in
 
   let valid, invalid = List.partition (fun (_, host_r) -> try ignore(host_license_of_r host_r editions); true with _ -> false) hosts in
   let host_licenses = List.map (fun (_, host_r) -> host_license_of_r host_r editions) valid in
@@ -3138,8 +3138,8 @@ let with_license_server_changes printer rpc session_id params hosts f =
     end
   | Api_errors.Server_error (name, args) as e
     when name = Api_errors.invalid_edition ->
-    let editions = (V6client.get_editions "host_apply_edition")
-                   |> List.map (fun (x, _, _, _) -> x)
+    let editions = (V6_client.get_editions "host_apply_edition")
+                   |> List.map (fun (x, _) -> x)
                    |> String.concat ", "
     in
     printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
@@ -3157,7 +3157,7 @@ let host_apply_edition printer rpc session_id params =
     (fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition false)
 
 let host_all_editions printer rpc session_id params =
-  let editions = List.map (fun (e, _, _, _) -> e) (V6client.get_editions "host_all_editions") in
+  let editions = List.map (fun (e, _) -> e) (V6_client.get_editions "host_all_editions") in
   printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =

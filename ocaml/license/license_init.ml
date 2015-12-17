@@ -16,8 +16,8 @@ module D = Debug.Make(struct let name="license" end)
 open D
 
 (* Dependency injection for unit tests *)
-module type V6clientS = module type of V6client
-let v6client = ref (module V6client : V6clientS)
+module type V6clientS = module type of V6_client
+let v6client = ref (module V6_client : V6clientS)
 
 let fst4 (e,_,_,_) = e
 and lst4 (_,_,_,i) = i
@@ -33,7 +33,7 @@ let find_min_edition allowed_editions =
 
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
-  let module V6client = (val !v6client : V6clientS) in
+  let module V6_client = (val !v6client : V6clientS) in
 
   let set_licensing edition features additional =
     debug "Setting license to %s" edition;

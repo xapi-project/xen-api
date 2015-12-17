@@ -1314,10 +1314,34 @@ let set_license_params ~__context ~self ~value =
   Pool_features.update_pool_features ~__context
 
 let apply_edition_internal  ~__context ~host ~edition ~additional =
-  let edition', features, additional =
-    V6client.apply_edition ~__context edition additional
+  (* Get localhost's current license state. *)
+  let license_server = Db.Host.get_license_server ~__context ~self:host in
+  let current_edition = Db.Host.get_edition ~__context ~self:host in
+  let current_license_params = Db.Host.get_license_params ~__context ~self:host in
+  (* Make sure the socket count in license_params is correct.
+     	 * At first boot, the key won't exist, and it may be wrong if we've restored
+     	 * a database dump from a different host. *)
+  let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+  let socket_count = List.assoc "socket_count" cpu_info in
+  let current_license_params =
+    List.replace_assoc "sockets" socket_count current_license_params in
+  (* Construct the RPC params to be sent to v6d *)
+  let params =
+    ("current_edition", current_edition) ::
+     license_server @ current_license_params @ additional in
+  let edition', features', additional =
+    let open V6_interface in
+    let dbg = Context.string_of_task __context in
+    try
+      V6_client.apply_edition dbg edition params
+    with
+    | Invalid_edition e -> raise Api_errors.(Server_error(invalid_edition, [e]))
+    | License_processing_error -> raise Api_errors.(Server_error(license_processing_error, []))
+    | Missing_connection_details -> raise Api_errors.(Server_error(missing_connection_details, []))
+    | License_checkout_error s -> raise Api_errors.(Server_error(license_checkout_error, [s]))
   in
   Db.Host.set_edition ~__context ~self:host ~value:edition';
+  let features = Features.of_assoc_list features' in
   copy_license_to_db ~__context ~host ~features ~additional
 
 let apply_edition ~__context ~host ~edition ~force =
