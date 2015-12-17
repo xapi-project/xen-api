@@ -834,8 +834,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
-			raise (Api_errors.Server_error(Api_errors.not_implemented, [
-				"VIF mapping is not supported for intra-pool migration"]))
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
+				"VIF mapping is not allowed for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
