@@ -51,6 +51,7 @@ let rel_clearwater_felton = "clearwater-felton"
 let rel_clearwater_whetstone = "clearwater-whetstone"
 let rel_creedence = "creedence"
 let rel_cream = "cream"
+let rel_indigo = "indigo"
 let rel_dundee = "dundee"
 
 let release_order =
@@ -71,6 +72,7 @@ let release_order =
 	; rel_clearwater_whetstone
 	; rel_creedence
 	; rel_cream
+	; rel_indigo
 	; rel_dundee
 	]
 

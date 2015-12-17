@@ -571,7 +571,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	Db.Host_metrics.create ~__context ~ref
 	  ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
 	  ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
-  let name_description = "Default install of XenServer"
+  let name_description = "Default install"
   and host = Ref.make () in
 
   let metrics = Ref.make () in
@@ -655,7 +655,8 @@ let destroy ~__context ~self =
 
   Db.Host.destroy ~__context ~self;
   Create_misc.create_pool_cpuinfo ~__context;
-  List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains
+  List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains;
+  Pool_features.update_pool_features ~__context
 
 let declare_dead ~__context ~host =
 	precheck_destroy_declare_dead ~__context ~self:host "declare_dead";
@@ -1299,8 +1300,38 @@ let apply_edition ~__context ~host ~edition ~force =
 		let additional = if force then ["force", "true"] else [] in
 		apply_edition_internal ~__context ~host ~edition ~additional
 
-let license_apply ~__context ~host ~contents =
-	raise (Api_errors.Server_error (Api_errors.message_removed, []))
+let license_add ~__context ~host ~contents =
+	let license =
+		try
+			Base64.decode contents
+		with _ ->
+			error "Base64 decoding of supplied license has failed";
+			raise Api_errors.(Server_error(license_processing_error, []))
+	in
+	let tmp = "/tmp/new_license" in
+	finally
+		(fun () ->
+			begin try
+				Unixext.write_string_to_file tmp license
+			with _ ->
+				let s = "Failed to write temporary file." in
+				raise Api_errors.(Server_error(internal_error, [s]))
+			end;
+			let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
+			Db.Host.set_edition ~__context ~self:host ~value:edition';
+			copy_license_to_db ~__context ~host ~features ~additional
+		)
+		(fun () ->
+			(* The license will have been moved to a standard location if it was valid, and
+			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
+			Unixext.unlink_safe tmp
+		)
+
+let license_remove ~__context ~host =
+	let edition', features, additional =
+		V6client.apply_edition ~__context "" ["license_file", ""] in
+	Db.Host.set_edition ~__context ~self:host ~value:edition';
+	copy_license_to_db ~__context ~host ~features ~additional
 
 (* Supplemental packs *)
 

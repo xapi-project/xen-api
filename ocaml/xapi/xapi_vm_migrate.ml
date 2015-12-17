@@ -127,6 +127,8 @@ let migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_v
 	migrate_with_retries ~__context queue_name 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
 let pool_migrate ~__context ~vm ~host ~options =
+	if (not (Pool_features.is_enabled ~__context Features.Xen_motion)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 	let dbg = Context.string_of_task __context in
 	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in

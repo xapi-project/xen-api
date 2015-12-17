@@ -16,6 +16,9 @@
  * @group Licensing
  *)
 
+(** The expiry date that is considered to be "never". *)
+val never : float
+
 (** Returns (Some date) if the host's license has an expiry date,
  *  otherwise returns None. *)
 val get_expiry_date : __context:Context.t -> host:API.ref_host -> Date.iso8601 option
