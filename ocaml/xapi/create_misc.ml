@@ -450,7 +450,7 @@ let create_host_cpu ~__context =
 			let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
 			let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
 			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
+				ignore (XenAPI.Message.create rpc session_id name priority `Host obj_uuid body)
 			)
 	end;
 	
