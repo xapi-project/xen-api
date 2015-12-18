@@ -1,3 +1,6 @@
+0.9.11 (18-Dec-2015)
+* Update to latest XenAPI from xen-api.git#098c548
+
 0.9.10 (27-Oct-2015)
 * use non-blocking Async print functions
 
