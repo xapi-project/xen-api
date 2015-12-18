@@ -2438,12 +2438,12 @@ let vm_call_plugin = call
 	~allowed_roles:_R_VM_OP
 	()
 
-let vm_set_auto_update_drivers = call
-	~name:"set_auto_update_drivers"
+let vm_set_has_vendor_device = call
+	~name:"set_has_vendor_device"
 	~in_product_since:rel_dundee
-	~doc:"Enable or disable PV auto update on Windows vm"
-	~params:[Ref _vm, "self", "The vm to set auto update drivers";
-			 Bool, "value", "True if the Windows Update feature is enabled on the VM; false otherwise"]
+	~doc:"Controls whether, when the VM starts in HVM mode, its virtual hardware will include the emulated PCI device for which drivers may be available through Windows Update. Usually this should never be changed on a VM on which Windows has been installed: changing it on such a VM is likely to lead to a crash on next start."
+	~params:[Ref _vm, "self", "The VM on which to set this flag";
+			 Bool, "value", "True to provide the vendor PCI device."]
 	~allowed_roles:_R_VM_OP
 	~doc_tags:[Windows]
 	()
@@ -7218,7 +7218,7 @@ let vm =
 		vm_set_appliance;
 		vm_query_services;
 		vm_call_plugin;
-		vm_set_auto_update_drivers;
+		vm_set_has_vendor_device;
 		vm_import;
 		]
       ~contents:
@@ -7296,8 +7296,7 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool false)) ~ty:Bool "auto_update_drivers" "Does nothing at present. To be removed before Dundee release, once other code no longer refers to it.";
-	field ~qualifier:RW ~lifecycle:[Prototyped, rel_dundee, "Initial definition of field so other code can refer to it."] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "Does nothing at present. Intended to replace auto_update_drivers to control the presence of the C000 PCI device.";
+	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "Does nothing at present; will control the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update drivers for XenServer.";
     ])
 	()
 
