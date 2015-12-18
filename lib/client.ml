@@ -342,6 +342,28 @@ module ClientF = functor(X : IO) ->struct
         let self = rpc_of_ref_pool self in
         
         rpc_wrapper rpc "Async.pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let has_extension ~rpc ~session_id ~self ~name =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        let name = rpc_of_string name in
+        
+        rpc_wrapper rpc "Async.pool.has_extension" [ session_id; self; name ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let add_to_guest_agent_config ~rpc ~session_id ~self ~key ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        let key = rpc_of_string key in
+        let value = rpc_of_string value in
+        
+        rpc_wrapper rpc "Async.pool.add_to_guest_agent_config" [ session_id; self; key; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let remove_from_guest_agent_config ~rpc ~session_id ~self ~key =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        let key = rpc_of_string key in
+        
+        rpc_wrapper rpc "Async.pool.remove_from_guest_agent_config" [ session_id; self; key ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module Pool_patch = struct
       (**  *)
@@ -392,7 +414,7 @@ module ClientF = functor(X : IO) ->struct
     end
     module VM = struct
       (**  *)
-      let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version =
+      let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version ~has_vendor_device =
         let session_id = rpc_of_ref_session session_id in
         let name_label = rpc_of_string name_label in
         let name_description = rpc_of_string name_description in
@@ -438,7 +460,8 @@ module ClientF = functor(X : IO) ->struct
         let version = rpc_of_int64 version in
         let generation_id = rpc_of_string generation_id in
         let hardware_platform_version = rpc_of_int64 hardware_platform_version in
-        let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version] in
+        let has_vendor_device = rpc_of_bool has_vendor_device in
+        let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version; "has_vendor_device", has_vendor_device] in
         rpc_wrapper rpc "Async.VM.create" [ session_id; args ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let destroy ~rpc ~session_id ~self =
@@ -891,19 +914,12 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.VM.call_plugin" [ session_id; vm; plugin; fn; args ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let set_auto_update_drivers ~rpc ~session_id ~self ~value =
+      let set_has_vendor_device ~rpc ~session_id ~self ~value =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_VM self in
         let value = rpc_of_bool value in
         
-        rpc_wrapper rpc "Async.VM.set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
-      let assert_can_set_auto_update_drivers ~rpc ~session_id ~self ~value =
-        let session_id = rpc_of_ref_session session_id in
-        let self = rpc_of_ref_VM self in
-        let value = rpc_of_bool value in
-        
-        rpc_wrapper rpc "Async.VM.assert_can_set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.VM.set_has_vendor_device" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let import ~rpc ~session_id ~url ~sr ~full_restore ~force =
         let session_id = rpc_of_ref_session session_id in
@@ -913,12 +929,6 @@ module ClientF = functor(X : IO) ->struct
         let force = rpc_of_bool force in
         
         rpc_wrapper rpc "Async.VM.import" [ session_id; url; sr; full_restore; force ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
-      let xenprep_start ~rpc ~session_id ~self =
-        let session_id = rpc_of_ref_session session_id in
-        let self = rpc_of_ref_VM self in
-        
-        rpc_wrapper rpc "Async.VM.xenprep_start" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
@@ -968,6 +978,7 @@ module ClientF = functor(X : IO) ->struct
         ~version:value.vM_version
         ~generation_id:value.vM_generation_id
         ~hardware_platform_version:value.vM_hardware_platform_version
+        ~has_vendor_device:value.vM_has_vendor_device
     end
     module VM_metrics = struct
     end
@@ -1167,6 +1178,19 @@ module ClientF = functor(X : IO) ->struct
         let contents = rpc_of_string contents in
         
         rpc_wrapper rpc "Async.host.license_apply" [ session_id; host; contents ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let license_add ~rpc ~session_id ~host ~contents =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        let contents = rpc_of_string contents in
+        
+        rpc_wrapper rpc "Async.host.license_add" [ session_id; host; contents ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let license_remove ~rpc ~session_id ~host =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        
+        rpc_wrapper rpc "Async.host.license_remove" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info =
         let session_id = rpc_of_ref_session session_id in
@@ -1501,6 +1525,12 @@ module ClientF = functor(X : IO) ->struct
         let value = rpc_of_bool value in
         
         rpc_wrapper rpc "Async.host.set_ssl_legacy" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let apply_guest_agent_config ~rpc ~session_id ~host =
+        let session_id = rpc_of_ref_session session_id in
+        let host = rpc_of_ref_host host in
+        
+        rpc_wrapper rpc "Async.host.apply_guest_agent_config" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module Host_crashdump = struct
       (**  *)
@@ -2048,6 +2078,16 @@ module ClientF = functor(X : IO) ->struct
         let sr = rpc_of_ref_SR sr in
         
         rpc_wrapper rpc "Async.SR.disable_database_replication" [ session_id; sr ] >>= fun x -> return (ref_task_of_rpc  x)
+    end
+    module LVHD = struct
+      (**  *)
+      let enable_thin_provisioning ~rpc ~session_id ~sR ~initial_allocation ~allocation_quantum =
+        let session_id = rpc_of_ref_session session_id in
+        let sR = rpc_of_ref_SR sR in
+        let initial_allocation = rpc_of_int64 initial_allocation in
+        let allocation_quantum = rpc_of_int64 allocation_quantum in
+        
+        rpc_wrapper rpc "Async.LVHD.enable_thin_provisioning" [ session_id; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module VDI = struct
       (**  *)
@@ -3455,6 +3495,18 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.get_current_operations" [ session_id; self ] >>= fun x -> return (string_to_pool_allowed_operations_map_of_rpc  x)
     (**  *)
+    let get_guest_agent_config ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_guest_agent_config" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
+    let get_cpu_info ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_cpu_info" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_pool self in
@@ -3932,6 +3984,28 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
+    let has_extension ~rpc ~session_id ~self ~name =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let name = rpc_of_string name in
+      
+      rpc_wrapper rpc "pool.has_extension" [ session_id; self; name ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let add_to_guest_agent_config ~rpc ~session_id ~self ~key ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let key = rpc_of_string key in
+      let value = rpc_of_string value in
+      
+      rpc_wrapper rpc "pool.add_to_guest_agent_config" [ session_id; self; key; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let remove_from_guest_agent_config ~rpc ~session_id ~self ~key =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let key = rpc_of_string key in
+      
+      rpc_wrapper rpc "pool.remove_from_guest_agent_config" [ session_id; self; key ] >>= fun x -> return (ignore x)
+    (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
       
@@ -4119,7 +4193,7 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.get_by_uuid" [ session_id; uuid ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
-    let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version =
+    let create ~rpc ~session_id ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id ~hardware_platform_version ~has_vendor_device =
       let session_id = rpc_of_ref_session session_id in
       let name_label = rpc_of_string name_label in
       let name_description = rpc_of_string name_description in
@@ -4165,7 +4239,8 @@ module ClientF = functor(X : IO) ->struct
       let version = rpc_of_int64 version in
       let generation_id = rpc_of_string generation_id in
       let hardware_platform_version = rpc_of_int64 hardware_platform_version in
-      let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version] in
+      let has_vendor_device = rpc_of_bool has_vendor_device in
+      let args = Dict [ "name_label", name_label; "name_description", name_description; "user_version", user_version; "is_a_template", is_a_template; "affinity", affinity; "memory_target", memory_target; "memory_static_max", memory_static_max; "memory_dynamic_max", memory_dynamic_max; "memory_dynamic_min", memory_dynamic_min; "memory_static_min", memory_static_min; "VCPUs_params", vCPUs_params; "VCPUs_max", vCPUs_max; "VCPUs_at_startup", vCPUs_at_startup; "actions_after_shutdown", actions_after_shutdown; "actions_after_reboot", actions_after_reboot; "actions_after_crash", actions_after_crash; "PV_bootloader", pV_bootloader; "PV_kernel", pV_kernel; "PV_ramdisk", pV_ramdisk; "PV_args", pV_args; "PV_bootloader_args", pV_bootloader_args; "PV_legacy_args", pV_legacy_args; "HVM_boot_policy", hVM_boot_policy; "HVM_boot_params", hVM_boot_params; "HVM_shadow_multiplier", hVM_shadow_multiplier; "platform", platform; "PCI_bus", pCI_bus; "other_config", other_config; "recommendations", recommendations; "xenstore_data", xenstore_data; "ha_always_run", ha_always_run; "ha_restart_priority", ha_restart_priority; "tags", tags; "blocked_operations", blocked_operations; "protection_policy", protection_policy; "is_snapshot_from_vmpp", is_snapshot_from_vmpp; "appliance", appliance; "start_delay", start_delay; "shutdown_delay", shutdown_delay; "order", order; "suspend_SR", suspend_SR; "version", version; "generation_id", generation_id; "hardware_platform_version", hardware_platform_version; "has_vendor_device", has_vendor_device] in
       rpc_wrapper rpc "VM.create" [ session_id; args ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
     let destroy ~rpc ~session_id ~self =
@@ -4636,11 +4711,11 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.get_hardware_platform_version" [ session_id; self ] >>= fun x -> return (int64_of_rpc  x)
     (**  *)
-    let get_auto_update_drivers ~rpc ~session_id ~self =
+    let get_has_vendor_device ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM self in
       
-      rpc_wrapper rpc "VM.get_auto_update_drivers" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+      rpc_wrapper rpc "VM.get_has_vendor_device" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -5487,19 +5562,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.call_plugin" [ session_id; vm; plugin; fn; args ] >>= fun x -> return (string_of_rpc  x)
     (**  *)
-    let set_auto_update_drivers ~rpc ~session_id ~self ~value =
+    let set_has_vendor_device ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM self in
       let value = rpc_of_bool value in
       
-      rpc_wrapper rpc "VM.set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ignore x)
-    (**  *)
-    let assert_can_set_auto_update_drivers ~rpc ~session_id ~self ~value =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM self in
-      let value = rpc_of_bool value in
-      
-      rpc_wrapper rpc "VM.assert_can_set_auto_update_drivers" [ session_id; self; value ] >>= fun x -> return (ignore x)
+      rpc_wrapper rpc "VM.set_has_vendor_device" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let import ~rpc ~session_id ~url ~sr ~full_restore ~force =
       let session_id = rpc_of_ref_session session_id in
@@ -5509,12 +5577,6 @@ module ClientF = functor(X : IO) ->struct
       let force = rpc_of_bool force in
       
       rpc_wrapper rpc "VM.import" [ session_id; url; sr; full_restore; force ] >>= fun x -> return (ref_VM_set_of_rpc  x)
-    (**  *)
-    let xenprep_start ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM self in
-      
-      rpc_wrapper rpc "VM.xenprep_start" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -5580,6 +5642,7 @@ module ClientF = functor(X : IO) ->struct
       ~version:value.vM_version
       ~generation_id:value.vM_generation_id
       ~hardware_platform_version:value.vM_hardware_platform_version
+      ~has_vendor_device:value.vM_has_vendor_device
   end
   module VM_metrics = struct
     (**  *)
@@ -7003,6 +7066,19 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.license_apply" [ session_id; host; contents ] >>= fun x -> return (ignore x)
     (**  *)
+    let license_add ~rpc ~session_id ~host ~contents =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      let contents = rpc_of_string contents in
+      
+      rpc_wrapper rpc "host.license_add" [ session_id; host; contents ] >>= fun x -> return (ignore x)
+    (**  *)
+    let license_remove ~rpc ~session_id ~host =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      
+      rpc_wrapper rpc "host.license_remove" [ session_id; host ] >>= fun x -> return (ignore x)
+    (**  *)
     let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info =
       let session_id = rpc_of_ref_session session_id in
       let uuid = rpc_of_string uuid in
@@ -7578,6 +7654,12 @@ module ClientF = functor(X : IO) ->struct
       let value = rpc_of_bool value in
       
       rpc_wrapper rpc "host.set_ssl_legacy" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let apply_guest_agent_config ~rpc ~session_id ~host =
+      let session_id = rpc_of_ref_session session_id in
+      let host = rpc_of_ref_host host in
+      
+      rpc_wrapper rpc "host.apply_guest_agent_config" [ session_id; host ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -9536,6 +9618,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "SM.get_driver_filename" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
     (**  *)
+    let get_required_cluster_stack ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_SM self in
+      
+      rpc_wrapper rpc "SM.get_required_cluster_stack" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_SM self in
@@ -9707,6 +9795,12 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_SR self in
       
       rpc_wrapper rpc "SR.get_introduced_by" [ session_id; self ] >>= fun x -> return (ref_DR_task_of_rpc  x)
+    (**  *)
+    let get_clustered ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_SR self in
+      
+      rpc_wrapper rpc "SR.get_clustered" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -9925,6 +10019,33 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "SR.disable_database_replication" [ session_id; sr ] >>= fun x -> return (ignore x)
     (**  *)
+    let get_data_sources ~rpc ~session_id ~sr =
+      let session_id = rpc_of_ref_session session_id in
+      let sr = rpc_of_ref_SR sr in
+      
+      rpc_wrapper rpc "SR.get_data_sources" [ session_id; sr ] >>= fun x -> return (data_source_t_set_of_rpc  x)
+    (**  *)
+    let record_data_source ~rpc ~session_id ~sr ~data_source =
+      let session_id = rpc_of_ref_session session_id in
+      let sr = rpc_of_ref_SR sr in
+      let data_source = rpc_of_string data_source in
+      
+      rpc_wrapper rpc "SR.record_data_source" [ session_id; sr; data_source ] >>= fun x -> return (ignore x)
+    (**  *)
+    let query_data_source ~rpc ~session_id ~sr ~data_source =
+      let session_id = rpc_of_ref_session session_id in
+      let sr = rpc_of_ref_SR sr in
+      let data_source = rpc_of_string data_source in
+      
+      rpc_wrapper rpc "SR.query_data_source" [ session_id; sr; data_source ] >>= fun x -> return (float_of_rpc  x)
+    (**  *)
+    let forget_data_source_archives ~rpc ~session_id ~sr ~data_source =
+      let session_id = rpc_of_ref_session session_id in
+      let sr = rpc_of_ref_SR sr in
+      let data_source = rpc_of_string data_source in
+      
+      rpc_wrapper rpc "SR.forget_data_source_archives" [ session_id; sr; data_source ] >>= fun x -> return (ignore x)
+    (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
       
@@ -9940,6 +10061,34 @@ module ClientF = functor(X : IO) ->struct
       let session_id = rpc_of_ref_session session_id in
       
       rpc_wrapper rpc "SR.get_all_records" [ session_id ] >>= fun x -> return (ref_SR_to_sR_t_map_of_rpc  x)
+  end
+  module LVHD = struct
+    (**  *)
+    let get_record ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_LVHD self in
+      
+      rpc_wrapper rpc "LVHD.get_record" [ session_id; self ] >>= fun x -> return (lVHD_t_of_rpc  x)
+    (**  *)
+    let get_by_uuid ~rpc ~session_id ~uuid =
+      let session_id = rpc_of_ref_session session_id in
+      let uuid = rpc_of_string uuid in
+      
+      rpc_wrapper rpc "LVHD.get_by_uuid" [ session_id; uuid ] >>= fun x -> return (ref_LVHD_of_rpc  x)
+    (**  *)
+    let get_uuid ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_LVHD self in
+      
+      rpc_wrapper rpc "LVHD.get_uuid" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let enable_thin_provisioning ~rpc ~session_id ~sR ~initial_allocation ~allocation_quantum =
+      let session_id = rpc_of_ref_session session_id in
+      let sR = rpc_of_ref_SR sR in
+      let initial_allocation = rpc_of_int64 initial_allocation in
+      let allocation_quantum = rpc_of_int64 allocation_quantum in
+      
+      rpc_wrapper rpc "LVHD.enable_thin_provisioning" [ session_id; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (ignore x)
   end
   module VDI = struct
     (**  *)
