@@ -202,8 +202,8 @@ let start ~__context ~vm ~start_paused ~force =
 	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
 	(try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
 
-	(* This makes sense here while the available versions are 0 and 1.
-	 * If/when we introduce version 2, we must reassess this. *)
+	(* This makes sense here while the available versions are 0, 1 and 2.
+	 * If/when we introduce another version, we must reassess this. *)
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
 	
 	(* Reset CPU feature set, which will be passed to xenopsd *)
@@ -370,7 +370,119 @@ let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	resume ~__context ~vm ~start_paused ~force
 
-let create = create (* Use the function from Xapi_vm_helpers *)
+
+let create ~__context ~name_label ~name_description
+		~user_version ~is_a_template
+		~affinity
+		~memory_target
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_dynamic_min
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_max ~vCPUs_at_startup
+		~actions_after_shutdown ~actions_after_reboot
+		~actions_after_crash
+		~pV_bootloader
+		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
+		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+		~platform
+		~pCI_bus ~other_config ~recommendations ~xenstore_data
+		~ha_always_run ~ha_restart_priority ~tags
+		~blocked_operations ~protection_policy
+		~is_snapshot_from_vmpp
+		~appliance
+		~start_delay
+		~shutdown_delay
+		~order
+		~suspend_SR
+		~version
+		~generation_id
+		~hardware_platform_version
+		~has_vendor_device
+		: API.ref_VM =
+
+	if has_vendor_device then
+		Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config
+	in
+	(* NB apart from the above, parameter validation is delayed until VM.start *)
+
+	let uuid = Uuid.make_uuid () in
+	let vm_ref = Ref.make () in
+	let resident_on = Ref.null in
+	let scheduled_to_be_resident_on = Ref.null in
+
+	let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let vCPUs_utilisation = [(0L, 0.)] in
+	Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+		~memory_actual:0L ~vCPUs_number:0L
+		~vCPUs_utilisation
+		~vCPUs_CPU:[]
+		~vCPUs_params:[]
+		~vCPUs_flags:[]
+		~state:[]
+		~start_time:Date.never
+		~install_time:Date.never
+		~last_updated:Date.never
+		~other_config:[];
+	Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
+		~power_state:(`Halted) ~allowed_operations:[]
+		~current_operations:[]
+		~blocked_operations:[]
+		~name_label ~name_description
+		~user_version ~is_a_template
+		~transportable_snapshot_id:""
+		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+		~parent:Ref.null
+		~snapshot_info:[] ~snapshot_metadata:""
+		~resident_on ~scheduled_to_be_resident_on ~affinity
+		~memory_overhead:0L
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_target
+		~memory_dynamic_min
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_at_startup ~vCPUs_max
+		~actions_after_shutdown ~actions_after_reboot
+		~actions_after_crash
+		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+		~suspend_VDI:Ref.null
+		~platform
+		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
+		~pV_legacy_args
+		~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
+		~last_boot_CPU_flags:[]
+		~is_control_domain:false
+		~metrics ~guest_metrics:Ref.null
+		~last_booted_record:"" ~xenstore_data ~recommendations
+		~blobs:[]
+		~ha_restart_priority
+		~ha_always_run ~tags
+		~bios_strings:[]
+		~protection_policy:Ref.null
+		~is_snapshot_from_vmpp:false
+		~appliance
+		~start_delay
+		~shutdown_delay
+		~order
+		~suspend_SR
+		~version
+		~generation_id
+		~hardware_platform_version
+		~has_vendor_device
+		;
+	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
+	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
+	update_memory_overhead ~__context ~vm:vm_ref;
+	update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref;
+	vm_ref
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -985,5 +1097,5 @@ let assert_can_set_has_vendor_device ~__context ~self ~value =
 
 let set_has_vendor_device ~__context ~self ~value =
 	assert_can_set_has_vendor_device ~__context ~self ~value;
-	Db.VM.set_has_vendor_device ~__context ~self ~value
-
+	Db.VM.set_has_vendor_device ~__context ~self ~value;
+	update_vm_virtual_hardware_platform_version ~__context ~vm:self
