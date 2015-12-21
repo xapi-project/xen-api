@@ -2444,7 +2444,7 @@ let vm_set_has_vendor_device = call
 	~doc:"Controls whether, when the VM starts in HVM mode, its virtual hardware will include the emulated PCI device for which drivers may be available through Windows Update. Usually this should never be changed on a VM on which Windows has been installed: changing it on such a VM is likely to lead to a crash on next start."
 	~params:[Ref _vm, "self", "The VM on which to set this flag";
 			 Bool, "value", "True to provide the vendor PCI device."]
-	~allowed_roles:_R_VM_OP
+	~allowed_roles:_R_VM_ADMIN
 	~doc_tags:[Windows]
 	()
 
