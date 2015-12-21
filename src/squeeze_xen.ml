@@ -37,6 +37,7 @@ let _feature_balloon     = "/control/feature-balloon"     (* immutable *)
 let _data_updated        = "/data/updated"                (* mutable: written by guest agent *)
 let _memory_offset       = "/memory/memory-offset"        (* immutable *)
 let _uncooperative       = "/memory/uncooperative"        (* mutable: written by us *)
+let _domain_stuck        = "/memory/squeezed-declared-stuck"        (* mutable: written by us *)
 
 let _dynamic_min         = "/memory/dynamic-min"          (* mutable: written by domain manager *)
 let _dynamic_max         = "/memory/dynamic-max"          (* mutable: written by domain manager *)
@@ -103,6 +104,7 @@ module Domain = struct
 				  [ "memory";  "uncooperative" ];
 				  [ "memory";  "dynamic-min" ];
 				  [ "memory";  "dynamic-max" ];
+				  [ "memory";  "squeezed-declared-stuck" ];
 			  ] in
 			  let watches domid =
 				  List.map (fun p -> Printf.sprintf "/local/domain/%d/%s" domid (String.concat "/" p)) interesting_paths in
@@ -336,6 +338,12 @@ module Domain = struct
   let get_memory_offset cnx domid =
 	Int64.of_string (read cnx domid _memory_offset)
 
+  (** Mark a domain as stuck. Don't throw an exception if the domain has been destroyed *)
+  let set_domain_stuck_noexn cnx domid _val = write_noexn cnx domid _domain_stuck _val
+
+  (** Query to find if a domain is stuck. Don't throw an exception if the domain has been destroyed *)
+  let get_domain_stuck cnx domid = try ignore(read cnx domid _domain_stuck); true with Xs_protocol.Enoent _ -> false
+
   (** Set a domain's maxmem. Don't throw an exception if the domain has been destroyed *)
   let set_maxmem_noexn cnx domid target_kib = 
 	let maxmem_kib = xen_max_offset_kib (get_hvm cnx domid) +* target_kib in
@@ -360,8 +368,11 @@ module Domain = struct
 	Int64.of_string (read cnx domid _dynamic_max)
 end
 
-
-
+(** Mark the domain as squeezed declared stuck *)
+let declare_domain_stuck ~xc domid =
+	let cnx = xc in
+	Domain.set_domain_stuck_noexn cnx domid "true"
+	
 (** Record when the domain was last co-operative *)
 let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
 
@@ -449,6 +460,7 @@ let make_host ~verbose ~xc =
 					(* Misc other stuff appears in max_memory_pages *)
 					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest)) in
 					let can_balloon = Domain.get_feature_balloon cnx di.Xenctrl.domid in
+					let is_stuck = Domain.get_domain_stuck cnx di.Xenctrl.domid in
 					let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
 					let has_booted = can_balloon || has_guest_agent in
 					(* Once the domain tells us it has booted, we assume it's not currently ballooning and
@@ -482,6 +494,7 @@ let make_host ~verbose ~xc =
 					  { Squeeze.
 						domid = di.Xenctrl.domid;
 						can_balloon = can_balloon;
+						is_stuck = is_stuck;
 						dynamic_min_kib = 0L;
 						dynamic_max_kib = 0L;
 						target_kib = 0L;
@@ -605,6 +618,7 @@ let io ~xc ~verbose = {
   execute_action = (fun action -> execute_action ~xc action);
   target_host_free_mem_kib = target_host_free_mem_kib;
   free_memory_tolerance_kib = free_memory_tolerance_kib;
+  declare_domain_stuck = (fun domid -> declare_domain_stuck ~xc domid);
 }
 
 let change_host_free_memory ~xc required_mem_kib success_condition = 

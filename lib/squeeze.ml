@@ -60,6 +60,8 @@ type domain = {
 	domid: int;
 	(** true if the domain has ballooning capability i.e. is not paused etc. *)
 	can_balloon: bool;
+	(** true if the domain has been declared stuck by squeezed *)
+	is_stuck: bool;
 	(** admin-imposed lower-limit on the balloon target *)
 	dynamic_min_kib: int64;
 	(** current balloon target requested by the system *)
@@ -75,10 +77,11 @@ type domain = {
 }
 
 let domain_make
-	domid can_balloon dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib memory_max_kib inaccuracy_kib =
+	domid can_balloon is_stuck dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib memory_max_kib inaccuracy_kib =
 	{
 		domid = domid;
 		can_balloon = can_balloon;
+		is_stuck = is_stuck;
 		dynamic_min_kib = dynamic_min_kib;
 		target_kib = target_kib;
 		dynamic_max_kib = dynamic_max_kib;
@@ -92,6 +95,7 @@ let domain_to_string_pairs (x: domain) =
 	[
 		"domid", i x.domid;
 		"can_balloon", string_of_bool x.can_balloon;
+		"is_stuck", string_of_bool x.is_stuck;
 		"dynamic_min_kib", i64 x.dynamic_min_kib;
 		"target_kib", i64 x.target_kib;
 		"dynamic_max_kib", i64 x.dynamic_max_kib;
@@ -180,7 +184,7 @@ let has_hit_target inaccuracy_kib memory_actual_kib target_kib =
 let short_string_of_domain domain = 
   Printf.sprintf "%d T%Ld A%Ld M%Ld %s%s" domain.domid
     domain.target_kib domain.memory_actual_kib domain.memory_max_kib
-    (if domain.can_balloon then "B" else "?")
+    (if (domain.can_balloon && not domain.is_stuck) then "B" else if (domain.can_balloon && domain.is_stuck) then "X" else "?")
     (string_of_direction (direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib))
 
 (** Generic code to guesstimate if a balloon driver is stuck *)
@@ -226,7 +230,7 @@ module Stuckness_monitor = struct
 				 let makingprogress = (delta_actual > 0L && direction = Some Down) || (delta_actual < 0L && direction = Some Up) in
 				 (* We keep track of the last time we were makingprogress. If we are makingprogress now 
 					then we are not stuck. *)
-				 if makingprogress then begin
+				 if makingprogress && not state.stuck then begin
 				   state.last_makingprogress_time <- now;
 				   state.stuck <- false;
 				 end;
@@ -234,7 +238,10 @@ module Stuckness_monitor = struct
 					assume_balloon_driver_stuck_after then declare this domain stuck. *)
 				 let request = direction <> None in (* ie target <> actual *)
 				 if request && (now -. state.last_makingprogress_time > assume_balloon_driver_stuck_after)
-				 then state.stuck <- true;
+				 then begin 
+				 	debug "domain = %d is marked stuck" domain.domid;
+				 	state.stuck <- true;
+					end;
 			)
 			host.domains;
 		(* Clear out dead domains just in case someone keeps *)
@@ -338,7 +345,7 @@ module Squeezer = struct
 		Stuckness_monitor.update x.stuckness host now;
 		let active_domains = 
 		  List.filter (fun domain ->
-				 domain.can_balloon
+				 domain.can_balloon && not domain.is_stuck
 				 && (Stuckness_monitor.domid_is_active x.stuckness domain.domid now))
 			host.domains in
 		let non_active_domids = List.map (fun d -> d.domid) (set_difference host.domains active_domains) in
@@ -478,6 +485,7 @@ type io = {
 	execute_action: action -> unit;
 	wait: float -> unit;
 	gettimeofday: unit -> float;
+	declare_domain_stuck: int -> unit;
 	
 	target_host_free_mem_kib: int64;
 	free_memory_tolerance_kib: int64;
@@ -536,6 +544,8 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> short_string_of_domain domain ^ (new_target_direction domain)) host.domains)) in
     debug "%s" debug_string;
     
+    List.iter (io.declare_domain_stuck ) declared_inactive_domids;
+
 	(* For each domid, decide what maxmem should be *)
 	let maxmems = IntMap.mapi
 	  (fun domid domain ->
@@ -587,6 +597,7 @@ let free_memory_range ?fistpoints io min_kib max_kib =
   (* First compute the 'ideal' amount of free memory based on the proportional allocation policy *)
   let domain = { domid = -1;
 		 can_balloon = true;
+		 is_stuck = false;
 		 dynamic_min_kib = min_kib; dynamic_max_kib = max_kib;
 		 target_kib = min_kib;
 		 memory_actual_kib = 0L;
