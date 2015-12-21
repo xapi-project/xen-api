@@ -340,10 +340,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 	if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
-	let vdi_filter snapshot vbd =
+	let vdi_filter allow_mirror vbd =
 		if not(Db.VBD.get_empty ~__context ~self:vbd)
 		then
-			let do_mirror = (not snapshot) && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
+			let do_mirror = allow_mirror && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
 			let vm = Db.VBD.get_VM ~__context ~self:vbd in
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 			let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
@@ -369,7 +369,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				Some {vdi; dp; location; sr; xenops_locator; size; snapshot_of; do_mirror}
 			end
 		else None in
-	let vdis = List.filter_map (vdi_filter false) vbds in
+	let vdis = List.filter_map (vdi_filter true) vbds in
 
 	(* Assert that every VDI is specified in the VDI map *)
 	List.(iter (fun vconf ->
@@ -385,7 +385,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (Db.VDI.get_on_boot ~__context ~self:vdi ==`reset) then
 		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [Ref.string_of vdi]))) vdis) ;
 	
-	let snapshots_vdis = List.filter_map (vdi_filter true) snapshots_vbds in
+	let snapshots_vdis = List.filter_map (vdi_filter false) snapshots_vbds in
 	let suspends_vdis =
 		List.fold_left
 			(fun acc vm ->
