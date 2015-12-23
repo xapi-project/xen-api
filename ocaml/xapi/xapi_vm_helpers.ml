@@ -783,14 +783,16 @@ let vif_inclusive_range a b =
 (* These are high-watermark limits as documented in CA-6525. Individual guest types
    may be further restricted. *)
 
-let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 3
-let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 254
+(* HVM guests without PV drivers only support 4 VBD or VIF devices, where VMs with drivers follow
+ * the wider limits below. We used to make this distinction here when setting allowed_{VBD,VIF}_devices.
+ * However, detecting PV drivers at the right time is tricky, so we have simplified this to always
+ * allow the PV range. *)
+let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 254
 let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 254
 let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
 let allowed_VBD_devices_HVM_floppy     = List.map (fun x -> Device_number.make (Device_number.Floppy, x, 0)) (inclusive_range 0 1)
 
-let allowed_VIF_devices_HVM    = vif_inclusive_range 0 3
-let allowed_VIF_devices_HVM_PP = vif_inclusive_range 0 6
+let allowed_VIF_devices_HVM    = vif_inclusive_range 0 6
 let allowed_VIF_devices_PV     = vif_inclusive_range 0 6
 
 (** [possible_VBD_devices_of_string s] returns a list of Device_number.t which
@@ -815,18 +817,12 @@ let all_used_VBD_devices ~__context ~self =
 let allowed_VBD_devices ~__context ~vm ~_type =
 	let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
 	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-	let is_pp =
-		try
-			let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-			(Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self:guest_metrics) <> []
-		with _ -> false in
-	let all_devices = match is_hvm,is_pp,is_control_domain,_type with
-		| true, _, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
-		| false, _, _, `Floppy -> [] (* floppy is not supported on PV *)
-		| false, _, true, _    -> allowed_VBD_devices_control_domain
-		| false, _, false, _   -> allowed_VBD_devices_PV
-		| true, false, _, _    -> allowed_VBD_devices_HVM
-		| true, true, _, _     -> allowed_VBD_devices_HVM_PP
+	let all_devices = match is_hvm,is_control_domain,_type with
+		| true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
+		| false, _, `Floppy -> [] (* floppy is not supported on PV *)
+		| false, true, _    -> allowed_VBD_devices_control_domain
+		| false, false, _   -> allowed_VBD_devices_PV
+		| true, _, _        -> allowed_VBD_devices_HVM
 	in
 	(* Filter out those we've already got VBDs for *)
 	let used_devices = all_used_VBD_devices ~__context ~self:vm in
@@ -834,17 +830,7 @@ let allowed_VBD_devices ~__context ~vm ~_type =
 
 let allowed_VIF_devices ~__context ~vm =
 	let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
-	let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-	let is_pp =
-		try (Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self:guest_metrics) <> []
-		with _ -> false
-	in
-	let all_devices =
-		match is_hvm,is_pp with
-		| false,_ -> allowed_VIF_devices_PV
-		| true,false -> allowed_VIF_devices_HVM
-		| true,true -> allowed_VIF_devices_HVM_PP
-	in
+	let all_devices = if is_hvm then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
 	(* Filter out those we've already got VIFs for *)
 	let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
 	let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
