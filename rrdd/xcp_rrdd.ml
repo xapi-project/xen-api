@@ -145,6 +145,8 @@ let current_meminfofree_values = ref IntMap.empty
 let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
 
 module Meminfo = struct
+	let watch_token domid = Printf.sprintf "xcp-rrdd:domain-%d" domid
+	
 	let interesting_paths_for_domain domid uuid = [ meminfo_path domid ]
 
 	let fire_event_on_vm domid domains =
