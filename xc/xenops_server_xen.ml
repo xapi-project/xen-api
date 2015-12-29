@@ -2413,6 +2413,8 @@ module Actions = struct
 			sprintf "/vm/%s/rtc/timeoffset" uuid;
 		]
 
+	let watch_token domid = Printf.sprintf "xenopsd-xc:domain-%d" domid
+
 	let watches_of_device device =
 		let interesting_backend_keys = [
 			"kthread-pid";
@@ -2440,7 +2442,7 @@ module Actions = struct
 		device_watches := IntMap.add domid [] !device_watches
 
 	let domain_disappeared xc xs domid =
-		let token = Xenstore_watch.token_of_domain domid in
+		let token = watch_token domid in
 		List.iter (fun d ->
 			List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device d)
 		) (try IntMap.find domid !device_watches with Not_found -> []);
@@ -2455,7 +2457,7 @@ module Actions = struct
 		let open Device_common in
 		debug "Adding watches for: %s" (string_of_device device);
 		let domid = device.frontend.domid in
-		let token = Xenstore_watch.token_of_domain domid in
+		let token = watch_token domid in
 		List.iter (Xenstore_watch.watch ~xs token) (watches_of_device device);
 		device_watches := IntMap.add domid (device :: (IntMap.find domid !device_watches)) !device_watches
 
@@ -2464,7 +2466,7 @@ module Actions = struct
 		debug "Removing watches for: %s" (string_of_device device);
 		let domid = device.frontend.domid in
 		let current = IntMap.find domid !device_watches in
-		let token = Xenstore_watch.token_of_domain domid in
+		let token = watch_token domid in
 		List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device device);
 		device_watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !device_watches
 
