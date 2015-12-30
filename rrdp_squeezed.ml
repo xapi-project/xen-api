@@ -56,6 +56,8 @@ module MemoryActions = struct
 		let keys = ["dynamic-max"; "dynamic-min"; "target"] in
 		List.map (fun key -> Printf.sprintf "/local/domain/%d/memory/%s" domid key) keys
 
+	let watch_token domid = Printf.sprintf "xcp-rrdd-plugins/squeezed:domain-%d" domid
+
 	let watch_fired xc path domains watches =
 		D.debug "Watch fired on %s" path;
 		let read_new_value domid current_memory_values =
