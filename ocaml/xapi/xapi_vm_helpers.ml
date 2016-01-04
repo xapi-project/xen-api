@@ -784,6 +784,9 @@ let vif_inclusive_range a b =
    may be further restricted. *)
 
 let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 3
+(* HVM guest can have max 4 Disks. We are allowing HVM guest to have VBD with limits upto HVM
+ * guests having PV drivers installed. This is done in order to allow HVM linux guest to have 
+ * same range *)
 let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 254
 let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 254
 let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
@@ -815,18 +818,12 @@ let all_used_VBD_devices ~__context ~self =
 let allowed_VBD_devices ~__context ~vm ~_type =
 	let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
 	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-	let is_pp =
-		try
-			let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-			(Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self:guest_metrics) <> []
-		with _ -> false in
-	let all_devices = match is_hvm,is_pp,is_control_domain,_type with
-		| true, _, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
-		| false, _, _, `Floppy -> [] (* floppy is not supported on PV *)
-		| false, _, true, _    -> allowed_VBD_devices_control_domain
-		| false, _, false, _   -> allowed_VBD_devices_PV
-		| true, false, _, _    -> allowed_VBD_devices_HVM
-		| true, true, _, _     -> allowed_VBD_devices_HVM_PP
+	let all_devices = match is_hvm,is_control_domain,_type with
+		| true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
+		| false, _, `Floppy -> [] (* floppy is not supported on PV *)
+		| false, true, _    -> allowed_VBD_devices_control_domain
+		| false, false, _   -> allowed_VBD_devices_PV
+		| true, _, _        -> allowed_VBD_devices_HVM_PP
 	in
 	(* Filter out those we've already got VBDs for *)
 	let used_devices = all_used_VBD_devices ~__context ~self:vm in
