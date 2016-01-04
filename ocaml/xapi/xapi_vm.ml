@@ -1088,12 +1088,16 @@ let assert_can_set_has_vendor_device ~__context ~self ~value =
 	then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 
 	Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
-	let vm_gm = Db.VM.get_guest_metrics ~__context ~self in
-	let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
-	let storage_optimized = try Db.VM_guest_metrics.get_storage_paths_optimized ~__context ~self:vm_gm with _ -> false in
-	if storage_optimized || network_optimized
-	then
-		raise (Api_errors.Server_error(Api_errors.vm_pv_drivers_in_use, [ Ref.string_of self ]))
+
+	let old_val = Db.VM.get_has_vendor_device ~__context ~self in
+	if old_val <> value then (
+		let vm_gm = Db.VM.get_guest_metrics ~__context ~self in
+		let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
+		let storage_optimized = try Db.VM_guest_metrics.get_storage_paths_optimized ~__context ~self:vm_gm with _ -> false in
+		if storage_optimized || network_optimized
+		then
+			raise (Api_errors.Server_error(Api_errors.vm_pv_drivers_in_use, [ Ref.string_of self ]))
+	)
 
 let set_has_vendor_device ~__context ~self ~value =
 	assert_can_set_has_vendor_device ~__context ~self ~value;
