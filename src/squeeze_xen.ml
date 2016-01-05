@@ -111,6 +111,7 @@ module Domain = struct
 
 			  let module IntSet = Set.Make(struct type t = int let compare = compare end) in
 			  let watching_domids = ref IntSet.empty in
+			  let watch_token domid = Printf.sprintf "squeezed:domain-%d" domid in
 
 			  let look_for_different_domains () =
 				  let list_domains xc =
@@ -123,9 +124,9 @@ module Domain = struct
 						  debug "Adding watches for domid: %d" domid;
 						  List.iter (fun x ->
 							  try
-								  Client.immediate (get_client ()) (fun xs -> Client.watch xs x x)
+								  Client.immediate (get_client ()) (fun xs -> Client.watch xs x (watch_token domid))
 							  with e ->
-								  error "watch %s: %s" x (Printexc.to_string e)
+								  error "watch path=%s token=%s: %s" x (watch_token domid) (Printexc.to_string e)
 						  ) (watches domid);
 					  ) arrived;
 				  let gone = IntSet.diff !watching_domids existing in
@@ -134,9 +135,9 @@ module Domain = struct
 						  debug "Removing watches for domid: %d" domid;
 						  List.iter (fun x ->
 							  try
-								  Client.immediate (get_client ()) (fun xs -> Client.unwatch xs x x)
+								  Client.immediate (get_client ()) (fun xs -> Client.unwatch xs x (watch_token domid))
 							  with e ->
-								  error "unwatch %s: %s" x (Printexc.to_string e)
+								  error "unwatch path=%s token=%s: %s" x (watch_token domid) (Printexc.to_string e)
 						  ) (watches domid);
 					  ) gone;
 				  watching_domids := existing;
@@ -207,8 +208,8 @@ module Domain = struct
 				Client.immediate (get_client ())
 				(fun xs ->
 					Client.set_watch_callback (get_client ()) enqueue_watches;
-					Client.watch xs _introduceDomain "";
-					Client.watch xs _releaseDomain "";
+					Client.watch xs _introduceDomain "squeezed";
+					Client.watch xs _releaseDomain "squeezed";
 					dequeue_watches (process_one_watch xc xs)) in
 			while true do
 				finally
