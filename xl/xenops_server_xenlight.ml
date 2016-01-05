@@ -2255,8 +2255,11 @@ module VM = struct
 						xs.Xs.mkdir ent;
 						xs.Xs.setperms ent rwperm
 					)
-				) [ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ];
-
+				) (
+					let dev_kinds = [ "vbd"; "vif"; "vfb"; "vkb"; "vfs"; "pci" ] in
+					[ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ]
+					@ List.map (fun dev_kind -> "device/"^dev_kind) dev_kinds
+				);
 				(* Write extra VBD XS keys *)
 				List.iter (fun (vbd, devid, extra_backend_keys, backend_domid) ->
 					VBD.write_extra backend_domid domid devid extra_backend_keys;
