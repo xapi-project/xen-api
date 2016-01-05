@@ -3358,6 +3358,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
 	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
 	~messages_default_allowed_roles ?(doc_tags=[])(* used in constructor, destructor and explicit obj msgs *)
+	?(msg_lifecycles = [])(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
 	() =
 	let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
 	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
@@ -3394,7 +3395,8 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	in
 	let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
 	{ name = name; description = descr; obj_lifecycle = lifecycle; messages = msgs; contents = contents;
-		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
+		doccomments = doccomments; msg_lifecycles = msg_lifecycles;
+		gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
 		persist = persist; gen_events = gen_events; obj_release = release;
 		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
 		obj_doc_tags = doc_tags;
@@ -7159,7 +7161,18 @@ let vm_operations =
 let vm =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
       ~gen_events:true
-      ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
+      ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State.";
+        "create", "NOT RECOMMENDED! VM.clone or VM.copy (or VM.import) is a better choice in almost all situations. The standard way to obtain a new VM is to call VM.clone on a template VM, then call VM.provision on the new clone. Caution: if VM.create is used and then the new VM is attached to a virtual disc that has an operating system already installed, then there is no guarantee that the operating system will boot and run. Any software that calls VM.create on a future version of this API may fail or give unexpected results. For example this could happen if an additional parameter were added to VM.create. VM.create is intended only for use in the automatic creation of the system VM templates. It creates a new VM instance, and returns its handle.";
+      ]
+      ~lifecycle:[
+        Published, rel_rio, "";
+      ]
+      ~msg_lifecycles:[
+		  ("create", [
+			  Published, rel_rio, "";
+			  Deprecated, rel_dundee, "Use VM.clone, copy or import instead: see description for details.";
+		  ]);
+      ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
@@ -7921,6 +7934,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
+    msg_lifecycles = [];
     messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [
