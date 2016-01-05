@@ -752,6 +752,8 @@ let vm_call_plugin_interval = ref 10.
 
 let nowatchdog = ref false
 
+let log_getter = ref false
+
 (* Path to the pool configuration file. *)
 let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 
@@ -951,6 +953,9 @@ let other_options = [
 
   "nowatchdog", Arg.Set nowatchdog, 
     (fun () -> string_of_bool !nowatchdog), "turn watchdog off, avoiding initial fork";
+
+  "log-getter", Arg.Set log_getter,
+    (fun () -> string_of_bool !log_getter), "Enable/Disable logging for getters";
 
   "onsystemboot", Arg.Set on_system_boot, 
     (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
