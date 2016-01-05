@@ -30,6 +30,6 @@ rem OF THE POSSIBILITY OF SUCH DAMAGE.
 @echo on
 if not exist C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe goto done
 
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c = Get-ChildItem -Path cert:\CurrentUser\My, cert:\\LocalMachine\My | where { $_.Subject -like "*Citrix Systems, Inc*" }; Set-AuthenticodeSignature -cert $c %1" <NUL
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$a = @(Get-ChildItem -Path cert:\CurrentUser\My, cert:\\LocalMachine\My) | where { $_.Subject -like "*Citrix Systems, Inc*" }; foreach ($c in $a) { Set-AuthenticodeSignature -cert $c %1" } done <NUL
 
 :done
