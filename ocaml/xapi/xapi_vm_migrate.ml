@@ -372,7 +372,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     We look through the VM's VBDs and all of those of the snapshots. We then
     compile a list of all of the associated VDIs, whether we mirror them or not
     (mirroring means we believe the VDI to be active and new writes should be 
-    mirrored to the destination - otherwise we just copy it) *)
+    mirrored to the destination - otherwise we just copy it) 
+    
+    We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
+    suspend-image VDIs. *)
+
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let vifs = Db.VM.get_VIFs ~__context ~self:vm in
@@ -387,8 +391,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 	if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
-	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
-	let vdis = List.filter_map (vdi_filter __context true) vbds in
+	let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
 
 	(* Assert that every VDI is specified in the VDI map *)
 	List.(iter (fun vconf ->
@@ -396,7 +399,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		then
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
-			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vdis) ;
+			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis) ;
 
 	(* Generate a VIF->Network map from vif_map and implicit mappings *)
 	let infer_vif_map () =
@@ -427,7 +430,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	List.(iter (fun vconf ->
 		let vdi = vconf.vdi in
 		if (Db.VDI.get_on_boot ~__context ~self:vdi ==`reset) then
-		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [Ref.string_of vdi]))) vdis) ;
+		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [Ref.string_of vdi]))) vms_vdis) ;
 	
 	let snapshots_vdis = List.filter_map (vdi_filter __context false) snapshots_vbds in
 	let suspends_vdis =
@@ -443,7 +446,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else acc)
 			[] vm_and_snapshots in
 
-	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vdis) in
+	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vms_vdis) in
 	let dbg = Context.string_of_task __context in
 	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in
@@ -461,6 +464,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let vdis_to_destroy = ref [] in
 
 	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+
+	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
 
 	try
 		let so_far = ref 0L in
@@ -506,7 +511,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				end in
 			let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 
-			(* Plug the destination shared SR into destination host and pool master if unplugged.
+				(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
 			let master_host = XenAPI.Pool.get_master remote_rpc session_id dest_pool in
 			let pbds = XenAPI.SR.get_PBDs remote_rpc session_id dest_sr_ref in
@@ -639,7 +644,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		let suspends_map = List.map vdi_copy_fun suspends_vdis in
 		let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
-		let vdi_map = List.map vdi_copy_fun vdis in
+		let vdi_map = List.map vdi_copy_fun vms_vdis in
 
 		(* All the disks and snapshots have been created in the remote SR(s),
 		 * so update the snapshot links if there are any snapshots. *)
@@ -843,7 +848,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			failed_vdi := Some (List.assoc "mirror_failed" oc);			
 		match !failed_vdi with
 			| Some loc -> 
-				let vconf = List.find (fun vconf -> vconf.location=loc) vdis in
+				let vconf = List.find (fun vconf -> vconf.location=loc) vms_vdis in
 				debug "Mirror failed for VDI: %s" loc;
 				raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vconf.vdi]))
 			| None ->
