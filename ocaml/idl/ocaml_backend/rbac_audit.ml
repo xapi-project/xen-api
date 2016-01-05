@@ -396,7 +396,7 @@ let has_to_audit action =
 	let has_side_effect action =
 		not (Xstringext.String.has_substr action ".get") (* TODO: a bit slow? *)
 	in
-	has_side_effect action
+	(!Xapi_globs.log_getter || (has_side_effect action))
 	&&
 	not ( (* these actions are ignored *)
 		List.mem action 
