@@ -48,7 +48,6 @@ let with_migrate f =
 	finally f (fun () -> 
 		Mutex.execute nmutex (fun () ->			
 			decr number))
-	
 
 module XenAPI = Client
 module SMAPI = Storage_interface.Client(struct let rpc call = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" (Storage_migrate.local_url ()) call end)
@@ -311,7 +310,6 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 	with Storage_interface.Unknown_RPC call ->
 		debug "Remote SMAPI doesn't implement %s - ignoring" call
 
-
 type vdi_mirror = {
     vdi : [ `VDI ] API.Ref.t;           (* The API reference of the VDI *)
     dp : string;                        (* The datapath the VDI will be using if the VM is running *)
@@ -323,11 +321,58 @@ type vdi_mirror = {
     do_mirror : bool;                   (* Whether we should mirror or just copy the VDI *)
   }
 
+let eject_cds __context is_intra_pool vdi_map vbd =
+    if Db.VBD.get_type ~__context ~self:vbd = `CD then
+      let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+      let vm = Db.VBD.get_VM ~__context ~self:vbd in
+      let to_eject =
+	(* No need to eject if it's intra-pool and the CD VDI isn't moving *)
+	if is_intra_pool then Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null)
+	(* For cross-pool, assert_can_migrate must have already been called before this, so we know the receiver can handle all the CDs.
+           The only exception is live domain instances for which xenopsd doesn't handle the CD mapping at the moment, hence we should eject. *)
+        else not (Db.VM.get_is_a_snapshot ~__context ~self:vm) && Db.VM.get_power_state ~__context ~self:vm <> `Suspended in
+      if to_eject then begin
+	  let location = Db.VDI.get_location ~__context ~self:vdi in
+	  info "Ejecting CD %s from %s" location (Ref.string_of vbd);
+	  Helpers.call_api_functions ~__context
+				     (fun rpc session_id -> XenAPI.VBD.eject ~rpc ~session_id ~vbd)
+	end
+
+(* Gather together some important information when mirroring VDIs *)
+let get_vdi_mirror __context vm vdi do_mirror =
+    let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+    let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
+    let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
+    let location = Db.VDI.get_location ~__context ~self:vdi in
+    let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
+    let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+    {vdi; dp; location; sr; xenops_locator; size; snapshot_of; do_mirror}
+
+(* We ignore empty or CD VBDs - nothing to do there. Possible redundancy here:
+   I don't think any VBDs other than CD VBDs can be 'empty' *)
+let vdi_filter __context allow_mirror vbd =
+  if Db.VBD.get_empty ~__context ~self:vbd || Db.VBD.get_type ~__context ~self:vbd = `CD
+  then None
+  else
+    let do_mirror = allow_mirror && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
+    let vm = Db.VBD.get_VM ~__context ~self:vbd in
+    let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+    Some (get_vdi_mirror __context vm vdi do_mirror)
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
+
 	let open Xapi_xenops in
+
+	(* Copy mode means we don't destroy the VM on the source host. We also don't
+	   copy over the RRDs/messages *)
 	let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
-	(* Create mirrors of all the disks on the remote *)
+
+ (* The first thing to do is to create mirrors of all the disks on the remote. 
+    We look through the VM's VBDs and all of those of the snapshots. We then
+    compile a list of all of the associated VDIs, whether we mirror them or not
+    (mirroring means we believe the VDI to be active and new writes should be 
+    mirrored to the destination - otherwise we just copy it) *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 	let vifs = Db.VM.get_VIFs ~__context ~self:vm in
@@ -342,36 +387,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 	if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
-	let vdi_filter allow_mirror vbd =
-		if not(Db.VBD.get_empty ~__context ~self:vbd)
-		then
-			let do_mirror = allow_mirror && (Db.VBD.get_mode ~__context ~self:vbd = `RW) in
-			let vm = Db.VBD.get_VM ~__context ~self:vbd in
-			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-			let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
-			let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-			let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-			let location = Db.VDI.get_location ~__context ~self:vdi in
-			let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
-			if Db.VBD.get_type ~__context ~self:vbd = `CD then
-				let to_eject =
-					(* No need to eject if it's intra-pool and the CD VDI isn't moving *)
-					if is_intra_pool then Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null)
-					(* For cross-pool, assert_can_migrate must have already been called before this, so we know the receiver can handle all the CDs.
-					   The only exception is live domain instances for which xenopsd doesn't handle the CD mapping at the moment, hence we should eject. *)
-					else not (Db.VM.get_is_a_snapshot ~__context ~self:vm) && Db.VM.get_power_state ~__context ~self:vm <> `Suspended in
-				if to_eject then begin
-					info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-					Helpers.call_api_functions ~__context
-						(fun rpc session_id -> XenAPI.VBD.eject ~rpc ~session_id ~vbd)
-				end;
-				None
-			else begin
-				let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
-				Some {vdi; dp; location; sr; xenops_locator; size; snapshot_of; do_mirror}
-			end
-		else None in
-	let vdis = List.filter_map (vdi_filter true) vbds in
+	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
+	let vdis = List.filter_map (vdi_filter __context true) vbds in
 
 	(* Assert that every VDI is specified in the VDI map *)
 	List.(iter (fun vconf ->
@@ -412,7 +429,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		if (Db.VDI.get_on_boot ~__context ~self:vdi ==`reset) then
 		raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [Ref.string_of vdi]))) vdis) ;
 	
-	let snapshots_vdis = List.filter_map (vdi_filter false) snapshots_vbds in
+	let snapshots_vdis = List.filter_map (vdi_filter __context false) snapshots_vbds in
 	let suspends_vdis =
 		List.fold_left
 			(fun acc vm ->
@@ -420,17 +437,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				then
 					let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 					let sr = Db.VDI.get_SR ~__context ~self:vdi in
-					if is_intra_pool && Helpers.host_has_pbd_for_sr ~__context ~host:dest_host_ref ~sr then acc else
-						let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
-						let location = Db.VDI.get_location ~__context ~self:vdi in
-						let sr = Db.SR.get_uuid ~__context ~self:sr in
-						let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-						let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-						let do_mirror = false in
-						let snapshot_of = Ref.null in
-						{vdi; dp; location; sr; xenops_locator; size; snapshot_of; do_mirror} :: acc
+					if is_intra_pool && Helpers.host_has_pbd_for_sr ~__context ~host:dest_host_ref ~sr
+					then acc
+					else (get_vdi_mirror __context vm vdi false):: acc
 				else acc)
 			[] vm_and_snapshots in
+
 	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vdis) in
 	let dbg = Context.string_of_task __context in
 	let open Xapi_xenops_queue in
