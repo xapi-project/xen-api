@@ -28,6 +28,7 @@ module IntMap = Map.Make(struct type t = int let compare = compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 module type WATCH_ACTIONS = sig
+	val watch_token : int -> string
 	val interesting_paths_for_domain : int -> string -> string list
 	val watch_fired : Xenctrl.handle -> Xenstore.Xs.xsh -> string -> Xenctrl.domaininfo IntMap.t -> IntSet.t -> unit
 	val unmanaged_domain : int -> string -> bool
@@ -37,7 +38,7 @@ module type WATCH_ACTIONS = sig
 end
 
 let watch ~xs token path =
-	debug "xenstore watch %s" path;
+	debug "xenstore watch path=%s token=%s" path token;
 	try
 		xs.Xs.watch path token
 	with Xs_protocol.Eexist ->
@@ -46,14 +47,12 @@ let watch ~xs token path =
 
 let unwatch ~xs token path =
 	try
-		debug "xenstore unwatch %s" path;
+		debug "xenstore unwatch path=%s token=%s" path token;
 		xs.Xs.unwatch path token
 	with Xs_protocol.Enoent _ ->
 		debug "xenstore unwatch %s threw Xs_protocol.Enoent" path
 
 let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
-
-let token_of_domain domid = Printf.sprintf "domain/%d" domid
 
 module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 
@@ -88,7 +87,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 				let add_watches_for_domain xs domid uuid =
 					debug "Adding watches for: domid %d" domid;
                                         Actions.domain_appeared xc xs domid;
-					let token = token_of_domain domid in
+					let token = Actions.watch_token domid in
 					List.iter (watch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
 					uuids := IntMap.add domid uuid !uuids;
 					watches := IntSet.add domid !watches in
@@ -98,7 +97,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
                                         Actions.domain_disappeared xc xs domid;
 					if IntMap.mem domid !uuids then begin
 						let uuid = IntMap.find domid !uuids in
-						let token = token_of_domain domid in
+						let token = Actions.watch_token domid in
 						List.iter (unwatch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
 						watches := IntSet.remove domid !watches;
 						uuids := IntMap.remove domid !uuids;
