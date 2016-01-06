@@ -441,42 +441,29 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else acc)
 			[] vm_and_snapshots in
 
-	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vms_vdis) in
-	let dbg = Context.string_of_task __context in
-	let open Xapi_xenops_queue in
-	let queue_name = queue_of_vm ~__context ~self:vm in
-	let module XenopsAPI = (val make_client queue_name : XENOPS) in
+	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let url = List.assoc _sm dest in
 	let xenops = List.assoc _xenops dest in
 	let master = List.assoc _master dest in
-	let session_id = Ref.of_string (List.assoc _session_id dest) in
 	let remote_address = get_ip_from_url xenops in
 	let remote_master_address = get_ip_from_url master in
 
-	let mirrors = ref [] in
-	let remote_vdis = ref [] in
-	let new_dps = ref [] in
-	let vdis_to_destroy = ref [] in
-
 	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+	let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+	let default_sr_ref =
+		XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
+	let suspend_sr_ref =
+		let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
+		and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
+		if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR in
 
-	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
+	(* Resolve placement of unspecified VDIs here - unspecified VDIs that
+           are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
+           that are unspecified go to the suspend_sr_ref defined above *)
 
-	try
-		let so_far = ref 0L in
-
-		let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
-		let default_sr_ref =
-			XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
-		let suspend_sr_ref =
-			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
-			and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-			if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR in
-
-		let vdi_copy_fun vconf =
-			TaskHelper.exn_if_cancelling ~__context;
-			let open Storage_access in 
-
+	let extra_vdi_map =
+	  List.filter_map
+	    (fun vconf ->
 			let dest_sr_ref =
 				let is_mapped = List.mem_assoc vconf.vdi vdi_map
 				and snapshot_of_is_mapped = List.mem_assoc vconf.snapshot_of vdi_map
@@ -484,13 +471,13 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				and remote_has_suspend_sr = suspend_sr_ref <> Ref.null
 				and remote_has_default_sr = default_sr_ref <> Ref.null in
 				let log_prefix =
-					Printf.sprintf "Resolving VDI->SR map for VDI %s:" (Db.VDI.get_uuid ~__context ~self:vdi) in
+					Printf.sprintf "Resolving VDI->SR map for VDI %s:" (Db.VDI.get_uuid ~__context ~self:vconf.vdi) in
 				if is_mapped then begin
 					debug "%s VDI has been specified in the map" log_prefix;
-					List.assoc vdi vdi_map
+					List.assoc vconf.vdi vdi_map
 				end else if snapshot_of_is_mapped then begin
 					debug "%s Snapshot VDI has entry in map for it's snapshot_of link" log_prefix;
-					List.assoc snapshot_of vdi_map
+					List.assoc vconf.snapshot_of vdi_map
 				end else if is_suspend_vdi && remote_has_suspend_sr then begin
 					debug "%s Mapping suspend VDI to remote suspend SR" log_prefix;
 					suspend_sr_ref
@@ -502,11 +489,36 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					default_sr_ref
 				end else begin
 					error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
-					raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
+					raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))
 				end in
-			let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+			Some (vconf.vdi, dest_sr_ref))
+	    (suspends_vdis @ snapshots_vdis) in
 
-				(* Plug the destination shared SR into destination host and pool master if unplugged.
+	let vdi_map = vdi_map @ extra_vdi_map in
+
+	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vms_vdis) in
+	let dbg = Context.string_of_task __context in
+	let open Xapi_xenops_queue in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	let module XenopsAPI = (val make_client queue_name : XENOPS) in
+
+	let mirrors = ref [] in
+	let remote_vdis = ref [] in
+	let new_dps = ref [] in
+	let vdis_to_destroy = ref [] in
+
+	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
+
+	try
+		let so_far = ref 0L in
+
+		let vdi_copy_fun vconf =
+			TaskHelper.exn_if_cancelling ~__context;
+			let open Storage_access in 
+
+			let dest_sr_ref = List.assoc vconf.vdi vdi_map in
+			let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+			(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
 			let master_host = XenAPI.Pool.get_master remote_rpc session_id dest_pool in
 			let pbds = XenAPI.SR.get_PBDs remote_rpc session_id dest_sr_ref in
@@ -583,7 +595,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 							SMAPI.DATA.copy ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url ~dest:dest_sr_uuid 
 						else begin
 							ignore(Storage_access.register_mirror __context vconf.location);
-							SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url ~dest:dest_sr_uuid 
 						end
 					in
 
@@ -634,7 +646,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 								mr_remote_sr = dest_sr_uuid;
 								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = vconf.xenops_locator;
-								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
+								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
 
 		let suspends_map = List.map vdi_copy_fun suspends_vdis in
