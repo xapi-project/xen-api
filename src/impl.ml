@@ -600,13 +600,12 @@ let socket sockaddr =
 
 let colon = Re_str.regexp_string ":"
 
-let retry common allowed_exns retries f =
+let retry common retries f =
   let rec aux n =
     if n <= 0 then f ()
     else
       try_lwt f ()
-      with
-      | exn when List.mem exn allowed_exns ->
+      with exn ->
         if common.Common.debug then
           Printf.fprintf stderr "warning: caught %s; will retry %d more time%s...\n%!"
             (Printexc.to_string exn) n (if n=1 then "" else "s");
@@ -621,7 +620,7 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
+      retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
       ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.raw ?from raw t
@@ -633,7 +632,7 @@ let make_stream common source relative_to source_format destination_format =
     begin match Re_str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
-      retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
+      retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
       ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
       Hybrid_input.vhd ?from raw t
@@ -642,12 +641,12 @@ let make_stream common source relative_to source_format destination_format =
     end
   | "vhd", "vhd" ->
     let path = common.path @ [ Filename.dirname source ] in
-    retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
+    retry common 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
     ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.vhd ?from t
   | "vhd", "raw" ->
     let path = common.path @ [ Filename.dirname source ] in
-    retry common [End_of_file] 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
+    retry common 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
     ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
     Vhd_input.raw ?from t
   | "raw", "vhd" ->
