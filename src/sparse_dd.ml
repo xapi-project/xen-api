@@ -295,7 +295,7 @@ let _ =
 	| Some (`Vhd x) -> vhd_search_path ^ ":" ^ (Filename.dirname x)
 	| _ -> vhd_search_path in
 
-	let common = Common.make false false true vhd_search_path in
+	let common = Common.make true false true vhd_search_path in
 
         if !experimental_reads_bypass_tapdisk
 	then warn "experimental_reads_bypass_tapdisk set: this may cause data corruption";
