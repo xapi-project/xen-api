@@ -419,59 +419,68 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else acc)
 			[] vm_and_snapshots in
 
+	let session_id = Ref.of_string (List.assoc _session_id dest) in
+	let url = List.assoc _sm dest in
+	let xenops = List.assoc _xenops dest in
+	let master = List.assoc _master dest in
+	let remote_address = get_ip_from_url xenops in
+	let remote_master_address = get_ip_from_url master in
+
+	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
+	let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+	let suspend_sr_ref =
+	  let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool in
+	  if pool_suspend_SR <> Ref.null then pool_suspend_SR else
+	    let host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
+	    if host_suspend_SR <> Ref.null then host_suspend_SR else
+	      XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
+
+	(* Resolve placement of unspecified VDIs here - unspecified VDIs that
+           are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
+           that are unspecified go to the suspend_sr_ref defined above *)
+	let extra_vdi_map =
+	  List.filter_map
+	    (fun vconf ->
+	     match List.mem_assoc vconf.vdi vdi_map, List.mem_assoc vconf.snapshot_of vdi_map with
+	     | true, _ ->
+		debug "VDI has been specified in the vdi_map";
+		None
+	     | false, true ->
+		debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
+		Some (vconf.vdi, List.assoc vconf.snapshot_of vdi_map)
+	     | false, false ->
+		if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
+		  Some (vconf.vdi, suspend_sr_ref)
+		else
+		  (error "VDI:SR map not fully specified for VDI %s" (Ref.string_of vconf.vdi);
+		   raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))))
+	    (suspends_vdis @ snapshots_vdis) in
+
+	let vdi_map = vdi_map @ extra_vdi_map in
+
 	let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vms_vdis) in
 	let dbg = Context.string_of_task __context in
 	let open Xapi_xenops_queue in
 	let queue_name = queue_of_vm ~__context ~self:vm in
 	let module XenopsAPI = (val make_client queue_name : XENOPS) in
-	let url = List.assoc _sm dest in
-	let xenops = List.assoc _xenops dest in
-	let master = List.assoc _master dest in
-	let session_id = Ref.of_string (List.assoc _session_id dest) in
-	let remote_address = get_ip_from_url xenops in
-	let remote_master_address = get_ip_from_url master in
 
 	let mirrors = ref [] in
 	let remote_vdis = ref [] in
 	let new_dps = ref [] in
 	let vdis_to_destroy = ref [] in
 
-	let remote_rpc = Helpers.make_remote_rpc remote_master_address in
-
 	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
 
 	try
 		let so_far = ref 0L in
 
-		let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
-		let suspend_sr_ref =
-			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool in
-			if pool_suspend_SR <> Ref.null then pool_suspend_SR else
-				let host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-				if host_suspend_SR <> Ref.null then host_suspend_SR else
-					XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
-
 		let vdi_copy_fun vconf =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
-			let dest_sr_ref =
-				match List.mem_assoc vconf.vdi vdi_map, List.mem_assoc vconf.snapshot_of vdi_map with
-					| true, _ ->
-						debug "VDI has been specified in the vdi_map";
-						List.assoc vconf.vdi vdi_map
-					| false, true ->
-					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
-						List.assoc vconf.snapshot_of vdi_map
-					| false, false ->
-						 if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
-						   suspend_sr_ref
-						 else
-						   (error "VDI:SR map not fully specified for VDI %s" (Ref.string_of vconf.vdi);
-						   raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ])))
-				in
-				let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
+			let dest_sr_ref = List.assoc vconf.vdi vdi_map in
+			let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 
-				(* Plug the destination shared SR into destination host and pool master if unplugged.
+			(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
 			let master_host = XenAPI.Pool.get_master remote_rpc session_id dest_pool in
 			let pbds = XenAPI.SR.get_PBDs remote_rpc session_id dest_sr_ref in
