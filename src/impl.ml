@@ -609,9 +609,9 @@ let retry common allowed_exns retries f =
       | exn when List.mem exn allowed_exns ->
         if common.Common.debug then
           Printf.fprintf stderr "warning: caught %s; will retry %d more time%s...\n%!"
-            (Printexc.to_string exn) retries (if retries=1 then "" else "s");
+            (Printexc.to_string exn) n (if n=1 then "" else "s");
         Lwt_unix.sleep 1. >>= fun () ->
-        aux (retries - 1) in
+        aux (n - 1) in
   aux retries
 
 let make_stream common source relative_to source_format destination_format =
