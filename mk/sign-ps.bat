@@ -26,11 +26,10 @@ rem HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 rem STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 rem OF THE POSSIBILITY OF SUCH DAMAGE.
-rem testing use of xb-cam-win2, 2 certs now installed, another commit
 
 @echo on
 if not exist C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe goto done
 
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$array = @(Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | where { $_.Subject -like \"*Citrix Systems, Inc**\" }); for ($i=0; $i -lt $array.length; $i++) { Set-AuthenticodeSignature -cert $array[$i] %1 }"
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c = Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | where { $_.Subject -like \"*Citrix Systems, Inc*\" }  | where {$_.Issuer -like \"*SHA256*\" }; Set-AuthenticodeSignature -cert $c %1" <NUL
 
 :done
