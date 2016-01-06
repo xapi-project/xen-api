@@ -937,6 +937,8 @@ let handler req fd _ =
 			let free_memory_required_kib = Int64.add (XenopsMemory.kib_of_bytes_used overhead_bytes) memory_required_kib in
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
+			Cpuid_helpers.update_cpu_flags ~__context ~vm ~host:localhost;
+
 			let dbg = Context.string_of_task __context in
 			let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
