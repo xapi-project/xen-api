@@ -28,4 +28,7 @@ rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 rem OF THE POSSIBILITY OF SUCH DAMAGE.
 
 @echo on
-@echo signing disabled
+if not exist C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe goto done
+
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c = Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | Where-Object { $_.Thumbprint -like \"9c0ac20110aaf4733fc0eae7ec3ec8d5cc74dbcc\" }; If ($c) { signtool sign -sm -as -sha1 9c0ac20110aaf4733fc0eae7ec3ec8d5cc74dbcc -d %2 %1; signtool sign -sm -as -sha1 3d502d724093ef56499e24ce9c664a3471382ea9 -d %2 %1 } else { signtool sign -s -as -sha1 0699c0e67181f87ecdf7a7a6ad6f4481ee6c76cf -d %2 %1 }"
+
