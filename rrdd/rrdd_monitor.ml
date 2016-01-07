@@ -31,6 +31,15 @@ let create_fresh_rrd use_min_max dss =
 	in
 	Rrd.rrd_create dss rras step (Unix.gettimeofday())
 
+let merge_new_dss rrd dss =
+	let default_dss = List.filter (fun ds -> ds.ds_default) dss in
+	let current_dss = Rrd.ds_names rrd in
+	let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
+	let now = Unix.gettimeofday () in
+	List.fold_left (fun rrd ds ->
+		rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+	) rrd new_defaults
+
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.
  * When a new uuid turns up that we haven't got an RRD for in our
@@ -58,17 +67,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 					try
 						(* First, potentially update the rrd with any new default dss *)
 						let rrdi = Hashtbl.find vm_rrds vm_uuid in
-						let default_dss = List.filter (fun ds -> ds.ds_default) dss in
-						let current_dss = Rrd.ds_names rrdi.rrd in
-						let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
-						let rrd =
-							let now = Unix.gettimeofday () in
-							if List.length new_defaults > 0 then (
-								let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
-								Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid};
-								rrd
-							) else rrdi.rrd
-						in
+						let rrd = merge_new_dss rrdi.rrd dss in
+						Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid};
 						(* CA-34383:
 						 * Memory updates from paused domains serve no useful purpose.
 						 * During a migrate such updates can also cause undesirable
@@ -101,17 +101,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 					try
 						(* First, potentially update the rrd with any new default dss *)
 						let rrdi = Hashtbl.find sr_rrds sr_uuid in
-						let default_dss = List.filter (fun ds -> ds.ds_default) dss in
-						let current_dss = Rrd.ds_names rrdi.rrd in
-						let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
-						let rrd =
-							let now = Unix.gettimeofday () in
-							if List.length new_defaults > 0 then (
-								let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
-								Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid = 0};
-								rrd
-							) else rrdi.rrd
-						in
+						let rrd = merge_new_dss rrdi.rrd dss in
+						Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid = 0};
 
 						Rrd.ds_update_named rrd timestamp ~new_domid:false
 							(List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);
@@ -144,18 +135,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 				end
 			| Some rrdi ->
 				rrdi.dss <- host_dss;
-				let default_dss = List.filter (fun ds -> ds.ds_default) host_dss in
-				let current_dss = Rrd.ds_names rrdi.rrd in
-				let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
-				let rrd =
-					let now = Unix.gettimeofday () in
-					if List.length new_defaults > 0 then
-						let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
-						host_rrd := Some {rrd; dss = host_dss; domid = 0};
-						rrd
-					else
-						rrdi.rrd
-				in
+				let rrd = merge_new_dss rrdi.rrd host_dss in
+				host_rrd := Some {rrd; dss = host_dss; domid = 0};
 				Rrd.ds_update_named rrd timestamp ~new_domid:false
 					(List.map (fun ds -> (ds.ds_name, (ds.ds_value,ds.ds_pdp_transform_function))) host_dss)
 		end;
