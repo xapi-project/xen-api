@@ -544,6 +544,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let designate_new_master ~__context ~host =
 			info "Pool.designate_new_master: pool = '%s'; host = '%s'" (current_pool_uuid ~__context) (host_uuid ~__context host);
+			(* Sync the RRDs from localhost to new master *)
+			Xapi_sync.sync_host __context host;
 			let local_fn = Local.Pool.designate_new_master ~host in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Pool.designate_new_master rpc session_id host)
 
