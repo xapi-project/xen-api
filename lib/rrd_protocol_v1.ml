@@ -66,14 +66,11 @@ let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
 			float_of_string (Rrd_rpc.assoc_opt ~key:"max" ~default:"infinity" kvs) in
 		let owner =
 			Rrd_rpc.owner_of_string
-				(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs)
-		in
+				(Rrd_rpc.assoc_opt ~key:"owner" ~default:"host" kvs) in
 		let default =
-			bool_of_string
-				(Rrd_rpc.assoc_opt ~key:"default"
-					~default:(string_of_bool !Rrd_protocol.ds_default) kvs) in
-		let ds = Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max
-			~default () in
+			bool_of_string (Rrd_rpc.assoc_opt ~key:"default" ~default:"false" kvs) in
+		let ds =
+			Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default () in
 		owner, ds
 	with e -> raise e
 
