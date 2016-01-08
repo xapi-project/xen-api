@@ -30,6 +30,8 @@ rem OF THE POSSIBILITY OF SUCH DAMAGE.
 @echo on
 if not exist C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe goto done
 
-C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c = Get-ChildItem -Path cert:\CurrentUser\My, cert:\\LocalMachine\My | where { $_.Subject -like "*Citrix Systems, Inc*" }; Set-AuthenticodeSignature -cert $c %1" <NUL
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c = Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | Where-Object { $_.Thumbprint -like \"9c0ac20110aaf4733fc0eae7ec3ec8d5cc74dbcc\" }; If ($c) {Set-AuthenticodeSignature -cert $c "%~1" } else { $c = Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | Where-Object { $_.Thumbprint -like \"0699c0e67181f87ecdf7a7a6ad6f4481ee6c76cf\" }; Set-AuthenticodeSignature -cert $c "%~1" }" <NUL
+
+rem C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command "$c=Get-ChildItem -Path cert:\\CurrentUser\\My, cert:\\LocalMachine\\My | Where-Object { $_.Subject -like \"*Citrix Systems, Inc*\" -and $_.Issuer -like \"*SHA256*\" }; Set-AuthenticodeSignature -cert $c /"%1/"" >NUL
 
 :done
