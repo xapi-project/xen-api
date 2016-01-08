@@ -29,5 +29,3 @@ type protocol = {
 	make_payload_reader: unit -> (Cstruct.t -> payload);
 	make_payload_writer: unit -> ((int -> Cstruct.t) -> payload -> unit);
 }
-
-val ds_default: bool ref
