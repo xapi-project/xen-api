@@ -26,6 +26,8 @@ rem HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 rem STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 rem OF THE POSSIBILITY OF SUCH DAMAGE.
+rem 
+rem this is a commit to test xb-cam-win8
 
 @echo on
 if not exist C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe goto done
