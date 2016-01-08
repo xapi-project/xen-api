@@ -193,31 +193,36 @@ module Interface = struct
 			match conf with
 			| None6 ->
 				if List.mem name (Sysfs.list ()) then begin
-					Dhcp6c.stop name;
+					if Dhclient.is_running ~ipv6:true name then
+						ignore (Dhclient.stop ~ipv6:true name);
 					Sysctl.set_ipv6_autoconf name false;
 					Ip.flush_ip_addr ~ipv6:true name
 				end
 			| Linklocal6 ->
 				if List.mem name (Sysfs.list ()) then begin
-					Dhcp6c.stop name;
+					if Dhclient.is_running ~ipv6:true name then
+						ignore (Dhclient.stop ~ipv6:true name);
 					Sysctl.set_ipv6_autoconf name false;
 					Ip.flush_ip_addr ~ipv6:true name;
 					Ip.set_ipv6_link_local_addr name
 				end
 			| DHCP6 ->
-				Dhcp6c.stop name;
+				if Dhclient.is_running ~ipv6:true name then
+					ignore (Dhclient.stop ~ipv6:true name);
 				Sysctl.set_ipv6_autoconf name false;
 				Ip.flush_ip_addr ~ipv6:true name;
 				Ip.set_ipv6_link_local_addr name;
-				Dhcp6c.start name
+				ignore (Dhclient.start ~ipv6:true name [])
 			| Autoconf6 ->
-				Dhcp6c.stop name;
+				if Dhclient.is_running ~ipv6:true name then
+					ignore (Dhclient.stop ~ipv6:true name);
 				Ip.flush_ip_addr ~ipv6:true name;
 				Ip.set_ipv6_link_local_addr name;
 				Sysctl.set_ipv6_autoconf name true;
 				(* Cannot link set down/up due to CA-89882 - IPv4 default route cleared *)
 			| Static6 addrs ->
-				Dhcp6c.stop name;
+				if Dhclient.is_running ~ipv6:true name then
+					ignore (Dhclient.stop ~ipv6:true name);
 				Sysctl.set_ipv6_autoconf name false;
 				Ip.flush_ip_addr ~ipv6:true name;
 				Ip.set_ipv6_link_local_addr name;

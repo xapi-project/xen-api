@@ -32,7 +32,6 @@ let brctl = ref "/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
-let dhcp6c = "/sbin/dhcp6c"
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
@@ -985,15 +984,4 @@ module Bindings = struct
 		try
 			with_fd (fun fd -> _get_status fd name)
 		with _ -> raise (Read_error "stub_link_get_status")
-end
-
-module Dhcp6c = struct
-	let pid_file interface =
-		Printf.sprintf "/var/run/dhcp6c-%s.pid" interface
-
-	let start interface =
-		ignore (call_script dhcp6c [interface])
-
-	let stop interface =
-		ignore (call_script dhcp6c ["-r"; "all"; interface])
 end
