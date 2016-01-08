@@ -32,13 +32,14 @@ let create_fresh_rrd use_min_max dss =
 	Rrd.rrd_create dss rras step (Unix.gettimeofday())
 
 let merge_new_dss rrd dss =
-	let default_dss = List.filter (fun ds -> ds.ds_default) dss in
+	let should_enable_ds ds = !Rrdd_shared.enable_all_dss || ds.ds_default in
+	let enabled_dss = List.filter should_enable_ds dss in
 	let current_dss = Rrd.ds_names rrd in
-	let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
+	let new_dss = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) enabled_dss in
 	let now = Unix.gettimeofday () in
 	List.fold_left (fun rrd ds ->
 		rrd_add_ds rrd now (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
-	) rrd new_defaults
+	) rrd new_dss
 
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.

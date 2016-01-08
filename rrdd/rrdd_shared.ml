@@ -17,6 +17,9 @@ open D
 
 module StringSet = Set.Make(String)
 
+(* Whether to enable all non-default datasources *)
+let enable_all_dss = ref false
+
 (* The time between each monitoring loop. *)
 let timeslice : float ref = ref 5.
 (* Timestamp of the last monitoring loop end. *)
