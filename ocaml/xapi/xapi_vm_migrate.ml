@@ -316,7 +316,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
     debug "Remote SMAPI doesn't implement %s - ignoring" call
 
 type vdi_mirror = {
-  vdi : [ `VDI ] API.Ref.t;           (* The API reference of the VDI *)
+  vdi : [ `VDI ] API.Ref.t;           (* The API reference of the local VDI *)
   dp : string;                        (* The datapath the VDI will be using if the VM is running *)
   location : string;                  (* The location of the VDI in the current SR *)
   sr : string;                        (* The VDI's current SR uuid *)
@@ -384,7 +384,7 @@ let vdi_filter __context allow_mirror vbd =
     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
     Some (get_vdi_mirror __context vm vdi do_mirror)
 
-let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_host dest_host_ref url is_intra_pool mirrors remote_vdis new_dps vdis_to_destroy so_far total_size vconf =
+let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_host dest_host_ref url is_intra_pool mirrors remote_vdis new_dps vdis_to_destroy so_far total_size vconf continuation =
   TaskHelper.exn_if_cancelling ~__context;
   let open Storage_access in
   let dest_sr_ref = List.assoc vconf.vdi vdi_map in
@@ -511,7 +511,7 @@ let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_
           vdi,remote_vdi_reference,newdp
         end
       in
-      ({ mr_dp = newdp;
+      let mirror_record = ({ mr_dp = newdp;
          mr_mirrored = mirror;
          mr_local_sr = vconf.sr;
          mr_local_vdi = vconf.location;
@@ -520,7 +520,16 @@ let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_
          mr_local_xenops_locator = vconf.xenops_locator;
          mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
          mr_local_vdi_reference = vconf.vdi;
-         mr_remote_vdi_reference = remote_vdi_reference; })
+         mr_remote_vdi_reference = remote_vdi_reference; }) in
+      continuation mirror_record
+
+(* Helper function to apply a 'with_x' function to a list *)
+let rec with_many withfn many fn =
+  let rec inner l acc =
+    match l with
+    | [] -> fn acc
+    | x::xs -> withfn x (fun y -> inner xs (y::acc))
+  in inner many []
 
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
@@ -676,119 +685,122 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let new_dps = ref [] in
   let vdis_to_destroy = ref [] in
 
+  let ha_always_run_reset = not is_intra_pool && Db.VM.get_ha_always_run ~__context ~self:vm in
+
   let cd_vbds = find_cds_to_eject __context vdi_map vbds in
   eject_cds __context cd_vbds;
 
   try
     let so_far = ref 0L in
 
-    let vdi_copy_fun = vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_host dest_host_ref url is_intra_pool mirrors remote_vdis new_dps vdis_to_destroy so_far total_size in
-
-    let suspends_map = List.map vdi_copy_fun suspends_vdis in
-    let snapshots_map = List.map vdi_copy_fun snapshots_vdis in
-    let vdi_map = List.map vdi_copy_fun vms_vdis in
-
-    (* All the disks and snapshots have been created in the remote SR(s),
-       		 * so update the snapshot links if there are any snapshots. *)
-    if snapshots_map <> [] then
-      update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map;
-
-    let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
-
-    (* Wait for delay fist to disappear *)
-    if Xapi_fist.pause_storage_migrate () then begin
-      TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
-
-      while Xapi_fist.pause_storage_migrate () do
-        debug "Sleeping while fistpoint exists";
-        Thread.delay 5.0;
-      done;
-
-      TaskHelper.operate_on_db_task ~__context 
-        (fun self ->
-           Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
-    end;
-
-    TaskHelper.exn_if_cancelling ~__context;
-
-    let ha_always_run_reset = not is_intra_pool && Db.VM.get_ha_always_run ~__context ~self:vm in
-
+    let with_mirrored_vdis = with_many (vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_host dest_host_ref url is_intra_pool mirrors remote_vdis new_dps vdis_to_destroy so_far total_size) in
     let new_vm =
-      if is_intra_pool
-      then begin
-        List.iter
-          (fun vm' ->
-             intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
-             intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
-          vm_and_snapshots;
-        vm
-      end
-      else
-        (* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
-        let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote_rpc ~session_id:remote_session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
-        (* Move the xapi VM metadata to the remote pool. *)
-        let vms =
-          inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id:remote_session
-            ~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
-            ~vif_map ~dry_run:false ~live:true ~copy in
-        let vm = List.hd vms in
-        let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote_rpc ~session_id:remote_session ~self:vm ~value:false in
-        vm in
+      with_mirrored_vdis suspends_vdis @@ fun suspends_map ->
+      with_mirrored_vdis snapshots_vdis @@ fun snapshots_map ->
+      with_mirrored_vdis vms_vdis @@ fun vdi_map ->
 
-    if Xapi_fist.pause_storage_migrate2 () then begin
-      TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
+      (* All the disks and snapshots have been created in the remote SR(s),
+       * so update the snapshot links if there are any snapshots. *)
+      if snapshots_map <> [] then
+        update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map;
 
-      while Xapi_fist.pause_storage_migrate2 () do
-        debug "Sleeping while fistpoint 2 exists";
-        Thread.delay 5.0;
-      done;
+      let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
 
-      TaskHelper.operate_on_db_task ~__context 
-        (fun self ->
-           Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
-    end;
+      (* Wait for delay fist to disappear *)
+      if Xapi_fist.pause_storage_migrate () then begin
+        TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
 
-    (* Attach networks on remote *)
-    XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id:remote_session ~host:dest_host_ref ~vm:new_vm;
+        while Xapi_fist.pause_storage_migrate () do
+          debug "Sleeping while fistpoint exists";
+          Thread.delay 5.0;
+        done;
 
-    (* Create the vif-map for xenops, linking VIF devices to bridge names on the remote *)
-    let xenops_vif_map =
-      let vifs = XenAPI.VM.get_VIFs ~rpc:remote_rpc ~session_id:remote_session ~self:new_vm in
-      List.map (fun vif ->
-          let vifr = XenAPI.VIF.get_record ~rpc:remote_rpc ~session_id:remote_session ~self:vif in
-          let bridge = Xenops_interface.Network.Local
-              (XenAPI.Network.get_bridge ~rpc:remote_rpc ~session_id:remote_session ~self:vifr.API.vIF_network) in
-          vifr.API.vIF_device, bridge
-        ) vifs
+        TaskHelper.operate_on_db_task ~__context
+          (fun self ->
+             Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+      end;
+
+      TaskHelper.exn_if_cancelling ~__context;
+
+      let new_vm =
+        if is_intra_pool
+        then begin
+          List.iter
+            (fun vm' ->
+               intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
+               intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
+            vm_and_snapshots;
+          vm
+        end
+        else
+          (* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
+          let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote_rpc ~session_id:remote_session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
+          (* Move the xapi VM metadata to the remote pool. *)
+          let vms =
+            inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id:remote_session
+              ~remote_address ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
+              ~vif_map ~dry_run:false ~live:true ~copy in
+          let vm = List.hd vms in
+          let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote_rpc ~session_id:remote_session ~self:vm ~value:false in
+          vm in
+
+      if Xapi_fist.pause_storage_migrate2 () then begin
+        TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
+
+        while Xapi_fist.pause_storage_migrate2 () do
+          debug "Sleeping while fistpoint 2 exists";
+          Thread.delay 5.0;
+        done;
+
+        TaskHelper.operate_on_db_task ~__context
+          (fun self ->
+             Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+      end;
+
+      (* Attach networks on remote *)
+      XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id:remote_session ~host:dest_host_ref ~vm:new_vm;
+
+      (* Create the vif-map for xenops, linking VIF devices to bridge names on the remote *)
+      let xenops_vif_map =
+        let vifs = XenAPI.VM.get_VIFs ~rpc:remote_rpc ~session_id:remote_session ~self:new_vm in
+        List.map (fun vif ->
+            let vifr = XenAPI.VIF.get_record ~rpc:remote_rpc ~session_id:remote_session ~self:vif in
+            let bridge = Xenops_interface.Network.Local
+                (XenAPI.Network.get_bridge ~rpc:remote_rpc ~session_id:remote_session ~self:vifr.API.vIF_network) in
+            vifr.API.vIF_device, bridge
+          ) vifs
+      in
+
+      (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
+      List.iter (fun mirror_record ->
+          if mirror_record.mr_mirrored
+          then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (suspends_map @ snapshots_map @ vdi_map);
+
+      SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
+
+      (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
+      begin
+        try
+          Xapi_xenops.with_events_suppressed ~__context ~self:vm
+            (fun () ->
+               migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
+               Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+               Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ())
+        with
+        | Xenops_interface.Does_not_exist ("VM",_)
+        | Xenops_interface.Does_not_exist ("extra",_) ->
+          ()
+      end;
+
+      debug "Migration complete";
+      SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
+
+      Xapi_xenops.refresh_vm ~__context ~self:vm;
+
+      XenAPI.VM.pool_migrate_complete remote_rpc remote_session new_vm dest_host_ref;
+
+      new_vm
     in
-
-    (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
-    List.iter (fun mirror_record ->
-        if mirror_record.mr_mirrored 
-        then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (suspends_map @ snapshots_map @ vdi_map);
-
-    SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
-
-    (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
-    begin
-      try
-        Xapi_xenops.with_events_suppressed ~__context ~self:vm
-          (fun () ->
-             migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
-             Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
-             Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ())
-      with
-      | Xenops_interface.Does_not_exist ("VM",_)
-      | Xenops_interface.Does_not_exist ("extra",_) ->
-        ()	
-    end;
-
-    debug "Migration complete";
-    SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
-
-    Xapi_xenops.refresh_vm ~__context ~self:vm;
-
-    XenAPI.VM.pool_migrate_complete remote_rpc remote_session new_vm dest_host_ref;
 
     (* And we're finished *)
     List.iter (fun mirror ->
