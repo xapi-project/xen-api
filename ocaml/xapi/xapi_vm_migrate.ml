@@ -198,6 +198,7 @@ type mirror_record = {
   mr_local_xenops_locator : string;
   mr_remote_xenops_locator : string;
   mr_remote_vdi_reference : API.ref_VDI;
+  mr_local_vdi_reference : API.ref_VDI;
 }
 
 (* If VM's suspend_SR is set to the local SR, it won't be visible to
@@ -226,13 +227,16 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
     else (suspend_vdi, fun v -> Db.VM.set_suspend_VDI ~__context ~self:vm ~value:v) :: vdis_and_callbacks in
   List.iter
     (fun (vdi,callback) ->
-       if List.mem_assoc vdi vdi_map then
-         let mirror_record = List.assoc vdi vdi_map in
-         callback mirror_record.mr_remote_vdi_reference)
+       try
+         let mirror_record = List.find (fun mr -> mr.mr_local_vdi_reference = vdi) vdi_map in
+         callback mirror_record.mr_remote_vdi_reference
+       with
+         Not_found -> ())
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_address ~vm ~vdi_map ~vif_map ~dry_run ~live ~copy =
-  List.iter (fun (vdi,mirror_record) ->
+  List.iter (fun mirror_record ->
+      let vdi = mirror_record.mr_local_vdi_reference in
       Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
       Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
 
@@ -250,7 +254,7 @@ let inter_pool_metadata_transfer ~__context ~remote_rpc ~session_id ~remote_addr
     (fun () ->
        (* Make sure we clean up the remote VDI and VIF mapping keys. *)
        List.iter
-         (fun (vdi, _) -> Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key)
+         (fun mr -> Db.VDI.remove_from_other_config ~__context ~self:mr.mr_local_vdi_reference ~key:Constants.storage_migrate_vdi_map_key)
          vdi_map;
        List.iter
          (fun (vif, _) -> Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key)
@@ -266,13 +270,14 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
   let empty_vdi_map =
     (* Add the VDIs to the map along with empty lists of snapshots. *)
     List.fold_left
-      (fun acc (vdi_ref, mirror) -> VDIMap.add vdi_ref (mirror, []) acc)
+      (fun acc mirror -> VDIMap.add mirror.mr_local_vdi_reference (mirror, []) acc)
       VDIMap.empty vdi_map
   in
   let vdi_to_snapshots_map =
     (* Add the snapshots to the map. *)
     List.fold_left
-      (fun acc (snapshot_ref, snapshot_mirror) ->
+      (fun acc snapshot_mirror ->
+         let snapshot_ref = snapshot_mirror.mr_local_vdi_reference in
          let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snapshot_ref in
          try
            let (mirror, snapshots) = VDIMap.find snapshot_of acc in
@@ -506,15 +511,16 @@ let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_
           vdi,remote_vdi_reference,newdp
         end
       in
-      (vconf.vdi, { mr_dp = newdp;
-                    mr_mirrored = mirror;
-                    mr_local_sr = vconf.sr;
-                    mr_local_vdi = vconf.location;
-                    mr_remote_sr = dest_sr;
-                    mr_remote_vdi = remote_vdi;
-                    mr_local_xenops_locator = vconf.xenops_locator;
-                    mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
-                    mr_remote_vdi_reference = remote_vdi_reference; })
+      ({ mr_dp = newdp;
+         mr_mirrored = mirror;
+         mr_local_sr = vconf.sr;
+         mr_local_vdi = vconf.location;
+         mr_remote_sr = dest_sr;
+         mr_remote_vdi = remote_vdi;
+         mr_local_xenops_locator = vconf.xenops_locator;
+         mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
+         mr_local_vdi_reference = vconf.vdi;
+         mr_remote_vdi_reference = remote_vdi_reference; })
 
 
 
@@ -644,7 +650,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if snapshots_map <> [] then
       update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map;
 
-    let xenops_vdi_map = List.map (fun (_, mirror_record) -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
+    let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
 
     (* Wait for delay fist to disappear *)
     if Xapi_fist.pause_storage_migrate () then begin
@@ -714,7 +720,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     in
 
     (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
-    List.iter (fun (_ , mirror_record) -> 
+    List.iter (fun mirror_record ->
         if mirror_record.mr_mirrored 
         then SMAPI.DP.destroy ~dbg ~dp:mirror_record.mr_dp ~allow_leak:false) (suspends_map @ snapshots_map @ vdi_map);
 
