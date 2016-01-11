@@ -523,6 +523,21 @@ let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_
          mr_remote_vdi_reference = remote_vdi_reference; }) in
       continuation mirror_record
 
+let wait_for_fist __context fistpoint name =
+  if fistpoint () then begin
+    TaskHelper.add_to_other_config ~__context "fist" name;
+
+    while fistpoint () do
+      debug "Sleeping while fistpoint exists";
+      Thread.delay 5.0;
+    done;
+
+    TaskHelper.operate_on_db_task ~__context
+      (fun self ->
+         Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
+  end
+
+
 (* Helper function to apply a 'with_x' function to a list *)
 let rec with_many withfn many fn =
   let rec inner l acc =
@@ -707,18 +722,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
 
       (* Wait for delay fist to disappear *)
-      if Xapi_fist.pause_storage_migrate () then begin
-        TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate";
-
-        while Xapi_fist.pause_storage_migrate () do
-          debug "Sleeping while fistpoint exists";
-          Thread.delay 5.0;
-        done;
-
-        TaskHelper.operate_on_db_task ~__context
-          (fun self ->
-             Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
-      end;
+      wait_for_fist __context Xapi_fist.pause_storage_migrate "pause_storage_migrate";
 
       TaskHelper.exn_if_cancelling ~__context;
 
@@ -744,18 +748,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote_rpc ~session_id:remote_session ~self:vm ~value:false in
           vm in
 
-      if Xapi_fist.pause_storage_migrate2 () then begin
-        TaskHelper.add_to_other_config ~__context "fist" "pause_storage_migrate2";
-
-        while Xapi_fist.pause_storage_migrate2 () do
-          debug "Sleeping while fistpoint 2 exists";
-          Thread.delay 5.0;
-        done;
-
-        TaskHelper.operate_on_db_task ~__context
-          (fun self ->
-             Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key:"fist")
-      end;
+      wait_for_fist __context Xapi_fist.pause_storage_migrate2 "pause_storage_migrate2";
 
       (* Attach networks on remote *)
       XenAPI.Network.attach_for_vm ~rpc:remote_rpc ~session_id:remote_session ~host:dest_host_ref ~vm:new_vm;
