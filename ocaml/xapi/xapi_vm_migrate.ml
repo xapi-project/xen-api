@@ -78,7 +78,7 @@ let assert_sr_support_migration ~__context ~vdi_map ~remote_rpc ~session_id =
 	) vdi_map
 
 let assert_licensed_storage_motion ~__context =
-	Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
+        Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
 let get_ip_from_url url =
 	match Http.Url.of_string url with
@@ -321,22 +321,42 @@ type vdi_mirror = {
     do_mirror : bool;                   (* Whether we should mirror or just copy the VDI *)
   }
 
-let eject_cds __context is_intra_pool vdi_map vbd =
-    if Db.VBD.get_type ~__context ~self:vbd = `CD then
+(* For VMs (not snapshots) xenopsd does not allow remapping, so we
+   eject CDs where possible. This function takes a set of VBDs,
+   and filters to find those that should be ejected prior to the
+   SXM operation *)
+
+let find_cds_to_eject __context vdi_map vbds =
+  (* Only consider CDs *)
+  let cd_vbds = List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `CD) vbds in
+
+  (* Only consider VMs (not snapshots) *)
+  let vm_cds = List.filter (fun vbd ->
+				      let vm = Db.VBD.get_VM ~__context ~self:vbd in
+				      not (Db.VM.get_is_a_snapshot ~__context ~self:vm)) cd_vbds in
+
+  (* Only consider moving CDs - no need to eject if they're staying in the same SR *)
+  let moving_cds = List.filter (fun vbd ->
       let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-      let vm = Db.VBD.get_VM ~__context ~self:vbd in
-      let to_eject =
-	(* No need to eject if it's intra-pool and the CD VDI isn't moving *)
-	if is_intra_pool then Db.VDI.get_SR ~__context ~self:vdi = (try List.assoc vdi vdi_map with _ -> Ref.null)
-	(* For cross-pool, assert_can_migrate must have already been called before this, so we know the receiver can handle all the CDs.
-           The only exception is live domain instances for which xenopsd doesn't handle the CD mapping at the moment, hence we should eject. *)
-        else not (Db.VM.get_is_a_snapshot ~__context ~self:vm) && Db.VM.get_power_state ~__context ~self:vm <> `Suspended in
-      if to_eject then begin
-	  let location = Db.VDI.get_location ~__context ~self:vdi in
-	  info "Ejecting CD %s from %s" location (Ref.string_of vbd);
-	  Helpers.call_api_functions ~__context
-				     (fun rpc session_id -> XenAPI.VBD.eject ~rpc ~session_id ~vbd)
-	end
+      try
+        let current_sr = Db.VDI.get_SR ~__context ~self:vdi in
+        let dest_sr = try List.assoc vdi vdi_map with _ -> Ref.null in
+        current_sr <> dest_sr
+      with Db_exn.DBCache_NotFound _ -> (* Catch the case where the VDI reference is invalid (e.g. empty CD) *)
+        false) vm_cds in
+
+  (* Only consider VMs that aren't suspended - we can't eject a suspended VM's CDs at the API level *)
+  let ejectable_cds = List.filter (fun vbd ->
+				   let vm = Db.VBD.get_VM ~__context ~self:vbd in
+				   Db.VM.get_power_state ~__context ~self:vm <> `Suspended) moving_cds in
+
+  ejectable_cds
+
+let eject_cds __context cd_vbds =
+  Helpers.call_api_functions
+    ~__context
+    (fun rpc session_id ->
+     List.iter (fun vbd -> XenAPI.VBD.eject ~rpc ~session_id ~vbd) cd_vbds)
 
 (* Gather together some important information when mirroring VDIs *)
 let get_vdi_mirror __context vm vdi do_mirror =
@@ -512,7 +532,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	let new_dps = ref [] in
 	let vdis_to_destroy = ref [] in
 
-	List.iter (eject_cds __context is_intra_pool vdi_map) vbds;
+	let cd_vbds = find_cds_to_eject __context vdi_map vbds in
+	eject_cds __context cd_vbds;
 
 	try
 		let so_far = ref 0L in
