@@ -823,7 +823,7 @@ module MD = struct
 			on_reboot = on_normal_exit_behaviour vm.API.vM_actions_after_reboot;
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
-			has_vendor_device = false
+			has_vendor_device = vm.API.vM_has_vendor_device
 		}		
 
 
