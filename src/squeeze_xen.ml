@@ -343,7 +343,12 @@ module Domain = struct
   let set_domain_stuck_noexn cnx domid _val = write_noexn cnx domid _domain_stuck _val
 
   (** Query to find if a domain is stuck. Don't throw an exception if the domain has been destroyed *)
-  let get_domain_stuck cnx domid = try ignore(read cnx domid _domain_stuck); true with Xs_protocol.Enoent _ -> false
+  let get_domain_stuck cnx domid = 
+	try 
+		match (read cnx domid _domain_stuck) with 
+		| "true" -> true
+		| _ -> false
+	with Xs_protocol.Enoent _ -> false
 
   (** Set a domain's maxmem. Don't throw an exception if the domain has been destroyed *)
   let set_maxmem_noexn cnx domid target_kib = 
@@ -370,9 +375,10 @@ module Domain = struct
 end
 
 (** Mark the domain as squeezed declared stuck *)
-let declare_domain_stuck ~xc domid =
+let set_domain_stuck ~xc domid value =
 	let cnx = xc in
-	Domain.set_domain_stuck_noexn cnx domid "true"
+	let can_balloon = Domain.get_feature_balloon cnx domid in
+	if can_balloon then Domain.set_domain_stuck_noexn cnx domid value
 	
 (** Record when the domain was last co-operative *)
 let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
@@ -619,7 +625,7 @@ let io ~xc ~verbose = {
   execute_action = (fun action -> execute_action ~xc action);
   target_host_free_mem_kib = target_host_free_mem_kib;
   free_memory_tolerance_kib = free_memory_tolerance_kib;
-  declare_domain_stuck = (fun domid -> declare_domain_stuck ~xc domid);
+  declare_domain_stuck = (fun domid -> set_domain_stuck ~xc domid "true");
 }
 
 let change_host_free_memory ~xc required_mem_kib success_condition = 
