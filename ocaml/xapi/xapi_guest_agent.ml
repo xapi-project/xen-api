@@ -242,7 +242,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
 		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
-		~storage_paths_optimized:false ~network_paths_optimized:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true;
+		~storage_paths_optimized:false ~network_paths_optimized:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
 	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
 		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in

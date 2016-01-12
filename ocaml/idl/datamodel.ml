@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 90
+let schema_minor_vsn = 91
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -70,7 +70,7 @@ let indigo_release_schema_major_vsn = 5
 let indigo_release_schema_minor_vsn = 74
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 90
+let dundee_release_schema_minor_vsn = 91
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = cream_release_schema_major_vsn
@@ -7344,6 +7344,13 @@ let vm_metrics =
       ]
 	()
 
+let tristate_type = Enum ("tristate_type",
+[
+	"yes", "Known to be true";
+	"no", "Known to be false";
+	"unspecified", "Unknown or unspecified";
+])
+
 (* Some of this stuff needs to persist (like PV drivers vsns etc.) so we know about what's likely to be in the VM even when it's off.
    Other things don't need to persist, so we specify these on a per-field basis *)
 let vm_guest_metrics =
@@ -7389,6 +7396,8 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
       field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
+      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vbd" "The guest's statement of whether it supports VBD hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VBD by bringing online a new PV block device. If the guest states that it is not capable, then the VBD plug and unplug operations will not be allowed while the guest is running.";
+      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vif" "The guest's statement of whether it supports VIF hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VIF by bringing online a new PV network device. If the guest states that it is not capable, then the VIF plug and unplug operations will not be allowed while the guest is running.";
     ]
     ()
 

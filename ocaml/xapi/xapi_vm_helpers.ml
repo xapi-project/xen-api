@@ -861,7 +861,10 @@ let copy_guest_metrics ~__context ~vm =
 			~other:all.API.vM_guest_metrics_other
 			~last_updated:all.API.vM_guest_metrics_last_updated
 			~other_config:all.API.vM_guest_metrics_other_config
-			~live:all.API.vM_guest_metrics_live;
+			~live:all.API.vM_guest_metrics_live
+			~can_use_hotplug_vbd:all.API.vM_guest_metrics_can_use_hotplug_vbd
+			~can_use_hotplug_vif:all.API.vM_guest_metrics_can_use_hotplug_vif
+		;
 		ref
 	with _ ->
 		Ref.null

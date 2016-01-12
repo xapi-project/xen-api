@@ -544,7 +544,10 @@ module GuestMetrics : HandlerTools = struct
 			~other:gm_record.API.vM_guest_metrics_other
 			~last_updated:gm_record.API.vM_guest_metrics_last_updated
 			~other_config:gm_record.API.vM_guest_metrics_other_config
-			~live:gm_record.API.vM_guest_metrics_live;
+			~live:gm_record.API.vM_guest_metrics_live
+			~can_use_hotplug_vbd:gm_record.API.vM_guest_metrics_can_use_hotplug_vbd
+			~can_use_hotplug_vif:gm_record.API.vM_guest_metrics_can_use_hotplug_vif
+		;
 		state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
 end
 
