@@ -138,7 +138,7 @@ let other all_control =
     the results of these lookups differ *)
 
 type m = (string * string) list
-let cache : (int, (m*m*m*m*m*m*bool*bool*bool*float)) Hashtbl.t = Hashtbl.create 20
+let cache : (int, (m*m*m*m*m*m*bool*bool*bool*float*API.tristate_type*API.tristate_type)) Hashtbl.t = Hashtbl.create 20
 let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
@@ -151,6 +151,12 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
     | None -> []) kvpairs) in
+
+  let get_tristate xskey =
+	  match lookup xskey with
+		  | Some "0" -> `no
+		  | Some "1" -> `yes
+		  | _ -> `unspecified in
 
   let ts = match lookup "data/ts" with
   	| Some value -> ["data-ts",value]
@@ -165,6 +171,8 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and network_paths_optimized = network_paths_optimized "device/vif" list lookup
   and storage_paths_optimized = storage_paths_optimized "device/vbd" list lookup
   and last_updated = Unix.gettimeofday () in
+  let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
+  let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
 
   let pv_drivers_up_to_date = network_paths_optimized && storage_paths_optimized in
   
@@ -189,7 +197,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     network_paths_optimized_cached,
     storage_paths_optimized_cached,
     pv_drivers_up_to_date_cached,
-    last_updated_cached
+    last_updated_cached,
+    can_use_hotplug_vbd_cached,
+    can_use_hotplug_vif_cached
   ) = Mutex.execute mutex (fun () -> try
        Hashtbl.find cache domid 
     with _ -> 
@@ -202,7 +212,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	dead_domains := IntSet.remove domid !dead_domains
       else
 	dead_domains := IntSet.add domid !dead_domains;
-      ([],[],[],[],[],[],false,false,false,0.0)) in
+      ([],[],[],[],[],[],false,false,false,0.0,`unspecified,`unspecified)) in
 
   (* Consider the data valid IF the data/updated key exists *)
   let data_updated = lookup "data/updated" <> None in
@@ -210,7 +220,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,network_paths_optimized,storage_paths_optimized,pv_drivers_up_to_date,last_updated));
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,network_paths_optimized,storage_paths_optimized,pv_drivers_up_to_date,last_updated,can_use_hotplug_vbd,can_use_hotplug_vif));
 
       (* We update only if any actual data has changed *)
       if ( pv_drivers_version_cached <> pv_drivers_version 
@@ -228,6 +238,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
      storage_paths_optimized_cached <> storage_paths_optimized
      ||
      pv_drivers_up_to_date_cached <> pv_drivers_up_to_date)
+     ||
+     can_use_hotplug_vbd_cached <> can_use_hotplug_vbd
+     ||
+     can_use_hotplug_vif_cached <> can_use_hotplug_vif
 (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
 (*	   ||
 	   memory_cached <> memory)*)
@@ -270,6 +284,12 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  end;
 	  if(pv_drivers_up_to_date_cached <> pv_drivers_up_to_date) then begin
 	  	Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:pv_drivers_up_to_date;
+	  end;
+	  if(can_use_hotplug_vbd_cached <> can_use_hotplug_vbd) then begin
+	  	Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm ~value:can_use_hotplug_vbd;
+	  end;
+	  if(can_use_hotplug_vif_cached <> can_use_hotplug_vif) then begin
+	  	Db.VM_guest_metrics.set_can_use_hotplug_vif ~__context ~self:gm ~value:can_use_hotplug_vif;
 	  end;
 (*	  if(memory_cached <> memory) then
 	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
