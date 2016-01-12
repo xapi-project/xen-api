@@ -325,8 +325,11 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 		  end
 	  end;
 
-	  (* We base some of our allowed-operations decisions on the presence/absence of PV drivers *)
-	  if pv_drivers_version_cached <> pv_drivers_version then begin
+	  (* We base some of our allowed-operations decisions on these advertised features and the presence/absence of PV drivers. *)
+	  if pv_drivers_version_cached <> pv_drivers_version
+	    || can_use_hotplug_vbd_cached <> can_use_hotplug_vbd
+	    || can_use_hotplug_vif_cached <> can_use_hotplug_vif
+	  then begin
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)
