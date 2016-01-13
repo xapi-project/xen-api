@@ -1,12 +1,11 @@
 language: c
 install:
-  - wget https://raw.githubusercontent.com/xapi-project/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 script: bash -ex .travis-opam.sh && if dpkg --compare-versions $OCAML_VERSION ge 4.02; then bash -ex travis-coveralls.sh; fi
 env:
   global:
     - PACKAGE=xapi-rrd-transport
-    - FORK_USER=xapi-project
     - EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
   matrix:
     - OCAML_VERSION=4.01
