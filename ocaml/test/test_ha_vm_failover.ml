@@ -345,9 +345,154 @@ module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
 	]
 end))
 
+module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		open Xapi_ha_vm_failover
+
+		type input_t = (pool * vm)
+		type output_t = (exn, unit) Either.t
+
+		let string_of_input_t = Test_printers.pair string_of_pool string_of_vm
+		let string_of_output_t = Test_printers.(either Printexc.to_string unit)
+	end
+
+	module State = XapiDb
+
+	let load_input __context (pool, _) = setup ~__context pool
+
+	let extract_output __context (pool, vm) =
+		let open Db_filter_types in
+		let local_sr =
+			Db.SR.get_refs_where ~__context
+				~expr:(Eq (Field "shared", Literal "false"))
+			|> List.hd
+		in
+		let shared_sr =
+			Db.SR.get_refs_where ~__context
+				~expr:(Eq (Field "shared", Literal "true"))
+			|> List.hd
+		in
+		let local_net =
+			Db.Network.get_refs_where ~__context
+				~expr:(Eq (Field "bridge", Literal "xapi0"))
+			|> List.hd
+		in
+		let shared_net =
+			Db.Network.get_refs_where ~__context
+				~expr:(Eq (Field "bridge", Literal "xenbr0"))
+			|> List.hd
+		in
+		let vm_ref =
+			load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+		try Either.Right
+			(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
+		with e -> Either.Left e
+
+	(* n.b. incoming VMs have ha_always_run = false; otherwise they will be
+	 * included when computing the plan for the already-running VMs. *)
+	let tests = [
+		(* 2 host pool, one VM using just under half of one host's memory;
+		 * test that another VM can be added. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+					];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = false;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm2";
+			}
+		),
+		Either.Right ();
+		(* 2 host pool, two VMs using almost all of one host's memory;
+		 * test that another VM cannot be added. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm2";
+						};
+					];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = false;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm2";
+			}
+		),
+		Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
+		(* 2 host pool which is already overcommitted. Attempting to add another VM
+		 * should not throw an exception. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm2";
+						};
+					];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [
+							{basic_vm with
+								memory = gib 120L;
+								name_label = "vm1";
+							};
+						]
+					};
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = false;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm2";
+			}
+		),
+		Either.Right ();
+	]
+end))
+
 let test =
 	"test_ha_vm_failover" >:::
 		[
 			"test_all_protected_vms" >::: AllProtectedVms.tests;
 			"test_plan_for_n_failures" >::: PlanForNFailures.tests;
+			"test_assert_new_vm_preserves_ha_plan" >:::
+				AssertNewVMPreservesHAPlan.tests;
 		]
