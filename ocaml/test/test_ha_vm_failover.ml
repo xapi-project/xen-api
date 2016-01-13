@@ -56,6 +56,7 @@ type host = {
 type pool = {
 	master: host;
 	slaves: host list;
+	ha_host_failures_to_tolerate: int64;
 }
 
 let string_of_vm {memory; name_label} =
@@ -66,11 +67,12 @@ let string_of_host {memory_total; name_label; vms} =
 		memory_total name_label
 		(Test_printers.list string_of_vm vms)
 
-let string_of_pool {master; slaves} =
+let string_of_pool {master; slaves; ha_host_failures_to_tolerate} =
 	Printf.sprintf
-		"{master = %s; slaves = %s}"
+		"{master = %s; slaves = %s; ha_host_failures_to_tolerate = %Ld}"
 		(string_of_host master)
 		(Test_printers.list string_of_host slaves)
+		ha_host_failures_to_tolerate
 
 let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
 	let vm_ref = make_vm ~__context
@@ -117,7 +119,7 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
 	in
 	host_ref
 
-let setup ~__context {master; slaves} =
+let setup ~__context {master; slaves; ha_host_failures_to_tolerate} =
 	let shared_sr = make_sr ~__context ~shared:true () in
 	let shared_net = make_network ~__context ~bridge:"xenbr0" () in
 
@@ -143,7 +145,9 @@ let setup ~__context {master; slaves} =
 	let master_ref = load_host_and_local_resources master in
 	let (_ : API.ref_host list) = List.map load_host_and_local_resources slaves in
 
-	let (_ : API.ref_pool) = make_pool ~__context ~master:master_ref () in
+	let (_ : API.ref_pool) = make_pool ~__context
+		~ha_enabled:true ~master:master_ref ~ha_host_failures_to_tolerate
+		~ha_plan_exists_for:ha_host_failures_to_tolerate () in
 	()
 
 module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
@@ -169,6 +173,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 		{
 			master = {memory_total = gib 256L; name_label = "master"; vms = []};
 			slaves = [];
+			ha_host_failures_to_tolerate = 0L;
 		},
 		[];
 		(* One unprotected VM. *)
@@ -181,6 +186,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				}];
 			};
 			slaves = [];
+			ha_host_failures_to_tolerate = 0L;
 		},
 		[];
 		(* One VM which would be protected if it was running. *)
@@ -190,6 +196,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				vms = [{basic_vm with ha_always_run = false}];
 			};
 			slaves = [];
+			ha_host_failures_to_tolerate = 0L;
 		},
 		[];
 		(* One protected VM. *)
@@ -199,6 +206,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				vms = [basic_vm];
 			};
 			slaves = [];
+			ha_host_failures_to_tolerate = 0L;
 		},
 		["vm"];
 		(* One protected VM and one unprotected VM. *)
@@ -215,8 +223,125 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				];
 			};
 			slaves = [];
+			ha_host_failures_to_tolerate = 0L;
 		},
 		["vm1"];
+	]
+end))
+
+module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
+	module Io = struct
+		open Xapi_ha_vm_failover
+
+		type input_t = pool
+		type output_t = result
+
+		let string_of_input_t = string_of_pool
+		let string_of_output_t = function
+			| Plan_exists_for_all_VMs -> "Plan_exists_for_all_VMs"
+			| Plan_exists_excluding_non_agile_VMs -> "Plan_exists_excluding_non_agile_VMs"
+			| No_plan_exists -> "No_plan_exists"
+	end
+
+	module State = XapiDb
+
+	let load_input __context = setup ~__context
+
+	let extract_output __context pool =
+		let all_protected_vms = Xapi_ha_vm_failover.all_protected_vms ~__context in
+		Xapi_ha_vm_failover.plan_for_n_failures ~__context
+			~all_protected_vms (Int64.to_int pool.ha_host_failures_to_tolerate)
+
+	(* TODO: Add a test which causes plan_for_n_failures to return
+	 * Plan_exists_excluding_non_agile_VMs. *)
+	let tests = [
+		(* Two host pool with no VMs. *)
+		(
+			{
+				master = {memory_total = gib 256L; name_label = "master"; vms = []};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+		);
+		(* Two host pool, with one VM taking up just under half of one host's
+		 * memory. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [{basic_vm with
+						memory = gib 120L;
+						name_label = "vm1";
+					}];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+		);
+		(* Two host pool, with two VMs taking up almost all of one host's memory. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm2";
+						};
+					];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+		);
+		(* Two host pool, overcommitted. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm2";
+						};
+					];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [
+							{basic_vm with
+								memory = gib 120L;
+								name_label = "vm3";
+							};
+							{basic_vm with
+								memory = gib 120L;
+								name_label = "vm4";
+							};
+						];
+					}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			Xapi_ha_vm_failover.No_plan_exists
+		);
 	]
 end))
 
@@ -224,4 +349,5 @@ let test =
 	"test_ha_vm_failover" >:::
 		[
 			"test_all_protected_vms" >::: AllProtectedVms.tests;
+			"test_plan_for_n_failures" >::: PlanForNFailures.tests;
 		]
