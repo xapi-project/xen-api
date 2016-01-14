@@ -60,10 +60,10 @@ fi
 
 if [ "$new" = "openvswitch" ] ; then
 	echo "Enabling openvswitch daemon"
-	chkconfig --add openvswitch
+	systemctl enable openvswitch.service openvswitch-xapi-sync.service
 else
 	echo "Disabling openvswitch daemon"
-	chkconfig --del openvswitch
+	systemctl disable openvswitch.service openvswitch-xapi-sync.service
 fi
 
 echo "Configure system for $new networking"
