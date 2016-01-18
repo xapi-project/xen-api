@@ -127,17 +127,29 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     end
   ) vm_current_ops;
 
-  (* HVM guests only support plug/unplug IF they have PV drivers *)
+  (* HVM guests MAY support plug/unplug IF they have PV drivers. Assume
+   * all drivers have such support unless they specify that they do not. *)
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm then begin
-    (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with
-     | Some(code, params) -> set_errors code params [ `plug; `unplug; `unplug_force ]
-     | None -> ());
+    let plug_ops = [ `plug; `unplug; `unplug_force ] in
+    let fallback () =
+      match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with
+        | Some(code, params) -> set_errors code params plug_ops
+        | None -> () in
+
+    (match vm_gmr with
+      | None -> fallback ()
+      | Some gmr ->
+        (match gmr.Db_actions.vM_guest_metrics_can_use_hotplug_vbd with
+          | `yes -> () (* Drivers have made an explicit claim of support. *)
+          | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VBD hotplug."] plug_ops
+          | `unspecified -> fallback ())
+    );
     if record.Db_actions.vBD_type = `CD
     then set_errors Api_errors.operation_not_allowed 
-      [ "HVM CDROMs cannot be hotplugged/unplugged, only inserted or ejected" ] [ `plug; `unplug; `unplug_force ]
+      [ "HVM CDROMs cannot be hotplugged/unplugged, only inserted or ejected" ] plug_ops
   end;
 
   (* When a VM is suspended, no operations are allowed for CD. *)
