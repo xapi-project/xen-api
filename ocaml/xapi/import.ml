@@ -1393,33 +1393,33 @@ let with_error_handling f =
 	try f ()
 	with
 	| IFailure failure ->
-		 begin
-			 match failure with
-			 | Cannot_handle_chunked ->
-				  error "import code cannot handle chunked encoding";
-				 raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
-			 | Some_checksums_failed ->
-				  error "some checksums failed";
-				 raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
-			 | Failed_to_find_object id ->
-				  error "Failed to find object with ID: %s" id;
-				 raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
-			 | Attached_disks_not_found ->
-				  error "Cannot import guest with currently attached disks which cannot be found";
-				 raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
-			 | Unexpected_file (expected, actual) ->
-				  let hex = Tar_unix.Header.to_hex in
-				  error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
-					  expected (hex expected) actual (hex actual);
-				  raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
-		 end
+		begin
+			match failure with
+			| Cannot_handle_chunked ->
+				error "import code cannot handle chunked encoding";
+				raise (Api_errors.Server_error (Api_errors.import_error_cannot_handle_chunked, []))
+			| Some_checksums_failed ->
+				error "some checksums failed";
+				raise (Api_errors.Server_error (Api_errors.import_error_some_checksums_failed, []))
+			| Failed_to_find_object id ->
+				error "Failed to find object with ID: %s" id;
+				raise (Api_errors.Server_error (Api_errors.import_error_failed_to_find_object, [id]))
+			| Attached_disks_not_found ->
+				error "Cannot import guest with currently attached disks which cannot be found";
+				raise (Api_errors.Server_error (Api_errors.import_error_attached_disks_not_found, []))
+			| Unexpected_file (expected, actual) ->
+				let hex = Tar_unix.Header.to_hex in
+				error "Invalid XVA file: import expects the next file in the stream to be \"%s\" [%s]; got \"%s\" [%s]"
+					expected (hex expected) actual (hex actual);
+				raise (Api_errors.Server_error (Api_errors.import_error_unexpected_file, [expected; actual]))
+		end
 	| Api_errors.Server_error(code, params) as e ->
-		 raise e
+		raise e
 	| End_of_file ->
-		 error "Prematurely reached end-of-file during import";
+		error "Prematurely reached end-of-file during import";
 		raise (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
 	| e ->
-		 error "Import caught exception: %s" (ExnHelper.string_of_exn e);
+		error "Import caught exception: %s" (ExnHelper.string_of_exn e);
 		raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
 
 (** Import metadata only *)
