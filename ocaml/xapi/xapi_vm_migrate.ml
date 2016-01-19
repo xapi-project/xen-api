@@ -136,46 +136,40 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let session_id = Ref.string_of (Context.get_session_id __context) in
 	let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
-	let vm' = Db.VM.get_uuid ~__context ~self:vm in
-	begin try
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+	try
 		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
 			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 				(* XXX: PR-1255: the live flag *)
-				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				migrate_with_retry ~__context queue_name dbg vm' [] [] xenops_url;
+				info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
+				migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
 				(* Delete all record of this VM locally (including caches) *)
-				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
+				Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 				(* Flush xenopsd events through: we don't want the pool database to
-				   be updated on this host ever again. *)
-				Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm' ()
-			)
+				* be updated on this host ever again. *)
+				Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ()
+			);
 		);
-	with 
-	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
-		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
-	| Xenops_interface.Cancelled _ ->
-		TaskHelper.raise_cancelled ~__context
-	| Xenops_interface.Storage_backend_error (code, params) ->
-		raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
-	| e ->
-		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
+		Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			XenAPI.VM.pool_migrate_complete rpc session_id vm host
+		);
+	with exn ->
+		error "xenops: VM.migrate %s: caught %s" vm_uuid (Printexc.to_string exn);
 		(* We do our best to tidy up the state left behind *)
-		let _, state = XenopsAPI.VM.stat dbg vm' in
+		let _, state = XenopsAPI.VM.stat dbg vm_uuid in
 		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
-			debug "xenops: %s: shutting down suspended VM" vm';
+			debug "xenops: %s: shutting down suspended VM" vm_uuid;
 			Xapi_xenops.shutdown ~__context ~self:vm None;
 		end;
-		raise e
-	end;
-	Rrdd_proxy.migrate_rrd ~__context ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
-	(* We will have missed important events because we set resident_on late.
-	   This was deliberate: resident_on is used by the pool master to reserve
-	   memory. If we called 'atomic_set_resident_on' before the domain is
-	   transferred then we would have no record of the memory use. *)
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VM.pool_migrate_complete rpc session_id vm host
-		)
+		match exn with
+		| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
+			raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+		| Xenops_interface.Cancelled _ ->
+			TaskHelper.raise_cancelled ~__context
+		| Xenops_interface.Storage_backend_error (code, _) ->
+			raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
+		| _ -> raise exn
 
 let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
@@ -961,14 +955,6 @@ let handler req fd _ =
 					end;
 					Xapi_xenops.set_resident_on ~__context ~self:vm
 				)
-			);
-
-			(* We will have missed important events because we set resident_on late.
-			   This was deliberate: resident_on is used by the pool master to reserve
-			   memory. If we called 'atomic_set_resident_on' before the domain is
-			   transferred then we would have no record of the memory use. *)
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				XenAPI.VM.pool_migrate_complete rpc session_id vm localhost
 			);
 
 			TaskHelper.set_progress ~__context 1.
