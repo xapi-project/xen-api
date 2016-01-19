@@ -439,6 +439,17 @@ let make_host ~verbose ~xc =
 		then domain_infolist
 		else List.filter (fun di -> di.Xenctrl.domid > 0) domain_infolist in
 
+	(*
+		For the host free memory we sum the free pages and the pages needing
+		scrubbing: we don't want to adjust targets simply because the scrubber
+		is slow.
+	*)
+	let physinfo = Xenctrl.physinfo xc in
+	let free_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
+	and scrub_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages)
+	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) in
+	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
+
 	let cnx = xc in
 	let domains = List.concat
 		(List.map
@@ -548,19 +559,8 @@ let make_host ~verbose ~xc =
 			domain_infolist
 		) in
 
-	(*
-		For the host free memory we sum the free pages and the pages needing
-		scrubbing: we don't want to adjust targets simply because the scrubber
-		is slow.
-	*)
-	let physinfo = Xenctrl.physinfo xc in
-	let free_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
-	and scrub_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages)
-	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) in
-	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
-
 	(* Sum up the 'reservations' which exist separately from domains *)
-	let non_domain_reservations = Squeezed_state.total_reservations Squeezed_state._service domain_infolist in
+	let non_domain_reservations = Squeezed_state.total_reservations Squeezed_state._service in
 	if verbose && non_domain_reservations <> 0L
 	then debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;

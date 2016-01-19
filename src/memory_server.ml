@@ -129,12 +129,10 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
 		Xenctrl.with_intf
 		(fun xc ->
 			try
-				let reservation_id_path = reservation_path _service session_id reservation_id in
-				let kib = Client.immediate (get_client ()) (fun xs -> Client.read xs reservation_id_path) in
+				let kib = Client.immediate (get_client ()) (fun xs -> Client.read xs (reservation_path _service session_id reservation_id)) in
 				(* This code is single-threaded, no need to make this transactional: *)
 				Client.immediate (get_client ()) (fun xs -> Client.write xs (Printf.sprintf "/local/domain/%d/memory/initial-reservation" domid) kib);
-				Client.immediate (get_client ()) (fun xs -> Client.write xs (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid) reservation_id);
-				Client.immediate (get_client ()) (fun xs -> Client.write xs (path [reservation_id_path; "in-transfer"]) (string_of_int domid));
+                                Client.immediate (get_client ()) (fun xs -> Client.write xs (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid) reservation_id);
 				Opt.iter
 					(fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
 					(try Some (Int64.of_string kib) with _ -> None);
