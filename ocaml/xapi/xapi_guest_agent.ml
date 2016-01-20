@@ -138,7 +138,21 @@ let other all_control =
     the results of these lookups differ *)
 
 type m = (string * string) list
-let cache : (int, (m*m*m*m*m*m*bool*bool*bool*float)) Hashtbl.t = Hashtbl.create 20
+type guest_metrics_t = {
+    pv_drivers_version: m;
+    os_version: m;
+    networks: m;
+    other: m;
+    memory: m;
+    device_id: m;
+    network_paths_optimized: bool;
+    storage_paths_optimized: bool;
+    pv_drivers_up_to_date: bool;
+    last_updated: float;
+    can_use_hotplug_vbd: API.tristate_type;
+    can_use_hotplug_vif: API.tristate_type;
+}
+let cache : (int, guest_metrics_t) Hashtbl.t = Hashtbl.create 20
 let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
@@ -151,6 +165,12 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
     | None -> []) kvpairs) in
+
+  let get_tristate xskey =
+	  match lookup xskey with
+		  | Some "0" -> `no
+		  | Some "1" -> `yes
+		  | _ -> `unspecified in
 
   let ts = match lookup "data/ts" with
   	| Some value -> ["data-ts",value]
@@ -165,6 +185,8 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and network_paths_optimized = network_paths_optimized "device/vif" list lookup
   and storage_paths_optimized = storage_paths_optimized "device/vbd" list lookup
   and last_updated = Unix.gettimeofday () in
+  let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
+  let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
 
   let pv_drivers_up_to_date = network_paths_optimized && storage_paths_optimized in
   
@@ -180,29 +202,34 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let self = Db.VM.get_by_uuid ~__context ~uuid in
 
   let (
-    pv_drivers_version_cached,
-    os_version_cached,
-    networks_cached,
-    other_cached,
-    memory_cached,
-    device_id_cached,
-    network_paths_optimized_cached,
-    storage_paths_optimized_cached,
-    pv_drivers_up_to_date_cached,
-    last_updated_cached
+	  guest_metrics_cached
   ) = Mutex.execute mutex (fun () -> try
-       Hashtbl.find cache domid 
-    with _ -> 
-      (* Make sure our cached idea of whether the domain is live or not is correct *)
-      let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
+	  Hashtbl.find cache domid 
+  with _ -> 
+	  (* Make sure our cached idea of whether the domain is live or not is correct *)
+	  let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
 	  let live = true
-		&& Db.is_valid_ref __context vm_guest_metrics 
-		&& Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
-      if live then
-	dead_domains := IntSet.remove domid !dead_domains
-      else
-	dead_domains := IntSet.add domid !dead_domains;
-      ([],[],[],[],[],[],false,false,false,0.0)) in
+		  && Db.is_valid_ref __context vm_guest_metrics 
+		  && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
+	  if live then
+		  dead_domains := IntSet.remove domid !dead_domains
+	  else
+		  dead_domains := IntSet.add domid !dead_domains;
+	  {
+		  pv_drivers_version = [];
+		  os_version = [];
+		  networks = [];
+		  other = [];
+		  memory = [];
+		  device_id = [];
+		  network_paths_optimized = false;
+		  storage_paths_optimized = false;
+		  pv_drivers_up_to_date = false;
+		  last_updated = 0.0;
+		  can_use_hotplug_vbd = `unspecified;
+		  can_use_hotplug_vif = `unspecified;
+	  }
+  ) in
 
   (* Consider the data valid IF the data/updated key exists *)
   let data_updated = lookup "data/updated" <> None in
@@ -210,27 +237,31 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid (pv_drivers_version,os_version,networks,other,memory,device_id,network_paths_optimized,storage_paths_optimized,pv_drivers_up_to_date,last_updated));
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; network_paths_optimized; storage_paths_optimized; pv_drivers_up_to_date; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
 
       (* We update only if any actual data has changed *)
-      if ( pv_drivers_version_cached <> pv_drivers_version 
+      if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version 
 	   ||
-	   os_version_cached <> os_version
+	   guest_metrics_cached.os_version <> os_version
 	   ||
-	   networks_cached <> networks 
+	   guest_metrics_cached.networks <> networks 
 	   ||
-	   other_cached <> other
+	   guest_metrics_cached.other <> other
      ||
-     device_id_cached <> device_id
+     guest_metrics_cached.device_id <> device_id
      ||
-     network_paths_optimized_cached <> network_paths_optimized
+     guest_metrics_cached.network_paths_optimized <> network_paths_optimized
      ||
-     storage_paths_optimized_cached <> storage_paths_optimized
+     guest_metrics_cached.storage_paths_optimized <> storage_paths_optimized
      ||
-     pv_drivers_up_to_date_cached <> pv_drivers_up_to_date)
+     guest_metrics_cached.pv_drivers_up_to_date <> pv_drivers_up_to_date)
+     ||
+     guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
+     ||
+     guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
 (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
 (*	   ||
-	   memory_cached <> memory)*)
+	   guest_metrics_cached.memory <> memory)*)
       then 
 	begin
      	  let gm = 
@@ -242,7 +273,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
 		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
-		~storage_paths_optimized:false ~network_paths_optimized:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true;
+		~storage_paths_optimized:false ~network_paths_optimized:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
 	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
 		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
@@ -252,31 +283,37 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
 	  (* We unconditionally reset the database values but observe that the database
 	     checks whether a value has actually changed before doing anything *)
-	  if(pv_drivers_version_cached <> pv_drivers_version) then
+	  if(guest_metrics_cached.pv_drivers_version <> pv_drivers_version) then
 	    Db.VM_guest_metrics.set_PV_drivers_version ~__context ~self:gm ~value:pv_drivers_version;
-	  if(os_version_cached <> os_version) then
+	  if(guest_metrics_cached.os_version <> os_version) then
 	    Db.VM_guest_metrics.set_os_version ~__context ~self:gm ~value:os_version;
-	  if(networks_cached <> networks) then
+	  if(guest_metrics_cached.networks <> networks) then
 	    Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks;
-	  if(other_cached <> other) then begin
+	  if(guest_metrics_cached.other <> other) then begin
 	    Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 	  end;
-	  if(network_paths_optimized_cached <> network_paths_optimized) then begin
+	  if(guest_metrics_cached.network_paths_optimized <> network_paths_optimized) then begin
 	  	Db.VM_guest_metrics.set_network_paths_optimized ~__context ~self:gm ~value:network_paths_optimized;
 	  end;
-	  if(storage_paths_optimized_cached <> storage_paths_optimized) then begin
+	  if(guest_metrics_cached.storage_paths_optimized <> storage_paths_optimized) then begin
 	  	Db.VM_guest_metrics.set_storage_paths_optimized ~__context ~self:gm ~value:storage_paths_optimized;
 	  end;
-	  if(pv_drivers_up_to_date_cached <> pv_drivers_up_to_date) then begin
+	  if(guest_metrics_cached.pv_drivers_up_to_date <> pv_drivers_up_to_date) then begin
 	  	Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:pv_drivers_up_to_date;
 	  end;
-(*	  if(memory_cached <> memory) then
+	  if(guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd) then begin
+	  	Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm ~value:can_use_hotplug_vbd;
+	  end;
+	  if(guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif) then begin
+	  	Db.VM_guest_metrics.set_can_use_hotplug_vif ~__context ~self:gm ~value:can_use_hotplug_vif;
+	  end;
+(*	  if(guest_metrics_cached.memory <> memory) then
 	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
 	  
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
 	  
-    if(device_id_cached <> device_id) then begin
+    if(guest_metrics_cached.device_id <> device_id) then begin
       if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
         let value = List.assoc Xapi_globs.device_id_key_name device_id in
         let platform = Db.VM.get_platform ~__context ~self in
@@ -305,8 +342,11 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 		  end
 	  end;
 
-	  (* We base some of our allowed-operations decisions on the presence/absence of PV drivers *)
-	  if pv_drivers_version_cached <> pv_drivers_version then begin
+	  (* We base some of our allowed-operations decisions on these advertised features and the presence/absence of PV drivers. *)
+	  if guest_metrics_cached.pv_drivers_version <> pv_drivers_version
+	    || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
+	    || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
+	  then begin
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
 	  end;	  
 	end (* else debug "Ignored spurious guest agent update" *)

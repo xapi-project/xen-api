@@ -882,6 +882,10 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
 			make_field ~name:"guest-metrics-last-updated"
 				~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
+			make_field ~name:"can-use-hotplug-vbd"
+				~get:(fun () -> default nid (may (fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vbd) (xgm ()) )) ();
+			make_field ~name:"can-use-hotplug-vif"
+				~get:(fun () -> default nid (may (fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vif) (xgm ()) )) ();
 			make_field ~name:"cooperative"
 				(* NB this can receive VM_IS_SNAPSHOT *)
 				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))

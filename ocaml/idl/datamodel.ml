@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 90
+let schema_minor_vsn = 91
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -70,7 +70,7 @@ let indigo_release_schema_major_vsn = 5
 let indigo_release_schema_minor_vsn = 74
 
 let dundee_release_schema_major_vsn = 5
-let dundee_release_schema_minor_vsn = 90
+let dundee_release_schema_minor_vsn = 91
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = cream_release_schema_major_vsn
@@ -2444,7 +2444,7 @@ let vm_set_has_vendor_device = call
 	~doc:"Controls whether, when the VM starts in HVM mode, its virtual hardware will include the emulated PCI device for which drivers may be available through Windows Update. Usually this should never be changed on a VM on which Windows has been installed: changing it on such a VM is likely to lead to a crash on next start."
 	~params:[Ref _vm, "self", "The VM on which to set this flag";
 			 Bool, "value", "True to provide the vendor PCI device."]
-	~allowed_roles:_R_VM_OP
+	~allowed_roles:_R_VM_ADMIN
 	~doc_tags:[Windows]
 	()
 
@@ -3358,6 +3358,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
 	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
 	~messages_default_allowed_roles ?(doc_tags=[])(* used in constructor, destructor and explicit obj msgs *)
+	?(msg_lifecycles = [])(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
 	() =
 	let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
 	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
@@ -3394,7 +3395,8 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	in
 	let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
 	{ name = name; description = descr; obj_lifecycle = lifecycle; messages = msgs; contents = contents;
-		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
+		doccomments = doccomments; msg_lifecycles = msg_lifecycles;
+		gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
 		persist = persist; gen_events = gen_events; obj_release = release;
 		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
 		obj_doc_tags = doc_tags;
@@ -7159,7 +7161,18 @@ let vm_operations =
 let vm =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
       ~gen_events:true
-      ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
+      ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State.";
+        "create", "NOT RECOMMENDED! VM.clone or VM.copy (or VM.import) is a better choice in almost all situations. The standard way to obtain a new VM is to call VM.clone on a template VM, then call VM.provision on the new clone. Caution: if VM.create is used and then the new VM is attached to a virtual disc that has an operating system already installed, then there is no guarantee that the operating system will boot and run. Any software that calls VM.create on a future version of this API may fail or give unexpected results. For example this could happen if an additional parameter were added to VM.create. VM.create is intended only for use in the automatic creation of the system VM templates. It creates a new VM instance, and returns its handle.";
+      ]
+      ~lifecycle:[
+        Published, rel_rio, "";
+      ]
+      ~msg_lifecycles:[
+		  ("create", [
+			  Published, rel_rio, "";
+			  Deprecated, rel_dundee, "Use VM.clone, copy or import instead: see description for details.";
+		  ]);
+      ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
@@ -7296,7 +7309,7 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
-	field ~qualifier:StaticRO ~lifecycle:[Prototyped, rel_dundee, "Experimental"] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "Does nothing at present; will control the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update drivers for XenServer.";
+	field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
     ])
 	()
 
@@ -7330,6 +7343,13 @@ let vm_metrics =
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~persist:false;
       ]
 	()
+
+let tristate_type = Enum ("tristate_type",
+[
+	"yes", "Known to be true";
+	"no", "Known to be false";
+	"unspecified", "Unknown or unspecified";
+])
 
 (* Some of this stuff needs to persist (like PV drivers vsns etc.) so we know about what's likely to be in the VM even when it's off.
    Other things don't need to persist, so we specify these on a per-field basis *)
@@ -7376,6 +7396,8 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
       field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
+      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vbd" "The guest's statement of whether it supports VBD hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VBD by bringing online a new PV block device. If the guest states that it is not capable, then the VBD plug and unplug operations will not be allowed while the guest is running.";
+      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vif" "The guest's statement of whether it supports VIF hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VIF by bringing online a new PV network device. If the guest states that it is not capable, then the VIF plug and unplug operations will not be allowed while the guest is running.";
     ]
     ()
 
@@ -7921,6 +7943,7 @@ let event =
     description = "Asynchronous event registration and handling";
     gen_constructor_destructor = false;
     doccomments = [];
+    msg_lifecycles = [];
     messages = [ register; unregister; next; from; get_current_id; inject ];
     obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
     contents = [

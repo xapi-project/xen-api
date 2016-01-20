@@ -155,6 +155,8 @@ let pool_migrate ~__context ~vm ~host ~options =
 		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
 	| Xenops_interface.Cancelled _ ->
 		TaskHelper.raise_cancelled ~__context
+	| Xenops_interface.Storage_backend_error (code, params) ->
+		raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
 	| e ->
 		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
 		(* We do our best to tidy up the state left behind *)
@@ -834,8 +836,8 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_sr_check:false ();
 		if vif_map <> [] then
-			raise (Api_errors.Server_error(Api_errors.not_implemented, [
-				"VIF mapping is not supported for intra-pool migration"]))
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
+				"VIF mapping is not allowed for intra-pool migration"]))
 	| `cross_pool remote_rpc ->
 		(* Prevent VMs from being migrated onto a host with a lower platform version *)
 		let host_to = Helpers.RemoteObject (remote_rpc, session_id, dest_host_ref) in
@@ -934,6 +936,8 @@ let handler req fd _ =
 			let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
 			let free_memory_required_kib = Int64.add (XenopsMemory.kib_of_bytes_used overhead_bytes) memory_required_kib in
 			debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
+
+			Cpuid_helpers.update_cpu_flags ~__context ~vm ~host:localhost;
 
 			let dbg = Context.string_of_task __context in
 			let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in

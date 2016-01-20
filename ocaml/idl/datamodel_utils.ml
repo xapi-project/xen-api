@@ -190,6 +190,11 @@ let doccomment (x : obj) (meth : string) : string =
   else
     (List.assoc meth default_doccomments) x
 
+let get_lifecycle (x : obj) (meth : string) : lifecycle_transition list =
+  if List.mem_assoc meth x.msg_lifecycles then
+    List.assoc meth x.msg_lifecycles
+  else
+    x.obj_lifecycle
 
 (**
  * The C bindings set this to get the self variable named after the class,
@@ -343,59 +348,64 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_forward_to = None;
 		 } in
   (* Constructor *)
-  let ctor = { common with 
-           msg_name = "create";
+  let ctor = let name = "create" in { common with
+           msg_name = name;
 	       msg_params = [ {param_type=Record x.name;
                                param_name=(if !named_self then "record" else "args");
                                param_doc="All constructor arguments";
 			       param_release=x.obj_release; param_default = None
 			      }];
 	       msg_result = Some (Ref x.name, "reference to the newly created object");
-	       msg_doc = doccomment x "create";
+	       msg_doc = doccomment x name;
+	       msg_lifecycle = get_lifecycle x name;
 	       msg_async = true;
 	       msg_session = true;
 	       msg_has_effect = true;
 	       msg_allowed_roles = x.obj_allowed_roles;
 	       msg_tag = FromObject Make } in
   (* Destructor *)
-  let dtor = { common with
-           msg_name = "destroy";
+  let dtor = let name = "destroy" in { common with
+           msg_name = name;
 	       msg_params = [ self ];
 	       msg_result = None;
-	       msg_doc = doccomment x "destroy";
+	       msg_doc = doccomment x name;
+	       msg_lifecycle = get_lifecycle x name;
 	       msg_async = true;
 	       msg_session = true;
 	       msg_has_effect = true;
 	       msg_allowed_roles = x.obj_allowed_roles;
 	       msg_tag = FromObject Delete } in
   (* Get by UUID *)
-  let uuid = { common with
-           msg_name = "get_by_uuid";
+  let uuid = let name = "get_by_uuid" in { common with
+           msg_name = name;
 	       msg_params = [ {param_type=String; param_name="uuid"; param_doc="UUID of object to return"; param_release=x.obj_release; param_default = None} ];
 	       msg_result = Some (Ref x.name, "reference to the object");
-	       msg_doc = doccomment x "get_by_uuid";
+	       msg_doc = doccomment x name;
+	       msg_lifecycle = get_lifecycle x name;
 	       msg_async = false;
 	       msg_session = true;
 	       msg_has_effect = false;
 	       msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 	       msg_tag = FromObject GetByUuid } in
   (* Get by label *)
-  let get_by_name_label = { common with
-               msg_name = "get_by_name_label";
+  let get_by_name_label = let name = "get_by_name_label" in { common with
+               msg_name = name;
 		       msg_params = [ {param_type=String; param_name="label"; param_doc="label of object to return"; param_release=x.obj_release; param_default = None} ];
 		       msg_result = Some (Set(Ref x.name), "references to objects with matching names");
-	               msg_doc = doccomment x "get_by_name_label";
+	           msg_doc = doccomment x name;
+	           msg_lifecycle = get_lifecycle x name;
 		       msg_async = false;
 		       msg_session = true;
 		       msg_has_effect = false;
 		       msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 		       msg_tag = FromObject GetByLabel } in	       
   (* Get Record *)
-  let get_record = { common with
-             msg_name = "get_record";
+  let get_record = let name = "get_record" in { common with
+             msg_name = name;
 		     msg_params = [ self ];
 		     msg_result = Some (Record x.name, "all fields from the object");
-	             msg_doc = doccomment x "get_record";
+		     msg_doc = doccomment x name;
+			 msg_lifecycle = get_lifecycle x name;
 		     msg_async = false;
 		     msg_session = true;
 		     msg_has_effect = false;
@@ -403,11 +413,12 @@ let messages_of_obj (x: obj) document_order : message list =
 		     msg_tag = FromObject GetRecord } in
 
   (* Get Record (private db version) *)
-  let get_record_internal = { common with
-				msg_name = "get_record_internal";
+  let get_record_internal = let name = "get_record_internal" in { common with
+				msg_name = name;
 				msg_params = [ self ];
 				msg_result = Some (Record x.name, "all fields from the object, including implementation-only ones");
-				msg_doc = doccomment x "get_record_internal";
+				msg_doc = doccomment x name;
+				msg_lifecycle = get_lifecycle x name;
 				msg_async = false;
 				msg_session = true;
 				msg_db_only = true;
@@ -418,11 +429,12 @@ let messages_of_obj (x: obj) document_order : message list =
 			    } in
 
   (* Internal database-only get_all function *)
-  let get_all = { common with
-	   msg_name = "get_all";
+  let get_all = let name = "get_all" in { common with
+	   msg_name = name;
 		  msg_params = [];
 		  msg_result = Some(Set(Ref x.name), "references to all objects");
-	          msg_doc = doccomment x "get_all";
+		  msg_doc = doccomment x name;
+		  msg_lifecycle = get_lifecycle x name;
 		  msg_async = false;
 		  msg_session = true; (* but irrelevant because currently not exposed *)
 		  msg_release = {opensource=[]; internal=[]; internal_deprecated_since=None};
@@ -448,15 +460,18 @@ let messages_of_obj (x: obj) document_order : message list =
 				  msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 				  msg_hide_from_docs = true;
 			      } in
+
   (* And the 'get_all_records' public function *)
-  let get_all_records = { get_all_public with 
-			    msg_name = "get_all_records";
+  let get_all_records = let name = "get_all_records" in { get_all_public with 
+			    msg_name = name;
 			    msg_tag = FromObject GetAllRecords;
 			    msg_params = [ ];
 			    msg_result = Some(Map(Ref x.name, Record x.name), "records of all objects");
 			    msg_release = {opensource=[]; internal=x.obj_release.internal; internal_deprecated_since=None};
 			    msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
-			    msg_doc = doccomment x "get_all_records" } in
+			    msg_doc = doccomment x name;
+			    msg_lifecycle = get_lifecycle x name
+  } in
 
   let name_label = if obj_has_get_by_name_label x then [ get_by_name_label ] else [ ] in
   let get_all_public = if List.mem x.name expose_get_all_messages_for then [ get_all_public; get_all_records_where; get_all_records ] else [] in

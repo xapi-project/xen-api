@@ -181,6 +181,15 @@ let gc_VDIs ~__context =
 		 Db.VDI.destroy ~__context ~self:vdi
 	       end) (Db.VDI.get_all ~__context)
 
+let gc_consoles ~__context =
+	List.iter (fun console ->
+		if not (valid_ref __context (Db.Console.get_VM ~__context ~self:console))
+		then begin
+			Db.Console.destroy ~__context ~self:console;
+			debug "GCed console %s" (Ref.string_of console);
+		end
+	) (Db.Console.get_all ~__context)
+
 let already_sent_clock_skew_warnings = Hashtbl.create 10
 
 let detect_clock_skew ~__context host skew = 
@@ -550,6 +559,7 @@ let single_pass () =
 						"Tasks", timeout_tasks;
 						"Sessions", timeout_sessions;
 						"Messages", gc_messages;
+						"Consoles", gc_consoles;
 						(* timeout_alerts; *)
 						(* CA-29253: wake up all blocked clients *)
 						"Heartbeat", Xapi_event.heartbeat;

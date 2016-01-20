@@ -460,6 +460,12 @@ let on_boot_to_string onboot =
 		| `reset -> "reset"
 		| `persist -> "persist"
 
+let tristate_to_string tristate =
+	match tristate with
+		| `yes -> "true"
+		| `no -> "false"
+		| `unspecified -> "unspecified"
+
 let wrap f err x = try f x with _ -> err x
 let generic_error x = raise (Record_failure ("Unknown value: "^x))
 let rpc_to_string = function | Rpc.String s -> s | _ -> failwith "Bad RPC type in record_util"
