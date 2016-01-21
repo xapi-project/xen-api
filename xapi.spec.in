@@ -185,8 +185,8 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) /etc/xapi.conf
 /etc/logrotate.d/audit
 /etc/logrotate.d/v6d
-/etc/logrotate.d/xapi
 /etc/pam.d/xapi
+/etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
 /etc/rc.d/init.d/management-interface
 /etc/rc.d/init.d/perfmon
@@ -222,6 +222,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/install-supp-pack
 /etc/xapi.d/plugins/disk-space
 /etc/xapi.d/extensions
+/etc/xapi.d/xapi-logrotate.conf
+%attr(0755,root,root) /etc/xapi.d/xapi-logrotate.sh
 %config(noreplace) /etc/xensource/db.conf
 %config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
