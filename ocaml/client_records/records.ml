@@ -215,7 +215,7 @@ let message_record rpc session_id message =
 	make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.message_uuid) ();
 	make_field ~name:"name"         ~get:(fun () -> (x ()).API.message_name) ();
 	make_field ~name:"priority"     ~get:(fun () -> Int64.to_string (x ()).API.message_priority) ();
-	make_field ~name:"class"        ~get:(fun () -> match (x ()).API.message_cls with `VM -> "VM" | `Host -> "Host" | `SR -> "SR" | `Pool -> "Pool" | `VMPP -> "VMPP") ();
+	make_field ~name:"class"        ~get:(fun () -> match (x ()).API.message_cls with `VM -> "VM" | `Host -> "Host" | `SR -> "SR" | `Pool -> "Pool" | `VMPP -> "VMPP" | `VMSS -> "VMSS") ();
 	make_field ~name:"obj-uuid"     ~get:(fun () -> (x ()).API.message_obj_uuid) ();
 	make_field ~name:"timestamp"    ~get:(fun () -> Date.to_string (x ()).API.message_timestamp) ();
 	make_field ~name:"body"         ~get:(fun () -> (x ()).API.message_body) ();
@@ -534,6 +534,68 @@ let pool_record rpc session_id pool =
 				~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
 				();
 			make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_cpu_info) ~get_map:(fun () -> (x ()).API.pool_cpu_info) ();
+		]}
+
+let vmss_record rpc session_id vmss =
+	let _ref = ref vmss in
+	let empty_record = ToGet (fun () -> Client.VMSS.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+		{setref=(fun r -> _ref := r; record := empty_record );
+		setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+		record=x;
+		getref=(fun () -> !_ref);
+		fields =
+			[
+				make_field ~name:"uuid"
+					~get:(fun () -> (x ()).API.vMSS_uuid)
+					();
+				make_field ~name:"name-label"
+					~get:(fun () -> (x ()).API.vMSS_name_label)
+					~set:(fun x -> Client.VMSS.set_name_label rpc session_id vmss x)
+					();
+				make_field ~name:"name-description"
+					~get:(fun () -> (x ()).API.vMSS_name_description)
+					~set:(fun x -> Client.VMSS.set_name_description rpc session_id vmss x)
+					();
+				make_field ~name:"enabled"
+					~get:(fun () -> string_of_bool (x ()).API.vMSS_enabled)
+					~set:(fun x -> Client.VMSS.set_enabled rpc session_id vmss (safe_bool_of_string "enabled" x))
+					();
+				make_field ~name:"type"
+					~get:(fun () -> (Record_util.vmss_type_to_string (x ()).API.vMSS_type))
+					~set:(fun x -> Client.VMSS.set_type rpc session_id vmss (Record_util.string_to_vmss_type x))
+					();
+				make_field ~name:"retained-snapshots"
+					~get:(fun () -> string_of_int (Int64.to_int (x ()).API.vMSS_retained_snapshots))
+					~set:(fun x -> Client.VMSS.set_retained_snapshots rpc session_id vmss (safe_i64_of_string "retained-snapshots" x))
+					();
+				make_field ~name:"frequency"
+					~get:(fun () -> (Record_util.vmss_frequency_to_string (x ()).API.vMSS_frequency))
+					~set:(fun x -> Client.VMSS.set_frequency rpc session_id vmss (Record_util.string_to_vmss_frequency x))
+					();
+				make_field ~name:"schedule"
+					~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vMSS_schedule)
+					~get_map:(fun () -> (x ()).API.vMSS_schedule)
+					~add_to_map:(fun k v -> Client.VMSS.add_to_schedule rpc session_id vmss k v)
+					~remove_from_map:(fun k -> Client.VMSS.remove_from_schedule rpc session_id vmss k)
+					();
+				make_field ~name:"last-run-time"
+					~get:(fun () -> Date.to_string (x ()).API.vMSS_last_run_time)
+					();
+				make_field ~name:"VMs"
+					~get:(fun () -> String.concat "; "
+						(try
+							List.map
+								(fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
+								(Client.VMSS.get_VMs rpc session_id vmss) with _ -> []
+						)
+					)
+					~expensive:false
+					~get_set:(fun () -> try List.map
+						(fun self -> try Client.VM.get_uuid rpc session_id self with _ -> nid)
+						(Client.VMSS.get_VMs rpc session_id vmss) with _ -> [])
+					();
 		]}
 
 let subject_record rpc session_id subject = 
