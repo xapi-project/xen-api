@@ -213,6 +213,9 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
   let vdis_and_callbacks = List.map (fun vbd ->
       let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
       let callback mapto =
+        (if vdi=mapto
+        then debug "No-op in intra_pool_vdi_remap for uuid=%s" (Db.VDI.get_uuid ~__context ~self:vdi)
+        else debug "Remapping vdi %s to %s" (try Db.VDI.get_uuid ~__context ~self:vdi with _ -> Printf.sprintf "(exn getting uuid from %s)" (Ref.string_of vdi)) (Db.VDI.get_uuid ~__context ~self:mapto));
         Db.VBD.set_VDI ~__context ~self:vbd ~value:mapto;
         let other_config_record = Db.VDI.get_other_config ~__context ~self:vdi in
         List.iter (fun key ->
@@ -522,7 +525,7 @@ let vdi_copy_fun __context dbg vdi_map remote_rpc remote_session dest_pool dest_
                              mr_local_vdi_reference = vconf.vdi;
                              mr_remote_vdi_reference = remote_vdi_reference; }) in
       continuation mirror_record
-
+        
 let wait_for_fist __context fistpoint name =
   if fistpoint () then begin
     TaskHelper.add_to_other_config ~__context "fist" name;
@@ -684,14 +687,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
       let new_vm =
         if is_intra_pool
-        then begin
-          List.iter
-            (fun vm' ->
-               intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
-               intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
-            vm_and_snapshots;
-          vm
-        end
+        then vm
         else
           (* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
           let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote_rpc ~session_id:remote_session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
@@ -748,6 +744,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
       XenAPI.VM.pool_migrate_complete remote_rpc remote_session new_vm dest_host_ref;
 
+      (* Those disks that were attached at the point the migration happened will have been
+         remapped by the Events_from_xenopsd logic. We need to remap any other disks at
+         this point here *)
+      
+      List.iter
+        (fun vm' ->
+           intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
+           intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
+        vm_and_snapshots;
+      
       new_vm
     in
 
