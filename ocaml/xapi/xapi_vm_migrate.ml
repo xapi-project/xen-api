@@ -723,14 +723,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
       let new_vm =
         if is_intra_pool
-        then begin
-          List.iter
-            (fun vm' ->
-               intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
-               intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
-            vm_and_snapshots;
-          vm
-        end
+        then vm
         else
           (* Make sure HA replaning cycle won't occur right during the import process or immediately after *)
           let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote_rpc ~session_id:remote_session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
@@ -785,6 +778,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       Xapi_xenops.refresh_vm ~__context ~self:vm;
 
       XenAPI.VM.pool_migrate_complete remote_rpc remote_session new_vm dest_host_ref;
+
+      (* Those disks that were attached at the point the migration happened will have been
+         remapped by the Events_from_xenopsd logic. We need to remap any other disks at
+         this point here *)
+
+      List.iter
+        (fun vm' ->
+           intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
+           intra_pool_fix_suspend_sr ~__context dest_host_ref vm')
+        vm_and_snapshots;
 
       new_vm
     in
