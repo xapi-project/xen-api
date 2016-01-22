@@ -777,7 +777,7 @@ let gen_cmds rpc session_id =
     ; Client.Console.(mk get_all get_all_records_where get_by_uuid console_record "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id)
     ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id)
     ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id)
-    ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id)
+    ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"; "is-vmss-snapshot"] rpc session_id)
     ; Client.Host.(mk get_all get_all_records_where get_by_uuid host_record "host" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.Host_cpu.(mk get_all get_all_records_where get_by_uuid host_cpu_record "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id)
     ; Client.Host_crashdump.(mk get_all get_all_records_where get_by_uuid host_crashdump_record "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id)
@@ -792,6 +792,7 @@ let gen_cmds rpc session_id =
     ; Client.Subject.(mk get_all get_all_records_where get_by_uuid subject_record "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id)
     ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions)
                      get_by_uuid role_record "role" [] ["uuid";"name";"description";"subroles"] rpc session_id)
+    ; Client.VMSS.(mk get_all get_all_records_where get_by_uuid vmss_record "vmss" [] ["uuid";"name-label";"name-description";"enabled";"type";"retained-snapshots";"frequency";"schedule";"last-run-time";"VMs"] rpc session_id)
     (* ; Client.Blob.(mk get_all get_all_records_where get_by_uuid blob_record "blob" [] ["uuid";"mime-type"] rpc session_id)
        		 *)
     ; Client.Message.(mk get_all get_all_records_where get_by_uuid message_record "message" [] [] rpc session_id)
@@ -1770,6 +1771,7 @@ let event_wait_gen rpc session_id classname record_matches =
                    | Event_helper.PBD (r,Some x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
                    | Event_helper.Pool (r,Some x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
                    | Event_helper.Task (r,Some x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
+                   | Event_helper.VMSS (r,Some x) -> let record = vmss_record rpc session_id r in record.setrefrec (r,x); record.fields
                    | Event_helper.Secret (r,Some x) -> let record = secret_record rpc session_id r in record.setrefrec (r,x); record.fields
                    | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
                  in
@@ -4599,6 +4601,33 @@ let secret_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.Secret.get_by_uuid ~rpc ~session_id ~uuid in
   Client.Secret.destroy ~rpc ~session_id ~self:ref
+
+let vmss_create printer rpc session_id params =
+  let get ?default param_name =
+  if List.mem_assoc param_name params
+    then List.assoc param_name params
+  else match default with
+    | Some default_value -> default_value
+    | None -> failwith ("No default value for parameter "^param_name)
+  in
+  let name_label = List.assoc "name-label" params in
+  let ty = Record_util.string_to_vmss_type(get "type") in
+  let frequency = Record_util.string_to_vmss_frequency(get "frequency") in
+  let schedule = read_map_params "schedule" params in
+  (* optional parameters with default values *)
+  let name_description = get "name-description" ~default:"" in
+  let enabled = Record_util.bool_of_string(get "enabled" ~default:"true") in
+  let retained_snapshots = Int64.of_string(get "retained-snapshots" ~default:"7") in
+  let ref = Client.VMSS.create ~rpc ~session_id ~name_label ~name_description
+    ~enabled ~_type:ty ~retained_snapshots ~frequency ~schedule
+  in
+  let uuid = Client.VMSS.get_uuid ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PList [uuid])
+
+let vmss_destroy printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.VMSS.get_by_uuid ~rpc ~session_id ~uuid in
+  Client.VMSS.destroy ~rpc ~session_id ~self:ref
 
 let vm_appliance_create printer rpc session_id params =
   let name_label = List.assoc "name-label" params in
