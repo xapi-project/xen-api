@@ -155,6 +155,7 @@ XAPI_MODULES = \
 	xapi_xenops \
 	xapi_xenops_queue \
 	xapi_vmpp \
+	xapi_vmss \
 	xapi_vm_appliance \
 	xapi_vm_appliance_lifecycle \
 	xapi_vm_lifecycle \
