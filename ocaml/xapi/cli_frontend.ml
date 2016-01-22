@@ -2485,6 +2485,25 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			; implementation = No_fd Cli_operations.secret_destroy
 			; flags = []
 			};
+
+		"vmss-create",
+		{
+			reqd=["name-label";"type";"frequency"];
+			optn=["name-description";"enabled";"schedule:";"retained-snapshots"];
+			help="Create a VM snapshot schedule.";
+			implementation=No_fd Cli_operations.vmss_create;
+			flags=[];
+		};
+
+		"vmss-destroy",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Destroy a VM snapshot schedule.";
+			implementation=No_fd Cli_operations.vmss_destroy;
+			flags=[];
+		};
+
 		"appliance-create",
 		{
 			reqd=["name-label"];
