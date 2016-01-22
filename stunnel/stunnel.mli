@@ -65,3 +65,7 @@ val must_verify_cert : bool option -> bool
 val set_legacy_protocol_and_ciphersuites_allowed : bool -> unit
 
 val is_legacy_protocol_and_ciphersuites_allowed : unit -> bool
+
+val set_good_ciphersuites : string -> unit
+
+val set_legacy_ciphersuites : string -> unit
