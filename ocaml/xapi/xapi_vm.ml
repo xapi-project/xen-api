@@ -906,6 +906,24 @@ let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 let set_protection_policy ~__context ~self ~value =
 	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
+let set_snapshot_schedule ~__context ~self ~value =
+	if value <> Ref.null then begin
+		if Db.VM.get_is_control_domain ~__context ~self then
+			(* do not assign vmss to the dom0 vm of any host in the pool *)
+			raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]));
+		if Db.VM.get_is_a_template ~__context ~self then
+			(* Do not assign templates to a VMSS. *)
+			raise (Api_errors.Server_error(Api_errors.vm_is_template, [Ref.string_of self]));
+		(* Check VM allowed operation support the snapshot type of VMSS *)
+		let allowed_operations = Db.VM.get_allowed_operations ~__context ~self in
+		let snapshot_type = Db.VMSS.get_type ~__context ~self:value in
+		if not (List.exists (fun ty -> ty == snapshot_type) allowed_operations) then
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+				["VM doesn't support snapshot_type " ^ (Record_util.vmss_type_to_string snapshot_type)]));
+	end;
+	Db.VM.set_snapshot_schedule ~__context ~self ~value;
+	update_allowed_operations ~__context ~self
+
 let set_start_delay ~__context ~self ~value =
 	if value < 0L then invalid_value
 		"start_delay must be non-negative"

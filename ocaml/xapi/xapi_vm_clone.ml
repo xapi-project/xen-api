@@ -266,6 +266,11 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 	let generation_id = Xapi_vm_helpers.fresh_genid
 		~current_genid:all.Db_actions.vM_generation_id () in
 
+	(* verify if this action is happening due to a VM Schedule Snapshot *)
+	let is_vmss_snapshot =
+		is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context)
+	in
+
 	(* create a new VM *)
 	Db.VM.create ~__context 
 		~ref
@@ -331,7 +336,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
-		~is_vmss_snapshot:false
+		~is_vmss_snapshot
 		~snapshot_schedule:Ref.null
 		~appliance:Ref.null
 		~start_delay:0L
