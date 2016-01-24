@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 91
+let schema_minor_vsn = 92
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -100,6 +100,7 @@ let _vm_guest_metrics = "VM_guest_metrics"
 let _vm_appliance = "VM_appliance"
 let _dr_task = "DR_task"
 let _vmpp = "VMPP"
+let _vmss = "VMSS"
 let _network = "network"
 let _vif = "VIF"
 let _vif_metrics = "VIF_metrics"
@@ -1257,6 +1258,11 @@ let _ =
     ~doc:"Archive more frequent than backup." ();
   error Api_errors.vm_assigned_to_protection_policy ["vm"; "vmpp"]
     ~doc:"This VM is assigned to a protection policy." ();
+  
+  error Api_errors.vmss_has_vm []
+    ~doc:"There is at least one VM assigned to scheduled snapshot." ();
+  error Api_errors.vm_assigned_to_scheduled_snapshot ["vm"; "vmss"]
+    ~doc:"This VM is assigned to a scheduled snapshot." ();
 
   error Api_errors.ssl_verify_error ["reason"]
     ~doc:"The remote system's SSL certificate failed to verify against our certificate library." ();
@@ -2348,6 +2354,17 @@ let vm_set_protection_policy = call
   ~doc:"Set the value of the protection_policy field"
   ~params:[Ref _vm, "self", "The VM";
      Ref _vmpp, "value", "The value"]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_scheduled_snapshot = call
+  ~name:"set_scheduled_snapshot"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~doc:"Set the value of the scheduled snapshot field"
+  ~params:[Ref _vm, "self", "The VM";
+    Ref _vmss, "value", "The value"]
   ~flags:[`Session]
   ~allowed_roles:_R_POOL_OP
   ()
@@ -7223,7 +7240,8 @@ let vm =
 		vm_update_snapshot_metadata;
 		vm_retrieve_wlb_recommendations;
 		vm_copy_bios_strings;
-    vm_set_protection_policy;
+		vm_set_protection_policy;
+		vm_set_scheduled_snapshot;
 		vm_set_start_delay;
 		vm_set_shutdown_delay;
 		vm_set_order;
@@ -7303,6 +7321,8 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~lifecycle:[Published, rel_cowley, ""; Deprecated, rel_clearwater, "The VMPR feature was removed"] ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~lifecycle:[Published, rel_cowley, ""; Deprecated, rel_clearwater, "The VMPR feature was removed"] ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
+	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_dundee ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmss) "scheduled_snapshot" "Ref pointing to a scheduled snapshot for this VM";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_dundee ~default_value:(Some (VBool false)) ~ty:Bool "is_vmss_snapshot" "true if this snapshot was created by the scheduled snapshot";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
@@ -7736,6 +7756,143 @@ let vmpp =
     ]
     ()
 
+(* VM schedule snapshot *)
+let vmss_snapshot_now = call ~flags:[`Session]
+  ~name:"snapshot_now"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~params:[Ref _vmss, "vmss", "Scheduled Snapshot to execute";]
+  ~doc:"This call executes the scheduled snapshot immediately"
+  ~allowed_roles:_R_POOL_OP
+  ~result:(String, "An XMLRPC result")
+  ()
+
+let vmss_type = Enum ("vmss_type",
+  [
+    "snapshot", "The snapshot is a disk snapshot";
+    "checkpoint", "The snapshot is a checkpoint";
+    "snapshot_with_quiesce", "The snapshot is a VSS";
+  ])
+
+let vmss_frequency = Enum ("vmss_frequency",
+  [
+    "hourly", "Hourly snapshots";
+    "daily", "Daily snapshots";
+    "weekly", "Weekly snapshots";
+  ])
+
+let vmss_schedule_min = "min"
+let vmss_schedule_hour = "hour"
+let vmss_schedule_days = "days"
+
+let vmss_set_retained_snapshots = call ~flags:[`Session]
+  ~name:"set_retained_snapshots"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmss, "self", "The schedule snapshot";
+    Int, "value", "the value to set"
+  ]
+  ()
+
+let vmss_set_frequency = call ~flags:[`Session]
+  ~name:"set_frequency"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    vmss_frequency, "value", "the scheduled snapshot frequency"
+  ]
+  ~doc:"Set the value of the frequency field"
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vmss_set_schedule = call ~flags:[`Session]
+  ~name:"set_schedule"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    Map(String,String), "value", "the value to set"
+  ]
+  ()
+
+let vmss_set_last_run_time = call ~flags:[`Session]
+  ~name:"set_last_run_time"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    DateTime, "value", "the value to set"
+  ]
+  ()
+
+let vmss_add_to_schedule = call ~flags:[`Session]
+  ~name:"add_to_schedule"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    String, "key", "the key to add";
+    String, "value", "the value to add";
+  ]
+  ()
+
+let vmss_remove_from_schedule = call ~flags:[`Session]
+  ~name:"remove_from_schedule"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    String, "key", "the key to remove";
+  ]
+  ()
+
+let vmss_set_type = call ~flags:[`Session]
+  ~name:"set_type"
+  ~in_oss_since:None
+  ~in_product_since:rel_dundee
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmss, "self", "The scheduled snapshot";
+    vmss_type, "value", "the scheduled snapshot type"
+  ]
+  ()
+
+let vmss =
+  create_obj ~in_db:true ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmss ~descr:"VM Scheduled Snapshot"
+    ~gen_events:true
+    ~in_product_since:rel_dundee
+    ~doccomments:[]
+    ~messages_default_allowed_roles:_R_POOL_OP
+    ~messages:[
+      vmss_snapshot_now;
+      vmss_set_retained_snapshots;
+      vmss_set_frequency;
+      vmss_set_schedule;
+      vmss_add_to_schedule;
+      vmss_remove_from_schedule;
+      vmss_set_last_run_time;
+      vmss_set_type;
+    ]
+  ~contents:[
+    uid _vmss;
+    namespace ~name:"name" ~contents:(names None RW) ();
+    field ~qualifier:RW ~ty:Bool "enabled" "enable or disable this scheduled snapshot" ~default_value:(Some (VBool true));
+    field ~qualifier:StaticRO ~ty:vmss_type "type" "type of the scheduled snapshot";
+    field ~qualifier:StaticRO ~ty:Int "retained_snapshots" "maximum number of snapshots that should be stored at any time" ~default_value:(Some (VInt 7L));
+    field ~qualifier:StaticRO ~ty:vmss_frequency "frequency" "frequency of taking snapshot from scheduled snapshot";
+    field ~qualifier:StaticRO ~ty:(Map (String,String)) "schedule" "schedule of the snapshot containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
+    field ~qualifier:DynamicRO ~ty:DateTime "last_run_time" "time of the last snapshot" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+    field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this scheduled snapshot";
+  ]
+  ()
+
 (* VM appliance *)
 let vm_appliance_operations = Enum ("vm_appliance_operation",
 	[
@@ -8007,6 +8164,7 @@ let message =
 		   "SR", "SR";
 		   "Pool","Pool";
        "VMPP","VMPP";
+       "VMSS", "VMSS";
     ])
   in
   let create = call
@@ -8597,6 +8755,7 @@ let all_system =
 		vm_metrics;
 		vm_guest_metrics;
 		vmpp;
+		vmss;
 		vm_appliance;
 		dr_task;
 		host;
@@ -8696,6 +8855,7 @@ let all_relations =
     (_role, "subroles"), (_role, "subroles");
 
     (_vm, "protection_policy"), (_vmpp, "VMs");
+    (_vm, "scheduled_snapshot"), (_vmss, "VMs");
     (_vm, "appliance"), (_vm_appliance, "VMs");
 
     (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
@@ -8789,6 +8949,7 @@ let expose_get_all_messages_for = [
 	_secret;
 	_tunnel;
 	_vmpp;
+	_vmss;
 	_vm_appliance;
 	_pci;
 	_pgpu;
