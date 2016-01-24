@@ -1707,6 +1707,7 @@ let event_wait_gen rpc session_id classname record_matches =
 				| "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
 				| "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
 				| "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
+				| "vmss" -> List.map (fun x -> (vmss_record rpc session_id x).fields) (Client.VMSS.get_all rpc session_id)
 				| "secret" -> List.map (fun x -> (secret_record rpc session_id x).fields) (Client.Secret.get_all rpc session_id)
 					(*				| "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
 				| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")

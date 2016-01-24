@@ -480,6 +480,9 @@ let vmpp_has_vm = "VMPP_HAS_VM"
 let vmpp_archive_more_frequent_than_backup = "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
 let vm_assigned_to_protection_policy = "VM_ASSIGNED_TO_PROTECTION_POLICY"
 
+let vmss_has_vm = "VMSS_HAS_VM"
+let vm_assigned_to_snapshot_schedule = "VM_ASSIGNED_TO_SNAPSHOT_SCHEDULE"
+
 let ssl_verify_error = "SSL_VERIFY_ERROR"
 
 let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
