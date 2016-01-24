@@ -53,6 +53,7 @@ let class_to_string cls =
   | `SR -> "SR"
   | `Pool -> "Pool"
   | `VMPP -> "VMPP"
+  | `VMSS -> "VMSS"
   | `PVS_proxy -> "PVS_proxy"
   | _ -> "unknown"
 
@@ -63,6 +64,7 @@ let string_to_class str =
   | "SR" -> `SR
   | "Pool" -> `Pool
   | "VMPP" -> `VMPP
+  | "VMSS" -> `VMSS
   | "PVS_proxy" -> `PVS_proxy
   | _ -> failwith "Bad type"
 
@@ -224,6 +226,7 @@ let check_uuid ~__context ~cls ~uuid =
      | `SR -> ignore(Db.SR.get_by_uuid ~__context ~uuid)
      | `Pool -> ignore(Db.Pool.get_by_uuid ~__context ~uuid)
      | `VMPP -> ignore(Db.VMPP.get_by_uuid ~__context ~uuid)
+     | `VMSS -> ignore(Db.VMSS.get_by_uuid ~__context ~uuid)
      | `PVS_proxy -> ignore(Db.PVS_proxy.get_by_uuid ~__context ~uuid)
     );
     true
