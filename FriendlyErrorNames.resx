@@ -762,7 +762,7 @@ Authorized Roles: {1}</value>
     <value>The tapdisk failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
-    <value>Does not support extended characters in CIFS paths, usernames, and passwords.</value>
+    <value>Extended characters are not supported in CIFS paths, usernames, and passwords.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_47" xml:space="preserve">
     <value>The storage repository is not available</value>
@@ -1068,7 +1068,7 @@ Authorized Roles: {1}</value>
     <value>You attempted an operation on VM {0} that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option.</value>
   </data>
   <data name="WLB_MALFORMED_RESPONSE" xml:space="preserve">
-    <value>The WLB server said something that server wasn't expecting or didn't understand.</value>
+    <value>The WLB server said something that your server wasn't expecting or didn't understand.</value>
   </data>
   <data name="XMLRPC_GENERAL_ERROR" xml:space="preserve">
     <value>An error occurred while performing the XMLRPC request.</value>
