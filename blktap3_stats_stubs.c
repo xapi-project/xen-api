@@ -45,19 +45,19 @@ CAMLprim value stub_get_blktap3_stats(value filename)
 
 	stats = caml_alloc_tuple(14);
 
-	Store_field(stats, 0, caml_copy_int64((int64) c_stats.st_ds_req));
-	Store_field(stats, 1, caml_copy_int64((int64) c_stats.st_f_req));
-	Store_field(stats, 2, caml_copy_int64((int64) c_stats.st_oo_req));
-	Store_field(stats, 3, caml_copy_int64((int64) c_stats.st_rd_req));
-	Store_field(stats, 4, caml_copy_int64((int64) c_stats.st_rd_cnt));
-	Store_field(stats, 5, caml_copy_int64((int64) c_stats.st_rd_sect));
-	Store_field(stats, 6, caml_copy_int64((int64) c_stats.st_rd_sum_usecs));
-	Store_field(stats, 7, caml_copy_int64((int64) c_stats.st_rd_max_usecs));
-	Store_field(stats, 8, caml_copy_int64((int64) c_stats.st_wr_req));
-	Store_field(stats, 9, caml_copy_int64((int64) c_stats.st_wr_cnt));
-	Store_field(stats, 10, caml_copy_int64((int64) c_stats.st_wr_sect));
-	Store_field(stats, 11, caml_copy_int64((int64) c_stats.st_wr_sum_usecs));
-	Store_field(stats, 12, caml_copy_int64((int64) c_stats.st_wr_max_usecs));
+	Store_field(stats, 0, caml_copy_int64((int64_t) c_stats.st_ds_req));
+	Store_field(stats, 1, caml_copy_int64((int64_t) c_stats.st_f_req));
+	Store_field(stats, 2, caml_copy_int64((int64_t) c_stats.st_oo_req));
+	Store_field(stats, 3, caml_copy_int64((int64_t) c_stats.st_rd_req));
+	Store_field(stats, 4, caml_copy_int64((int64_t) c_stats.st_rd_cnt));
+	Store_field(stats, 5, caml_copy_int64((int64_t) c_stats.st_rd_sect));
+	Store_field(stats, 6, caml_copy_int64((int64_t) c_stats.st_rd_sum_usecs));
+	Store_field(stats, 7, caml_copy_int64((int64_t) c_stats.st_rd_max_usecs));
+	Store_field(stats, 8, caml_copy_int64((int64_t) c_stats.st_wr_req));
+	Store_field(stats, 9, caml_copy_int64((int64_t) c_stats.st_wr_cnt));
+	Store_field(stats, 10, caml_copy_int64((int64_t) c_stats.st_wr_sect));
+	Store_field(stats, 11, caml_copy_int64((int64_t) c_stats.st_wr_sum_usecs));
+	Store_field(stats, 12, caml_copy_int64((int64_t) c_stats.st_wr_max_usecs));
 	if ((c_stats.flags) & BT3_LOW_MEMORY_MODE)
 		Store_field(stats, 13, Val_true);
 	else
