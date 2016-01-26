@@ -7,8 +7,7 @@ rrd2csv - extract RRDs from xcp-rrdd in the CSV format
 rrd2csv [\f[I]options\f[]] [\f[I]datasource-descriptor\f[]]*
 .SH DESCRIPTION
 .PP
-rrd2csv is a tool to output XenCloudPlatform and XenServer RRD values in
-CSV format.
+rrd2csv is a tool to output RRD values in CSV format.
 It runs inside dom0, and by default displays all active datasources that
 RRDD maintains, but it is also possible to select datasources of
 interest as command-line arguments.
