@@ -54,17 +54,22 @@ let comment doc ?(indent = 0) s =
   let indent_str = String.make indent ' ' in
   let buf = Buffer.create 16 in
   let formatter = Format.formatter_of_buffer buf in
+  let open Format in
 
   let out, flush, newline, spaces =
-    Format.pp_get_all_formatter_output_functions formatter () in
+    let funcs = Format.pp_get_formatter_out_functions formatter () in
+      (funcs.out_string, funcs.out_flush, funcs.out_newline, funcs.out_spaces)
+  in
 
-    Format.pp_set_all_formatter_output_functions formatter
-      ~out:out
-      ~flush:flush
-      ~newline:(fun () ->
-                  out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4))
-      ~spaces:spaces;
-      
+    let funcs = {
+      out_string = out;
+      out_flush = flush;
+      out_newline = (fun () ->
+                  out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4));
+      out_spaces = spaces;
+    } in
+    Format.pp_set_formatter_out_functions formatter funcs;
+ 
     Format.pp_open_hvbox formatter 0;
     Format.pp_set_margin formatter 76;
     Format.fprintf formatter "%s" indent_str;
@@ -80,11 +85,7 @@ let comment doc ?(indent = 0) s =
 
     Format.fprintf formatter "%!";
 
-    Format.pp_set_all_formatter_output_functions formatter
-      ~out:out
-      ~flush:flush
-      ~newline:newline
-      ~spaces:spaces;
+    Format.pp_set_formatter_out_functions formatter { funcs with out_newline=newline };
       
     let result = Buffer.contents buf in
     let n = String.length result in
