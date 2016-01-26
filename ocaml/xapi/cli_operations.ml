@@ -2385,8 +2385,8 @@ Pool. Please provide an sr-name-label or sr-uuid parameter." in
 		(
 			try Client.VM.set_has_vendor_device rpc session_id new_vm want_dev
 			with e when e = licerr ->
-				let msg = Printf.sprintf "Licence forbids setting recommended has-vendor-device for VM %s (%s)."
-					(Client.VM.get_uuid rpc session_id new_vm) (Client.VM.get_name_label rpc session_id new_vm) in
+				let msg = Printf.sprintf "Note: the VM template recommends setting has-vendor-device=true (to provide the option of obtaining PV drivers through Windows Update), but a suitable licence has not been deployed for this host. Ignoring this recommendation and continuing with installation of VM %S..."
+					(Client.VM.get_name_label rpc session_id new_vm) in
 				warn "%s" msg;
 				Cli_printer.PStderr (msg^"\n") |> printer
 		);

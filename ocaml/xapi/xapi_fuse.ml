@@ -56,7 +56,7 @@ let light_fuse_and_reboot_after_eject() =
 	    (fun ()->
 	       Thread.delay !Xapi_globs.fuse_time;
 	       (* this activates firstboot script and reboots the host *)
-		   ignore (Forkhelpers.execute_command_get_output "/sbin/service" [ "firstboot"; "activate" ]);
+		   ignore (Forkhelpers.execute_command_get_output "/sbin/xs-firstboot" [ "reset-and-reboot" ]);
            ()
 	    ) ())
 
