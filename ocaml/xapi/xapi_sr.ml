@@ -142,7 +142,8 @@ let introduce  ~__context ~uuid ~name_label
 			~_type ~shared ~other_config:[] ~default_vdi_visibility:true
 			~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
 			~introduced_by:Ref.null
-			~clustered:false;
+			~clustered:false
+			~is_tools_sr:false;
 
 		Xapi_sr_operations.update_allowed_operations ~__context ~self:sr_ref;
 		(* Return ref of newly created sr *)

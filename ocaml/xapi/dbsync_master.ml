@@ -129,6 +129,7 @@ let create_tools_sr __context =
 								~name_description:description
 								~_type ~content_type ~shared ~sm_config:[] in
 						Client.SR.set_other_config ~rpc ~session_id ~self:sr ~value:sr_other_config;
+						Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
 						sr
 					end in
 			(* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
