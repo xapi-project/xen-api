@@ -331,6 +331,8 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
+		~is_vmss_snapshot:false
+		~snapshot_schedule:Ref.null
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L
