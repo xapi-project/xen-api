@@ -391,6 +391,7 @@ let create ~__context ~name_label ~name_description
 		~ha_always_run ~ha_restart_priority ~tags
 		~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp
+		~snapshot_schedule ~is_vmss_snapshot
 		~appliance
 		~start_delay
 		~shutdown_delay
@@ -468,6 +469,8 @@ let create ~__context ~name_label ~name_description
 		~bios_strings:[]
 		~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
+		~snapshot_schedule:Ref.null
+		~is_vmss_snapshot:false
 		~appliance
 		~start_delay
 		~shutdown_delay

@@ -966,6 +966,11 @@ let vm_record rpc session_id vm =
 			make_field ~name:"appliance"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_appliance)
 				~set:(fun x -> if x="" then Client.VM.set_appliance rpc session_id vm Ref.null else Client.VM.set_appliance rpc session_id vm (Client.VM_appliance.get_by_uuid rpc session_id x)) ();
+			make_field ~name:"snapshot-schedule"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
+				~set:(fun x -> if x="" then Client.VM.set_snapshot_schedule rpc session_id vm Ref.null else Client.VM.set_snapshot_schedule rpc session_id vm (Client.VMSS.get_by_uuid rpc session_id x)) ();
+			make_field ~name:"is-vmss-snapshot"
+				~get:(fun () -> string_of_bool (x ()).API.vM_is_vmss_snapshot) ();
 			make_field ~name:"start-delay"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_start_delay)
 				~set:(fun x -> Client.VM.set_start_delay rpc session_id vm (safe_i64_of_string "start-delay" x)) ();
