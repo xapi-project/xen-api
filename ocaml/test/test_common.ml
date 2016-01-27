@@ -80,6 +80,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
+		?(snapshot_schedule=Ref.null) ?(is_vmss_snapshot=false)
 		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
 		?(generation_id="0:0") ?(hardware_platform_version=0L)
 		?(has_vendor_device=false) ?(has_vendor_device=false) () =
@@ -91,6 +92,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
+		~snapshot_schedule ~is_vmss_snapshot
 		~version ~generation_id ~hardware_platform_version ~has_vendor_device
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
