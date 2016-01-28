@@ -138,7 +138,7 @@ let create_tools_sr __context =
 		in
 
 		(* Create XenSource Tools ISO, if an SR with this name is not already there: *)
-		let tools_srs = List.filter (fun sr -> Helpers.is_tools_sr ~__context ~sr) (Db.SR.get_all ~__context) in
+		let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
 		if tools_srs = [] then
 			create_magic_sr Xapi_globs.miami_tools_sr_name
 				"XenServer Tools ISOs"
