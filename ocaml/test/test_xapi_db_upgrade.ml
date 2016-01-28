@@ -118,6 +118,17 @@ let remove_restricted_pbd_keys () =
 			(List.mem_assoc k device_config')
 	) other_keys
 
+let set_tools_sr_field () =
+	let __context = make_test_database () in
+	let tools_sr1 = make_sr ~__context ~other_config:[Xapi_globs.tools_sr_tag, "true"] () in
+	let tools_sr2 = make_sr ~__context ~other_config:[Xapi_globs.xensource_internal, "true"] () in
+	let other_sr = make_sr ~__context ~other_config:[] () in
+
+	set_tools_sr_field.fn ~__context;
+
+	assert_equal (Db.SR.get_is_tools_sr ~__context ~self:tools_sr1) true;
+	assert_equal (Db.SR.get_is_tools_sr ~__context ~self:tools_sr2) true;
+	assert_equal (Db.SR.get_is_tools_sr ~__context ~self:other_sr) false
 
 let test =
 	"test_db_upgrade" >:::
@@ -126,4 +137,5 @@ let test =
 			"upgrade_bios" >:: upgrade_bios;
 			"update_snapshots" >:: update_snapshots;
 			"remove_restricted_pbd_keys" >:: remove_restricted_pbd_keys;
+			"set_tools_sr_field" >:: set_tools_sr_field;
 		]
