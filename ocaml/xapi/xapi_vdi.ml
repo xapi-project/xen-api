@@ -50,7 +50,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 		(* check to see whether it's a local cd drive *)
 		let sr = record.Db_actions.vDI_SR in
 		let sr_type = Db.SR.get_type ~__context ~self:sr in
-		let is_tools_sr = Helpers.is_tools_sr ~__context ~sr in
+		let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
 
 		(* Check to see if any PBDs are attached *)
 		let open Db_filter_types in

@@ -531,7 +531,7 @@ let sm_caps_of_sr session_id sr =
    happen to be R/O NFS exports *)
 let avoid_vdi_create session_id sr = 
   let other_config = Client.SR.get_other_config !rpc session_id sr in
-  let is_tools_sr = List.mem_assoc Xapi_globs.tools_sr_tag other_config in
+  let is_tools_sr = Client.SR.get_is_tools_sr !rpc session_id sr in
   let special_key = "quicktest-no-VDI_CREATE" in
   let is_marked = List.mem_assoc special_key other_config && List.assoc special_key other_config = "true" in
   is_tools_sr || is_marked
