@@ -112,47 +112,48 @@ let release_locks ~__context =
     (Db.VM.get_all ~__context)
 
 let create_tools_sr __context = 
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-    (* Creates a new SR and PBD record *)
-    (* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there 
-       to make the PBD for the shared tools SR *)
-    let create_magic_sr name description _type content_type device_config sr_other_config shared =
-      let sr = 
-	try
-	  (* Check if it already exists *)
-	  List.hd (Client.SR.get_by_name_label rpc session_id name)
-	with _ ->
-	  begin
-	    let sr =
-	      Client.SR.introduce ~rpc ~session_id ~uuid:(Uuid.to_string (Uuid.make_uuid())) 
-		~name_label:name
-		~name_description:description
-		~_type ~content_type ~shared ~sm_config:[] in
-	    Client.SR.set_other_config ~rpc ~session_id ~self:sr ~value:sr_other_config;
-	    sr
-	  end in
-      (* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
-      let hosts = Db.Host.get_all ~__context in
-      List.iter (fun host -> ignore (Create_storage.maybe_create_pbd rpc session_id sr device_config host)) hosts
-    in
-    
-    (* Create XenSource Tools ISO, if an SR with this name is not already there: *)
-    let tools_srs = List.filter (fun sr -> Helpers.is_tools_sr ~__context ~sr) (Db.SR.get_all ~__context) in
-    if tools_srs = [] then
-      create_magic_sr Xapi_globs.miami_tools_sr_name
-	"XenServer Tools ISOs"
-	"iso" "iso"
-	["path", !Xapi_globs.tools_sr_dir; (* for ffs *)
-	 "location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
-	 "legacy_mode", "true"]
-	[Xapi_globs.xensource_internal, "true";
-	 Xapi_globs.tools_sr_tag, "true";
-	 Xapi_globs.i18n_key, "xenserver-tools";
-	 (Xapi_globs.i18n_original_value_prefix ^ "name_label"),
-	Xapi_globs.miami_tools_sr_name;
-	 (Xapi_globs.i18n_original_value_prefix ^ "name_description"),
-	"XenServer Tools ISOs"]
-	true)
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		(* Creates a new SR and PBD record *)
+		(* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there
+			 to make the PBD for the shared tools SR *)
+		let create_magic_sr name description _type content_type device_config sr_other_config shared =
+			let sr =
+				try
+					(* Check if it already exists *)
+					List.hd (Client.SR.get_by_name_label rpc session_id name)
+				with _ ->
+					begin
+						let sr =
+							Client.SR.introduce ~rpc ~session_id ~uuid:(Uuid.to_string (Uuid.make_uuid()))
+								~name_label:name
+								~name_description:description
+								~_type ~content_type ~shared ~sm_config:[] in
+						Client.SR.set_other_config ~rpc ~session_id ~self:sr ~value:sr_other_config;
+						sr
+					end in
+			(* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
+			let hosts = Db.Host.get_all ~__context in
+			List.iter (fun host -> ignore (Create_storage.maybe_create_pbd rpc session_id sr device_config host)) hosts
+		in
+
+		(* Create XenSource Tools ISO, if an SR with this name is not already there: *)
+		let tools_srs = List.filter (fun sr -> Helpers.is_tools_sr ~__context ~sr) (Db.SR.get_all ~__context) in
+		if tools_srs = [] then
+			create_magic_sr Xapi_globs.miami_tools_sr_name
+				"XenServer Tools ISOs"
+				"iso" "iso"
+				["path", !Xapi_globs.tools_sr_dir; (* for ffs *)
+				 "location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
+				 "legacy_mode", "true"]
+				[Xapi_globs.xensource_internal, "true";
+				 Xapi_globs.tools_sr_tag, "true";
+				 Xapi_globs.i18n_key, "xenserver-tools";
+				 (Xapi_globs.i18n_original_value_prefix ^ "name_label"),
+				 Xapi_globs.miami_tools_sr_name;
+				 (Xapi_globs.i18n_original_value_prefix ^ "name_description"),
+				 "XenServer Tools ISOs"]
+				true
+	)
 
 let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
