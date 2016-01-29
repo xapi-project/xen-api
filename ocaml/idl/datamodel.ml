@@ -6049,6 +6049,7 @@ let vdi =
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
 	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
 	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
+	field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
       ])
 	()
 
