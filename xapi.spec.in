@@ -222,8 +222,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xapi.d/plugins/install-supp-pack
 /etc/xapi.d/plugins/disk-space
 /etc/xapi.d/extensions
-/etc/xapi.d/xapi-logrotate.conf
-%attr(0755,root,root) /etc/xapi.d/xapi-logrotate.sh
+%config(noreplace) /etc/xensource/xapi-logrotate.conf
 %config(noreplace) /etc/xensource/db.conf
 %config(noreplace) /etc/xensource/db.conf.rio
 /etc/xensource/master.d/01-example
@@ -312,6 +311,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/update-mh-info
 @OPTDIR@/libexec/upload-wrapper
 @OPTDIR@/libexec/xapi-health-check
+@OPTDIR@/libexec/xapi-logrotate.sh
 @OPTDIR@/libexec/xapi-rolling-upgrade
 @OPTDIR@/libexec/xha-lc
 @OPTDIR@/libexec/xe-syslog-reconfigure
