@@ -345,7 +345,8 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~xenstore_data ~sm_config
     ~other_config ~storage_lock:false ~location ~managed ~missing:false ~parent:Ref.null ~tags:[]
     ~on_boot:`persist ~allow_caching:false
-    ~metadata_of_pool ~metadata_latest:false;
+    ~metadata_of_pool ~metadata_latest:false
+    ~is_tools_iso:false;
   ref
 
 let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =

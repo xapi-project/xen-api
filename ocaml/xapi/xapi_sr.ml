@@ -395,6 +395,9 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		if StringMap.mem loc db_vdi_map
 		then fst (StringMap.find loc db_vdi_map)
 		else Ref.null in
+		
+	let get_is_tools_iso vdi =
+		List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
 
 	(* Delete ones which have gone away *)
 	StringMap.iter
@@ -426,7 +429,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 				~managed:true ~missing:false ~parent:Ref.null ~tags:[]
 				~on_boot:`persist ~allow_caching:false
 				~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
-				~metadata_latest:false;
+				~metadata_latest:false
+				~is_tools_iso:(get_is_tools_iso vdi);
 			StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
 		) to_create db_vdi_map in
 	(* Update the ones which already exist *)
@@ -474,6 +478,11 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 			if v.API.vDI_physical_utilisation <> vi.physical_utilisation then begin
 				debug "%s physical_utilisation <- %Ld" (Ref.string_of r) vi.physical_utilisation;
 				Db.VDI.set_physical_utilisation ~__context ~self:r ~value:vi.physical_utilisation
+			end;
+			let is_tools_iso = get_is_tools_iso vi in
+			if v.API.vDI_is_tools_iso <> is_tools_iso then begin
+				debug "%s is_tools_iso <- %b" (Ref.string_of r) is_tools_iso;
+				Db.VDI.set_is_tools_iso ~__context ~self:r ~value:is_tools_iso
 			end
 		) to_update
 
