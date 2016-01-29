@@ -2168,6 +2168,8 @@ let refresh_vm ~__context ~self =
 
 let with_events_suppressed ~__context ~self f =
 	let vm = id_of_vm ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self in
+	let dbg = Context.string_of_task __context in
 	debug "suppressing xenops events on VM: %s" vm;
 	Mutex.execute events_suppressed_on_m
 		(fun () ->
@@ -2180,6 +2182,7 @@ let with_events_suppressed ~__context ~self f =
 					Hashtbl.remove events_suppressed_on vm
 				);
 			debug "re-enabled xenops events on VM: %s" vm;
+			Events_from_xenopsd.wait queue_name dbg vm ();
 		)
 
 
