@@ -15,6 +15,7 @@
 
 module D=Debug.Make(struct let name="stunnel" end)
 open D
+let trim = String.trim
 
 open Printf
 open Pervasiveext
@@ -40,6 +41,9 @@ let legacy_protocol_and_ciphersuites_allowed = ref true
 
 let is_legacy_protocol_and_ciphersuites_allowed () =
 	!legacy_protocol_and_ciphersuites_allowed
+
+let good_ciphersuites = ref None
+let legacy_ciphersuites = ref ""
 
 let init_stunnel_path () =
 	try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
@@ -129,10 +133,10 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
 
 let config_file verify_cert extended_diagnosis host port legacy =
 
-    (* This "good" list must match, or at least contain one of, the
-     * GOOD_CIPHERS in xen-api/scripts/init.d-xapissl *)
-    let good_ciphers = "!EXPORT:RSA+AES128-SHA" in
-    let back_compat_ciphers = "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA" in
+	let good_ciphers () = match !good_ciphersuites with
+		| None -> raise (Stunnel_error "good_ciphersuites is unset in the OCaml Stunnel module.")
+		| Some s -> s
+	in
 
 	let lines = [
 		"client=yes"; "foreground=yes"; "socket = r:TCP_NODELAY=1"; "socket = r:SO_KEEPALIVE=1"; "socket = a:SO_KEEPALIVE=1";
@@ -155,10 +159,10 @@ let config_file verify_cert extended_diagnosis host port legacy =
 			"sslVersion = all";
 			"options = NO_SSLv2";
 			"options = NO_SSLv3";
-			"ciphers = " ^ good_ciphers ^ ":" ^ back_compat_ciphers;
+			"ciphers = " ^ (good_ciphers ()) ^ (match !legacy_ciphersuites with "" -> "" | s -> (":" ^ s))
 		] else [
 			"sslVersion = TLSv1.2";
-			"ciphers = " ^ good_ciphers;
+			"ciphers = " ^ (good_ciphers ());
 		]
 	)
   in
@@ -166,8 +170,24 @@ let config_file verify_cert extended_diagnosis host port legacy =
 
 let set_legacy_protocol_and_ciphersuites_allowed b =
 	legacy_protocol_and_ciphersuites_allowed := b;
-	info "legacy-config %B; example: %s" b
-		(String.escaped (config_file false false "dummyhost" 443 b))
+	info "legacy-config %B; example: %S" b
+		(match !good_ciphersuites with
+			| None -> "(Ciphersuites are not configured.)"
+			| _ -> config_file false false "dummyhost" 443 b)
+
+let set_good_ciphersuites s =
+	info "set_good_ciphersuites received %S" s;
+	if trim s <> "" then (
+		good_ciphersuites := Some s
+	) else raise (Stunnel_error
+		("Stunnel.set_good_ciphersuites received a blank or empty string. Leaving it unchanged as " ^
+			(match !good_ciphersuites with None -> "None" | Some s -> ("Some " ^ (String.escaped s)))
+		)
+	)
+
+let set_legacy_ciphersuites s =
+	legacy_ciphersuites := s;
+	info "set_legacy_ciphersuites: %S" s
 
 let ignore_exn f x = try f x with _ -> ()
 
