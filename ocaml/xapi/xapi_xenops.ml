@@ -2171,7 +2171,7 @@ let with_events_suppressed ~__context ~self f =
 	debug "suppressing xenops events on VM: %s" vm;
 	Mutex.execute events_suppressed_on_m
 		(fun () ->
-			Hashtbl.replace events_suppressed_on vm ()
+			Hashtbl.add events_suppressed_on vm ()
 		);
 	finally f
 		(fun () ->
