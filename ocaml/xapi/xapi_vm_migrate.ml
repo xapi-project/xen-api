@@ -145,9 +145,6 @@ let pool_migrate ~__context ~vm ~host ~options =
 				migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
 				(* Delete all record of this VM locally (including caches) *)
 				Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
-				(* Flush xenopsd events through: we don't want the pool database to
-				* be updated on this host ever again. *)
-				Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ()
 			);
 		);
 		Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
@@ -661,11 +658,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_events_suppressed ~__context ~self:vm
-					(fun () ->
+				Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
 						migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
-						Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ())
+					)
 			with
 				| Xenops_interface.Does_not_exist ("VM",_)
 				| Xenops_interface.Does_not_exist ("extra",_) ->

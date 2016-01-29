@@ -2614,7 +2614,6 @@ let vbd_plug ~__context ~self =
 							Client.VBD.plug dbg id |> sync_with_task __context queue_name;
 						)
 				) (fun () -> refresh_vm ~__context ~self:vm);
-			Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
 			assert (Db.VBD.get_currently_attached ~__context ~self)
 		)
 
@@ -2726,7 +2725,6 @@ let vif_plug ~__context ~self =
 							)
 					) (fun () -> refresh_vm ~__context ~self:vm)
 			);
-			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)
 
