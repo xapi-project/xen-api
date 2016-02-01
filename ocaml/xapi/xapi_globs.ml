@@ -836,7 +836,7 @@ let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
  * should be set with disallow-unplug=true, during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
-let manage_xenvmd = ref true
+let manage_xenvmd = ref false
 
 let sr_health_check_task_label = "SR Recovering"
 
