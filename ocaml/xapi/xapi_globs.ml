@@ -836,8 +836,6 @@ let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
  * should be set with disallow-unplug=true, during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
-let manage_xenvmd = ref false
-
 let sr_health_check_task_label = "SR Recovering"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
@@ -993,9 +991,6 @@ let other_options = [
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
-
-  "manage_xenvmd", Arg.Set manage_xenvmd,
-  (fun () -> string_of_bool !manage_xenvmd), "Start and stop xenvmd instances on behalf of the SM backends";
 
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
     (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
