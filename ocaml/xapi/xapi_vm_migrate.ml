@@ -154,10 +154,14 @@ let pool_migrate ~__context ~vm ~host ~options =
 	with exn ->
 		error "xenops: VM.migrate %s: caught %s" vm_uuid (Printexc.to_string exn);
 		(* We do our best to tidy up the state left behind *)
-		let _, state = XenopsAPI.VM.stat dbg vm_uuid in
-		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
-			debug "xenops: %s: shutting down suspended VM" vm_uuid;
-			Xapi_xenops.shutdown ~__context ~self:vm None;
+		begin
+			try
+				let _, state = XenopsAPI.VM.stat dbg vm_uuid in
+				if Xenops_interface.(state.Vm.power_state = Suspended) then begin
+					debug "xenops: %s: shutting down suspended VM" vm_uuid;
+					Xapi_xenops.shutdown ~__context ~self:vm None;
+				end;
+			with _ -> ()
 		end;
 		match exn with
 		| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
