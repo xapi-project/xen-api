@@ -505,10 +505,14 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 		begin
 			let rec inner () =
 				debug "tapdisk watchdog";
-				let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-				if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
+				let alm_opt = State.find_active_local_mirror id in
+				match alm_opt with
+				| Some alm ->
+					let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+					if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
 					Updates.add (Dynamic.Mirror id) updates;
-				alm.State.Send_state.watchdog <- Some (Updates.Scheduler.one_shot (Updates.Scheduler.Delta 5) "tapdisk_watchdog" inner)
+					alm.State.Send_state.watchdog <- Some (Updates.Scheduler.one_shot (Updates.Scheduler.Delta 5) "tapdisk_watchdog" inner)
+				| None -> ()
 			in inner ()
 		end;
 
