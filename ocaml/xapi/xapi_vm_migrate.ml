@@ -139,7 +139,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	try
 		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
-			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
+			Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
 				(* XXX: PR-1255: the live flag *)
 				info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
 				migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
@@ -662,7 +662,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
+				Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
 						migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
 					)
