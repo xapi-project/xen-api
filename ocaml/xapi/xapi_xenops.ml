@@ -1258,10 +1258,9 @@ module Events_from_xenopsd = struct
 
 	let events_suppressed_on = Hashtbl.create 10
 	let events_suppressed_on_m = Mutex.create ()
+	let events_suppressed_on_c = Condition.create ()
 	let are_suppressed vm =
-		Mutex.execute events_suppressed_on_m (fun () ->
-			Hashtbl.mem events_suppressed_on vm;
-		)
+		Hashtbl.mem events_suppressed_on vm
 
 	let with_suppressed queue_name dbg vm_id f =
 		debug "suppressing xenops events on VM: %s" vm_id;
@@ -1270,10 +1269,14 @@ module Events_from_xenopsd = struct
 		);
 		finally f (fun () ->
 			Mutex.execute events_suppressed_on_m (fun () ->
-				Hashtbl.remove events_suppressed_on vm_id
+				Hashtbl.remove events_suppressed_on vm_id;
+				while are_suppressed vm_id do
+					Condition.wait events_suppressed_on_c events_suppressed_on_m
+				done;
+				Condition.broadcast events_suppressed_on_c;
+				debug "re-enabled xenops events on VM: %s" vm_id;
+				wait queue_name dbg vm_id ();
 			);
-			debug "re-enabled xenops events on VM: %s" vm_id;
-			wait queue_name dbg vm_id ();
 		)
 end
 
