@@ -42,7 +42,7 @@ let legacy_protocol_and_ciphersuites_allowed = ref true
 let is_legacy_protocol_and_ciphersuites_allowed () =
 	!legacy_protocol_and_ciphersuites_allowed
 
-let good_ciphersuites = ref None
+let good_ciphersuites = ref (Some "!EXPORT:RSA+AES128-SHA256")
 let legacy_ciphersuites = ref ""
 
 let init_stunnel_path () =
