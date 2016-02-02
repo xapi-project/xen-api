@@ -844,7 +844,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       (* If it's an inter-pool migrate, the VBDs will still be 'currently-attached=true'
          because we supressed the events coming from xenopsd. Destroy them, so that the
          VDIs can be destroyed *)
-      if not is_intra_pool
+      if not is_intra_pool && not copy
       then List.iter (fun vbd -> Db.VBD.destroy ~__context ~self:vbd) (vbds @ snapshots_vbds);
 
       new_vm
