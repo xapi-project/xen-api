@@ -137,40 +137,40 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-	try
-		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
-			Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
-				(* XXX: PR-1255: the live flag *)
-				info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
-				migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
-				(* Delete all record of this VM locally (including caches) *)
-				Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+	Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
+		try
+			Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
+					(* XXX: PR-1255: the live flag *)
+					info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
+					migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
+					(* Delete all record of this VM locally (including caches) *)
+					Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+				);
+			Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				XenAPI.VM.pool_migrate_complete rpc session_id vm host
 			);
-		);
-		Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
-		Helpers.call_api_functions ~__context (fun rpc session_id ->
-			XenAPI.VM.pool_migrate_complete rpc session_id vm host
-		);
-	with exn ->
-		error "xenops: VM.migrate %s: caught %s" vm_uuid (Printexc.to_string exn);
-		(* We do our best to tidy up the state left behind *)
-		begin
-			try
-				let _, state = XenopsAPI.VM.stat dbg vm_uuid in
-				if Xenops_interface.(state.Vm.power_state = Suspended) then begin
-					debug "xenops: %s: shutting down suspended VM" vm_uuid;
-					Xapi_xenops.shutdown ~__context ~self:vm None;
-				end;
-			with _ -> ()
-		end;
-		match exn with
-		| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
-			raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
-		| Xenops_interface.Cancelled _ ->
-			TaskHelper.raise_cancelled ~__context
-		| Xenops_interface.Storage_backend_error (code, _) ->
-			raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
-		| _ -> raise exn
+		with exn ->
+			error "xenops: VM.migrate %s: caught %s" vm_uuid (Printexc.to_string exn);
+			(* We do our best to tidy up the state left behind *)
+			begin
+				try
+					let _, state = XenopsAPI.VM.stat dbg vm_uuid in
+					if Xenops_interface.(state.Vm.power_state = Suspended) then begin
+						debug "xenops: %s: shutting down suspended VM" vm_uuid;
+						Xapi_xenops.shutdown ~__context ~self:vm None;
+					end;
+				with _ -> ()
+			end;
+			match exn with
+			| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
+				raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+			| Xenops_interface.Cancelled _ ->
+				TaskHelper.raise_cancelled ~__context
+			| Xenops_interface.Storage_backend_error (code, _) ->
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
+			| _ -> raise exn
+		)
 
 let pool_migrate_complete ~__context ~vm ~host =
 	let id = Db.VM.get_uuid ~__context ~self:vm in
