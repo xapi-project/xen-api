@@ -133,7 +133,7 @@
     <value>Could not enable external authentication.</value>
   </data>
   <data name="AUTH_ENABLE_FAILED_DOMAIN_LOOKUP_FAILED" xml:space="preserve">
-    <value>XenServer was unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
+    <value>Unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
   </data>
   <data name="AUTH_ENABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>Failed to enable external authentication, permission on the AD server was denied.</value>
@@ -406,7 +406,7 @@
     <value>Your license has expired</value>
   </data>
   <data name="LICENSE_FILE_DEPRECATED" xml:space="preserve">
-    <value>This type of license file is for previous versions of XenServer. Please upgrade to the new licensing system.</value>
+    <value>This type of license file is for previous versions. Please upgrade to the new licensing system.</value>
   </data>
   <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
     <value>Host and pool have incompatible licenses.</value>
@@ -415,7 +415,7 @@
     <value>There was an error processing your license.  Please contact your support representative</value>
   </data>
   <data name="LIKEWISE_WINERROR_0251E" xml:space="preserve">
-    <value>XenServer was unable to contact your domain server. Check your settings are correct and that a route to the server exists.</value>
+    <value>Unable to contact your domain server. Check your settings are correct and that a route to the server exists.</value>
   </data>
   <data name="MAC_DOES_NOT_EXIST" xml:space="preserve">
     <value>The MAC address specified doesn't exist on this server.</value>
@@ -475,7 +475,7 @@
     <value>The update failed to apply.  View output for more details.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_ISO_MOUNTED" xml:space="preserve">
-    <value>XenServer Tools ISO must be ejected from all running VMs in the pool.</value>
+    <value>Tools ISO must be ejected from all running VMs in the pool.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING" xml:space="preserve">
     <value>The update precheck stage failed: prerequisite updates are missing.</value>
@@ -487,10 +487,10 @@
     <value>The update precheck stage failed: there are one or more VMs still running on the server.  All VMs must be shut down or suspended before the update can be applied.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD" xml:space="preserve">
-    <value>XenServer build number ({1}) is incompatible with the update build number ({2}).</value>
+    <value>Current build number ({1}) is incompatible with the update build number ({2}).</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION" xml:space="preserve">
-    <value>XenServer version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
+    <value>Current version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
   </data>
   <data name="PBD_EXISTS" xml:space="preserve">
     <value>A PBD already exists connecting the SR to the server</value>
@@ -541,7 +541,7 @@
     <value>Could not enable external authentication: {1}</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_DOMAIN_LOOKUP_FAILED" xml:space="preserve">
-    <value>XenServer was unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
+    <value>Unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_DUPLICATE_HOSTNAME" xml:space="preserve">
     <value>Failed to enable external authentication, a duplicate hostname was detected.</value>
@@ -582,7 +582,7 @@ Authorized Roles: {1}</value>
     <value>Cannot restore on this server because it was saved on an incompatible version</value>
   </data>
   <data name="RESTORE_SCRIPT_FAILED" xml:space="preserve">
-    <value>The restore could not be performed because the restore script failed. Your XenServer Backup file may be corrupt. See the logs for more information.</value>
+    <value>The restore could not be performed because the restore script failed. Your Backup file may be corrupt. See the logs for more information.</value>
   </data>
   <data name="RESTORE_TARGET_MGMT_IF_NOT_IN_BACKUP" xml:space="preserve">
     <value>The restore could not be performed because the server's current management interface is not in the backup. The interfaces mentioned in the backup are:</value>
@@ -762,7 +762,7 @@ Authorized Roles: {1}</value>
     <value>The tapdisk failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
-    <value>XenServer does not support extended characters in CIFS paths, usernames, and passwords.</value>
+    <value>Extended characters are not supported in CIFS paths, usernames, and passwords.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_47" xml:space="preserve">
     <value>The storage repository is not available</value>
@@ -1068,7 +1068,7 @@ Authorized Roles: {1}</value>
     <value>You attempted an operation on VM {0} that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option.</value>
   </data>
   <data name="WLB_MALFORMED_RESPONSE" xml:space="preserve">
-    <value>The WLB server said something that XenServer wasn't expecting or didn't understand.</value>
+    <value>The WLB server said something that your server wasn't expecting or didn't understand.</value>
   </data>
   <data name="XMLRPC_GENERAL_ERROR" xml:space="preserve">
     <value>An error occurred while performing the XMLRPC request.</value>
