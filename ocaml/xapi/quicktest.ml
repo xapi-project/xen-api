@@ -852,6 +852,7 @@ let _ =
 		assert (List.mem name all_tests);
 		if List.mem name !tests_to_run then f () in
 
+	Stunnel.set_good_ciphersuites "!EXPORT:RSA+AES128-SHA256";
 	let s = init_session !username !password in
         let all_srs = all_srs_with_vdi_create s in
         let sr = List.hd all_srs in

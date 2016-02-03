@@ -1138,6 +1138,7 @@ let vdi_record rpc session_id vdi =
 			make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.vDI_managed) ();
 			make_field ~name:"parent" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_parent) ();
 			make_field ~name:"missing" ~get:(fun () -> string_of_bool (x ()).API.vDI_missing) ();
+			make_field ~name:"is-tools-iso" ~get:(fun () -> string_of_bool (x ()).API.vDI_is_tools_iso) ();
 			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config)
 				~add_to_map:(fun k v -> Client.VDI.add_to_other_config rpc session_id vdi k v)
 				~remove_from_map:(fun k -> Client.VDI.remove_from_other_config rpc session_id vdi k)
@@ -1324,6 +1325,7 @@ let sr_record rpc session_id sr =
 				~set:(fun x -> Client.SR.set_shared rpc session_id sr (safe_bool_of_string "shared" x)) ();
 			make_field ~name:"introduced-by"
 				~get:(fun () -> (get_uuid_from_ref (x ()).API.sR_introduced_by)) ();
+			make_field ~name:"is-tools-sr" ~get:(fun () -> string_of_bool (x ()).API.sR_is_tools_sr) ();
 			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_other_config)
 				~add_to_map:(fun k v -> Client.SR.add_to_other_config rpc session_id sr k v)
 				~remove_from_map:(fun k -> Client.SR.remove_from_other_config rpc session_id sr k)

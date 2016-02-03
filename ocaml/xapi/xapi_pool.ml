@@ -184,7 +184,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	let assert_no_shared_srs_on_me () =
 		let my_srs = Db.SR.get_all_records ~__context in
-		let my_shared_srs = List.filter (fun (sr,srec)-> srec.API.sR_shared && not (Helpers.is_tools_sr ~__context ~sr)) my_srs in
+		let my_shared_srs = List.filter (fun (sr,srec)-> srec.API.sR_shared && not srec.API.sR_is_tools_sr) my_srs in
 		if not (my_shared_srs = []) then begin
 			error "The current host has shared SRs: it cannot join a new pool";
                         raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))

@@ -1004,6 +1004,8 @@ let _ =
 		~doc:"This operation is not permitted on VMs containing VDIs in the 'on-boot=reset' mode" ();
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
+  error Api_errors.vif_not_in_map [ "vif" ]
+    ~doc:"This VIF was not mapped to a destination Network in VM.migrate_send operation" () ;
 
   error Api_errors.sr_operation_not_supported [ "sr" ]
     ~doc:"The SR backend does not support the operation (check the SR's allowed operations)" ();
@@ -5585,6 +5587,7 @@ let storage_repository =
 	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
 	field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "introduced_by" "The disaster recovery task which introduced this SR";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "clustered" "True if the SR is using aggregated local storage";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_sr" "True if this is the SR that contains the Tools ISO VDIs";
       ])
 	()
 
@@ -6046,6 +6049,7 @@ let vdi =
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
 	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
 	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
+	field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
       ])
 	()
 
