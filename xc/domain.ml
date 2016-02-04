@@ -241,7 +241,7 @@ let make ~xc ~xs vm_info uuid =
 				t.Xst.setperms ent rwperm
 			) (
 				let dev_kinds = [ "vbd"; "vif"; "vfb"; "vkb"; "vfs"; "pci" ] in
-				[ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data"; "hvmloader"; "rrd" ]
+				[ "feature"; "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data"; "hvmloader"; "rrd" ]
 				@ List.map (fun dev_kind -> "device/"^dev_kind) dev_kinds
 			);
 		);
