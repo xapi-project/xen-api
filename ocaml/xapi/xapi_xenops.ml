@@ -2195,7 +2195,6 @@ let set_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
-	refresh_vm ~__context ~self;
 	debug "Signalling xenapi event thread to re-register";
 	!trigger_xenapi_reregister ();
 	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
@@ -2347,11 +2346,11 @@ let maybe_cleanup_vm ~__context ~self =
 	let queue_name = queue_of_vm ~__context ~self in
 	let id = id_of_vm ~__context ~self in
 	if vm_exists_in_xenopsd queue_name dbg id then begin
-		warn "Stale VM detected in xenopsd, calling refresh_vm to sync state";
-		(* ignore VM events; we just want Xenopsd in a consistent state *)
-		Events_from_xenopsd.with_suppressed queue_name dbg id (fun () ->
-			refresh_vm ~__context ~self;
-		);
+		warn "Stale VM detected in Xenopsd, flushing outstanding events";
+		(* By calling with_events_suppressed we can guarentee that an refresh_vm
+		 * will be called with events enabled and therefore we get Xenopsd into a
+		 * consistent state with Xapi *)
+		Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
 	end
 
 let start ~__context ~self paused =
@@ -2628,16 +2627,12 @@ let vbd_plug ~__context ~self =
 			let vbd = md_of_vbd ~__context ~self in
 			let dbg = Context.string_of_task __context in
 			let module Client = (val make_client queue_name : XENOPS) in
-			finally
-				(fun () ->
-					Events_from_xenopsd.with_suppressed queue_name dbg vm_id
-						(fun () ->
-							info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-							let id = Client.VBD.add dbg vbd in
-							info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-							Client.VBD.plug dbg id |> sync_with_task __context queue_name;
-						)
-				) (fun () -> refresh_vm ~__context ~self:vm);
+			Events_from_xenopsd.with_suppressed queue_name dbg vm_id (fun () ->
+				info "xenops: VBD.add %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+				let id = Client.VBD.add dbg vbd in
+				info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
+				Client.VBD.plug dbg id |> sync_with_task __context queue_name;
+			);
 			assert (Db.VBD.get_currently_attached ~__context ~self)
 		)
 
@@ -2739,16 +2734,12 @@ let vif_plug ~__context ~self =
 			let dbg = Context.string_of_task __context in
 			let module Client = (val make_client queue_name : XENOPS) in
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
-				finally
-					(fun () ->
-						Events_from_xenopsd.with_suppressed queue_name dbg vm_id
-							(fun () ->
-								info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-								let id = Client.VIF.add dbg vif in
-								info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-								Client.VIF.plug dbg id |> sync_with_task __context queue_name;
-							)
-					) (fun () -> refresh_vm ~__context ~self:vm)
+				Events_from_xenopsd.with_suppressed queue_name dbg vm_id (fun () ->
+					info "xenops: VIF.add %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+					let id = Client.VIF.add dbg vif in
+					info "xenops: VIF.plug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+					Client.VIF.plug dbg id |> sync_with_task __context queue_name;
+				);
 			);
 			assert (Db.VIF.get_currently_attached ~__context ~self)
 		)

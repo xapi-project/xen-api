@@ -675,8 +675,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		debug "Migration complete";
 		SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
 
-		Xapi_xenops.refresh_vm ~__context ~self:vm;
-
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm dest_host_ref;
 		
 		(* And we're finished *)
