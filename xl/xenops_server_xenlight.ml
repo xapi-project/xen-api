@@ -2257,7 +2257,7 @@ module VM = struct
 					)
 				) (
 					let dev_kinds = [ "vbd"; "vif"; "vfb"; "vkb"; "vfs"; "pci" ] in
-					[ "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ]
+					[ "feature"; "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ]
 					@ List.map (fun dev_kind -> "device/"^dev_kind) dev_kinds
 				);
 				(* Write extra VBD XS keys *)
