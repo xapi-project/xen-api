@@ -43,7 +43,7 @@ let is_legacy_protocol_and_ciphersuites_allowed () =
 	!legacy_protocol_and_ciphersuites_allowed
 
 let good_ciphersuites = ref (Some "!EXPORT:RSA+AES128-SHA256")
-let legacy_ciphersuites = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+RC4-MD5:RSA+DES-CBC3-SHA"
+let legacy_ciphersuites = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let init_stunnel_path () =
 	try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
