@@ -1211,8 +1211,10 @@ and trigger_cleanup_after_failure op t = match op with
 	| VM_restore_vifs id
 	| VM_restore_devices (id, _)
 	| VM_resume (id, _)
-	| VM_migrate (id, _, _, _)
 	| VM_receive_memory (id, _, _) ->
+		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
+	| VM_migrate (id, _, _, _) ->
+		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
 		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
 
 	| VBD_hotplug id
