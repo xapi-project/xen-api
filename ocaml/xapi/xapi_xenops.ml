@@ -1264,18 +1264,22 @@ module Events_from_xenopsd = struct
 
 	let with_suppressed queue_name dbg vm_id f =
 		debug "suppressing xenops events on VM: %s" vm_id;
+		let module Client = (val make_client queue_name : XENOPS) in
 		Mutex.execute events_suppressed_on_m (fun () ->
 			Hashtbl.add events_suppressed_on vm_id ();
 		);
 		finally f (fun () ->
 			Mutex.execute events_suppressed_on_m (fun () ->
 				Hashtbl.remove events_suppressed_on vm_id;
-				while are_suppressed vm_id do
+				if not (Hashtbl.mem events_suppressed_on vm_id) then begin
+					debug "re-enabled xenops events on VM: %s; refreshing VM" vm_id;
+					Client.UPDATES.refresh_vm dbg vm_id;
+					wait queue_name dbg vm_id ();
+					Condition.broadcast events_suppressed_on_c;
+				end else while are_suppressed vm_id do
+					debug "waiting for events to become re-enabled";
 					Condition.wait events_suppressed_on_c events_suppressed_on_m
 				done;
-				Condition.broadcast events_suppressed_on_c;
-				debug "re-enabled xenops events on VM: %s" vm_id;
-				wait queue_name dbg vm_id ();
 			);
 		)
 end
