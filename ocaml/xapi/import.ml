@@ -405,6 +405,10 @@ module VM : HandlerTools = struct
 					}
 				end else vm_record
 			in
+			let vm_record =
+				if vm_has_field ~x ~name:"has_vendor_device" then vm_record else (
+					{vm_record with API.vM_has_vendor_device = false;}
+				) in
 			let vm_record = {vm_record with API.
 				vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
 			} in
