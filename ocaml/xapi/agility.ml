@@ -17,8 +17,6 @@ open D
 
 open Listext
 
-let subset a b = List.fold_left (fun acc x -> acc && (List.mem x b)) true a
-
 (* Only returns true if the SR is marked as shared, all hosts have PBDs and all PBDs are currently_attached.
    Is used to prevent a non-shared disk being added to a protected VM *)
 let is_sr_properly_shared ~__context ~self =
@@ -31,7 +29,7 @@ let is_sr_properly_shared ~__context ~self =
 		let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
 		let all_hosts = Db.Host.get_all ~__context in
 		let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
-		if not(subset enabled_hosts plugged_hosts) then begin
+		if not(List.subset enabled_hosts plugged_hosts) then begin
 			warn "SR %s not shared properly: Not all enabled hosts have a currently_attached PBD" (Ref.string_of self);
 			false
 		end else true
@@ -47,7 +45,7 @@ let is_network_properly_shared ~__context ~self =
 	let hosts_with_pif = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) non_slave_pifs) in
 	let all_hosts = Db.Host.get_all ~__context in
 	let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
-	let properly_shared = subset enabled_hosts hosts_with_pif in
+	let properly_shared = List.subset enabled_hosts hosts_with_pif in
 	if not properly_shared then
 		warn "Network %s not shared properly: Not all hosts have PIFs" (Ref.string_of self);
 	properly_shared
