@@ -138,28 +138,25 @@ let rec monitor dbg () =
 	let open Network_interface in
 	let open Network_monitor in
 	(try
-		let devs = ref [] in
-		devs := get_link_stats ();
-
-		let make_bond_info (name, interfaces) =
-			let devs = List.filter (fun (name', _) -> List.mem name' interfaces) !devs in
+		let make_bond_info devs (name, interfaces) =
+			let devs' = List.filter (fun (name', _) -> List.mem name' interfaces) devs in
 			let eth_stat = {default_stats with
-				rx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_bytes) 0L devs;
-				rx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_pkts) 0L devs;
-				rx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_errors) 0L devs;
-				tx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_bytes) 0L devs;
-				tx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_pkts) 0L devs;
-				tx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_errors) 0L devs;
+				rx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_bytes) 0L devs';
+				rx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_pkts) 0L devs';
+				rx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_errors) 0L devs';
+				tx_bytes = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_bytes) 0L devs';
+				tx_pkts = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_pkts) 0L devs';
+				tx_errors = List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_errors) 0L devs';
 			} in
 			name, eth_stat
 		in
-		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
-		devs := (List.map make_bond_info bonds) @ !devs;
-
-		let transform_taps () =
-			let newdevnames = List.setify (List.map fst !devs) in
-			let newdevs = List.map (fun name ->
-				let devs = List.filter (fun (n,x) -> n=name) !devs in
+		let add_bonds bonds devs =
+			(List.map (make_bond_info devs) bonds) @ devs
+		in
+		let transform_taps devs =
+			let newdevnames = List.setify (List.map fst devs) in
+			List.map (fun name ->
+				let devs' = List.filter (fun (n,x) -> n=name) devs in
 				let tot = List.fold_left (fun acc (_,b) ->
 					{default_stats with
 					 rx_bytes = Int64.add acc.rx_bytes b.rx_bytes;
@@ -167,71 +164,76 @@ let rec monitor dbg () =
 					 rx_errors = Int64.add acc.rx_errors b.rx_errors;
 					 tx_bytes = Int64.add acc.tx_bytes b.tx_bytes;
 					 tx_pkts = Int64.add acc.tx_pkts b.tx_pkts;
-					 tx_errors = Int64.add acc.tx_errors b.tx_errors}) default_stats devs
-				in
+					 tx_errors = Int64.add acc.tx_errors b.tx_errors}
+				) default_stats devs' in
 				(name,tot)
 			) newdevnames
-			in
-			devs := newdevs
 		in
-
-		transform_taps ();
-
-		devs := List.map (fun (dev, stat) ->
-			if not (String.startswith "vif" dev) then begin
-				let open Network_server.Bridge in
-				let bond_slaves =
-					if List.mem_assoc dev bonds then
-						get_bond_link_info () dbg dev
-					else
-						[]
-				in
-				let stat =
-					if bond_slaves = [] then
-						let carrier = Sysfs.get_carrier dev in
-						let speed, duplex =
-							if carrier then
-								try Bindings.get_status dev with _ -> (0, Duplex_unknown)
-							else
-								(0, Duplex_unknown)
-						in
-						let pci_bus_path = Sysfs.get_pcibuspath dev in
-						let vendor_id, device_id = Sysfs.get_pci_ids dev in
-						let nb_links = 1 in
-						let links_up = if carrier then 1 else 0 in
-						let interfaces = [dev] in
-						{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
-					else
-						let carrier = List.exists (fun info -> info.up) bond_slaves in
-						let speed, duplex =
-							let combine_duplex = function
-								| Duplex_full, Duplex_full -> Duplex_full
-								| Duplex_unknown, a | a, Duplex_unknown -> a
-								| _ -> Duplex_half
+		let add_other_stats bonds devs =
+			List.map (fun (dev, stat) ->
+				if not (String.startswith "vif" dev) then begin
+					let open Network_server.Bridge in
+					let bond_slaves =
+						if List.mem_assoc dev bonds then
+							get_bond_link_info () dbg dev
+						else
+							[]
+					in
+					let stat =
+						if bond_slaves = [] then
+							let carrier = Sysfs.get_carrier dev in
+							let speed, duplex =
+								if carrier then
+									try Bindings.get_status dev with _ -> (0, Duplex_unknown)
+								else
+									(0, Duplex_unknown)
 							in
-							List.fold_left (fun (speed, duplex) info ->
-								try
-									if info.active then
-										let speed', duplex' = Bindings.get_status info.slave in
-										speed + speed', combine_duplex (duplex, duplex')
-									else
+							let pci_bus_path = Sysfs.get_pcibuspath dev in
+							let vendor_id, device_id = Sysfs.get_pci_ids dev in
+							let nb_links = 1 in
+							let links_up = if carrier then 1 else 0 in
+							let interfaces = [dev] in
+							{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
+						else
+							let carrier = List.exists (fun info -> info.up) bond_slaves in
+							let speed, duplex =
+								let combine_duplex = function
+									| Duplex_full, Duplex_full -> Duplex_full
+									| Duplex_unknown, a | a, Duplex_unknown -> a
+									| _ -> Duplex_half
+								in
+								List.fold_left (fun (speed, duplex) info ->
+									try
+										if info.active then
+											let speed', duplex' = Bindings.get_status info.slave in
+											speed + speed', combine_duplex (duplex, duplex')
+										else
+											speed, duplex
+									with _ ->
 										speed, duplex
-								with _ ->
-									speed, duplex
-							) (0, Duplex_unknown) bond_slaves
-						in
-						let pci_bus_path = "" in
-						let vendor_id, device_id = "", "" in
-						let nb_links = List.length bond_slaves in
-						let links_up = List.length (List.filter (fun info -> info.up) bond_slaves) in
-						let interfaces = List.map (fun info -> info.slave) bond_slaves in
-						{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
-				in
-				check_for_changes ~dev ~stat;
-				dev, stat
-			end else
-				dev, stat
-		) (!devs);
+								) (0, Duplex_unknown) bond_slaves
+							in
+							let pci_bus_path = "" in
+							let vendor_id, device_id = "", "" in
+							let nb_links = List.length bond_slaves in
+							let links_up = List.length (List.filter (fun info -> info.up) bond_slaves) in
+							let interfaces = List.map (fun info -> info.slave) bond_slaves in
+							{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
+					in
+					check_for_changes ~dev ~stat;
+					dev, stat
+				end else
+					dev, stat
+			) devs
+		in
+		
+		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
+		let devs =
+			get_link_stats () |>
+			add_bonds bonds |>
+			transform_taps |>
+			add_other_stats bonds
+		in
 
 		if (List.length bonds) <> (Hashtbl.length bonds_status) then begin
 			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem_assoc k bonds then acc else k :: acc) 
@@ -239,7 +241,7 @@ let rec monitor dbg () =
 			List.iter (fun b -> info "Removing bond %s" b; Hashtbl.remove bonds_status b) dead_bonds
 		end;
 
-		write_stats !devs;
+		write_stats devs;
 		failed_again := false
 	with e ->
 		if not !failed_again then begin
