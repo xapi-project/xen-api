@@ -20,6 +20,7 @@ let base_suite =
 	"base_suite" >:::
 		[
 			Test_basic.test;
+			Test_agility.test;
 			Test_helpers.test;
 			Test_datamodel_utils.test;
 			Test_db_lowlevel.test;

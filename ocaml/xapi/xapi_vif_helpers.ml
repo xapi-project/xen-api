@@ -205,7 +205,7 @@ let create ~__context ~device ~network ~vM
 	  && Db.Pool.get_ha_enabled ~__context ~self:pool
 	  && not(Db.Pool.get_ha_allow_overcommit ~__context ~self:pool)
 	  && Helpers.is_xha_protected ~__context ~self:vM
-	  && not(Helpers.is_network_properly_shared ~__context ~self:network) then begin
+	  && not(Agility.is_network_properly_shared ~__context ~self:network) then begin
 	    warn "Creating VIF %s makes VM %s not agile" (Ref.string_of ref) (Ref.string_of vM);
 	    raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
 	end;

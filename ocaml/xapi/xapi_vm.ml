@@ -63,7 +63,7 @@ let retrieve_wlb_recommendations ~__context ~vm =
 	let snapshot = Db.VM.get_record ~__context ~self:vm in
 	retrieve_wlb_recommendations ~__context ~vm ~snapshot
 
-let assert_agile ~__context ~self = Helpers.vm_assert_agile ~__context ~self
+let assert_agile ~__context ~self = Agility.vm_assert_agile ~__context ~self
 
 (* helpers *)
 let immediate_complete ~__context   =

@@ -29,6 +29,7 @@ OCAML_OBJS = \
 	test_printers \
 	test_common \
 	test_basic \
+	test_agility \
 	test_helpers \
 	test_datamodel_utils \
 	test_db_lowlevel \
