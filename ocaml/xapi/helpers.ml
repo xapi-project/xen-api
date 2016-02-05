@@ -730,15 +730,6 @@ let get_vif_metrics ~__context ~self =
     then failwith "Could not locate VIF_metrics object for VIF: internal error"
     else metrics
 
-(* Lookup a VDI field from a list of pre-fetched records *)
-let lookup_vdi_fields f vdi_refs l =
-  let rec do_lookup ref l =
-    match l with
-    [] -> None
-      | ((r,rcd)::rs) -> if ref=r then Some (f rcd) else do_lookup ref rs in
-  let field_ops = List.map (fun r->do_lookup r l) vdi_refs in
-  List.fold_right (fun m acc -> match m with None -> acc | Some x -> x :: acc) field_ops []
-
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
 	try
@@ -955,10 +946,6 @@ let is_sr_properly_shared ~__context ~self =
     end else true
   end
 
-let get_pif_underneath_vlan ~__context vlan_pif_ref =
-  let vlan_rec = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
-  Db.VLAN.get_tagged_PIF ~__context ~self:vlan_rec
-
 (* Only returns true if the network is shared properly: all (enabled) hosts in the pool must have a PIF on
  * the network, and none of these PIFs may be bond slaves. This ensures that a VM with a VIF on this
  * network can run on (and be migrated to) any (enabled) host in the pool. *)
@@ -1024,39 +1011,6 @@ let partition_vm_ps_by_agile ~__context vm_ps =
 		  (agile_vm_ps, vm_p :: not_agile_vm_ps, cache) in
 	let agile_vm_ps, not_agile_vm_ps, _ = List.fold_left distinguish_vm ([], [], empty_cache) vm_ps in
 	(List.rev agile_vm_ps, List.rev not_agile_vm_ps)
-
-(* Select an item from a list with a probability proportional to the items weight / total weight of all items *)
-let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
-  let total_weight, acc' = List.fold_left (fun (total, acc) (x, weight) -> (total + weight), (x, total + weight) :: acc) (0, []) weighted_items in
-  let cumulative = List.rev acc' in
-
-  let w = Random.int total_weight in (* w \in [0, total_weight-1] *)
-  let a, b = List.partition (fun (_, cumulative_weight) -> cumulative_weight <= w) cumulative in
-  fst (List.hd b)
-
-let memusage () =
-	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
-		ref None, ref None, ref None, ref None, ref None, ref None in
-	let find_field key s v =
-		if String.startswith key s then
-			let vs = List.hd (List.filter ((<>) "") (List.tl (String.split ' ' s))) in
-			v := Some (float_of_string vs) in
-	try
-		Unixext.file_lines_iter
-			(fun s ->
-				 find_field "MemTotal" s memtotal;
-				 find_field "MemFree" s memfree;
-				 find_field "SwapTotal" s swaptotal;
-				 find_field "SwapFree" s swapfree;
-				 find_field "Buffers" s buffers;
-				 find_field "Cached" s cached)
-			"/proc/meminfo";
-		match !memtotal, !memfree, !swaptotal, !swapfree, !buffers, !cached with
-		| Some mt, Some mf, Some st, Some sf, Some bu, Some ca ->
-			  let su = if st = 0. then 0. else (st -. sf) /. st in
-			  (mt -. mf -. (bu +. ca) *. (1. -. su)) /. mt
-		| _ -> raise Exit
-	with _ -> - 1.
 
 let local_storage_exists () =
   (try ignore(Unix.stat (Xapi_globs.xapi_blob_location)); true
