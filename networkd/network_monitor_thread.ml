@@ -177,57 +177,64 @@ let rec monitor dbg () =
 
 		transform_taps ();
 
-		let bonds_list = ref [] in
 		devs := List.map (fun (dev, stat) ->
 			if not (String.startswith "vif" dev) then begin
-				let devs =
+				let open Network_server.Bridge in
+				let bond_slaves =
 					if List.mem_assoc dev bonds then
-						List.assoc dev bonds
+						get_bond_link_info () dbg dev
 					else
-						[dev]
+						[]
 				in
-				let vendor_id, device_id = if List.length devs = 1 then Sysfs.get_pci_ids dev else "", "" in
-				let carriers = List.map Sysfs.get_carrier devs in
-				let speed, duplex =
-					let combine_duplex = function
-						| Duplex_full, Duplex_full -> Duplex_full
-						| Duplex_unknown, a | a, Duplex_unknown -> a
-						| _ -> Duplex_half
-					in
-					List.fold_left2 (fun (speed, duplex) dev carrier ->
-						try
-							if not carrier then
-								speed, duplex
+				let stat =
+					if bond_slaves = [] then
+						let carrier = Sysfs.get_carrier dev in
+						let speed, duplex =
+							if carrier then
+								try Bindings.get_status dev with _ -> (0, Duplex_unknown)
 							else
-								let speed', duplex' = Bindings.get_status dev in
-								speed + speed', combine_duplex (duplex, duplex')
-						with _ ->
-							speed, duplex
-					) (0, Duplex_unknown) devs carriers
-				in
-				let nb_links = List.length devs in
-				let carrier = List.mem true carriers in
-				let get_interfaces name =
-					let bonds = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
-					let interfaces = (try List.assoc dev bonds with _ -> []) in
-					interfaces in
-				let (links_up,interfaces) = (if nb_links > 1 then
-						(bonds_list := dev :: !bonds_list;
-						 Network_server.Bridge.get_bond_links_up () dbg dev, get_interfaces dev)
+								(0, Duplex_unknown)
+						in
+						let pci_bus_path = Sysfs.get_pcibuspath dev in
+						let vendor_id, device_id = Sysfs.get_pci_ids dev in
+						let nb_links = 1 in
+						let links_up = if carrier then 1 else 0 in
+						let interfaces = [dev] in
+						{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
 					else
-						((if carrier then 1 else 0), [dev]))
+						let carrier = List.exists (fun info -> info.up) bond_slaves in
+						let speed, duplex =
+							let combine_duplex = function
+								| Duplex_full, Duplex_full -> Duplex_full
+								| Duplex_unknown, a | a, Duplex_unknown -> a
+								| _ -> Duplex_half
+							in
+							List.fold_left (fun (speed, duplex) info ->
+								try
+									if info.active then
+										let speed', duplex' = Bindings.get_status info.slave in
+										speed + speed', combine_duplex (duplex, duplex')
+									else
+										speed, duplex
+								with _ ->
+									speed, duplex
+							) (0, Duplex_unknown) bond_slaves
+						in
+						let pci_bus_path = "" in
+						let vendor_id, device_id = "", "" in
+						let nb_links = List.length bond_slaves in
+						let links_up = List.length (List.filter (fun info -> info.up) bond_slaves) in
+						let interfaces = List.map (fun info -> info.slave) bond_slaves in
+						{stat with carrier; speed; duplex; pci_bus_path; vendor_id; device_id; nb_links; links_up; interfaces}
 				in
-				let pci_bus_path = if List.length devs = 1 then Sysfs.get_pcibuspath dev else "" in
-				let stat = {stat with carrier; speed; duplex; pci_bus_path; vendor_id;
-					device_id; nb_links; links_up; interfaces} in
 				check_for_changes ~dev ~stat;
 				dev, stat
 			end else
 				dev, stat
 		) (!devs);
 
-		if (List.length !bonds_list) <> (Hashtbl.length bonds_status) then begin
-			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem k !bonds_list then acc else k :: acc) 
+		if (List.length bonds) <> (Hashtbl.length bonds_status) then begin
+			let dead_bonds = Hashtbl.fold (fun k _ acc -> if List.mem_assoc k bonds then acc else k :: acc) 
 				bonds_status [] in
 			List.iter (fun b -> info "Removing bond %s" b; Hashtbl.remove bonds_status b) dead_bonds
 		end;
