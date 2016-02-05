@@ -463,6 +463,7 @@ def main():
     else:
         min_priority = 3
 
+    charset = other_config.get('mail-charset', 'utf-8')
     msg = XapiMessage(sys.argv[1])
 
     # We only mail messages with priority lower than or equal to max_priority
@@ -480,7 +481,7 @@ def main():
         return 1
 
     if not sender:
-        sender = "noreply@%s" % getfqdn().encode('utf-8')
+        sender = "noreply@%s" % getfqdn().encode(charset)
 
     # Replace macros in config file using search_replace list
     for s,r in search_replace:
@@ -495,11 +496,11 @@ def main():
         # Run ssmtp to send mail
         chld_stdin, chld_stdout = os.popen2(["/usr/sbin/ssmtp", "-C%s" % fname, destination])
         chld_stdin.write("From: %s\n" % sender)
-        chld_stdin.write('Content-Type: text/plain; charset="utf-8"\n')
-        chld_stdin.write("To: %s\n" % destination.encode('utf-8'))
-        chld_stdin.write("Subject: %s\n" % msg.generate_email_subject().encode('utf-8'))
+        chld_stdin.write('Content-Type: text/plain; charset="%s"\n' % charset)
+        chld_stdin.write("To: %s\n" % destination.encode(charset))
+        chld_stdin.write("Subject: %s\n" % msg.generate_email_subject().encode(charset))
         chld_stdin.write("\n")
-        chld_stdin.write(msg.generate_email_body().encode('utf-8'))
+        chld_stdin.write(msg.generate_email_body().encode(charset))
         chld_stdin.close()
         chld_stdout.close()
         os.wait()

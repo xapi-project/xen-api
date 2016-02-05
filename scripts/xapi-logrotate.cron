@@ -1,0 +1,3 @@
+# Run at 40 minutes past the hour,
+# every hour, day-of-month, month, day-of-week
+40   *  *  *  * root /opt/xensource/libexec/xapi-logrotate.sh
