@@ -983,8 +983,7 @@ let handler req fd _ =
 							task |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
-					end;
-					Xapi_xenops.set_resident_on ~__context ~self:vm
+					end
 				)
 			);
 

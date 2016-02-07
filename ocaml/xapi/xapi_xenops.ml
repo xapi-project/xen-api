@@ -2188,7 +2188,13 @@ let refresh_vm ~__context ~self =
 (* After this function is called, locally-generated events will be reflected
    in the xapi pool metadata. When this function returns we believe that the
    VM state is in 'sync' with xenopsd and the pool master where by 'sync'
-   we mean that all changes will eventually be propagated or 'no events lost' *)
+   we mean that all changes will eventually be propagated or 'no events lost'.
+   This function assumes there is no event suppression going on. This is
+   not true for the localhost migration case, but this is safe as the sender
+   will synchronise state when it's finished anyway. In the other cases where
+   this function is called, the VM is only just starting here, so there
+   should not be any other suppression going on. *)
+
 let set_resident_on ~__context ~self =
 	let id = id_of_vm ~__context ~self in
 	debug "VM %s set_resident_on" id;
@@ -2196,9 +2202,7 @@ let set_resident_on ~__context ~self =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
 	debug "Signalling xenapi event thread to re-register, and xenopsd events to sync";
-        let queue_name = queue_of_vm ~__context ~self in
-        let dbg = Context.string_of_task __context in
-	Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ());
+	refresh_vm ~__context ~self; 
 	!trigger_xenapi_reregister ();
 	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
 	Xenopsd_metadata.update ~__context ~self
