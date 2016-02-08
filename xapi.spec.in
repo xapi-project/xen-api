@@ -289,9 +289,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/host-restore
 @OPTDIR@/libexec/interface-reconfigure
 @OPTDIR@/libexec/interface-visualise
-@OPTDIR@/libexec/license-check.py
-@OPTDIR@/libexec/license-check.pyo
-@OPTDIR@/libexec/license-check.pyc
 @OPTDIR@/libexec/link-vms-by-sr.py
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc
