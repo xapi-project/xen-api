@@ -224,6 +224,7 @@ let vdi_not_managed = "VDI_NOT_MANAGED"
 let vdi_io_error = "VDI_IO_ERROR"
 let vdi_on_boot_mode_incompatible_with_operation = "VDI_ON_BOOT_MODE_INCOMPATIBLE_WITH_OPERATION"
 let vdi_not_in_map = "VDI_NOT_IN_MAP"
+let vif_not_in_map = "VIF_NOT_IN_MAP"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 let operation_partially_failed = "OPERATION_PARTIALLY_FAILED"
@@ -475,6 +476,9 @@ let crl_corrupt = "CRL_CORRUPT"
 let vmpp_has_vm = "VMPP_HAS_VM"
 let vmpp_archive_more_frequent_than_backup = "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
 let vm_assigned_to_protection_policy = "VM_ASSIGNED_TO_PROTECTION_POLICY"
+
+let vmss_has_vm = "VMSS_HAS_VM"
+let vm_assigned_to_schedule_snapshot = "VM_ASSIGNED_TO_SCHEDULE_SNAPSHOT"
 
 let ssl_verify_error = "SSL_VERIFY_ERROR"
 

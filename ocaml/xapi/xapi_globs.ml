@@ -14,6 +14,7 @@
 
 (** A central location for settings related to xapi *)
 
+module String_plain = String (* For when we don't want the Xstringext version *)
 open Xstringext
 open Printf
 
@@ -908,6 +909,9 @@ let xenopsd_queues = ref ([
 
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
+let ciphersuites_good_outbound = ref None
+let ciphersuites_legacy_outbound = ref ""
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
 (* Used only for testing hotfixes *)
@@ -995,6 +999,13 @@ let other_options = [
 
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
     (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
+
+  "ciphersuites-good-outbound", Arg.String (fun s -> ciphersuites_good_outbound := if String_plain.trim s <> "" then Some s else None),
+    (fun () -> match !ciphersuites_good_outbound with None -> "" | Some s -> s),
+    "Preferred set of ciphersuites for outgoing TLS connections. (This list must match, or at least contain one of, the GOOD_CIPHERS in the 'xapissl' script for starting the listening stunnel.)";
+
+  "ciphersuites-legacy-outbound", Arg.Set_string ciphersuites_legacy_outbound,
+    (fun () -> !ciphersuites_legacy_outbound), "For backwards compatibility: to be used in addition to ciphersuites-good-outbound for outgoing TLS connections";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1028,7 +1039,7 @@ let host_virtual_hardware_platform_versions = [
 module Resources = struct
 
 	let essential_executables = [
-		"xapissl", xapissl_path, "Script for starting stunnel";
+		"xapissl", xapissl_path, "Script for starting the listening stunnel";
 		"busybox", busybox, "Swiss army knife executable - used as DHCP server";
 		"pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
 		"redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";

@@ -80,6 +80,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
+		?(schedule_snapshot=Ref.null) ?(is_snapshot_from_vmss=false)
 		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
 		?(generation_id="0:0") ?(hardware_platform_version=0L)
 		?(has_vendor_device=false) ?(has_vendor_device=false) () =
@@ -91,6 +92,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
+		~schedule_snapshot ~is_snapshot_from_vmss
 		~version ~generation_id ~hardware_platform_version ~has_vendor_device
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
@@ -181,11 +183,12 @@ let make_sm ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(_type="sm")
 let make_sr ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="") ?(name_description="") ?(allowed_operations=[])
 		?(current_operations=[]) ?(virtual_allocation=0L) ?(physical_utilisation=0L) ?(physical_size=0L) ?(_type="sm")
 		?(content_type="") ?(shared=true) ?(other_config=[]) ?(tags=[]) ?(default_vdi_visibility=true)
-		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) ?(clustered=false) () =
+		?(sm_config=[]) ?(blobs=[]) ?(local_cache_enabled=false) ?(introduced_by=Ref.make ()) ?(clustered=false)
+		?(is_tools_sr=false)() =
 	Db.SR.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~virtual_allocation ~physical_utilisation ~physical_size ~_type
 		~content_type ~shared ~other_config ~tags ~default_vdi_visibility ~sm_config ~blobs
-		~local_cache_enabled ~introduced_by ~clustered;
+		~local_cache_enabled ~introduced_by ~clustered ~is_tools_sr;
 	ref
 
 let make_pbd ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(host=Ref.make ()) ?(sR=Ref.make ())
@@ -213,11 +216,11 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
 		?(other_config=[]) ?(storage_lock=false) ?(location="") ?(managed=false) ?(missing=false)
 		?(parent=Ref.null) ?(xenstore_data=[]) ?(sm_config=[]) ?(is_a_snapshot=false)
 		?(snapshot_of=Ref.null) ?(snapshot_time=API.Date.never) ?(tags=[]) ?(allow_caching=true)
-		?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true) () =
+		?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true) ?(is_tools_iso=false) () =
 	Db.VDI.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
 		~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
 		~storage_lock ~location ~managed ~missing ~parent ~xenstore_data ~sm_config ~is_a_snapshot ~snapshot_of
-		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest;
+		~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest ~is_tools_iso;
 	ref
 
 let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")

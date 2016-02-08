@@ -136,45 +136,40 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let session_id = Ref.string_of (Context.get_session_id __context) in
 	let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
 	let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
-	let vm' = Db.VM.get_uuid ~__context ~self:vm in
-	begin try
-		Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
-			Xapi_xenops.with_events_suppressed ~__context ~self:vm (fun () ->
-				(* XXX: PR-1255: the live flag *)
-				info "xenops: VM.migrate %s to %s" vm' xenops_url;
-				migrate_with_retry ~__context queue_name dbg vm' [] [] xenops_url;
-				(* Delete all record of this VM locally (including caches) *)
-				Xapi_xenops.Xenopsd_metadata.delete ~__context vm';
-				(* Flush xenopsd events through: we don't want the pool database to
-				   be updated on this host ever again. *)
-				Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm' ()
-			)
-		);
-	with 
-	| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
-		raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
-	| Xenops_interface.Cancelled _ ->
-		TaskHelper.raise_cancelled ~__context
-	| Xenops_interface.Storage_backend_error (code, params) ->
-		raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
-	| e ->
-		error "xenops: VM.migrate %s: caught %s" vm' (Printexc.to_string e);
-		(* We do our best to tidy up the state left behind *)
-		let _, state = XenopsAPI.VM.stat dbg vm' in
-		if Xenops_interface.(state.Vm.power_state = Suspended) then begin
-			debug "xenops: %s: shutting down suspended VM" vm';
-			Xapi_xenops.shutdown ~__context ~self:vm None;
-		end;
-		raise e
-	end;
-	Rrdd_proxy.migrate_rrd ~__context ~vm_uuid:vm' ~host_uuid:(Ref.string_of host) ();
-	(* We will have missed important events because we set resident_on late.
-	   This was deliberate: resident_on is used by the pool master to reserve
-	   memory. If we called 'atomic_set_resident_on' before the domain is
-	   transferred then we would have no record of the memory use. *)
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			XenAPI.VM.pool_migrate_complete rpc session_id vm host
+	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+	Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
+		try
+			Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
+					(* XXX: PR-1255: the live flag *)
+					info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
+					migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
+					(* Delete all record of this VM locally (including caches) *)
+					Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+				);
+			Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				XenAPI.VM.pool_migrate_complete rpc session_id vm host
+			);
+		with exn ->
+			error "xenops: VM.migrate %s: caught %s" vm_uuid (Printexc.to_string exn);
+			(* We do our best to tidy up the state left behind *)
+			begin
+				try
+					let _, state = XenopsAPI.VM.stat dbg vm_uuid in
+					if Xenops_interface.(state.Vm.power_state = Suspended) then begin
+						debug "xenops: %s: shutting down suspended VM" vm_uuid;
+						Xapi_xenops.shutdown ~__context ~self:vm None;
+					end;
+				with _ -> ()
+			end;
+			match exn with
+			| Xenops_interface.Failed_to_acknowledge_shutdown_request ->
+				raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+			| Xenops_interface.Cancelled _ ->
+				TaskHelper.raise_cancelled ~__context
+			| Xenops_interface.Storage_backend_error (code, _) ->
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
+			| _ -> raise exn
 		)
 
 let pool_migrate_complete ~__context ~vm ~host =
@@ -318,9 +313,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 	(* Create mirrors of all the disks on the remote *)
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+	let vifs = Db.VM.get_VIFs ~__context ~self:vm in
 	let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
 	let vm_and_snapshots = vm :: snapshots in
 	let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
+	let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
 
 	let dest_host = List.assoc _host dest in
 	let dest_host_ref = Ref.of_string dest_host in
@@ -366,6 +363,31 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
 			raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))) vdis) ;
+
+	(* Generate a VIF->Network map from vif_map and implicit mappings *)
+	let infer_vif_map () =
+		let mapped_macs =
+			List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
+		List.fold_left (fun map vif ->
+			let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+			let log_prefix =
+				Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
+			match List.filter (fun (v, _) -> v = vif) vif_map with
+			| (_, network)::_ ->
+				debug "%s VIF has been specified in map" log_prefix;
+				(vif, network)::map
+			| [] -> (* Check if another VIF with same MAC address has been mapped *)
+				let mac = Db.VIF.get_MAC ~__context ~self:vif in
+				match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
+				| ((similar, _), network)::_ ->
+					debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
+						log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
+					(vif, network)::map
+				| [] ->
+					error "%s VIF not specified in map and cannot be inferred" log_prefix;
+					raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+		) [] (vifs @ snapshot_vifs) in
+	let vif_map = if not is_intra_pool then infer_vif_map () else vif_map in
 
 	(* Block SXM when VM has a VDI with on_boot=reset *)
 	List.(iter (fun (vdi,_,_,_,_,_,_,_) ->
@@ -415,38 +437,44 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		let so_far = ref 0L in
 
 		let dest_pool = List.hd (XenAPI.Pool.get_all remote_rpc session_id) in
+		let default_sr_ref =
+			XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
 		let suspend_sr_ref =
-			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool in
-			if pool_suspend_SR <> Ref.null then pool_suspend_SR else
-				let host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
-				if host_suspend_SR <> Ref.null then host_suspend_SR else
-					XenAPI.Pool.get_default_SR remote_rpc session_id dest_pool in
+			let pool_suspend_SR = XenAPI.Pool.get_suspend_image_SR remote_rpc session_id dest_pool
+			and host_suspend_SR = XenAPI.Host.get_suspend_image_sr remote_rpc session_id dest_host_ref in
+			if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR in
 
 		let vdi_copy_fun ((vdi, dp, location, sr, xenops_locator, size, snapshot_of, do_mirror) as vconf) =
 			TaskHelper.exn_if_cancelling ~__context;
 			let open Storage_access in 
-			let (dest_sr_ref, dest_sr) =
-				match List.mem_assoc vdi vdi_map, List.mem_assoc snapshot_of vdi_map with
-					| true, _ ->
-						    debug "VDI has been specified in the vdi_map";
-							let dest_sr_ref = List.assoc vdi vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, true ->
-					        debug "snapshot VDI's snapshot_of has been specified in the vdi_map";
-						    let dest_sr_ref = List.assoc snapshot_of vdi_map in
-							let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							(dest_sr_ref, dest_sr)
-					| false, false ->
-						 if List.mem vconf suspends_vdis && suspend_sr_ref <> Ref.null then
-							 let dest_sr_ref = suspend_sr_ref in
-							 let dest_sr = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
-							 (dest_sr_ref, dest_sr)
-						 else
-							 let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-							 error "VDI:SR map not fully specified for VDI %s" vdi_uuid;
-							 raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
-				in
+			let dest_sr_ref =
+				let is_mapped = List.mem_assoc vdi vdi_map
+				and snapshot_of_is_mapped = List.mem_assoc snapshot_of vdi_map
+				and is_suspend_vdi = List.mem vconf suspends_vdis
+				and remote_has_suspend_sr = suspend_sr_ref <> Ref.null
+				and remote_has_default_sr = default_sr_ref <> Ref.null in
+				let log_prefix =
+					Printf.sprintf "Resolving VDI->SR map for VDI %s:" (Db.VDI.get_uuid ~__context ~self:vdi) in
+				if is_mapped then begin
+					debug "%s VDI has been specified in the map" log_prefix;
+					List.assoc vdi vdi_map
+				end else if snapshot_of_is_mapped then begin
+					debug "%s Snapshot VDI has entry in map for it's snapshot_of link" log_prefix;
+					List.assoc snapshot_of vdi_map
+				end else if is_suspend_vdi && remote_has_suspend_sr then begin
+					debug "%s Mapping suspend VDI to remote suspend SR" log_prefix;
+					suspend_sr_ref
+				end else if is_suspend_vdi && remote_has_default_sr then begin
+					debug "%s Remote suspend SR not set, mapping suspend VDI to remote default SR" log_prefix;
+					default_sr_ref
+				end else if remote_has_default_sr then begin
+					debug "Mapping unspecified VDI to remote default SR";
+					default_sr_ref
+				end else begin
+					error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
+					raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vdi ]))
+				end in
+				let dest_sr_uuid = XenAPI.SR.get_uuid remote_rpc session_id dest_sr_ref in
 
 			(* Plug the destination shared SR into destination host and pool master if unplugged.
 			   Plug the local SR into destination host only if unplugged *)
@@ -483,7 +511,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 			   use case is for a shared raw iSCSI SR (same uuid, same VDI uuid) *)
 			let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 			let mirror = if !Xapi_globs.relax_xsm_sr_check then
-				if (dest_sr = sr) then
+				if (dest_sr_uuid = sr) then
 				begin
 					(* Check if the VDI uuid already exists in the target SR *)
 					if (dest_vdi_exists_on_sr vdi_uuid dest_sr_ref true) then
@@ -494,7 +522,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 				else
 					true
 			else
-				(not is_intra_pool) || (dest_sr <> sr)
+				(not is_intra_pool) || (dest_sr_uuid <> sr)
 			in
 
 			let remote_vdi,remote_vdi_reference,newdp =
@@ -522,10 +550,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 					in
 
 					let task = if not do_mirror then
-							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.copy ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						else begin
 							ignore(Storage_access.register_mirror __context location);
-							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr 
+							SMAPI.DATA.MIRROR.start ~dbg ~sr ~vdi:location ~dp:newdp ~url ~dest:dest_sr_uuid
 						end
 					in
 
@@ -573,10 +601,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 								mr_mirrored = mirror;
 								mr_local_sr = sr;
 								mr_local_vdi = location;
-								mr_remote_sr = dest_sr;
+								mr_remote_sr = dest_sr_uuid;
 								mr_remote_vdi = remote_vdi;
 								mr_local_xenops_locator = xenops_locator;
-								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr remote_vdi;
+								mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
 								mr_remote_vdi_reference = remote_vdi_reference; }) in
 
 		let suspends_map = List.map vdi_copy_fun suspends_vdis in
@@ -667,11 +695,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 		(* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
 		begin
 			try
-				Xapi_xenops.with_events_suppressed ~__context ~self:vm
-					(fun () ->
+				Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
 						migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops;
 						Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
-						Xapi_xenops.Events_from_xenopsd.wait queue_name dbg vm_uuid ())
+					)
 			with
 				| Xenops_interface.Does_not_exist ("VM",_)
 				| Xenops_interface.Does_not_exist ("extra",_) ->
@@ -680,8 +707,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
 		debug "Migration complete";
 		SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
-
-		Xapi_xenops.refresh_vm ~__context ~self:vm;
 
 		XenAPI.VM.pool_migrate_complete remote_rpc session_id new_vm dest_host_ref;
 		
@@ -958,17 +983,8 @@ let handler req fd _ =
 							task |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore
 						| None ->
 							debug "We did not get a task id to wait for!!"
-					end;
-					Xapi_xenops.set_resident_on ~__context ~self:vm
+					end
 				)
-			);
-
-			(* We will have missed important events because we set resident_on late.
-			   This was deliberate: resident_on is used by the pool master to reserve
-			   memory. If we called 'atomic_set_resident_on' before the domain is
-			   transferred then we would have no record of the memory use. *)
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				XenAPI.VM.pool_migrate_complete rpc session_id vm localhost
 			);
 
 			TaskHelper.set_progress ~__context 1.

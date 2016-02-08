@@ -210,6 +210,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~guest_metrics:Ref.null ~metrics
 		~bios_strings:[] ~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
+		~schedule_snapshot:Ref.null ~is_snapshot_from_vmss:false
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L

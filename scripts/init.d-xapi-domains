@@ -6,6 +6,12 @@
 # chkconfig: 345 99 00
 # description: Start/stop XE VMs
 
+### BEGIN INIT INFO
+# Required-Start:    $remote_fs
+# Short-Description: Start/stop XE VMs
+# Description: Stop domains automatically when domain 0 shuts down.
+### END INIT INFO
+
 SHUTDOWN="@LIBEXECDIR@/shutdown"
 
 if [ ! -e /proc/xen/privcmd ] || \

@@ -89,7 +89,7 @@ let valid_operations ~__context record _ref' : table =
 
   (* Then filter out the operations we don't want to see for the magic tools SR *)
   let sm_features =
-    if Helpers.is_tools_sr ~__context ~sr:_ref'
+    if record.Db_actions.sR_is_tools_sr
     then List.filter
 		(fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
 		sm_features
