@@ -375,6 +375,15 @@ let add_default_pif_properties = {
 			(Db.PIF.get_all ~__context)
 }
 
+let default_has_vendor_device_false = {
+	description = "Defaulting has_vendor_device false";
+	version = (fun x -> x < dundee);
+	fn = fun ~__context ->
+		List.iter
+			(fun self -> Db.VM.set_has_vendor_device ~__context ~self ~value:false)
+			(Db.VM.get_all ~__context)
+}
+
 let populate_pgpu_vgpu_types = {
 	description = "Populating lists of VGPU types on existing PGPUs";
 	version = (fun x -> x <= clearwater);
@@ -497,6 +506,7 @@ let rules = [
 	populate_pgpu_vgpu_types;
 	set_vgpu_types;
 	add_default_pif_properties;
+	default_has_vendor_device_false;
 	remove_restricted_pbd_keys;
 	upgrade_recommendations_for_gpu_passthru;
 	set_tools_sr_field;
