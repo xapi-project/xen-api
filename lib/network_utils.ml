@@ -460,6 +460,13 @@ module Linux_bonding = struct
 			Unix.access slaves_path [ Unix.F_OK ];
 			Some (List.hd (List.rev (String.split '/' master_path)))
 		with _ -> None
+
+	let get_bond_active_slave master =
+		try
+			Some (Sysfs.read_one_line (Sysfs.getpath master ("bonding/active_slave")))
+		with _ ->
+			error "Failed to get active_slave of bond %s" master;
+			None
 end
 
 module Dhclient = struct
@@ -673,16 +680,38 @@ module Ovs = struct
 			Some (vsctl ["br-to-parent"; name], int_of_string (vsctl ["br-to-vlan"; name]))
 		with _ -> None
 
-	let get_bond_links_up name =
+	let get_bond_link_status name =
 		try
-			let check_line line =
-				if (String.startswith "slave" line) && (String.endswith "enabled" line) then 1 else 0
-			in
 			let raw = appctl ["bond/show"; name] in
 			let lines = String.split '\n' raw in
-			let nb_links = List.fold_left (fun acc line -> acc + (check_line line)) 0 lines in
-			nb_links
-		with _ -> 0
+			List.fold_left (fun (slaves, active_slave) line ->
+				let slaves =
+					try
+						Scanf.sscanf line "slave %s@: %s" (fun slave state ->
+							(slave, state = "enabled") :: slaves
+						)
+					with _ -> slaves
+				in
+				let active_slave =
+					try
+						Scanf.sscanf line "active slave %s@(%s@)" (fun _ slave -> Some slave)
+					with _ -> active_slave
+				in
+				slaves, active_slave
+			) ([], None) lines
+		with _ -> [], None
+
+	let get_bond_links_up name =
+		let slaves, _ = get_bond_link_status name in
+		let links_up = List.filter snd slaves in
+		List.length (links_up)
+
+	let get_bond_mode name =
+		try
+			let output = String.rtrim (vsctl ["get"; "port"; name; "bond_mode"]) in
+			if output <> "[]" then Some output else None
+		with _ ->
+			None
 
 	let set_max_idle t =
 		try

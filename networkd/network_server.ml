@@ -629,6 +629,44 @@ module Bridge = struct
 				| Bridge -> raise Not_implemented
 		) ()
 
+	type bond_link_info = {
+		slave: iface;
+		up: bool;
+		active: bool;
+	}
+
+	let get_bond_link_info _ dbg ~name =
+		Debug.with_thread_associated dbg (fun () ->
+			match !backend_kind with
+			| Openvswitch ->
+				let slaves, active_slave = Ovs.get_bond_link_status name in
+				let mode = Ovs.get_bond_mode name in
+				List.map (fun (slave, up) ->
+					let active =
+						let ab = mode = Some "active-backup" in
+						ab && (active_slave = Some slave) ||
+						(not ab) && up
+					in
+					{slave; up; active}
+				) slaves
+			| Bridge ->
+				let active_slave = Linux_bonding.get_bond_active_slave name in
+				let slaves = Proc.get_bond_slave_info name "MII Status" in
+				let bond_props = Linux_bonding.get_bond_properties name in
+				List.map (fun (slave, status) ->
+					let up = status = "up" in
+					let active =
+						let ab =
+							List.mem_assoc "mode" bond_props &&
+							String.startswith "active-backup" (List.assoc "mode" bond_props)
+						in
+						ab && (active_slave = Some slave) ||
+						(not ab) && up
+					in
+					{slave; up; active}
+				) slaves
+		) ()
+
 	let get_vlan _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !backend_kind with
