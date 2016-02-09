@@ -133,7 +133,9 @@ let one s vm test =
 				end;
 				if Client.VM.get_power_state !rpc s vm = `Halted
 				then Client.VM.start !rpc s vm false false;
-				
+				(* wait for the guest to actually start up *)
+				Thread.delay 15.;
+
 				let call_api = function
 					| Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm
 					| Shutdown Hard -> Client.VM.hard_shutdown !rpc s vm

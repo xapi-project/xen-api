@@ -1128,6 +1128,9 @@ module Xenopsd_metadata = struct
 			| Bad_power_state(_, _) ->
 				(* This can fail during a localhost live migrate; but this is safe to ignore *)
 				debug "We have not removed metadata from xenopsd because VM %s is still running" id
+			| Does_not_exist(_) ->
+				debug "Metadata for VM %s was already removed" id
+
 
 	(* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
 	let pull ~__context id =
@@ -2357,7 +2360,8 @@ let maybe_cleanup_vm ~__context ~self =
 		(* By calling with_events_suppressed we can guarentee that an refresh_vm
 		 * will be called with events enabled and therefore we get Xenopsd into a
 		 * consistent state with Xapi *)
-		Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
+		Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ());
+		Xenopsd_metadata.delete ~__context id;
 	end
 
 let start ~__context ~self paused =
