@@ -1128,6 +1128,9 @@ module Xenopsd_metadata = struct
 			| Bad_power_state(_, _) ->
 				(* This can fail during a localhost live migrate; but this is safe to ignore *)
 				debug "We have not removed metadata from xenopsd because VM %s is still running" id
+			| Does_not_exist(_) ->
+				debug "Metadata for VM %s was already removed" id
+
 
 	(* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
 	let pull ~__context id =
