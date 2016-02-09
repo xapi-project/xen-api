@@ -1399,25 +1399,32 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.receive_memory %s" id;
 			Sockopt.set_sock_keepalives s;
 			let open Xenops_migrate in
-			begin try
-				(* set up the destination domain *)
-				debug "VM.receive_memory calling create";
+(*			let state = B.VM.get_state (VM_DB.read_exn id) in
+			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
+
+			(* set up the destination domain *)
+			(try
 				perform_atomics (
-					simplify [VM_create (id, Some memory_limit)]
-					(* Perform as many operations as possible on the destination domain
-					 * before pausing the original domain *)
-					@ (atomics_of_operation (VM_restore_vifs id))
+					simplify [VM_create (id, Some memory_limit);] @
+					(* Perform as many operations as possible on the destination domain before pausing the original domain *)
+					(atomics_of_operation (VM_restore_vifs id))
 				) t;
-				Handshake.send s Handshake.Success;
-				debug "Synchronisation point 1";
+				Handshake.send s Handshake.Success
+			with e ->
+				Handshake.send s (Handshake.Error (Printexc.to_string e));
+				raise e
+			);
+			debug "Synchronisation point 1";
 
-				perform_atomics (
-				[
-					VM_restore (id, FD s);
-				]) t;
-				debug "VM.receive_memory restore complete";
-				debug "Synchronisation point 2";
+			debug "VM.receive_memory calling create";
+			perform_atomics (
+			[
+				VM_restore (id, FD s);
+			]) t;
+			debug "VM.receive_memory restore complete";
+			debug "Synchronisation point 2";
 
+			begin try
 				(* Receive the all-clear to unpause *)
 				Handshake.recv_success ~verbose:true s;
 				debug "Synchronisation point 3";
