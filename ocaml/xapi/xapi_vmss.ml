@@ -21,8 +21,12 @@ let vmss_username = "__dom0__vmss"
 let vmss_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
 let vmss_snapshot_other_config_applies_to = "applies_to"
 
+let assert_licensed ~__context =
+	Pool_features.assert_enabled ~__context ~f:Features.VMSS
+
 (* Create VM snapshots just after creating a VMSS *)
 let snapshot_now ~__context ~vmss =
+  assert_licensed ~__context;
   let vmss_uuid = Db.VMSS.get_uuid ~__context ~self:vmss in
   let args = [ "vmss_uuid", vmss_uuid ] in
   Xapi_plugins.call_plugin
@@ -73,6 +77,7 @@ let assert_retained_snapshots ~retained_snapshots =
   )
 
 let set_frequency ~__context ~self ~value =
+  assert_licensed ~__context;
   let schedule = Db.VMSS.get_schedule ~__context ~self in
   let new_schedule = assert_set_frequency ~frequency:value ~schedule in
   Db.VMSS.set_frequency ~__context ~self ~value;
@@ -80,11 +85,13 @@ let set_frequency ~__context ~self ~value =
   Db.VMSS.set_schedule ~__context ~self ~value:new_schedule
 
 let set_schedule ~__context ~self ~value =
+  assert_licensed ~__context;
   let value = Map_check.assert_keys ~ty:"" ~ks:schedule_all_keys ~value ~db:(Db.VMSS.get_schedule ~__context ~self) in
   Db.VMSS.set_schedule ~__context ~self ~value
 
 let set_type ~__context ~self ~value =
   (* Check VMs associated to VMSS supports the new snapshot type *)
+  assert_licensed ~__context;
   let snapshot_type = Record_util.vmss_type_to_string value in
   let vms = Db.VMSS.get_VMs ~__context ~self in
   if vms <> [] then
@@ -104,10 +111,12 @@ let set_type ~__context ~self ~value =
 let schedule_backup = ref []
 
 let remove_from_schedule ~__context ~self ~key =
+  assert_licensed ~__context;
   schedule_backup := Db.VMSS.get_schedule ~__context ~self;
   Db.VMSS.remove_from_schedule ~__context ~self ~key
 
 let add_to_schedule ~__context ~self ~key ~value =
+  assert_licensed ~__context;
   try
     let value = List.assoc key (Map_check.assert_keys ~ty:"" ~ks:schedule_all_keys ~value:[(key,value)] ~db:(Db.VMSS.get_schedule ~__context ~self)) in
     Db.VMSS.add_to_schedule ~__context ~self ~key ~value
@@ -116,9 +125,11 @@ let add_to_schedule ~__context ~self ~key ~value =
     raise e
 
 let set_last_run_time ~__context ~self ~value =
+  assert_licensed ~__context;
   Db.VMSS.set_last_run_time ~__context ~self ~value
 
 let set_retained_snapshots ~__context ~self ~value =
+  assert_licensed ~__context;
   assert_retained_snapshots ~retained_snapshots:value;
   Db.VMSS.set_retained_snapshots ~__context ~self ~value
 
@@ -127,13 +138,16 @@ let set_retained_snapshots ~__context ~self ~value =
 let create ~__context ~name_label ~name_description ~enabled
   ~_type ~retained_snapshots ~frequency ~schedule
   : API.ref_VMSS =
-	
+
+  assert_licensed ~__context;
+  if _type = `snapshot_with_quiesce then
+    Pool_features.assert_enabled ~__context ~f:Features.VSS;	
   (* assert all provided field values, key names and key values are valid *)
   let (_: (string*string) list) = Map_check.assert_keys ~ty:(Record_util.vmss_frequency_to_string frequency) ~ks:schedule_keys ~value:schedule ~db:[] in
-	
+
   (* assert inter-field constraints and fix values if possible *)
   let schedule = assert_set_frequency ~frequency ~schedule in
-	
+
   (* assert retained_snapshots *)
   assert_retained_snapshots ~retained_snapshots;
   let ref=Ref.make() in
@@ -150,6 +164,7 @@ let destroy_all_messages ~__context ~self =
     |> List.iter (fun (ref, _) -> Xapi_message.destroy ~__context ~self:ref)
 
 let destroy ~__context ~self =
+  assert_licensed ~__context;
   let vms = Db.VMSS.get_VMs ~__context ~self in
   if List.length vms > 0
   then ( (* we can't delete a VMSS that contains VMs *)
