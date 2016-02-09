@@ -57,6 +57,8 @@ OCAML_OBJS = \
 	test_pbd \
 	test_cpuid_helpers \
 	test_pool_cpuinfo \
+	../license/daily_license_check \
+	test_daily_license_check \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
