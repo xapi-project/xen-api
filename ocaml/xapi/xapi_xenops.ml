@@ -2357,7 +2357,8 @@ let maybe_cleanup_vm ~__context ~self =
 		(* By calling with_events_suppressed we can guarentee that an refresh_vm
 		 * will be called with events enabled and therefore we get Xenopsd into a
 		 * consistent state with Xapi *)
-		Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
+		Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ());
+		Xenopsd_metadata.delete ~__context id;
 	end
 
 let start ~__context ~self paused =
