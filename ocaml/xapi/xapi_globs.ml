@@ -194,12 +194,13 @@ let vm_minimum_memory = 16L ** 1024L ** 1024L (* don't start VMs with less than 
 
 let grant_api_access = "grant_api_access"
 
-(* From Miami GA onward we identify the tools SR with the SR.other_config key: *)
+(* From Miami GA onward we identify the tools SR with the following SR.other_config key. *)
+(* In Dundee we introduced the SR.is_tools_sr field for this purpose, but left the *)
+(* other-config key for backwards compat. *)
 let tools_sr_tag = "xenserver_tools_sr"
 
-(* Rio and Miami beta1 and beta2 used the following name-labels: *)
-let rio_tools_sr_name = "XenSource Tools"
-let miami_tools_sr_name = "XenServer Tools"
+let tools_sr_name () = Version.product_brand () ^ " Tools"
+let tools_sr_description () = tools_sr_name () ^ " ISOs"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
