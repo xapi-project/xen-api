@@ -2256,7 +2256,7 @@ module VM = struct
 						xs.Xs.setperms ent rwperm
 					)
 				) (
-					let dev_kinds = [ "vbd"; "vif"; "vfb"; "vkb"; "vfs"; "pci" ] in
+					let dev_kinds = [ "vbd"; "vif" ] in
 					[ "feature"; "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data" ]
 					@ List.map (fun dev_kind -> "device/"^dev_kind) dev_kinds
 				);
