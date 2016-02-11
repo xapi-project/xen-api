@@ -280,6 +280,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/backup-sr-metadata.pyc
 @OPTDIR@/libexec/block_device_io
 @OPTDIR@/libexec/cdrommon
+@OPTDIR@/libexec/daily-license-check
 @OPTDIR@/libexec/fence
 @OPTDIR@/libexec/generate_ssl_cert
 @OPTDIR@/libexec/host-backup
@@ -288,9 +289,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/host-restore
 @OPTDIR@/libexec/interface-reconfigure
 @OPTDIR@/libexec/interface-visualise
-@OPTDIR@/libexec/license-check.py
-@OPTDIR@/libexec/license-check.pyo
-@OPTDIR@/libexec/license-check.pyc
 @OPTDIR@/libexec/link-vms-by-sr.py
 @OPTDIR@/libexec/link-vms-by-sr.pyo
 @OPTDIR@/libexec/link-vms-by-sr.pyc

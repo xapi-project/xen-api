@@ -1,6 +1,6 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid
 
 UseCamlp4(rpclib.syntax, v6rpc v6errors)
 
@@ -12,18 +12,20 @@ V6FILES = \
 	edition \
 	v6testd
 
-# Name of daemon to install in dom0:
+# Name of programs to install in dom0:
 V6D = v6d
+DAILY_LICENSE_CHECK = daily-license-check
 
 OCamlProgram($(V6D), $(V6FILES))
+OCamlProgram($(DAILY_LICENSE_CHECK), daily_license_check daily_license_check_main)
 
 .PHONY: install
 install: $(V6D)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(V6D) $(DESTDIR)$(LIBEXECDIR)
-	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) $(DAILY_LICENSE_CHECK) $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN_OBJS) v6d v6d-reopen-logs
+	rm -f $(CLEAN_OBJS) $(V6D) $(DAILY_LICENSE_CHECK)
 

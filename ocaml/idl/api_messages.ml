@@ -29,9 +29,6 @@ let addMessage name priority =
   let _ = msgList := msg :: !msgList in
   msg
 
-let license_does_not_support_pooling = addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Name conflict with Api_errors; unused in xen-api *)
-let license_expires_soon = addMessage "LICENSE_EXPIRES_SOON" 2L (* Used by license-check.py, which may be unused? *)
-
 let ha_statefile_lost = addMessage "HA_STATEFILE_LOST" 2L
 
 let ha_heartbeat_approaching_timeout = addMessage "HA_HEARTBEAT_APPROACHING_TIMEOUT" 5L
@@ -84,9 +81,12 @@ let auth_external_pool_non_homogeneous = addMessage "EXTAUTH_IN_POOL_IS_NON_HOMO
 
 let multipath_periodic_alert = addMessage "MULTIPATH_PERIODIC_ALERT" 3L
 
+(* Licensing alerts *)
+let license_does_not_support_pooling = addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Name conflict with Api_errors; unused in xen-api *)
+let license_expires_soon = addMessage "LICENSE_EXPIRES_SOON" 2L
+let license_expired = addMessage "LICENSE_EXPIRED" 2L
 let v6_server_up = addMessage "LICENSE_SERVER_CONNECTED" 4L (* Used in XenCenter *)
 let v6_server_down = addMessage "LICENSE_SERVER_UNAVAILABLE" 3L (* Used in XenCenter *)
-let v6_license_expired = addMessage "LICENSE_EXPIRED" 2L (* Used in XenCenter *)
 let v6_grace_license = addMessage "GRACE_LICENSE" 3L
 let v6_rejected = addMessage "LICENSE_NOT_AVAILABLE" 2L
 let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE" 2L
