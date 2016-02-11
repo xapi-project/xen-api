@@ -140,8 +140,9 @@ let create_tools_sr __context =
 		(* Create XenSource Tools ISO, if an SR with this name is not already there: *)
 		let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
 		if tools_srs = [] then
-			create_magic_sr Xapi_globs.miami_tools_sr_name
-				"XenServer Tools ISOs"
+			create_magic_sr
+				(Xapi_globs.tools_sr_name ())
+				(Xapi_globs.tools_sr_description ())
 				"iso" "iso"
 				["path", !Xapi_globs.tools_sr_dir; (* for ffs *)
 				 "location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
@@ -150,9 +151,9 @@ let create_tools_sr __context =
 				 Xapi_globs.tools_sr_tag, "true";
 				 Xapi_globs.i18n_key, "xenserver-tools";
 				 (Xapi_globs.i18n_original_value_prefix ^ "name_label"),
-				 Xapi_globs.miami_tools_sr_name;
+				 Xapi_globs.tools_sr_name ();
 				 (Xapi_globs.i18n_original_value_prefix ^ "name_description"),
-				 "XenServer Tools ISOs"]
+				 Xapi_globs.tools_sr_description ()]
 				true
 	)
 
