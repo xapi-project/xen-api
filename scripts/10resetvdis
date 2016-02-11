@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Call the SM backend python program to reset the locks on all the VDIs that were on the
 # host that has been declared dead
