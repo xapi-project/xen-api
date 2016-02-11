@@ -132,12 +132,15 @@ let header_of_xmlrpc x =
     objects   = XMLRPC.From.array obj_of_xmlrpc (find _objects);
   }
 
+let vm_has_field ~(x: obj) ~name =
+  let structure = XMLRPC.From.structure x.snapshot in
+  List.mem_assoc name structure
+
 (* This function returns true when the VM record was created pre-ballooning. *)
 let vm_exported_pre_dmc (x: obj) = 
-  let structure = XMLRPC.From.structure x.snapshot in
   (* The VM.parent field was added in rel_midnight_ride, at the same time as ballooning.
      XXX: Replace this with something specific to the ballooning feature if possible. *)
-  not(List.mem_assoc "parent" structure)
+  not (vm_has_field ~x ~name:"parent")
 
 open Client
 
