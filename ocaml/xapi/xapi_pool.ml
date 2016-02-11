@@ -1205,7 +1205,7 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
   let errors = List.concat 
     (List.map 
        (fun self -> 
-	  try Helpers.vm_assert_agile ~__context ~self; [ self, [ "error_code", Api_errors.host_not_enough_free_memory ] ] (* default *) 
+	  try Agility.vm_assert_agile ~__context ~self; [ self, [ "error_code", Api_errors.host_not_enough_free_memory ] ] (* default *) 
 	  with Api_errors.Server_error(code, params) -> [ self, [ "error_code", code ]]) failed_vms) in
   let plan = List.map (fun (vm, host) -> vm, [ "host", Ref.string_of host ]) 
     (Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) live_hosts vms) in
