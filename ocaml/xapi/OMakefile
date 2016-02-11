@@ -86,7 +86,6 @@ XAPI_MODULES = $(COMMON) \
 	storage_migrate \
 	storage_proxy \
 	storage_utils \
-	xapi_xenvmd \
 	xapi_services \
 	sm_exec \
 	sm \
