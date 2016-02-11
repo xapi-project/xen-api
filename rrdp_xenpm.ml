@@ -13,10 +13,11 @@
  *)
 
 (* The goal of this plugin is to get the proportion of time the CPU(s)
-   spent in it (their) different P and C states. This plugin could be
-   easily rewritten using Xenctrl bindings by replicating the xenpm
-   CLI computations. The author of the plugin did not manage to add
-   the necessary bindings to Xenctrl in time. *)
+   spent in it (their) different P and C states, as well the average
+   clock frequency for each CPU.  This plugin could be easily rewritten
+   using Xenctrl bindings by replicating the xenpm CLI computations. The
+   author of the plugin did not manage to add the necessary bindings to
+   Xenctrl in time. *)
 
 open Fun
 open Listext
@@ -43,6 +44,24 @@ let gen_pm_ds state cpu_id state_id (derive_value:int64) =
 		~value:(Rrd.VT_Float ((Int64.to_float derive_value) /. 1000.)) 
 		~ty:Rrd.Derive ~default:true
 		~units:"(fraction)" ~min:0. ~max:1. ()
+
+let gen_pm_cpu_averages cpu_id time =
+	Rrd.Host, Ds.ds_make
+		~name:(Printf.sprintf "CPU%d-avg-freq" cpu_id)
+		~description:(Printf.sprintf "Average frequency of CPU %d" cpu_id)
+		~value:(Rrd.VT_Int64 (Int64.div time 1000L))
+		~ty:Rrd.Gauge ~default:true
+		~units:"MHz" ~min:0. ()
+
+
+let get_cpu_averages () : int64 list =
+	let pattern = Str.regexp "average cpu frequency:[ \t]+\\([0-9]+\\)[ \t]*$" in
+	let match_fun s =
+		if Str.string_match pattern s 0
+		then Some (Int64.of_string (Str.matched_group 1 s)) else None in
+	Utils.exec_cmd (module Process.D)
+		~cmdstring:(Printf.sprintf "%s %s" xenpm_bin "get-cpufreq-average")
+		~f:match_fun
 
 let get_states cpu_state : int64 list =
 	let pattern = Str.regexp "[ \t]*residency[ \t]+\\[[ \t]*\\([0-9]+\\) ms\\][ \t]*" in
@@ -72,14 +91,19 @@ let generate_state_dss state_kind =
 	D.debug "Found %d states; with %d CPUs this means %d states per CPU" (List.length states) !nr_cpu states_by_cpu;
 	try
 		list_package states states_by_cpu
-				 |> List.mapi (fun cpu_id times -> 
-					 List.mapi (fun state_id time -> 
+				 |> List.mapi (fun cpu_id times ->
+					 List.mapi (fun state_id time ->
 						 gen_pm_ds state_kind cpu_id state_id time) times)
 				 |> List.flatten
 	with _ -> []
 
+let generate_cpu_averages () =
+	let averages = get_cpu_averages () in
+	try List.mapi (fun cpu_id time -> gen_pm_cpu_averages cpu_id time) averages
+	with _ -> []
+
 let generate_dss () =
-	generate_state_dss Cstate @ generate_state_dss Pstate
+	generate_state_dss Cstate @ generate_state_dss Pstate @ (generate_cpu_averages ())
 
 let _ =
 	let open Xenctrl in
