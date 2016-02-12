@@ -37,7 +37,8 @@ let stunnel_logger = ref ignore
 
 let timeoutidle = ref None
 
-let legacy_protocol_and_ciphersuites_allowed = ref true
+(* Use good settings by default *)
+let legacy_protocol_and_ciphersuites_allowed = ref false
 
 let is_legacy_protocol_and_ciphersuites_allowed () =
 	!legacy_protocol_and_ciphersuites_allowed
