@@ -201,6 +201,7 @@ ocaml/idl/ocaml_backend/META
 ocaml/xenops/META
 ocaml/xapi/rrddump
 ocaml/xapi/sparse_dd
+ocaml/license/daily-license-check
 ocaml/license/v6d
 ocaml/license/v6d-reopen-logs
 ocaml/license/v6testd
