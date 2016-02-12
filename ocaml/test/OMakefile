@@ -29,6 +29,7 @@ OCAML_OBJS = \
 	test_printers \
 	test_common \
 	test_basic \
+	test_agility \
 	test_helpers \
 	test_datamodel_utils \
 	test_db_lowlevel \
@@ -57,6 +58,8 @@ OCAML_OBJS = \
 	test_pbd \
 	test_cpuid_helpers \
 	test_pool_cpuinfo \
+	../license/daily_license_check \
+	test_daily_license_check \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 

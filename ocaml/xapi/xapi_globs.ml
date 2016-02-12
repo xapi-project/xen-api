@@ -194,12 +194,13 @@ let vm_minimum_memory = 16L ** 1024L ** 1024L (* don't start VMs with less than 
 
 let grant_api_access = "grant_api_access"
 
-(* From Miami GA onward we identify the tools SR with the SR.other_config key: *)
+(* From Miami GA onward we identify the tools SR with the following SR.other_config key. *)
+(* In Dundee we introduced the SR.is_tools_sr field for this purpose, but left the *)
+(* other-config key for backwards compat. *)
 let tools_sr_tag = "xenserver_tools_sr"
 
-(* Rio and Miami beta1 and beta2 used the following name-labels: *)
-let rio_tools_sr_name = "XenSource Tools"
-let miami_tools_sr_name = "XenServer Tools"
+let tools_sr_name () = Version.product_brand () ^ " Tools"
+let tools_sr_description () = tools_sr_name () ^ " ISOs"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
@@ -836,8 +837,6 @@ let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
  * should be set with disallow-unplug=true, during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
-let manage_xenvmd = ref true
-
 let sr_health_check_task_label = "SR Recovering"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
@@ -898,8 +897,6 @@ let options_of_xapi_globs_spec =
     (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
 let xapissl_path = ref "xapissl"
-
-let xenvmd_path = ref "xenvmd"
 
 let xenopsd_queues = ref ([
   "org.xen.xapi.xenops.classic";
@@ -994,9 +991,6 @@ let other_options = [
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
 
-  "manage_xenvmd", Arg.Set manage_xenvmd,
-  (fun () -> string_of_bool !manage_xenvmd), "Start and stop xenvmd instances on behalf of the SM backends";
-
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
     (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
 
@@ -1064,7 +1058,6 @@ module Resources = struct
 		"rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
 		"xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
 		"non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
-		"xenvmd", xenvmd_path, "Xenvmd executable for thin-provisioned block storage";
 		"update-issue", update_issue_script, "Running update-service when configuring the management interface";
 		"killall", kill_process_script, "Executed to kill process";
 	]

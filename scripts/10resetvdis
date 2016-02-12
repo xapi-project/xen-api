@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Call the SM backend python program to reset the locks on all the VDIs that were on the
 # host that has been declared dead
@@ -11,25 +12,10 @@ function reset {
 	IFS=","
 	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
 	do
-		logger "Calling xenvm host-disconnect --uncooperative /dev/VG_XenStorage-$i $HOSTUUID"
-		xenvm host-disconnect --uncooperative /dev/VG_XenStorage-$i $HOSTUUID
-	done
-
-	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
-	do
 		"/opt/xensource/sm/resetvdis.py" $HOSTUUID $i
 	done
 }
 
-function forget {
-	logger "Forgetting host: $HOSTUUID"
-	IFS=","
-	for i in `xe pbd-list host-uuid=$HOSTUUID params=sr-uuid --minimal`
-	do
-		logger "Calling xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID"
-		xenvm host-destroy /dev/VG_XenStorage-$i $HOSTUUID
-	done
-}
 # Only reset the VDIs if the host is actually fenced, or the user has requested it.
 case "$REASON" in
 	 fenced)
@@ -40,7 +26,6 @@ case "$REASON" in
 		;;
 	dbdestroy)
 		reset
-		forget
 		;;
 	assume-failed)
 		reset

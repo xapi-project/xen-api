@@ -20,6 +20,7 @@ let base_suite =
 	"base_suite" >:::
 		[
 			Test_basic.test;
+			Test_agility.test;
 			Test_helpers.test;
 			Test_datamodel_utils.test;
 			Test_db_lowlevel.test;
@@ -46,7 +47,8 @@ let base_suite =
 			Test_cpuid_helpers.test;
 			Test_pool_cpuinfo.test;
 			(* Test_ca121350.test; *)
-			Test_pbd.test
+			Test_pbd.test;
+			Test_daily_license_check.test;
 		]
 
 let handlers = [

@@ -64,6 +64,7 @@ OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quickt
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
 XAPI_MODULES = $(COMMON) \
+	agility \
 	network \
 	../util/table \
 	balloon \
@@ -85,7 +86,6 @@ XAPI_MODULES = $(COMMON) \
 	storage_migrate \
 	storage_proxy \
 	storage_utils \
-	xapi_xenvmd \
 	xapi_services \
 	sm_exec \
 	sm \

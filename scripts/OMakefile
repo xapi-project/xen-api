@@ -32,7 +32,6 @@ install:
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) license-check.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCDIR)
@@ -123,7 +122,7 @@ install:
 	$(IPROG) hfx_filename $(DESTDIR)$(BINDIR)
 	$(IPROG) pv2hvm $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)/etc/cron.daily
-	$(IDATA) license-check $(DESTDIR)/etc/cron.daily/
+	$(IPROG) license-check $(DESTDIR)/etc/cron.daily/
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
