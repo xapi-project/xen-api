@@ -55,7 +55,6 @@ OCAML_OBJS = \
 	test_xenopsd_metadata \
 	test_ca121350 \
 	test_workload_balancing \
-	test_pbd \
 	test_cpuid_helpers \
 	test_pool_cpuinfo \
 	../license/daily_license_check \
