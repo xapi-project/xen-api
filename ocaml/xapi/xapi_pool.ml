@@ -190,21 +190,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                         raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
 		end in
 
-	let assert_no_network_bond_on_me () =
-                let my_network_bonds = Db.Bond.get_all_records ~__context in
-		if not (my_network_bonds = []) then begin
-                        error "The current host has a network bond: it cannot join a new pool";
-                        raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_network_bond, []))
-                end in
-
-	let assert_management_interface_is_physical () =
-		let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
-			Eq (Field "management", Literal "true"),
+	let assert_only_physical_pifs () =
+		let non_physical_pifs = Db.PIF.get_refs_where ~__context ~expr:(
 			Eq (Field "physical", Literal "false")
-		)) in
-		if pifs <> [] then begin
-			error "The current host has a management interface which is not physical: cannot join a new pool";
-			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_management_nic, []));
+		) in
+		if non_physical_pifs <> [] then begin
+			error "The current host has network bonds, VLANs or tunnels: it cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs, []))
 		end in
 
 	(* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
@@ -351,8 +343,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_hosts_compatible ();
 	if (not force) then assert_hosts_homogeneous ();
 	assert_no_shared_srs_on_me ();
-	assert_no_network_bond_on_me ();
-	assert_management_interface_is_physical ();
+	assert_only_physical_pifs ();
 	assert_external_auth_matches ();
 	assert_restrictions_match ();
 	assert_homogeneous_vswitch_configuration ();

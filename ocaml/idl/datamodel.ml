@@ -788,8 +788,6 @@ let _ =
   (* Pool errors *)
   error Api_errors.pool_joining_host_cannot_contain_shared_SRs []
     ~doc:"The host joining the pool cannot contain any shared storage." ();
-  error Api_errors.pool_joining_host_cannot_contain_network_bond []
-    ~doc:"The host joining the pool cannot contain any network bond." ();
   error Api_errors.pool_joining_host_cannot_have_running_or_suspended_VMs []
     ~doc:"The host joining the pool cannot have any running or suspended VMs." ();
   error Api_errors.pool_joining_host_cannot_have_running_VMs []
@@ -808,6 +806,8 @@ let _ =
     ~doc:"Cannot join pool whose external authentication configuration is different." ();
   error Api_errors.pool_joining_host_must_have_same_product_version []
     ~doc:"The host joining the pool must have the same product version as the pool master." ();
+  error Api_errors.pool_joining_host_must_only_have_physical_pifs []
+    ~doc:"The host joining the pool may not have any bonds, VLANs or tunnels." ();
   error Api_errors.pool_hosts_not_compatible []
     ~doc:"The hosts in this pool are not compatible." ();
   error Api_errors.pool_hosts_not_homogeneous [ "reason" ]
