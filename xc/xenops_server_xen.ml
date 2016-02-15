@@ -114,6 +114,8 @@ module DB = struct
 	end)
 end
 
+let dB_m = Mutex.create ()
+
 (* These updates are local plugin updates, distinct from those that are
    exposed via the UPDATES API *)
 let internal_updates = Updates.empty ()
@@ -1876,9 +1878,6 @@ module VBD = struct
 	let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
 	let plug task vm vbd =
-		(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
-		   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-		let vm_t = DB.read_exn vm in 
 		(* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
 		if not(get_active vm vbd)
 		then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
@@ -1944,16 +1943,20 @@ module VBD = struct
 							end
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
+					Mutex.execute dB_m (fun () ->
+					(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
+					   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
+					let vm_t = DB.read_exn vm in
 					Opt.iter (fun q ->
 						let non_persistent = { vm_t.VmExtra.non_persistent with
 							VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
 						DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 					) qemu_frontend
+					)
 				end
 			) Newest vm
 
 	let unplug task vm vbd force =
-		let vm_t = DB.read vm in
 		with_xc_and_xs
 			(fun xc xs ->
 				try
@@ -1997,6 +2000,8 @@ module VBD = struct
 										(fun () -> Device.Vbd.release task ~xs device);
 								) device;
 							(* If we have a qemu frontend, detach this too. *)
+							Mutex.execute dB_m (fun () ->
+							let vm_t = DB.read vm in
 							Opt.iter (fun vm_t -> 
 								let non_persistent = vm_t.VmExtra.non_persistent in
 								if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
@@ -2007,6 +2012,7 @@ module VBD = struct
 										VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
 									DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
 								end) vm_t
+							)
 						)
 						(fun () ->
 							Opt.iter (fun domid ->
