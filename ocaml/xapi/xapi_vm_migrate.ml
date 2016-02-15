@@ -877,9 +877,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   with e ->
     error "Caught %s: cleaning up" (Printexc.to_string e);
 
-    (* This resets the caches to empty: *)
-    Xapi_xenops.add_caches vm_uuid;
-    Xapi_xenops.refresh_vm ~__context ~self:vm;
+    (* We do our best to tidy up the state left behind *)
+    Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
+        try
+          let _, state = XenopsAPI.VM.stat dbg vm_uuid in
+          if Xenops_interface.(state.Vm.power_state = Suspended) then begin
+            debug "xenops: %s: shutting down suspended VM" vm_uuid;
+            Xapi_xenops.shutdown ~__context ~self:vm None;
+          end;
+        with _ -> ());
     let task = Context.get_task_id __context in
     let oc = Db.Task.get_other_config ~__context ~self:task in
     if List.mem_assoc "mirror_failed" oc then begin
