@@ -776,8 +776,6 @@ let vbd_plug_order vbds =
 	let rw, ro = vbd_plug_sets vbds in
 	rw @ ro
 
-let vbd_unplug_order vbds = List.rev (vbd_plug_order vbds)
-
 let vif_plug_order vifs =
 	List.sort (fun a b -> compare a.Vif.position b.Vif.position) vifs
 
@@ -844,7 +842,7 @@ let rec atomics_of_operation = function
 			(* At this point we have a shutdown domain (ie Needs_poweroff) *)
 			VM_destroy_device_model id;
 		] @ (
-			let vbds = VBD_DB.vbds id |> vbd_unplug_order in
+			let vbds = VBD_DB.vbds id in
 			[
 			Parallel ( id, (Printf.sprintf "VBD.unplug vm=%s" id), List.map (fun vbd->VBD_unplug (vbd.Vbd.id, true)) vbds);
 			]
