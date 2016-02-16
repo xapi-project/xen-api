@@ -34,6 +34,12 @@ let sync_host ~__context host =
 				and remotepath = Printf.sprintf "%s:%s" address Xapi_globs.xapi_blob_location
 				and session = Xapi_session.slave_login ~__context ~host:(Helpers.get_localhost ~__context) ~psecret:!Xapi_globs.pool_secret in
 				Unix.putenv "XSH_SESSION" (Ref.string_of session);
+				Unix.putenv "XSH_SSL_LEGACY" (string_of_bool (Db.Host.get_ssl_legacy ~__context ~self:host));
+				(match !Xapi_globs.ciphersuites_good_outbound with
+					| Some c -> Unix.putenv "XSH_GOOD_CIPHERSUITES" c
+					| None -> raise (Api_errors.Server_error (Api_errors.internal_error,["Xapi_sync found no good ciphersuites in Xapi_globs."]))
+				);
+				Unix.putenv "XSH_LEGACY_CIPHERSUITES" !Xapi_globs.ciphersuites_legacy_outbound;
 
 				let output,log = Forkhelpers.execute_command_get_output
 					~env:(Unix.environment ())

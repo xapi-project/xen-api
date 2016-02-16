@@ -73,6 +73,12 @@ let open_tcp_ssl server =
 let _ =
   let host = Sys.argv.(1) in
   let cmd = Sys.argv.(2) in
+  Stunnel.set_legacy_protocol_and_ciphersuites_allowed
+	  (try bool_of_string (Sys.getenv "XSH_SSL_LEGACY") with _ -> failwith "ssl_legacy not specified");
+  Stunnel.set_good_ciphersuites
+	  (try Sys.getenv "XSH_GOOD_CIPHERSUITES" with _ -> failwith "Good ciphersuites not specified");
+  Stunnel.set_legacy_ciphersuites
+	  (try Sys.getenv "XSH_LEGACY_CIPHERSUITES" with _ -> "");
   let session = try Sys.getenv "XSH_SESSION" with _ -> failwith "Session not provided" in
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
