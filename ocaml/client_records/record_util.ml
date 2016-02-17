@@ -156,6 +156,28 @@ let string_to_vif_locking_mode = function
 	| "disabled" -> `disabled
 	| s -> raise (Record_failure ("Expected 'network_default', 'locked', 'unlocked', 'disabled', got "^s))
 
+let vmss_type_to_string = function
+	| `snapshot -> "snapshot"
+	| `checkpoint -> "checkpoint"
+	| `snapshot_with_quiesce -> "snapshot_with_quiesce"
+
+let string_to_vmss_type = function
+	| "snapshot" -> `snapshot
+	| "checkpoint" -> `checkpoint
+	| "snapshot_with_quiesce" -> `snapshot_with_quiesce
+	| s -> raise (Record_failure ("Expected 'snapshot', 'checkpoint', 'snapshot_with_quiesce', got "^s))
+
+let vmss_frequency_to_string = function
+	| `hourly -> "hourly"
+	| `daily -> "daily"
+	| `weekly -> "weekly"
+
+let string_to_vmss_frequency = function
+	| "hourly" -> `hourly
+	| "daily" -> `daily
+	| "weekly" -> `weekly
+	| s -> raise (Record_failure ("Expected 'hourly', 'daily', 'weekly', got "^s))
+
 let network_default_locking_mode_to_string = function
 	| `unlocked -> "unlocked"
 	| `disabled -> "disabled"
