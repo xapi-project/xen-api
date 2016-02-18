@@ -3014,8 +3014,7 @@ let host_license_view printer rpc session_id params =
 		else
 			get_host_from_session rpc session_id in
 	let params = Client.Host.get_license_params rpc session_id host in
-	(* CA-26992 hide 'sockets' and 'sku_type' *)
-	let tohide = [ "sockets"; "sku_type" ] in
+	let tohide = [ "sku_type" ] in
 	let params = List.filter (fun (x, _) -> not (List.mem x tohide)) params in
 	printer (Cli_printer.PTable [params])
 
