@@ -7,3 +7,4 @@ xcp-networkd.1
 setup.data
 setup.log
 dist/
+_build/
