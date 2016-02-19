@@ -276,18 +276,17 @@ module Interface = struct
 	let set_dns _ dbg ~name ~nameservers ~domains =
 		Debug.with_thread_associated dbg (fun () ->
 			update_config name {(get_config name) with dns = nameservers, domains};
-			if (nameservers <> [] || domains <> []) then begin
-				debug "Configuring DNS for %s: nameservers: %s; domains: %s" name
-					(String.concat ", " (List.map Unix.string_of_inet_addr nameservers)) (String.concat ", " domains);
-				if (!config.dns_interface = None || !config.dns_interface = Some name) then begin
-					debug "%s is the DNS interface" name;
-					let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
-					let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
-					let lines = domains' @ nameservers' in
-					Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
-				end else
-					debug "%s is NOT the DNS interface" name
-			end
+			debug "Configuring DNS for %s: nameservers: [%s]; domains: [%s]" name
+				(String.concat ", " (List.map Unix.string_of_inet_addr nameservers))
+				(String.concat ", " domains);
+			if (!config.dns_interface = None || !config.dns_interface = Some name) then begin
+				debug "%s is the DNS interface" name;
+				let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
+				let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
+				let lines = domains' @ nameservers' in
+				Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+			end else
+				debug "%s is NOT the DNS interface" name
 		) ()
 
 	let get_mtu _ dbg ~name =
