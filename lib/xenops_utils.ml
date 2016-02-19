@@ -618,3 +618,14 @@ let detect_hypervisor () =
 			Some (Xen(major, minor))
 		| x -> Some (Other x)
 	end else None
+
+let chunks size lst =
+	List.fold_left (fun acc op ->
+		match acc with
+		| [] -> [[op]]
+		| xs::xss ->
+			if List.length xs < size
+			then (op::xs)::xss
+			else [op]::xs::xss
+	) [] lst
+	|> List.map (fun xs -> List.rev xs) |> List.rev

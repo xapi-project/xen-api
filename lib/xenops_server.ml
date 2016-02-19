@@ -527,6 +527,7 @@ module Worker = struct
 		m: Mutex.t;
 		c: Condition.t;
 		mutable t: Thread.t option;
+		queues: (operation * Xenops_task.t) Queues.t;
 	}
 
 	let get_state_locked t =
@@ -580,6 +581,7 @@ module Worker = struct
 			m = Mutex.create ();
 			c = Condition.create ();
 			t = None;
+			queues = queues;
 		} in
 		let thread = Thread.create
 			(fun () ->
@@ -659,19 +661,19 @@ module WorkerPool = struct
 	end
 
 	(* Compute the number of active threads ie those which will continue to operate *)
-	let count_active () =
+	let count_active queues =
 		Mutex.execute m
 			(fun () ->
-				List.map Worker.is_active !pool |> List.filter (fun x -> x) |> List.length
+				List.map (fun w -> w.Worker.queues = queues && Worker.is_active w) !pool |> List.filter (fun x -> x) |> List.length
 			)
 
-	let find_one f = List.fold_left (fun acc x -> acc || (f x)) false
+	let find_one queues f = List.fold_left (fun acc x -> acc || (x.Worker.queues = queues && (f x))) false
 
 	(* Clean up any shutdown threads and remove them from the master list *)
-	let gc pool =
+	let gc queues pool =
 		List.fold_left
 			(fun acc w ->
-				if Worker.get_state w = Worker.Shutdown then begin
+				if w.Worker.queues = queues && Worker.get_state w = Worker.Shutdown then begin
 					Worker.join w;
 					acc
 				end else w :: acc) [] pool
@@ -680,17 +682,17 @@ module WorkerPool = struct
 		debug "Adding a new worker to the thread pool";
 		Mutex.execute m
 			(fun () ->
-				pool := gc !pool;
-				if not(find_one Worker.restart !pool)
+				pool := gc queues !pool;
+				if not(find_one queues Worker.restart !pool)
 				then pool := (Worker.create queues) :: !pool
 			)
 
-	let decr () =
+	let decr queues =
 		debug "Removing a worker from the thread pool";
 		Mutex.execute m
 			(fun () ->
-				pool := gc !pool;
-				if not(find_one Worker.shutdown !pool)
+				pool := gc queues !pool;
+				if not(find_one queues Worker.shutdown !pool)
 				then debug "There are no worker threads left to shutdown."
 			)
 
@@ -701,15 +703,18 @@ module WorkerPool = struct
 		done
 
 	let set_size size =
-		let active = count_active () in
-		debug "XXX active = %d" active;
-		for i = 1 to max 0 (size - active) do
-			incr Redirector.default;
-			incr Redirector.parallel_queues
-		done;
-		for i = 1 to max 0 (active - size) do
-			decr ()
-		done
+		let inner queues =
+			let active = count_active queues in
+			debug "XXX active = %d" active;
+			for i = 1 to max 0 (size - active) do
+				incr queues
+			done;
+			for i = 1 to max 0 (active - size) do
+				decr queues
+			done
+		in
+		inner Redirector.default;
+		inner Redirector.parallel_queues
 end
 
 (* Keep track of which VMs we're rebooting so we avoid transient glitches
@@ -768,8 +773,8 @@ let export_metadata vdi_map vif_map id =
    One possible fix is to always attach RW and enforce read/only-ness at the VBD-level.
    However we would need to fix the LVHD "attach provisioning mode". *)
 let vbd_plug_sets vbds =
-	let rw, ro = List.partition (fun vbd -> vbd.Vbd.mode = Vbd.ReadWrite) vbds in
-	rw, ro
+	List.partition (fun vbd -> vbd.Vbd.mode = Vbd.ReadWrite) vbds
+
 let vbd_plug_order vbds =
 	(* return RW devices first since the storage layer can't upgrade a
 	   'RO attach' into a 'RW attach' *)
@@ -801,13 +806,13 @@ let rec atomics_of_operation = function
 			(VBD_DB.vbds id)
 		) @ (
 			let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
+			(* keeping behaviour of vbd_plug_order: rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
 			List.map (fun (ty, vbds)-> Parallel ( id, (Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id),
 				(List.concat (List.map (fun vbd -> Opt.default [] (Opt.map
 					(fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent) ]) vbd.Vbd.backend))
 					vbds
 				)))
 			)
-			(* keeping behaviour of vbd_plug_order: rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
 			[ "RW", vbds_rw; "RO", vbds_ro ]
 		) @ simplify (
 			let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -1226,18 +1231,7 @@ and queue_atomic_int ~progress_callback dbg id op =
 
 and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
 	let from = Updates.last_id dbg updates in
-	let chunks size lst =
-		List.fold_left (fun acc op ->
-			match acc with
-			| [] -> [[op]]
-			| xs::xss ->
-				if List.length xs < size
-				then (op::xs)::xss
-				else [op]::xs::xss
-		) [] lst
-		|> List.map (fun xs -> List.rev xs) |> List.rev
-	in
-	chunks max_parallel_atoms ops
+	Xenops_utils.chunks max_parallel_atoms ops
 	|> List.mapi (fun chunk_idx ops ->
 		debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg (List.length ops);
 		let task_list = List.mapi (fun atom_idx op->

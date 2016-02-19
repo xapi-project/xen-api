@@ -1389,17 +1389,6 @@ module VM = struct
 						List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
 						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
-						let chunks size lst =
-							List.fold_left (fun acc op ->
-								match acc with
-								| [] -> [[op]]
-								| xs::xss ->
-									if List.length xs < size
-									then (op::xs)::xss
-									else [op]::xs::xss
-							) [] lst
-							|> List.map (fun xs -> List.rev xs) |> List.rev
-						in
 						List.iter (fun vbds_chunk ->
 							Threadext.thread_iter (fun device ->
 							let backend = Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
@@ -1411,7 +1400,7 @@ module VM = struct
 									let sr, vdi = Storage.get_disk_by_name task path in
 									Storage.deactivate task dp sr vdi
 							) vbds_chunk
-						) (chunks 10 vbds);
+						) (Xenops_utils.chunks 10 vbds);
 						debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
 						let non_persistent = { d.VmExtra.non_persistent with
 							VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
