@@ -402,6 +402,11 @@ let vif_record rpc session_id vif =
 		~add_to_set:(fun value -> Client.VIF.add_ipv6_allowed rpc session_id vif value)
 		~remove_from_set:(fun value -> Client.VIF.remove_ipv6_allowed rpc session_id vif value)
 		~set:(fun value -> Client.VIF.set_ipv6_allowed rpc session_id vif (String.split ',' value)) ();
+	make_field ~name:"static-ip-setting"
+		~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vIF_static_ip_setting)
+		~add_to_map:(fun k v -> Client.VIF.add_to_static_ip_setting rpc session_id vif k v)
+		~remove_from_map:(fun k -> Client.VIF.remove_from_static_ip_setting rpc session_id vif k)
+		~get_map:(fun () -> (x ()).API.vIF_static_ip_setting) ();
       ]}
 
 

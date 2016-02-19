@@ -171,7 +171,7 @@ let assert_locking_licensed ~__context =
 let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 
 let create ~__context ~device ~network ~vM
-           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
+           ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params
            ~currently_attached ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
         let () = debug "VIF.create running" in
 
@@ -229,6 +229,7 @@ let create ~__context ~device ~network ~vM
 	  ~currently_attached
 	  ~status_code:0L ~status_detail:""
 	  ~runtime_properties:[] ~other_config
+	  ~static_ip_setting
 	  ~metrics ~locking_mode
 	  ~ipv4_allowed ~ipv6_allowed in ()
 	  );
@@ -262,6 +263,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
 		~mAC:(if preserve_mac_address then all.API.vIF_MAC else "") (* leave blank == generate new mac from vm random seed *)
 		~mTU:all.API.vIF_MTU
 		~other_config:all.API.vIF_other_config
+		~static_ip_setting:all.API.vIF_static_ip_setting
 		~qos_algorithm_type:all.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:all.API.vIF_qos_algorithm_params
 		~locking_mode:all.API.vIF_locking_mode

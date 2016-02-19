@@ -49,6 +49,7 @@ val create :
   mAC:string ->
   mTU:int64 ->
   other_config:(string * string) list ->
+  static_ip_setting:(string * string) list ->
   qos_algorithm_type:string ->
   qos_algorithm_params:(string * string) list ->
   locking_mode:API.vif_locking_mode -> 
@@ -105,3 +106,11 @@ val add_ipv6_allowed :
 (** Remove an IPv6 address from this VIF. *)
 val remove_ipv6_allowed :
 	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
+
+(** Assign static ip setting to this VIF. *)
+val add_to_static_ip_setting :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> key:string -> value:string -> unit
+
+(** Remove static ip setting to this VIF. *)
+val remove_from_static_ip_setting :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> key:string -> unit

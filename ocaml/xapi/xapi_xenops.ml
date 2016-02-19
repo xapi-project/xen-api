@@ -560,6 +560,7 @@ module MD = struct
 			backend = backend_of_network net;
 			other_config = vif.API.vIF_other_config;
 			locking_mode = locking_mode;
+			static_ip_setting = vif.API.vIF_static_ip_setting;
 			extra_private_keys = [
                                 "vif-uuid", vif.API.vIF_uuid;
 				"network-uuid", net.API.network_uuid;
@@ -2789,6 +2790,34 @@ let vif_move ~__context ~self network =
 			Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context queue_name;
 			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 			assert (Db.VIF.get_currently_attached ~__context ~self)
+		)
+
+let vif_set_static_ip_setting ~__context ~self value =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context ~vm queue_name
+		(fun () ->
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.set_static_ip_setting %s.%s value:%s" (fst vif.Vif.id) (snd vif.Vif.id) (String.concat "; " (List.map (fun (a,b)-> a^":"^b) value));
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VIF.set_static_ip_setting dbg vif.Vif.id value |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
+		)
+
+let vif_unset_static_ip_setting ~__context ~self key =
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let queue_name = queue_of_vm ~__context ~self:vm in
+	transform_xenops_exn ~__context ~vm queue_name
+		(fun () ->
+			assert_resident_on ~__context ~self:vm;
+			let vif = md_of_vif ~__context ~self in
+			info "xenops: VIF.unset_static_ip_setting %s.%s key:%s" (fst vif.Vif.id) (snd vif.Vif.id) key;
+			let dbg = Context.string_of_task __context in
+			let module Client = (val make_client queue_name : XENOPS) in
+			Client.VIF.unset_static_ip_setting dbg vif.Vif.id key |> sync_with_task __context queue_name;
+			Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
 		)
 
 let task_cancel ~__context ~self =
