@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 91
+let schema_minor_vsn = 92
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -5389,6 +5389,29 @@ let vif_remove_ipv6_allowed = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let vif_add_to_static_ip_setting = call
+	~name:"add_to_static_ip_setting"
+	~in_product_since:rel_dundee
+	~doc:"Assign static ip address, mask, gateway to this VIF"
+	~params:[
+		Ref _vif, "self", "This VIF which static ip setting will be assigned to";
+		String, "key", "Which property (e.g. address, gateway) of static ip setting";
+		String, "value", "IP address or Gateway address";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_remove_from_static_ip_setting = call
+	~name:"remove_from_static_ip_setting"
+	~in_product_since:rel_dundee
+	~doc:"Remove static ip address, mask, gateway from this VIF"
+	~params:[
+		Ref _vif, "self", "This VIF which static ip setting will be assigned to";
+		String, "key", "Which property (e.g. address, gateway) of static ip setting";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network interface *)
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
@@ -5397,7 +5420,7 @@ let vif =
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~doc_tags:[Networking]
       ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
-        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed]
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; vif_add_to_static_ip_setting; vif_remove_from_static_ip_setting]
       ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
@@ -5408,6 +5431,7 @@ let vif =
 	 field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
 	 field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved" "true if the VIF is reserved pending a reboot/migrate";
 	 field ~ty:(Map(String, String)) "other_config" "additional configuration";
+	 field ~qualifier:StaticRO ~in_product_since:rel_dundee ~default_value:(Some (VMap []))  ~ty:(Map(String, String)) "static_ip_setting" "virtual machine static ip address setting";
        ] @ device_status_fields @
 	 [ namespace ~name:"qos" ~contents:(qos "VIF") (); ] @
 	 [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) "metrics" "metrics associated with this VIF";

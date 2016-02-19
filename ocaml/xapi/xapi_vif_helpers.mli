@@ -45,6 +45,7 @@ val create :
   mAC:string ->
   mTU:int64 ->
   other_config:(string * string) list ->
+  static_ip_setting:(string * string) list ->
   qos_algorithm_type:string ->
   qos_algorithm_params:(string * string) list ->
   currently_attached:bool ->
