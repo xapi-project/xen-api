@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Listext
+open Xstringext
 open Xapi_vif_helpers
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -33,9 +34,9 @@ let unplug_force ~__context ~self =
 	Xapi_xenops.vif_unplug ~__context ~self true
 
 let create  ~__context ~device ~network ~vM
-           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
+           ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
   create ~__context ~device ~network ~vM ~currently_attached:false
-    ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed
+    ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
@@ -49,6 +50,16 @@ let device_active ~__context ~self =
 let refresh_filtering_rules ~__context ~self =
         if device_active ~__context ~self
         then Xapi_xenops.vif_set_locking_mode ~__context ~self
+
+let set_static_ip_setting ~__context ~self ~key ~value =
+	if device_active ~__context ~self then begin
+		let static_ip_setting = [(key, value)] in
+		Xapi_xenops.vif_set_static_ip_setting ~__context ~self static_ip_setting
+	end
+
+let unset_static_ip_setting ~__context ~self ~key =
+	if device_active ~__context ~self
+	then Xapi_xenops.vif_unset_static_ip_setting ~__context ~self key
 
 (* This function moves a dom0 vif device from one bridge to another, without involving the guest,
  * so it also works on guests that do not support hot(un)plug of VIFs. *)
@@ -83,6 +94,41 @@ let assert_ip_address_is domain field_name addr =
 	| Some x when x = domain -> ()
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
+let assert_cidr_address_is domain field_name addr =
+	let items = String.split '/' addr in
+        if (List.length items != 2) then
+		raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]));
+	
+	assert_ip_address_is domain field_name (List.hd items);
+
+	let bits = List.hd (List.rev items) in
+	let maskbits = Int32.to_int (Int32.of_string bits) in
+	match domain with
+	| Unix.PF_INET ->
+		if (maskbits < 1 || maskbits > 32) then
+			raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
+	| Unix.PF_INET6 ->
+		if (maskbits < 1 || maskbits > 128) then
+			raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
+	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
+
+let assert_ip_setting_is field_name key value =
+	if key = "enabled" then
+		match value with
+		| "1" -> ()
+		| "0" -> ()
+		| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; value]))	
+	else if key = "address" then
+		assert_cidr_address_is Unix.PF_INET field_name value
+	else if key = "gateway" then
+		assert_ip_address_is Unix.PF_INET field_name value
+	else if key = "address6" then
+		assert_cidr_address_is Unix.PF_INET6 field_name value
+	else if key = "gateway6" then
+		assert_ip_address_is Unix.PF_INET6 field_name value
+	else
+		raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; key]))
+
 let set_ipv4_allowed ~__context ~self ~value =
 	let setified_value = List.setify value in
 	change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
@@ -116,3 +162,23 @@ let add_ipv6_allowed ~__context ~self ~value =
 let remove_ipv6_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~licence_check:false
 		(fun () -> Db.VIF.remove_ipv6_allowed ~__context ~self ~value)
+
+let add_to_static_ip_setting ~__context ~self ~key ~value =
+	change_locking_config ~__context ~self ~licence_check:false
+		(fun () -> 
+			assert_ip_setting_is "static_ip_setting" key value;
+			let vm = Db.VIF.get_VM ~__context ~self in
+			let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in 
+			let network_optimized = try Db.VM_guest_metrics.get_network_paths_optimized ~__context ~self:vm_gm with _ -> false in
+			let storage_optimized = try Db.VM_guest_metrics.get_storage_paths_optimized ~__context ~self:vm_gm with _ -> false in
+			if network_optimized && storage_optimized then begin
+				Db.VIF.add_to_static_ip_setting ~__context ~self ~key ~value;
+				set_static_ip_setting ~__context ~self ~key ~value
+			end else
+				raise (Api_errors.Server_error(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])))
+
+let remove_from_static_ip_setting ~__context ~self ~key =
+	change_locking_config ~__context ~self ~licence_check:false
+		(fun () ->
+			Db.VIF.remove_from_static_ip_setting ~__context ~self ~key;
+			unset_static_ip_setting ~__context ~self ~key)
