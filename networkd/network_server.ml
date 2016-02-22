@@ -390,6 +390,7 @@ module Interface = struct
 			List.iter (function (name, ({ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway; ipv4_routes; dns=nameservers,domains; mtu;
 				ethtool_settings; ethtool_offload; _} as c)) ->
 				update_config name c;
+				exec (fun () -> set_dns () dbg ~name ~nameservers ~domains);
 				exec (fun () -> set_ipv4_conf () dbg ~name ~conf:ipv4_conf);
 				exec (fun () -> match ipv4_gateway with None -> () | Some gateway ->
 					set_ipv4_gateway () dbg ~name ~address:gateway);
@@ -397,7 +398,6 @@ module Interface = struct
 				(try match ipv6_gateway with None -> () | Some gateway ->
 					set_ipv6_gateway () dbg ~name ~address:gateway with _ -> ());
 				exec (fun () -> set_ipv4_routes () dbg ~name ~routes:ipv4_routes);
-				exec (fun () -> set_dns () dbg ~name ~nameservers ~domains);
 				exec (fun () -> set_mtu () dbg ~name ~mtu);
 				exec (fun () -> bring_up () dbg ~name);
 				exec (fun () -> set_ethtool_settings () dbg ~name ~params:ethtool_settings);
