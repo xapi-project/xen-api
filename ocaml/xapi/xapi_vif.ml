@@ -105,10 +105,10 @@ let assert_cidr_address_is domain field_name addr =
 	let maskbits = Int32.to_int (Int32.of_string bits) in
 	match domain with
 	| Unix.PF_INET ->
-		if (maskbits < 1 || maskbits > 32) then
+		if (maskbits < 0 || maskbits > 31) then
 			raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 	| Unix.PF_INET6 ->
-		if (maskbits < 1 || maskbits > 128) then
+		if (maskbits < 0 || maskbits > 127) then
 			raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
 
