@@ -517,6 +517,8 @@ let _ =
     ~doc:"You cannot bond interfaces across different hosts." ();
   error Api_errors.pif_bond_needs_more_members []
     ~doc:"A bond must consist of at least two member interfaces" ();
+  error Api_errors.pif_bond_more_than_one_ip []
+    ~doc:"Only one PIF on a bond is allowed to have an IP configuration." ();
   error Api_errors.pif_configuration_error [ "PIF"; "msg" ]
     ~doc:"An unknown error occurred while attempting to configure an interface." ();
   error Api_errors.invalid_ip_address_specified [ "parameter" ]

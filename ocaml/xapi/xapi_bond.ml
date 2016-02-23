@@ -316,6 +316,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 5. Members must not be the management interface if HA is enabled *)
 		(* 6. Members must be PIFs that are managed by xapi *)
 		(* 7. Members must have the same PIF properties *)
+		(* 8. Only the primary PIF should have a non-None IP configuration *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -346,6 +347,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 				else
 					p
 		in
+		if List.length pifs_with_ip_conf > 1
+		then raise Api_errors.(Server_error (pif_bond_more_than_one_ip, []));
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
