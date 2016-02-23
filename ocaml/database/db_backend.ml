@@ -71,9 +71,12 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 let db_registration_mutex = Mutex.create ()
 let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
 
-let register_session_with_database session db_ref =
+let create_registered_session create_session db_ref =
 	Mutex.execute db_registration_mutex
-		(fun () -> Hashtbl.replace foreign_databases session db_ref)
+		(fun () ->
+			let session = create_session () in
+			Hashtbl.replace foreign_databases session db_ref;
+			session)
 
 let unregister_session session =
 	Mutex.execute db_registration_mutex

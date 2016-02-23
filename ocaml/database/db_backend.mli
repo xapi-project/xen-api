@@ -22,7 +22,8 @@ val make : unit -> Db_ref.t
 val blow_away_non_persistent_fields :
 	Schema.t -> Db_cache_types.Database.t -> Db_cache_types.Database.t
 
-val register_session_with_database : API.ref_session -> Db_ref.t -> unit
+val create_registered_session :
+	(unit -> API.ref_session) -> Db_ref.t -> API.ref_session
 
 val unregister_session : API.ref_session -> unit
 

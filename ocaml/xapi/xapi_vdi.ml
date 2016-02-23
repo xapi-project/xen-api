@@ -750,12 +750,12 @@ let open_database ~__context ~self =
 		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
 			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
 	try
-		let db_ref = Xapi_vdi_helpers.database_ref_of_vdi ~__context ~vdi:self in
+		let db_ref =
+			Some (Xapi_vdi_helpers.database_ref_of_vdi ~__context ~vdi:self) in
 		(* Create a new session to query the database, and associate it with the db ref *)
 		debug "%s" "Creating readonly session";
-		let read_only_session = Xapi_session.create_readonly_session ~__context ~uname:"disaster-recovery" in
-		Db_backend.register_session_with_database read_only_session db_ref;
-		read_only_session
+		Xapi_session.create_readonly_session ~__context
+			~uname:"disaster-recovery" ~db_ref
 	with e ->
 		let error = Printexc.to_string e in
 		let reason = match e with
