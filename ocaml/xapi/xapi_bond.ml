@@ -275,10 +275,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		(* 2. Members must not have a VLAN tag set *)
 		(* 3. Members must not be tunnel access PIFs *)
 		(* 4. Referenced PIFs must be on the same host *)
-		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
-		(* 6. Members must not be the management interface if HA is enabled *)
-		(* 7. Members must be PIFs that are managed by xapi *)
-		(* 8. Members must have the same PIF properties *)
+		(* 5. Members must not be the management interface if HA is enabled *)
+		(* 6. Members must be PIFs that are managed by xapi *)
+		(* 7. Members must have the same PIF properties *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -297,10 +296,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
 		then raise (Api_errors.Server_error (Api_errors.pif_cannot_bond_cross_host, []));
-		(*
-		if List.length members < 2
-		then raise (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, []));
-		*)
 		let pif_properties =
 			if members = [] then
 				[]
