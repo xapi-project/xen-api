@@ -282,16 +282,21 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 			| management_pif :: _ -> Some management_pif
 			| [] -> None
 		in
+
+		let pifs_with_ip_conf =
+			List.filter (fun self ->
+				Db.PIF.get_ip_configuration_mode ~__context ~self <> `None
+			) members in
+
+		(* The primary slave is the management PIF, or the first member with
+		 * IP configuration, or otherwise simply the first member in the list. *)
 		let primary_slave =
-			(* The primary slave is the management PIF, or the first member with IP configuration,
-			 * or otherwise simply the first member in the list. *)
-			match management_pif with
-			| Some management_pif -> management_pif
-			| None ->
-				try
-					List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
-				with _ ->
-					List.hd members
+			match management_pif, pifs_with_ip_conf, members with
+			| Some management_pif, _, _ -> management_pif
+			| None, pif_with_ip::_, _ -> pif_with_ip
+			| None, [], pif::_ -> pif
+			| None, [], [] ->
+				raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []))
 		in
 		let mAC =
 			if mAC <> "" then
