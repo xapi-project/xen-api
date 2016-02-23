@@ -270,7 +270,40 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let bond = Ref.make () in
 
 	with_local_lock (fun () ->
-		(* Validation constraints: *)
+		(* Collect information *)
+		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
+
+		let local_vifs = get_local_vifs ~__context host member_networks in
+		let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
+		let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
+
+		let management_pif =
+			match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
+			| management_pif :: _ -> Some management_pif
+			| [] -> None
+		in
+		let primary_slave =
+			(* The primary slave is the management PIF, or the first member with IP configuration,
+			 * or otherwise simply the first member in the list. *)
+			match management_pif with
+			| Some management_pif -> management_pif
+			| None ->
+				try
+					List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
+				with _ ->
+					List.hd members
+		in
+		let mAC =
+			if mAC <> "" then
+				mAC
+			else
+				Db.PIF.get_MAC ~__context ~self:primary_slave
+		in
+		let disallow_unplug =
+			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
+		in
+
+		(* Validate constraints: *)
 		(* 1. Members must not be in a bond already *)
 		(* 2. Members must not have a VLAN tag set *)
 		(* 3. Members must not be tunnel access PIFs *)
@@ -307,39 +340,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 					raise (Api_errors.Server_error (Api_errors.incompatible_pif_properties, []))
 				else
 					p
-		in
-
-		(* Collect information *)
-		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
-
-		let local_vifs = get_local_vifs ~__context host member_networks in
-		let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
-		let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
-
-		let management_pif =
-			match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
-			| management_pif :: _ -> Some management_pif
-			| [] -> None
-		in
-		let primary_slave =
-			(* The primary slave is the management PIF, or the first member with IP configuration,
-			 * or otherwise simply the first member in the list. *)
-			match management_pif with
-			| Some management_pif -> management_pif
-			| None ->
-				try
-					List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
-				with _ ->
-					List.hd members
-		in
-		let mAC =
-			if mAC <> "" then
-				mAC
-			else
-				Db.PIF.get_MAC ~__context ~self:primary_slave
-		in
-		let disallow_unplug =
-			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
 		in
 
 		(* Create master PIF and Bond objects *)
