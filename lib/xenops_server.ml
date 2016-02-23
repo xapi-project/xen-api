@@ -664,16 +664,22 @@ module WorkerPool = struct
 	let count_active queues =
 		Mutex.execute m
 			(fun () ->
-				List.map (fun w -> w.Worker.queues = queues && Worker.is_active w) !pool |> List.filter (fun x -> x) |> List.length
+				(* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
+				   are only interested in comparing the equality of their static references
+				 *)
+				List.map (fun w -> w.Worker.queues == queues && Worker.is_active w) !pool |> List.filter (fun x -> x) |> List.length
 			)
 
-	let find_one queues f = List.fold_left (fun acc x -> acc || (x.Worker.queues = queues && (f x))) false
+	let find_one queues f = List.fold_left (fun acc x -> acc || (x.Worker.queues == queues && (f x))) false
 
 	(* Clean up any shutdown threads and remove them from the master list *)
 	let gc queues pool =
 		List.fold_left
 			(fun acc w ->
-				if w.Worker.queues = queues && Worker.get_state w = Worker.Shutdown then begin
+				(* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
+				   are only interested in comparing the equality of their static references
+				 *)
+				if w.Worker.queues == queues && Worker.get_state w = Worker.Shutdown then begin
 					Worker.join w;
 					acc
 				end else w :: acc) [] pool
