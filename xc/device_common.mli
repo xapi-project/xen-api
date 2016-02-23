@@ -68,7 +68,7 @@ val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 (** [list_frontends xs domid] returns a list of devices where there is a
 	frontend in [domid]. This function only reads data stored in the frontend
     directory.*)
-val list_frontends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
+val list_frontends : xs:Xenstore.Xs.xsh -> ?for_devids:int list -> Xenctrl.domid -> device list
 
 (** Return a list of devices connecting two domains. Ignore those whose kind 
     we don't recognise *)

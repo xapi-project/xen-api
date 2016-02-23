@@ -448,24 +448,87 @@ end
 (* We store away the device name so we can lookup devices by name later *)
 let _device_id kind = Device_common.string_of_kind kind ^ "-id"
 
-(* Return the xenstore device with [kind] corresponding to [id] *)
+(* Return the xenstore device with [kind] corresponding to [id]
+
+This is an inefficient operation because xenstore indexes the devices by devid, not id,
+so in order to find an id we need to go through potentially all the devids in the tree.
+
+Therefore, we need to cache the results to decrease the overall xenstore read accesses.
+During VM lifecycle operations, this cache will reduce xenstored read accesses from
+O(n^2) to O(n), where n is the number of VBDs in a VM.
+*)
+
+module DeviceCache = struct
+	module PerVMCache = struct
+		include Hashtbl
+		let create n = (create n, Mutex.create ())
+	end
+	include Hashtbl
+	let create n = (create n, Mutex.create())
+	let discard (cache, mutex) domid = Mutex.execute mutex (fun () ->
+		debug "removing device cache for domid %d" domid;
+		remove cache domid
+	)
+	exception NotFoundIn of string option list
+	let get (cache, mutex) fetch_all_f fetch_one_f domid key =
+		let (domid_cache, domid_mutex) = Mutex.execute mutex (fun () ->
+			if mem cache domid then
+				find cache domid
+			else
+				let domid_cache = PerVMCache.create 16 in
+				debug "adding device cache for domid %d" domid;
+				replace cache domid domid_cache;
+				domid_cache
+		) in
+		Mutex.execute domid_mutex (fun () ->
+			let refresh_cache () = (* expensive *)
+				PerVMCache.reset domid_cache;
+				List.iter (fun (k,v) -> PerVMCache.replace domid_cache k v) (fetch_all_f ())
+			in
+			(try
+				let cached_value = PerVMCache.find domid_cache (Some key) in
+				(* cross-check cached value with original value to verify it is up-to-date *)
+				let fetched_value = fetch_one_f cached_value in
+				if cached_value <> fetched_value then
+				( (* force refresh of domid cache *)
+					refresh_cache ()
+				)
+			with _ -> (* attempt to refresh cache *)
+				(try refresh_cache () with _ -> ())
+			);
+			try
+				PerVMCache.find domid_cache (Some key)
+			with _ ->
+				let keys = try PerVMCache.fold (fun k v acc -> k::acc) domid_cache [] with _ -> [] in
+				raise (NotFoundIn keys)
+		)
+end
+
+let device_cache = DeviceCache.create 256
+
 let device_by_id xc xs vm kind domain_selection id =
 	match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs domain_selection with
 		| None ->
 			debug "VM = %s; does not exist in domain list" vm;
 			raise (Does_not_exist("domain", vm))
 		| Some frontend_domid ->
-			let devices = Device_common.list_frontends ~xs frontend_domid in
-
-			let key = _device_id kind in
-			let id_of_device device =
-				let path = Device_common.get_private_data_path_of_device device in
-				try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
-				with _ -> None in
-			let ids = List.map id_of_device devices in
-			try
-				List.assoc (Some id) (List.combine ids devices)
-			with Not_found ->
+			let fetch_all_from_xenstore_f () = (* expensive *)
+				let devices = Device_common.list_frontends ~xs frontend_domid in
+				let key = _device_id kind in
+				let id_of_device device =
+					let path = Device_common.get_private_data_path_of_device device in
+					try Some (xs.Xs.read (Printf.sprintf "%s/%s" path key))
+					with _ -> None in
+				let ids = List.map id_of_device devices in
+				List.combine ids devices
+			in
+			let fetch_one_from_xenstore_f cached_device =
+				let cached_frontend_devid = cached_device.Device_common.frontend.Device_common.devid in
+				let xenstored_device = Device_common.list_frontends ~xs ~for_devids:[cached_frontend_devid] frontend_domid in
+				match xenstored_device with [] -> raise Not_found | x ::_ -> x
+			in
+			try DeviceCache.get device_cache fetch_all_from_xenstore_f fetch_one_from_xenstore_f frontend_domid id
+			with DeviceCache.NotFoundIn ids ->
 				debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
 				raise (Device_not_connected)
 
@@ -917,7 +980,7 @@ module VM = struct
 		(* If qemu is in a different domain to storage, detach disks *)
 	) Oldest
 
-	let destroy = on_domain_if_exists (fun xc xs task vm di ->
+	let destroy = on_domain_if_exists (fun xc xs task vm di -> finally (fun ()->
 		let domid = di.Xenctrl.domid in
 		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
@@ -945,6 +1008,11 @@ module VM = struct
 				Storage.dp_destroy task dp
 			with e ->
 		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
+		)
+		(fun ()->
+			(* Finally, discard any device caching for the domid destroyed *)
+			DeviceCache.discard device_cache di.Xenctrl.domid;
+		)
 	) Oldest
 
 	let pause = on_domain (fun xc xs _ _ di ->
@@ -2453,7 +2521,9 @@ module Actions = struct
 		(* Anyone blocked on a domain/device operation which won't happen because the domain
 		   just shutdown should be cancelled here. *)
 		debug "Cancelling watches for: domid %d" domid;
-		Cancel_utils.on_shutdown ~xs domid
+		Cancel_utils.on_shutdown ~xs domid;
+		(* Finally, discard any device caching for the domid destroyed *)
+		DeviceCache.discard device_cache domid
 
 	let add_device_watch xs device =
 		let open Device_common in

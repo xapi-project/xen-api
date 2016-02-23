@@ -206,13 +206,17 @@ let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
 (* NB: we only read data from the frontend directory. Therefore this gives
    the "frontend's point of view". *)
-let list_frontends ~xs domid = 
+let list_frontends ~xs ?for_devids domid =
 	let frontend_dir = xs.Xs.getdomainpath domid ^ "/device" in
 	let kinds = list_kinds ~xs frontend_dir in
 	List.concat (List.map
 		(fun k ->
 			let dir = sprintf "%s/%s" frontend_dir (string_of_kind k) in
-			let devids = to_list (List.map parse_int (readdir ~xs dir)) in
+			let devids = match for_devids with
+				| None -> to_list (List.map parse_int (readdir ~xs dir))
+				| Some devids ->(* check that any specified devids are present in frontend_dir *)
+					List.filter (fun devid->try ignore(xs.Xs.read (sprintf "%s/%d" dir devid)); true with _->false) devids;
+			in
 			to_list (List.map
 				(fun devid ->
 					(* domain [domid] believes it has a frontend for
