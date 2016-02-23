@@ -14,7 +14,8 @@
 
 val db_FLUSH_TIMER : float
 
-val master_database : Db_cache_types.Database.t ref
+(** A setter for the master database. Only used by the unit testing code. *)
+val __test_set_master_database : Db_cache_types.Database.t -> unit
 
 val make : unit -> Db_ref.t
 

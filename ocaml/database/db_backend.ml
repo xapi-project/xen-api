@@ -29,6 +29,8 @@ let display_sql_writelog_val = ref true (* compute/write sql-writelog debug stri
 
 let master_database = ref (Db_cache_types.Database.make Schema.empty)
 
+let __test_set_master_database db = master_database := db
+
 let make () = Db_ref.in_memory (ref master_database)
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we
