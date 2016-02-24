@@ -270,15 +270,53 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let bond = Ref.make () in
 
 	with_local_lock (fun () ->
-		(* Validation constraints: *)
+		(* Collect information *)
+		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
+
+		let local_vifs = get_local_vifs ~__context host member_networks in
+		let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
+		let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
+
+		let management_pif =
+			match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
+			| management_pif :: _ -> Some management_pif
+			| [] -> None
+		in
+
+		let pifs_with_ip_conf =
+			List.filter (fun self ->
+				Db.PIF.get_ip_configuration_mode ~__context ~self <> `None
+			) members in
+
+		(* The primary slave is the management PIF, or the first member with
+		 * IP configuration, or otherwise simply the first member in the list. *)
+		let primary_slave =
+			match management_pif, pifs_with_ip_conf, members with
+			| Some management_pif, _, _ -> management_pif
+			| None, pif_with_ip::_, _ -> pif_with_ip
+			| None, [], pif::_ -> pif
+			| None, [], [] ->
+				raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []))
+		in
+		let mAC =
+			if mAC <> "" then
+				mAC
+			else
+				Db.PIF.get_MAC ~__context ~self:primary_slave
+		in
+		let disallow_unplug =
+			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
+		in
+
+		(* Validate constraints: *)
 		(* 1. Members must not be in a bond already *)
 		(* 2. Members must not have a VLAN tag set *)
 		(* 3. Members must not be tunnel access PIFs *)
 		(* 4. Referenced PIFs must be on the same host *)
-		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
-		(* 6. Members must not be the management interface if HA is enabled *)
-		(* 7. Members must be PIFs that are managed by xapi *)
-		(* 8. Members must have the same PIF properties *)
+		(* 5. Members must not be the management interface if HA is enabled *)
+		(* 6. Members must be PIFs that are managed by xapi *)
+		(* 7. Members must have the same PIF properties *)
+		(* 8. Only the primary PIF should have a non-None IP configuration *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -297,10 +335,6 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
 		then raise (Api_errors.Server_error (Api_errors.pif_cannot_bond_cross_host, []));
-		(*
-		if List.length members < 2
-		then raise (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, []));
-		*)
 		let pif_properties =
 			if members = [] then
 				[]
@@ -313,39 +347,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 				else
 					p
 		in
-
-		(* Collect information *)
-		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
-
-		let local_vifs = get_local_vifs ~__context host member_networks in
-		let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
-		let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
-
-		let management_pif =
-			match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
-			| management_pif :: _ -> Some management_pif
-			| [] -> None
-		in
-		let primary_slave =
-			(* The primary slave is the management PIF, or the first member with IP configuration,
-			 * or otherwise simply the first member in the list. *)
-			match management_pif with
-			| Some management_pif -> management_pif
-			| None ->
-				try
-					List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
-				with _ ->
-					List.hd members
-		in
-		let mAC =
-			if mAC <> "" then
-				mAC
-			else
-				Db.PIF.get_MAC ~__context ~self:primary_slave
-		in
-		let disallow_unplug =
-			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
-		in
+		if List.length pifs_with_ip_conf > 1
+		then raise Api_errors.(Server_error (pif_bond_more_than_one_ip, []));
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
