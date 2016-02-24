@@ -25,7 +25,8 @@ module Database = struct
 	;;
 
 	let make_global ~conn ~reuse () =
-		Db_backend.master_database := Db_cache_types.Database.make Schema.empty;
+		Db_backend.__test_set_master_database
+			(Db_cache_types.Database.make Schema.empty);
 		let db = Db_backend.make () in
 		Db_cache_impl.make
 			db (if reuse then conn else []) (Datamodel_schema.of_datamodel ());

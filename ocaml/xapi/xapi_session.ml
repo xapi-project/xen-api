@@ -27,6 +27,8 @@ open Extauth
 
 let local_superuser = "root"
 
+let xapi_internal_originator = "xapi"
+
 let serialize_auth = Mutex.create()
 
 let wipe_string_contents str = for i = 0 to String.length str - 1 do str.[i] <- '\000' done
@@ -265,39 +267,48 @@ let revalidate_all_sessions ~__context =
 	)with e -> (*unexpected exception: we absorb it and print out a debug line *)
 		debug "Unexpected exception while revalidating external sessions: %s" (ExnHelper.string_of_exn e)
 
-let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
-	let session_id = Ref.make () in
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let user = Ref.null in (* always return a null reference to the deprecated user object *)
-	let parent = try Context.get_session_id __context with _ -> Ref.null in
-	  (*match uname with   (* the user object is deprecated in favor of subject *)
-	      Some uname -> Helpers.get_user ~__context uname
-	    | None -> Ref.null in*)
-	(* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
-	(* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
-	(* has just logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
-	(* see also task creation in context.ml *)
-	(* CP-982: promote tracking debug line to info status *)
-	(* CP-982: create tracking id in log files to link username to actions *)
-	info "Session.create %s pool=%b uname=%s originator=%s is_local_superuser=%b auth_user_sid=%s parent=%s"
-		(trackid session_id) pool (match uname with None->""|Some u->u) originator is_local_superuser auth_user_sid (trackid parent);
-	Db.Session.create ~__context ~ref:session_id ~uuid
-	                  ~this_user:user ~this_host:host ~pool:pool
-	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
-	                  ~subject:subject ~is_local_superuser:is_local_superuser
-	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
-	                  ~auth_user_name ~rbac_permissions ~parent ~originator;
+let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions ~db_ref =
+	let create_session () =
+		let session_id = Ref.make () in
+		let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+		let user = Ref.null in (* always return a null reference to the deprecated user object *)
+		let parent = try Context.get_session_id __context with _ -> Ref.null in
+			(*match uname with   (* the user object is deprecated in favor of subject *)
+					Some uname -> Helpers.get_user ~__context uname
+				| None -> Ref.null in*)
+		(* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
+		(* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
+		(* has just logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
+		(* see also task creation in context.ml *)
+		(* CP-982: promote tracking debug line to info status *)
+		(* CP-982: create tracking id in log files to link username to actions *)
+		info "Session.create %s pool=%b uname=%s originator=%s is_local_superuser=%b auth_user_sid=%s parent=%s"
+			(trackid session_id) pool (match uname with None->""|Some u->u) originator is_local_superuser auth_user_sid (trackid parent);
+		Db.Session.create ~__context ~ref:session_id ~uuid
+			~this_user:user ~this_host:host ~pool:pool
+			~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
+			~subject:subject ~is_local_superuser:is_local_superuser
+			~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
+			~auth_user_name ~rbac_permissions ~parent ~originator;
+		session_id
+	in
+	let session_id = match db_ref with
+	| Some db_ref -> Db_backend.create_registered_session create_session db_ref
+	| None -> create_session ()
+	in
 	Rbac_audit.session_create ~__context ~session_id ~uname;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
 	let rpc = Helpers.make_rpc ~__context in
-	ignore(Client.Session.get_uuid rpc session_id session_id);
+	ignore(Client.Pool.get_all rpc session_id);
 	session_id
 
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
 let login_no_password  ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
-	login_no_password_common ~__context ~uname ~originator:"" ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions
+	login_no_password_common ~__context ~uname
+		~originator:xapi_internal_originator ~host ~pool ~is_local_superuser
+		~subject ~auth_user_sid ~auth_user_name ~rbac_permissions ~db_ref:None
 
 (** Cause the master to update the session last_active every 30s or so *)
 let consider_touching_session rpc session_id = 
@@ -363,7 +374,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 		(* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
 		login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 			~pool:false ~is_local_superuser:true ~subject:(Ref.null)
-			~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
+			~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[] ~db_ref:None
 	end 
 	else
 	let () =
@@ -378,7 +389,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 			debug "Success: local auth, user %s from %s" uname (Context.get_origin __context);
 			login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:uname
-				~rbac_permissions:[]
+				~rbac_permissions:[] ~db_ref:None
 		end
 	in	
 	let thread_delay_and_raise_error ?(error=Api_errors.session_authentication_failed) uname msg =
@@ -550,7 +561,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
 							) in 
 						login_no_password_common ~__context ~uname:(Some uname) ~originator ~host:(Helpers.get_localhost ~__context) 
 							~pool:false ~is_local_superuser:false ~subject:subject ~auth_user_sid:subject_identifier ~auth_user_name:subject_name
-							~rbac_permissions
+							~rbac_permissions ~db_ref:None
 					end
 				(* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
 				with
@@ -731,22 +742,21 @@ let get_top ~__context ~self =
   | ancestry -> List.nth ancestry ((List.length ancestry)-1)
 
 (* This function should only be called from inside XAPI. *)
-let create_readonly_session ~__context ~uname =
+let create_readonly_session ~__context ~uname ~db_ref =
 	debug "Creating readonly session.";
 	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
 	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
 	let master = Helpers.get_master ~__context in
-	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
+	login_no_password_common ~__context ~uname:(Some uname)
+		~originator:xapi_internal_originator ~host:master ~pool:false
 		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
-		~auth_user_name:uname ~rbac_permissions
+		~auth_user_name:uname ~rbac_permissions ~db_ref
 
 (* Create a database reference from a DB dump, and register it with a new readonly session. *)
 let create_from_db_file ~__context ~filename =
-	let session_id = create_readonly_session ~__context ~uname:"db-from-file" in
 	let db =
 		(Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename)
 		|> Db_upgrade.generic_database_upgrade
 	in
-	let db_ref = Db_ref.in_memory (ref (ref db)) in
-	Db_backend.register_session_with_database session_id db_ref;
-	session_id
+	let db_ref = Some (Db_ref.in_memory (ref (ref db))) in
+	create_readonly_session ~__context ~uname:"db-from-file" ~db_ref
