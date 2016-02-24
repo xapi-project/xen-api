@@ -22,7 +22,7 @@ open Xenstore
 open Cancel_utils
 open Xenops_task
 
-exception Ioemu_failed of string
+exception Ioemu_failed of (string * string)
 
 exception Device_shutdown
 exception Device_not_found
@@ -1656,21 +1656,22 @@ let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeo
 				| Some value ->
 					if state = value
 					then finished := true
-					else raise (Ioemu_failed (Printf.sprintf "%s state not running (%s)" name state))
+					else raise (Ioemu_failed
+						(name, (Printf.sprintf "Daemon state not running (%s)" state)))
 				| None -> finished := true
 			with Watch.Timeout _ ->
 				begin match Forkhelpers.waitpid_nohang pid with
 					| 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
 					| _, Unix.WEXITED n ->
 						error "%s: unexpected exit with code: %d" name n;
-						raise (Ioemu_failed (Printf.sprintf "%s exited unexpectedly" name))
+						raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
 					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
 						error "%s: unexpected signal: %d" name n;
-						raise (Ioemu_failed (Printf.sprintf "%s exited unexpectedly" name))
+						raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
 				end
 		done;
 		if not !finished then
-			raise (Ioemu_failed (Printf.sprintf "Timeout reached while starting daemon %s" path))
+			raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 	end;
 	debug "Daemon initialised: %s" (Printf.sprintf "%s-%d" name domid);
 	pid

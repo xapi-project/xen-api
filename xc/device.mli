@@ -14,7 +14,7 @@
 open Device_common
 open Xenops_task
 
-exception Ioemu_failed of string
+exception Ioemu_failed of (string * string)
 
 exception Device_shutdown
 exception Device_not_found
