@@ -1297,26 +1297,29 @@ module VM = struct
 		let xenguest = choose_xenguest vm.Vm.platformdata in
 		debug "chosen qemu_dm = %s" qemu_dm;
 		debug "chosen xenguest = %s" xenguest;
-		Opt.iter (fun info ->
+		try
+			Opt.iter (fun info ->
+				match vm.Vm.ty with
+					| Vm.HVM { Vm.qemu_stubdom = true } ->
+						if saved_state then failwith "Cannot resume with stubdom yet";
+						Opt.iter
+							(fun stubdom_domid ->
+								Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
+								Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
+							) (get_stubdom ~xs di.Xenctrl.domid);
+					| Vm.HVM { Vm.qemu_stubdom = false } ->
+						(if saved_state then Device.Dm.restore else Device.Dm.start)
+							task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+					| Vm.PV _ ->
+						Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
+						Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
+						Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+			) (create_device_model_config vm vmextra vbds vifs vgpus);
 			match vm.Vm.ty with
-				| Vm.HVM { Vm.qemu_stubdom = true } ->
-					if saved_state then failwith "Cannot resume with stubdom yet";
-					Opt.iter
-						(fun stubdom_domid ->
-							Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
-							Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
-						) (get_stubdom ~xs di.Xenctrl.domid);
-				| Vm.HVM { Vm.qemu_stubdom = false } ->
-					(if saved_state then Device.Dm.restore else Device.Dm.start)
-						task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
-				| Vm.PV _ ->
-					Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
-					Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-					Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
-		) (create_device_model_config vm vmextra vbds vifs vgpus);
-		match vm.Vm.ty with
-			| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
-			| _ -> ()
+				| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+				| _ -> ()
+		with Device.Ioemu_failed (name, msg) ->
+			raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
 
 	let create_device_model task vm vbds vifs vgpus saved_state = on_domain (create_device_model_exn vbds vifs vgpus saved_state) Newest task vm
 
