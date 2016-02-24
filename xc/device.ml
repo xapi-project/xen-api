@@ -23,7 +23,6 @@ open Cancel_utils
 open Xenops_task
 
 exception Ioemu_failed of string
-exception Ioemu_failed_dying
 
 exception Device_shutdown
 exception Device_not_found
