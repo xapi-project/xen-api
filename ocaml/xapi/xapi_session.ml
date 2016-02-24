@@ -740,7 +740,8 @@ let create_readonly_session ~__context ~uname =
 	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
 	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
 	let master = Helpers.get_master ~__context in
-	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
+	login_no_password_common ~__context ~uname:(Some uname)
+		~originator:xapi_internal_originator ~host:master ~pool:false
 		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
 		~auth_user_name:uname ~rbac_permissions
 
