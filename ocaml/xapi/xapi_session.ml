@@ -27,6 +27,8 @@ open Extauth
 
 let local_superuser = "root"
 
+let xapi_internal_originator = "xapi"
+
 let serialize_auth = Mutex.create()
 
 let wipe_string_contents str = for i = 0 to String.length str - 1 do str.[i] <- '\000' done
@@ -297,7 +299,9 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
 let login_no_password  ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
-	login_no_password_common ~__context ~uname ~originator:"" ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions
+	login_no_password_common ~__context ~uname
+		~originator:xapi_internal_originator ~host ~pool ~is_local_superuser
+		~subject ~auth_user_sid ~auth_user_name ~rbac_permissions
 
 (** Cause the master to update the session last_active every 30s or so *)
 let consider_touching_session rpc session_id = 
