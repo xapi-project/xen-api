@@ -310,7 +310,14 @@ let setup_export_test_vm session_id =
   debug test (Printf.sprintf "Template has uuid: %s%!" uuid);
   let vm = vm_install test session_id uuid "quicktest-export" in
   debug test (Printf.sprintf "Installed new VM");
-  let cd = List.hd (Client.VDI.get_by_name_label !rpc session_id "xs-tools.iso") in
+  let cd =
+    let tools_iso_filter = "field \"is_tools_iso\"=\"true\"" in
+    match Client.VDI.get_all_records_where !rpc session_id tools_iso_filter with
+    | (vdi, _)::_ -> vdi
+    | [] ->
+      failed test "Failed to find tools ISO VDI";
+      failwith "setup_export_test_vm";
+  in
   debug test "Looking for the SR which supports the smallest disk size";
   let all_srs = all_srs_with_vdi_create session_id in
   let smallest : int64 option list = List.map (fun sr -> Quicktest_storage.find_smallest_disk_size session_id sr) all_srs in
