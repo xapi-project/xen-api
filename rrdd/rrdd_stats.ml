@@ -139,36 +139,20 @@ let print_system_stats () =
 	let current_offset = Unix.gettimeofday () -. (Int64.to_float (Oclock.gettime Oclock.monotonic) /. 1e9) in
 	debug "Clock drift: %.0f" (current_offset -. initial_offset)
 
-let pidof_path = 
-	try 
-		let path = List.hd (List.filter (fun x -> try ignore (Unix.stat x); true with _ -> false) ["/sbin/pidof";"/bin/pidof"]) in
-		debug "Located pidof: %s" path;
-		Some path
-	with _ -> 
-		None
-
-
 (* Obtains process IDs for the specified program.
  * This should probably be moved into xen-api-libs. *)
-let pidof ~(program : string) : int list =
+let pidof ?(pid_dir="/var/run") program =
 	try
-		let pidof_path = Opt.unbox pidof_path in
-		let out, _ = Forkhelpers.execute_command_get_output pidof_path [program] in
-		let lines = String.split '\n' out in
-		let get_pids_from_line acc line =
-			let open String in
-			let is_not_empty word = length (strip isspace word) > 0 in
-			let non_empty_words = List.filter is_not_empty (split ' ' line) in
-			let pids = List.map int_of_string non_empty_words in
-			acc @ pids
-		in
-		List.fold_left get_pids_from_line [] lines
-	with
-		| Forkhelpers.Spawn_internal_error (_, _, _) -> []
-		| Not_found -> []
+		let out = Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
+		let words = String.(split_f isspace out) in
+		let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
+		List.fold_left maybe_parse_int [] words
+	with 
+		| Unix.Unix_error (Unix.ENOENT, _, _)
+		| Unix.Unix_error (Unix.EACCES, _, _) -> []
 
 let print_stats_for ~program =
-	let pids = pidof ~program in
+	let pids = pidof program in
 	let n = List.length pids in
 	let pmis = List.map process_memory_info_of_pid pids in
 	let pmi =
