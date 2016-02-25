@@ -327,12 +327,13 @@ let setup_export_test_vm session_id =
 	     | sr, None -> debug test (Printf.sprintf "SR %s has no minimum disk size!" sr)
 	    ) (List.combine sr_names smallest);
   let minimum = List.fold_left min (1L ** gib) (List.map (fun x -> Opt.default (1L ** gib) x) smallest) in
-  let possible_srs = List.filter (fun (sr, size) -> size = Some minimum) (List.combine all_srs smallest) in
-  if List.length possible_srs = 0 then begin
-    failed test "Failed to find an SR which can create a VDI";
-    failwith "setup_export_test_vm";
-  end;
-  let sr = fst (List.hd possible_srs) in
+  let sr =
+    match List.filter (fun (_, size) -> size = Some minimum) (List.combine all_srs smallest) with
+    | (sr, _)::_ -> sr
+    | [] ->
+      failed test "Failed to find an SR which can create a VDI";
+      failwith "setup_export_test_vm";
+  in
   debug test (Printf.sprintf "Using a disk size of: %Ld on SR: %s" minimum (Quicktest_storage.name_of_sr session_id sr));
   let vdi = Client.VDI.create !rpc session_id "small"
     "description" sr 4194304L `user false false [] [] [] [] in
