@@ -310,7 +310,14 @@ let setup_export_test_vm session_id =
   debug test (Printf.sprintf "Template has uuid: %s%!" uuid);
   let vm = vm_install test session_id uuid "quicktest-export" in
   debug test (Printf.sprintf "Installed new VM");
-  let cd = List.hd (Client.VDI.get_by_name_label !rpc session_id "xs-tools.iso") in
+  let cd =
+    let tools_iso_filter = "field \"is_tools_iso\"=\"true\"" in
+    match Client.VDI.get_all_records_where !rpc session_id tools_iso_filter with
+    | (vdi, _)::_ -> vdi
+    | [] ->
+      failed test "Failed to find tools ISO VDI";
+      failwith "setup_export_test_vm";
+  in
   debug test "Looking for the SR which supports the smallest disk size";
   let all_srs = all_srs_with_vdi_create session_id in
   let smallest : int64 option list = List.map (fun sr -> Quicktest_storage.find_smallest_disk_size session_id sr) all_srs in
@@ -320,12 +327,13 @@ let setup_export_test_vm session_id =
 	     | sr, None -> debug test (Printf.sprintf "SR %s has no minimum disk size!" sr)
 	    ) (List.combine sr_names smallest);
   let minimum = List.fold_left min (1L ** gib) (List.map (fun x -> Opt.default (1L ** gib) x) smallest) in
-  let possible_srs = List.filter (fun (sr, size) -> size = Some minimum) (List.combine all_srs smallest) in
-  if List.length possible_srs = 0 then begin
-    failed test "Failed to find an SR which can create a VDI";
-    failwith "setup_export_test_vm";
-  end;
-  let sr = fst (List.hd possible_srs) in
+  let sr =
+    match List.filter (fun (_, size) -> size = Some minimum) (List.combine all_srs smallest) with
+    | (sr, _)::_ -> sr
+    | [] ->
+      failed test "Failed to find an SR which can create a VDI";
+      failwith "setup_export_test_vm";
+  in
   debug test (Printf.sprintf "Using a disk size of: %Ld on SR: %s" minimum (Quicktest_storage.name_of_sr session_id sr));
   let vdi = Client.VDI.create !rpc session_id "small"
     "description" sr 4194304L `user false false [] [] [] [] in

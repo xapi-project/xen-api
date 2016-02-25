@@ -10,7 +10,7 @@
 if [ $# -le 1 ]; then 
    echo "Usage: ${0} vm_per_host host1 [host2 ... hostN]"
    echo "${0} provisions <vm_per_host> debiant-etch VMs on each host and installs them on a local VHD disk. Moreover, all the hosts join a common pool." 
-   echo "if PROVISION_VM_WITH_CD is set to 1, then attach xs-tools.iso CD-ROM to the initial Debian Etch VM before cloning it."
+   echo "if PROVISION_VM_WITH_CD is set to 1, then attach guest tools ISO CD-ROM to the initial Debian Etch VM before cloning it."
    exit 1
 fi 
 
@@ -68,9 +68,10 @@ install () {
     echo "[${HOST}] Set."
 
     if [ "${PROVISION_VM_WITH_CD}" == "1" ]; then
-	echo "[${HOST}] Attaching a CD-ROM."
-	${XE} vm-cd-add vm=${DEB} cd-name=xs-tools.iso device=3
-	echo "[${HOST}] Attached."
+        echo "[${HOST}] Attaching a CD-ROM."
+        TOOLS_ISO=`${XE} vdi-list is-tools-iso=ture params=name-label --minimal`
+        ${XE} vm-cd-add vm=${DEB} cd-name=${TOOLS_ISO} device=3
+        echo "[${HOST}] Attached."
     fi
 
 }

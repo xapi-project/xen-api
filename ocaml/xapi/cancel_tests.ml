@@ -411,14 +411,19 @@ let _ =
 				| [ v ] ->
 					let net = Client.Network.get_by_name_label ~rpc ~session_id ~label:"Host internal management network" in
 					if List.length net = 0 then failwith "Failed to find the host internal management network";
-					let vdi = Client.VDI.get_by_name_label ~rpc ~session_id ~label:"xs-tools.iso" in
-					if List.length vdi = 0 then failwith "Failed to find the xs-tools.iso";
+					let vdi =
+						let tools_iso_filter = "field \"is_tools_iso\"=\"true\"" in
+						begin match Client.VDI.get_all_records_where !rpc session_id tools_iso_filter with
+						| (vdi, _)::_ -> vdi
+						| [] -> failwith "Failed to find the tools ISO";
+						end
+					in
 					let env = {
 						session_id = session_id;
 						vm = v;
 						id = Client.VM.get_uuid ~rpc ~session_id ~self:v;
 						net = List.hd net;
-						vdi = List.hd vdi;
+						vdi;
 					} in
 					run env
 				| _ ->
