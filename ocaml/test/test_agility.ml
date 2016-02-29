@@ -98,6 +98,47 @@ let test_vm_agility_with_vgpu () =
 		Api_errors.vm_has_vgpu
 		(fun () -> Agility.vm_assert_agile ~__context ~self:vm)
 
+let test_vm_agility_with_network () =
+	(* Set up two hosts, an network and a VM with a VIF on the network. *)
+	let __context = make_test_database () in
+	let vm = make_vm ~__context () in
+	let host1 = make_host ~__context () in
+	let host2 = make_host ~__context () in
+	Db.Host.set_enabled ~__context ~self:host1 ~value:true;
+	Db.Host.set_enabled ~__context ~self:host2 ~value:true;
+	let network = make_network ~__context () in
+	let (_: API.ref_PIF) = make_pif ~__context ~network ~host:host1 () in
+	let (_: API.ref_VIF) = make_vif ~__context ~network ~vM:vm () in
+	(* Only one host has a PIF, so the VM is not agile. *)
+	assert_raises_api_error
+		~args:[Ref.string_of network]
+		Api_errors.ha_constraint_violation_network_not_shared
+		(fun () -> Agility.vm_assert_agile ~__context ~self:vm);
+	(* Making a PIF for the second host should make the VM agile. *)
+	let (_: API.ref_PIF) = make_pif ~__context ~network ~host:host2 () in
+	Agility.vm_assert_agile ~__context ~self:vm
+
+let test_vm_agility_with_sr () =
+	(* Set up two hosts, an SR and a VM with a VDI in the SR. *)
+	let __context = make_test_database () in
+	let vm = make_vm ~__context () in
+	let host1 = make_host ~__context () in
+	let host2 = make_host ~__context () in
+	Db.Host.set_enabled ~__context ~self:host1 ~value:true;
+	Db.Host.set_enabled ~__context ~self:host2 ~value:true;
+	let sr = make_sr ~__context () in
+	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr ~host:host1 () in
+	let vdi = make_vdi ~__context ~sR:sr () in
+	let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi ~vM:vm () in
+	(* Only one host has a PBD, so the VM is not agile. *)
+	assert_raises_api_error
+		~args:[Ref.string_of sr]
+		Api_errors.ha_constraint_violation_sr_not_shared
+		(fun () -> Agility.vm_assert_agile ~__context ~self:vm);
+	(* Making a PBD for the second host should make the VM agile. *)
+	let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr ~host:host2 () in
+	Agility.vm_assert_agile ~__context ~self:vm
+
 let test =
 	"test_agility" >:::
 		[
@@ -108,4 +149,6 @@ let test =
 			"test_vm_resources_assoc" >:: test_vm_resources_assoc;
 			"test_vm_resources_update_record" >:: test_vm_resources_update_record;
 			"test_vm_agility_with_vgpu" >:: test_vm_agility_with_vgpu;
+			"test_vm_agility_with_network" >:: test_vm_agility_with_network;
+			"test_vm_agility_with_sr" >:: test_vm_agility_with_sr;
 		]
