@@ -113,12 +113,13 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
 	Db.Host_metrics.set_memory_total ~__context
 		~self:metrics ~value:host.memory_total;
 
-	let (_ : API.ref_VM list) =
-		List.map
-			(fun vm ->
-				load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net)
-			host.vms
-	in
+	List.iter
+		(fun vm ->
+			let vm_ref =
+				load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+			if vm.running
+			then Db.VM.set_resident_on ~__context ~self:vm_ref ~value:host_ref)
+		host.vms;
 	host_ref
 
 let setup ~__context {master; slaves; ha_host_failures_to_tolerate} =
