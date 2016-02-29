@@ -349,18 +349,19 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		open Xapi_ha_vm_failover
 
-		type input_t = (pool * vm)
+		type input_t = (pool * vm * bool)
 		type output_t = (exn, unit) Either.t
 
-		let string_of_input_t = Test_printers.pair string_of_pool string_of_vm
+		let string_of_input_t =
+			Test_printers.(tuple3 string_of_pool string_of_vm bool)
 		let string_of_output_t = Test_printers.(either Printexc.to_string unit)
 	end
 
 	module State = XapiDb
 
-	let load_input __context (pool, _) = setup ~__context pool
+	let load_input __context (pool, _, _) = setup ~__context pool
 
-	let extract_output __context (pool, vm) =
+	let extract_output __context (pool, vm, in_db) =
 		let open Db_filter_types in
 		let local_sr =
 			Db.SR.get_refs_where ~__context
@@ -382,10 +383,47 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				~expr:(Eq (Field "bridge", Literal "xenbr0"))
 			|> List.hd
 		in
-		let vm_ref =
-			load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+		let vm_resources =
+			if in_db then begin
+				let vm_ref =
+					load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+				Agility.VMResources.of_ref ~__context vm_ref
+			end else begin
+				let host = Helpers.get_master ~__context in
+				let local_srs =
+					if List.exists (fun (vbd:vbd) -> not vbd.agile) vm.vbds
+					then [local_sr] else []
+				in
+				let shared_srs =
+					if List.exists (fun (vbd:vbd) -> vbd.agile) vm.vbds
+					then [shared_sr] else []
+				in
+				let local_nets =
+					if List.exists (fun (vif:vif) -> not vif.agile) vm.vifs
+					then [local_net] else []
+				in
+				let shared_nets =
+					if List.exists (fun (vif:vif) -> vif.agile) vm.vifs
+					then [shared_net] else []
+				in
+				let vm_ref = make_vm ~__context
+					~ha_always_run:vm.ha_always_run
+					~ha_restart_priority:vm.ha_restart_priority
+					~memory_static_min:vm.memory ~memory_dynamic_min:vm.memory
+					~memory_dynamic_max:vm.memory ~memory_static_max:vm.memory
+					~name_label:vm.name_label ()
+				in
+				let vm_rec = Db.VM.get_record ~__context ~self:vm_ref in
+				Db.VM.destroy ~__context ~self:vm_ref;
+				Agility.VMResources.({
+					status = `Incoming host;
+					vm_rec;
+					networks = local_nets @ shared_nets;
+					srs = local_srs @ shared_srs;
+				})
+			end
+		in
 		try
-			let vm_resources = Agility.VMResources.of_ref ~__context vm_ref in
 			Either.Right
 				(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context
 					vm_resources)
@@ -417,7 +455,8 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+			},
+			true
 		),
 		Either.Right ();
 		(* 2 host pool, two VMs using almost all of one host's memory;
@@ -447,7 +486,8 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+			},
+			true
 		),
 		Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
 		(* 2 host pool which is already overcommitted. Attempting to add another VM
@@ -485,7 +525,8 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+			},
+			true
 		),
 		Either.Right ();
 	]
