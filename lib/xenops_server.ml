@@ -433,14 +433,16 @@ module Queues = struct
 end
 
 module Redirector = struct
+	type t = { queues: (operation * Xenops_task.t) Queues.t; mutex: Mutex.t }
+
 	(* When a thread is not actively processing a queue, items are placed here: *)
-	let default = Queues.create ()
+	let default = { queues = Queues.create (); mutex = Mutex.create () }
 	(* We create another queue only for Parallel atoms so as to avoid a situation where
 	   Parallel atoms can not progress because all the workers available for the
 	   default queue are used up by other operations depending on further Parallel
 	   atoms, creating a deadlock.
 	 *)
-	let parallel_queues = Queues.create ()
+	let parallel_queues = { queues = Queues.create (); mutex = Mutex.create () }
 
 	(* When a thread is actively processing a queue, items are redirected to a thread-private queue *)
 	let overrides = ref StringMap.empty
@@ -455,41 +457,39 @@ module Redirector = struct
 			not(List.mem op prev')
 		| _ -> true
 
-	let push queues tag item =
+	let push t tag item =
 		Debug.with_thread_associated "queue"
 			(fun () ->
 				Mutex.execute m
 					(fun () ->
-						let q, redirected = if StringMap.mem tag !overrides then StringMap.find tag !overrides, true else queues, false in
+						let q, redirected = if StringMap.mem tag !overrides then StringMap.find tag !overrides, true else t.queues, false in
 						debug "Queue.push %s onto %s%s:[ %s ]" (string_of_operation (fst item)) (if redirected then "redirected " else "") tag (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag q))));
 
 						Queues.push_with_coalesce should_keep tag item q
 					)
 			) ()
 
-	let pop =
+	let pop t () =
 		(* We must prevent worker threads all calling Queues.pop before we've
 		   successfully put the redirection in place. Otherwise we end up with
 		   parallel threads operating on the same VM. *)
-		let n = Mutex.create () in
-		fun queues () ->
-			Mutex.execute n
+			Mutex.execute t.mutex
 				(fun () ->
-					let tag, item = Queues.pop queues in
+					let tag, item = Queues.pop t.queues in
 					Mutex.execute m
 						(fun () ->
 							let q = Queues.create () in
-							Queues.transfer_tag tag queues q;
+							Queues.transfer_tag tag t.queues q;
 							overrides := StringMap.add tag q !overrides;
 							(* All items with [tag] will enter queue [q] *)
 							tag, q, item
 						)
 				)
 
-	let finished queues tag queue =
+	let finished t tag queue =
 		Mutex.execute m
 			(fun () ->
-				Queues.transfer_tag tag queue queues;
+				Queues.transfer_tag tag queue t.queues;
 				overrides := StringMap.remove tag !overrides
 				(* All items with [tag] will enter the queues queue *)
 			)
@@ -509,7 +509,7 @@ module Redirector = struct
 							(fun t ->
 							{ tag = t; items = List.rev (Queue.fold (fun acc (b, _) -> b :: acc) [] (Queues.get t queue)) }
 							) (Queues.tags queue) in
-					List.concat (List.map one (default :: parallel_queues :: (List.map snd (StringMap.bindings !overrides))))
+					List.concat (List.map one (default.queues :: parallel_queues.queues :: (List.map snd (StringMap.bindings !overrides))))
 				)
 
 	end
@@ -527,7 +527,7 @@ module Worker = struct
 		m: Mutex.t;
 		c: Condition.t;
 		mutable t: Thread.t option;
-		queues: (operation * Xenops_task.t) Queues.t;
+		redirector: Redirector.t;
 	}
 
 	let get_state_locked t =
@@ -574,14 +574,14 @@ module Worker = struct
 				end else false
 			)
 
-	let create queues =
+	let create redirector =
 		let t = {
 			state = Idle;
 			shutdown_requested = false;
 			m = Mutex.create ();
 			c = Condition.create ();
 			t = None;
-			queues = queues;
+			redirector = redirector;
 		} in
 		let thread = Thread.create
 			(fun () ->
@@ -590,7 +590,7 @@ module Worker = struct
 					t.shutdown_requested
 				)) do
 					Mutex.execute t.m (fun () -> t.state <- Idle);
-					let tag, queue, (op, item) = Redirector.pop queues () in (* blocks here *)
+					let tag, queue, (op, item) = Redirector.pop redirector () in (* blocks here *)
 					debug "Queue.pop returned %s" (string_of_operation op);
 					Mutex.execute t.m (fun () -> t.state <- Processing (op, item));
 					begin
@@ -604,7 +604,7 @@ module Worker = struct
 						with e ->
 							debug "Queue caught: %s" (Printexc.to_string e)
 					end;
-					Redirector.finished queues tag queue;
+					Redirector.finished redirector tag queue;
 					(* The task must have succeeded or failed. *)
 					begin match item.Xenops_task.state with
 						| Task.Pending _ ->
@@ -667,10 +667,10 @@ module WorkerPool = struct
 				(* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
 				   are only interested in comparing the equality of their static references
 				 *)
-				List.map (fun w -> w.Worker.queues == queues && Worker.is_active w) !pool |> List.filter (fun x -> x) |> List.length
+				List.map (fun w -> w.Worker.redirector == queues && Worker.is_active w) !pool |> List.filter (fun x -> x) |> List.length
 			)
 
-	let find_one queues f = List.fold_left (fun acc x -> acc || (x.Worker.queues == queues && (f x))) false
+	let find_one queues f = List.fold_left (fun acc x -> acc || (x.Worker.redirector == queues && (f x))) false
 
 	(* Clean up any shutdown threads and remove them from the master list *)
 	let gc queues pool =
@@ -679,7 +679,7 @@ module WorkerPool = struct
 				(* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
 				   are only interested in comparing the equality of their static references
 				 *)
-				if w.Worker.queues == queues && Worker.get_state w = Worker.Shutdown then begin
+				if w.Worker.redirector == queues && Worker.get_state w = Worker.Shutdown then begin
 					Worker.join w;
 					acc
 				end else w :: acc) [] pool
