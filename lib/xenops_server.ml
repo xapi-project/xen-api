@@ -467,12 +467,12 @@ module Redirector = struct
 					)
 			) ()
 
-	let pop queues =
+	let pop =
 		(* We must prevent worker threads all calling Queues.pop before we've
 		   successfully put the redirection in place. Otherwise we end up with
 		   parallel threads operating on the same VM. *)
 		let n = Mutex.create () in
-		fun () ->
+		fun queues () ->
 			Mutex.execute n
 				(fun () ->
 					let tag, item = Queues.pop queues in
