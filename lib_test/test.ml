@@ -7,6 +7,7 @@ let suite =
       Config_file_test.tests;
       Xen_test.tests;
       Http_test.tests;
+      Debug_test.tests;
     ]
 
 let () =
