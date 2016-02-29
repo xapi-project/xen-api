@@ -120,15 +120,17 @@ let format include_time brand priority message =
 let print_debug = ref false
 let log_to_stdout () = print_debug := true
 
-let logging_disabled_for : (string * Syslog.level) list ref = ref []
+let logging_disabled_for : (string * Syslog.level, unit) Hashtbl.t = Hashtbl.create 0
 let logging_disabled_for_m = Mutex.create ()
 
 let disabled_modules () =
-  !logging_disabled_for
+  Mutex.execute logging_disabled_for_m (fun () ->
+    Hashtbl.fold (fun key _ acc -> key :: acc) logging_disabled_for []
+  )
 
 let is_disabled brand level =
   Mutex.execute logging_disabled_for_m (fun () ->
-    List.mem (brand, level) !logging_disabled_for
+    Hashtbl.mem logging_disabled_for (brand, level)
   )
 
 let facility = ref Syslog.Daemon
@@ -196,14 +198,19 @@ end
 
 let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err]
 
+let add_to_stoplist brand level =
+	Hashtbl.replace logging_disabled_for (brand, level) ()
+
+let remove_from_stoplist brand level =
+	Hashtbl.remove logging_disabled_for (brand, level)
+
 let disable ?level brand =
 	let levels = match level with
 		| None -> all_levels
 		| Some l -> [l]
 	in
 	Mutex.execute logging_disabled_for_m (fun () ->
-		let disable' brand level = logging_disabled_for := (brand, level) :: !logging_disabled_for in
-		List.iter (disable' brand) levels
+		List.iter (add_to_stoplist brand) levels
 	)
 
 let enable ?level brand =
@@ -212,7 +219,7 @@ let enable ?level brand =
 		| Some l -> [l]
 	in
 	Mutex.execute logging_disabled_for_m (fun () ->
-		logging_disabled_for := List.filter (fun (x, y) -> not (x = brand && List.mem y levels)) !logging_disabled_for
+		List.iter (remove_from_stoplist brand) levels
 	)
 
 module type DEBUG = sig
