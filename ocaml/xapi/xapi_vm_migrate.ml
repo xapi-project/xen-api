@@ -227,11 +227,13 @@ type mirror_record = {
   mr_remote_xenops_locator : string;
   mr_remote_vdi_reference : API.ref_VDI;
   mr_local_vdi_reference : API.ref_VDI;
+  mr_remote_sr_reference : API.ref_SR;
 }
 
 type vdi_transfer_record = {
   local_vdi_reference : API.ref_VDI;
   remote_vdi_reference : API.ref_VDI option;
+  remote_sr_reference : API.ref_SR;
 }
 
 type vif_transfer_record = {
@@ -281,7 +283,12 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
         Db.VDI.add_to_other_config ~__context ~self:vdi
           ~key:Constants.storage_migrate_vdi_map_key
           ~value:(Ref.string_of remote_vdi_reference))
-        vdi_record.remote_vdi_reference) vdi_map;
+        vdi_record.remote_vdi_reference;
+      Db.VDI.remove_from_other_config ~__context ~self:vdi
+        ~key:Constants.storage_migrate_sr_map_key;
+      Db.VDI.add_to_other_config ~__context ~self:vdi
+        ~key:Constants.storage_migrate_sr_map_key
+        ~value:(Ref.string_of vdi_record.remote_sr_reference)) vdi_map;
 
   List.iter (fun vif_record ->
       let vif = vif_record.local_vif_reference in
@@ -304,7 +311,10 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
          (fun vdi_record ->
            Db.VDI.remove_from_other_config ~__context
              ~self:vdi_record.local_vdi_reference
-             ~key:Constants.storage_migrate_vdi_map_key)
+             ~key:Constants.storage_migrate_vdi_map_key;
+           Db.VDI.remove_from_other_config ~__context
+             ~self:vdi_record.local_vdi_reference
+             ~key:Constants.storage_migrate_sr_map_key)
          vdi_map;
        List.iter
          (fun vif_record ->
@@ -571,7 +581,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
                          mr_local_xenops_locator = vconf.xenops_locator;
                          mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
                          mr_local_vdi_reference = vconf.vdi;
-                         mr_remote_vdi_reference = remote_vdi_reference; }) in
+                         mr_remote_vdi_reference = remote_vdi_reference;
+                         mr_remote_sr_reference = dest_sr_ref; }) in
   try
     let result = continuation mirror_record in
     
@@ -816,6 +827,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
               List.map (fun mirror_record -> {
                   local_vdi_reference = mirror_record.mr_local_vdi_reference;
                   remote_vdi_reference = Some mirror_record.mr_remote_vdi_reference;
+                  remote_sr_reference = mirror_record.mr_remote_sr_reference;
                 })
                 (suspends_map @ snapshots_map @ vdi_map)
             in
@@ -1023,6 +1035,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         List.map (fun (vdi, sr) -> {
             local_vdi_reference = vdi;
             remote_vdi_reference = None;
+            remote_sr_reference = sr;
           })
           vdi_map in
       let vif_map =
