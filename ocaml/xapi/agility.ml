@@ -107,48 +107,48 @@ module NetworkSet = Set.Make(struct type t = API.ref_network let compare = compa
 
 let empty_cache = (SRSet.empty, NetworkSet.empty)
 
-let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
+let caching_vm_res_assert_agile ~__context (ok_srs, ok_networks) vm_res =
 	(* Any kind of vGPU means that the VM is not agile. *)
-	if vm_t.API.vM_VGPUs <> [] then
+	if vm_res.VMResources.vm_rec.API.vM_VGPUs <> [] then begin
+		let vm_string =
+			match vm_res.VMResources.status with
+			| `Local vm_ref -> Ref.string_of vm_ref
+			| `Incoming _ -> Ref.string_of Ref.null
+		in
 		raise (Api_errors.Server_error
-			(Api_errors.vm_has_vgpu, [Ref.string_of vm]));
-	(* All referenced VDIs should be in shared SRs *)
-	let check_vbd ok_srs vbd =
-		if Db.VBD.get_empty ~__context ~self:vbd
+			(Api_errors.vm_has_vgpu, [vm_string]))
+	end;
+	(* All referenced SRs should be shared. *)
+	let check_sr ok_srs sr =
+		if SRSet.mem sr ok_srs
 		then ok_srs
 		else
-			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-			let sr = Db.VDI.get_SR ~__context ~self:vdi in
-			if SRSet.mem sr ok_srs
-			then ok_srs
-			else
-				if not (is_sr_properly_shared ~__context ~self:sr)
-				then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
-				else SRSet.add sr ok_srs in
-	(* All referenced VIFs should be on shared networks *)
-	let check_vif ok_networks vif =
-		let network = Db.VIF.get_network ~__context ~self:vif in
+			if not (is_sr_properly_shared ~__context ~self:sr)
+			then raise (Api_errors.(Server_error(ha_constraint_violation_sr_not_shared, [Ref.string_of sr])))
+			else SRSet.add sr ok_srs in
+	(* All referenced networks should be shared. *)
+	let check_network ok_networks network =
 		if NetworkSet.mem network ok_networks
 		then ok_networks
 		else
 			if not (is_network_properly_shared ~__context ~self:network)
-			then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_network_not_shared, [Ref.string_of network]))
+			then raise (Api_errors.(Server_error(ha_constraint_violation_network_not_shared, [Ref.string_of network])))
 			else NetworkSet.add network ok_networks in
-	let ok_srs = List.fold_left check_vbd ok_srs vm_t.API.vM_VBDs in
-	let ok_networks = List.fold_left check_vif ok_networks vm_t.API.vM_VIFs in
+	let ok_srs = List.fold_left check_sr ok_srs vm_res.VMResources.srs in
+	let ok_networks = List.fold_left check_network ok_networks vm_res.VMResources.networks in
 	(ok_srs, ok_networks)
 
 let vm_assert_agile ~__context ~self =
-	let vm_t = Db.VM.get_record ~__context ~self in
-	let _ = caching_vm_t_assert_agile ~__context empty_cache self vm_t in
+	let vm_res = VMResources.of_ref ~__context self in
+	let _ = caching_vm_res_assert_agile ~__context empty_cache vm_res in
 	()
 
-let partition_vm_ps_by_agile ~__context vm_ps =
-	let distinguish_vm (agile_vm_ps, not_agile_vm_ps, cache) ((vm, vm_t) as vm_p) =
+let partition_vm_ps_by_agile ~__context vm_ress =
+	let distinguish_vm (agile_vm_ress, not_agile_vm_ress, cache) vm_res =
 		try
-			let cache = caching_vm_t_assert_agile ~__context cache vm vm_t in
-			(vm_p :: agile_vm_ps, not_agile_vm_ps, cache)
+			let cache = caching_vm_res_assert_agile ~__context cache vm_res in
+			(vm_res :: agile_vm_ress, not_agile_vm_ress, cache)
 		with _ ->
-		  (agile_vm_ps, vm_p :: not_agile_vm_ps, cache) in
-	let agile_vm_ps, not_agile_vm_ps, _ = List.fold_left distinguish_vm ([], [], empty_cache) vm_ps in
-	(List.rev agile_vm_ps, List.rev not_agile_vm_ps)
+			(agile_vm_ress, vm_res :: not_agile_vm_ress, cache) in
+	let agile_vm_ress, not_agile_vm_ress, _ = List.fold_left distinguish_vm ([], [], empty_cache) vm_ress in
+	(List.rev agile_vm_ress, List.rev not_agile_vm_ress)

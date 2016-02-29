@@ -384,8 +384,11 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 		in
 		let vm_ref =
 			load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
-		try Either.Right
-			(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
+		try
+			let vm_resources = Agility.VMResources.of_ref ~__context vm_ref in
+			Either.Right
+				(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context
+					vm_resources)
 		with e -> Either.Left e
 
 	(* n.b. incoming VMs have ha_always_run = false; otherwise they will be

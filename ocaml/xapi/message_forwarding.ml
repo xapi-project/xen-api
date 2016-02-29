@@ -795,13 +795,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			| None -> ()
 
 		let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
+			let vm_resources =
+				Agility.VMResources.of_ref_and_record ~__context vm snapshot in
 			if true
 				&& (snapshot.API.vM_ha_restart_priority = Constants.ha_restart)
 				&& (not snapshot.API.vM_ha_always_run)
-			then
-				Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm
-			else
-				Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, (vm, snapshot)] ()
+			then Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_resources
+			else Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, vm_resources] ()
 
 		(* README: Note on locking -- forward_to_suitable_host and reserve_memory_for_vm are only
 		   called in a context where the current_operations field for the VM object contains the
