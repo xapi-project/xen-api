@@ -30,19 +30,19 @@ type vif = {
 }
 
 type vm = {
-	ha_always_run : bool;
 	ha_restart_priority : string;
 	memory : int64;
 	name_label : string;
+	running : bool;
 	vbds : vbd list;
 	vifs : vif list;
 }
 
 let basic_vm = {
-	ha_always_run = true;
 	ha_restart_priority = "restart";
 	memory = gib 1L;
 	name_label = "vm";
+	running = true;
 	vbds = [{agile = true}];
 	vifs = [{agile = true}];
 }
@@ -76,7 +76,7 @@ let string_of_pool {master; slaves; ha_host_failures_to_tolerate} =
 
 let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
 	let vm_ref = make_vm ~__context
-		~ha_always_run:vm.ha_always_run
+		~ha_always_run:(vm.running && vm.ha_restart_priority = Constants.ha_restart)
 		~ha_restart_priority:vm.ha_restart_priority
 		~memory_static_min:vm.memory
 		~memory_dynamic_min:vm.memory
@@ -84,6 +84,8 @@ let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
 		~memory_static_max:vm.memory
 		~name_label:vm.name_label ()
 	in
+	if vm.running
+	then Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
 	let (_ : API.ref_VIF list) =
 		List.mapi
 			(fun index (vif:vif) ->
@@ -181,8 +183,8 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 			master = {
 				memory_total = gib 256L; name_label = "master";
 				vms = [{basic_vm with
-					ha_always_run = false;
 					ha_restart_priority = "";
+					running = true;
 				}];
 			};
 			slaves = [];
@@ -193,7 +195,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 		{
 			master = {
 				memory_total = gib 256L; name_label = "master";
-				vms = [{basic_vm with ha_always_run = false}];
+				vms = [{basic_vm with running = false}];
 			};
 			slaves = [];
 			ha_host_failures_to_tolerate = 0L;
@@ -216,7 +218,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				vms = [
 					{basic_vm with name_label = "vm1"};
 					{basic_vm with
-						ha_always_run = false;
+						running = false;
 						ha_restart_priority = "";
 						name_label = "vm2"
 					}
@@ -407,7 +409,8 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 					then [shared_net] else []
 				in
 				let vm_ref = make_vm ~__context
-					~ha_always_run:vm.ha_always_run
+					~ha_always_run:
+						(vm.running && vm.ha_restart_priority = Constants.ha_restart)
 					~ha_restart_priority:vm.ha_restart_priority
 					~memory_static_min:vm.memory ~memory_dynamic_min:vm.memory
 					~memory_dynamic_max:vm.memory ~memory_static_max:vm.memory
@@ -451,10 +454,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
+				running = false;
 			},
 			true
 		),
@@ -482,10 +485,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
+				running = false;
 			},
 			true
 		),
@@ -521,10 +524,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
+				running = false;
 			},
 			true
 		),
@@ -546,10 +549,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = true;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm0";
+				running = true;
 			},
 			false
 		),
@@ -573,10 +576,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = true;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
+				running = true;
 			},
 			false
 		),
@@ -608,10 +611,10 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = true;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm3";
+				running = true;
 			},
 			false
 		),
