@@ -529,6 +529,93 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 			true
 		),
 		Either.Right ();
+		(* 2 host pool with no VMs running. Attempt to add a new VM from outside the
+		 * database, which will be HA protected. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [];
+					};
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = true;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm0";
+			},
+			false
+		),
+		Either.Right ();
+		(* 2 host pool, one VM using just under half of one host's memory;
+		 * test that another VM can be added from outside the database. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+					];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = true;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm2";
+			},
+			false
+		),
+		Either.Right ();
+		(* 2 host pool, with a VM using just under half of each host's memory;
+		 * test that another VM cannot be added from outside the database. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+					];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [
+							{basic_vm with
+								memory = gib 120L;
+								name_label = "vm2";
+							};
+						];
+					}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_always_run = true;
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm3";
+			},
+			false
+		),
+		Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
 	]
 end))
 
