@@ -45,13 +45,18 @@ val create :
   mAC:string ->
   mTU:int64 ->
   other_config:(string * string) list ->
-  static_ip_setting:(string * string) list ->
   qos_algorithm_type:string ->
   qos_algorithm_params:(string * string) list ->
   currently_attached:bool ->
   locking_mode:API.vif_locking_mode ->
   ipv4_allowed:string list ->
-  ipv6_allowed:string list -> API.ref_VIF
+  ipv6_allowed:string list ->
+  ipv4_configuration_mode:[< `None | `Static ] ->
+  ipv4_addresses:string list ->
+  ipv4_gateway:string ->
+  ipv6_configuration_mode:[< `None | `Static ] ->
+  ipv6_addresses:string list ->
+  ipv6_gateway:string -> API.ref_VIF
 
 (** Destroy a VIF object in the database. *)  
 val destroy : __context:Context.t -> self:[ `VIF ] Ref.t -> unit

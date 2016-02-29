@@ -1554,7 +1554,7 @@ let vif_create printer rpc session_id params =
 	let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
 	let network=Client.Network.get_by_uuid rpc session_id network_uuid in
 	let mtu = Client.Network.get_MTU rpc session_id network in
-	let vif = Client.VIF.create rpc session_id device network vm mac mtu [] [] "" [] `network_default [] [] in
+	let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] `network_default [] [] in
 	let uuid = Client.VIF.get_uuid rpc session_id vif in
 	printer (Cli_printer.PList [uuid])
 
@@ -1573,6 +1573,28 @@ let vif_unplug printer rpc session_id params =
 	let vif = Client.VIF.get_by_uuid rpc session_id uuid in
 	let force = get_bool_param params "force" in
 	(if force then Client.VIF.unplug_force else Client.VIF.unplug) rpc session_id vif
+
+let vif_configure_ipv4 printer rpc session_id params =
+	let read_optional_case_insensitive key =
+		let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
+		let lower_case_key = String.lowercase key in
+		List.assoc_default lower_case_key lower_case_params "" in
+	let vif = Client.VIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let mode = Record_util.vif_ipv4_configuration_mode_of_string (List.assoc "mode" params) in
+	let address = read_optional_case_insensitive "address" in
+	let gateway = List.assoc_default "gateway" params "" in
+	let () = Client.VIF.configure_ipv4 rpc session_id vif mode address gateway in ()
+
+let vif_configure_ipv6 printer rpc session_id params =
+	let read_optional_case_insensitive key =
+		let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
+		let lower_case_key = String.lowercase key in
+		List.assoc_default lower_case_key lower_case_params "" in
+	let vif = Client.VIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	let mode = Record_util.vif_ipv6_configuration_mode_of_string (List.assoc "mode" params) in
+	let address = read_optional_case_insensitive "address" in
+	let gateway = List.assoc_default "gateway" params "" in
+	let () = Client.VIF.configure_ipv6 rpc session_id vif mode address gateway in ()
 
 let net_create printer rpc session_id params =
 	let network = List.assoc "name-label" params in

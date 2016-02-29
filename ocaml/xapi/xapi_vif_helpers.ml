@@ -171,8 +171,10 @@ let assert_locking_licensed ~__context =
 let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 
 let create ~__context ~device ~network ~vM
-           ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params
-           ~currently_attached ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
+           ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
+           ~currently_attached ~locking_mode ~ipv4_allowed ~ipv6_allowed
+           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
+           ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway : API.ref_VIF =
         let () = debug "VIF.create running" in
 
 	if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
@@ -229,9 +231,10 @@ let create ~__context ~device ~network ~vM
 	  ~currently_attached
 	  ~status_code:0L ~status_detail:""
 	  ~runtime_properties:[] ~other_config
-	  ~static_ip_setting
 	  ~metrics ~locking_mode
-	  ~ipv4_allowed ~ipv6_allowed in ()
+	  ~ipv4_allowed ~ipv6_allowed
+	  ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway 
+	  ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway in ()
 	  );
 	update_allowed_operations ~__context ~self:ref;
 	debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')" (Ref.string_of ref) (Ref.string_of vM) mAC; 
@@ -263,10 +266,15 @@ let copy ~__context ~vm ~preserve_mac_address vif =
 		~mAC:(if preserve_mac_address then all.API.vIF_MAC else "") (* leave blank == generate new mac from vm random seed *)
 		~mTU:all.API.vIF_MTU
 		~other_config:all.API.vIF_other_config
-		~static_ip_setting:all.API.vIF_static_ip_setting
 		~qos_algorithm_type:all.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:all.API.vIF_qos_algorithm_params
 		~locking_mode:all.API.vIF_locking_mode
 		~ipv4_allowed:all.API.vIF_ipv4_allowed
 		~ipv6_allowed:all.API.vIF_ipv6_allowed
+		~ipv4_configuration_mode:all.API.vIF_ipv4_configuration_mode
+		~ipv4_addresses:all.API.vIF_ipv4_addresses
+		~ipv4_gateway:all.API.vIF_ipv4_gateway
+		~ipv6_configuration_mode:all.API.vIF_ipv6_configuration_mode
+		~ipv6_addresses:all.API.vIF_ipv6_addresses
+		~ipv6_gateway:all.API.vIF_ipv6_gateway
 

@@ -642,6 +642,8 @@ let _ =
 	  ~doc:"You attempted an operation which needs the VM hotplug-vcpu feature on a VM which lacks it." ();
   error Api_errors.vm_lacks_feature_suspend [ "vm" ]
 	  ~doc:"You attempted an operation which needs the VM cooperative suspend feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_static_ip_setting [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM static-ip-setting feature on a VM which lacks it." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]
@@ -5273,6 +5275,16 @@ let device_status_fields =
 
 (* VIF messages *)
 
+let vif_ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", [
+	"None", "Follow the default IPv4 configuration of the guest (this is guest-dependent)";
+	"Static", "Static IPv4 address configuration";
+])
+
+let vif_ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", [
+	"None", "Follow the default IPv6 configuration of the guest (this is guest-dependent)";
+	"Static", "Static IPv6 address configuration";
+])
+
 let vif_plug = call
   ~name:"plug"
   ~in_product_since:rel_rio
@@ -5389,25 +5401,28 @@ let vif_remove_ipv6_allowed = call
 	~allowed_roles:_R_POOL_OP
 	()
 
-let vif_add_to_static_ip_setting = call
-	~name:"add_to_static_ip_setting"
+let vif_configure_ipv4 = call
+	~name:"configure_ipv4"
 	~in_product_since:rel_dundee
-	~doc:"Assign static ip address, mask, gateway to this VIF"
+	~doc:"Configure IPv4 settings for this virtual interface"
 	~params:[
-		Ref _vif, "self", "This VIF which static ip setting will be assigned to";
-		String, "key", "Which property (e.g. address, gateway) of static ip setting";
-		String, "value", "IP address or Gateway address";
+		Ref _vif, "self", "The VIF to configure";
+		vif_ipv4_configuration_mode, "mode", "Whether to use static or no IPv4 assignment";
+		String, "address", "The IPv4 address in <addr>/<prefix length> format (for static mode only)";
+		String, "gateway", "The IPv4 gateway (for static mode only; leave empty to not set a gateway)";
 	]
 	~allowed_roles:_R_POOL_OP
 	()
 
-let vif_remove_from_static_ip_setting = call
-	~name:"remove_from_static_ip_setting"
+let vif_configure_ipv6 = call
+	~name:"configure_ipv6"
 	~in_product_since:rel_dundee
-	~doc:"Remove static ip address, mask, gateway from this VIF"
+	~doc:"Configure IPv6 settings for this virtual interface"
 	~params:[
-		Ref _vif, "self", "This VIF which static ip setting will be assigned to";
-		String, "key", "Which property (e.g. address, gateway) of static ip setting";
+		Ref _vif, "self", "The VIF to configure";
+		vif_ipv6_configuration_mode, "mode", "whether to use static or no IPv6 assignment";
+		String, "address", "The IPv6 address in <addr>/<prefix length> format (for static mode only)";
+		String, "gateway", "The IPv6 gateway (for static mode only; leave empty to not set a gateway)";
 	]
 	~allowed_roles:_R_POOL_OP
 	()
@@ -5420,7 +5435,8 @@ let vif =
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~doc_tags:[Networking]
       ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
-        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; vif_add_to_static_ip_setting; vif_remove_from_static_ip_setting]
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; 
+	vif_configure_ipv4; vif_configure_ipv6]
       ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
@@ -5431,7 +5447,6 @@ let vif =
 	 field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
 	 field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved" "true if the VIF is reserved pending a reboot/migrate";
 	 field ~ty:(Map(String, String)) "other_config" "additional configuration";
-	 field ~qualifier:StaticRO ~in_product_since:rel_dundee ~default_value:(Some (VMap []))  ~ty:(Map(String, String)) "static_ip_setting" "virtual machine static ip address setting";
        ] @ device_status_fields @
 	 [ namespace ~name:"qos" ~contents:(qos "VIF") (); ] @
 	 [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) "metrics" "metrics associated with this VIF";
@@ -5439,6 +5454,12 @@ let vif =
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "network_default")) ~ty:vif_locking_mode "locking_mode" "current locking mode of the VIF";
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv4_allowed" "A list of IPv4 addresses which can be used to filter traffic passing through this VIF";
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv6_allowed" "A list of IPv6 addresses which can be used to filter traffic passing through this VIF";
+		 field ~ty:vif_ipv4_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_configuration_mode" "Determines whether IPv4 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+		 field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_addresses" "IPv4 addresses in CIDR format" ~default_value:(Some (VSet []));
+	 	 field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_gateway" "IPv4 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+		 field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+		 field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
+		 field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
 	 ])
 	()
 

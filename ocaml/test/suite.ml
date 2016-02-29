@@ -48,7 +48,6 @@ let base_suite =
 			Test_pool_cpuinfo.test;
 			(* Test_ca121350.test; *)
 			Test_daily_license_check.test;
-			Test_xapi_vif.test;
 		]
 
 let handlers = [

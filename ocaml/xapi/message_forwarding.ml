@@ -2665,9 +2665,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* -------------------------------------------------------------------------- *)
 
-		let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params =
+		let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params  =
 			info "VIF.create: VM = '%s'; network = '%s'" (vm_uuid ~__context vM) (network_uuid ~__context network);
-			Local.VIF.create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~static_ip_setting ~qos_algorithm_type ~qos_algorithm_params
+			Local.VIF.create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
 
 		let destroy ~__context ~self =
 			info "VIF.destroy: VIF = '%s'" (vif_uuid ~__context self);
@@ -2737,16 +2737,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let remote_fn = (fun session_id rpc -> Client.VIF.remove_ipv6_allowed rpc session_id self value) in
 			forward_vif_op ~local_fn ~__context ~self remote_fn
 
-                let add_to_static_ip_setting ~__context ~self ~key ~value =
-			info "VIF.add_to_static_ip_setting: VIF = '%s'; key = '%s'; value = '%s'" (vif_uuid ~__context self) key value;
-			let local_fn = Local.VIF.add_to_static_ip_setting ~self ~key ~value in
-			let remote_fn = (fun session_id rpc -> Client.VIF.add_to_static_ip_setting rpc session_id self key value) in
+		let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
+			info "VIF.configure_ipv4: VIF = '%s'; mode = '%s'; address = '%s'; gateway = '%s'"
+				(vif_uuid ~__context self)
+				(Record_util.vif_ipv4_configuration_mode_to_string mode) address gateway;
+			let local_fn = Local.VIF.configure_ipv4 ~self ~mode ~address ~gateway in
+			let remote_fn = (fun session_id rpc -> Client.VIF.configure_ipv4 rpc session_id self mode address gateway) in
 			forward_vif_op ~local_fn ~__context ~self remote_fn
 
-		let remove_from_static_ip_setting ~__context ~self ~key =
-			info "VIF.remove_from_static_ip_setting: VIF = '%s'; key = '%s'" (vif_uuid ~__context self) key;
-			let local_fn = Local.VIF.remove_from_static_ip_setting ~self ~key in
-			let remote_fn = (fun session_id rpc -> Client.VIF.remove_from_static_ip_setting rpc session_id self key) in
+		let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
+			info "PIF.configure_ipv6: PIF = '%s'; mode = '%s'; address = '%s'; gateway = '%s'"
+				(vif_uuid ~__context self)
+				(Record_util.ipv6_configuration_mode_to_string mode) address gateway;
+			let local_fn = Local.VIF.configure_ipv6 ~self ~mode ~address ~gateway in
+			let remote_fn = (fun session_id rpc -> Client.VIF.configure_ipv6 rpc session_id self mode address gateway) in
 			forward_vif_op ~local_fn ~__context ~self remote_fn
 	end
 

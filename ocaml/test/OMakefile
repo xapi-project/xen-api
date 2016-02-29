@@ -59,7 +59,6 @@ OCAML_OBJS = \
 	test_pool_cpuinfo \
 	../license/daily_license_check \
 	test_daily_license_check \
-	test_xapi_vif \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
