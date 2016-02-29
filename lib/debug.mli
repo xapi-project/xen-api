@@ -47,8 +47,8 @@ val enable : ?level:Syslog.level -> string -> unit
  *  only this log level, otherwise all levels for the given [brand] are enabled.
  *  This function is idempotent. *)
 
-val logging_disabled_for : (string * Syslog.level) list ref
-(** reference describing which modules have logging currently disabled *)
+val disabled_modules : unit -> (string * Syslog.level) list
+(** List describing which modules have logging currently disabled *)
 
 val log_to_stdout : unit -> unit
 (** [log_to_stdout ()] will echo all log output to stdout (not the default) *)

@@ -160,7 +160,7 @@ let common_options = [
 				List.iter Debug.disable modules
 			with e ->
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
-		), (fun () -> String.concat " " (setify (List.map fst !Debug.logging_disabled_for))), "A space-separated list of debug modules to suppress logging from";
+		), (fun () -> String.concat " " (setify (List.map fst (Debug.disabled_modules ())))), "A space-separated list of debug modules to suppress logging from";
 	"inventory", Arg.Set_string Inventory.inventory_filename, (fun () -> !Inventory.inventory_filename), "Location of the inventory file";
 	"config", Arg.Set_string config_file, (fun () -> !config_file), "Location of configuration file";
 	"config-dir", Arg.Set_string config_dir, (fun () -> !config_dir), "Location of directory containing configuration file fragments";

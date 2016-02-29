@@ -123,6 +123,9 @@ let log_to_stdout () = print_debug := true
 let logging_disabled_for : (string * Syslog.level) list ref = ref []
 let logging_disabled_for_m = Mutex.create ()
 
+let disabled_modules () =
+  !logging_disabled_for
+
 let is_disabled brand level =
   Mutex.execute logging_disabled_for_m (fun () ->
     List.mem (brand, level) !logging_disabled_for
