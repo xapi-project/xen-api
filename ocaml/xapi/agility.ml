@@ -17,6 +17,58 @@ open D
 
 open Listext
 
+module VMResources = struct
+	(* Encapsulate the state of a VM (which may or may not be in the local
+	 * database, along with the SRs and networks to which it needs access. *)
+	type t = {
+		status : [ `Local of API.ref_VM | `Incoming of API.ref_host ];
+		vm_rec : API.vM_t;
+		networks : API.ref_network list;
+		srs : API.ref_SR list;
+	}
+
+	let of_ref_and_record ~__context vm_ref vm_rec =
+		let status = `Local vm_ref in
+		let networks =
+			List.map
+				(fun vif -> Db.VIF.get_network ~__context ~self:vif) vm_rec.API.vM_VIFs
+		in
+		let srs =
+			List.filter_map
+				(fun vbd ->
+					let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+					if Db.is_valid_ref __context vdi
+					then Some (Db.VDI.get_SR ~__context ~self:vdi)
+					else None)
+				vm_rec.API.vM_VBDs
+		in {status; vm_rec; networks; srs}
+
+	let of_ref ~__context vm_ref =
+		let vm_rec = Db.VM.get_record ~__context ~self:vm_ref in
+		of_ref_and_record ~__context vm_ref vm_rec
+
+	let to_string {vm_rec} =
+		Printf.sprintf "%s (%s)"
+			vm_rec.API.vM_uuid vm_rec.API.vM_name_label
+
+	let compare vm_res1 vm_res2 =
+		compare vm_res1.vm_rec.API.vM_uuid vm_res2.vm_rec.API.vM_uuid
+
+	let are_equal vm_res1 vm_res2 =
+		vm_res1.vm_rec.API.vM_uuid = vm_res2.vm_rec.API.vM_uuid
+
+	let mem vm_res vm_ress =
+		List.exists (fun vm_res' -> are_equal vm_res vm_res') vm_ress
+
+	let rec assoc vm_res pairs =
+		match pairs with
+		| [] -> raise Not_found
+		| (vm_res', x)::rest ->
+			if are_equal vm_res vm_res' then x else assoc vm_res rest
+
+	let update_record vm_res vm_rec = {vm_res with vm_rec = vm_rec}
+end
+
 (* Only returns true if the SR is marked as shared, all hosts have PBDs and all PBDs are currently_attached.
    Is used to prevent a non-shared disk being added to a protected VM *)
 let is_sr_properly_shared ~__context ~self =
