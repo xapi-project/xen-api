@@ -47,3 +47,27 @@ let facility_of_string s =
     |"user"->User
     |"uucp"->Uucp
 		|_-> raise (Unknown_facility s)
+
+exception Unknown_level of string
+let level_of_string s = 
+	match String.lowercase s with
+	| "emergency"        -> Emerg
+	| "alert"            -> Alert
+	| "critical"         -> Crit
+	| "debug"            -> Debug; 
+	| "error" | "err"    -> Err
+	| "warning" | "warn" -> Warning
+	| "notice"           -> Notice
+	| "info"             -> Info
+	| "debug"            -> Debug
+	| _-> raise (Unknown_level s)
+
+let string_of_level = function 
+	| Emerg   -> "emergency"
+	| Alert   -> "alert"
+	| Crit    -> "critical"
+	| Err     -> "error"
+	| Warning -> "warning"
+	| Notice  -> "notice"
+	| Info    -> "info"
+	| Debug   -> "debug"
