@@ -190,7 +190,7 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
     def generate_subject(self):
         pool_name = pool_name = get_pool_name()
         return '[%s] %s Alarm: Memory usage on %s "%s"' % (pool_name,
-                   VISUAL_PRODUCT_BRAND, self.cls, self.params['name_label'])
+                   branding.PRODUCT_BRAND, self.cls, self.params['name_label'])
 
     def generate_body(self):
         return \
