@@ -787,7 +787,7 @@ let async_test session_id =
     | _ -> failwith "Expecting 1 new disk!"
 
 let make_vif ~session_id ~vM ~network ~device = 
-  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
 
 let with_vm s f = 
   try

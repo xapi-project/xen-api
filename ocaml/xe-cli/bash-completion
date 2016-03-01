@@ -64,7 +64,7 @@ _xe()
                 return 0
                 ;;
 
-            mode) # for pif-reconfigure-ip
+            mode) # for pif-reconfigure-ip & vif-configure-ip(v4,v6)
                 if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
                     IFS=$'\n,'
                     set_completions "dhcp,static,none" "$value"
@@ -72,6 +72,12 @@ _xe()
                 elif [ "${COMP_WORDS[1]}" == "pif-reconfigure-ipv6" ]; then
                     IFS=$'\n,'
                     set_completions "dhcp,static,none,autoconf" "$value"
+                elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv4" ]; then
+                    IFS=$'\n,'
+                    set_completions "static,none" "$value"
+                elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv6" ]; then
+                    IFS=$'\n,'
+                    set_completions "static,none" "$value"
                 elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
                     IFS=$'\n,'
                     set_completions "balance-slb,active-backup,lacp" "$value"

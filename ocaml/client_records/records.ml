@@ -238,7 +238,7 @@ let pif_record rpc session_id pif =
       [
 	make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.pIF_uuid) ();
 	make_field ~name:"device"       ~get:(fun () -> (x ()).API.pIF_device) ();
-	make_field ~name:"MAC"          ~get:(fun () -> (x ()).API.pIF_MAC) 
+	make_field ~name:"MAC"          ~get:(fun () -> (x ()).API.pIF_MAC)
 	  ~case_insensitive:true ();
 	make_field ~name:"physical"     ~get:(fun () -> string_of_bool ((x ()).API.pIF_physical)) ();
 	make_field ~name:"managed"      ~get:(fun () -> string_of_bool ((x ()).API.pIF_managed)) ();
@@ -402,6 +402,12 @@ let vif_record rpc session_id vif =
 		~add_to_set:(fun value -> Client.VIF.add_ipv6_allowed rpc session_id vif value)
 		~remove_from_set:(fun value -> Client.VIF.remove_ipv6_allowed rpc session_id vif value)
 		~set:(fun value -> Client.VIF.set_ipv6_allowed rpc session_id vif (String.split ',' value)) ();
+	make_field ~name:"ipv4-configuration-mode" ~get:(fun () -> Record_util.vif_ipv4_configuration_mode_to_string (x ()).API.vIF_ipv4_configuration_mode) ();
+	make_field ~name:"ipv4-addresses" ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv4_addresses) ();
+	make_field ~name:"ipv4-gateway" ~get:(fun () -> (x ()).API.vIF_ipv4_gateway) ();
+	make_field ~name:"ipv6-configuration-mode" ~get:(fun () -> Record_util.vif_ipv6_configuration_mode_to_string (x ()).API.vIF_ipv6_configuration_mode) ();
+	make_field ~name:"ipv6-addresses" ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_addresses) ();
+	make_field ~name:"ipv6-gateway" ~get:(fun () -> (x ()).API.vIF_ipv6_gateway) ();
       ]}
 
 
