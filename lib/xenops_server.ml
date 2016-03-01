@@ -64,6 +64,8 @@ type atomic =
 	| VIF_move of Vif.id * Network.t
 	| VIF_set_carrier of Vif.id * bool
 	| VIF_set_locking_mode of Vif.id * Vif.locking_mode
+	| VIF_set_ipv4_configuration of Vif.id * Vif.ipv4_configuration
+	| VIF_set_ipv6_configuration of Vif.id * Vif.ipv6_configuration
 	| VIF_set_active of Vif.id * bool
 	| VM_hook_script of (Vm.id * Xenops_hooks.script * string)
 	| VBD_plug of Vbd.id
@@ -1052,6 +1054,36 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
 
 				) (fun () -> VIF_DB.signal id)
+		| VIF_set_ipv4_configuration (id, ipv4_configuration) ->
+			let setting = match ipv4_configuration with
+				| Vif.Unspecified4 -> ""
+				| Vif.Static4 (address, gateway) ->
+					match gateway with
+					| None -> Printf.sprintf "address:%s" (String.concat "; " address)
+					| Some value -> Printf.sprintf "address:%s gateway:%s" (String.concat "; " address) value
+			in
+			debug "VIF.set_ipv4_configuration %s %s" (VIF_DB.string_of_id id) setting;
+			finally
+				(fun () ->
+					let vif = VIF_DB.read_exn id in
+					VIF_DB.write id {vif with Vif.ipv4_configuration};
+					B.VIF.set_ipv4_configuration t (VIF_DB.vm_of id) vif ipv4_configuration
+				) (fun () -> VIF_DB.signal id)
+		| VIF_set_ipv6_configuration (id, ipv6_configuration) ->
+			let setting = match ipv6_configuration with
+				| Vif.Unspecified6 -> ""
+				| Vif.Static6 (address6, gateway6) ->
+					match gateway6 with
+					| None -> Printf.sprintf "address6:%s" (String.concat "; " address6)
+					| Some value -> Printf.sprintf "address6:%s gateway6:%s" (String.concat "; " address6) value
+			in
+			debug "VIF.set_ipv6_configuration %s %s" (VIF_DB.string_of_id id) setting;
+			finally
+				(fun () ->
+					let vif = VIF_DB.read_exn id in
+					VIF_DB.write id {vif with Vif.ipv6_configuration};
+					B.VIF.set_ipv6_configuration t (VIF_DB.vm_of id) vif ipv6_configuration
+				) (fun () -> VIF_DB.signal id)
 		| VIF_set_active (id, b) ->
 			debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
 			B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b;
@@ -1340,7 +1372,9 @@ and trigger_cleanup_after_failure_atom op t = match op with
 		| VIF_unplug (id, _)
 		| VIF_move (id, _)
 		| VIF_set_carrier (id, _)
-		| VIF_set_locking_mode (id, _) ->
+		| VIF_set_locking_mode (id, _)
+		| VIF_set_ipv4_configuration (id, _)
+		| VIF_set_ipv6_configuration (id, _) ->
 			immediate_operation t.Xenops_task.dbg (fst id) (VIF_check_state id)
 
 		| PCI_plug id
@@ -1832,6 +1866,8 @@ module VIF = struct
 	let move _ dbg id network = queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network)))
 	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
 	let set_locking_mode _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_locking_mode (id, carrier)))
+	let set_ipv4_configuration _ dbg id ipv4_configuration = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_ipv4_configuration (id, ipv4_configuration)))
+	let set_ipv6_configuration _ dbg id ipv6_configuration = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_ipv6_configuration (id, ipv6_configuration)))
 
 	let remove' id =
 		debug "VIF.remove %s" (string_of_id id);

@@ -1267,6 +1267,7 @@ module VIF = struct
 	let _locking_mode = "locking-mode"
 	let _ipv4_allowed = "ipv4-allowed"
 	let _ipv6_allowed = "ipv6-allowed"
+	let _static_ip_setting = "static-ip-setting"
 
 	let locking_mode_keys = [
 		_locking_mode;
@@ -1286,6 +1287,33 @@ module VIF = struct
 		| Disabled -> [
 			_locking_mode, "disabled";
 		]
+
+	let xenstore_of_static_ip_setting vif =
+		let constant_setting = [
+			"mac", vif.mac;
+			"error-code", "0";
+			"error-msg", "";
+		] in
+		let ipv4_setting = match vif.ipv4_configuration with
+		| Unspecified4 -> [ "enabled", "0" ]
+		| Static4 (address :: _, gateway) ->
+			let enabled = "enabled" , "1" in
+			let address = "address", address in
+			let gateway = match gateway with Some value -> ["gateway", value] | None -> [] in
+			enabled :: address :: gateway
+		| Static4 ([], _) -> raise (Internal_error "Static IPv4 configuration selected, but no address specified.")
+		in
+		let ipv6_setting = match vif.ipv6_configuration with
+		| Unspecified6 -> [ "enabled6", "0" ]
+		| Static6 (address6 :: _, gateway6) ->
+			let enabled6 = "enabled6" , "1" in
+			let address6 = "address6", address6 in
+			let gateway6 = match gateway6 with Some value -> ["gateway6", value] | None -> [] in
+			enabled6 :: address6 :: gateway6
+		| Static6 ([], _) -> raise (Internal_error "Static IPv6 configuration selected, but no address specified.")
+		in
+		let settings = constant_setting @ ipv4_setting @ ipv6_setting in
+		List.map (fun (k,v) -> Printf.sprintf "%s/%s" _static_ip_setting k, v) settings
 
 	let disconnect_flag device mode =
 		let path = Hotplug.vif_disconnect_path device in
@@ -1317,6 +1345,24 @@ module VIF = struct
 					(("bridge-MAC", "fe:ff:ff:ff:ff:ff") ::
 						("backend-kind", "vif") :: ("backend-id", string_of_int backend_domid) :: private_list);
 			)
+		)
+
+	let write_extra_xenserver_keys device extra_xenserver_keys =
+		let open Device_common in
+		with_xs (fun xs ->
+			let extra_xenserver_path = Device_common.extra_xenserver_path_of_device ~xs:xs device in
+			Xs.transaction xs (fun t ->
+				t.Xst.mkdir extra_xenserver_path;
+				t.Xst.setperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
+				t.Xst.writev extra_xenserver_path extra_xenserver_keys;
+			)
+		)
+
+	let remove_extra_xenserver_keys device =
+		let open Device_common in
+		with_xs (fun xs ->
+			let extra_xenstore_path = Device_common.extra_xenserver_path_of_device ~xs:xs device in
+			xs.Xs.rm extra_xenstore_path
 		)
 
 	let pre_plug vm hvm vif =
@@ -1389,11 +1435,14 @@ module VIF = struct
 						(* wait for plug (to be removed if possible) *)
 						let open Device_common in
 						let devid = vif.position in
+						(* let mac = vif.mac in *)
 						let backend_domid = with_xs (fun xs -> backend_domid_of xs vif) in
 						let frontend = { domid = frontend_domid; kind = Vif; devid = devid } in
 						let backend = { domid = backend_domid; kind = Vif; devid = devid } in
 						let device = { backend = backend; frontend = frontend } in
+						let static_ip_setting = xenstore_of_static_ip_setting vif in
 						with_xs (fun xs -> Hotplug.wait_for_plug task ~xs device);
+						write_extra_xenserver_keys device static_ip_setting;
 
 						(* add disconnect flag *)
 						let disconnect_path, flag = disconnect_flag device vif.locking_mode in
@@ -1419,7 +1468,8 @@ module VIF = struct
 					);
 					let device = device_by_id xs vm Device_common.Vif Oldest (id_of vif) in
 					Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
-						(fun () -> Hotplug.release' task ~xs device vm "vif" vif.position)
+						(fun () -> Hotplug.release' task ~xs device vm "vif" vif.position);
+					remove_extra_xenserver_keys device
 				with
 					| _ ->
 						debug "VM = %s; Ignoring missing device" (id_of vif)
@@ -1504,6 +1554,73 @@ module VIF = struct
 				let di = with_ctx (fun ctx -> Xenlight.Dominfo.get ctx device.frontend.domid) in
 				if di.Xenlight.Dominfo.domain_type = Xenlight.DOMAIN_TYPE_HVM
  				then ignore (run !Xl_path.setup_vif_rules ["xenlight"; tap_interface_name; vm; devid; "filter"])
+			)
+	
+	let set_ip_unspecified xs xenstore_path suffix =
+		Xs.transaction xs (fun t ->
+			let ip_setting_enabled = Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix in
+			t.Xst.write ip_setting_enabled "0";
+
+			let ip_setting_address = Printf.sprintf "%s/%s%s" xenstore_path "address" suffix in
+			t.Xst.rm ip_setting_address;
+
+			let ip_setting_gateway = Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix in
+			t.Xst.rm ip_setting_gateway
+		)
+
+	let set_ip_static xs xenstore_path suffix address gateway =
+		Xs.transaction xs (fun t ->
+			let ip_setting_enabled = Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix in
+			t.Xst.write ip_setting_enabled "1";
+
+			let ip_setting_address = Printf.sprintf "%s/%s%s" xenstore_path "address" suffix in
+			t.Xst.write ip_setting_address address;
+
+			let ip_setting_gateway = Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix in
+			match gateway with
+			| None ->
+				t.Xst.rm ip_setting_gateway
+			| Some value ->
+				debug "xenstore-write %s <- %s" ip_setting_gateway value;
+				t.Xst.write ip_setting_gateway value
+		)
+	
+	let set_ipv4_configuration task vm vif ipv4_configuration =
+		let open Device_common in
+		with_xs
+			(fun xs ->
+				let device = device_by_id xs vm Vif Newest (id_of vif) in
+				let xenstore_path =
+					Printf.sprintf "%s/%s"
+						(Device_common.extra_xenserver_path_of_device ~xs device)
+						_static_ip_setting
+				in
+				match ipv4_configuration with
+				| Unspecified4 ->
+					set_ip_unspecified xs xenstore_path ""
+				| Static4 (address :: _, gateway) ->
+					set_ip_static xs xenstore_path "" address gateway
+				| Static4 ([], _) ->
+					raise (Internal_error "Static IPv4 configuration selected, but no address specified.")
+			)
+
+	let set_ipv6_configuration task vm vif ipv6_configuration =
+		let open Device_common in
+		with_xs
+			(fun xs ->
+				let device = device_by_id xs vm Vif Newest (id_of vif) in
+				let xenstore_path =
+					Printf.sprintf "%s/%s"
+						(Device_common.extra_xenserver_path_of_device ~xs device)
+						_static_ip_setting
+				in
+				match ipv6_configuration with
+				| Unspecified6 ->
+					set_ip_unspecified xs xenstore_path "6"
+				| Static6 (address :: _, gateway) ->
+					set_ip_static xs xenstore_path "6" address gateway
+				| Static6 ([], _) ->
+					raise (Internal_error "Static IPv6 configuration selected, but no address specified.")
 			)
 
 	let get_state vm vif =

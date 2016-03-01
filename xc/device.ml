@@ -47,13 +47,14 @@ let tc_port_path domid = sprintf "/local/domain/%d/console/tc-port" domid
    creation transactions to abort and retry, leading to livelock while starting lots of
    VMs. Work around this by serialising these transactions for now. *)
 let device_serialise_m = Mutex.create ()
-let add_device ~xs device backend_list frontend_list private_list =
+let add_device ~xs device backend_list frontend_list private_list xenserver_list =
 	Mutex.execute device_serialise_m (fun () ->
 
 	let frontend_path = frontend_path_of_device ~xs device
 	and backend_path = backend_path_of_device ~xs device
 	and hotplug_path = Hotplug.get_hotplug_path device
-	and private_data_path = Device_common.get_private_data_path_of_device device in
+	and private_data_path = Device_common.get_private_data_path_of_device device
+	and extra_xenserver_path = Device_common.extra_xenserver_path_of_device ~xs device in
 
 	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_path hotplug_path;
 	Xs.transaction xs (fun t ->
@@ -88,6 +89,10 @@ let add_device ~xs device backend_list frontend_list private_list =
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
+
+		t.Xst.mkdir extra_xenserver_path;
+		t.Xst.setperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
+		t.Xst.writev extra_xenserver_path xenserver_list;
 	)
 	)
 
@@ -547,7 +552,7 @@ let add_async ~xs ~hvm x domid =
 	let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
 	let priv = no_phys_device @ x.extra_private_keys in
 
-	Generic.add_device ~xs device back front priv;
+	Generic.add_device ~xs device back front priv [];
 	device
 
 let add_wait (task: Xenops_task.t) ~xs device =
@@ -641,12 +646,12 @@ end
 
 module Vif = struct
 
-
-let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
-	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac carrier
+let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) domid =
+	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
 	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
-	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys));
+	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
+	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys));
 	(* Filter the other_config keys using vif_udev_keys as a whitelist *)
 	let other_config = List.filter (fun (x, _) -> List.mem x vif_udev_keys) other_config in
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
@@ -709,7 +714,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	     | Netman.Nat -> []) @
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
 
-	Generic.add_device ~xs device back front extra_private_keys;
+	Generic.add_device ~xs device back front extra_private_keys extra_xenserver_keys;
 
 	if !Xenopsd.run_hotplug_scripts then begin
 		(* The VIF device won't be created until the backend is
@@ -743,7 +748,6 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 		Hotplug.run_hotplug_script tap [ "remove" ];
 	end;
 	Hotplug.release task ~xs x
-
 
 let move ~xs (x: device) bridge =
 	let xs_bridge_path = Device_common.get_private_data_path_of_device x ^ "/bridge" in
@@ -1329,7 +1333,7 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 		"protocol", (string_of_protocol protocol);
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
-	Generic.add_device ~xs device back front [];
+	Generic.add_device ~xs device back front [] [];
 	()
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
@@ -1361,7 +1365,7 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 		"protocol", (string_of_protocol protocol);
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
-	Generic.add_device ~xs device back front []; 
+	Generic.add_device ~xs device back front [] [];
 	()
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =

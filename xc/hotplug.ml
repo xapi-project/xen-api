@@ -199,8 +199,12 @@ let wait_for_connect (task: Xenops_task.t) ~xs (x: device) =
 let release (task:Xenops_task.t) ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
-	let path = get_hotplug_path x in
-	xs.Xs.rm path
+	let hotplug_path = get_hotplug_path x in
+	let extra_xenserver_path = extra_xenserver_path_of_device xs x in
+	Xs.transaction xs (fun t ->
+		t.Xst.rm hotplug_path;
+		t.Xst.rm extra_xenserver_path
+	)
 
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
