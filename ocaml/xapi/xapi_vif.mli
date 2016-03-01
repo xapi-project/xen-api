@@ -105,3 +105,18 @@ val add_ipv6_allowed :
 (** Remove an IPv6 address from this VIF. *)
 val remove_ipv6_allowed :
 	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
+
+(** Change the IP configuration of a VIF *)
+val configure_ipv4 :
+	__context:Context.t ->
+	self:[ `VIF ] Ref.t ->
+	mode:[`None | `Static] ->
+	address:string -> gateway:string -> unit
+
+(** Change the IP configuration of a VIF *)
+val configure_ipv6 :
+	__context:Context.t ->
+	self:[ `VIF ] Ref.t ->
+	mode:[`None | `Static] ->
+	address:string -> gateway:string -> unit
+
