@@ -22,7 +22,6 @@ let assert_operation_valid ~__context ~self ~(op:API.vif_operations) =
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations ~__context ~self
 
-
 let plug ~__context ~self =
 	Xapi_xenops.vif_plug ~__context ~self
 
@@ -36,6 +35,8 @@ let create  ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
   create ~__context ~device ~network ~vM ~currently_attached:false
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed
+    ~ipv4_configuration_mode:`None ~ipv4_addresses:[] ~ipv4_gateway:""
+	~ipv6_configuration_mode:`None ~ipv6_addresses:[] ~ipv6_gateway:""
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
@@ -64,14 +65,15 @@ let change_locking_config ~__context ~self ~licence_check f =
 	f ();
 	refresh_filtering_rules ~__context ~self
 
+let get_effective_locking_mode ~__context ~self vif_mode : API.vif_locking_mode =
+	match vif_mode with
+	| `network_default ->
+		let network = Db.VIF.get_network ~__context ~self in
+		Db.Network.get_default_locking_mode ~__context ~self:network
+	| other -> other
+
 let set_locking_mode ~__context ~self ~value =
-	let effective_locking_mode : API.vif_locking_mode =
-		match value with
-		| `network_default ->
-			let network = Db.VIF.get_network ~__context ~self in
-			Db.Network.get_default_locking_mode ~__context ~self:network
-		| other -> other
-	in
+	let effective_locking_mode = get_effective_locking_mode ~__context ~self value in
 	if effective_locking_mode = `locked then
 		Helpers.assert_vswitch_controller_not_active ~__context;
 	change_locking_config ~__context ~self
@@ -111,3 +113,54 @@ let add_ipv6_allowed ~__context ~self ~value =
 let remove_ipv6_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~licence_check:false
 		(fun () -> Db.VIF.remove_ipv6_allowed ~__context ~self ~value)
+
+let assert_has_feature_static_ip_setting ~__context ~self =
+	let feature = "feature-static-ip-setting" in
+	let vm = Db.VIF.get_VM ~__context ~self in
+	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+	try
+		let other = Db.VM_guest_metrics.get_other ~__context ~self:vm_gm in
+		if List.assoc feature other <> "1" then
+			failwith "not found"
+	with _ ->
+		raise Api_errors.(Server_error (vm_lacks_feature_static_ip_setting, [Ref.string_of vm]))
+
+let assert_no_locking_mode_conflict ~__context ~self kind address =
+	let vif_locking_mode = Db.VIF.get_locking_mode ~__context ~self in
+	if get_effective_locking_mode ~__context ~self vif_locking_mode = `locked then
+		let get = if kind = `ipv4 then Db.VIF.get_ipv4_allowed else Db.VIF.get_ipv6_allowed in
+		let allowed = get ~__context ~self in
+		if not (List.mem address allowed) then
+			raise Api_errors.(Server_error (address_violates_locking_constraint, [address]))
+
+let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
+	if mode = `Static then begin
+		Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting;
+		Helpers.assert_is_valid_cidr `ipv4 "address" address;
+		assert_no_locking_mode_conflict ~__context ~self `ipv4 address;
+		if gateway <> "" then
+			Helpers.assert_is_valid_ip `ipv4 "gateway" gateway;
+	end;
+	assert_has_feature_static_ip_setting ~__context ~self;
+
+	Db.VIF.set_ipv4_configuration_mode ~__context ~self ~value:mode;
+	Db.VIF.set_ipv4_addresses ~__context ~self ~value:[address];
+	Db.VIF.set_ipv4_gateway ~__context ~self ~value:gateway;
+	if device_active ~__context ~self then
+		Xapi_xenops.vif_set_ipv4_configuration ~__context ~self
+
+let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
+	if mode = `Static then begin
+		Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting;
+		Helpers.assert_is_valid_cidr `ipv6 "address" address;
+		assert_no_locking_mode_conflict ~__context ~self `ipv6 address;
+		if gateway <> "" then
+			Helpers.assert_is_valid_ip `ipv6 "gateway" gateway;
+	end;
+	assert_has_feature_static_ip_setting ~__context ~self;
+
+	Db.VIF.set_ipv6_configuration_mode ~__context ~self ~value:mode;
+	Db.VIF.set_ipv6_addresses ~__context ~self ~value:[address];
+	Db.VIF.set_ipv6_gateway ~__context ~self ~value:gateway;
+	if device_active ~__context ~self then
+		Xapi_xenops.vif_set_ipv6_configuration ~__context ~self

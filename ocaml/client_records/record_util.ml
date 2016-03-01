@@ -387,6 +387,16 @@ let ip_configuration_mode_of_string m =
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
 
+let vif_ipv4_configuration_mode_to_string = function
+  | `None -> "None"
+  | `Static -> "Static"
+
+let vif_ipv4_configuration_mode_of_string m =
+  match String.lowercase m with
+  | "none"   -> `None
+  | "static" -> `Static
+  | s        -> raise (Record_failure ("Expected 'none' or 'static', got "^s))
+
 let ipv6_configuration_mode_to_string = function
   | `None -> "None"
   | `DHCP -> "DHCP"
@@ -400,6 +410,16 @@ let ipv6_configuration_mode_of_string m =
   | "static" -> `Static
   | "autoconf" -> `Autoconf
   | s        -> raise (Record_failure ("Expected 'dhcp','none' 'autoconf' or 'static', got "^s))
+
+let vif_ipv6_configuration_mode_to_string = function
+  | `None -> "None"
+  | `Static -> "Static"
+
+let vif_ipv6_configuration_mode_of_string m =
+  match String.lowercase m with
+  | "none"   -> `None
+  | "static" -> `Static
+  | s        -> raise (Record_failure ("Expected 'none' or 'static', got "^s))
 
 let primary_address_type_to_string = function
   | `IPv4 -> "IPv4"

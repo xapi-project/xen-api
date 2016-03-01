@@ -1982,6 +1982,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vif_unplug;
       flags=[];
     };
+   "vif-configure-ipv4",
+    {
+      reqd=["uuid"; "mode"];
+      optn=["address"; "gateway"];
+      help="Configure IPv4 settings on a VIF.";
+      implementation=No_fd Cli_operations.vif_configure_ipv4;
+      flags=[];
+    };
+   "vif-configure-ipv6",
+    {
+      reqd=["uuid"; "mode"];
+      optn=["address"; "gateway"];
+      help="Configure IPv6 settings on a VIF.";
+      implementation=No_fd Cli_operations.vif_configure_ipv6;
+      flags=[];
+    };
    "vm-create",
     {
       reqd=["name-label"];
