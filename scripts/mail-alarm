@@ -264,6 +264,31 @@ class Dom0FSUsageAlarmETG(EmailTextGenerator):
              self.value * 100.0,
              self.alarm_trigger_level * 100.0)
 
+class Dom0LogFSUsageAlarmETG(EmailTextGenerator):
+    def __init__(self, cls, obj_uuid, value, alarm_trigger_level):
+        if alarm_trigger_level is None:
+            alarm_trigger_level = 0.9
+        if cls != 'VM':
+            raise Exception, "programmer error - this alarm should only be available for control domain VM"
+        self.params = get_VM_params(obj_uuid)
+        self.cls = cls
+        self.value = value
+        self.alarm_trigger_level = alarm_trigger_level
+
+    def generate_subject(self):
+        pool_name = get_pool_name()
+        return '[%s] %s Alarm: Log partition nearly full on "%s"' % (pool_name,
+                   branding.PRODUCT_BRAND, self.params['name_label'])
+
+    def generate_body(self):
+        return \
+            'The log partition usage on "%s" is at %.1f%%.\n' \
+            'This alarm is set to be triggered when log partition usage is more than %.1f%%.\n' \
+            '\n' % \
+            (self.params['name_label'],
+             self.value * 100.0,
+             self.alarm_trigger_level * 100.0)
+
 class Dom0MemUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_level):
         if alarm_trigger_level is None:
@@ -414,6 +439,8 @@ class XapiMessage:
                 etg = DiskUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level)
             elif name == 'fs_usage':
                 etg = Dom0FSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level)
+            elif name == 'log_fs_usage':
+                etg = Dom0LogFSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level)
             elif name == 'mem_usage':
                 etg = Dom0MemUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level)
             else:
