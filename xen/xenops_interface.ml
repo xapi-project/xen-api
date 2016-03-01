@@ -434,6 +434,14 @@ module Vif = struct
 
 	type id = string * string
 
+	type ipv4_configuration =
+		| Unspecified4
+		| Static4 of string list * string option (* a list of CIDRs and optionally a gateway *)
+
+	type ipv6_configuration =
+		| Unspecified6
+		| Static6 of string list * string option (* a list of CIDRs and optionally a gateway *)
+
 	type locked_addresses = {
         	ipv4: string list;
         	ipv6: string list;
@@ -455,6 +463,8 @@ module Vif = struct
 		other_config: (string * string) list;
 		locking_mode: locking_mode;
 		extra_private_keys: (string * string) list;
+		ipv4_configuration: ipv4_configuration;
+		ipv6_configuration: ipv6_configuration;
 	}
 
 	type state = {
@@ -651,6 +661,8 @@ module VIF = struct
 	external remove: debug_info -> Vif.id -> unit = ""
 	external set_carrier: debug_info -> Vif.id -> bool -> Task.id = ""
 	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> Task.id = ""
+	external set_ipv4_configuration: debug_info -> Vif.id -> Vif.ipv4_configuration -> Task.id = ""
+	external set_ipv6_configuration: debug_info -> Vif.id -> Vif.ipv6_configuration -> Task.id = ""
 end
 
 module VGPU = struct
