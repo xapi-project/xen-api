@@ -2,14 +2,14 @@ language: c
 services: docker
 install:
         - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
-script: sh travis-build-repo.sh
+script: bash travis-build-repo.sh
 sudo: true
 env:
     global:
         - REPO_PACKAGE_NAME=xapi
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
-        - REPO_TEST_CMD=make test
+        - REPO_TEST_CMD='make test'
     matrix:
         - OCAML_VERSION=4.02
 notifications:
