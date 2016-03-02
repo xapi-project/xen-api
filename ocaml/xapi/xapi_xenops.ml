@@ -1220,6 +1220,35 @@ let trigger_xenapi_reregister =
 		debug "No xapi event thread to wake up"
 	)
 
+let assert_resident_on ~__context ~self =
+	let localhost = Helpers.get_localhost ~__context in
+	assert (Db.VM.get_resident_on ~__context ~self = localhost)
+
+
+module Events_from_xapi = struct
+	let greatest_token = ref ""
+	let c = Condition.create ()
+	let m = Mutex.create ()
+
+	let wait ~__context ~self =
+		assert_resident_on ~__context ~self;
+		let t = Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~_ref:(Ref.string_of self)
+			) in
+		debug "Waiting for token greater than: %s" t;
+		Mutex.execute m
+			(fun () ->
+				while !greatest_token < t do Condition.wait c m done
+			)
+
+	let broadcast new_token =
+		Mutex.execute m
+			(fun () ->
+				greatest_token := new_token;
+				Condition.broadcast c
+			)
+end
 
 module Events_from_xenopsd = struct
 	type t = {
@@ -2002,34 +2031,6 @@ let on_xapi_restart ~__context =
 		Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
 	) xapi_vms_not_in_xenopsd
 
-let assert_resident_on ~__context ~self =
-	let localhost = Helpers.get_localhost ~__context in
-	assert (Db.VM.get_resident_on ~__context ~self = localhost)
-
-module Events_from_xapi = struct
-	let greatest_token = ref ""
-	let c = Condition.create ()
-	let m = Mutex.create ()
-
-	let wait ~__context ~self =
-		assert_resident_on ~__context ~self;
-		let t = Helpers.call_api_functions ~__context
-			(fun rpc session_id ->
-				XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~_ref:(Ref.string_of self)
-			) in
-		debug "Waiting for token greater than: %s" t;
-		Mutex.execute m
-			(fun () ->
-				while !greatest_token < t do Condition.wait c m done
-			)
-
-	let broadcast new_token =
-		Mutex.execute m
-			(fun () ->
-				greatest_token := new_token;
-				Condition.broadcast c
-			)
-end
 
 (* XXX: PR-1255: this will be receiving too many events and we may wish to synchronise
    updates to the VM metadata and resident_on fields *)
