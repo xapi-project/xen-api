@@ -2094,8 +2094,9 @@ let events_from_xapi () =
 												try
 													let id = id_of_vm ~__context ~self:vm in
 													let resident_here = Db.VM.get_resident_on ~__context ~self:vm = localhost in
-													debug "Event on VM %s; resident_here = %b" id resident_here;
-													if resident_here
+													let suppressed = Events.are_suppressed id in
+													debug "Event on VM %s; resident_here = %b (suppression=%b)" id resident_here suppressed;
+													if resident_here && (not suppressed)
 													then Xenopsd_metadata.update ~__context ~self:vm |> ignore
 												with e ->
 													if not(Db.is_valid_ref __context vm)
