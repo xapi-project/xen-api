@@ -238,7 +238,7 @@ let pif_record rpc session_id pif =
       [
 	make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.pIF_uuid) ();
 	make_field ~name:"device"       ~get:(fun () -> (x ()).API.pIF_device) ();
-	make_field ~name:"MAC"          ~get:(fun () -> (x ()).API.pIF_MAC)
+	make_field ~name:"MAC"          ~get:(fun () -> (x ()).API.pIF_MAC) 
 	  ~case_insensitive:true ();
 	make_field ~name:"physical"     ~get:(fun () -> string_of_bool ((x ()).API.pIF_physical)) ();
 	make_field ~name:"managed"      ~get:(fun () -> string_of_bool ((x ()).API.pIF_managed)) ();

@@ -2748,7 +2748,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
 			info "VIF.configure_ipv6: VIF = '%s'; mode = '%s'; address = '%s'; gateway = '%s'"
 				(vif_uuid ~__context self)
-				(Record_util.ipv6_configuration_mode_to_string mode) address gateway;
+				(Record_util.vif_ipv6_configuration_mode_to_string mode) address gateway;
 			let local_fn = Local.VIF.configure_ipv6 ~self ~mode ~address ~gateway in
 			let remote_fn = (fun session_id rpc -> Client.VIF.configure_ipv6 rpc session_id self mode address gateway) in
 			forward_vif_op ~local_fn ~__context ~self remote_fn
