@@ -1,6 +1,6 @@
 SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
-.PHONY: noarch-install install sdk-install
+.PHONY: noarch-install install
 
 .SUBDIRS: examples host-backup-restore poweron templates
 
@@ -127,13 +127,3 @@ install:
 	$(IDATA) gpg/secring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/pubring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/trustdb.gpg $(DESTDIR)/opt/xensource/gpg/
-
-sdk-install: install
-	mkdir -p $(SDK)
-	cp motd $(SDK)/motd
-	$(IPROG) init.d-sdkinit $(DESTDIR)/etc/rc.d/init.d/sdkinit
-	mkdir -p $(DESTDIR)$(SITE_DIR)/xen/lowlevel
-	touch $(DESTDIR)$(SITE_DIR)/xen/__init__.py
-	touch $(DESTDIR)$(SITE_DIR)/xen/lowlevel/__init__.py
-	cp xc.py $(DESTDIR)$(SITE_DIR)/xen/lowlevel
-
