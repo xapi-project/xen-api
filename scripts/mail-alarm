@@ -110,7 +110,8 @@ class EmailTextGenerator:
 
 class CpuUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
-        if not alarm_trigger_period: alarm_trigger_period = 60
+        if alarm_trigger_period is None:
+            alarm_trigger_period = 60
         if cls == 'Host':
             self.params = get_host_params(obj_uuid)
         elif cls == 'VM':
@@ -144,7 +145,8 @@ class CpuUsageAlarmETG(EmailTextGenerator):
 
 class NetworkUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
-        if not alarm_trigger_period: alarm_trigger_period = 60
+        if alarm_trigger_period is None:
+            alarm_trigger_period = 60
         if cls == 'Host':
             self.params = get_host_params(obj_uuid)
         elif cls == 'VM':
@@ -178,7 +180,8 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
 
 class MemoryUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
-        if not alarm_trigger_period: alarm_trigger_period = 60
+        if alarm_trigger_period is None:
+            alarm_trigger_period = 60
         if cls != 'Host':
             raise Exception, "programmer error - this alarm should only be available for hosts"
         self.params = get_host_params(obj_uuid)
@@ -208,7 +211,8 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
 
 class DiskUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level):
-        if not alarm_trigger_period: alarm_trigger_period = 60
+        if alarm_trigger_period is None:
+            alarm_trigger_period = 60
         if cls != 'VM':
             raise Exception, "programmer error - this alarm should only be available for VMs"
         self.params = get_VM_params(obj_uuid)
@@ -237,7 +241,8 @@ class DiskUsageAlarmETG(EmailTextGenerator):
 
 class Dom0FSUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_level):
-        if not alarm_trigger_level: alarm_trigger_level = 0.9
+        if alarm_trigger_level is None:
+            alarm_trigger_level = 0.9
         if cls != 'VM':
             raise Exception, "programmer error - this alarm should only be available for control domain VM"
         self.params = get_VM_params(obj_uuid)
@@ -261,7 +266,8 @@ class Dom0FSUsageAlarmETG(EmailTextGenerator):
 
 class Dom0MemUsageAlarmETG(EmailTextGenerator):
     def __init__(self, cls, obj_uuid, value, alarm_trigger_level):
-        if not alarm_trigger_level: alarm_trigger_level = 0.95
+        if alarm_trigger_level is None:
+            alarm_trigger_level = 0.95
         if cls != 'VM':
             raise Exception, "programmer error - this alarm should only be available for control domain VM"
         self.params = get_VM_params(obj_uuid)
