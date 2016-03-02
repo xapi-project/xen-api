@@ -168,7 +168,7 @@ let pool_migrate ~__context ~vm ~host ~options =
   let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
   let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
+  Xapi_xenops.Events.with_suppressed __context vm queue_name dbg vm_uuid (fun () ->
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
             (* XXX: PR-1255: the live flag *)
@@ -813,7 +813,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
       begin
         try
-	  Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
+	  Xapi_xenops.Events.with_suppressed __context vm queue_name dbg vm_uuid
             (fun () ->
                migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map remote.xenops_url;
                Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid)
@@ -879,7 +879,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     error "Caught %s: cleaning up" (Printexc.to_string e);
 
     (* We do our best to tidy up the state left behind *)
-    Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
+    Events.with_suppressed __context vm queue_name dbg vm_uuid (fun () ->
         try
           let _, state = XenopsAPI.VM.stat dbg vm_uuid in
           if Xenops_interface.(state.Vm.power_state = Suspended) then begin
