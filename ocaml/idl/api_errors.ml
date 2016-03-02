@@ -83,6 +83,7 @@ let host_unknown_to_master = "HOST_UNKNOWN_TO_MASTER"
 let host_broken = "HOST_BROKEN"
 let interface_has_no_ip = "INTERFACE_HAS_NO_IP"
 let invalid_ip_address_specified = "INVALID_IP_ADDRESS_SPECIFIED"
+let invalid_cidr_address_specified = "INVALID_CIDR_ADDRESS_SPECIFIED"
 let pif_has_no_network_configuration = "PIF_HAS_NO_NETWORK_CONFIGURATION"
 let pif_has_no_v6_network_configuration = "PIF_HAS_NO_V6_NETWORK_CONFIGURATION"
 

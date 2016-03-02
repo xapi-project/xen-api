@@ -78,22 +78,17 @@ let set_locking_mode ~__context ~self ~value =
 		~licence_check:(effective_locking_mode = `locked)
 		(fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
 
-let assert_ip_address_is domain field_name addr =
-	match Unixext.domain_of_addr addr with
-	| Some x when x = domain -> ()
-	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
-
 let set_ipv4_allowed ~__context ~self ~value =
 	let setified_value = List.setify value in
 	change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
 		(fun () ->
-			List.iter (assert_ip_address_is Unix.PF_INET "ipv4_allowed") setified_value;
+			List.iter (Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed") setified_value;
 			Db.VIF.set_ipv4_allowed ~__context ~self ~value:setified_value)
 
 let add_ipv4_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~licence_check:true
 		(fun () ->
-			assert_ip_address_is Unix.PF_INET "ipv4_allowed" value;
+			Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed" value;
 			Db.VIF.add_ipv4_allowed ~__context ~self ~value)
 
 let remove_ipv4_allowed ~__context ~self ~value =
@@ -104,13 +99,13 @@ let set_ipv6_allowed ~__context ~self ~value =
 	let setified_value = List.setify value in
 	change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
 		(fun () ->
-			List.iter (assert_ip_address_is Unix.PF_INET6 "ipv6_allowed") setified_value;
+			List.iter (Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed") setified_value;
 			Db.VIF.set_ipv6_allowed ~__context ~self ~value:setified_value)
 
 let add_ipv6_allowed ~__context ~self ~value =
 	change_locking_config ~__context ~self ~licence_check:true
 		(fun () ->
-			assert_ip_address_is Unix.PF_INET6 "ipv6_allowed" value;
+			Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed" value;
 			Db.VIF.add_ipv6_allowed ~__context ~self ~value)
 
 let remove_ipv6_allowed ~__context ~self ~value =

@@ -813,6 +813,34 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
     Currently this just means "CD" but might change in future? *)
 let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
+(* IP address and CIDR checks *)
+
+let is_valid_ip kind address =
+	match Unixext.domain_of_addr address, kind with
+	| Some x, `ipv4 when x = Unix.PF_INET -> true
+	| Some x, `ipv6 when x = Unix.PF_INET6 -> true
+	| _ -> false
+
+let assert_is_valid_ip kind field address =
+	if not (is_valid_ip kind address) then
+		raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
+
+let parse_cidr kind cidr =
+	try
+		let address, prefixlen = Scanf.sscanf cidr "%s@/%d" (fun a p -> a, p) in
+		if not (is_valid_ip kind address) then
+			(error "Invalid address in CIDR (%s)" address; None)
+		else if prefixlen < 0 || (kind = `ipv4 && prefixlen > 32) || (kind = `ipv6 && prefixlen > 128) then
+			(error "Invalid prefix length in CIDR (%d)" prefixlen; None)
+		else
+			Some (address, prefixlen)
+	with _ ->
+		(error "Invalid CIDR format (%s)" cidr; None)
+
+let assert_is_valid_cidr kind field cidr =
+	if parse_cidr kind cidr = None then
+		raise Api_errors.(Server_error (invalid_cidr_address_specified, [field]))
+
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
     let l = String.split ':' mac in

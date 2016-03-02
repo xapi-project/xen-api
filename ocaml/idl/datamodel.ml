@@ -523,6 +523,8 @@ let _ =
     ~doc:"An unknown error occurred while attempting to configure an interface." ();
   error Api_errors.invalid_ip_address_specified [ "parameter" ]
     ~doc:"A required parameter contained an invalid IP address" ();
+  error Api_errors.invalid_cidr_address_specified [ "parameter" ]
+    ~doc:"A required parameter contained an invalid CIDR address (<addr>/<prefix length>)" ();
   error Api_errors.pif_is_management_iface [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF is the management interface." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
