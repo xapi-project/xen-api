@@ -57,6 +57,7 @@ val make: path:string ->
 val serve_forever: server -> unit
 
 val daemon: bool ref
+val loglevel: unit -> Syslog.level
 
 val daemonize: unit -> unit
 
