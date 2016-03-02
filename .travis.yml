@@ -9,7 +9,7 @@ env:
         - REPO_PACKAGE_NAME=xapi
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
-        - REPO_TEST_CMD=make test
+        - REPO_TEST_CMD='make test'
     matrix:
         - OCAML_VERSION=4.02
 notifications:
