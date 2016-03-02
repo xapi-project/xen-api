@@ -1315,7 +1315,7 @@ module Events = struct
     Hashtbl.mem suppressed_on vm
 
   let with_suppressed __context self queue_name dbg vm_id f =
-    debug "suppressing xenops events on VM: %s" vm_id;
+    debug "suppressing xenops and xapi events on VM: %s" vm_id;
     let module Client = (val make_client queue_name : XENOPS) in
     Mutex.execute suppressed_on_m (fun () ->
       Hashtbl.add suppressed_on vm_id ()
@@ -1325,7 +1325,7 @@ module Events = struct
       Mutex.execute suppressed_on_m (fun () ->
         Hashtbl.remove suppressed_on vm_id;
         if not (Hashtbl.mem suppressed_on vm_id) then begin
-          debug "re-enabled xenops events on VM: %s; refreshing VM" vm_id;
+          debug "re-enabled xenops and xapi events on VM: %s; refreshing VM" vm_id;
           Client.UPDATES.refresh_vm dbg vm_id;
           Events_from_xenopsd.wait queue_name dbg vm_id ();
           Events_from_xapi.wait __context self;
@@ -2094,8 +2094,9 @@ let events_from_xapi () =
 												try
 													let id = id_of_vm ~__context ~self:vm in
 													let resident_here = Db.VM.get_resident_on ~__context ~self:vm = localhost in
-													debug "Event on VM %s; resident_here = %b" id resident_here;
-													if resident_here
+													let suppressed = Events.are_suppressed id in
+													debug "Event on VM %s; resident_here = %b (suppression=%b)" id resident_here suppressed;
+													if resident_here && (not suppressed)
 													then Xenopsd_metadata.update ~__context ~self:vm |> ignore
 												with e ->
 													if not(Db.is_valid_ref __context vm)
