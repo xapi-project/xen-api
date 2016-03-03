@@ -95,10 +95,19 @@ let test_2_way_convert =
 		for disk_number = 0 to ((1 lsl 20) -1) do
 			List.iter
 				(fun hvm ->
+					(* We now always convert Ide specs into xvd* linux devices, so they
+					 * become Xen specs when converted back. *)
+					let equal_linux old_t new_t =
+						match spec old_t, spec new_t with
+						| (Ide, disk1, partition1), (Xen, disk2, partition2)
+							when disk1 = disk2 && partition2 = partition2 -> true
+						| old_spec, new_spec -> old_spec = new_spec
+					in
 					let original = of_disk_number hvm disk_number in
 					let of_linux = of_linux_device (to_linux_device original) in
 					let of_xenstore = of_xenstore_key (to_xenstore_key original) in
 					assert_equal
+						~cmp:equal_linux
 						~msg:(Printf.sprintf "linux: hvm = %b; number = %d" hvm disk_number)
 						~printer:to_debug_string
 						original of_linux;
