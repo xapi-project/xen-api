@@ -565,42 +565,16 @@ let destroy ~__context ~self =
 		(fun rpc session_id ->
 			Client.Client.VLAN.destroy rpc session_id vlan)
 
-let is_valid_ip addr =
-	try ignore (Unix.inet_addr_of_string addr); true with _ -> false
-
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 		
-	if gateway <> "" && (not (is_valid_ip gateway)) then
-		raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["gateway"]));
+	if gateway <> "" then
+		Helpers.assert_is_valid_ip `ipv6 "gateway" gateway;
 
 	(* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
-	if iPv6 <> "" then begin
-		let index =
-			try
-				String.index iPv6 '/'
-			with Not_found ->
-				let msg = "Prefix length must be specified (format: <ipv6>/<prefix>" in
-				raise (Api_errors.Server_error
-					(Api_errors.invalid_ip_address_specified, [msg]))
-		in
-		let addr = String.sub iPv6 0 index in
-		let prefix_len = String.sub iPv6 (index + 1) ((String.length iPv6) - index - 1) in
-		if not (is_valid_ip addr) then
-			raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, ["IPv6"]));
-		let pl_int =
-			try
-				int_of_string prefix_len
-			with _ ->
-				let msg = Printf.sprintf "Cannot parse prefix length '%s'" prefix_len in
-				raise (Api_errors.Server_error
-					(Api_errors.invalid_ip_address_specified, [msg]))
-		in
-		if (pl_int < 0 || pl_int > 128) then
-			raise (Api_errors.Server_error
-				(Api_errors.invalid_ip_address_specified, ["Prefix length must be between 0 and 128"]))
-	end;
+	if iPv6 <> "" then
+		Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6;
 
 	(* Management iface must have an address for the primary address type *)
 	let management = Db.PIF.get_management ~__context ~self in
@@ -639,24 +613,18 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
 
-	if mode=`Static
-	then begin
+	if mode = `Static then begin
 		(* require these parameters if mode is static *)
-		if not (is_valid_ip iP)
-		then raise (Api_errors.Server_error
-			(Api_errors.invalid_ip_address_specified, [ "IP" ]));
-		if not (is_valid_ip netmask)
-		then raise (Api_errors.Server_error
-			(Api_errors.invalid_ip_address_specified, [ "netmask" ]));
+		Helpers.assert_is_valid_ip `ipv4 "IP" iP;
+		Helpers.assert_is_valid_ip `ipv4 "netmask" netmask
 	end;
+
 	(* for all IP parameters, if they're not empty
 	 * then check they contain valid IP address *)
 	List.iter
-		(fun (param,value)->
-			if value <> "" && (not (is_valid_ip value))
-			then raise (Api_errors.Server_error
-				(Api_errors.invalid_ip_address_specified, [ param ])))
+		(fun (param, value) -> if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value)
 		["IP",iP; "netmask",netmask; "gateway",gateway];
+
 	(* Do NOT check DNS is a valid IP cos it can be a number
 	 * of things, including a list of IPs separated by commas
 	 *)

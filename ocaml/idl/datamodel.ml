@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 91
+let schema_minor_vsn = 92
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -523,6 +523,10 @@ let _ =
     ~doc:"An unknown error occurred while attempting to configure an interface." ();
   error Api_errors.invalid_ip_address_specified [ "parameter" ]
     ~doc:"A required parameter contained an invalid IP address" ();
+  error Api_errors.invalid_cidr_address_specified [ "parameter" ]
+    ~doc:"A required parameter contained an invalid CIDR address (<addr>/<prefix length>)" ();
+  error Api_errors.address_violates_locking_constraint [ "address" ]
+    ~doc:"The specified IP address violates the VIF locking configuration." ();
   error Api_errors.pif_is_management_iface [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF is the management interface." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
@@ -644,6 +648,8 @@ let _ =
 	  ~doc:"You attempted an operation which needs the VM hotplug-vcpu feature on a VM which lacks it." ();
   error Api_errors.vm_lacks_feature_suspend [ "vm" ]
 	  ~doc:"You attempted an operation which needs the VM cooperative suspend feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature_static_ip_setting [ "vm" ]
+	  ~doc:"You attempted an operation which needs the VM static-ip-setting feature on a VM which lacks it." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]
@@ -5277,6 +5283,16 @@ let device_status_fields =
 
 (* VIF messages *)
 
+let vif_ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", [
+	"None", "Follow the default IPv4 configuration of the guest (this is guest-dependent)";
+	"Static", "Static IPv4 address configuration";
+])
+
+let vif_ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", [
+	"None", "Follow the default IPv6 configuration of the guest (this is guest-dependent)";
+	"Static", "Static IPv6 address configuration";
+])
+
 let vif_plug = call
   ~name:"plug"
   ~in_product_since:rel_rio
@@ -5393,6 +5409,32 @@ let vif_remove_ipv6_allowed = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let vif_configure_ipv4 = call
+	~name:"configure_ipv4"
+	~in_product_since:rel_dundee
+	~doc:"Configure IPv4 settings for this virtual interface"
+	~params:[
+		Ref _vif, "self", "The VIF to configure";
+		vif_ipv4_configuration_mode, "mode", "Whether to use static or no IPv4 assignment";
+		String, "address", "The IPv4 address in <addr>/<prefix length> format (for static mode only)";
+		String, "gateway", "The IPv4 gateway (for static mode only; leave empty to not set a gateway)";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_configure_ipv6 = call
+	~name:"configure_ipv6"
+	~in_product_since:rel_dundee
+	~doc:"Configure IPv6 settings for this virtual interface"
+	~params:[
+		Ref _vif, "self", "The VIF to configure";
+		vif_ipv6_configuration_mode, "mode", "whether to use static or no IPv6 assignment";
+		String, "address", "The IPv6 address in <addr>/<prefix length> format (for static mode only)";
+		String, "gateway", "The IPv6 gateway (for static mode only; leave empty to not set a gateway)";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network interface *)
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
@@ -5401,7 +5443,8 @@ let vif =
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~doc_tags:[Networking]
       ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
-        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed]
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; 
+	vif_configure_ipv4; vif_configure_ipv6]
       ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
@@ -5419,6 +5462,12 @@ let vif =
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "network_default")) ~ty:vif_locking_mode "locking_mode" "current locking mode of the VIF";
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv4_allowed" "A list of IPv4 addresses which can be used to filter traffic passing through this VIF";
 		 field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv6_allowed" "A list of IPv6 addresses which can be used to filter traffic passing through this VIF";
+		 field ~ty:vif_ipv4_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_configuration_mode" "Determines whether IPv4 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+		 field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_addresses" "IPv4 addresses in CIDR format" ~default_value:(Some (VSet []));
+	 	 field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_gateway" "IPv4 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+		 field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+		 field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
+		 field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
 	 ])
 	()
 

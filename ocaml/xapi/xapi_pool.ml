@@ -1587,11 +1587,6 @@ let disable_redo_log ~__context =
 	end;
 	info "The redo log is now disabled"
 
-let assert_is_valid_ip ip_addr =
- 	if ip_addr <> "" then
-	try let (_: Unix.inet_addr) = Unix.inet_addr_of_string ip_addr in ()
-	with _ -> raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, [ "address" ]))
-
 let set_vswitch_controller ~__context ~address =
 	let dbg = Context.string_of_task __context in
 	match Net.Bridge.get_kind dbg () with
@@ -1600,7 +1595,7 @@ let set_vswitch_controller ~__context ~address =
 		let current_address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
 		if current_address <> address then begin
 			if address <> "" then
-				assert_is_valid_ip address;
+				Helpers.assert_is_valid_ip `ipv4 "address" address;
 			Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
 			List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
 		end
