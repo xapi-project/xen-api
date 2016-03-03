@@ -130,8 +130,11 @@ let assert_no_locking_mode_conflict ~__context ~self kind address =
 	if get_effective_locking_mode ~__context ~self vif_locking_mode = `locked then
 		let get = if kind = `ipv4 then Db.VIF.get_ipv4_allowed else Db.VIF.get_ipv6_allowed in
 		let allowed = get ~__context ~self in
-		if not (List.mem address allowed) then
-			raise Api_errors.(Server_error (address_violates_locking_constraint, [address]))
+		match Helpers.parse_cidr kind address with
+		| None -> ()
+		| Some (address', _) ->
+			if not (List.mem address' allowed) then
+				raise Api_errors.(Server_error (address_violates_locking_constraint, [address]))
 
 let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
 	if mode = `Static then begin
