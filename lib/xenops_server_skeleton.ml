@@ -104,6 +104,8 @@ module VIF = struct
 	let move _ _ _ _ = unimplemented "VIF.move"
 	let set_carrier _ _ _ _ = unimplemented "VIF.set_carrier"
 	let set_locking_mode _ _ _ _ = unimplemented "VIF.set_locking_mode"
+	let set_ipv4_configuration _ _ _ _ = unimplemented "VIF.set_ipv4_configuration"
+	let set_ipv6_configuration _ _ _ _ = unimplemented "VIF.set_ipv6_configuration"
 	let get_state _ _ = unplugged_vif
 	let get_device_action_request _ _ = None
 end

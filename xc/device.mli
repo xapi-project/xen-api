@@ -79,8 +79,9 @@ sig
 	       -> mac:string -> carrier:bool 
 	       -> ?mtu:int -> ?rate:(int64 * int64) option
 	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid 
-	       -> ?other_config:((string * string) list) 
-	       -> ?extra_private_keys:(string * string) list -> Xenctrl.domid
+	       -> ?other_config:((string * string) list)
+	       -> ?extra_private_keys:(string * string) list
+	       -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
 	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit

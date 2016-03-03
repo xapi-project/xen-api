@@ -164,6 +164,13 @@ let get_private_data_path_of_device (x: device) =
 let get_private_data_path_of_device_by_uuid uuid kind devid =
 	sprintf "%s/private/%s/%d" (get_private_path_by_uuid uuid) kind devid
 
+(** Location of the device node's extra xenserver xenstore keys *)
+let extra_xenserver_path_of_device ~xs (x: device) =
+	sprintf "%s/xenserver/device/%s/%d"
+		(xs.Xs.getdomainpath x.frontend.domid)
+		(string_of_kind x.backend.kind)
+		x.frontend.devid
+			
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
