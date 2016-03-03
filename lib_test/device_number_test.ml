@@ -1,4 +1,5 @@
 open Device_number
+open OUnit
 
 (* spec * linux string * xenstore key *)
 let examples = [
@@ -22,6 +23,11 @@ let deprecated = [
 	(Ide, 15, 0), "hdp", 22848;
 ]
 
+let examples_to_test =
+	let using_deprecated_ide =
+		try ignore(make (Ide, 4, 0)); true with _ -> false in
+	examples @ (if using_deprecated_ide then deprecated else [])
+
 let equivalent = [
 	"d0", "xvda";
 	"d0", "0";
@@ -31,43 +37,83 @@ let equivalent = [
 	"d536p37", "xvdtq37";
 ]
 
-let _ = 
-	let using_deprecated_ide = try ignore(make (Ide, 4, 0)); true with _ -> false in
-	List.iter
-		(fun (spec, linux, xenstore) ->
-			let i = make spec in
-			let j = of_linux_device linux in
-			let k = of_xenstore_key xenstore in
-			if i <> j
-			then failwith (Printf.sprintf "examples %s i (%s) <> j (%s)" linux (to_debug_string i) (to_debug_string j));
-			if i <> k
-			then failwith (Printf.sprintf "examples %s i (%s)<> k (%s)" linux (to_debug_string i) (to_debug_string k));
-		) (examples @ (if using_deprecated_ide then deprecated else []));
-	(* NB we always understand these even if we don't generate them ourselves *)
-	List.iter
-		(fun (spec, linux, xenstore) ->
-			let j = of_linux_device linux in
-			let k = of_xenstore_key xenstore in
-			if j <> k
-			then failwith (Printf.sprintf "examples %s j (%s)<> k (%s)" linux (to_debug_string j) (to_debug_string k));
-		) deprecated;
-	List.iter
-		(fun (x, y) ->
-			let x' = of_string false x in
-			let y' = of_string false y in
-			if x' <> y'
-			then failwith (Printf.sprintf "equivalent x' (%s) <> y' (%s)" (to_debug_string x') (to_debug_string y'))
-		) equivalent;				
-	for x = 0 to ((1 lsl 20) - 1) do
-		List.iter
-			(fun hvm ->
-				let i = of_disk_number hvm x in
-				let j = of_xenstore_key (to_xenstore_key i) in
-				let k = of_linux_device (to_linux_device i) in
-				if i <> j
-				then failwith (Printf.sprintf "i (%s) <> j (%s)" (to_debug_string i) (to_debug_string j));
-				if i <> k
-				then failwith (Printf.sprintf "i (%s) <> k (%s)" (to_debug_string i) (to_debug_string k))
-			) [ true; false ]
-	done;
-	Printf.printf "OK\n"
+let test_examples =
+	let tests =
+		List.map
+			(fun (spec, linux, xenstore) ->
+				linux >:: (fun () ->
+					let of_spec = make spec in
+					let of_linux = of_linux_device linux in
+					let of_xenstore = of_xenstore_key xenstore in
+					assert_equal
+						~msg:(Printf.sprintf "examples: '%s' not equal" linux)
+						~printer:to_debug_string
+						of_spec of_linux;
+					assert_equal
+						~msg:(Printf.sprintf "examples: '%s' not equal" linux)
+						~printer:to_debug_string
+						of_spec of_xenstore))
+			examples_to_test
+	in
+	"test_examples" >::: tests
+
+(* NB we always understand the deprecated linux/xenstore devices even if we
+ * don't generate them ourselves *)
+let test_deprecated =
+	let tests =
+		List.map
+			(fun (_, linux, xenstore) ->
+				linux >:: (fun () ->
+					let of_linux = of_linux_device linux in
+					let of_xenstore = of_xenstore_key xenstore in
+					assert_equal
+						~msg:(Printf.sprintf "deprecated: '%s' not equal" linux)
+						~printer:to_debug_string
+						of_linux of_xenstore))
+			deprecated
+	in
+	"test_deprecated" >::: tests
+
+let test_equivalent =
+	let tests =
+		List.map
+			(fun (x, y) ->
+				let test_name = Printf.sprintf "%s=%s" x y in
+				test_name >:: (fun () ->
+					let x' = of_string false x in
+					let y' = of_string false y in
+					assert_equal
+						~msg:"equivalent: not equal"
+						~printer:to_debug_string
+						x' y'))
+			equivalent
+	in
+	"test_equivalent" >::: tests
+
+let test_2_way_convert =
+	"test_2_way_convert" >:: (fun () ->
+		for disk_number = 0 to ((1 lsl 20) -1) do
+			List.iter
+				(fun hvm ->
+					let original = of_disk_number hvm disk_number in
+					let of_linux = of_linux_device (to_linux_device original) in
+					let of_xenstore = of_xenstore_key (to_xenstore_key original) in
+					assert_equal
+						~msg:(Printf.sprintf "linux: hvm = %b; number = %d" hvm disk_number)
+						~printer:to_debug_string
+						original of_linux;
+					assert_equal
+						~msg:(Printf.sprintf "xenstore: hvm = %b; number = %d" hvm disk_number)
+						~printer:to_debug_string
+						original of_xenstore)
+				[true; false]
+		done)
+
+let tests =
+	"xcp_device_number" >:::
+		[
+			test_examples;
+			test_deprecated;
+			test_equivalent;
+			test_2_way_convert;
+		]
