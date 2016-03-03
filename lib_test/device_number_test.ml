@@ -2,24 +2,24 @@ open Device_number
 
 (* spec * linux string * xenstore key *)
 let examples = [
-	Xen(0, 0), "xvda", 51712;
-	Xen(0, 1), "xvda1", 51713;
-	Ide(0, 0), "hda", 768;
-	Ide(0, 1), "hda1", 769;
-	Scsi(0, 0), "sda", 2048;
-	Scsi(0, 1), "sda1", 2049;
-	Scsi(1, 3), "sdb3", 2067;
-	Ide(2, 2), "hdc2", 5634;
-	Xen(26, 0), "xvdaa", 268442112;
+	(Xen, 0, 0), "xvda", 51712;
+	(Xen, 0, 1), "xvda1", 51713;
+	(Ide, 0, 0), "hda", 768;
+	(Ide, 0, 1), "hda1", 769;
+	(Scsi, 0, 0), "sda", 2048;
+	(Scsi, 0, 1), "sda1", 2049;
+	(Scsi, 1, 3), "sdb3", 2067;
+	(Ide, 2, 2), "hdc2", 5634;
+	(Xen, 26, 0), "xvdaa", 268442112;
 ]
 
 let deprecated = [
-	Ide(4, 0), "hde", 8448;
-	Ide(5, 0), "hdf", 8512;
-	Ide(6, 0), "hdg", 8704;
-	Ide(7, 0), "hdh", 8768;
-	Ide(8, 0), "hdi", 14336;
-	Ide(15, 0), "hdp", 22848;
+	(Ide, 4, 0), "hde", 8448;
+	(Ide, 5, 0), "hdf", 8512;
+	(Ide, 6, 0), "hdg", 8704;
+	(Ide, 7, 0), "hdh", 8768;
+	(Ide, 8, 0), "hdi", 14336;
+	(Ide, 15, 0), "hdp", 22848;
 ]
 
 let equivalent = [
@@ -32,7 +32,7 @@ let equivalent = [
 ]
 
 let _ = 
-	let using_deprecated_ide = try ignore(make (Ide(4, 0))); true with _ -> false in
+	let using_deprecated_ide = try ignore(make (Ide, 4, 0)); true with _ -> false in
 	List.iter
 		(fun (spec, linux, xenstore) ->
 			let i = make spec in
