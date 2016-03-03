@@ -240,16 +240,12 @@ let parse_disk_info x = match Re_str.split_delim (Re_str.regexp "[,]") x with
 
 let vbd_of_disk_info vm_id info =
 	{
+		Vbd.default_t with
 		Vbd.id = vm_id, info.id;
 		position = Some info.position;
 		mode = info.mode;
 		backend = info.disk;
 		ty = info.ty;
-		unpluggable = true;
-		extra_backend_keys = [];
-		extra_private_keys = [];
-		qos = None;
-		persistent = true;
 	}
 
 let print_disk vbd =
@@ -281,16 +277,11 @@ let parse_vif vm_id (x, idx) =
 			Printf.fprintf stderr "I don't understand '%s'. Please use 'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n" x;
 			exit 2
 	) xs in {
+		Vif.default_t with
 		Vif.id = vm_id, string_of_int idx;
 		position = idx;
 		mac = if List.mem_assoc _mac kvpairs then List.assoc _mac kvpairs else "";
-		carrier = true;
-		mtu = 1500;
-		rate = None;
-		backend = if List.mem_assoc _bridge kvpairs then Network.Local (List.assoc _bridge kvpairs) else Network.Local "xenbr0";
-		other_config = [];
-		locking_mode = Vif.Unlocked;
-		extra_private_keys = [];
+		backend = if List.mem_assoc _bridge kvpairs then Network.Local (List.assoc _bridge kvpairs) else Network.default_t;
 	}
 
 let print_vm id =
