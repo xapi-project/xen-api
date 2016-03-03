@@ -34,6 +34,9 @@ Executable fe_test
   Install:            false
   BuildDepends:       stdext, forkexec, uuidm
 
+Test fe_test
+  Command:            test/fe_test.sh
+  WorkingDirectory:   .
 
 Executable fe_cli
   CompiledObject:     best
