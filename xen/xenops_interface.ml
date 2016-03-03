@@ -94,6 +94,8 @@ module Network = struct
 		| Local of string (** name of a local switch *)
 		| Remote of string * string (** vm.id * switch *)
 	type ts = t list
+	
+	let default_t = Local "xenbr0"
 end
 
 module Pci = struct
@@ -434,15 +436,29 @@ module Vif = struct
 
 	type id = string * string
 
+	type ipv4_configuration =
+		| Unspecified4
+		| Static4 of string list * string option (* a list of CIDRs and optionally a gateway *)
+
+	let default_ipv4_configuration = Unspecified4
+
+	type ipv6_configuration =
+		| Unspecified6
+		| Static6 of string list * string option (* a list of CIDRs and optionally a gateway *)
+
+	let default_ipv6_configuration = Unspecified6
+
 	type locked_addresses = {
-        	ipv4: string list;
-        	ipv6: string list;
+		ipv4: string list;
+		ipv6: string list;
 	}
 
-        type locking_mode =
-        	| Unlocked (* all traffic permitted *)
+	type locking_mode =
+		| Unlocked (* all traffic permitted *)
 		| Disabled (* no traffic permitted *)
 		| Locked of locked_addresses
+
+	let default_locking_mode = Unlocked
 
 	type t = {
 		id: id;
@@ -455,7 +471,26 @@ module Vif = struct
 		other_config: (string * string) list;
 		locking_mode: locking_mode;
 		extra_private_keys: (string * string) list;
+		ipv4_configuration: ipv4_configuration;
+		ipv6_configuration: ipv6_configuration;
 	}
+
+	let default_t = {
+		id = "", "";
+		position = 0;
+		mac = "fe:ff:ff:ff:ff:ff";
+		carrier = true;
+		mtu = 1500;
+		rate = None;
+		backend = Network.default_t;
+		other_config = [];
+		locking_mode = default_locking_mode;
+		extra_private_keys = [];
+		ipv4_configuration = default_ipv4_configuration;
+		ipv6_configuration = default_ipv6_configuration;
+	}
+
+	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
 
 	type state = {
 		active: bool;
@@ -651,6 +686,8 @@ module VIF = struct
 	external remove: debug_info -> Vif.id -> unit = ""
 	external set_carrier: debug_info -> Vif.id -> bool -> Task.id = ""
 	external set_locking_mode: debug_info -> Vif.id -> Vif.locking_mode -> Task.id = ""
+	external set_ipv4_configuration: debug_info -> Vif.id -> Vif.ipv4_configuration -> Task.id = ""
+	external set_ipv6_configuration: debug_info -> Vif.id -> Vif.ipv6_configuration -> Task.id = ""
 end
 
 module VGPU = struct
