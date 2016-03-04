@@ -32,7 +32,7 @@ let all_combinations fds =
   let x = List.map (fun x -> { x with stderr = true; max_extra = x.max_extra - 1 }) x @ x in
   let x = List.map (fun x -> { x with stdout = true; max_extra = x.max_extra - 1 }) x @ x in
   let x = List.map (fun x -> { x with stdin = true;  max_extra = x.max_extra - 1 }) x @ x in
-  let x = List.concat (List.map (fun x -> List.map (fun n -> { x with extra = n }) (mkints x.max_extra)) x) in
+  let x = List.concat (List.map (fun x -> List.map (fun n -> { x with extra = n }) (max_fds :: (mkints x.max_extra))) x) in
   x
 
 let shuffle x = 
