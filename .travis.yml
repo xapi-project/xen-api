@@ -1,6 +1,12 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
+services: docker
+install:
+    - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
+script: bash travis-build-repo.sh
 sudo: true
 env:
-        - OCAML_VERSION=4.01 PACKAGE=xapi-xenopsd FORK_USER=xapi-project EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
+    global:
+        - REPO_PACKAGE_NAME=xenopsd
+        - REPO_CONFIGURE_CMD=./configure
+        - REPO_BUILD_CMD=make
+        - REPO_TEST_CMD=true
