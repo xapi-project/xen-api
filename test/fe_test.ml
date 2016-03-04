@@ -16,22 +16,23 @@ type config = {
 	extra: int;
 }
 
+let min_fds = 7
 let max_fds = 1024 - 8 (* fe daemon has a bunch for its own use *)
 
-let all_combinations () = 
+let all_combinations fds = 
   let y = {
 	  stdin = false;
 	  stdout = false;
 	  stderr = false;
 	  named_fds = 0;
-	  max_extra = max_fds;
+	  max_extra = fds;
 	  extra = 0;
   } in
   let x = List.map (fun n -> { y with named_fds = n; max_extra = y.max_extra - n }) (mkints 5) in
   let x = List.map (fun x -> { x with stderr = true; max_extra = x.max_extra - 1 }) x @ x in
   let x = List.map (fun x -> { x with stdout = true; max_extra = x.max_extra - 1 }) x @ x in
   let x = List.map (fun x -> { x with stdin = true;  max_extra = x.max_extra - 1 }) x @ x in
-  let x = List.concat (List.map (fun x -> List.map (fun n -> { x with extra = n }) (mkints x.max_extra)) x) in
+  let x = List.concat (List.map (fun x -> List.map (fun n -> { x with extra = n }) (max_fds :: (mkints x.max_extra))) x) in
   x
 
 let shuffle x = 
@@ -44,7 +45,7 @@ let shuffle x =
 
 let irrelevant_strings = [ "irrelevant"; "not"; "important" ]
 
-let one x = 
+let one fds x =
   (*Printf.fprintf stderr "named_fds = %d\n" x.named_fds;
   Printf.fprintf stderr "extra = %d\n" x.extra;*)
   let fd = Unix.stdin in
@@ -56,7 +57,7 @@ let one x =
 
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid()) in
   let table = (fun x -> List.combine x (List.map (fun _ -> fd) x)) (names @ other_names) in
-  let args = "slave" :: (string_of_int (max_fds - (x.max_extra - number_of_extra))) :: (shuffle cmdline_names) in
+  let args = "slave" :: (string_of_int (fds - (x.max_extra - number_of_extra))) :: (shuffle cmdline_names) in
 (*  Printf.fprintf stderr "stdin = %s\n" (if x.stdin then "Some" else "None");
   Printf.fprintf stderr "stdout = %s\n" (if x.stdout then "Some" else "None");
   Printf.fprintf stderr "stderr = %s\n" (if x.stderr then "Some" else "None");
@@ -95,11 +96,11 @@ let test_notimeout () =
     failwith (Printf.sprintf "Failed with unexpected exception: %s" (Printexc.to_string e))
 
 
-let master () = 
+let master fds =
   test_delay ();
   test_notimeout ();
   Printf.printf "\nCompleted timeout test\n";
-  let combinations = shuffle (all_combinations ()) in
+  let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n" (List.length combinations);
   let i = ref 0 in
   let update_progress f x = 
@@ -111,7 +112,7 @@ let master () =
 	  flush stdout;
 	f x;
   in
-  List.iter (update_progress one) combinations;
+  List.iter (update_progress (one fds)) combinations;
   Printf.printf "\nCompleted %d tests\n" (List.length combinations)
 
 
@@ -152,13 +153,25 @@ let sleep () =
 
 let usage () =
   Printf.printf "Usage:\n";
-  Printf.printf " %s - perform a test of the fe service\n" Sys.argv.(0);
+  Printf.printf
+    " %s - perform a test of the fe service, testing up to the maximum fd count\n"
+    Sys.argv.(0);
+  Printf.printf
+    " %s fds - perform a test of the fe services, testing up to <fds> fds\n"
+    Sys.argv.(0);
+  Printf.printf
+    "          <fds> must be between %d and %d inclusive\n" min_fds max_fds;
   exit 1
 
 let _ = 
   match Array.to_list Sys.argv with
   | _ :: "sleep" :: _ -> sleep ()
   | _ :: "slave" :: rest -> slave rest
-  | _ :: [] -> master ()
+  | _ :: [] -> master max_fds
+  | _ :: fds :: [] -> begin
+    match (try Some (int_of_string fds) with _ -> None) with
+    | Some fds when fds >= min_fds && fds <= max_fds -> master fds
+    | _ -> usage ()
+  end
   | _ -> usage ()
 
