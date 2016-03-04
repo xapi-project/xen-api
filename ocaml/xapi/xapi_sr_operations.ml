@@ -84,70 +84,91 @@ let valid_operations ~__context record _ref' : table =
      Multiple simultaneous PBD.unplug operations are ok.
   *)
 
-  (* First consider the backend SM features *)
-  let sm_features = features_of_sr ~__context record in
+  let check_sm_features ~__context record =
+    (* First consider the backend SM features *)
+    let sm_features = features_of_sr ~__context record in
 
-  (* Then filter out the operations we don't want to see for the magic tools SR *)
-  let sm_features =
-    if record.Db_actions.sR_is_tools_sr
-    then List.filter
-		(fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
-		sm_features
-    else sm_features in
+    (* Then filter out the operations we don't want to see for the magic tools SR *)
+    let sm_features =
+      if record.Db_actions.sR_is_tools_sr
+      then List.filter
+                  (fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
+                  sm_features
+      else sm_features in
 
-  let forbidden_by_backend = 
-    List.filter (fun op -> List.mem_assoc op sm_cap_table
-	                       && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
-      all_ops in
-  set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend;
+    let forbidden_by_backend = 
+      List.filter (fun op -> List.mem_assoc op sm_cap_table
+                                 && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
+        all_ops in
+    set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend
+  in
 
-  (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
-  let all_pbds_attached_to_this_sr =
-	Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
-  if List.length all_pbds_attached_to_this_sr > 0 then
-	set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
-  else ();
+  let check_any_attached_pbds ~__context record =
+    (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
+    let all_pbds_attached_to_this_sr =
+      Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal _ref), Eq(Field "currently_attached", Literal "true"))) in
+    if List.length all_pbds_attached_to_this_sr > 0 then
+      set_errors Api_errors.sr_has_pbd [ _ref ] [ `destroy; `forget ]
+    else ()
+  in
 
-	(* If the SR has no PBDs, destroy is not allowed. *)
-	if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
-		set_errors Api_errors.sr_no_pbds [_ref] [`destroy];
+  let check_no_pbds ~__context record =
+    (* If the SR has no PBDs, destroy is not allowed. *)
+    if (Db.SR.get_PBDs ~__context ~self:_ref') = [] then
+      set_errors Api_errors.sr_no_pbds [_ref] [`destroy]
+  in
 
-	(* If the SR contains any managed VDIs, destroy is not allowed. *)
-	let all = List.fold_left (fun acc p -> And(acc, p)) True in
-	let only_stats_vdis_constraints = [
-		Eq(Field "SR", Literal _ref);
-		Eq(Field "managed", Literal "true");
-		Not(Eq(Field "type", Literal "rrd"));
-	] in
-	if (Db.VDI.get_records_where ~__context ~expr:(all only_stats_vdis_constraints)) <> [] then
-		set_errors Api_errors.sr_not_empty [] [`destroy];
+  let check_any_managed_vdis ~__context record =
+    (* If the SR contains any managed VDIs, destroy is not allowed. *)
+    let all = List.fold_left (fun acc p -> And(acc, p)) True in
+    let only_stats_vdis_constraints = [
+      Eq(Field "SR", Literal _ref);
+      Eq(Field "managed", Literal "true");
+      Not(Eq(Field "type", Literal "rrd"));
+    ] in
+    if (Db.VDI.get_records_where ~__context ~expr:(all only_stats_vdis_constraints)) <> [] then
+      set_errors Api_errors.sr_not_empty [] [`destroy]
+  in
 
-  let safe_to_parallelise = [ ] in
-  let current_ops = List.setify (List.map snd current_ops) in
-  
-  (* If there are any current operations, all the non_parallelisable operations
-     must definitely be stopped *)
-  if current_ops <> []
-  then set_errors Api_errors.other_operation_in_progress
-    [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    (List.set_difference all_ops safe_to_parallelise);
-
-  let all_are_parallelisable = List.fold_left (&&) true 
-    (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
-  (* If not all are parallelisable (eg a vdi_resize), ban the otherwise 
-     parallelisable operations too *)
-  if not(all_are_parallelisable)
-  then set_errors  Api_errors.other_operation_in_progress
-    [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-    safe_to_parallelise;
-
-  (* Check whether there are any conflicts with HA that prevent us from
-   * plugging a PBD for this SR *)
-  (try
-    Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
-  with Api_errors.Server_error (e, args) ->
-    set_errors e args [`plug]);
+  let check_parallel_ops ~__context record =
+    let safe_to_parallelise = [ ] in
+    let current_ops = List.setify (List.map snd current_ops) in
     
+    (* If there are any current operations, all the non_parallelisable operations
+       must definitely be stopped *)
+    if current_ops <> []
+    then set_errors Api_errors.other_operation_in_progress
+      [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
+      (List.set_difference all_ops safe_to_parallelise);
+
+    let all_are_parallelisable = List.fold_left (&&) true 
+      (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
+    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise 
+       parallelisable operations too *)
+    if not(all_are_parallelisable)
+    then set_errors  Api_errors.other_operation_in_progress
+      [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
+      safe_to_parallelise
+  in
+
+  let check_cluster_stack_compatible ~__context record =
+    (* Check whether there are any conflicts with HA that prevent us from
+     * plugging a PBD for this SR *)
+    (try
+      Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
+    with Api_errors.Server_error (e, args) ->
+      set_errors e args [`plug])
+  in
+
+  List.iter (fun f -> f ~__context record) [
+    check_sm_features;
+    check_any_attached_pbds;
+    check_no_pbds;
+    check_any_managed_vdis;
+    check_parallel_ops;
+    check_cluster_stack_compatible;
+  ];
+
   table
 
 let throw_error (table: table) op = 
