@@ -2016,6 +2016,8 @@ let on_xapi_restart ~__context =
 		Client.VM.remove dbg id
 	) xenopsd_vms_not_in_xapi;
 
+	List.iter (fun ((id, _), _) -> add_caches id) xenopsd_vms_in_xapi;
+
 	(* Sync VM state in Xapi for VMs running by local Xenopsds *)
 	List.iter (fun ((id, state), queue_name) ->
 		let vm = vm_of_id ~__context id in
@@ -2477,6 +2479,7 @@ let reboot ~__context ~self timeout =
 			(* If Xenopsd no longer knows about the VM after cleanup it was shutdown *)
 			if not (vm_exists_in_xenopsd queue_name dbg id) then
 				raise (Bad_power_state (Halted, Running));
+			let _ = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
 			(* Ensure we have the latest version of the VM metadata before the reboot *)
 			Events_from_xapi.wait ~__context ~self;
 			info "xenops: VM.reboot %s" id;
