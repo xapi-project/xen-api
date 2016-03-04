@@ -66,8 +66,9 @@ let features_of_sr_internal ~__context ~_type =
 let features_of_sr ~__context record =
 	features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
 
-(** Returns a table of operations -> API error options (None if the operation would be ok) *)
-let valid_operations ~__context record _ref' : table = 
+(** Returns a table of operations -> API error options (None if the operation would be ok)
+ * If op is specified, the table may omit reporting errors for ops other than that one. *)
+let valid_operations ~__context ?op record _ref' : table = 
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.sR_current_operations in
 
@@ -160,15 +161,23 @@ let valid_operations ~__context record _ref' : table =
       set_errors e args [`plug])
   in
 
-  List.iter (fun f -> f ~__context record) [
-    check_sm_features;
-    check_any_attached_pbds;
-    check_no_pbds;
-    check_any_managed_vdis;
-    check_parallel_ops;
-    check_cluster_stack_compatible;
-  ];
+  (* List of (operations * function which checks for errors relevant to those operations) *)
+  let relevant_functions = [
+    all_ops,               check_sm_features;
+    [ `destroy; `forget ], check_any_attached_pbds;
+    [ `destroy ],          check_no_pbds;
+    [ `destroy ],          check_any_managed_vdis;
+    all_ops,               check_parallel_ops;
+    [ `plug ],             check_cluster_stack_compatible;
+  ] in
 
+  let relevant_functions =
+    match op with
+    | None -> relevant_functions
+    | Some op -> List.filter (fun (ops, _) -> List.mem op ops) relevant_functions
+  in
+  List.iter (fun (_, f) -> f ~__context record) relevant_functions;
+  
   table
 
 let throw_error (table: table) op = 
@@ -181,7 +190,7 @@ let throw_error (table: table) op =
 
 let assert_operation_valid ~__context ~self ~(op:API.storage_operations) = 
   let all = Db.SR.get_record_internal ~__context ~self in
-  let table = valid_operations ~__context all self in
+  let table = valid_operations ~__context ~op all self in
   throw_error table op
     
 let update_allowed_operations ~__context ~self : unit =
