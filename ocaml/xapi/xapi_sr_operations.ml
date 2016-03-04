@@ -66,6 +66,8 @@ let features_of_sr_internal ~__context ~_type =
 let features_of_sr ~__context record =
 	features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
 
+exception Found_managed_vdi
+
 (** Returns a table of operations -> API error options (None if the operation would be ok)
  * If op is specified, the table may omit reporting errors for ops other than that one. *)
 let valid_operations ~__context ?op record _ref' : table = 
@@ -121,13 +123,15 @@ let valid_operations ~__context ?op record _ref' : table =
 
   let check_any_managed_vdis ~__context record =
     (* If the SR contains any managed VDIs, destroy is not allowed. *)
-    let all = List.fold_left (fun acc p -> And(acc, p)) True in
-    let only_stats_vdis_constraints = [
-      Eq(Field "SR", Literal _ref);
-      Eq(Field "managed", Literal "true");
-      Not(Eq(Field "type", Literal "rrd"));
-    ] in
-    if (Db.VDI.get_records_where ~__context ~expr:(all only_stats_vdis_constraints)) <> [] then
+    (* CA-202385: Iterating through them until we find the first managed one is normally more efficient than calling Db.VDI.get_records_where with managed=true *)
+    let vdis = Db.SR.get_VDIs ~__context ~self:_ref' in
+    try
+      List.fold_left (fun acc vdi_ref ->
+        let vdi = Db.VDI.get_record ~__context ~self:vdi_ref in
+        if vdi.API.vDI_managed = true && vdi.API.vDI_type <> `rrd then raise Found_managed_vdi;
+        acc
+      ) () vdis
+    with Found_managed_vdi ->
       set_errors Api_errors.sr_not_empty [] [`destroy]
   in
 
