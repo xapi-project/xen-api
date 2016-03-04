@@ -472,7 +472,7 @@
     <value>The uploaded update already exists</value>
   </data>
   <data name="PATCH_APPLY_FAILED" xml:space="preserve">
-    <value>The update failed to apply.  View output for more details.</value>
+    <value>The update failed to apply. View logs for more details.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_ISO_MOUNTED" xml:space="preserve">
     <value>Tools ISO must be ejected from all running VMs in the pool.</value>
@@ -564,6 +564,9 @@
   <data name="POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION" xml:space="preserve">
     <value>The server joining the pool must have the same product version as the pool master.</value>
   </data>
+  <data name="POOL_JOINING_HOST_MUST_ONLY_HAVE_PHYSICAL_PIFS" xml:space="preserve">
+    <value>The host joining the pool must not have any bonds, VLANs or tunnels.</value>
+  </data>
   <data name="RBAC_PERMISSION_DENIED" xml:space="preserve">
     <value>Your current role is not authorized to perform this action.
 Action: {0}</value>
@@ -595,9 +598,6 @@ Authorized Roles: {1}</value>
   </data>
   <data name="SESSION_NOT_REGISTERED" xml:space="preserve">
     <value>This session {0} is not registered to receive events.  You must call event.register before event.next.  The session handle you are using is echoed.</value>
-  </data>
-  <data name="SR_ATTACHED_ON_SLAVE" xml:space="preserve">
-    <value>The SR is currently attached on a host other than the master.</value>
   </data>
   <data name="SR_BACKEND_FAILURE" xml:space="preserve">
     <value>The SR failed to complete the operation</value>
@@ -762,7 +762,7 @@ Authorized Roles: {1}</value>
     <value>The tapdisk failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
-    <value>Extended characters are not supported in CIFS paths, usernames, and passwords.</value>
+    <value>Extended characters are not supported in SMB paths, usernames, and passwords.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_47" xml:space="preserve">
     <value>The storage repository is not available</value>
@@ -1021,6 +1021,9 @@ Authorized Roles: {1}</value>
   </data>
   <data name="VM_HVM_REQUIRED-SHORT" xml:space="preserve">
     <value>HVM not supported</value>
+  </data>
+  <data name="VM_INCOMPATIBLE_WITH_THIS_HOST" xml:space="preserve">
+    <value>The host does not have some of the CPU features that the VM is currently using</value>
   </data>
   <data name="VM_IS_PART_OF_AN_APPLIANCE" xml:space="preserve">
     <value>The VM cannot be recovered on its own as it is part of a VM appliance.</value>
