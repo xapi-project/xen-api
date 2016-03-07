@@ -1,18 +1,23 @@
 open OUnit
 
-let assert_threshold level (err, warn, info, debug) =
+(* Test which log levels are masked off by each threshhold level.
+   Levels are ordered by severity - Err is the highest, Debug the
+   lowest.   If the log threshold is set to Warning, the less
+   severe levels (Info and Debug) should be masked out. *)
+
+let assert_masked ~threshold (err, warn, info, debug) =
 	let open Syslog in
-	assert ((is_masked ~threshold:Err     level) = err);
-	assert ((is_masked ~threshold:Warning level) = warn);
-	assert ((is_masked ~threshold:Info    level) = info);
-	assert ((is_masked ~threshold:Debug   level) = debug)
+	assert ((is_masked ~threshold:threshold Err)     = err);
+	assert ((is_masked ~threshold:threshold Warning) = warn);
+	assert ((is_masked ~threshold:threshold Info)    = info);
+	assert ((is_masked ~threshold:threshold Debug)   = debug)
 
 let test_is_masked () =
 	let open Syslog in
-	assert_threshold Debug   (true,  true,  true,  false);
-	assert_threshold Info    (true,  true,  false, false);
-	assert_threshold Warning (true,  false, false, false);
-	assert_threshold Err     (false, false, false, false)
+	assert_masked ~threshold:Debug   (false,  false, false, false);
+	assert_masked ~threshold:Info    (false,  false, false, true);
+	assert_masked ~threshold:Warning (false,  false, true,  true);
+	assert_masked ~threshold:Err     (false,  true,  true,  true)
 
 let tests =
   "debug" >:::
