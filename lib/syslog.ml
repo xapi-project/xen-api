@@ -71,3 +71,8 @@ let string_of_level = function
 	| Notice  -> "notice"
 	| Info    -> "info"
 	| Debug   -> "debug"
+
+let is_masked ~threshold level =
+    (* This comparison relies on the order in which the constructors in
+       level are declared *)
+    threshold < level

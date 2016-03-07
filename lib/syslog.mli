@@ -49,3 +49,6 @@ val level_of_string : string -> level
 val string_of_level : level -> string
 (** [string_of_level level] Return the string corresponding to the Syslog level [level] *)
 
+val is_masked : threshold:level -> level -> bool
+(** [is_masked ~threshold level] Return true if [level] is below [threshold] and should therefore
+    not be logged. *)

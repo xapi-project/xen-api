@@ -8,6 +8,7 @@ let suite =
       Xen_test.tests;
       Http_test.tests;
       Debug_test.tests;
+      Syslog_test.tests;
     ]
 
 let () =

@@ -132,7 +132,7 @@ let disabled_modules () =
 
 let is_disabled brand level =
   Mutex.execute loglevel_m (fun () ->
-    !loglevel < level ||
+    Syslog.is_masked ~threshold:!loglevel level ||
       Hashtbl.mem logging_disabled_for (brand, level)
   )
 
