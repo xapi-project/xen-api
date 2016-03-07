@@ -133,7 +133,7 @@
     <value>Could not enable external authentication.</value>
   </data>
   <data name="AUTH_ENABLE_FAILED_DOMAIN_LOOKUP_FAILED" xml:space="preserve">
-    <value>Unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
+    <value>The server was unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
   </data>
   <data name="AUTH_ENABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>Failed to enable external authentication, permission on the AD server was denied.</value>
@@ -406,7 +406,7 @@
     <value>Your license has expired</value>
   </data>
   <data name="LICENSE_FILE_DEPRECATED" xml:space="preserve">
-    <value>This type of license file is for previous versions. Please upgrade to the new licensing system.</value>
+    <value>This type of license file is for previous versions of the server. Please upgrade to the new licensing system.</value>
   </data>
   <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
     <value>Host and pool have incompatible licenses.</value>
@@ -415,7 +415,7 @@
     <value>There was an error processing your license.  Please contact your support representative</value>
   </data>
   <data name="LIKEWISE_WINERROR_0251E" xml:space="preserve">
-    <value>Unable to contact your domain server. Check your settings are correct and that a route to the server exists.</value>
+    <value>The server was unable to contact your domain server. Check your settings are correct and that a route to the server exists.</value>
   </data>
   <data name="MAC_DOES_NOT_EXIST" xml:space="preserve">
     <value>The MAC address specified doesn't exist on this server.</value>
@@ -475,7 +475,7 @@
     <value>The update failed to apply. View logs for more details.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_ISO_MOUNTED" xml:space="preserve">
-    <value>Tools ISO must be ejected from all running VMs in the pool.</value>
+    <value>The Tools ISO must be ejected from all running VMs in the pool.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING" xml:space="preserve">
     <value>The update precheck stage failed: prerequisite updates are missing.</value>
@@ -487,10 +487,10 @@
     <value>The update precheck stage failed: there are one or more VMs still running on the server.  All VMs must be shut down or suspended before the update can be applied.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD" xml:space="preserve">
-    <value>Current build number ({1}) is incompatible with the update build number ({2}).</value>
+    <value>The current build number ({1}) is incompatible with the update build number ({2}).</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION" xml:space="preserve">
-    <value>Current version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
+    <value>The current version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
   </data>
   <data name="PBD_EXISTS" xml:space="preserve">
     <value>A PBD already exists connecting the SR to the server</value>
@@ -541,7 +541,7 @@
     <value>Could not enable external authentication: {1}</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_DOMAIN_LOOKUP_FAILED" xml:space="preserve">
-    <value>Unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
+    <value>The server was unable to contact your domain server to enable external authentication. Check that your settings are correct and a route to the server exists.</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_DUPLICATE_HOSTNAME" xml:space="preserve">
     <value>Failed to enable external authentication, a duplicate hostname was detected.</value>
@@ -585,7 +585,7 @@ Authorized Roles: {1}</value>
     <value>Cannot restore on this server because it was saved on an incompatible version</value>
   </data>
   <data name="RESTORE_SCRIPT_FAILED" xml:space="preserve">
-    <value>The restore could not be performed because the restore script failed. Your Backup file may be corrupt. See the logs for more information.</value>
+    <value>The restore could not be performed because the restore script failed. Your backup file may be corrupt. See the logs for more information.</value>
   </data>
   <data name="RESTORE_TARGET_MGMT_IF_NOT_IN_BACKUP" xml:space="preserve">
     <value>The restore could not be performed because the server's current management interface is not in the backup. The interfaces mentioned in the backup are:</value>
@@ -899,6 +899,9 @@ Authorized Roles: {1}</value>
   <data name="SR_DEVICE_IN_USE" xml:space="preserve">
     <value>The SR operation cannot be performed because a device underlying the SR is in use by the server.</value>
   </data>
+  <data name="SR_DOES_NOT_SUPPORT_MIGRATION" xml:space="preserve">
+    <value>You attempted to migrate a VDI to or from an SR that doesn't support migration</value>
+  </data>
   <data name="SR_FULL" xml:space="preserve">
     <value>The SR is full. Requested size {0} exceeds the maximum size {1}</value>
   </data>
@@ -995,6 +998,9 @@ Authorized Roles: {1}</value>
   <data name="VIFS_MAX_ALLOWED_TITLE" xml:space="preserve">
     <value>Maximum number of virtual network interfaces allowed</value>
   </data>
+  <data name="VIF_NOT_IN_MAP" xml:space="preserve">
+    <value>This VIF was not mapped to a destination network</value>
+  </data>
   <data name="VLAN_TAG_INVALID" xml:space="preserve">
     <value>You tried to create a VLAN, but the tag you gave ({0}) was invalid -- it must be between 0 and 4094.</value>
   </data>
@@ -1071,7 +1077,10 @@ Authorized Roles: {1}</value>
     <value>You attempted an operation on VM {0} that was judged to be unsafe by the server. This can happen if the VM would run on a CPU that has a potentially incompatible set of feature flags to those the VM requires. If you want to override this warning then use the 'force' option.</value>
   </data>
   <data name="WLB_MALFORMED_RESPONSE" xml:space="preserve">
-    <value>The WLB server said something that your server wasn't expecting or didn't understand.</value>
+    <value>The WLB server said something that the server wasn't expecting or didn't understand.</value>
+  </data>
+  <data name="WLB_XENSERVER_CONNECTION_REFUSED" xml:space="preserve">
+    <value>WLB reported that the server refused to let it connect (even though we're connecting perfectly fine in the other direction).</value>
   </data>
   <data name="XMLRPC_GENERAL_ERROR" xml:space="preserve">
     <value>An error occurred while performing the XMLRPC request.</value>
