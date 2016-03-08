@@ -120,13 +120,28 @@ let format include_time brand priority message =
 let print_debug = ref false
 let log_to_stdout () = print_debug := true
 
-let logging_disabled_for : (string * Syslog.level) list ref = ref []
-let logging_disabled_for_m = Mutex.create ()
+let loglevel_m = Mutex.create ()
+let logging_disabled_for : (string * Syslog.level, unit) Hashtbl.t = Hashtbl.create 0
+let default_loglevel = Syslog.Debug
+let loglevel = ref default_loglevel
+
+let disabled_modules () =
+  Mutex.execute loglevel_m (fun () ->
+    Hashtbl.fold (fun key _ acc -> key :: acc) logging_disabled_for []
+  )
 
 let is_disabled brand level =
-  Mutex.execute logging_disabled_for_m (fun () ->
-    List.mem (brand, level) !logging_disabled_for
+  Mutex.execute loglevel_m (fun () ->
+    Syslog.is_masked ~threshold:!loglevel level ||
+      Hashtbl.mem logging_disabled_for (brand, level)
   )
+
+let reset_levels () =
+  Mutex.execute loglevel_m (fun () ->
+    loglevel := default_loglevel;
+    Hashtbl.clear logging_disabled_for 
+  )
+  
 
 let facility = ref Syslog.Daemon
 let facility_m = Mutex.create ()
@@ -193,14 +208,19 @@ end
 
 let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err]
 
+let add_to_stoplist brand level =
+	Hashtbl.replace logging_disabled_for (brand, level) ()
+
+let remove_from_stoplist brand level =
+	Hashtbl.remove logging_disabled_for (brand, level)
+
 let disable ?level brand =
 	let levels = match level with
 		| None -> all_levels
 		| Some l -> [l]
 	in
-	Mutex.execute logging_disabled_for_m (fun () ->
-		let disable' brand level = logging_disabled_for := (brand, level) :: !logging_disabled_for in
-		List.iter (disable' brand) levels
+	Mutex.execute loglevel_m (fun () ->
+		List.iter (add_to_stoplist brand) levels
 	)
 
 let enable ?level brand =
@@ -208,8 +228,13 @@ let enable ?level brand =
 		| None -> all_levels
 		| Some l -> [l]
 	in
-	Mutex.execute logging_disabled_for_m (fun () ->
-		logging_disabled_for := List.filter (fun (x, y) -> not (x = brand && List.mem y levels)) !logging_disabled_for
+	Mutex.execute loglevel_m (fun () ->
+		List.iter (remove_from_stoplist brand) levels
+	)
+
+let set_level level =
+	Mutex.execute loglevel_m (fun () ->
+		loglevel := level
 	)
 
 module type DEBUG = sig
