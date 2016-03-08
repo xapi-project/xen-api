@@ -24,6 +24,7 @@ let hooks_dir = "/etc/xapi.d/"
 let scriptname__vm_pre_destroy  = "vm-pre-shutdown"
 let scriptname__vm_pre_migrate  = "vm-pre-migrate"
 let scriptname__vm_post_migrate = "vm-post-migrate"
+let scriptname__vm_pre_suspend  = "vm-pre-suspend"
 let scriptname__vm_pre_start    = "vm-pre-start"
 let scriptname__vm_pre_reboot   = "vm-pre-reboot"
 let scriptname__vm_pre_resume   = "vm-pre-resume"
@@ -82,6 +83,8 @@ let vm_pre_migrate ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_migrate ~reason ~id
 let vm_post_migrate ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_post_migrate ~reason ~id
+let vm_pre_suspend ~reason ~id =
+  execute_vm_hook ~script_name:scriptname__vm_pre_suspend ~reason ~id
 let vm_pre_start ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_pre_start ~reason ~id
 let vm_pre_reboot ~reason ~id =
@@ -97,6 +100,7 @@ type script =
 	| VM_pre_destroy
 	| VM_pre_migrate
 	| VM_post_migrate
+	| VM_pre_suspend
 	| VM_pre_start
 	| VM_pre_reboot
 	| VM_pre_resume
@@ -109,6 +113,7 @@ let vm ~script ~reason ~id =
 		| VM_pre_destroy  -> scriptname__vm_pre_destroy
 		| VM_pre_migrate  -> scriptname__vm_pre_migrate
 		| VM_post_migrate -> scriptname__vm_post_migrate
+		| VM_pre_suspend -> scriptname__vm_pre_suspend
 		| VM_pre_start    -> scriptname__vm_pre_start
 		| VM_pre_reboot   -> scriptname__vm_pre_reboot
 		| VM_pre_resume   -> scriptname__vm_pre_resume
