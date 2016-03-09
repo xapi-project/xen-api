@@ -157,16 +157,18 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
 [ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
 %systemd_post cdrommon@.service
+%systemd_post xapi-domains.service
 
 %preun core
 %systemd_preun cdrommon@.service
+%systemd_preun xapi-domains.service
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
+%systemd_postun_with_restart xapi-domains.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
@@ -179,7 +181,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/management-interface
 /etc/rc.d/init.d/perfmon
 /etc/rc.d/init.d/xapi
-/etc/rc.d/init.d/xapi-domains
 @OPTDIR@/libexec/xapissl
 /etc/rc.d/init.d/genptoken
 /etc/rc.d/init.d/attach-static-vdis
@@ -314,6 +315,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
 %{_unitdir}/cdrommon@.service
+%{_unitdir}/xapi-domains.service
 
 %files xe
 %defattr(-,root,root,-)
