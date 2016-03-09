@@ -157,18 +157,20 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
 [ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
 %systemd_post cdrommon@.service
 %systemd_post xapi-domains.service
+%systemd_post perfmon.service
 
 %preun core
 %systemd_preun cdrommon@.service
 %systemd_preun xapi-domains.service
+%systemd_preun perfmon.service
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
 %systemd_postun_with_restart xapi-domains.service
+%systemd_postun_with_restart perfmon.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
@@ -179,7 +181,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
 /etc/rc.d/init.d/management-interface
-/etc/rc.d/init.d/perfmon
 /etc/rc.d/init.d/xapi
 @OPTDIR@/libexec/xapissl
 /etc/rc.d/init.d/genptoken
@@ -316,6 +317,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/with-vdi
 %{_unitdir}/cdrommon@.service
 %{_unitdir}/xapi-domains.service
+%{_unitdir}/perfmon.service
 
 %files xe
 %defattr(-,root,root,-)
