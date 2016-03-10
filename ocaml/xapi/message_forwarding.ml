@@ -1583,7 +1583,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 			if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
 
-			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
+			with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate ~strict:(not force)
 				(fun () ->
 					(* Make sure the target has enough memory to receive the VM *)
 					let snapshot = Helpers.get_boot_record ~__context ~self:vm in

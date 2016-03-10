@@ -34,7 +34,7 @@ open D
 
 exception InvalidOperation of string
 
-let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid
+let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid ~strict:true
 
 let update_allowed_operations ~__context ~self =
 	Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"

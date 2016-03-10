@@ -417,7 +417,7 @@ open Client
 
 let lock_vm ~__context ~vm ~task_id op =
 	(* Note slight race here because we haven't got the master lock *)
-	Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op;
+	Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op ~strict:true;
 	(* ... small race lives here ... *)
 	Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:op;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
