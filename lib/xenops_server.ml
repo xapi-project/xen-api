@@ -950,6 +950,7 @@ let rec atomics_of_operation = function
 		]
 	| VM_suspend (id, data) ->
 		[
+			VM_hook_script(id, Xenops_hooks.VM_pre_suspend, Xenops_hooks.reason__suspend);
 			VM_save (id, [], data);
 			VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend)
 		] @ (atomics_of_operation (VM_shutdown (id, None))
