@@ -408,15 +408,12 @@ let get_info ~__context ~self =
 		with _ -> None) all.Db_actions.vM_VBDs in	
 	all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
 
-let is_operation_valid ~__context ~self ~op =
+let get_operation_error ~__context ~self ~op ~strict =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
-	| None   -> true
-	| Some _ -> false
+	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
 
 let assert_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
+	match get_operation_error ~__context ~self ~op ~strict:true with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
@@ -526,10 +523,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 	let ops = Db.VM.get_current_operations ~__context ~self in
 	let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
 	Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
-
-let get_operation_error ~__context ~self ~op ~strict =
-	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
 
 (* VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
 let is_live ~__context ~self =
