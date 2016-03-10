@@ -170,7 +170,7 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 					when lack_feature "feature-vcpu-hotplug"
 						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
 			| `suspend | `checkpoint | `pool_migrate | `migrate_send
-					when lack_feature "feature-suspend"
+					when strict && lack_feature "feature-suspend"
 						-> some_err Api_errors.vm_lacks_feature_suspend
 			| _ -> None
 	(* N.B. In the pattern matching above, "pat1 | pat2 | pat3" counts as
