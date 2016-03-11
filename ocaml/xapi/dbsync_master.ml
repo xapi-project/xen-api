@@ -112,50 +112,73 @@ let release_locks ~__context =
     (Db.VM.get_all ~__context)
 
 let create_tools_sr __context = 
-	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		(* Creates a new SR and PBD record *)
+	let create_magic_sr name_label name_description other_config =
+		(* Create a new SR and PBD record *)
 		(* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there
-			 to make the PBD for the shared tools SR *)
-		let create_magic_sr name description _type content_type device_config sr_other_config shared =
+		   to make the PBD for the shared tools SR *)
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
 			let sr =
-				try
-					(* Check if it already exists *)
-					List.hd (Client.SR.get_by_name_label rpc session_id name)
-				with _ ->
-					begin
-						let sr =
-							Client.SR.introduce ~rpc ~session_id ~uuid:(Uuid.to_string (Uuid.make_uuid()))
-								~name_label:name
-								~name_description:description
-								~_type ~content_type ~shared ~sm_config:[] in
-						Client.SR.set_other_config ~rpc ~session_id ~self:sr ~value:sr_other_config;
-						Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
-						sr
-					end in
+				Client.SR.introduce ~rpc ~session_id
+					~uuid:(Uuid.to_string (Uuid.make_uuid()))
+					~name_label ~name_description
+					~_type:"iso" ~content_type:"iso" ~shared:true ~sm_config:[]
+			in
+			Db.SR.set_other_config ~__context ~self:sr ~value:other_config;
+			Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
 			(* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
+			let device_config = [
+				"path", !Xapi_globs.tools_sr_dir; (* for ffs *)
+				"location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
+				"legacy_mode", "true"
+			] in
 			let hosts = Db.Host.get_all ~__context in
-			List.iter (fun host -> ignore (Create_storage.maybe_create_pbd rpc session_id sr device_config host)) hosts
-		in
-
-		(* Create XenSource Tools ISO, if an SR with this name is not already there: *)
+			List.iter (fun host -> ignore (Create_storage.maybe_create_pbd rpc session_id sr device_config host)) hosts;
+			sr
+		)
+	in
+	let name_label = Xapi_globs.tools_sr_name () in
+	let name_description = Xapi_globs.tools_sr_description () in
+	let other_config = [
+		Xapi_globs.xensource_internal, "true";
+		Xapi_globs.tools_sr_tag, "true";
+		Xapi_globs.i18n_key, "xenserver-tools";
+		(Xapi_globs.i18n_original_value_prefix ^ "name_label"), name_label;
+		(Xapi_globs.i18n_original_value_prefix ^ "name_description"), name_description
+	] in
+	let sr =
 		let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
-		if tools_srs = [] then
-			create_magic_sr
-				(Xapi_globs.tools_sr_name ())
-				(Xapi_globs.tools_sr_description ())
-				"iso" "iso"
-				["path", !Xapi_globs.tools_sr_dir; (* for ffs *)
-				 "location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
-				 "legacy_mode", "true"]
-				[Xapi_globs.xensource_internal, "true";
-				 Xapi_globs.tools_sr_tag, "true";
-				 Xapi_globs.i18n_key, "xenserver-tools";
-				 (Xapi_globs.i18n_original_value_prefix ^ "name_label"),
-				 Xapi_globs.tools_sr_name ();
-				 (Xapi_globs.i18n_original_value_prefix ^ "name_description"),
-				 Xapi_globs.tools_sr_description ()]
-				true
-	)
+		match tools_srs with
+		| sr :: others ->
+			(* Let there be only one Tools SR *)
+			List.iter (fun self -> Db.SR.destroy ~__context ~self) others;
+			sr
+		| [] ->
+			(* First check if there is an SR with the old tags on it, which needs upgrading (set is_tools_sr). *)
+			(* We cannot do this in xapi_db_upgrade, because that runs later. *)
+			let old_srs =
+				List.filter (fun self ->
+					let other_config = Db.SR.get_other_config ~__context ~self in
+					(List.mem_assoc Xapi_globs.tools_sr_tag other_config) ||
+					(List.mem_assoc Xapi_globs.xensource_internal other_config)
+				) (Db.SR.get_all ~__context)
+			in
+			match old_srs with
+			| sr :: _ ->
+				Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true; sr
+			| [] ->
+				create_magic_sr name_label name_description other_config
+	in
+	(* Ensure fields are up-to-date *)
+	Db.SR.set_name_label ~__context ~self:sr ~value:name_label;
+	Db.SR.set_name_description ~__context ~self:sr ~value:name_description;
+	let other_config =
+		(* Keep any existing keys/value pair besides the required ones *)
+		let oc = Db.SR.get_other_config ~__context ~self:sr in
+		let keys = List.map fst other_config in
+		let extra = List.filter (fun (k, _) -> not (List.mem k keys)) oc in
+		extra @ other_config
+	in
+	Db.SR.set_other_config ~__context ~self:sr ~value:other_config
 
 let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
