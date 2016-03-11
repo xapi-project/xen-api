@@ -53,8 +53,8 @@ let make ~__context ~http_other_config ?(description="") ?session_id ?subtask_of
   ref, uuid
 
 let rbac_assert_permission_fn = ref None (* required to break dep-cycle with rbac.ml *)
-let assert_can_destroy ?(ok_if_no_session_in_context=false) ~__context task_id =
-  let assert_permission_task_destroy_any () =
+let assert_op_valid ?(ok_if_no_session_in_context=false) ~__context task_id =
+  let assert_permission_task_op_any () =
     (match !rbac_assert_permission_fn with
       | None -> failwith "no taskhelper.rbac_assert_permission_fn" (* shouldn't ever happen *) 
       | Some fn -> fn ~__context ~permission:Rbac_static.permission_task_destroy_any
@@ -65,7 +65,7 @@ let assert_can_destroy ?(ok_if_no_session_in_context=false) ~__context task_id =
   | None -> (* no session in context *)
     if ok_if_no_session_in_context
     then () (* only internal xapi calls (eg db_gc) have no session in contexts, so rbac can be ignored *)
-    else assert_permission_task_destroy_any () (* will raise "no-session-in-context" exception *)
+    else assert_permission_task_op_any () (* will raise "no-session-in-context" exception *)
   | Some context_session ->
   let is_own_task =
   try
@@ -75,19 +75,19 @@ let assert_can_destroy ?(ok_if_no_session_in_context=false) ~__context task_id =
     (*debug "task_auth_user_sid=%s,context_auth_user_sid=%s" task_auth_user_sid context_auth_user_sid;*)
     (task_auth_user_sid = context_auth_user_sid)
   with e -> 
-    debug "assert_can_destroy: %s" (ExnHelper.string_of_exn e);
+    debug "assert_op_valid: %s" (ExnHelper.string_of_exn e);
     false
   in
   (*debug "IS_OWN_TASK=%b" is_own_task;*)
   (* 1. any subject can destroy its own tasks *)
   if not is_own_task then 
   (* 2. if not own task, has this session permission to destroy any tasks? *)
-  assert_permission_task_destroy_any ()
+  assert_permission_task_op_any ()
 
 let destroy ~__context task_id =
   if not (Ref.is_dummy task_id)  
   then (
-    assert_can_destroy ~ok_if_no_session_in_context:true ~__context task_id;
+    assert_op_valid ~ok_if_no_session_in_context:true ~__context task_id;
     Db_actions.DB_Action.Task.destroy ~__context ~self:task_id
   )
 (*
@@ -186,7 +186,7 @@ let exn_if_cancelling ~__context =
 let cancel ~__context =
   operate_on_db_task ~__context
     (fun self ->
-		assert_can_destroy ~__context self;
+		assert_op_valid ~__context self;
 		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
 		if status = `pending then begin
 			Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
