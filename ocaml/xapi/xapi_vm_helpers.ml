@@ -983,11 +983,11 @@ let vm_fresh_genid ~__context ~self =
 
 (** Add to the VM's current operations, call a function and then remove from the
 	current operations. Ensure the allowed_operations are kept up to date. *)
-let with_vm_operation ~__context ~self ~doc ~op ?policy f =
+let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	Helpers.retry_with_global_lock ~__context ~doc ?policy
 		(fun () ->
-			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
+			Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op ~strict;
 			Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
 			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
 	(* Then do the action with the lock released *)
