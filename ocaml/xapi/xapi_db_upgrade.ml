@@ -477,18 +477,6 @@ let upgrade_recommendations_for_gpu_passthru = {
 		) (Db.VM.get_all ~__context)
 }
 
-let set_tools_sr_field = {
-	description = "Set SR.is_tools_sr (new field in Dundee) on the Tools SR";
-	version = (fun x -> x < dundee);
-	fn = fun ~__context ->
-		List.iter (fun self ->
-			let other_config = Db.SR.get_other_config ~__context ~self in
-			if (List.mem_assoc Xapi_globs.tools_sr_tag other_config) ||
-				(List.mem_assoc Xapi_globs.xensource_internal other_config) then
-				Db.SR.set_is_tools_sr ~__context ~self ~value:true
-		) (Db.SR.get_all ~__context)
-}
-
 let rules = [
 	upgrade_alert_priority;
 	update_mail_min_priority;
@@ -509,7 +497,6 @@ let rules = [
 	default_has_vendor_device_false;
 	remove_restricted_pbd_keys;
 	upgrade_recommendations_for_gpu_passthru;
-	set_tools_sr_field;
 ]
 
 (* Maybe upgrade most recent db *)
