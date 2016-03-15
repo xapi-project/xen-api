@@ -117,10 +117,115 @@ module Accessors = Generic.Make(struct
     ]
   end)
 
+let string_of_ty = function
+  | String -> "String"
+  | _ -> ""
+
+let string_of_ks ks =
+  let field,kss = ks in
+  List.map (fun (a, b) ->
+    let inner_string = List.map (fun (c, d) -> let e, f = d in
+    c ^ "," ^ (string_of_ty e) ^ f ) b |> String.concat ";" in
+    "[" ^ a ^ "," ^ "[" ^ inner_string ^ "]]"
+  ) kss
+  |> String.concat ";"
+
+module AssertAllKeys = Generic.Make(struct
+  module Io = struct
+    type input_t = string *
+      (string * (string * (string * (Map_check.key_type * string))list)list) *
+      ((string * string) list) *
+      ((string * string) list)
+    type output_t = (string * string) list
+
+    let string_of_input_t (ty, ks, value, db) = Printf.sprintf "frequency=%s, keys=%s, input_value=%s, db_value=%s"
+      ty
+      (string_of_ks ks)
+      (Test_printers.(assoc_list string string) value)
+      (Test_printers.(assoc_list string string) db)
+    let string_of_output_t = Test_printers.(assoc_list string string)
+  end
+
+  let transform (ty, ks, value, db) = assert_all_keys ty ks value db
+
+  let tests = [
+    (* Tests for hourly snapshots *)
+    ("hourly", ("", ["hourly", ["min",(String,"")]]), ["min","30"], ["min", "0"]), ["min","30"];
+    ("hourly", ("", ["hourly", ["min",(String,"")]]), ["hour","1";"min","0"], ["min", "0"]), ["min","0"];
+    ("hourly", ("", ["hourly", ["min",(String,"")]]), ["day","Monday";"hour","1";"min","0"], ["min", "0"]), ["min","0"];
+
+    (* Change hourly snapshots to daily and weekly *)
+    ("daily", ("", ["daily", ["hour",(String,"");"min",(String,"")]]), ["hour","10";"min","30"], ["min", "0"]), ["hour","10";"min","30"];
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Monday";"hour","10";"min","30"], ["min","0"]), ["day","Monday";"hour","10";"min","30"];
+
+    (* Tests for daily snapshots *)
+    ("daily", ("", ["daily", ["hour",(String,""); "min",(String,"")]]), ["hour","10";"min","30"], ["hour","0";"min","0"]), ["hour","10";"min","30"];
+    ("daily", ("", ["daily", ["hour",(String,""); "min",(String,"")]]), ["day","Monday";"hour","0";"min","0"], ["hour","0";"min","0"]), ["hour","0";"min","0"];
+    ("daily", ("", ["daily", ["hour",(String,""); "min",(String,"")]]), ["min","30"], ["hour","0";"min","0"]), ["hour","0";"min","30"];
+    ("daily", ("", ["daily", ["hour",(String,""); "min",(String,"")]]), ["hour","10"], ["hour","0";"min","0"]), ["hour","10";"min","0"];
+
+    (* Change daily snapshots to hourly and weekly *)
+    ("hourly", ("", ["hourly", ["min",(String,"")]]), ["min","30"], ["hour","0";"min", "0"]), ["min","30"];
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Monday";"hour","10";"min","30"], ["hour","0";"min","0"]), ["day","Monday";"hour","10";"min","30"];
+
+    (* Tests for weekly snapshots *)
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Monday";"hour","10";"min","30"], ["day","Wednesday";"hour","0";"min","0"]), ["day","Monday";"hour","10";"min","30"];
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday"], ["day","Monday";"hour","0";"min","0"]), ["day","Wednesday";"hour","0";"min","0"];
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["hour","10"], ["day","Monday";"hour","0";"min","0"]), ["day","Monday";"hour","10";"min","0"];
+    ("weekly", ("", ["weekly", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["min","30"], ["day","Monday";"hour","0";"min","0"]), ["day","Monday";"hour","0";"min","30"];
+
+    (* Change weekly snapshots to hourly and daily *)
+    ("hourly", ("", ["hourly", ["min",(String,"")]]), ["min","30"], ["day","Monday";"hour","0";"min","0"]), ["min","30"];
+    ("daily", ("", ["daily", ["hour",(String,""); "min",(String,"")]]), ["hour","10";"min","30"], ["day","Monday";"hour","0";"min","0"]), ["hour","10";"min","30"];
+  ]
+end)
+
+module AssertKeys = Generic.Make(struct
+  module Io = struct
+    type input_t = string *
+      (string * (string * (string * (Map_check.key_type * string))list)list) *
+      ((string * string) list) *
+      ((string * string) list)
+    type output_t = (exn, (string * string) list) Either.t
+             
+    let string_of_input_t (ty, ks, value, db) = Printf.sprintf "keys=%s, input_value=%s, db_value=%s"
+      (string_of_ks ks)
+      (Test_printers.(assoc_list string string) value)
+      (Test_printers.(assoc_list string string) db)
+    let string_of_output_t = Test_printers.(either exn (assoc_list string string))
+  end
+
+  let transform (ty, ks, value, db) =
+    try Either.Right (assert_keys ty ks value db)
+    with e -> Either.Left e
+ 
+    let tests = [
+      (* Tests hourly keys *)
+      ("", ("", ["", ["min",(String,"")]]), ["min","30"], ["min", "0"]), Either.Right (["min","30"]);
+      ("", ("", ["", ["min",(String,"")]]), ["hour","0"], ["min", "0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":hour"; "0"])));
+      ("", ("", ["", ["min",(String,"")]]), ["day","Monday"], ["min", "0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
+
+      (* Tests daily keys *)
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10";"min","30"], ["hour","0";"min","0"]), Either.Right (["hour","10";"min","30"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10"], ["hour","0";"min","0"]), Either.Right (["hour","10";"min","0"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["min","30"], ["hour","0";"min","0"]), Either.Right (["hour","0";"min","30"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["day","Monday"], ["hour","0";"min","0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
+
+      (* Tests weekly keys *)
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday";"hour","10";"min","30"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Wednesday";"hour","10";"min","30"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Wednesday";"hour","0";"min","0"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["hour","10"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Monday";"hour","10";"min","0"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["min","30"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Monday";"hour","0";"min","30"]);
+    ]
+
+end)
+
 let test =
   "test_map_check" >:::
   [
     "test_add_defaults" >::: AddDefaults.tests;
     "test_validate_kvpair" >::: ValidateKVPair.tests;
     "test_accessors" >::: Accessors.tests;
+    "test_assert_all_keys" >::: AssertAllKeys.tests;
+    "test_assert_keys" >::: AssertKeys.tests;
   ]
