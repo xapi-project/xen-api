@@ -111,33 +111,29 @@ let release_locks ~__context =
   List.iter (fun self -> Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null)
     (Db.VM.get_all ~__context)
 
-let create_tools_sr __context = 
+let create_tools_sr __context name_label name_description sr_introduce maybe_create_pbd =
 	let create_magic_sr name_label name_description other_config =
 		(* Create a new SR and PBD record *)
 		(* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there
 		   to make the PBD for the shared tools SR *)
-		Helpers.call_api_functions ~__context (fun rpc session_id ->
-			let sr =
-				Client.SR.introduce ~rpc ~session_id
-					~uuid:(Uuid.to_string (Uuid.make_uuid()))
-					~name_label ~name_description
-					~_type:"iso" ~content_type:"iso" ~shared:true ~sm_config:[]
-			in
-			Db.SR.set_other_config ~__context ~self:sr ~value:other_config;
-			Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
-			(* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
-			let device_config = [
-				"path", !Xapi_globs.tools_sr_dir; (* for ffs *)
-				"location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
-				"legacy_mode", "true"
-			] in
-			let hosts = Db.Host.get_all ~__context in
-			List.iter (fun host -> ignore (Create_storage.maybe_create_pbd rpc session_id sr device_config host)) hosts;
-			sr
-		)
+		let sr =
+			sr_introduce
+				~uuid:(Uuid.to_string (Uuid.make_uuid()))
+				~name_label ~name_description
+				~_type:"iso" ~content_type:"iso" ~shared:true ~sm_config:[]
+		in
+		Db.SR.set_other_config ~__context ~self:sr ~value:other_config;
+		Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
+		(* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
+		let device_config = [
+			"path", !Xapi_globs.tools_sr_dir; (* for ffs *)
+			"location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
+			"legacy_mode", "true"
+		] in
+		let hosts = Db.Host.get_all ~__context in
+		List.iter (fun host -> ignore (maybe_create_pbd sr device_config host)) hosts;
+		sr
 	in
-	let name_label = Xapi_globs.tools_sr_name () in
-	let name_description = Xapi_globs.tools_sr_description () in
 	let other_config = [
 		Xapi_globs.xensource_internal, "true";
 		Xapi_globs.tools_sr_tag, "true";
@@ -180,7 +176,16 @@ let create_tools_sr __context =
 	in
 	Db.SR.set_other_config ~__context ~self:sr ~value:other_config
 
-let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
+let create_tools_sr_noexn __context =
+	let name_label = Xapi_globs.tools_sr_name () in
+	let name_description = Xapi_globs.tools_sr_description () in
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let sr_introduce = Client.SR.introduce ~rpc ~session_id in
+		let maybe_create_pbd  = Create_storage.maybe_create_pbd rpc session_id in
+		Helpers.log_exn_continue "creating tools SR" (fun () ->
+			create_tools_sr __context name_label name_description sr_introduce maybe_create_pbd
+		) ()
+	)
 
 let ensure_vm_metrics_records_exist __context =
   List.iter (fun vm ->
