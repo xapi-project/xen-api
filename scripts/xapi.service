@@ -1,7 +1,7 @@
 [Unit]
 SourcePath=@LIBEXECDIR@/xapi-init
 Description=XenServer server (XAPI)
-After=network-online.target forkexecd.service message-switch.service v6d.service save-boot-info.service attach-static-vdis.service genptoken.service xcp-rrdd.service xapi-storage-script.service xenopsd-xc.service
+After=network-online.target syslog.target forkexecd.service xcp-networkd.service message-switch.service v6d.service save-boot-info.service attach-static-vdis.service genptoken.service xcp-rrdd.service xapi-storage-script.service xenopsd-xc.service xenstored.service
 Conflicts=shutdown.target
 
 [Service]
