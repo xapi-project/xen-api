@@ -44,7 +44,7 @@ install:
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
-	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
+	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
 	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
@@ -53,6 +53,7 @@ install:
 	$(IPROG) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IPROG) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IPROG) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
+	$(IPROG) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon

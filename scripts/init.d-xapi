@@ -1,12 +1,4 @@
 #! /bin/bash
-#
-# xapi          Start/Stop the XAPI server
-#
-# chkconfig: 2345 23 77
-# description: XenServer server
-# processname: xapi
-# config: /etc/xapi.conf
-# pidfile: /var/run/xapi.pid
 
 # Source function library.
 . /etc/init.d/functions
