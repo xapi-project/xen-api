@@ -187,7 +187,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/pam.d/xapi
 /etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
-/etc/rc.d/init.d/management-interface
+@OPTDIR@/libexec/legacy-management-interface
 @OPTDIR@/libexec/xapi-init
 @OPTDIR@/libexec/xapissl
 @OPTDIR@/libexec/attach-static-vdis

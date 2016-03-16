@@ -46,7 +46,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
-	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
+	$(IPROG) init.d-management-interface $(DESTDIR)$(LIBEXECDIR)/legacy-management-interface
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IPROG) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
