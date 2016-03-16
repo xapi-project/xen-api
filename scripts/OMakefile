@@ -47,7 +47,7 @@ install:
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
-	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
+	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IPROG) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
 	$(IPROG) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
@@ -55,6 +55,7 @@ install:
 	$(IPROG) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
 	$(IPROG) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	$(IPROG) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
+	$(IPROG) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
