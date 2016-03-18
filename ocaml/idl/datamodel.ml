@@ -525,6 +525,8 @@ let _ =
     ~doc:"A required parameter contained an invalid IP address" ();
   error Api_errors.invalid_cidr_address_specified [ "parameter" ]
     ~doc:"A required parameter contained an invalid CIDR address (<addr>/<prefix length>)" ();
+  error Api_errors.require_cidr_address [ "parameter" ]
+      ~doc:"The operation you requested cannot be performed because the IP address haven't been set" ();
   error Api_errors.address_violates_locking_constraint [ "address" ]
     ~doc:"The specified IP address violates the VIF locking configuration." ();
   error Api_errors.pif_is_management_iface [ "PIF" ]
