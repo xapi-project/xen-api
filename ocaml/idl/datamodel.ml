@@ -5413,11 +5413,11 @@ let vif_configure_ipv4 = call
 	~name:"configure_ipv4"
 	~in_product_since:rel_dundee
 	~doc:"Configure IPv4 settings for this virtual interface"
-	~params:[
-		Ref _vif, "self", "The VIF to configure";
-		vif_ipv4_configuration_mode, "mode", "Whether to use static or no IPv4 assignment";
-		String, "address", "The IPv4 address in <addr>/<prefix length> format (for static mode only)";
-		String, "gateway", "The IPv4 gateway (for static mode only; leave empty to not set a gateway)";
+	~versioned_params:[
+		{param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
+		{param_type=vif_ipv4_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv4 assignment"; param_release=dundee_release; param_default=None};
+		{param_type=String; param_name="address"; param_doc="The IPv4 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
+		{param_type=String; param_name="gateway"; param_doc="The IPv4 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
 	]
 	~allowed_roles:_R_POOL_OP
 	()
@@ -5426,11 +5426,11 @@ let vif_configure_ipv6 = call
 	~name:"configure_ipv6"
 	~in_product_since:rel_dundee
 	~doc:"Configure IPv6 settings for this virtual interface"
-	~params:[
-		Ref _vif, "self", "The VIF to configure";
-		vif_ipv6_configuration_mode, "mode", "whether to use static or no IPv6 assignment";
-		String, "address", "The IPv6 address in <addr>/<prefix length> format (for static mode only)";
-		String, "gateway", "The IPv6 gateway (for static mode only; leave empty to not set a gateway)";
+	~versioned_params:[
+		{param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
+		{param_type=vif_ipv6_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv6 assignment"; param_release=dundee_release; param_default=None};
+		{param_type=String; param_name="address"; param_doc="The IPv6 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
+		{param_type=String; param_name="gateway"; param_doc="The IPv6 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
 	]
 	~allowed_roles:_R_POOL_OP
 	()
