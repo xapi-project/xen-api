@@ -31,7 +31,7 @@ let get_xapiport ssl =
   | Some p -> p
 
 let xeusessl = ref true
-let ssl_legacy = ref false
+let allow_ssl_legacy = ref false
 let ciphersuites = ref None
 let xedebug = ref false
 let xedebugonfail = ref false
@@ -149,7 +149,7 @@ let parse_args =
        | "password" -> xapipword := v
        | "passwordfile" -> xapipasswordfile := v
        | "nossl"   -> xeusessl := not(bool_of_string v)
-       | "ssl-legacy" -> ssl_legacy := (bool_of_string v)
+       | "allow-ssl-legacy" -> allow_ssl_legacy := (bool_of_string v)
        | "ciphersuites" -> ciphersuites := Some v
        | "debug" -> xedebug := (try bool_of_string v with _ -> false)
        | "debugonfail" -> xedebugonfail := (try bool_of_string v with _ -> false)
@@ -165,7 +165,7 @@ let parse_args =
     | "-pw" :: pw :: xs -> Some("password", pw, xs)
     | "-pwf" :: pwf :: xs -> Some("passwordfile", pwf, xs)
     | "--nossl" :: xs -> Some("nossl", "true", xs)
-    | "--ssl-legacy" :: xs -> Some("ssl-legacy", "true", xs)
+    | "--allow-ssl-legacy" :: xs -> Some("allow-ssl-legacy", "true", xs)
     | "--ciphersuites" :: c :: xs -> Some("ciphersuites", c, xs)
     | "--debug" :: xs -> Some("debug", "true", xs)
     | "--debug-on-fail" :: xs -> Some("debugonfail", "true", xs)
@@ -233,9 +233,9 @@ let parse_args =
 let open_tcp_ssl server =
   let port = get_xapiport true in
   debug "Connecting via%s stunnel to [%s] port [%d]%s\n%!"
-    (if !ssl_legacy then " legacy-mode" else "") server port
+    (if !allow_ssl_legacy then " legacy-mode" else "") server port
     (match !ciphersuites with None -> "" | Some c -> " with ciphersuites "^c);
-  Stunnel.set_legacy_protocol_and_ciphersuites_allowed !ssl_legacy;
+  Stunnel.set_legacy_protocol_and_ciphersuites_allowed !allow_ssl_legacy;
   (match !ciphersuites with
 	  | None -> ()
 	  | Some c -> (* Use only the specified ones, none of Stunnel's built-in defaults. *)
