@@ -340,8 +340,10 @@ let forget_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : unit =
 
 let query_possible_sr_dss _ ~(sr_uuid : string) : Data_source.t list =
 	Mutex.execute mutex (fun () ->
-		let rrdi = Hashtbl.find sr_rrds sr_uuid in
-		query_possible_dss rrdi
+		try
+			let rrdi = Hashtbl.find sr_rrds sr_uuid in
+			query_possible_dss rrdi
+		with Not_found -> []
 	)
 
 let query_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : float =
