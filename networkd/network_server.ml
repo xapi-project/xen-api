@@ -502,6 +502,7 @@ module Bridge = struct
 			| Bridge ->
 				ignore (Brctl.create_bridge name);
 				Brctl.set_forwarding_delay name 0;
+				Sysfs.set_multicast_snooping name false;
 				Opt.iter (Ip.set_mac name) mac;
 				match vlan with
 				| None -> ()

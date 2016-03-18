@@ -152,6 +152,13 @@ module Sysfs = struct
 		| None -> false
 		| Some features -> (features land flag_NETIF_F_VLAN) <> 0
 
+	let set_multicast_snooping bridge value =
+		try
+			let path = getpath bridge "bridge/multicast_snooping" in
+			write_one_line path (if value then "1" else "0")
+		with _ ->
+			warn "Could not %s IGMP-snooping on bridge %s" (if value then "enable" else "disable") bridge
+
 	let bridge_to_interfaces bridge =
 		try
 			Array.to_list (Sys.readdir (getpath bridge "brif"))
