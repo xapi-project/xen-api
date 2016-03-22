@@ -313,27 +313,23 @@ module Blktap3_stats_wrapper = struct
 
 	let empty =
 		{
-		st_ds_req       = 0L;
-		st_f_req        = 0L;
-		st_oo_req       = 0L;
-		st_rd_req       = 0L;
-		st_rd_cnt       = 0L;
-		st_rd_sect      = 0L;
-		st_rd_sum_usecs = 0L;
-		st_rd_max_usecs = 0L;
-		st_wr_req       = 0L;
-		st_wr_cnt       = 0L;
-		st_wr_sect      = 0L;
-		st_wr_sum_usecs = 0L;
-		st_wr_max_usecs = 0L;
-		st_mem_mode	= false;
+		read_reqs_submitted     = 0L;
+		read_reqs_completed     = 0L;
+		read_sectors            = 0L;
+		read_total_ticks        = 0L;
+		write_reqs_submitted    = 0L;
+		write_reqs_completed    = 0L;
+		write_sectors           = 0L;
+		write_total_ticks       = 0L;
+		io_errors		= 0L;
+		low_mem_mode		= false;
 		}
 
 	let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
 		let shm_devices_dir = "/dev/shm" in
-		let read_raw_blktap3_stats vbd =
+		let read_raw_blktap3_stats tdpid domid devid =
 			try
-				let stat_file = Printf.sprintf "%s/%s/statistics" shm_devices_dir vbd in
+				let stat_file = Printf.sprintf "%s/td3-%d/vbd-%d-%d" shm_devices_dir tdpid domid devid in
 				(* Retrieve blktap3 statistics record *)
 				let stat_rec = get_blktap3_stats stat_file in
 				Some stat_rec
@@ -343,11 +339,18 @@ module Blktap3_stats_wrapper = struct
 		let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
 		let shm_vbds = List.filter (fun s -> String.startswith "vbd3-" s) shm_dirs in
 		List.fold_left (fun acc vbd ->
-			match read_raw_blktap3_stats vbd with
-			| Some stat ->
-				let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
-				((domid, devid), stat) :: acc
-			| None -> acc
+			let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
+			try
+				with_xs (fun xs ->
+					let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/kthread-pid" domid devid in
+					let tdpid = int_of_string (xs.Xs.read path) in
+					match read_raw_blktap3_stats tdpid domid devid with
+					| Some stat -> ((domid, devid), stat) :: acc
+					| None -> acc
+					)
+			with e ->
+				D.error "Error while looking up tapdisk pid: %s" (Printexc.to_string e);
+				acc
 		) [] shm_vbds
 
 	let get_domid_devid_to_sr_blktap3 (domid_devids : (int * int) list) : ((int * int) * string) list =
@@ -428,22 +431,22 @@ module Stats_value = struct
 				| Some last_s3 -> last_s3
 				in
 				{
-					rd_bytes = Int64.mul (Int64.sub s3.st_rd_sect last_s3.st_rd_sect) 512L;
-					wr_bytes = Int64.mul (Int64.sub s3.st_wr_sect last_s3.st_wr_sect) 512L;
+					rd_bytes = Int64.mul (Int64.sub s3.read_sectors last_s3.read_sectors) 512L;
+					wr_bytes = Int64.mul (Int64.sub s3.write_sectors last_s3.write_sectors) 512L;
 					rd_avg_usecs =
-						if s3.st_rd_cnt > 0L then
-							Int64.div s3.st_rd_sum_usecs s3.st_rd_cnt
+						if s3.read_reqs_completed > 0L then
+							Int64.div s3.read_total_ticks s3.read_reqs_completed
 						else 0L;
 					wr_avg_usecs =
-						if s3.st_wr_cnt > 0L then
-							Int64.div s3.st_wr_sum_usecs s3.st_wr_cnt
+						if s3.write_reqs_completed > 0L then
+							Int64.div s3.write_total_ticks s3.write_reqs_completed
 						else 0L;
-					io_throughput_read_mb = (to_float (s3.st_rd_sect -- last_s3.st_rd_sect)) *. 512. /. 1048576.;
-					io_throughput_write_mb = (to_float (s3.st_wr_sect -- last_s3.st_wr_sect)) *. 512. /. 1048576.;
-					iops_read = s3.st_rd_cnt -- last_s3.st_rd_cnt;
-					iops_write = s3.st_wr_cnt -- last_s3.st_wr_cnt;
-					iowait = to_float ((s3.st_rd_sum_usecs ++ s3.st_wr_sum_usecs) -- (last_s3.st_rd_sum_usecs ++ last_s3.st_wr_sum_usecs)) /. 1000000.0;
-					inflight = (s3.st_rd_req ++ s3.st_wr_req) -- (s3.st_rd_cnt ++ s3.st_wr_cnt);
+					io_throughput_read_mb = (to_float (s3.read_sectors -- last_s3.read_sectors)) *. 512. /. 1048576.;
+					io_throughput_write_mb = (to_float (s3.write_sectors -- last_s3.write_sectors)) *. 512. /. 1048576.;
+					iops_read = s3.read_reqs_completed -- last_s3.read_reqs_completed;
+					iops_write = s3.write_reqs_completed -- last_s3.write_reqs_completed;
+					iowait = to_float ((s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks)) /. 1000000.0;
+					inflight = (s3.read_reqs_submitted ++ s3.write_reqs_submitted) -- (s3.read_reqs_completed ++ s3.write_reqs_completed);
 				}
 
 	let sumup (values : t list) : t =
@@ -544,11 +547,11 @@ module Iostats_value = struct
 				| None -> Blktap3_stats_wrapper.empty
 				| Some last_s3 -> last_s3
 				in
-				let s3_usecs = (s3.st_rd_sum_usecs ++ s3.st_wr_sum_usecs) -- (last_s3.st_rd_sum_usecs ++ last_s3.st_wr_sum_usecs) in
-				let s3_count = (s3.st_rd_cnt ++ s3.st_wr_cnt) -- (last_s3.st_rd_cnt ++ last_s3.st_wr_cnt) in
+				let s3_usecs = (s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks) in
+				let s3_count = (s3.read_reqs_completed ++ s3.write_reqs_completed) -- (last_s3.read_reqs_completed ++ last_s3.write_reqs_completed) in
 				let s3_latency_average = if s3_count = 0L then 0. else to_float s3_usecs /. to_float s3_count /. 1000.0 in
 				(* refer to https://github.com/xenserver/xsiostat for the calculation below *)
-				let avgqu_sz = to_float ((s3.st_rd_sum_usecs ++ s3.st_wr_sum_usecs) -- (last_s3.st_rd_sum_usecs ++ last_s3.st_wr_sum_usecs)) /. 1000_000.0 in
+				let avgqu_sz = to_float ((s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks)) /. 1000_000.0 in
 				{
 					latency = s3_latency_average;
 					(* divide by the interval as the ds-type is Gauge *)
@@ -666,9 +669,9 @@ let gen_metrics () =
 	(* Get the blktap3 stats and iterate the stats list to count the
 		number of tapdisks in low memory mode *)
 	let data_sources_low_mem_mode =
-		let (++) = Int64.add in 
-		let count = List.fold_left (fun acc ((_, _), stats) -> 
-			if stats.st_mem_mode then acc ++ 1L else acc
+		let (++) = Int64.add in
+		let count = List.fold_left (fun acc ((_, _), stats) ->
+			if stats.low_mem_mode then acc ++ 1L else acc
 			)0L domid_devid_to_stats_blktap3
 		in
 		let ds_make = Ds.ds_make ~default:true in
