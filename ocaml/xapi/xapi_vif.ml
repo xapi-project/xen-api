@@ -139,6 +139,8 @@ let assert_no_locking_mode_conflict ~__context ~self kind address =
 let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
 	if mode = `Static then begin
 		Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting;
+		if address = "" then
+			raise Api_errors.(Server_error (require_cidr_address, ["address"]));
 		Helpers.assert_is_valid_cidr `ipv4 "address" address;
 		assert_no_locking_mode_conflict ~__context ~self `ipv4 address;
 		if gateway <> "" then
@@ -155,6 +157,8 @@ let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
 let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
 	if mode = `Static then begin
 		Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting;
+		if address = "" then
+			raise Api_errors.(Server_error (require_cidr_address, ["address"]));
 		Helpers.assert_is_valid_cidr `ipv6 "address" address;
 		assert_no_locking_mode_conflict ~__context ~self `ipv6 address;
 		if gateway <> "" then
