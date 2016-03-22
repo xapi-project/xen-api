@@ -1132,14 +1132,16 @@ module Xenopsd_metadata = struct
 		)
 
 	let delete_nolock ~__context id =
-		Xenops_cache._unregister_nolock id;
-		Xapi_cache._unregister_nolock id;
-
 		let dbg = Context.string_of_task __context in
 		info "xenops: VM.remove %s" id;
 		try
 			let module Client = (val make_client (queue_of_vm ~__context ~self:(vm_of_id ~__context id)) : XENOPS) in
-			Client.VM.remove dbg id
+			Client.VM.remove dbg id;
+
+			(* Once the VM has been successfully removed from xenopsd, remove the caches *)
+			Xenops_cache._unregister_nolock id;
+			Xapi_cache._unregister_nolock id
+
 		with 
 			| Bad_power_state(_, _) ->
 				(* This can fail during a localhost live migrate; but this is safe to ignore *)
@@ -1989,6 +1991,7 @@ let on_xapi_restart ~__context =
 		match xapi_power_state with
 		| `Running | `Paused ->
 			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
+			add_caches id
 		| `Suspended | `Halted ->
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.remove dbg id;
@@ -2465,7 +2468,8 @@ let reboot ~__context ~self timeout =
 			let id = id_of_vm ~__context ~self in
 			let dbg = Context.string_of_task __context in
 			maybe_cleanup_vm ~__context ~self;
-			(* If Xenopsd no longer knows about the VM after cleanup it was shutdown *)
+			(* If Xenopsd no longer knows about the VM after cleanup it was shutdown.
+			   This also means our caches have been removed. *)
 			if not (vm_exists_in_xenopsd queue_name dbg id) then
 				raise (Bad_power_state (Halted, Running));
 			(* Ensure we have the latest version of the VM metadata before the reboot *)
