@@ -858,6 +858,7 @@ let copy_guest_metrics ~__context ~vm =
 			~networks:all.API.vM_guest_metrics_networks
 			~network_paths_optimized:all.API.vM_guest_metrics_network_paths_optimized
 			~storage_paths_optimized:all.API.vM_guest_metrics_storage_paths_optimized
+			~pV_drivers_detected:all.API.vM_guest_metrics_PV_drivers_detected
 			~other:all.API.vM_guest_metrics_other
 			~last_updated:all.API.vM_guest_metrics_last_updated
 			~other_config:all.API.vM_guest_metrics_other_config
