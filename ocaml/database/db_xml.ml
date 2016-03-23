@@ -119,7 +119,11 @@ module From = struct
 						let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
 						let row = List.fold_left (fun row ((_, k), v) -> 
                                                         let table_schema = Schema.Database.find tblname schema.Schema.database in
-                                                        let column_schema = Schema.Table.find k table_schema in
+                                                        let column_schema = try
+                                                                Schema.Table.find k table_schema
+                                                        with Not_found ->
+                                                                raise (Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k))
+                                                        in
                                                         let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
                                                         let empty = column_schema.Schema.Column.empty in
 							Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
