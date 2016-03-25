@@ -1579,14 +1579,16 @@ let vif_configure_ipv4 printer rpc session_id params =
 	let mode = Record_util.vif_ipv4_configuration_mode_of_string (List.assoc "mode" params) in
 	let address = List.assoc_default "address" params "" in
 	let gateway = List.assoc_default "gateway" params "" in
-	let () = Client.VIF.configure_ipv4 rpc session_id vif mode address gateway in ()
+	if mode = `Static && address = "" then failwith "Required parameter not found: address";
+	Client.VIF.configure_ipv4 rpc session_id vif mode address gateway
 
 let vif_configure_ipv6 printer rpc session_id params =
 	let vif = Client.VIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let mode = Record_util.vif_ipv6_configuration_mode_of_string (List.assoc "mode" params) in
 	let address = List.assoc_default "address" params "" in
 	let gateway = List.assoc_default "gateway" params "" in
-	let () = Client.VIF.configure_ipv6 rpc session_id vif mode address gateway in ()
+	if mode = `Static && address = "" then failwith "Required parameter not found: address";
+	Client.VIF.configure_ipv6 rpc session_id vif mode address gateway
 
 let net_create printer rpc session_id params =
 	let network = List.assoc "name-label" params in
