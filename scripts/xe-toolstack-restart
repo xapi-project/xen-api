@@ -28,11 +28,6 @@ SERVICES="xapi v6d squeezed perfmon xenopsd xenopsd-xc xenopsd-xenlight xenopsd-
 
 TO_RESTART=""
 for svc in $SERVICES ; do
-	# xcp-networkd should be ignored if the do-not-use file exists
-	if [ $svc == xcp-networkd -a -e /tmp/do-not-use-networkd ] ; then
-		continue
-	fi
-
 	# mpathalert-daemon isn't in chkconfig, so needs to be handled specially
 	if [ $svc == mpathalert-daemon -a $POOLCONF == "master" ] ; then
 		TO_RESTART="$svc $TO_RESTART"
