@@ -28,31 +28,31 @@ SERVICES="xapi v6d squeezed perfmon xenopsd xenopsd-xc xenopsd-xenlight xenopsd-
 
 TO_RESTART=""
 for svc in $SERVICES ; do
-	# mpathalert-daemon isn't in chkconfig, so needs to be handled specially
+	# mpathalert-daemon isn't a systemd service so needs to be handled specially
 	if [ $svc == mpathalert-daemon -a $POOLCONF == "master" ] ; then
 		TO_RESTART="$svc $TO_RESTART"
 		@ETCDIR@/master.d/03-mpathalert-daemon stop
 		continue
 	fi
 
-	# restart other services only if chkconfig said they were enabled
-	chkconfig $svc
+	# restart other services only if systemd said they were enabled
+	systemctl is-enabled $svc
 
 	if [ $? -eq 0 ] ; then
 		TO_RESTART="$svc $TO_RESTART"
-		service $svc stop
+		systemctl stop $svc
 	fi
 done
 
 set -e
 
 for svc in $TO_RESTART ; do
-	# mpathalert-daemon isn't in chkconfig, so needs to be handled specially
+	# mpathalert-daemon isn't a systemd service so needs to be handled specially
 	if [ $svc == mpathalert-daemon ] ; then 
 		@ETCDIR@/master.d/03-mpathalert-daemon start
 		continue
 	fi
-	service $svc start
+	systemctl start $svc
 done
 
 rm -f $LOCKFILE
