@@ -962,6 +962,11 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if host <> Ref.null then host else
       Helpers.get_master ~__context in
 
+  (* Check that all VDIs are mapped. *)
+  let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+  let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
+  check_vdi_map ~__context vms_vdis vdi_map;
+
   let migration_type =
     try
       ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
@@ -1005,6 +1010,13 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if not force then
       Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
+
+    (* Check that all VIFs are mapped. *)
+    let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+    let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
+    let snapshot_vifs = List.flatten
+      (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
+    let vif_map = infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map in
 
     try
       let vdi_map =
