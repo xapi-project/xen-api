@@ -52,6 +52,7 @@ OCAML_OBJS = \
 	test_pgpu_helpers \
 	test_storage_migrate_state \
 	test_vm_helpers \
+	test_vm_migrate \
 	test_xenopsd_metadata \
 	test_ca121350 \
 	test_workload_balancing \
