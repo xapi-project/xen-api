@@ -1000,15 +1000,20 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
 
-    (* Ignore vdi_map for now since we won't be doing any mirroring. *)
     try
+      let vdi_map =
+        List.map (fun (vdi, sr) -> {
+            local_vdi_reference = vdi;
+            remote_vdi_reference = None;
+          })
+          vdi_map in
       let vif_map =
         List.map (fun (vif, network) -> {
             local_vif_reference = vif;
             remote_network_reference = network;
           })
           vif_map in
-      assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy = [])
+      assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run:true ~live:true ~copy = [])
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
 
