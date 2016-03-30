@@ -654,6 +654,15 @@ let infer_vif_map ~__context vifs vif_map =
           raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
     ) [] vifs
 
+(* Assert that every VDI is specified in the VDI map *)
+let check_vdi_map ~__context vms_vdis vdi_map =
+  List.(iter (fun vconf ->
+      if not (mem_assoc vconf.vdi vdi_map)
+      then
+        let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
+        error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
+        raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis)
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 
@@ -687,14 +696,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
-
-  (* Assert that every VDI is specified in the VDI map *)
-  List.(iter (fun vconf ->
-      if not (mem_assoc vconf.vdi vdi_map)
-      then
-        let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
-        error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
-        raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis) ;
+  check_vdi_map ~__context vms_vdis vdi_map;
 
   let vif_map =
     if is_intra_pool then vif_map
