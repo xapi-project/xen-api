@@ -630,6 +630,30 @@ let rec with_many withfn many fn =
     | x::xs -> withfn x (fun y -> inner xs (y::acc))
   in inner many []
 
+(* Generate a VIF->Network map from vif_map and implicit mappings *)
+let infer_vif_map ~__context vifs vif_map =
+  let mapped_macs =
+    List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
+  List.fold_left (fun map vif ->
+      let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+      let log_prefix =
+        Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
+      match List.filter (fun (v, _) -> v = vif) vif_map with
+      | (_, network)::_ ->
+        debug "%s VIF has been specified in map" log_prefix;
+        (vif, network)::map
+      | [] -> (* Check if another VIF with same MAC address has been mapped *)
+        let mac = Db.VIF.get_MAC ~__context ~self:vif in
+        match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
+        | ((similar, _), network)::_ ->
+          debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
+            log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
+          (vif, network)::map
+        | [] ->
+          error "%s VIF not specified in map and cannot be inferred" log_prefix;
+          raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+    ) [] vifs
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 
@@ -672,30 +696,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
         raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis) ;
 
-  (* Generate a VIF->Network map from vif_map and implicit mappings *)
-  let infer_vif_map () =
-    let mapped_macs =
-      List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
-    List.fold_left (fun map vif ->
-        let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
-        let log_prefix =
-          Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
-        match List.filter (fun (v, _) -> v = vif) vif_map with
-        | (_, network)::_ ->
-          debug "%s VIF has been specified in map" log_prefix;
-          (vif, network)::map
-        | [] -> (* Check if another VIF with same MAC address has been mapped *)
-          let mac = Db.VIF.get_MAC ~__context ~self:vif in
-          match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
-          | ((similar, _), network)::_ ->
-            debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
-              log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
-            (vif, network)::map
-          | [] ->
-            error "%s VIF not specified in map and cannot be inferred" log_prefix;
-            raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
-      ) [] (vifs @ snapshot_vifs) in
-  let vif_map = if not is_intra_pool then infer_vif_map () else vif_map in
+  let vif_map =
+    if is_intra_pool then vif_map
+    else infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map
+  in
 
   (* Block SXM when VM has a VDI with on_boot=reset *)
   List.(iter (fun vconf ->
