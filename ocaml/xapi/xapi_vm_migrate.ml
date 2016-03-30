@@ -229,6 +229,16 @@ type mirror_record = {
   mr_local_vdi_reference : API.ref_VDI;
 }
 
+type vdi_transfer_record = {
+  local_vdi_reference : API.ref_VDI;
+  remote_vdi_reference : API.ref_VDI option;
+}
+
+type vif_transfer_record = {
+  local_vif_reference : API.ref_VIF;
+  remote_network_reference : API.ref_network;
+}
+
 (* If VM's suspend_SR is set to the local SR, it won't be visible to
    the destination host after an intra-pool storage migrate *)
 let intra_pool_fix_suspend_sr ~__context host vm =
@@ -263,14 +273,23 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run ~live ~copy =
-  List.iter (fun mirror_record ->
-      let vdi = mirror_record.mr_local_vdi_reference in
-      Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
-      Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
+  List.iter (fun vdi_record ->
+      let vdi = vdi_record.local_vdi_reference in
+      Db.VDI.remove_from_other_config ~__context ~self:vdi
+        ~key:Constants.storage_migrate_vdi_map_key;
+      Opt.iter (fun remote_vdi_reference ->
+        Db.VDI.add_to_other_config ~__context ~self:vdi
+          ~key:Constants.storage_migrate_vdi_map_key
+          ~value:(Ref.string_of remote_vdi_reference))
+        vdi_record.remote_vdi_reference) vdi_map;
 
-  List.iter (fun (vif,network) ->
-      Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
-      Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
+  List.iter (fun vif_record ->
+      let vif = vif_record.local_vif_reference in
+      Db.VIF.remove_from_other_config ~__context ~self:vif
+        ~key:Constants.storage_migrate_vif_map_key;
+      Db.VIF.add_to_other_config ~__context ~self:vif
+        ~key:Constants.storage_migrate_vif_map_key
+        ~value:(Ref.string_of vif_record.remote_network_reference)) vif_map;
 
   let vm_export_import = {
     Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots = not copy;
@@ -282,10 +301,16 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
     (fun () ->
        (* Make sure we clean up the remote VDI and VIF mapping keys. *)
        List.iter
-         (fun mr -> Db.VDI.remove_from_other_config ~__context ~self:mr.mr_local_vdi_reference ~key:Constants.storage_migrate_vdi_map_key)
+         (fun vdi_record ->
+           Db.VDI.remove_from_other_config ~__context
+             ~self:vdi_record.local_vdi_reference
+             ~key:Constants.storage_migrate_vdi_map_key)
          vdi_map;
        List.iter
-         (fun (vif, _) -> Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key)
+         (fun vif_record ->
+           Db.VIF.remove_from_other_config ~__context
+             ~self:vif_record.local_vif_reference
+             ~key:Constants.storage_migrate_vif_map_key)
          vif_map)
 
 module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
@@ -781,8 +806,23 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
           let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote.rpc ~session_id:remote.session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
           (* Move the xapi VM metadata to the remote pool. *)
           let vms =
-            inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
-              ~vif_map ~dry_run:false ~live:true ~copy in
+            let vdi_map =
+              List.map (fun mirror_record -> {
+                  local_vdi_reference = mirror_record.mr_local_vdi_reference;
+                  remote_vdi_reference = Some mirror_record.mr_remote_vdi_reference;
+                })
+                (suspends_map @ snapshots_map @ vdi_map)
+            in
+            let vif_map =
+              List.map (fun (vif, network) -> {
+                  local_vif_reference = vif;
+                  remote_network_reference = network;
+                })
+                vif_map
+            in
+            inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
+              ~vif_map ~dry_run:false ~live:true ~copy
+          in
           let vm = List.hd vms in
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session ~self:vm ~value:false in
           vm in
@@ -962,6 +1002,12 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
     (* Ignore vdi_map for now since we won't be doing any mirroring. *)
     try
+      let vif_map =
+        List.map (fun (vif, network) -> {
+            local_vif_reference = vif;
+            remote_network_reference = network;
+          })
+          vif_map in
       assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy = [])
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
