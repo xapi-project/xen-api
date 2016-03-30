@@ -2644,7 +2644,7 @@ module VM = struct
 							let subdirs = try xs.Xs.directory (root ^ "/" ^ dir) |> List.filter (fun x -> x <> "") |> List.map (fun x -> dir ^ "/" ^ x) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data"; "control"; "device"; "feature" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
+							[ "drivers"; "attr"; "data"; "control"; "feature" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let xsdata_state =
 							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let shadow_multiplier_target =
