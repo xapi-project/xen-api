@@ -1507,7 +1507,8 @@ let update_vm ~__context id =
 							(fun (_, state) ->
 								let gm = Db.VM.get_guest_metrics ~__context ~self in
 								debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
-								Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected
+								Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
+								Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
 							) info in
 					Opt.iter
 						(fun (_, state) ->
