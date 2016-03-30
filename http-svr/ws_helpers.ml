@@ -157,7 +157,7 @@ let http_101_websocket_upgrade_15 key  =
     "Upgrade: websocket";
     "Connection: Upgrade";
     Printf.sprintf "Sec-WebSocket-Accept: %s" key;
-    "Sec-WebSocket-Protocol: chat"; "" ]
+    "Sec-WebSocket-Protocol: binary"; "" ]
 
 exception MissingHeader of string
 
