@@ -205,7 +205,7 @@ let start ~__context ~vm ~start_paused ~force =
 	(* This makes sense here while the available versions are 0, 1 and 2.
 	 * If/when we introduce another version, we must reassess this. *)
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
-	
+
 	(* Reset CPU feature set, which will be passed to xenopsd *)
 	Cpuid_helpers.reset_cpu_flags ~__context ~vm;
 
@@ -236,14 +236,54 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	start ~__context ~vm ~start_paused ~force
 
-let hard_reboot ~__context ~vm =
-	update_vm_virtual_hardware_platform_version ~__context ~vm;
-	Xapi_xenops.reboot ~__context ~self:vm None
+
+(* Nb, we're not using the snapshots returned in 'Event.from' here because
+   the tasks might get deleted. The standard mechanism for dealing with
+   deleted events assumes you have a full database replica locally, and
+   deletions are handled by checking your valid_ref_counts table against
+   your local database. In this case, we're only interested in a subset of
+   events, so this mechanism doesn't work. There will only be a few outstanding
+   tasks anyway, so we're safe to just iterate through the references when an
+   event happens - ie, we use the event API simply to wake us up when something
+   interesting has happened. *)
+let wait_for_tasks ~__context ~tasks =
+  let our_task = Context.get_task_id __context in
+  let classes = List.map (fun x -> Printf.sprintf "task/%s" (Ref.string_of x)) (our_task::tasks) in
+
+  let rec process token =
+    TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
+    let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+    let unfinished = List.exists (fun state -> state = `pending) statuses in
+    if unfinished
+    then begin
+      let from = Helpers.call_api_functions ~__context
+          (fun rpc session_id -> Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
+      debug "Using events to wait for tasks: %s" (String.concat "," classes);
+      let from = Event_types.event_from_of_rpc from in
+      process from.Event_types.token
+    end else
+      ()
+  in
+  process ""
+
+let cancel ~__context ~vm ~ops =
+  let cancelled = List.filter_map (fun (task,op) ->
+    if List.mem op ops then begin
+      debug "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
+      Helpers.call_api_functions ~__context
+        (fun rpc session_id -> try Client.Task.cancel ~rpc ~session_id ~task:(Ref.of_string task) with _ -> ());
+      Some (Ref.of_string task)
+    end else None
+  ) (Db.VM.get_current_operations ~__context ~self:vm) in
+  wait_for_tasks ~__context ~tasks:cancelled
+
 
 let hard_shutdown ~__context ~vm =
+	cancel ~__context ~vm ~ops:[ `clean_shutdown; `clean_reboot; `hard_reboot; `pool_migrate; `call_plugin; `suspend ];
 	Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 	debug "Setting ha_always_run on vm=%s as false during VM.hard_shutdown" (Ref.string_of vm);
-	if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
+	match Db.VM.get_power_state ~__context ~self:vm with
+	| `Suspended -> begin
 		debug "hard_shutdown: destroying any suspend VDI";
 		let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
 		if vdi <> Ref.null (* avoid spurious but scary messages *)
@@ -254,9 +294,27 @@ let hard_shutdown ~__context ~vm =
 		(* Whether or not that worked, forget about the VDI *)
 		Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
 		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-	end else
-	Xapi_xenops.shutdown ~__context ~self:vm None;
-	Xapi_vm_helpers.shutdown_delay ~__context ~vm
+	end
+	| `Running
+	| `Paused ->
+		Xapi_xenops.shutdown ~__context ~self:vm None;
+		Xapi_vm_helpers.shutdown_delay ~__context ~vm
+	| `Halted -> ()
+
+let hard_reboot ~__context ~vm =
+	cancel ~__context ~vm ~ops:[ `clean_shutdown; `clean_reboot; `pool_migrate; `call_plugin; `suspend ];
+	(* Cancelling operations can cause the VM to now be shutdown *)
+	begin
+	match Db.VM.get_power_state ~__context ~self:vm with
+	| `Running
+	| `Paused ->
+		Xapi_xenops.shutdown ~__context ~self:vm None;
+	| `Halted ->
+		()
+	| `Suspended ->
+		raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Running; Record_util.power_to_string `Suspended]))
+	end;
+	start ~__context ~vm ~start_paused:false ~force:false
 
 let clean_reboot ~__context ~vm =
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
@@ -282,7 +340,7 @@ let shutdown ~__context ~vm =
 		with e ->
 			warn "Failed to perform clean_shutdown on VM:%s due to exception %s. Now attempting hard_shutdown." (Ref.string_of vm) (Printexc.to_string e);
 			hard_shutdown ~__context ~vm
-	end 	
+	end
 
 (***************************************************************************************)
 
