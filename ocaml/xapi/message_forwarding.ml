@@ -1319,20 +1319,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_shutdown ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
-					(* Before doing the shutdown we might need to cancel existing operations *)
-					List.iter (fun (task,op) ->
-						if List.mem op [ `clean_shutdown; `clean_reboot; `hard_reboot; `pool_migrate; `call_plugin ] then (
-							(* At the end of the cancellation, if the VM is on a slave then the task doing
-							 * the cancellation will be marked complete (successful).  This would be premature
-							 * for the current task since it still has work to do: first possibly some more
-							 * cancellations, then definitely the VM hard_shutdown. Therefore we must spawn
-							 * a new task to do the cancellation. (But no need to go via API call.) *)
-							Server_helpers.exec_with_subtask ~__context
-								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_shutdown")
-								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
-						)
-					) (Db.VM.get_current_operations ~__context ~self:vm);
-
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
 					let policy =
@@ -1367,15 +1353,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let local_fn = Local.VM.hard_reboot ~vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot" ~op:`hard_reboot
 				(fun () ->
-					(* Before doing the reboot we might need to cancel existing operations *)
-					List.iter (fun (task,op) ->
-						if List.mem op [ `clean_shutdown; `clean_reboot; `pool_migrate; `call_plugin ] then (
-							(* We must do the cancelling in a subtask: see hard_shutdown comment for reason. *)
-							Server_helpers.exec_with_subtask ~__context
-								("Cancelling VM." ^ (Record_util.vm_operation_to_string op) ^ " for VM.hard_reboot")
-								(fun ~__context -> try Task.cancel ~__context ~task:(Ref.of_string task) with _ -> ())
-						)
-					) (Db.VM.get_current_operations ~__context ~self:vm);
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 						(fun vbds ->
 							with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
