@@ -69,6 +69,12 @@ let cream_release_schema_minor_vsn = 73
 let indigo_release_schema_major_vsn = 5
 let indigo_release_schema_minor_vsn = 74
 
+(* This is to support upgrade from Dundee tech-preview versions and other nearly-Dundee versions.
+ * The field has_vendor_device was added while minor vsn was 90, then became meaningful later;
+ * the first published tech preview in which the feature was active had datamodel minor vsn 91. *)
+let meaningful_vm_has_vendor_device_schema_major_vsn = 5
+let meaningful_vm_has_vendor_device_schema_minor_vsn = 91
+
 let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 91
 
