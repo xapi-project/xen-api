@@ -269,7 +269,7 @@ let wait_for_tasks ~__context ~tasks =
 let cancel ~__context ~vm ~ops =
   let cancelled = List.filter_map (fun (task,op) ->
     if List.mem op ops then begin
-      debug "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
+      info "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
       Helpers.call_api_functions ~__context
         (fun rpc session_id -> try Client.Task.cancel ~rpc ~session_id ~task:(Ref.of_string task) with _ -> ());
       Some (Ref.of_string task)
