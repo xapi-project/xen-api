@@ -308,13 +308,12 @@ let hard_reboot ~__context ~vm =
 	match Db.VM.get_power_state ~__context ~self:vm with
 	| `Running
 	| `Paused ->
-		Xapi_xenops.shutdown ~__context ~self:vm None;
+		Xapi_xenops.reboot ~__context ~self:vm None
 	| `Halted ->
-		()
+		start ~__context ~vm ~start_paused:false ~force:false
 	| `Suspended ->
 		raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Running; Record_util.power_to_string `Suspended]))
-	end;
-	start ~__context ~vm ~start_paused:false ~force:false
+	end
 
 let clean_reboot ~__context ~vm =
 	update_vm_virtual_hardware_platform_version ~__context ~vm;
