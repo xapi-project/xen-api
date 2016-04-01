@@ -4,28 +4,17 @@ OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid
 
 UseCamlp4(rpclib.syntax, v6rpc v6errors)
 
-V6FILES = \
-	fakev6 \
-	v6rpc \
-	v6errors \
-	v6daemon \
-	edition \
-	v6testd
-
 # Name of programs to install in dom0:
-V6D = v6d
 DAILY_LICENSE_CHECK = daily-license-check
 
-OCamlProgram($(V6D), $(V6FILES))
 OCamlProgram($(DAILY_LICENSE_CHECK), daily_license_check daily_license_check_main)
 
 .PHONY: install
-install: $(V6D)
+install: $(DAILY_LICENSE_CHECK)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) $(V6D) $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) $(DAILY_LICENSE_CHECK) $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN_OBJS) $(V6D) $(DAILY_LICENSE_CHECK)
+	rm -f $(CLEAN_OBJS) $(DAILY_LICENSE_CHECK)
 

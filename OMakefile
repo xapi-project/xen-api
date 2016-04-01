@@ -164,7 +164,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/xapi \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/storage_impl_test \
-	ocaml/license/v6d \
 	ocaml/license/daily-license-check
 
 #ocaml/xapi/monitor_fake_plugin

@@ -90,14 +90,6 @@ Requires: net-tools
 %description tests
 This package contains a series of simple regression tests.
 
-%package v6d
-Summary: The editions and features daemon
-Group: System/Hypervisor
-
-%description v6d
-This package contains daemon that defines and controls XCP editions and
-associated features
-
 %package client-devel
 Summary: xapi Development Headers and Libraries
 Group:   Development/Libraries
@@ -176,15 +168,11 @@ rm -rf $RPM_BUILD_ROOT
 %postun core
 %systemd_postun_with_restart cdrommon@.service
 
-%post v6d
-[ ! -x /sbin/chkconfig ] || chkconfig --add v6d
-
 %files core -f core-files
 %defattr(-,root,root,-)
 @OPTDIR@/bin/xapi
 %config(noreplace) /etc/xapi.conf
 /etc/logrotate.d/audit
-/etc/logrotate.d/v6d
 /etc/pam.d/xapi
 /etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
@@ -332,11 +320,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe
 /usr/bin/xe
 /etc/bash_completion.d/xe
-
-%files v6d
-%defattr(-,root,root,-)
-@OPTDIR@/libexec/v6d
-/etc/rc.d/init.d/v6d
 
 %files tests
 %defattr(-,root,root,-)
