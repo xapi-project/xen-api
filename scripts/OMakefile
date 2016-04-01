@@ -51,9 +51,7 @@ install:
 	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
 	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)/etc/rc.d/init.d/attach-static-vdis
-	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IPROG) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
-	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
