@@ -42,7 +42,7 @@ Connect-XenServer -Server $svr -UserName $usr -Password $pwd
 
 ### Create a VM
 
-$template = @(Get-XenVM -Name 'Windows XP*' | where {$_.is_a_template})[0]
+$template = @(Get-XenVM -Name 'Windows *' | where {$_.is_a_template})[0]
 
 Invoke-XenVM -VM $template -XenAction Clone -NewName "testVM" -Async `
              -PassThru | Wait-XenTask -ShowProgress
