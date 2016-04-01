@@ -229,6 +229,16 @@ type mirror_record = {
   mr_local_vdi_reference : API.ref_VDI;
 }
 
+type vdi_transfer_record = {
+  local_vdi_reference : API.ref_VDI;
+  remote_vdi_reference : API.ref_VDI option;
+}
+
+type vif_transfer_record = {
+  local_vif_reference : API.ref_VIF;
+  remote_network_reference : API.ref_network;
+}
+
 (* If VM's suspend_SR is set to the local SR, it won't be visible to
    the destination host after an intra-pool storage migrate *)
 let intra_pool_fix_suspend_sr ~__context host vm =
@@ -263,14 +273,23 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run ~live ~copy =
-  List.iter (fun mirror_record ->
-      let vdi = mirror_record.mr_local_vdi_reference in
-      Db.VDI.remove_from_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key;
-      Db.VDI.add_to_other_config ~__context ~self:vdi ~key:Constants.storage_migrate_vdi_map_key ~value:(Ref.string_of mirror_record.mr_remote_vdi_reference)) vdi_map;
+  List.iter (fun vdi_record ->
+      let vdi = vdi_record.local_vdi_reference in
+      Db.VDI.remove_from_other_config ~__context ~self:vdi
+        ~key:Constants.storage_migrate_vdi_map_key;
+      Opt.iter (fun remote_vdi_reference ->
+        Db.VDI.add_to_other_config ~__context ~self:vdi
+          ~key:Constants.storage_migrate_vdi_map_key
+          ~value:(Ref.string_of remote_vdi_reference))
+        vdi_record.remote_vdi_reference) vdi_map;
 
-  List.iter (fun (vif,network) ->
-      Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key;
-      Db.VIF.add_to_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key ~value:(Ref.string_of network)) vif_map;
+  List.iter (fun vif_record ->
+      let vif = vif_record.local_vif_reference in
+      Db.VIF.remove_from_other_config ~__context ~self:vif
+        ~key:Constants.storage_migrate_vif_map_key;
+      Db.VIF.add_to_other_config ~__context ~self:vif
+        ~key:Constants.storage_migrate_vif_map_key
+        ~value:(Ref.string_of vif_record.remote_network_reference)) vif_map;
 
   let vm_export_import = {
     Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots = not copy;
@@ -282,10 +301,16 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
     (fun () ->
        (* Make sure we clean up the remote VDI and VIF mapping keys. *)
        List.iter
-         (fun mr -> Db.VDI.remove_from_other_config ~__context ~self:mr.mr_local_vdi_reference ~key:Constants.storage_migrate_vdi_map_key)
+         (fun vdi_record ->
+           Db.VDI.remove_from_other_config ~__context
+             ~self:vdi_record.local_vdi_reference
+             ~key:Constants.storage_migrate_vdi_map_key)
          vdi_map;
        List.iter
-         (fun (vif, _) -> Db.VIF.remove_from_other_config ~__context ~self:vif ~key:Constants.storage_migrate_vif_map_key)
+         (fun vif_record ->
+           Db.VIF.remove_from_other_config ~__context
+             ~self:vif_record.local_vif_reference
+             ~key:Constants.storage_migrate_vif_map_key)
          vif_map)
 
 module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
@@ -605,6 +630,39 @@ let rec with_many withfn many fn =
     | x::xs -> withfn x (fun y -> inner xs (y::acc))
   in inner many []
 
+(* Generate a VIF->Network map from vif_map and implicit mappings *)
+let infer_vif_map ~__context vifs vif_map =
+  let mapped_macs =
+    List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
+  List.fold_left (fun map vif ->
+      let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+      let log_prefix =
+        Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
+      match List.filter (fun (v, _) -> v = vif) vif_map with
+      | (_, network)::_ ->
+        debug "%s VIF has been specified in map" log_prefix;
+        (vif, network)::map
+      | [] -> (* Check if another VIF with same MAC address has been mapped *)
+        let mac = Db.VIF.get_MAC ~__context ~self:vif in
+        match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
+        | ((similar, _), network)::_ ->
+          debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
+            log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
+          (vif, network)::map
+        | [] ->
+          error "%s VIF not specified in map and cannot be inferred" log_prefix;
+          raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
+    ) [] vifs
+
+(* Assert that every VDI is specified in the VDI map *)
+let check_vdi_map ~__context vms_vdis vdi_map =
+  List.(iter (fun vconf ->
+      if not (mem_assoc vconf.vdi vdi_map)
+      then
+        let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
+        error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
+        raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis)
+
 let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 
@@ -638,39 +696,12 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
+  check_vdi_map ~__context vms_vdis vdi_map;
 
-  (* Assert that every VDI is specified in the VDI map *)
-  List.(iter (fun vconf ->
-      if not (mem_assoc vconf.vdi vdi_map)
-      then
-        let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
-        error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
-        raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis) ;
-
-  (* Generate a VIF->Network map from vif_map and implicit mappings *)
-  let infer_vif_map () =
-    let mapped_macs =
-      List.map (fun (v, n) -> (v, Db.VIF.get_MAC ~__context ~self:v), n) vif_map in
-    List.fold_left (fun map vif ->
-        let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
-        let log_prefix =
-          Printf.sprintf "Resolving VIF->Network map for VIF %s:" vif_uuid in
-        match List.filter (fun (v, _) -> v = vif) vif_map with
-        | (_, network)::_ ->
-          debug "%s VIF has been specified in map" log_prefix;
-          (vif, network)::map
-        | [] -> (* Check if another VIF with same MAC address has been mapped *)
-          let mac = Db.VIF.get_MAC ~__context ~self:vif in
-          match List.filter (fun ((_, m), _) -> m = mac) mapped_macs with
-          | ((similar, _), network)::_ ->
-            debug "%s VIF has same MAC as mapped VIF %s; inferring mapping"
-              log_prefix (Db.VIF.get_uuid ~__context ~self:similar);
-            (vif, network)::map
-          | [] ->
-            error "%s VIF not specified in map and cannot be inferred" log_prefix;
-            raise (Api_errors.Server_error(Api_errors.vif_not_in_map, [ Ref.string_of vif ]))
-      ) [] (vifs @ snapshot_vifs) in
-  let vif_map = if not is_intra_pool then infer_vif_map () else vif_map in
+  let vif_map =
+    if is_intra_pool then vif_map
+    else infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map
+  in
 
   (* Block SXM when VM has a VDI with on_boot=reset *)
   List.(iter (fun vconf ->
@@ -781,8 +812,23 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
           let () = if ha_always_run_reset then XenAPI.Pool.ha_prevent_restarts_for ~rpc:remote.rpc ~session_id:remote.session ~seconds:(Int64.of_float !Xapi_globs.ha_monitor_interval) in
           (* Move the xapi VM metadata to the remote pool. *)
           let vms =
-            inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:(suspends_map @ snapshots_map @ vdi_map)
-              ~vif_map ~dry_run:false ~live:true ~copy in
+            let vdi_map =
+              List.map (fun mirror_record -> {
+                  local_vdi_reference = mirror_record.mr_local_vdi_reference;
+                  remote_vdi_reference = Some mirror_record.mr_remote_vdi_reference;
+                })
+                (suspends_map @ snapshots_map @ vdi_map)
+            in
+            let vif_map =
+              List.map (fun (vif, network) -> {
+                  local_vif_reference = vif;
+                  remote_network_reference = network;
+                })
+                vif_map
+            in
+            inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
+              ~vif_map ~dry_run:false ~live:true ~copy
+          in
           let vm = List.hd vms in
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session ~self:vm ~value:false in
           vm in
@@ -916,6 +962,11 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if host <> Ref.null then host else
       Helpers.get_master ~__context in
 
+  (* Check that all VDIs are mapped. *)
+  let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+  let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
+  check_vdi_map ~__context vms_vdis vdi_map;
+
   let migration_type =
     try
       ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
@@ -960,9 +1011,27 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
 
-    (* Ignore vdi_map for now since we won't be doing any mirroring. *)
+    (* Check that all VIFs are mapped. *)
+    let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+    let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
+    let snapshot_vifs = List.flatten
+      (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
+    let vif_map = infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map in
+
     try
-      assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy = [])
+      let vdi_map =
+        List.map (fun (vdi, sr) -> {
+            local_vdi_reference = vdi;
+            remote_vdi_reference = None;
+          })
+          vdi_map in
+      let vif_map =
+        List.map (fun (vif, network) -> {
+            local_vif_reference = vif;
+            remote_network_reference = network;
+          })
+          vif_map in
+      assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run:true ~live:true ~copy = [])
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
 

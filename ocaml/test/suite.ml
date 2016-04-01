@@ -42,6 +42,7 @@ let base_suite =
 			Test_pgpu_helpers.test;
 			Test_storage_migrate_state.test;
 			Test_vm_helpers.test;
+			Test_vm_migrate.test;
 			Test_xenopsd_metadata.test;
 			Test_workload_balancing.test;
 			Test_cpuid_helpers.test;
