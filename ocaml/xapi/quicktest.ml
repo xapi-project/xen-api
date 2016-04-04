@@ -802,18 +802,20 @@ let with_vm s f =
     (* SKIP *)
     ()
 
-(** [with_vm' uuid session f] excutes [f session vm] on a freshly 
- * installed VM identified * by its [uuid]. The VM is uninstalled after
+(** [with_template uuid session f] excutes [f session vm] on a freshly 
+ * installed VM identified by template [uuid]. The VM is uninstalled after
  * execution *)
 
-let with_vm' uuid (session: 'a Ref.t) f = 
+let with_template uuid (session: 'a Ref.t) f = 
     let sprintf = Printf.sprintf in
-    let msg     = sprintf "Setting up VM %s" uuid in
+    let msg     = sprintf "Setting up VM frm template %s" uuid in
     let test    = make_test msg 0 in
       begin
         start test;
-        let vm = install_vm' test session uuid in f session vm;
-        uninstall_vm' test uuid;
+        let vm = install_vm' test session uuid in 
+            ( ignore (f session vm)
+            ; vm_uninstall test session vm
+            );
         success test;
       end
 
@@ -921,9 +923,9 @@ let _ =
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
-				maybe_run_test "vhd" (fun () -> with_vm' uuid s test_vhd_locking_hook);
-				maybe_run_test "powercycle" (fun () -> with_vm' uuid s vm_powercycle_test);
-				maybe_run_test "lifecycle" (fun () -> with_vm' uuid s Quicktest_lifecycle.test);
+				maybe_run_test "vhd" (fun () -> with_template uuid s test_vhd_locking_hook);
+				maybe_run_test "powercycle" (fun () -> with_template uuid s vm_powercycle_test);
+				maybe_run_test "lifecycle" (fun () -> with_template uuid s Quicktest_lifecycle.test);
 				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
 				| Api_errors.Server_error (a,b) ->
