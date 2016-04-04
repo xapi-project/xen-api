@@ -52,6 +52,9 @@ let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedenc
 let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
 let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release_schema_minor_vsn
 
+(* This is to support upgrade from Dundee tech-preview versions *)
+let vsn_with_meaningful_has_vendor_device = Datamodel.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel.meaningful_vm_has_vendor_device_schema_minor_vsn
+
 let upgrade_alert_priority = {
 	description = "Upgrade alert priority";
 	version = (fun _ -> true);
@@ -377,7 +380,7 @@ let add_default_pif_properties = {
 
 let default_has_vendor_device_false = {
 	description = "Defaulting has_vendor_device false";
-	version = (fun x -> x < dundee);
+	version = (fun x -> x < vsn_with_meaningful_has_vendor_device);
 	fn = fun ~__context ->
 		List.iter
 			(fun self -> Db.VM.set_has_vendor_device ~__context ~self ~value:false)
