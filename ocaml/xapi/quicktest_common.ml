@@ -199,6 +199,23 @@ let cli_cmd test args =
       failed test (Printexc.to_string e);
       failwith "CLI failed"
 
+(** [install_vm' test session uuid] installs a VM from a template 
+ * identified by its UUID *)
+let install_vm' test (session: 'a Ref.t)  uuid_templ =
+  let label     = "quicktest-" ^ String.sub uuid_templ 0 8 in
+  let uuid_vm   = cli_cmd test 
+    [ "vm-install"
+    ; "template-uuid=" ^ uuid_templ
+    ; "new-name-label=" ^ label 
+    ] 
+  in
+    Client.VM.get_by_uuid !rpc session uuid_vm 
+
+(** [unistall_vm' test uuid] unistalls a VM identified by its UUID *)
+let uninstall_vm' (test:test_description) uuid =
+  ignore(cli_cmd test [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ])
+
+
 let vm_install test session_id template name = 
   let newvm_uuid = cli_cmd test [ "vm-install"; "template-uuid=" ^ template; "new-name-label=" ^ name ] in
   Client.VM.get_by_uuid !rpc session_id newvm_uuid 

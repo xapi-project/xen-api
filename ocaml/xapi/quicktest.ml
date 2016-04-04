@@ -802,6 +802,21 @@ let with_vm s f =
     (* SKIP *)
     ()
 
+(** [with_vm' uuid session f] excutes [f session vm] on a freshly 
+ * installed VM identified * by its [uuid]. The VM is uninstalled after
+ * execution *)
+
+let with_vm' uuid (session: 'a Ref.t) f = 
+    let sprintf = Printf.sprintf in
+    let msg     = sprintf "Setting up VM %s" uuid in
+    let test    = make_test msg 0 in
+      begin
+        start test;
+        let vm = install_vm' test session uuid in f session vm;
+        uninstall_vm' test uuid;
+        success test;
+      end
+
 let vm_powercycle_test s vm = 
   let test = make_test "VM powercycle test" 1 in
   start test;
@@ -838,21 +853,45 @@ let _ =
 		"vhd";
 		"copy";
 	] in
-	let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
+    let all_test_names  = String.concat ", " all_tests in
+    let is_default = function
+        | "lifecycle"   -> false
+        | "vhd"         -> false
+        | _             -> true
+    in
+    let default_tests   = List.filter is_default all_tests in
+    let uuid            = "a0704a61-f98b-50cd-fe60-68a226e65069" in
 
 	let tests_to_run = ref default_tests in (* default is everything *)
+    let sprintf = Printf.sprintf in
+    let fprintf = Printf.fprintf in
 	Arg.parse [
-		"-xe-path", Arg.String (fun x -> Quicktest_common.xe_path := x), "Path to xe command line executable";
-		"-iso-sr-path", Arg.String (fun x -> Quicktest_storage.iso_path := x), "Path to ISO SR";
-		"-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
-		"-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
-		"-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
+		"-xe-path", 
+            Arg.String (fun x -> Quicktest_common.xe_path := x), 
+            "Path to xe command line executable";
+		"-iso-sr-path", 
+            Arg.String (fun x -> Quicktest_storage.iso_path := x), 
+            "Path to ISO SR";
+		"-single", 
+            Arg.String (fun x -> tests_to_run := [ x ]), 
+            sprintf "Only run one test (possibilities are %s)" 
+                all_test_names;
+		"-all", 
+            Arg.Unit (fun () -> tests_to_run := all_tests), 
+                sprintf "Run all tests (%s)" all_test_names;
+		"-nocolour", 
+            Arg.Clear Quicktest_common.use_colour, 
+                "Don't use colour in the output" ]
 		(fun x -> match !host, !username, !password with
 			| "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
 			| _, "", _ -> username := x
 			| _, _, "" -> password := x
-			| _, _, _ -> Printf.fprintf stderr "Skipping unrecognised argument: %s" x)
-		"Perform some quick functional tests. The default is to test localhost over a Unix socket. For remote server supply <hostname> <username> and <password> arguments.";
+			| _, _, _ -> fprintf stderr "Skipping unrecognised argument: %s" x)
+		
+        "Perform some quick functional tests. The default is to test\ 
+        localhost over a Unix socket. For remote server supply <hostname>\
+        <username> and <password> arguments.";
+
 	if !host = "" then host := "localhost";
 	if !username = "" then username := "root";
 	
@@ -882,9 +921,9 @@ let _ =
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
-				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
-				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
-				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
+				maybe_run_test "vhd" (fun () -> with_vm' uuid s test_vhd_locking_hook);
+				maybe_run_test "powercycle" (fun () -> with_vm' uuid s vm_powercycle_test);
+				maybe_run_test "lifecycle" (fun () -> with_vm' uuid s Quicktest_lifecycle.test);
 				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
 				| Api_errors.Server_error (a,b) ->
