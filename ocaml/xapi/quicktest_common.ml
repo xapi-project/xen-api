@@ -199,13 +199,13 @@ let cli_cmd test args =
       failed test (Printexc.to_string e);
       failwith "CLI failed"
 
-(** [install_vm' test session uuid] installs a VM from a template 
+(** [install_vm_from_template uuid test session uuid] installs a VM from a template 
  * identified by its UUID *)
-let install_vm' test (session: 'a Ref.t)  template =
-  let label     = "quicktest-" ^ String.sub template 0 8 in
+let install_vm_from_template uuid test (session: 'a Ref.t)  =
+  let label     = "quicktest-" ^ String.sub uuid 0 8 in
   let vm_uuid   = cli_cmd test 
     [ "vm-install"
-    ; "template-uuid=" ^ template
+    ; "template-uuid=" ^ uuid
     ; "new-name-label=" ^ label 
     ] in
   let vm = Client.VM.get_by_uuid !rpc session vm_uuid in

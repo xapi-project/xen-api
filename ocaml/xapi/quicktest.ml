@@ -808,14 +808,13 @@ let with_vm s f =
 
 let with_template uuid (session: 'a Ref.t) f = 
     let sprintf = Printf.sprintf in
-    let msg     = sprintf "Setting up VM frm template %s" uuid in
+    let msg     = sprintf "Setting up VM from template %s\n" uuid in
     let test    = make_test msg 0 in
       begin
         start test;
-        let vm = install_vm' test session uuid in 
-            ( ignore (f session vm)
-            ; vm_uninstall test session vm
-            );
+        let vm = install_vm_from_template uuid test session in 
+        ignore (f session vm);
+        vm_uninstall test session vm;
         success test;
       end
 
@@ -862,12 +861,15 @@ let _ =
         | _             -> true
     in
     let default_tests   = List.filter is_default all_tests in
-    let uuid            = "a0704a61-f98b-50cd-fe60-68a226e65069" in
+    let template        = ref "uuid-for-vm-template---------------" in
 
 	let tests_to_run = ref default_tests in (* default is everything *)
     let sprintf = Printf.sprintf in
     let fprintf = Printf.fprintf in
 	Arg.parse [
+        "-template-uuid",
+            Arg.Set_string template,
+            "UUID of VM template to use for tests";
 		"-xe-path", 
             Arg.String (fun x -> Quicktest_common.xe_path := x), 
             "Path to xe command line executable";
@@ -923,9 +925,9 @@ let _ =
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
-				maybe_run_test "vhd" (fun () -> with_template uuid s test_vhd_locking_hook);
-				maybe_run_test "powercycle" (fun () -> with_template uuid s vm_powercycle_test);
-				maybe_run_test "lifecycle" (fun () -> with_template uuid s Quicktest_lifecycle.test);
+				maybe_run_test "vhd" (fun () -> with_template !template s test_vhd_locking_hook);
+				maybe_run_test "powercycle" (fun () -> with_template !template s vm_powercycle_test);
+				maybe_run_test "lifecycle" (fun () -> with_template !template s Quicktest_lifecycle.test);
 				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
 				| Api_errors.Server_error (a,b) ->
