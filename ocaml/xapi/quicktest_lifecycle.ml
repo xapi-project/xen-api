@@ -134,7 +134,7 @@ let one s vm test =
 				if Client.VM.get_power_state !rpc s vm = `Halted
 				then Client.VM.start !rpc s vm false false;
 				(* wait for the guest to actually start up *)
-				Thread.delay 15.;
+				Thread.delay 2.; (* was 15.0, reduced for Unikernel *)
 
 				let call_api = function
 					| Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm

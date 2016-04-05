@@ -604,8 +604,9 @@ let powercycle_test session_id vm =
 	start test;
 	(* avoid the race whereby reboot requests are ignored if too early *)
 	let delay () = 
-		debug test "Pausing for 10s";
-		Thread.delay 10. in
+        let secs = 2.0 in
+		debug test @@ Printf.sprintf "Pausing for %3.1fs" secs;
+		Thread.delay secs in
 	debug test (Printf.sprintf "Trying to enable VM.clone for suspended VMs pool-wide");
 	let pool = get_pool session_id in
 	let enabled_csvm = 
