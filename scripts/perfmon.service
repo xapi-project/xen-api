@@ -1,0 +1,11 @@
+[Unit]
+Description=Performance monitoring/alarm generation daemon
+After=xcp-rrdd.service xapi.service
+Wants=xcp-rrdd.service xapi.service
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/perfmon
+ExecStart=@BINDIR@/perfmon $PERFMON_FLAGS
+
+[Install]
+WantedBy=multi-user.target
