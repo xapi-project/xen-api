@@ -30,7 +30,7 @@ let backend_kind = ref Openvswitch
 
 let legacy_management_interface_start () =
 	try
-		ignore (call_script "/etc/init.d/management-interface" ["start"]);
+		ignore (call_script "/opt/xensource/libexec/legacy-management-interface" ["start"]);
 		debug "Upgrade: brought up interfaces using the old script. Xapi will sync up soon."
 	with e ->
 		debug "Error while configuring the management interface using the old script: %s\n%s"
