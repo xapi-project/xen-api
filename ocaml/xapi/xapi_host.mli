@@ -87,6 +87,7 @@ val create :
   license_server:(string * string) list ->
   local_cache_sr:[ `SR ] Ref.t ->
   chipset_info:(string * string) list ->
+  ssl_legacy:bool ->
   [ `host ] Ref.t
 val destroy : __context:Context.t -> self:API.ref_host -> unit
 val declare_dead : __context:Context.t -> host:API.ref_host -> unit

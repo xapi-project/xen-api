@@ -26,6 +26,7 @@ type host_info = {
   machine_serial_name : string option;
   total_memory_mib : int64;
   dom0_static_max : int64;
+  ssl_legacy : bool;
 }
 
 val read_dom0_memory_usage : unit -> int64 option
