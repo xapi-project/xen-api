@@ -14,6 +14,7 @@
 open Db_cache_types
 open Pervasiveext
 module R = Debug.Make(struct let name = "redo_log" end)
+module D = Debug.Make(struct let name = "database" end)
 
 (** Functions to marshall/unmarshall the database as XML *)
 
@@ -102,6 +103,10 @@ module From = struct
 					raise (Unmarshall_error "Unexpected end of file")
 			end else
 				f accu in
+		let schema_vsn_of_manifest manifest =
+			let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
+			let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in
+			(major_vsn, minor_vsn) in
 		let rec f ((tableset, table, tblname, manifest) as acc) = match Xmlm.input input with
 				(* On reading a start tag... *)
 			| `El_start (tag: Xmlm.tag) ->
@@ -118,15 +123,32 @@ module From = struct
 						let ctime = match ctime_l with | [(_,ctime_s)] -> Int64.of_string ctime_s | _ -> 0L in
 						let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
 						let row = List.fold_left (fun row ((_, k), v) -> 
-                                                        let table_schema = Schema.Database.find tblname schema.Schema.database in
-                                                        let column_schema = try
-                                                                Schema.Table.find k table_schema
-                                                        with Not_found ->
-                                                                raise (Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k))
-                                                        in
-                                                        let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
-                                                        let empty = column_schema.Schema.Column.empty in
-							Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
+							let table_schema = Schema.Database.find tblname schema.Schema.database in
+							try
+								let column_schema = Schema.Table.find k table_schema in
+								let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
+								let empty = column_schema.Schema.Column.empty in
+								Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
+							with Not_found ->
+								(* This means there's an unexpected field, so we should normally fail. However, fields
+								 * present in Tech Preview releases are permitted to disappear on upgrade, so suppress
+								 * such errors on such upgrades. *)
+								let exc = Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k) in
+								let (this_maj, this_min) = try
+									schema_vsn_of_manifest manifest
+								with Not_found ->
+									(* Probably the database didn't have a <manifest> at the start. So at this point
+									 * we don't know the schema version of the database we're loading. *)
+									D.error "Unmarshalling removed column %s from table %s but don't know schema version because manifest not yet read" k tblname;
+									raise exc
+								in
+								if List.mem (this_maj, this_min) Datamodel.tech_preview_releases then (
+									(* Suppress error for fields that only temporarily existed in the datamodel *)
+									D.warn "Upgrading from Tech Preview schema %d.%d so removing deleted field %s from table %s" this_maj this_min k tblname;
+									row
+								) else
+									(* For any genuinely unexpected fields, fail *)
+									raise exc
 						) Row.empty rest in
 						f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), tblname, manifest)
 					| (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
@@ -148,8 +170,7 @@ module From = struct
 		in
 		let (ts, _, _, manifest) = f (TableSet.empty, Table.empty, "", []) in
 		let g = Int64.of_string (List.assoc _generation_count manifest) in
-		let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
-		let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in
+		let (major_vsn, minor_vsn) = schema_vsn_of_manifest manifest in
 		let manifest = Manifest.make major_vsn minor_vsn g in
 		((Database.update_manifest (fun _ -> manifest)) 
 		++ (Database.update_tableset (fun _ -> ts)))

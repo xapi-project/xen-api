@@ -69,11 +69,14 @@ let cream_release_schema_minor_vsn = 73
 let indigo_release_schema_major_vsn = 5
 let indigo_release_schema_minor_vsn = 74
 
+let dundee_tech_preview_release_schema_major_vsn = 5
+let dundee_tech_preview_release_schema_minor_vsn = 91
+
 (* This is to support upgrade from Dundee tech-preview versions and other nearly-Dundee versions.
  * The field has_vendor_device was added while minor vsn was 90, then became meaningful later;
  * the first published tech preview in which the feature was active had datamodel minor vsn 91. *)
-let meaningful_vm_has_vendor_device_schema_major_vsn = 5
-let meaningful_vm_has_vendor_device_schema_minor_vsn = 91
+let meaningful_vm_has_vendor_device_schema_major_vsn = dundee_tech_preview_release_schema_major_vsn
+let meaningful_vm_has_vendor_device_schema_minor_vsn = dundee_tech_preview_release_schema_minor_vsn
 
 let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 93
@@ -81,6 +84,13 @@ let dundee_release_schema_minor_vsn = 93
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = cream_release_schema_major_vsn
 let last_release_schema_minor_vsn = cream_release_schema_minor_vsn
+
+(* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
+ * upgrading to a full release. *)
+let tech_preview_releases = [
+	vgpu_tech_preview_release_schema_major_vsn,   vgpu_tech_preview_release_schema_minor_vsn;
+	dundee_tech_preview_release_schema_major_vsn, dundee_tech_preview_release_schema_minor_vsn;
+]
 
 (** Bindings for currently specified releases *)
 
