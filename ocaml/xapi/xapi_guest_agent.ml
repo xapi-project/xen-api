@@ -98,33 +98,6 @@ let networks path (list: string -> string list) =
 		|> List.map (fun (path, prefix) -> find_all_ips path prefix)
 		|> List.concat
 
-(* This function is passed the "device/vif" node, a function it can use to
- * find the directory listing of sub-nodes and a function to retrieve the value
- * with the given path.
- * If "state" of all VIFs are "4", the return value is true
- * which means the network paths are optimized.
- * Or else the return value is false.
- *)
-let network_paths_optimized path (list: string -> string list) (lookup: string -> string option) =
-	List.fold_left (fun result vif_id ->
-		let vif_state = lookup (extend (extend path vif_id) "state") in
-		result && (vif_state = Some "4")
-	) true (list path)
-
-(* This function is passed the "device/vbd" node, a function it can use to
- * find the directory listing of sub-nodes and a function to retrieve the value
- * with the given path.
- * If "state" of all VBDs (except cdrom) are "4", the return value is true
- * which means the storage paths are optimized.
- * Or else the return value is false.
- *)
-let storage_paths_optimized path (list: string -> string list) (lookup: string -> string option) =
-	List.fold_left (fun result vbd_id ->
-		let vbd_state = lookup (extend (extend path vbd_id) "state") in
-		let vbd_type = lookup (extend (extend path vbd_id) "device-type") in
-		result && (vbd_state = Some "4" || vbd_type = Some "cdrom")
-	) true (list path)
-
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
    "feature-sysrq" *)
@@ -145,9 +118,6 @@ type guest_metrics_t = {
     other: m;
     memory: m;
     device_id: m;
-    network_paths_optimized: bool;
-    storage_paths_optimized: bool;
-    pv_drivers_up_to_date: bool;
     last_updated: float;
     can_use_hotplug_vbd: API.tristate_type;
     can_use_hotplug_vif: API.tristate_type;
@@ -182,14 +152,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and networks = to_map (networks "attr" list)
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
-  and network_paths_optimized = network_paths_optimized "device/vif" list lookup
-  and storage_paths_optimized = storage_paths_optimized "device/vbd" list lookup
   and last_updated = Unix.gettimeofday () in
   let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
   let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
 
-  let pv_drivers_up_to_date = network_paths_optimized && storage_paths_optimized in
-  
   (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
   debug "Number of entries in hashtbl: %d" num; *)
 
@@ -222,9 +188,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 		  other = [];
 		  memory = [];
 		  device_id = [];
-		  network_paths_optimized = false;
-		  storage_paths_optimized = false;
-		  pv_drivers_up_to_date = false;
 		  last_updated = 0.0;
 		  can_use_hotplug_vbd = `unspecified;
 		  can_use_hotplug_vif = `unspecified;
@@ -237,7 +200,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   then begin
 
       (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; network_paths_optimized; storage_paths_optimized; pv_drivers_up_to_date; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
+      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
 
       (* We update only if any actual data has changed *)
       if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version 
@@ -248,13 +211,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	   ||
 	   guest_metrics_cached.other <> other
      ||
-     guest_metrics_cached.device_id <> device_id
-     ||
-     guest_metrics_cached.network_paths_optimized <> network_paths_optimized
-     ||
-     guest_metrics_cached.storage_paths_optimized <> storage_paths_optimized
-     ||
-     guest_metrics_cached.pv_drivers_up_to_date <> pv_drivers_up_to_date)
+     guest_metrics_cached.device_id <> device_id)
      ||
      guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
      ||
@@ -273,7 +230,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
 		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
-		~storage_paths_optimized:false ~network_paths_optimized:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
+		~pV_drivers_detected:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
 	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
 		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
@@ -292,15 +249,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  if(guest_metrics_cached.other <> other) then begin
 	    Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
-	  end;
-	  if(guest_metrics_cached.network_paths_optimized <> network_paths_optimized) then begin
-	  	Db.VM_guest_metrics.set_network_paths_optimized ~__context ~self:gm ~value:network_paths_optimized;
-	  end;
-	  if(guest_metrics_cached.storage_paths_optimized <> storage_paths_optimized) then begin
-	  	Db.VM_guest_metrics.set_storage_paths_optimized ~__context ~self:gm ~value:storage_paths_optimized;
-	  end;
-	  if(guest_metrics_cached.pv_drivers_up_to_date <> pv_drivers_up_to_date) then begin
-	  	Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:pv_drivers_up_to_date;
 	  end;
 	  if(guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd) then begin
 	  	Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm ~value:can_use_hotplug_vbd;
