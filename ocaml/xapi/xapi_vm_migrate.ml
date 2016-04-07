@@ -92,6 +92,13 @@ open Storage_interface
 open Listext
 open Fun
 
+let assert_network_support_migration ~__context ~vif_map ~remote =
+  let network_records = XenAPI.Network.get_all_records remote.rpc remote.session in
+  List.iter (fun (vif, network) ->
+    if not (List.exists (fun (network_ref, _) -> network_ref = network ) network_records) then
+      raise (Api_errors.Server_error(Api_errors.network_not_found,[Ref.string_of network]))
+  ) vif_map
+
 let assert_sr_support_migration ~__context ~vdi_map ~remote =
   (* Get destination host SM record *)
   let sm_record = XenAPI.SM.get_all_records remote.rpc remote.session in
@@ -999,8 +1006,11 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
     (* Check the host can support the VM's required version of virtual hardware platform *)
     Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
+    
     (* Check VDIs are not on SR which doesn't have snapshot capability *)
     assert_sr_support_migration ~__context ~vdi_map ~remote;
+
+    assert_network_support_migration ~__context ~vif_map ~remote;
 
     (*Check that the remote host is enabled and not in maintenance mode*)
     let check_host_enabled = XenAPI.Host.get_enabled remote.rpc remote.session (remote.dest_host) in

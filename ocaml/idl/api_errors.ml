@@ -509,6 +509,7 @@ let vm_has_checkpoint = "VM_HAS_CHECKPOINT"
 
 let mirror_failed = "MIRROR_FAILED"
 let too_many_storage_migrates = "TOO_MANY_STORAGE_MIGRATES"
+let network_not_found = "NETWORK_NOT_FOUND"
 let sr_does_not_support_migration = "SR_DOES_NOT_SUPPORT_MIGRATION"
 let unimplemented_in_sm_backend = "UNIMPLEMENTED_IN_SM_BACKEND"
 
