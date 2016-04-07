@@ -5425,7 +5425,7 @@ let vif_configure_ipv4 = call
 		{param_type=String; param_name="address"; param_doc="The IPv4 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
 		{param_type=String; param_name="gateway"; param_doc="The IPv4 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
 	]
-	~allowed_roles:_R_POOL_OP
+	~allowed_roles:_R_VM_OP
 	()
 
 let vif_configure_ipv6 = call
@@ -5438,7 +5438,7 @@ let vif_configure_ipv6 = call
 		{param_type=String; param_name="address"; param_doc="The IPv6 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
 		{param_type=String; param_name="gateway"; param_doc="The IPv6 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
 	]
-	~allowed_roles:_R_POOL_OP
+	~allowed_roles:_R_VM_OP
 	()
 
 (** A virtual network interface *)
