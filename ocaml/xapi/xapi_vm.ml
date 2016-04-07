@@ -907,7 +907,9 @@ let set_protection_policy ~__context ~self ~value =
 	raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 let set_snapshot_schedule ~__context ~self ~value =
-	if value <> Ref.null then begin
+	if not ((Db.is_valid_ref __context value) || (value = Ref.null) || (Ref.string_of value = "")) then
+		raise (Api_errors.Server_error ("Invalid VMSS ref:", [Ref.string_of value]));
+	if (value <> Ref.null && (Db.is_valid_ref __context value)) then begin
 		if Db.VM.get_is_control_domain ~__context ~self then
 			(* do not assign vmss to the dom0 vm of any host in the pool *)
 			raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]));
