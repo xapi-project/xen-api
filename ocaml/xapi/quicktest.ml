@@ -905,9 +905,17 @@ let _ =
 		if List.mem name !tests_to_run then f () in
 
 	Stunnel.set_good_ciphersuites "!EXPORT:RSA+AES128-SHA256";
-	let s = init_session !username !password in
-        let all_srs = all_srs_with_vdi_create s in
-        let sr = List.hd all_srs in
+	let s = 
+    try
+      init_session !username !password 
+    with Unix.Unix_error(Unix.ENOENT, "connect",_) ->
+      begin
+        Printf.eprintf "failed to open local socket -- giving up\n";
+        exit 1
+      end
+    in
+  let all_srs = all_srs_with_vdi_create s in
+  let sr = List.hd all_srs in
 	finally
 		(fun () ->
 			(try
