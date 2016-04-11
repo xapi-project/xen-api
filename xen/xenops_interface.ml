@@ -370,6 +370,7 @@ module Vm = struct
 		uncooperative_balloon_driver: bool;
 		guest_agent: (string * string) list;
 		xsdata_state: (string * string) list;
+		pv_drivers_detected: bool;
 		last_start_time: float;
 		hvm: bool;
 	} with sexp
