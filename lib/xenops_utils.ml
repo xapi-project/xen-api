@@ -543,6 +543,7 @@ let halted_vm = {
 	rtc_timeoffset = "";
 	uncooperative_balloon_driver = false;
 	guest_agent = [];
+	pv_drivers_detected = false;
 	xsdata_state = [];
 	last_start_time = 0.;
 	shadow_multiplier_target = 1.;

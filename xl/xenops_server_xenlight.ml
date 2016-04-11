@@ -248,6 +248,7 @@ module VmExtra = struct
 		qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
+		pv_drivers_detected: bool;
 	} with rpc
 
 	type t = {
@@ -1865,6 +1866,7 @@ module VM = struct
 			qemu_vifs = [];
 			pci_msitranslate = vm.Vm.pci_msitranslate;
 			pci_power_mgmt = vm.Vm.pci_power_mgmt;
+			pv_drivers_detected = false;
 		}
 
 
@@ -2642,7 +2644,7 @@ module VM = struct
 							let subdirs = try xs.Xs.directory (root ^ "/" ^ dir) |> List.filter (fun x -> x <> "") |> List.map (fun x -> dir ^ "/" ^ x) with _ -> [] in
 							this @ (List.concat (List.map (ls_lR root) subdirs)) in
 						let guest_agent =
-							[ "drivers"; "attr"; "data"; "control"; "device"; "feature" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
+							[ "drivers"; "attr"; "data"; "control"; "feature" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let xsdata_state =
 							Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.domid)) |> List.concat in
 						let shadow_multiplier_target =
@@ -2660,6 +2662,10 @@ module VM = struct
 							consoles = Opt.to_list vnc @ (Opt.to_list tc) @ qemu_unix_vnc;
 							uncooperative_balloon_driver = uncooperative;
 							guest_agent = guest_agent;
+							pv_drivers_detected = begin match vme with
+								| Some x -> x.VmExtra.non_persistent.VmExtra.pv_drivers_detected
+								| None -> false
+							end;
 							xsdata_state = xsdata_state;
 							vcpu_target = begin match vme with
 								| Some x -> x.VmExtra.non_persistent.VmExtra.vcpus
@@ -2769,6 +2775,25 @@ let store_rtc_timeoffset vm timeoffset =
 				| _ -> ()
 		) (DB.read vm)
 
+let maybe_update_pv_drivers_detected ~xc ~xs domid path =
+	let vm = get_uuid domid in
+	Opt.iter
+		(function { VmExtra.persistent; non_persistent } ->
+			if not non_persistent.VmExtra.pv_drivers_detected then begin
+				(* If the new value for this device is 4 then PV drivers are present *)
+				try
+					let value = xs.Xs.read path in
+					if value = "4" (* connected *) then begin
+						let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+						debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+						DB.write vm { VmExtra.persistent; non_persistent }
+					end
+				with Xs_protocol.Enoent _ ->
+					warn "Watch event on %s fired but couldn't read from it" path;
+					() (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
+			end
+		) (DB.read vm)
+
 module IntMap = Map.Make(struct type t = int let compare = compare end)
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
@@ -2812,6 +2837,7 @@ let watches_of_device device =
 		"tapdisk-pid";
 		"shutdown-done";
 		"params";
+		"state";
 	] in
 	let open Device_common in
 	let be = device.backend.domid in
@@ -2995,9 +3021,11 @@ let process_one_watch xc xs (path, token) =
 	if path = _introduceDomain || path = _releaseDomain
 	then look_for_different_domains xc xs
 	else match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
-		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: _ ->
+		| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: key ->
 			debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
-			fire_event_on_device frontend kind devid
+			fire_event_on_device frontend kind devid;
+			(* If this event was a state change then this might be the first time we see evidence of PV drivers *)
+			if key = ["state"] then maybe_update_pv_drivers_detected ~xc ~xs (int_of_string frontend) path
 		| "local" :: "domain" :: frontend :: "device" :: _ ->
 			look_for_different_devices (int_of_string frontend)
 		| "local" :: "domain" :: domid :: _ ->
