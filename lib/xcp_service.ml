@@ -552,8 +552,6 @@ let daemonize () =
 		| 0 ->
 			Unix.chdir "/";
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
-			(* wait for parent to exit before writing pidfile *)
-			while not (have_daemonized ()) do Thread.delay 0.1 done;
 			pidfile_write !pidfile;
 			Unix.close Unix.stdin;
 			Unix.close Unix.stdout;
