@@ -1502,6 +1502,14 @@ let update_vm ~__context id =
 											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
 									) state.domids
 							) info in
+					let update_pv_drivers_detected () =
+						Opt.iter
+							(fun (_, state) ->
+								let gm = Db.VM.get_guest_metrics ~__context ~self in
+								debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
+								Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
+								Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
+							) info in
 					Opt.iter
 						(fun (_, state) ->
 							List.iter
@@ -1510,6 +1518,7 @@ let update_vm ~__context id =
 										debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
 									end;
 									if different (fun x -> x.guest_agent) then check_guest_agent ();
+									if different (fun x -> x.pv_drivers_detected) then update_pv_drivers_detected ();
 
 									if different (fun x -> x.xsdata_state) then begin
 										try

@@ -387,6 +387,17 @@ let default_has_vendor_device_false = {
 			(Db.VM.get_all ~__context)
 }
 
+let default_pv_drivers_detected_false = {
+	description = "Defaulting PV_drivers_detected false";
+	version = (fun x -> x < dundee);
+	fn = fun ~__context ->
+		List.iter
+			(fun self ->
+				let gm = Db.VM.get_guest_metrics ~__context ~self in
+				Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:false)
+			(Db.VM.get_all ~__context)
+}
+
 let populate_pgpu_vgpu_types = {
 	description = "Populating lists of VGPU types on existing PGPUs";
 	version = (fun x -> x <= clearwater);
@@ -498,6 +509,7 @@ let rules = [
 	set_vgpu_types;
 	add_default_pif_properties;
 	default_has_vendor_device_false;
+	default_pv_drivers_detected_false;
 	remove_restricted_pbd_keys;
 	upgrade_recommendations_for_gpu_passthru;
 ]
