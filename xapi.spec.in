@@ -154,30 +154,19 @@ mkdir $RPM_BUILD_ROOT/etc/xapi.conf.d
 rm -rf $RPM_BUILD_ROOT
 
 %post core
+[ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
+[ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
+[ ! -x /sbin/chkconfig ] || chkconfig --add xapi
+[ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
+[ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
+[ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
 %systemd_post cdrommon@.service
-%systemd_post xapi-domains.service
-%systemd_post perfmon.service
-%systemd_post genptoken.service
-%systemd_post xapi.service
-%systemd_post attach-static-vdis.service
-%systemd_post save-boot-info.service
 
 %preun core
 %systemd_preun cdrommon@.service
-%systemd_preun xapi-domains.service
-%systemd_preun perfmon.service
-%systemd_preun xapi.service
-%systemd_preun attach-static-vdis.service
-%systemd_preun save-boot-info.service
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
-%systemd_postun_with_restart xapi-domains.service
-%systemd_postun_with_restart perfmon.service
-%systemd_postun_with_restart genptoken.service
-%systemd_postun_with_restart xapi.service
-%systemd_postun_with_restart attach-static-vdis.service
-%systemd_postun_with_restart save-boot-info.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
@@ -187,11 +176,14 @@ rm -rf $RPM_BUILD_ROOT
 /etc/pam.d/xapi
 /etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
-@OPTDIR@/libexec/legacy-management-interface
-@OPTDIR@/libexec/xapi-init
+/etc/rc.d/init.d/management-interface
+/etc/rc.d/init.d/perfmon
+/etc/rc.d/init.d/xapi
+/etc/rc.d/init.d/xapi-domains
 @OPTDIR@/libexec/xapissl
-@OPTDIR@/libexec/attach-static-vdis
-@OPTDIR@/libexec/save-boot-info
+/etc/rc.d/init.d/genptoken
+/etc/rc.d/init.d/attach-static-vdis
+/etc/rc.d/init.d/save-boot-info
 %config(noreplace) /etc/sysconfig/perfmon
 %config(noreplace) /etc/sysconfig/xapi
 /etc/xapi.conf.d
@@ -322,12 +314,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
 %{_unitdir}/cdrommon@.service
-%{_unitdir}/xapi-domains.service
-%{_unitdir}/perfmon.service
-%{_unitdir}/genptoken.service
-%{_unitdir}/xapi.service
-%{_unitdir}/attach-static-vdis.service
-%{_unitdir}/save-boot-info.service
 
 %files xe
 %defattr(-,root,root,-)

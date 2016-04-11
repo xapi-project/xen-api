@@ -1,6 +1,9 @@
 #!/bin/bash
 #
-# Bring up XenServer management interface (legacy script)
+# Bring up XenServer management interface
+#
+# chkconfig: 2345 13 76
+# description: Bring up XenServer management interface
 
 . /etc/init.d/functions
 
