@@ -386,6 +386,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 				 * been added to the constructor. *)
 				~local_cache_sr
 				~chipset_info:host.API.host_chipset_info
+				~ssl_legacy:host.API.host_ssl_legacy
 			in
 
 			(* Copy other-config into newly created host record: *)
@@ -1721,17 +1722,15 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
 		raise (Api_errors.Server_error
 			(Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))
 
-let disable_ssl_legacy ~__context ~self =
+let set_ssl_legacy_on_each_host ~__context ~self ~value =
 	let f ~rpc ~session_id ~host =
-		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:false
+		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value
 	in
 	Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
 
-let enable_ssl_legacy ~__context ~self =
-	let f ~rpc ~session_id ~host =
-		Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value:true
-	in
-	Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
+let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
+
+let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
 
 let has_extension ~__context ~self ~name =
 	try

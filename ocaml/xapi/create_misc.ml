@@ -42,6 +42,7 @@ type host_info = {
 	machine_serial_name: string option;
 	total_memory_mib: int64;
 	dom0_static_max: int64;
+	ssl_legacy: bool;
 }
 
 (* NB: this is dom0's view of the world, not Xen's. *)
@@ -109,6 +110,10 @@ let read_localhost_info () =
 		machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
 		total_memory_mib = total_memory_mib;
 		dom0_static_max = dom0_static_max;
+		ssl_legacy = try (
+			bool_of_string (
+				Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true")
+		) with _ -> true;
 	}
 
 (** Returns the maximum of two values. *)
