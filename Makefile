@@ -1,53 +1,41 @@
-.PHONY: all clean install build
-all: build doc
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-NAME=forkexec
-J=4
+SETUP = ocaml setup.ml
 
-BINDIR ?= /usr/bin
-SBINDIR ?= /usr/sbin
-ETCDIR ?= /etc
-DESTDIR ?= /
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-export OCAMLRUNPARAM=b
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
 
-setup.data: setup.bin
-	@./setup.bin -configure
+all:
+	$(SETUP) -all $(ALLFLAGS)
 
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
 
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
 
-install: setup.bin
-	@./setup.bin -install
-	mkdir -p $(DESTDIR)/$(ETCDIR)/init.d
-	install ./src/init.d-fe $(DESTDIR)/$(ETCDIR)/init.d/fe
-	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
-	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
-
-test: setup.bin build
-	@./setup.bin -test
-
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
-	mkdir -p $(DESTDIR)/$(ETCDIR)/init.d
-	install ./src/init.d-fe $(DESTDIR)/$(ETCDIR)/init.d/fe
-	install ./fe_main.native $(DESTDIR)/$(SBINDIR)/xcp-fe
-	install ./fe_cli.native $(DESTDIR)/$(BINDIR)/xcp-fe-cli
-
-uninstall:
-	@ocamlfind remove $(NAME) || true
-	rm -f $(DESTDIR)/$(ETCDIR)/init.d/fe
-	rm -f $(DESTDIR)/$(SBINDIR)/xcp-fe
-	rm -f $(DESTDIR)/$(BINDIR)/xcp-fe-cli
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	$(SETUP) -clean $(CLEANFLAGS)
+
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
+
+# OASIS_STOP

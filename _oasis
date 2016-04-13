@@ -1,15 +1,11 @@
-OASISFormat: 0.2
+OASISFormat: 0.4
 Name:        forkexecd
 Version:     0.9.2
 Synopsis:    Fork and exec daemon
 Authors:     see CREDITS
 License:     LGPL-2.1 with OCaml linking exception
-Plugins:     META (0.2)
+Plugins:     META (0.4), DevFiles(0.4)
 BuildTools:  ocamlbuild
-
-Flag tests
-  Description:        Build and run tests
-  Default:            true
 
 Library forkexec
   CompiledObject:     best
