@@ -478,10 +478,10 @@ module Intel = struct
 				{
 					vendor_name;
 					model_name = conf.model_name;
-					framebuffer_size = mib 256L;
-					max_heads = 1L;
-					max_resolution_x = 2560L;
-					max_resolution_y = 1600L;
+					framebuffer_size = conf.framebufferlength;
+					max_heads = conf.num_heads;
+					max_resolution_x = conf.max_x;
+					max_resolution_y = conf.max_y;
 					size = vgpu_size;
 					internal_config = [
 						Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
