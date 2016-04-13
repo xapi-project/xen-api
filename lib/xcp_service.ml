@@ -540,7 +540,7 @@ let pidfile_write filename =
 
 (* Cf Stevens et al, Advanced Programming in the UNIX Environment,
 	 Section 13.3 *)
-let daemonize () =
+let daemonize ?start_fn () =
 	if not (have_daemonized ())
 	then
 		ign_int (Unix.umask 0);
@@ -550,6 +550,7 @@ let daemonize () =
 		Sys.set_signal Sys.sighup Sys.Signal_ignore;
 		(match Unix.fork () with
 		| 0 ->
+			Opt.iter (fun fn -> fn ()) start_fn;
 			Unix.chdir "/";
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
 			pidfile_write !pidfile;
@@ -560,10 +561,14 @@ let daemonize () =
 			assert (nullfd = Unix.stdin);
 			let (_:Unix.file_descr) = Unix.dup nullfd in ();
 			let (_:Unix.file_descr) = Unix.dup nullfd in ();
-	  | _ -> exit 0)
+		| _ -> exit 0)
 	| _ -> exit 0
 
-let maybe_daemonize () = if !daemon then daemonize ()
+let maybe_daemonize ?start_fn () =
+	if !daemon then
+		daemonize ?start_fn ()
+	else
+		Opt.iter (fun fn -> fn ()) start_fn
 
 let wait_forever () =
 	while true do
