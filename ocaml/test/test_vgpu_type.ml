@@ -18,6 +18,8 @@ open Test_highlevel
 open Test_vgpu_common
 open Xapi_vgpu_type
 
+let mib x = List.fold_left Int64.mul x [1024L; 1024L]
+
 module NvidiaTest = struct
 	let string_of_vgpu_conf conf =
 		let open Identifier in
@@ -127,7 +129,7 @@ module IntelTest = struct
 			"", None;
 			"nonsense123", None;
 			(* Test some success cases. *)
-			"1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			"1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080 monitor_config_file=/my/file",
 			Some {
 				Intel.identifier = Identifier.({
 					pdev_id = 0x1234;
@@ -138,8 +140,12 @@ module IntelTest = struct
 				});
 				experimental = false;
 				model_name = "myvgpu";
+				framebufferlength = mib 128L;
+				num_heads = 1L;
+				max_x = 1920L;
+				max_y = 1080L;
 			};
-			"1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 monitor_config_file=/my/file",
+			"1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080 monitor_config_file=/my/file",
 			Some {
 				Intel.identifier = Identifier.({
 					pdev_id = 0x1234;
@@ -150,6 +156,10 @@ module IntelTest = struct
 				});
 				experimental = true;
 				model_name = "myvgpu";
+				framebufferlength = mib 128L;
+				num_heads = 1L;
+				max_x = 1920L;
+				max_y = 1080L;
 			};
 		]
 	end)
@@ -183,6 +193,10 @@ module IntelTest = struct
 					});
 					experimental = false;
 					model_name = "GVT-g on 1234";
+					framebufferlength = mib 128L;
+					num_heads = 1L;
+					max_x = 1920L;
+					max_y = 1080L;
 				});
 				Intel.({
 					identifier = Identifier.({
@@ -194,6 +208,10 @@ module IntelTest = struct
 					});
 					experimental = true;
 					model_name = "GVT-g on 1234 (experimental)";
+					framebufferlength = mib 128L;
+					num_heads = 1L;
+					max_x = 1920L;
+					max_y = 1080L;
 				});
 			];
 			("ocaml/test/data/gvt-g-whitelist-1234", 0x5678), [];
@@ -209,6 +227,10 @@ module IntelTest = struct
 					});
 					experimental = false;
 					model_name = "GVT-g on 1234";
+					framebufferlength = mib 128L;
+					num_heads = 1L;
+					max_x = 1920L;
+					max_y = 1080L;
 				});
 			];
 		]

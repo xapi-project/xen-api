@@ -380,20 +380,28 @@ module Intel = struct
 	type vgpu_conf = {
 		identifier : Identifier.gvt_g_id;
 		experimental : bool;
-		model_name : string
+		model_name : string;
+		framebufferlength : int64;
+		num_heads : int64;
+		max_x : int64;
+		max_y : int64;
 	}
 
 	let read_whitelist_line ~line =
 		try
 			Some (Scanf.sscanf
 				line
-				"%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld monitor_config_file=%s"
+				"%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld framebuffer_sz=%Ld max_heads=%Ld resolution=%Ldx%Ld monitor_config_file=%s"
 				(fun pdev_id
 						experimental
 						model_name
 						low_gm_sz
 						high_gm_sz
 						fence_sz
+						framebuffer_sz
+						num_heads
+						max_x
+						max_y
 						monitor_config_file ->
 					{
 						identifier = Identifier.({
@@ -408,6 +416,10 @@ module Intel = struct
 							| '0' -> false
 							| _ -> true);
 						model_name;
+						framebufferlength = mib framebuffer_sz;
+						num_heads;
+						max_x;
+						max_y;
 					}))
 		with e-> begin
 			error "Failed to read whitelist line: '%s' %s"
@@ -466,10 +478,10 @@ module Intel = struct
 				{
 					vendor_name;
 					model_name = conf.model_name;
-					framebuffer_size = mib 256L;
-					max_heads = 1L;
-					max_resolution_x = 2560L;
-					max_resolution_y = 1600L;
+					framebuffer_size = conf.framebufferlength;
+					max_heads = conf.num_heads;
+					max_resolution_x = conf.max_x;
+					max_resolution_y = conf.max_y;
 					size = vgpu_size;
 					internal_config = [
 						Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
