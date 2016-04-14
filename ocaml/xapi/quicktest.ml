@@ -862,13 +862,13 @@ let _ =
         | _             -> true
     in
     let default_tests   = List.filter is_default all_tests in
-    let template        = ref "uuid-for-vm-template---------------" in
+    let template        = ref "" in
 
 	let tests_to_run = ref default_tests in (* default is everything *)
     let sprintf = Printf.sprintf in
     let fprintf = Printf.fprintf in
 	Arg.parse [
-        "-template-uuid",
+    "-template-uuid",
             Arg.Set_string template,
             "UUID of VM template to use for tests";
 		"-xe-path", 
@@ -935,7 +935,11 @@ let _ =
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
 				maybe_run_test "vhd" (fun () -> with_template !template s test_vhd_locking_hook);
-				maybe_run_test "powercycle" (fun () -> with_template !template s vm_powercycle_test);
+				maybe_run_test "powercycle" (fun () -> 
+          (* fall back to old behavior if no template provided *)
+          match !template with
+          | ""    -> with_vm            s vm_powercycle_test 
+          | uuid  -> with_template uuid s vm_powercycle_test);
 				maybe_run_test "lifecycle" (fun () -> with_template !template s Quicktest_lifecycle.test);
 				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
@@ -944,3 +948,5 @@ let _ =
 				| e ->
 					output_string stderr (Printexc.to_string e))
 		) (fun () -> summarise ())
+
+(* vim: set ts=2 noet: *)
