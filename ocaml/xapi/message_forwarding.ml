@@ -657,6 +657,47 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* Defined in Xapi_vm_helpers so it can be used from elsewhere without circular dependency. *)
 		let with_vm_operation = Xapi_vm_helpers.with_vm_operation
 
+		(* Nb, we're not using the snapshots returned in 'Event.from' here because
+		 * the tasks might get deleted. The standard mechanism for dealing with
+		 * deleted events assumes you have a full database replica locally, and
+		 * deletions are handled by checking your valid_ref_counts table against
+		 * your local database. In this case, we're only interested in a subset of
+		 * events, so this mechanism doesn't work. There will only be a few outstanding
+		 * tasks anyway, so we're safe to just iterate through the references when an
+		 * event happens - ie, we use the event API simply to wake us up when something
+		 * interesting has happened. *)
+
+		let wait_for_tasks ~__context ~tasks =
+			let our_task = Context.get_task_id __context in
+			let classes = List.map (fun x -> Printf.sprintf "task/%s" (Ref.string_of x)) (our_task::tasks) in
+
+			let rec process token =
+				TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
+				let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+				let unfinished = List.exists (fun state -> state = `pending) statuses in
+				if unfinished
+				then begin
+					let from = Helpers.call_api_functions ~__context
+					(fun rpc session_id -> Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
+					debug "Using events to wait for tasks: %s" (String.concat "," classes);
+					let from = Event_types.event_from_of_rpc from in
+					process from.Event_types.token
+				end else
+					()
+			in
+			process ""
+
+		let cancel ~__context ~vm ~ops =
+			let cancelled = List.filter_map (fun (task,op) ->
+				if List.mem op ops then begin
+					info "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
+					Helpers.call_api_functions ~__context
+						(fun rpc session_id -> try Client.Task.cancel ~rpc ~session_id ~task:(Ref.of_string task) with _ -> ());
+					Some (Ref.of_string task)
+				end else None
+			) (Db.VM.get_current_operations ~__context ~self:vm) in
+			wait_for_tasks ~__context ~tasks:cancelled
+
 		let unmark_vbds ~__context ~vbds ~doc ~op =
 			let task_id = Ref.string_of (Context.get_task_id __context) in
 			iter_with_drop ~doc:("unmarking VBDs after " ^ doc)
@@ -1317,8 +1358,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let hard_shutdown ~__context ~vm =
 			info "VM.hard_shutdown: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.hard_shutdown ~vm in
+			let host = Db.VM.get_resident_on ~__context ~self:vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
+					cancel ~__context ~vm ~ops:[ `clean_shutdown; `clean_reboot; `hard_reboot; `pool_migrate; `call_plugin; `suspend ];
 					(* If VM is actually suspended and we ask to hard_shutdown, we need to
 					   forward to any host that can see the VDIs *)
 					let policy =
@@ -1334,7 +1377,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							end
 						else
 							(* if we're nt suspended then just forward to host that has vm running on it: *)
-							forward_vm_op ~vm in
+							do_op_on ~host:host
+					in
 					policy ~local_fn ~__context (fun session_id rpc -> Client.VM.hard_shutdown rpc session_id vm)
 				);
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
@@ -1351,15 +1395,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let hard_reboot ~__context ~vm =
 			info "VM.hard_reboot: VM = '%s'" (vm_uuid ~__context vm);
 			let local_fn = Local.VM.hard_reboot ~vm in
+			let host = Db.VM.get_resident_on ~__context ~self:vm in
 			with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot" ~op:`hard_reboot
 				(fun () ->
+					cancel ~__context ~vm ~ops:[ `clean_shutdown; `clean_reboot; `pool_migrate; `call_plugin; `suspend ];
 					with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 						(fun vbds ->
 							with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 								(fun vifs ->
 									(* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
 									   change across reboot. *)
-									forward_vm_op ~local_fn ~__context ~vm
+									do_op_on ~host:host ~local_fn ~__context
 										(fun session_id rpc -> Client.VM.hard_reboot rpc session_id vm))));
 			let uuid = Db.VM.get_uuid ~__context ~self:vm in
 			let message_body =
