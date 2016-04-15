@@ -152,27 +152,28 @@ let tabs_of env is i m =
   let hash_defn = [ `Data ("#defn-" ^ m.Method.name) ] in
   let hash_ocaml = [ `Data ("#ocaml-" ^ m.Method.name) ] in
   let hash_python = [ `Data ("#python-" ^ m.Method.name) ] in
+  let id_tab = [ `Data ("tab-" ^ m.Method.name) ] in
   let id_defn = [ `Data ("defn-" ^ m.Method.name) ] in
   let id_ocaml = [ `Data ("ocaml-" ^ m.Method.name) ] in
   let id_python = [ `Data ("python-" ^ m.Method.name) ] in
   <:html<
-    <dl class="tabs" data-tab="">
-      <dd class="active"><a href="$hash_defn$">Definition</a></dd>
-     <dd><a href="$hash_ocaml$">OCaml example</a></dd>
-     <dd><a href="$hash_python$">Python example</a></dd>
-    </dl>
-    <div class="tabs-content">
-      <div class="content active" id="$id_defn$">
+    <ul class="tabs" data-tabs="" id="$id_tab$">
+     <li class="tabs-title is-active"><a href="$hash_defn$" aria-selected="true">Definition</a></li>
+     <li class="tabs-title"><a href="$hash_ocaml$">OCaml example</a></li>
+     <li class="tabs-title"><a href="$hash_python$">Python example</a></li>
+    </ul>
+    <div class="tabs-content" data-tabs-content="$id_tab$">
+      <div class="tabs-panel is-active" id="$id_defn$">
         $ of_args env ((List.map (fun m -> true, m) m.Method.inputs) @
                        (List.map (fun m -> false, m) m.Method.outputs)) $
       </div>
-      <div class="content" id="$id_ocaml$">
+      <div class="tabs-panel" id="$id_ocaml$">
         <h4>Client</h4>
         $ Cow.Html.of_string (Ocaml.caml2html (Ocaml.example_stub env is i m |> Ocaml.string_of_ts)) $
         <h4>Server</h4>
         $ Cow.Html.of_string (Ocaml.caml2html (Ocaml.example_skeleton_user env is i m |> Ocaml.string_of_ts)) $
       </div>
-      <div class="content" id="$id_python$">
+      <div class="tabs-panel" id="$id_python$">
         <h4>Client</h4>
         <pre class="prettyprint lang-py">
         $[ `Data (Python.example_stub_user env i m |> Python.string_of_ts) ]$
