@@ -81,20 +81,18 @@ let sidebar env x =
   let of_interface i =
     let name = [ `Data i.Interface.name ] in
     <:html<
-      <li><label>$name$</label></li>
+      <li class="docs-nav-title">interface: $name$</li>
       $ List.concat (List.map of_typedecl i.Interface.type_decls) $
       $ List.concat (List.map of_method i.Interface.methods) $
     >> in
   <:html<
       <div class="large-3 medium-3 columns">
-        <ul class="side-nav">
-          <li><label>types</label></li>
+        <ul class="menu vertical">
+          <li class="docs-nav-title">types</li>
           $List.concat (List.map of_typedecl x.Interfaces.type_decls)$
-          <li class="divider"></li>
-          <li><label>interfaces</label></li>
           $List.concat (List.map of_interface x.Interfaces.interfaces)$
-          <li class="divider"></li>
-          <li><a href="#a-exceptions">exceptions</a></li>
+          <li class="docs-nav-title">exception</li>
+          <li><a href="#a-exceptions">Exceptions</a></li>
         </ul>
       </div>
   >>
