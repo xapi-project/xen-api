@@ -2484,9 +2484,13 @@ let reboot ~__context ~self timeout =
 			(* Ensure we have the latest version of the VM metadata before the reboot *)
 			Events_from_xapi.wait ~__context ~self;
 			info "xenops: VM.reboot %s" id;
-			let module Client = (val make_client queue_name : XENOPS) in
-			Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name;
-			Events_from_xenopsd.wait queue_name dbg id ();
+			let module Client = (val make_client queue_name : XENOPS ) in
+			let () = Pervasiveext.finally
+				(fun () ->
+					Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name)
+				(fun () ->
+					Events_from_xenopsd.wait queue_name dbg id ())
+			in
 			Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running
 		)
 
@@ -2496,12 +2500,15 @@ let shutdown ~__context ~self timeout =
 		(fun () ->
 			assert_resident_on ~__context ~self;
 			let id = id_of_vm ~__context ~self in
-
 			let dbg = Context.string_of_task __context in
 			info "xenops: VM.shutdown %s" id;
-			let module Client = (val make_client queue_name : XENOPS) in
-			Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name;
-			Events_from_xenopsd.wait queue_name dbg id ();
+			let module Client = (val make_client queue_name : XENOPS ) in
+			let () = Pervasiveext.finally
+				(fun () ->
+					Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name)
+				(fun () ->
+					Events_from_xenopsd.wait queue_name dbg id ())
+			in
 			Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
 			(* force_state_reset called from the xenopsd event loop above *)
 			assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
