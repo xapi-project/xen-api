@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Pervasiveext
+module VMR = Agility.VMResources
 
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
@@ -59,11 +60,11 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts vms_and_snaps
 (** Passed to the planner to reason about other possible configurations, used to block operations which would 
     destroy the HA VM restart plan. *)
 type configuration_change = {
-  old_vms_leaving: (API.ref_host * (API.ref_VM * API.vM_t)) list;   (** existing VMs which are leaving *)
-  old_vms_arriving: (API.ref_host * (API.ref_VM * API.vM_t)) list;  (** existing VMs which are arriving *)
+  old_vms_leaving: (API.ref_host * VMR.t) list;                     (** existing VMs which are leaving *)
+  old_vms_arriving: (API.ref_host * VMR.t) list;                    (** existing VMs which are arriving *)
   hosts_to_disable: API.ref_host list;                              (** hosts to pretend to disable *)
   num_failures: int option;                                         (** new number of failures to consider *)
-  new_vms_to_protect: API.ref_VM list;                              (** new VMs to restart *)  
+  new_vms_to_protect: VMR.t list;                                   (** new VMs to restart *)
 }
 
 let no_configuration_change = { old_vms_leaving = []; old_vms_arriving = []; hosts_to_disable = []; num_failures = None; new_vms_to_protect = [] }
@@ -71,27 +72,31 @@ let no_configuration_change = { old_vms_leaving = []; old_vms_arriving = []; hos
 let string_of_configuration_change ~__context (x: configuration_change) = 
   let string_of_host h = Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref h) (Db.Host.get_name_label ~__context ~self:h) in
   Printf.sprintf "configuration_change = { old_vms_leaving = [ %s ]; new_vms_arriving = [ %s ]; hosts_to_disable = [ %s ]; num_failures = %s; new_vms = [ %s ] }"
-    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
-    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
+    (String.concat "; " (List.map (fun (h, vm_res) -> Printf.sprintf "%s %s" (string_of_host h) (VMR.to_string vm_res)) x.old_vms_leaving))
+    (String.concat "; " (List.map (fun (h, vm_res) -> Printf.sprintf "%s %s" (string_of_host h) (VMR.to_string vm_res)) x.old_vms_arriving))
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
     (Opt.default "no change" (Opt.map string_of_int x.num_failures))
-    (String.concat "; " (List.map Helpers.short_string_of_ref x.new_vms_to_protect))
+    (String.concat "; " (List.map VMR.to_string x.new_vms_to_protect))
 
 (* Deterministic function which chooses a single host to 'pin' a non-agile VM to. Note we don't consider only live hosts:
    otherwise a non-agile VM may 'move' between several hosts which it can actually run on, which is not what we need for
    the planner. *)
-let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted (vm, snapshot) =
-  match (List.filter (fun (host, _) -> 
-			try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false (); true
+let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted vm_res =
+	match vm_res with
+	| {VMR.status = `Local vm_ref; vm_rec = snapshot} -> begin
+		match (List.filter (fun (host, _) ->
+			try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm_ref ~host ~snapshot ~do_memory_check:false (); true
 			with _ -> false) all_hosts_and_snapshots_sorted) with
-  | (host, host_snapshot) :: _ -> 
-      (* Multiple hosts are possible because "not agile" means "not restartable on every host". It is 
-	 possible to unplug PBDs so that only a proper subset of hosts (not the singleton element) supports a VM. *)
-      debug "Non-agile VM %s (%s) considered pinned to Host %s (%s)" (Helpers.short_string_of_ref vm) snapshot.API.vM_name_label (Helpers.short_string_of_ref host) host_snapshot.API.host_hostname;
-      [ vm, host ]
-  | [] ->
-      warn "No host could support protected xHA VM: %s (%s)" (Helpers.short_string_of_ref vm) (snapshot.API.vM_name_label);
-      []
+		| (host, host_snapshot) :: _ ->
+			(* Multiple hosts are possible because "not agile" means "not restartable on every host". It is 
+			   possible to unplug PBDs so that only a proper subset of hosts (not the singleton element) supports a VM. *)
+			debug "Non-agile VM %s considered pinned to Host %s (%s)" (VMR.to_string vm_res) (Helpers.short_string_of_ref host) host_snapshot.API.host_hostname;
+			[ vm_res, host ]
+		| [] ->
+			warn "No host could support protected xHA VM: %s (%s)" (VMR.to_string vm_res) (snapshot.API.vM_name_label);
+			[]
+	end
+	| {VMR.status = `Incoming host} -> [vm_res, host]
 
 let get_live_set ~__context =
 	let all_hosts = Db.Host.get_all_records ~__context in
@@ -129,27 +134,30 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 
 	(* All the VMs to protect; these VMs may or may not be currently running anywhere: they will be offline when a host has
 	   failed and possibly initially during the enable-ha transient. *)
-	let vms_to_ensure_running = all_protected_vms in
+	let vms_to_ensure_running =
+		List.map
+			(fun (vm_ref, vm_rec) ->
+				VMR.of_ref_and_record ~__context vm_ref vm_rec)
+			all_protected_vms
+	in
 
 	(* Add in any extra VMs which aren't already protected *)
-	let extra_vms = List.map (fun vm -> vm, Db.VM.get_record ~__context ~self:vm) change.new_vms_to_protect in
-	let vms_to_ensure_running = vms_to_ensure_running @ extra_vms in
+	let vms_to_ensure_running =
+		vms_to_ensure_running @ change.new_vms_to_protect in
 
 	(* For each leaving VM unset the resident_on (so 'is_accounted_for' returns false) *)
 	(* For each arriving VM set the resident_on again (so 'is_accounted_for' returns true) *)
 	(* For each arriving VM make sure we use the new VM configuration (eg new memory size) *)
 	(* NB host memory is adjusted later *)
-	let vms_to_ensure_running = List.map (fun (vm_ref, vm_t) ->
-		let leaving = List.filter (fun (_, (vm, _)) -> vm_ref = vm) change.old_vms_leaving in
-		let leaving_host = List.map (fun (host, (vm, _)) -> vm, host) leaving in
-		(* let leaving_snapshots = List.map snd leaving in *)
-		let arriving = List.filter (fun (_, (vm, _)) -> vm_ref = vm) change.old_vms_arriving in
-		let arriving_host = List.map (fun (host, (vm, _)) -> vm, host) arriving in
-		let arriving_snapshots = List.map snd arriving in
-		match List.mem_assoc vm_ref leaving_host, List.mem_assoc vm_ref arriving_host with
-			| _, true -> vm_ref, { (List.assoc vm_ref arriving_snapshots) with API.vM_resident_on = List.assoc vm_ref arriving_host }
-			| true, false -> vm_ref, { vm_t with API.vM_resident_on = Ref.null }
-			| _, _ -> vm_ref, vm_t)
+	let vms_to_ensure_running = List.map (fun vm ->
+		let is_leaving = List.exists (fun (_, leaving_vm) -> VMR.are_equal vm leaving_vm) change.old_vms_leaving in
+		let is_arriving = List.exists (fun (_, arriving_vm) -> VMR.are_equal vm arriving_vm) change.old_vms_arriving in
+		if is_arriving then
+			let host = fst (List.find (fun (_, arriving_vm) -> VMR.are_equal vm arriving_vm) change.old_vms_arriving) in
+			VMR.update_record vm {vm.VMR.vm_rec with API.vM_resident_on = host}
+		else if is_leaving then
+			VMR.update_record vm {vm.VMR.vm_rec with API.vM_resident_on = Ref.null}
+		else vm)
 		vms_to_ensure_running in
 
 	let all_hosts_and_snapshots = Db.Host.get_all_records ~__context in
@@ -169,27 +177,30 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 	let live_hosts = List.map fst live_hosts_and_snapshots (* and dead_hosts = List.map fst dead_hosts_and_snapshots *) in
 
 	(* Any deterministic ordering is fine here: *)
-	let vms_to_ensure_running = List.sort (fun (_, a) (_, b) -> compare a.API.vM_uuid b.API.vM_uuid) vms_to_ensure_running in
+	let vms_to_ensure_running = List.sort VMR.compare vms_to_ensure_running in
 
 	let agile_vms, not_agile_vms = Agility.partition_vm_ps_by_agile ~__context vms_to_ensure_running in
 
 	(* If a VM is marked as resident on a live_host then it will already be accounted for in the host's current free memory. *)
-	let vm_accounted_to_host vm =
-		let vm_t = List.assoc vm vms_to_ensure_running in
-		if List.mem vm_t.API.vM_resident_on live_hosts
-		then Some vm_t.API.vM_resident_on
-		else
-			let scheduled = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
-			if List.mem scheduled live_hosts
-			then Some scheduled else None in
+	let vm_accounted_to_host = function
+		| {VMR.status = `Local vm_ref; vm_rec} ->
+			if List.mem vm_rec.API.vM_resident_on live_hosts
+			then Some vm_rec.API.vM_resident_on
+			else
+				let scheduled = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm_ref in
+				if List.mem scheduled live_hosts
+				then Some scheduled else None
+		| {VMR.status = `Incoming host_ref} -> Some host_ref
+	in
 
-	let string_of_vm vm = Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref vm) (List.assoc vm vms_to_ensure_running).API.vM_name_label in
 	let string_of_host host =
 		let name = (List.assoc host all_hosts_and_snapshots).API.host_name_label in
 		Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref host) name in
-	let string_of_plan p = String.concat "; " (List.map (fun (vm, host) -> Printf.sprintf "%s -> %s" (string_of_vm vm) (string_of_host host)) p) in
+	let string_of_plan p =
+		String.concat "; "
+			(List.map (fun (vm_res, host) -> Printf.sprintf "%s -> %s" (VMR.to_string vm_res) (string_of_host host)) p) in
 
-	debug "Protected VMs: [ %s ]" (String.concat "; " (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running));
+	debug "Protected VMs: [ %s ]" (String.concat "; " (List.map (fun vm -> VMR.to_string vm) vms_to_ensure_running));
 
 	(* Current free memory on all hosts (does not include any for *offline* protected VMs ie those for which (vm_accounted_to_host vm) 
 	   returns None) Also apply the supplied counterfactual-reasoning changes (if any) *)
@@ -200,19 +211,25 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 		let currently_free = Memory_check.host_compute_free_memory_with_policy~__context summary Memory_check.Static_max in
 		let sum = List.fold_left Int64.add 0L in
 		let arriving = List.filter (fun (h, _) -> h = host) change.old_vms_arriving in
-		let arriving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) ->
-			total_memory_of_vm ~__context (if not $ Db.VM.get_is_control_domain ~__context ~self:vm_ref
+		let arriving_memory = sum (List.map (fun (_, vm) ->
+			let snapshot = vm.VMR.vm_rec in
+			total_memory_of_vm ~__context (if not snapshot.API.vM_is_control_domain
 			then Memory_check.Static_max
 			else Memory_check.Dynamic_max) snapshot) arriving) in
 		let leaving = List.filter (fun (h, _) -> h = host) change.old_vms_leaving in
-		let leaving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context
-			(if  not $ Db.VM.get_is_control_domain ~__context ~self:vm_ref
+		let leaving_memory = sum (List.map (fun (_, vm) ->
+			let snapshot = vm.VMR.vm_rec in
+			total_memory_of_vm ~__context (if not snapshot.API.vM_is_control_domain
 			then Memory_check.Static_max
 			else Memory_check.Dynamic_max) snapshot) leaving) in
 		host, Int64.sub (Int64.add currently_free leaving_memory) arriving_memory) live_hosts in
 
 	(* Memory required by all protected VMs *)
-	let vms_and_memory = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context Memory_check.Static_max snapshot) vms_to_ensure_running in
+	let vms_and_memory =
+		List.map
+			(fun vm -> vm, total_memory_of_vm ~__context Memory_check.Static_max (vm.VMR.vm_rec))
+			vms_to_ensure_running
+	in
 
 	(* For each non-agile VM, consider it pinned it to one host (even if it /could/ run on several). Note that if it is
 	   actually running somewhere else (very strange semi-agile situation) then it will be counted as overhead there and
@@ -229,9 +246,9 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 
 	(* Now that we've considered the overhead of the non-agile (pinned) VMs, we can perform some binpacking of the agile VMs. *)
 
-	let agile_vms_and_memory = List.map (fun (vm, _) -> vm, List.assoc vm vms_and_memory) agile_vms in
+	let agile_vms_and_memory = List.map (fun vm -> vm, VMR.assoc vm vms_and_memory) agile_vms in
 	(* Compute the current placement for all agile VMs. VMs which are powered off currently are placed nowhere *)
-	let agile_vm_accounted_to_host = List.map (fun (vm, snapshot) -> vm, vm_accounted_to_host vm) agile_vms in
+	let agile_vm_accounted_to_host = List.map (fun vm -> vm, vm_accounted_to_host vm) agile_vms in
 	(* All these hosts are live and the VMs are running (or scheduled to be running): *)
 	let agile_vm_placement = List.concat (List.map (fun (vm, host) -> match host with Some h -> [ vm, h ] | _ -> []) agile_vm_accounted_to_host) in
 	(* These VMs are not running on any host (either in real life or only hypothetically) *)
@@ -240,19 +257,19 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 	let config = { Binpack.hosts = hosts_and_memory; vms = agile_vms_and_memory; placement = agile_vm_placement
 				 ; total_hosts = total_hosts; num_failures = num_failures } in
 	Binpack.check_configuration config;
-	debug "Planning configuration for offline agile VMs = %s" (Binpack.string_of_configuration string_of_host string_of_vm config);
+	debug "Planning configuration for offline agile VMs = %s" (Binpack.string_of_configuration string_of_host VMR.to_string config);
 	let h = Binpack.choose_heuristic config in
 
 	(* Figure out how we could start as many of the agile VMs as possible *)
-	debug "Computing a specific plan for the failure of VMs: [ %s ]" (String.concat "; " (List.map string_of_vm agile_vm_failed));
+	debug "Computing a specific plan for the failure of VMs: [ %s ]" (String.concat "; " (List.map VMR.to_string agile_vm_failed));
 	let agile_restart_plan = h.Binpack.get_specific_plan config agile_vm_failed in
 	debug "Restart plan for agile offline VMs: [ %s ]" (string_of_plan agile_restart_plan);
 
 	let vms_restarted = List.map fst agile_restart_plan in
 	(* List the protected VMs which are not already running and weren't in the restart plan *)
-	let vms_not_restarted = List.map fst (List.filter (fun (vm, _) -> vm_accounted_to_host vm = None && not(List.mem vm vms_restarted)) vms_to_ensure_running) in
+	let vms_not_restarted = List.filter (fun vm -> vm_accounted_to_host vm = None && not(VMR.mem vm vms_restarted)) vms_to_ensure_running in
 	if vms_not_restarted <> []
-	then warn "Some protected VMs could not be restarted: [ %s ]" (String.concat "; " (List.map string_of_vm vms_not_restarted));
+	then warn "Some protected VMs could not be restarted: [ %s ]" (String.concat "; " (List.map VMR.to_string vms_not_restarted));
 
 	(* Applying the plan means:
 	   1. subtract from each host the memory needed to start the VMs in the plan; and
@@ -261,7 +278,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 	(* All agile VMs which were offline have all been 'restarted' provided vms_not_restarted <> []
 	   If vms_not_restarted = [] then some VMs will have been left out. *)
 	Binpack.check_configuration config;
-	debug "Planning configuration for future failures = %s" (Binpack.string_of_configuration string_of_host string_of_vm config);
+	debug "Planning configuration for future failures = %s" (Binpack.string_of_configuration string_of_host VMR.to_string config);
 	non_agile_restart_plan @ agile_restart_plan, config, vms_not_restarted, not_agile_vms <> []
 
 (** Returned by the plan_for_n_failures function *)
@@ -291,10 +308,10 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_co
       error "Even with no Host failures this Pool cannot start the configured protected VMs.";
       No_plan_exists
     end else begin
-      debug "plan_for_n_failures config = %s" 
-	(Binpack.string_of_configuration 
-	   (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.Host.get_hostname ~__context ~self:x))
-	   (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.VM.get_name_label ~__context ~self:x)) config);
+      debug "plan_for_n_failures config = %s"
+        (Binpack.string_of_configuration
+          (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.Host.get_hostname ~__context ~self:x))
+          VMR.to_string config);
       Binpack.check_configuration config;
       let h = Binpack.choose_heuristic config in
       match h.Binpack.plan_always_possible config, non_agile_protected_vms_exist with
@@ -600,12 +617,17 @@ let restart_auto_run_vms ~__context live_set n =
 					warn "Failed to find plan to restart all protected VMs: falling back to simple VM.start in priority order";
 					List.map (fun (vm, _) -> vm, restart_vm vm ()) all
 				end else begin
-					(* Walk over the VMs in priority order, starting each on the planned host *)
-					let all = List.sort by_order (List.map (fun (vm, _) -> vm, Db.VM.get_record ~__context ~self:vm) plan) in
-					List.map (fun (vm, _) -> 
-						vm, (if List.mem_assoc vm plan
-						then restart_vm vm ~host:(List.assoc vm plan) ()
-						else false)) all
+					(* Walk over the VMs in priority order, starting each on the planned
+					 * host. There shouldn't be any `Incoming VMs in the plan, but filter
+					 * them out anyway. *)
+					let open VMR in
+					plan
+					|> Listext.List.filter_map (fun ({status; vm_rec}, host) ->
+							match status with
+							| `Local vm_ref -> Some ((vm_ref, vm_rec), host)
+							| `Incoming _ -> None)
+					|> List.sort (fun (vm1, _) (vm2, _) -> by_order vm1 vm2)
+					|> List.map (fun ((vm, _), host) -> vm, restart_vm vm ~host ())
 				end in
 			(* Perform one final restart attempt of any that weren't started. *)
 			let started = List.map (fun (vm, started) -> match started with

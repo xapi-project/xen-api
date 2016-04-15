@@ -213,12 +213,14 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
 				existing_vms)
 		import_vms
 
-let assert_can_live_import __context rpc session_id vm_record =
+let assert_can_live_import __context rpc session_id state vm_record =
+	let pool = Helpers.get_pool ~__context in
+	let localhost = Helpers.get_localhost ~__context in
+
 	let assert_memory_available () =
-		let host = Helpers.get_localhost ~__context in
 		let host_mem_available =
 			Memory_check.host_compute_free_memory_with_maximum_compression
-				~__context ~host None in
+				~__context ~host:localhost None in
 		let main, shadow =
 			Memory_check.vm_compute_start_memory ~__context vm_record in
 		let mem_reqd_for_vm = Int64.add main shadow in
@@ -230,8 +232,46 @@ let assert_can_live_import __context rpc session_id vm_record =
 					Int64.to_string host_mem_available;
 				]))
 	in
-	if vm_record.API.vM_power_state = `Running || vm_record.API.vM_power_state = `Paused
-	then assert_memory_available ()
+
+	let assert_ha_plan_exists () =
+		if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
+			(* Determine which SRs and networks the VM will use. *)
+			(* These are required for the HA planner to determine the VM's agility. *)
+			let srs = vm_record.API.vM_VBDs
+				|> List.map (fun vbd -> find_in_export (Ref.string_of vbd) state.export)
+				|> List.map (API.Legacy.From.vBD_t "")
+				|> List.filter (fun vbd -> not vbd.API.vBD_empty)
+				|> List.map (fun vbd -> find_in_export (Ref.string_of vbd.API.vBD_VDI) state.export)
+				|> List.map (API.Legacy.From.vDI_t "")
+				|> List.map (fun vdi -> List.assoc Constants.storage_migrate_sr_map_key vdi.API.vDI_other_config)
+				|> List.map Ref.of_string
+				|> Listext.List.setify
+			in
+			let networks = vm_record.API.vM_VIFs
+				|> List.map (fun vif -> find_in_export (Ref.string_of vif) state.export)
+				|> List.map (API.Legacy.From.vIF_t "")
+				|> List.map (fun vif -> List.assoc Constants.storage_migrate_vif_map_key vif.API.vIF_other_config)
+				|> List.map Ref.of_string
+				|> Listext.List.setify
+			in
+			let vm_resources = Agility.VMResources.({
+				status = `Incoming localhost;
+				vm_rec = vm_record;
+				networks;
+				srs;
+			}) in
+			if vm_record.API.vM_ha_restart_priority = Constants.ha_restart
+			then Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_resources
+			else
+				Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context
+					~arriving:[localhost, vm_resources] ()
+		end
+	in
+
+	if List.mem vm_record.API.vM_power_state [ `Paused; `Running ] then begin
+		assert_memory_available ();
+		assert_ha_plan_exists ()
+	end
 
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig
@@ -344,7 +384,7 @@ module VM : HandlerTools = struct
 			match import_action with
 			| Replace (_, vm_record) | Clean_import vm_record ->
 					if is_live config
-					then assert_can_live_import __context rpc session_id vm_record;
+					then assert_can_live_import __context rpc session_id state vm_record;
 					import_action
 			| _ -> import_action
 		end

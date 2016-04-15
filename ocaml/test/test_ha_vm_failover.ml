@@ -30,19 +30,19 @@ type vif = {
 }
 
 type vm = {
-	ha_always_run : bool;
 	ha_restart_priority : string;
 	memory : int64;
 	name_label : string;
+	running : bool;
 	vbds : vbd list;
 	vifs : vif list;
 }
 
 let basic_vm = {
-	ha_always_run = true;
 	ha_restart_priority = "restart";
 	memory = gib 1L;
 	name_label = "vm";
+	running = true;
 	vbds = [{agile = true}];
 	vifs = [{agile = true}];
 }
@@ -76,7 +76,7 @@ let string_of_pool {master; slaves; ha_host_failures_to_tolerate} =
 
 let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
 	let vm_ref = make_vm ~__context
-		~ha_always_run:vm.ha_always_run
+		~ha_always_run:(vm.running && vm.ha_restart_priority = Constants.ha_restart)
 		~ha_restart_priority:vm.ha_restart_priority
 		~memory_static_min:vm.memory
 		~memory_dynamic_min:vm.memory
@@ -84,6 +84,8 @@ let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
 		~memory_static_max:vm.memory
 		~name_label:vm.name_label ()
 	in
+	if vm.running
+	then Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
 	let (_ : API.ref_VIF list) =
 		List.mapi
 			(fun index (vif:vif) ->
@@ -111,12 +113,13 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
 	Db.Host_metrics.set_memory_total ~__context
 		~self:metrics ~value:host.memory_total;
 
-	let (_ : API.ref_VM list) =
-		List.map
-			(fun vm ->
-				load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net)
-			host.vms
-	in
+	List.iter
+		(fun vm ->
+			let vm_ref =
+				load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+			if vm.running
+			then Db.VM.set_resident_on ~__context ~self:vm_ref ~value:host_ref)
+		host.vms;
 	host_ref
 
 let setup ~__context {master; slaves; ha_host_failures_to_tolerate} =
@@ -181,8 +184,8 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 			master = {
 				memory_total = gib 256L; name_label = "master";
 				vms = [{basic_vm with
-					ha_always_run = false;
 					ha_restart_priority = "";
+					running = true;
 				}];
 			};
 			slaves = [];
@@ -193,7 +196,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 		{
 			master = {
 				memory_total = gib 256L; name_label = "master";
-				vms = [{basic_vm with ha_always_run = false}];
+				vms = [{basic_vm with running = false}];
 			};
 			slaves = [];
 			ha_host_failures_to_tolerate = 0L;
@@ -216,7 +219,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 				vms = [
 					{basic_vm with name_label = "vm1"};
 					{basic_vm with
-						ha_always_run = false;
+						running = false;
 						ha_restart_priority = "";
 						name_label = "vm2"
 					}
@@ -349,18 +352,19 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 	module Io = struct
 		open Xapi_ha_vm_failover
 
-		type input_t = (pool * vm)
+		type input_t = (pool * vm * bool)
 		type output_t = (exn, unit) Either.t
 
-		let string_of_input_t = Test_printers.pair string_of_pool string_of_vm
+		let string_of_input_t =
+			Test_printers.(tuple3 string_of_pool string_of_vm bool)
 		let string_of_output_t = Test_printers.(either Printexc.to_string unit)
 	end
 
 	module State = XapiDb
 
-	let load_input __context (pool, _) = setup ~__context pool
+	let load_input __context (pool, _, _) = setup ~__context pool
 
-	let extract_output __context (pool, vm) =
+	let extract_output __context (pool, vm, in_db) =
 		let open Db_filter_types in
 		let local_sr =
 			Db.SR.get_refs_where ~__context
@@ -382,10 +386,51 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				~expr:(Eq (Field "bridge", Literal "xenbr0"))
 			|> List.hd
 		in
-		let vm_ref =
-			load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
-		try Either.Right
-			(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
+		let vm_resources =
+			if in_db then begin
+				let vm_ref =
+					load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+				Agility.VMResources.of_ref ~__context vm_ref
+			end else begin
+				let host = Helpers.get_master ~__context in
+				let local_srs =
+					if List.exists (fun (vbd:vbd) -> not vbd.agile) vm.vbds
+					then [local_sr] else []
+				in
+				let shared_srs =
+					if List.exists (fun (vbd:vbd) -> vbd.agile) vm.vbds
+					then [shared_sr] else []
+				in
+				let local_nets =
+					if List.exists (fun (vif:vif) -> not vif.agile) vm.vifs
+					then [local_net] else []
+				in
+				let shared_nets =
+					if List.exists (fun (vif:vif) -> vif.agile) vm.vifs
+					then [shared_net] else []
+				in
+				let vm_ref = make_vm ~__context
+					~ha_always_run:
+						(vm.running && vm.ha_restart_priority = Constants.ha_restart)
+					~ha_restart_priority:vm.ha_restart_priority
+					~memory_static_min:vm.memory ~memory_dynamic_min:vm.memory
+					~memory_dynamic_max:vm.memory ~memory_static_max:vm.memory
+					~name_label:vm.name_label ()
+				in
+				let vm_rec = Db.VM.get_record ~__context ~self:vm_ref in
+				Db.VM.destroy ~__context ~self:vm_ref;
+				Agility.VMResources.({
+					status = `Incoming host;
+					vm_rec;
+					networks = local_nets @ shared_nets;
+					srs = local_srs @ shared_srs;
+				})
+			end
+		in
+		try
+			Either.Right
+				(Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context
+					vm_resources)
 		with e -> Either.Left e
 
 	(* n.b. incoming VMs have ha_always_run = false; otherwise they will be
@@ -410,11 +455,12 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+				running = false;
+			},
+			true
 		),
 		Either.Right ();
 		(* 2 host pool, two VMs using almost all of one host's memory;
@@ -440,11 +486,12 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+				running = false;
+			},
+			true
 		),
 		Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
 		(* 2 host pool which is already overcommitted. Attempting to add another VM
@@ -478,13 +525,101 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 				ha_host_failures_to_tolerate = 1L;
 			},
 			{basic_vm with
-				ha_always_run = false;
 				ha_restart_priority = "restart";
 				memory = gib 120L;
 				name_label = "vm2";
-			}
+				running = false;
+			},
+			true
 		),
 		Either.Right ();
+		(* 2 host pool with no VMs running. Attempt to add a new VM from outside the
+		 * database, which will be HA protected. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [];
+					};
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm0";
+				running = true;
+			},
+			false
+		),
+		Either.Right ();
+		(* 2 host pool, one VM using just under half of one host's memory;
+		 * test that another VM can be added from outside the database. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+					];
+				};
+				slaves = [
+					{memory_total = gib 256L; name_label = "slave"; vms = []}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm2";
+				running = true;
+			},
+			false
+		),
+		Either.Right ();
+		(* 2 host pool, with a VM using just under half of each host's memory;
+		 * test that another VM cannot be added from outside the database. *)
+		(
+			{
+				master = {
+					memory_total = gib 256L; name_label = "master";
+					vms = [
+						{basic_vm with
+							memory = gib 120L;
+							name_label = "vm1";
+						};
+					];
+				};
+				slaves = [
+					{
+						memory_total = gib 256L; name_label = "slave";
+						vms = [
+							{basic_vm with
+								memory = gib 120L;
+								name_label = "vm2";
+							};
+						];
+					}
+				];
+				ha_host_failures_to_tolerate = 1L;
+			},
+			{basic_vm with
+				ha_restart_priority = "restart";
+				memory = gib 120L;
+				name_label = "vm3";
+				running = true;
+			},
+			false
+		),
+		Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
 	]
 end))
 
