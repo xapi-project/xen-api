@@ -265,42 +265,46 @@ let topbar pages =
       <li><a href="$html$">$name$</a></li>
     >> in
 <:html<
-<nav class="top-bar" data-topbar="" role="navigation">
-  <ul class="title-area">
-    <li class="name">
-      <h1><a href="index.html">Xapi storage interface</a></h1>
-    </li>
-    <li class="toggle-topbar menu-icon"><a href="#"><span>Menu</span></a></li>
-  </ul>
-  <section class="top-bar-section">
-    <ul class="right">
-      <li class="has-dropdown">
-        <a href="features.html">Learn</a>
-        <ul class="dropdown">
-          <li><a href="features.html">Features</a></li>
-          <li><a href="concepts.html">Concepts</a></li>
-          <li><a href="architecture.html">Architecture</a></li>
-          <li><a href="faq.html">FAQ</a></li>
-        </ul>
-      </li>
-      <li class="has-dropdown">
-        <a href="#">Develop</a>
-        <ul class="dropdown">
-          $List.concat (List.map link_of_page pages)$
-        </ul>
-      </li>
-      <li class="has-dropdown">
-        <a href="#">Support</a>
-        <ul class="dropdown">
-          <li><a href="contact.html">Mailing list</a></li>
-          <li><a href="contact.html">Issue tracker</a></li>
-          <li><a href="contact.html">IRC</a></li>
-        </ul>
-      </li>
-      <li class="active"><a href="getstarted.html">Get Started</a></li>
-    </ul>
-  </section>
-</nav>
+<div class="title-bar" data-responsive-toggle="main-menu" data-hide-for="medium">
+  <button class="menu-icon" type="button" data-toggle=""></button>
+  <div class="title-bar-title">Menu</div>
+</div>
+
+    <div class="top-bar" id="main-menu">
+      <div class="top-bar-left">
+	<ul class="menu" data-dropdown-menu="">
+	  <li class="menu-text">SMAPIv3</li>
+	</ul>
+      </div>
+      <div class="top-bar-right">
+	<ul class="menu" data-responsive-menu="drilldown medium-dropdown">
+	  <li class="has-submenu">
+            <a href="features.html">Learn</a>
+            <ul class="submenu menu vertical" data-submenu="">
+              <li><a href="features.html">Features</a></li>
+              <li><a href="concepts.html">Concepts</a></li>
+              <li><a href="architecture.html">Architecture</a></li>
+              <li><a href="faq.html">FAQ</a></li>
+            </ul>
+	  </li>
+	  <li>
+            <a href="#">Develop</a>
+            <ul class="submenu menu vertical">
+              $List.concat (List.map link_of_page pages)$
+            </ul>
+	  </li>
+	  <li>
+            <a href="#">Support</a>
+            <ul class="submenu menu vertical">
+              <li><a href="contact.html">Mailing list</a></li>
+              <li><a href="contact.html">Issue tracker</a></li>
+              <li><a href="contact.html">IRC</a></li>
+            </ul>
+	  </li>
+	  <li class="active"><a href="getstarted.html">Get Started</a></li>
+	</ul>
+      </div>
+    </div>
 >>
 
 
