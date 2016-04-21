@@ -620,8 +620,9 @@ let import_metadata copts filename =
 		(fun () ->
 			try
 				while true do
-					let n = input ic line 0 (String.length line) in
-					Buffer.add_string buf (String.sub line 0 n)
+					match input ic line 0 (String.length line) with
+					| 0 -> raise End_of_file
+					| n -> Buffer.add_string buf (String.sub line 0 n)
 				done
 				with End_of_file -> ()
 		) (fun () -> close_in ic);
