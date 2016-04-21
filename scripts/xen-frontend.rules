@@ -1,1 +1,0 @@
-SUBSYSTEM=="block", KERNEL=="xvd*", RUN+="@SCRIPTSDIR@/block-frontend $env{ACTION} $number"
