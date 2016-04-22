@@ -6,13 +6,13 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 
 OCamlProgram(jsapi, jsapi)
 
-.PHONY: doc
-doc: jsapi
+.PHONY: doc-html
+doc-html: jsapi
 	mkdir -p api
 	./jsapi
 
 .PHONY: sdk-install
-sdk-install: doc
+sdk-install: doc-html
 	mkdir -p $(SDK)/docs/html/xcp
 	sh -c 'cp -r -L api $(SDK)/docs/html/xcp/'
 	sh -c 'cp -r -L content $(SDK)/docs/html/xcp/ || true'

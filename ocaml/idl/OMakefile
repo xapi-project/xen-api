@@ -86,11 +86,11 @@ clean:
 sdk-README.txt : sdk-README.html
 	lynx -dump sdk-README.html > sdk-README.txt
 
-.PHONY: doc
-doc: xenenterpriseapi.pdf
+.PHONY: doc-pdf
+doc-pdf: xenenterpriseapi.pdf
 
 .PHONY: sdk-install
-sdk-install: doc sdk-README.txt
+sdk-install: doc-pdf sdk-README.txt
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
 	cp sdk-README.txt $(SDK)/README.txt
