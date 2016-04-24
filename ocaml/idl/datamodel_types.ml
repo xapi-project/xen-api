@@ -105,6 +105,7 @@ type api_value =
   | VMap of (api_value*api_value) list
   | VSet of api_value list
   | VRef of string
+  | VCustom of string * api_value
 	with rpc
 	
 (** Each database field has a qualifier associated with it:
@@ -304,6 +305,7 @@ let rec type_checks v t =
   | VSet vl, Set t ->
       all_true (List.map (fun v->type_checks v t) vl)
   | VRef r, Ref _ -> true
+  | VCustom _, _ -> true (* Type checks defered to phase-2 compile time *)
   | _, _ -> false
 
 module TypeToXML = struct
