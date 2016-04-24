@@ -2397,7 +2397,9 @@ Pool. Please provide an sr-name-label or sr-uuid parameter." in
 		rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
 		let recommendations = Client.VM.get_recommendations rpc session_id template in
 		let licerr = Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.PCI_device_for_auto_update]) in
-		let want_dev = is_recommended recommendations "has-vendor-device" in
+		let pool = List.hd (Client.Pool.get_all rpc session_id) in
+		let policy_vendor_device_is_ok = not (Client.Pool.get_policy_no_vendor_device rpc session_id pool) in
+		let want_dev = (is_recommended recommendations "has-vendor-device") && policy_vendor_device_is_ok in
 		(
 			try Client.VM.set_has_vendor_device rpc session_id new_vm want_dev
 			with e when e = licerr ->
