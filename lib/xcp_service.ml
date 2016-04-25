@@ -554,13 +554,11 @@ let daemonize ?start_fn () =
 			Unix.chdir "/";
 			mkdir_rec (Filename.dirname !pidfile) 0o755;
 			pidfile_write !pidfile;
-			Unix.close Unix.stdin;
-			Unix.close Unix.stdout;
-			Unix.close Unix.stderr;
 			let nullfd = Unix.openfile "/dev/null" [ Unix.O_RDWR ] 0 in
-			assert (nullfd = Unix.stdin);
-			let (_:Unix.file_descr) = Unix.dup nullfd in ();
-			let (_:Unix.file_descr) = Unix.dup nullfd in ();
+			Unix.dup2 nullfd Unix.stdin;
+			Unix.dup2 nullfd Unix.stdout;
+			Unix.dup2 nullfd Unix.stderr;
+			Unix.close nullfd
 		| _ -> exit 0)
 	| _ -> exit 0
 
