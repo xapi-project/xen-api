@@ -1,6 +1,6 @@
 OASISFormat:      0.3
 Name:             rrd2csv
-Version:          0.1.0
+Version:          1.0.0
 Synopsis:         Convert XenServer RRD data into CSV format
 Authors:          Guillem Rieu
 License:          LGPL-2.1 with OCaml linking exception
