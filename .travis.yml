@@ -8,6 +8,7 @@ after_success:
 sudo: true
 env:
     global:
+        - CONTAINER_NAME=build-env
         - REPO_PACKAGE_NAME=xapi
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
