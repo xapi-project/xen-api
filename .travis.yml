@@ -8,5 +8,4 @@ env:
     - PACKAGE=xapi-rrd-transport
     - EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
   matrix:
-    - OCAML_VERSION=4.01
     - OCAML_VERSION=4.02

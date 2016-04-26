@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 96cfcd6328c3cee376941046f3901ced)
-# Ignore VCS directories, you can use the same kind of rule outside 
-# OASIS_START/STOP if you want to exclude directories that contains 
+# DO NOT EDIT (digest: 80761b82c8d2944198188598afaf0e00)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -15,90 +15,90 @@
 "_darcs": not_hygienic
 # Library rrd_transport
 "lib/rrd_transport.cmxs": use_rrd_transport
-<lib/*.ml{,i}>: pkg_threads
 <lib/*.ml{,i}>: pkg_bigarray
 <lib/*.ml{,i}>: pkg_bytes
+<lib/*.ml{,i}>: pkg_crc
 <lib/*.ml{,i}>: pkg_cstruct
-<lib/*.ml{,i}>: pkg_stringext
-<lib/*.ml{,i}>: pkg_xcp.rrd
 <lib/*.ml{,i}>: pkg_rrd
+<lib/*.ml{,i}>: pkg_stringext
+<lib/*.ml{,i}>: pkg_threads
+<lib/*.ml{,i}>: pkg_xcp.rrd
 <lib/*.ml{,i}>: pkg_xen-gnt
 <lib/*.ml{,i}>: pkg_xen-gnt.unix
-<lib/*.ml{,i}>: pkg_crc
 # Executable reader
-<utils/reader.{native,byte}>: use_rrd_transport
-<utils/reader.{native,byte}>: pkg_cmdliner
-<utils/reader.{native,byte}>: pkg_threads
 <utils/reader.{native,byte}>: pkg_bigarray
 <utils/reader.{native,byte}>: pkg_bytes
+<utils/reader.{native,byte}>: pkg_cmdliner
+<utils/reader.{native,byte}>: pkg_crc
 <utils/reader.{native,byte}>: pkg_cstruct
-<utils/reader.{native,byte}>: pkg_stringext
-<utils/reader.{native,byte}>: pkg_xcp.rrd
 <utils/reader.{native,byte}>: pkg_rrd
+<utils/reader.{native,byte}>: pkg_stringext
+<utils/reader.{native,byte}>: pkg_threads
+<utils/reader.{native,byte}>: pkg_xcp.rrd
 <utils/reader.{native,byte}>: pkg_xen-gnt
 <utils/reader.{native,byte}>: pkg_xen-gnt.unix
-<utils/reader.{native,byte}>: pkg_crc
+<utils/reader.{native,byte}>: use_rrd_transport
 # Executable writer
-<utils/writer.{native,byte}>: use_rrd_transport
-<utils/writer.{native,byte}>: pkg_cmdliner
-<utils/writer.{native,byte}>: pkg_threads
 <utils/writer.{native,byte}>: pkg_bigarray
 <utils/writer.{native,byte}>: pkg_bytes
+<utils/writer.{native,byte}>: pkg_cmdliner
+<utils/writer.{native,byte}>: pkg_crc
 <utils/writer.{native,byte}>: pkg_cstruct
-<utils/writer.{native,byte}>: pkg_stringext
-<utils/writer.{native,byte}>: pkg_xcp.rrd
 <utils/writer.{native,byte}>: pkg_rrd
+<utils/writer.{native,byte}>: pkg_stringext
+<utils/writer.{native,byte}>: pkg_threads
+<utils/writer.{native,byte}>: pkg_xcp.rrd
 <utils/writer.{native,byte}>: pkg_xen-gnt
 <utils/writer.{native,byte}>: pkg_xen-gnt.unix
-<utils/writer.{native,byte}>: pkg_crc
-<utils/*.ml{,i}>: use_rrd_transport
-<utils/*.ml{,i}>: pkg_cmdliner
-<utils/*.ml{,i}>: pkg_threads
+<utils/writer.{native,byte}>: use_rrd_transport
 <utils/*.ml{,i}>: pkg_bigarray
 <utils/*.ml{,i}>: pkg_bytes
+<utils/*.ml{,i}>: pkg_cmdliner
+<utils/*.ml{,i}>: pkg_crc
 <utils/*.ml{,i}>: pkg_cstruct
-<utils/*.ml{,i}>: pkg_stringext
-<utils/*.ml{,i}>: pkg_xcp.rrd
 <utils/*.ml{,i}>: pkg_rrd
+<utils/*.ml{,i}>: pkg_stringext
+<utils/*.ml{,i}>: pkg_threads
+<utils/*.ml{,i}>: pkg_xcp.rrd
 <utils/*.ml{,i}>: pkg_xen-gnt
 <utils/*.ml{,i}>: pkg_xen-gnt.unix
-<utils/*.ml{,i}>: pkg_crc
+<utils/*.ml{,i}>: use_rrd_transport
 # Executable test_unit
-<test/test_unit.{native,byte}>: use_rrd_transport
-<test/test_unit.{native,byte}>: pkg_oUnit
-<test/test_unit.{native,byte}>: pkg_threads
 <test/test_unit.{native,byte}>: pkg_bigarray
 <test/test_unit.{native,byte}>: pkg_bytes
+<test/test_unit.{native,byte}>: pkg_crc
 <test/test_unit.{native,byte}>: pkg_cstruct
-<test/test_unit.{native,byte}>: pkg_stringext
-<test/test_unit.{native,byte}>: pkg_xcp.rrd
+<test/test_unit.{native,byte}>: pkg_oUnit
 <test/test_unit.{native,byte}>: pkg_rrd
+<test/test_unit.{native,byte}>: pkg_stringext
+<test/test_unit.{native,byte}>: pkg_threads
+<test/test_unit.{native,byte}>: pkg_xcp.rrd
 <test/test_unit.{native,byte}>: pkg_xen-gnt
 <test/test_unit.{native,byte}>: pkg_xen-gnt.unix
-<test/test_unit.{native,byte}>: pkg_crc
+<test/test_unit.{native,byte}>: use_rrd_transport
 # Executable test_scale
-<test/test_scale.{native,byte}>: use_rrd_transport
-<test/test_scale.{native,byte}>: pkg_oUnit
-<test/test_scale.{native,byte}>: pkg_threads
 <test/test_scale.{native,byte}>: pkg_bigarray
 <test/test_scale.{native,byte}>: pkg_bytes
+<test/test_scale.{native,byte}>: pkg_crc
 <test/test_scale.{native,byte}>: pkg_cstruct
-<test/test_scale.{native,byte}>: pkg_stringext
-<test/test_scale.{native,byte}>: pkg_xcp.rrd
+<test/test_scale.{native,byte}>: pkg_oUnit
 <test/test_scale.{native,byte}>: pkg_rrd
+<test/test_scale.{native,byte}>: pkg_stringext
+<test/test_scale.{native,byte}>: pkg_threads
+<test/test_scale.{native,byte}>: pkg_xcp.rrd
 <test/test_scale.{native,byte}>: pkg_xen-gnt
 <test/test_scale.{native,byte}>: pkg_xen-gnt.unix
-<test/test_scale.{native,byte}>: pkg_crc
-<test/*.ml{,i}>: use_rrd_transport
-<test/*.ml{,i}>: pkg_oUnit
-<test/*.ml{,i}>: pkg_threads
+<test/test_scale.{native,byte}>: use_rrd_transport
 <test/*.ml{,i}>: pkg_bigarray
 <test/*.ml{,i}>: pkg_bytes
+<test/*.ml{,i}>: pkg_crc
 <test/*.ml{,i}>: pkg_cstruct
-<test/*.ml{,i}>: pkg_stringext
-<test/*.ml{,i}>: pkg_xcp.rrd
+<test/*.ml{,i}>: pkg_oUnit
 <test/*.ml{,i}>: pkg_rrd
+<test/*.ml{,i}>: pkg_stringext
+<test/*.ml{,i}>: pkg_threads
+<test/*.ml{,i}>: pkg_xcp.rrd
 <test/*.ml{,i}>: pkg_xen-gnt
 <test/*.ml{,i}>: pkg_xen-gnt.unix
-<test/*.ml{,i}>: pkg_crc
+<test/*.ml{,i}>: use_rrd_transport
 # OASIS_STOP

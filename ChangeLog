@@ -1,3 +1,7 @@
+1.0.0 (25-04-2016)
+ * Declare this package stable
+ * Testing, coverage and general code improvements
+
 0.9.0 (16-07-2015)
  * Interface change to FileWriter module
  * FileWriter.create now takes a number of pages to share
