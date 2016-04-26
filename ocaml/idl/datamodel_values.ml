@@ -34,6 +34,7 @@ let rec to_rpc v =
   | VMap vvl -> Rpc.Dict (List.map (fun (v1,v2)-> to_string v1, to_rpc v2) vvl)
   | VSet vl -> Rpc.Enum (List.map (fun v->to_rpc v) vl)
   | VRef r -> Rpc.String r
+  | VCustom (_,_) -> failwith "Can't RPC up a custom value"
 
 let rec to_xml v =
   match v with
@@ -46,6 +47,7 @@ let rec to_xml v =
   | VMap vvl -> XMLRPC.To.structure (List.map (fun (v1,v2)-> to_string v1, to_xml v2) vvl)
   | VSet vl -> XMLRPC.To.array (List.map (fun v->to_xml v) vl)
   | VRef r -> XMLRPC.To.string r	
+  | VCustom (_,y) -> to_xml y
 
 open Printf
 
@@ -60,8 +62,10 @@ let to_ocaml_string v =
 		| Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
  		| Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l)) 
 		| Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
-	aux (to_rpc v)
-      
+ match v with
+ | VCustom (x,_) -> x
+ | _ -> aux (to_rpc v)
+
 let rec to_db v =
   let open Schema.Value in
   match v with
@@ -77,7 +81,8 @@ let rec to_db v =
   | VSet vl ->
     Set(List.map to_string vl)
   | VRef r -> String r
-      
+  | VCustom (x,y) -> to_db y
+
 (* Generate suitable "empty" database value of specified type *)
 let gen_empty_db_val t =
   let open Schema in
