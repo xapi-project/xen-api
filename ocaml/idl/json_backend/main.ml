@@ -92,6 +92,7 @@ let rec string_of_default = function
 	| VMap x -> Printf.sprintf "{%s}" (String.concat ", " (List.map (fun (a, b) -> Printf.sprintf "%s -> %s" (string_of_default a) (string_of_default b)) x))
 	| VSet x -> Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
 	| VRef x -> if x = "" then "Null" else x
+	| VCustom (_,y) -> string_of_default y
 
 let jarray_of_lifecycle lc =
 	JArray (List.map (fun (t, r, d) ->
