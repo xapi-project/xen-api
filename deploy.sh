@@ -11,8 +11,8 @@ fi
 rev=$(git rev-parse --short HEAD)
 
 # Copy data we're interested in out of the container
-docker cp ${CONTAINER}:${REPO}/ocaml/idl/json_backend/xenapi.json $HOME/
-docker cp ${CONTAINER}:${REPO}/ocaml/idl/json_backend/release_info.json $HOME/
+docker cp ${CONTAINER_NAME}:${REPO}/ocaml/idl/json_backend/xenapi.json $HOME/
+docker cp ${CONTAINER_NAME}:${REPO}/ocaml/idl/json_backend/release_info.json $HOME/
 
 # Go to home and setup git
 cd $HOME
