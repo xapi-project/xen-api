@@ -11,7 +11,7 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 clean:
         rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main *.json
 
-.PHONY: doc
-doc: main
+.PHONY: doc-json
+doc-json: main
 	./main
 
