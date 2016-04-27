@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 92a3e83a9ca6d605e370e66c8781de61)
-version = "0.9.5"
+# DO NOT EDIT (digest: c1582e051ab8793095a0dbd7980cda4c)
+version = "1.0.0"
 description = "Various Xen operations"
 requires =
 "xcp xenctrl xenstore xenstore_transport.unix uuid xenstore-compat threads"
