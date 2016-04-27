@@ -1,3 +1,9 @@
+1.0.0 (27-Apr-2016):
+* Remove master/slave knowledge
+* Use meaninful tokens when setting xenstore watches
+* Honour the plugin-default config option
+* Handle there being no SR data sources
+
 0.12.0 (09-Sep-2015):
 * add sr_rrd, rrd_updates http handler for SR-level RRDs
 * expose the control interface over a message queue
