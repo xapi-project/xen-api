@@ -200,9 +200,11 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let hotplug_path = get_hotplug_path x in
+	let private_data_path = get_private_data_path_of_device x in
 	let extra_xenserver_path = extra_xenserver_path_of_device xs x in
 	Xs.transaction xs (fun t ->
 		t.Xst.rm hotplug_path;
+		t.Xst.rm private_data_path;
 		t.Xst.rm extra_xenserver_path
 	)
 
