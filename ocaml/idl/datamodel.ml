@@ -7238,12 +7238,6 @@ let vm =
       ~lifecycle:[
         Published, rel_rio, "";
       ]
-      ~msg_lifecycles:[
-		  ("create", [
-			  Published, rel_rio, "";
-			  Deprecated, rel_dundee, "Use VM.clone, copy or import instead: see description for details.";
-		  ]);
-      ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
