@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xenops
-Version:     0.9.5
+Version:     1.0.0
 Synopsis:    Various Xen operations
 Authors:     Vincent Hanquez, Dave Scott, Jon Ludlam
 License:     LGPL-2.1 with OCaml linking exception
