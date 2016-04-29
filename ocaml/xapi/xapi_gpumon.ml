@@ -83,10 +83,12 @@ let with_gpumon_stopped ~f =
 	(* Stop gpumon if it's running, then register this thread. *)
 	Mutex.execute m
 		(fun () ->
-			match get_pid (), !restart_gpumon with
-			| Some pid, _ -> (restart_gpumon := Some true; stop ())
-			| None, None -> restart_gpumon := Some false
-			| None, _ -> ();
+			begin
+				match get_pid (), !restart_gpumon with
+				| Some pid, _ -> (restart_gpumon := Some true; stop ())
+				| None, None -> restart_gpumon := Some false
+				| None, _ -> ()
+			end;
 			register_thread thread_id);
 	Pervasiveext.finally
 		f
