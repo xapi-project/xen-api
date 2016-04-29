@@ -216,7 +216,7 @@ let start ~__context ~vm ~start_paused ~force =
 		| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
 		| _ ->
 			Xapi_gpumon.with_gpumon_stopped
-				~f:(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
+				(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
 	end;
 	Xapi_vm_helpers.start_delay ~__context ~vm
 
