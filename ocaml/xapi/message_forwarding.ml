@@ -873,8 +873,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 						(fun () ->
 							finally_clear_host_operation ~__context ~host:suitable_host ?host_op ();
 							(* In certain cases, VM might have been destroyed as a consequence of operation *)
-							if Db.is_valid_ref __context vm then
-								Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null))
+							if Db.is_valid_ref __context vm then begin
+								Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
+								List.iter
+									(fun vgpu -> Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu ~value:Ref.null)
+									(Db.VM.get_VGPUs ~__context ~self:vm)
+							end))
 
 		(* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
 		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
@@ -892,7 +896,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Helpers.with_global_lock
 						(fun () ->
 							finally_clear_host_operation ~__context ~host ?host_op ();
-							Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null))
+							Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
+							List.iter
+								(fun vgpu -> Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu ~value:Ref.null)
+								(Db.VM.get_VGPUs ~__context ~self:vm)))
 
 		(**
 		   Used by VM.set_memory_dynamic_range to reserve enough memory for
