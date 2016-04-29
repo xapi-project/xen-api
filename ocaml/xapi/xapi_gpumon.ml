@@ -15,8 +15,6 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-open Fun
-open Xstringext
 open Threadext
 
 let service = "/sbin/service"
@@ -26,9 +24,8 @@ let pidfile = "/var/run/xcp-rrdd-gpumon.pid"
 let get_pid () =
 	try
 		let pid =
-			(* TODO: Use String.trim when porting this to OCaml 4.x *)
 			Unixext.string_of_file pidfile
-			|> String.strip String.isspace
+			|> String.trim
 			|> int_of_string
 		in
 		Unix.kill pid 0;
