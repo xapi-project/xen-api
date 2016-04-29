@@ -79,8 +79,9 @@ let rec string_of_ty_with_enums ty =
 		| Record r -> r ^ " record", []
 
 let string_of_qualifier = function
-	| RW -> "read/write"
-	| StaticRO | DynamicRO -> "read only"
+	| RW -> "RW"
+	| StaticRO -> "RO/constructor"
+	| DynamicRO -> "RO/runtime"
 
 let rec string_of_default = function
 	| VString x -> "\"" ^ x ^ "\""
