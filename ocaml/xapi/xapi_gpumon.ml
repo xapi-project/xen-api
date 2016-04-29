@@ -59,34 +59,38 @@ let are_threads_registered () =
 	let state = !registered_threads in
 	not (IntSet.is_empty state)
 
-(* None
- * - means no threads which require gpumon to be stopped are running.
- * Some true
- * - means gpumon must be started when the last thread
- *   leaves with_gpumon_stopped.
- * Some false
- * - means gpumon should not be started when the last thread
- *   leaves with_gpumon_stopped. *)
-let restart_gpumon = ref None
+(*
+ * `unmanaged
+ * - no threads which care about the state of gpumon are running
+ * `should_start
+ * - gpumon should be started when the last thread exits with_gpumon_stopped
+ * `should_not_start
+ * - gpumon should not be started when the last thread exits with_gpumon_stopped
+*)
+let gpumon_state : [
+	`unmanaged |
+	`should_start |
+	`should_not_start
+] ref = ref `unmanaged
 let m = Mutex.create ()
 
 (* gpumon must be stopped while any thread is running the function f
  * passed to this function.
  *
  * The first thread to enter this function will stop gpumon if it is running,
- * and set the restart_gpumon flag accordingly.
+ * and set the gpumon_state flag accordingly.
  *
  * The last thread to leave this function will start gpumon, if
- * restart_gpumon is set to Some true. *)
+ * gpumon_state is set to `should_start. *)
 let with_gpumon_stopped ~f =
 	let thread_id = Thread.(id (self ())) in
 	(* Stop gpumon if it's running, then register this thread. *)
 	Mutex.execute m
 		(fun () ->
 			begin
-				match get_pid (), !restart_gpumon with
-				| Some pid, _ -> (restart_gpumon := Some true; stop ())
-				| None, None -> restart_gpumon := Some false
+				match get_pid (), !gpumon_state with
+				| Some pid, _ -> (gpumon_state := `should_start; stop ())
+				| None, `unmanaged -> gpumon_state := `should_not_start
 				| None, _ -> ()
 			end;
 			register_thread thread_id);
@@ -98,7 +102,7 @@ let with_gpumon_stopped ~f =
 			Mutex.execute m
 				(fun () ->
 					deregister_thread thread_id;
-					match are_threads_registered (), !restart_gpumon with
+					match are_threads_registered (), !gpumon_state with
 					| true, _ -> ()
-					| false, Some true -> (start (); restart_gpumon := None)
-					| false, _ -> restart_gpumon := None))
+					| false, `should_start -> (start (); gpumon_state := `unmanaged)
+					| false, _ -> gpumon_state := `unmanaged))
