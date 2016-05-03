@@ -29,14 +29,17 @@ let create_internal_bridge ~__context ~bridge ~uuid =
 		Net.Bridge.create dbg ~name:bridge ~other_config ()
 
 let set_himn_ip ~__context bridge other_config =
-	if not(List.mem_assoc "ip_begin" other_config) then
-		error "Cannot setup host internal management network: no other-config:ip_begin"
-	else begin
-		(* Set the ip address of the bridge *)
+	let open Network_interface in
+	let dbg = Context.string_of_task __context in
+	try
 		let ip = List.assoc "ip_begin" other_config in
-		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [bridge; ip; "up"]);
-		Xapi_mgmt_iface.enable_himn ~__context ~addr:ip
-	end
+		let netmask = List.assoc "netmask" other_config in
+		let ipv4_conf =
+			(Static4 [Unix.inet_addr_of_string ip, netmask_to_prefixlen netmask]) in
+		Net.Interface.set_ipv4_conf dbg bridge ipv4_conf;
+		Xapi_mgmt_iface.enable_himn ~__context ~addr:ip;
+	with Not_found ->
+		error "Cannot setup host internal management network: no other-config:ip_begin or other-config:netmask"
 
 let check_himn ~__context =
 	let nets = Db.Network.get_all_records ~__context in
