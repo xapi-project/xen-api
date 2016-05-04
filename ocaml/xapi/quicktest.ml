@@ -604,8 +604,9 @@ let powercycle_test session_id vm =
 	start test;
 	(* avoid the race whereby reboot requests are ignored if too early *)
 	let delay () = 
-		debug test "Pausing for 10s";
-		Thread.delay 10. in
+        let secs = 2.0 in
+		debug test @@ Printf.sprintf "Pausing for %3.1fs" secs;
+		Thread.delay secs in
 	debug test (Printf.sprintf "Trying to enable VM.clone for suspended VMs pool-wide");
 	let pool = get_pool session_id in
 	let enabled_csvm = 
@@ -802,6 +803,22 @@ let with_vm s f =
     (* SKIP *)
     ()
 
+(** [with_template uuid session f] excutes [f session vm] on a freshly 
+ * installed VM identified by template [uuid]. The VM is uninstalled after
+ * execution *)
+
+let with_template uuid (session: 'a Ref.t) f = 
+    let sprintf = Printf.sprintf in
+    let msg     = sprintf "Setting up VM from template %s\n" uuid in
+    let test    = make_test msg 0 in
+      begin
+        start test;
+        let vm = install_vm_from_template uuid test session in 
+        ignore (f session vm);
+        vm_uninstall test session vm;
+        success test;
+      end
+
 let vm_powercycle_test s vm = 
   let test = make_test "VM powercycle test" 1 in
   start test;
@@ -838,21 +855,48 @@ let _ =
 		"vhd";
 		"copy";
 	] in
-	let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
+    let all_test_names  = String.concat ", " all_tests in
+    let is_default = function
+        | "lifecycle"   -> false
+        | "vhd"         -> false
+        | _             -> true
+    in
+    let default_tests   = List.filter is_default all_tests in
+    let template        = ref "" in
 
 	let tests_to_run = ref default_tests in (* default is everything *)
+    let sprintf = Printf.sprintf in
+    let fprintf = Printf.fprintf in
 	Arg.parse [
-		"-xe-path", Arg.String (fun x -> Quicktest_common.xe_path := x), "Path to xe command line executable";
-		"-iso-sr-path", Arg.String (fun x -> Quicktest_storage.iso_path := x), "Path to ISO SR";
-		"-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
-		"-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
-		"-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
+    "-template-uuid",
+            Arg.Set_string template,
+            "UUID of VM template to use for tests";
+		"-xe-path", 
+            Arg.String (fun x -> Quicktest_common.xe_path := x), 
+            "Path to xe command line executable";
+		"-iso-sr-path", 
+            Arg.String (fun x -> Quicktest_storage.iso_path := x), 
+            "Path to ISO SR";
+		"-single", 
+            Arg.String (fun x -> tests_to_run := [ x ]), 
+            sprintf "Only run one test (possibilities are %s)" 
+                all_test_names;
+		"-all", 
+            Arg.Unit (fun () -> tests_to_run := all_tests), 
+                sprintf "Run all tests (%s)" all_test_names;
+		"-nocolour", 
+            Arg.Clear Quicktest_common.use_colour, 
+                "Don't use colour in the output" ]
 		(fun x -> match !host, !username, !password with
 			| "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
 			| _, "", _ -> username := x
 			| _, _, "" -> password := x
-			| _, _, _ -> Printf.fprintf stderr "Skipping unrecognised argument: %s" x)
-		"Perform some quick functional tests. The default is to test localhost over a Unix socket. For remote server supply <hostname> <username> and <password> arguments.";
+			| _, _, _ -> fprintf stderr "Skipping unrecognised argument: %s" x)
+		
+        "Perform some quick functional tests. The default is to test\ 
+        localhost over a Unix socket. For remote server supply <hostname>\
+        <username> and <password> arguments.";
+
 	if !host = "" then host := "localhost";
 	if !username = "" then username := "root";
 	
@@ -861,9 +905,17 @@ let _ =
 		if List.mem name !tests_to_run then f () in
 
 	Stunnel.set_good_ciphersuites "!EXPORT:RSA+AES128-SHA256";
-	let s = init_session !username !password in
-        let all_srs = all_srs_with_vdi_create s in
-        let sr = List.hd all_srs in
+	let s = 
+    try
+      init_session !username !password 
+    with Unix.Unix_error(Unix.ENOENT, "connect",_) ->
+      begin
+        Printf.eprintf "failed to open local socket -- giving up\n";
+        exit 1
+      end
+    in
+  let all_srs = all_srs_with_vdi_create s in
+  let sr = List.hd all_srs in
 	finally
 		(fun () ->
 			(try
@@ -882,9 +934,13 @@ let _ =
 				maybe_run_test "vdi" (fun () -> vdi_test s);
 				maybe_run_test "async" (fun () -> async_test s);
 				maybe_run_test "import" (fun () -> import_export_test s);
-				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
-				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
-				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
+				maybe_run_test "vhd" (fun () -> with_template !template s test_vhd_locking_hook);
+				maybe_run_test "powercycle" (fun () -> 
+          (* fall back to old behavior if no template provided *)
+          match !template with
+          | ""    -> with_vm            s vm_powercycle_test 
+          | uuid  -> with_template uuid s vm_powercycle_test);
+				maybe_run_test "lifecycle" (fun () -> with_template !template s Quicktest_lifecycle.test);
 				maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
 			with
 				| Api_errors.Server_error (a,b) ->
@@ -892,3 +948,5 @@ let _ =
 				| e ->
 					output_string stderr (Printexc.to_string e))
 		) (fun () -> summarise ())
+
+(* vim: set ts=2 noet: *)

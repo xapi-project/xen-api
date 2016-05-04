@@ -69,9 +69,13 @@ let string_of_test x =
 	| None             -> "Nothing       " 
 	| Some x           -> f x in
   Printf.sprintf "%s %s %s -> %s" 
-	  (dm string_of_api x.api) (dm string_of_parallel_op x.parallel_op) (string_of_code_path x.code_path)
-	  (match expected_result x with None -> "invalid" | Some y -> string_of_result y)
-open List
+	  (dm string_of_api x.api) 
+      (dm string_of_parallel_op x.parallel_op) 
+      (string_of_code_path x.code_path)
+	  ( match expected_result x with 
+      | None -> "invalid" 
+      | Some y -> string_of_result y
+      )
 
 let all_possible_tests =
   let all_api_variants x = 
@@ -89,11 +93,13 @@ let all_possible_tests =
   let all_code_path_variants x = 
 	[ { x with code_path = Sync };
 	  { x with code_path = Event };
-	  { x with code_path = Both } ] in
+	  { x with code_path = Both } ] 
+  in
+    [   { api = None ; parallel_op = None ; code_path = Sync } ]
+    |> List.map all_api_variants            |> List.concat
+    |> List.map all_parallel_op_variants    |> List.concat
+    |> List.map all_code_path_variants      |> List.concat
 
-  let xs = [ { api = None; parallel_op = None; code_path = Sync } ] in
-  concat (map all_code_path_variants (concat (map all_parallel_op_variants (concat (map all_api_variants xs)))))
-			
 let all_valid_tests = List.filter (fun t -> expected_result t <> None) all_possible_tests
 
 	  (*
@@ -134,7 +140,7 @@ let one s vm test =
 				if Client.VM.get_power_state !rpc s vm = `Halted
 				then Client.VM.start !rpc s vm false false;
 				(* wait for the guest to actually start up *)
-				Thread.delay 15.;
+				Thread.delay 2.; (* was 15.0, reduced for Unikernel *)
 
 				let call_api = function
 					| Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm
