@@ -805,8 +805,10 @@ module Ovs = struct
 			else
 				[]
 		in
+		let set_mac_table_size = ["--"; "set"; "bridge"; name; "other_config:mac-table-size=10000"]
+		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg)
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size)
 
 	let destroy_bridge name =
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
