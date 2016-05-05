@@ -33,6 +33,7 @@ let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
+let mac_table_size = ref 10000
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
 	try
@@ -805,7 +806,7 @@ module Ovs = struct
 			else
 				[]
 		in
-		let set_mac_table_size = ["--"; "set"; "bridge"; name; "other_config:mac-table-size=10000"]
+		let set_mac_table_size = ["--"; "set"; "bridge"; name; "other_config:mac-table-size=" ^ (string_of_int !mac_table_size)]
 		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
 			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size)
