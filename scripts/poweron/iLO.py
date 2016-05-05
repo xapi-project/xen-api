@@ -26,7 +26,18 @@ def iLO(power_on_ip, user, password):
 	xmlWithlogin=getXmlWithLogin(user,password)+'\r\n'      
 	
 	''' Send and receive '''
-	ctx = M2Crypto.SSL.Context()
+	# "tlsv1" means v1.0 only, not 1.1, 1.2 etc.
+	# It would be nice to specify all protocols ("sslv23") and then use
+	# options to disable sslv2 and sslv3, but such a Context fails to
+	# connect to the iLO server if the cipher_list is specified (even
+	# though the same kind of Context can connect to a XenServer).
+	ctx = M2Crypto.SSL.Context("tlsv1")
+	# Setting options just in case.
+	ctx.set_options(
+		M2Crypto.m2.SSL_OP_NO_SSLv2 |
+		M2Crypto.m2.SSL_OP_NO_SSLv3
+	)
+	ctx.set_cipher_list("!SSLv2:RSA+AES128-SHA256:RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA")
 	ctx.set_session_timeout(500)
 	s = M2Crypto.SSL.Connection(ctx)
 	s.set_post_connection_check_callback(None)
