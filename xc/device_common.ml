@@ -132,12 +132,10 @@ let string_of_device (x: device) =
  * to take the UUID as an argument (and change the callers as well...) *)
 let uuid_of_domid domid =
 	try
-		Xenops_helpers.with_xc_and_xs (fun _ xs ->
-			let vm = xs.Xs.getdomainpath domid ^ "/vm" in
-			let vm_dir = xs.Xs.read vm in
-			xs.Xs.read (vm_dir ^ "/uuid")
+		with_xs (fun xs ->
+			Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)
 		)
-	with _ ->
+	with Xenops_helpers.Domain_not_found ->
 		error "uuid_of_domid failed for domid %d" domid;
 		(* Returning a random string on error is not very neat, but we must avoid
 		 * exceptions here. This patch must be followed soon by a patch that changes the

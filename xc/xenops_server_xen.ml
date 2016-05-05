@@ -228,7 +228,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 				backend_domid = backend_domid;
 			} in
 			let device = Xenops_task.with_subtask task "Vbd.add"
-				(fun () -> Device.Vbd.add task ~xs ~hvm:false t frontend_domid) in
+				(fun () -> Device.Vbd.add task ~xc ~xs ~hvm:false t frontend_domid) in
 			Device device
 
 let block_device_of_vbd_frontend = function
@@ -1987,7 +1987,7 @@ module VBD = struct
 					} in
 					let device =
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
-							(fun () -> Device.Vbd.add task ~xs ~hvm x frontend_domid) in
+							(fun () -> Device.Vbd.add task ~xc ~xs ~hvm x frontend_domid) in
 
 					(* We store away the disk so we can implement VBD.stat *)
 					Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
@@ -2063,7 +2063,7 @@ module VBD = struct
 							Opt.iter
 								(fun device ->
 									Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-										(fun () -> Device.Vbd.release task ~xs device);
+										(fun () -> Device.Vbd.release task ~xc ~xs device);
 								) device;
 							(* If we have a qemu frontend, detach this too. *)
 							Mutex.execute dB_m (fun () ->
@@ -2356,7 +2356,7 @@ module VIF = struct
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
 							(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
 						Xenops_task.with_subtask task (Printf.sprintf "Vif.release %s" (id_of vif))
-							(fun () -> Device.Vif.release task ~xs device) in
+							(fun () -> Device.Vif.release task ~xc ~xs device) in
 					destroy device;
 
 					Opt.iter (fun vm_t -> 

@@ -57,9 +57,9 @@ sig
 		backend_domid: int;
 	}
 
-	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
+	val add : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
-	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
 	val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
 	val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
@@ -84,7 +84,7 @@ sig
 	       -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
-	val release : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
 	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
