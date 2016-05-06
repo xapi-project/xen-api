@@ -1,15 +1,18 @@
 digraph g{
 
-node [shape=box]; "powered down" paused running suspended;
+node [shape=box]; 
 
-"powered down" -> paused [label="start(paused=true)"];
-"powered down" -> running [label="start(paused=false)"];
+halted -> paused [label="start(paused)"];
+halted -> running [label="start(not paused)"];
 running -> suspended [label="suspend"];
-suspended -> running [label="resume(paused=false)"];
-suspended -> paused [label="resume(paused=true)"];
-paused -> suspended [label="suspend"];
-paused -> running [label="resume"];
-running -> "powered down" [label="cleanShutdown /\nhardShutdown"];
+suspended -> running [label="resume(not paused)"];
+suspended -> paused [label="resume(paused)"];
+suspended -> halted [label="hard shutdown"];
+paused -> running [label="unpause"];
+paused -> halted [label="hard shutdown"];
+running -> halted [label="clean shutdown\n hard shutdown"];
 running -> paused [label="pause"];
+halted -> destroyed [label="destroy"];
 
 }
+
