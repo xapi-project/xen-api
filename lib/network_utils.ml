@@ -806,7 +806,11 @@ module Ovs = struct
 			else
 				[]
 		in
-		let set_mac_table_size = ["--"; "set"; "bridge"; name; "other_config:mac-table-size=" ^ (string_of_int !mac_table_size)]
+		let set_mac_table_size =
+			if vlan = None then
+				["--"; "set"; "bridge"; name; "other_config:mac-table-size=" ^ (string_of_int !mac_table_size)]
+			else
+				[]
 		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
 			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size)
