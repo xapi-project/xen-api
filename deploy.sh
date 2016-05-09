@@ -13,6 +13,9 @@ fi
 # Error out if $GH_TOKEN is empty or unset
 : ${GH_TOKEN:?"GH_TOKEN needs to be uploaded via travis-encrypt"}
 
+# Print a hash of the token for debugging
+echo Token MD5: $(echo $GH_TOKEN | md5sum)
+
 rev=$(git rev-parse --short HEAD)
 
 # Copy data we're interested in out of the container
@@ -25,7 +28,7 @@ git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis"
 
 # Using token clone xapi-project.github.io.git
-git clone --quiet "https://$GH_TOKEN@github.com/xapi-project/xapi-project.github.io.git" &>/dev/null
+git clone "https://$GH_TOKEN@github.com/xapi-project/xapi-project.github.io.git" 2>&1 | sed -e "s/$GH_TOKEN/!REDACTED!/g"
 
 # Copy data we're interested in into the right place
 cd xapi-project.github.io
@@ -33,4 +36,4 @@ cp -f $HOME/xenapi.json _data/
 cp -f $HOME/release_info.json _data/
 
 git commit -am "Updated XenAPI docs based on xen-api/${rev}"
-git push -q origin master &>/dev/null
+git push origin master 2>&1 | sed -e "s/$GH_TOKEN/!REDACTED!/g"
