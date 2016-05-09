@@ -368,8 +368,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 
 	(* Any other domains with the same UUID as the one we are destroying.
 	 * There can be one during a localhost migration. *)
-	let other_domains = List.filter (fun x -> Xenctrl_uuid.uuid_of_handle x.Xenctrl.handle = uuid)
-		(Xenctrl.domain_getinfolist xc 0) in
+	let other_domains = Xenops_helpers.domains_of_uuid ~xc uuid in
 	debug "VM = %s; domid = %d; Domain.destroy: other domains with the same UUID = [ %a ]"
 		(Uuid.to_string uuid) domid
 		(fun () -> String.concat "; ")
@@ -423,7 +422,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	List.iter (fun x ->
 		log_exn_continue ("waiting for hotplug for " ^ (string_of_device x))
 		                 (fun () ->
-			Hotplug.release task ~xs x; released := x :: !released
+			Hotplug.release task ~xc ~xs x; released := x :: !released
 		                 ) ()
 		) all_devices;
 

@@ -196,15 +196,24 @@ let wait_for_connect (task: Xenops_task.t) ~xs (x: device) =
 (* Wait for the device to be released by the backend driver (via udev) and
    then deallocate any resources which are registered (in our private bit of
    xenstore) *)
-let release (task:Xenops_task.t) ~xs (x: device) =
+let release (task:Xenops_task.t) ~xc ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let hotplug_path = get_hotplug_path x in
-	let private_data_path = get_private_data_path_of_device x in
+	let private_data_path =
+		(* Only remove the private data path if there isn't another domain on the host for the same VM.
+		 * There can be multiple during a localhost migration, and the private path is indexed by UUID, not domid. *)
+		let vm_uuid = Xenops_helpers.uuid_of_domid ~xs x.frontend.domid in
+		let domains_of_vm = Xenops_helpers.domains_of_uuid ~xc vm_uuid in
+		if List.length domains_of_vm <= 1 then
+			Some (get_private_data_path_of_device x)
+		else
+			None
+	in
 	let extra_xenserver_path = extra_xenserver_path_of_device xs x in
 	Xs.transaction xs (fun t ->
 		t.Xst.rm hotplug_path;
-		t.Xst.rm private_data_path;
+		Opt.iter t.Xst.rm private_data_path;
 		t.Xst.rm extra_xenserver_path
 	)
 

@@ -449,12 +449,12 @@ let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
 	let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
 	()
 
-let release (task: Xenops_task.t) ~xs (x: device) =
+let release (task: Xenops_task.t) ~xc ~xs (x: device) =
 	debug "Device.Vbd.release %s" (string_of_device x);
 	(* Make sure blktap/blkback fire the udev remove event by deleting the
 	   backend now *)
 	Generic.safe_rm ~xs (backend_path_of_device ~xs x);
-	Hotplug.release task ~xs x;
+	Hotplug.release task ~xc ~xs x;
 
 	if !Xenopsd.run_hotplug_scripts
 	then Hotplug.run_hotplug_script x [ "remove" ];
@@ -555,7 +555,7 @@ let add_async ~xs ~hvm x domid =
 	Generic.add_device ~xs device back front priv [];
 	device
 
-let add_wait (task: Xenops_task.t) ~xs device =
+let add_wait (task: Xenops_task.t) ~xc ~xs device =
 	if !Xenopsd.run_hotplug_scripts
 	then Hotplug.run_hotplug_script device [ "add" ];
 
@@ -577,7 +577,7 @@ let add_wait (task: Xenops_task.t) ~xs device =
 	  with Hotplug.Frontend_device_error _ as e ->
 	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
 	    clean_shutdown task ~xs device; (* assumes double-failure isn't possible *)
-	    release task ~xs device;
+	    release task ~xc ~xs device;
 	    raise e
 	end;
 	device
@@ -585,7 +585,7 @@ let add_wait (task: Xenops_task.t) ~xs device =
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add (task: Xenops_task.t) ~xs ~hvm x domid =
+let add (task: Xenops_task.t) ~xc ~xs ~hvm x domid =
 	let device =
 		let result = ref None in
 		while !result = None do
@@ -597,7 +597,7 @@ let add (task: Xenops_task.t) ~xs ~hvm x domid =
 					Thread.delay 0.1
 				end else raise e (* permanent failure *)
 		done; Opt.unbox !result in
-	add_wait task ~xs device
+	add_wait task ~xc ~xs device
 
 let qemu_media_change ~xs device _type params =
 	let backend_path  = (backend_path_of_device ~xs device) in
@@ -739,7 +739,7 @@ let set_carrier ~xs (x: device) carrier =
 	let disconnect_path = disconnect_path_of_device ~xs x in
 	xs.Xs.write disconnect_path (if carrier then "0" else "1")
 
-let release (task: Xenops_task.t) ~xs (x: device) =
+let release (task: Xenops_task.t) ~xc ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
 
 	if !Xenopsd.run_hotplug_scripts then begin
@@ -747,7 +747,7 @@ let release (task: Xenops_task.t) ~xs (x: device) =
 		Hotplug.run_hotplug_script x [ "remove" ];
 		Hotplug.run_hotplug_script tap [ "remove" ];
 	end;
-	Hotplug.release task ~xs x
+	Hotplug.release task ~xc ~xs x
 
 let move ~xs (x: device) bridge =
 	let xs_bridge_path = Device_common.get_private_data_path_of_device x ^ "/bridge" in
