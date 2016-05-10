@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 76fa96e6edac33c29cf074bb5b0859c0)
+# DO NOT EDIT (digest: bc2d8703604b2841004d3d8041cc1775)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -23,6 +23,7 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: oasis_library_xenopsd_native
 "lib/sockopt_stubs.c": oasis_library_xenopsd_native
 <lib/xenopsd.{cma,cmxa}>: use_libxenopsd_stubs
+"lib/sockopt_stubs.c": pkg_bisect_ppx
 "lib/sockopt_stubs.c": pkg_cohttp
 "lib/sockopt_stubs.c": pkg_fd-send-recv
 "lib/sockopt_stubs.c": pkg_forkexec
@@ -49,9 +50,11 @@ true: annot, bin_annot
 <tools/*.ml{,i,y}>: oasis_executable_set_domain_uuid_byte
 <tools/set_domain_uuid.{native,byte}>: oasis_executable_set_domain_uuid_native
 <tools/*.ml{,i,y}>: oasis_executable_set_domain_uuid_native
+<tools/set_domain_uuid.{native,byte}>: pkg_bisect_ppx
 <tools/set_domain_uuid.{native,byte}>: pkg_cmdliner
 <tools/set_domain_uuid.{native,byte}>: pkg_uuidm
 <tools/set_domain_uuid.{native,byte}>: pkg_xenctrl
+<tools/*.ml{,i,y}>: pkg_bisect_ppx
 <tools/*.ml{,i,y}>: pkg_cmdliner
 <tools/*.ml{,i,y}>: pkg_uuidm
 <tools/*.ml{,i,y}>: pkg_xenctrl
@@ -60,6 +63,7 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: oasis_executable_suspend_image_viewer_byte
 <lib/suspend_image_viewer.{native,byte}>: oasis_executable_suspend_image_viewer_native
 <lib/*.ml{,i,y}>: oasis_executable_suspend_image_viewer_native
+<lib/suspend_image_viewer.{native,byte}>: pkg_bisect_ppx
 <lib/suspend_image_viewer.{native,byte}>: pkg_cmdliner
 <lib/suspend_image_viewer.{native,byte}>: pkg_cohttp
 <lib/suspend_image_viewer.{native,byte}>: pkg_fd-send-recv
@@ -83,6 +87,7 @@ true: annot, bin_annot
 <lib/suspend_image_viewer.{native,byte}>: pkg_xenstore_transport.unix
 <lib/suspend_image_viewer.{native,byte}>: pkg_xmlm
 <lib/suspend_image_viewer.{native,byte}>: use_xenopsd
+<lib/*.ml{,i,y}>: pkg_bisect_ppx
 <lib/*.ml{,i,y}>: pkg_cmdliner
 <lib/*.ml{,i,y}>: pkg_cohttp
 <lib/*.ml{,i,y}>: pkg_fd-send-recv
@@ -116,6 +121,7 @@ true: annot, bin_annot
 "xc/fsync_stubs.c": oasis_executable_xenopsd_xc_main_native
 "xc/xenctrlext_stubs.c": oasis_executable_xenopsd_xc_main_native
 <xc/xenops_xc_main.{native,byte}>: use_libxenopsd_xc_main_stubs
+<xc/xenops_xc_main.{native,byte}>: pkg_bisect_ppx
 <xc/xenops_xc_main.{native,byte}>: pkg_cohttp
 <xc/xenops_xc_main.{native,byte}>: pkg_fd-send-recv
 <xc/xenops_xc_main.{native,byte}>: pkg_forkexec
@@ -148,6 +154,7 @@ true: annot, bin_annot
 <xc/*.ml{,i,y}>: pkg_xcp.memory
 <xc/*.ml{,i,y}>: pkg_xcp.rrd
 <xc/*.ml{,i,y}>: pkg_xenctrl
+"xc/fsync_stubs.c": pkg_bisect_ppx
 "xc/fsync_stubs.c": pkg_cohttp
 "xc/fsync_stubs.c": pkg_fd-send-recv
 "xc/fsync_stubs.c": pkg_forkexec
@@ -175,6 +182,7 @@ true: annot, bin_annot
 "xc/fsync_stubs.c": pkg_xenstore_transport.unix
 "xc/fsync_stubs.c": pkg_xmlm
 "xc/fsync_stubs.c": use_xenopsd
+"xc/xenctrlext_stubs.c": pkg_bisect_ppx
 "xc/xenctrlext_stubs.c": pkg_cohttp
 "xc/xenctrlext_stubs.c": pkg_fd-send-recv
 "xc/xenctrlext_stubs.c": pkg_forkexec
@@ -208,6 +216,7 @@ true: annot, bin_annot
 <xc/*.ml{,i,y}>: oasis_executable_watch_test_byte
 <xc/watch_test.{native,byte}>: oasis_executable_watch_test_native
 <xc/*.ml{,i,y}>: oasis_executable_watch_test_native
+<xc/watch_test.{native,byte}>: pkg_bisect_ppx
 <xc/watch_test.{native,byte}>: pkg_cohttp
 <xc/watch_test.{native,byte}>: pkg_fd-send-recv
 <xc/watch_test.{native,byte}>: pkg_forkexec
@@ -230,6 +239,7 @@ true: annot, bin_annot
 <xc/watch_test.{native,byte}>: pkg_xenstore_transport.unix
 <xc/watch_test.{native,byte}>: pkg_xmlm
 <xc/watch_test.{native,byte}>: use_xenopsd
+<xc/*.ml{,i,y}>: pkg_bisect_ppx
 <xc/*.ml{,i,y}>: pkg_cohttp
 <xc/*.ml{,i,y}>: pkg_fd-send-recv
 <xc/*.ml{,i,y}>: pkg_forkexec
@@ -257,6 +267,7 @@ true: annot, bin_annot
 <simulator/*.ml{,i,y}>: oasis_executable_xenopsd_simulator_byte
 <simulator/xenops_simulator_main.{native,byte}>: oasis_executable_xenopsd_simulator_native
 <simulator/*.ml{,i,y}>: oasis_executable_xenopsd_simulator_native
+<simulator/xenops_simulator_main.{native,byte}>: pkg_bisect_ppx
 <simulator/xenops_simulator_main.{native,byte}>: pkg_cohttp
 <simulator/xenops_simulator_main.{native,byte}>: pkg_fd-send-recv
 <simulator/xenops_simulator_main.{native,byte}>: pkg_forkexec
@@ -279,6 +290,7 @@ true: annot, bin_annot
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore_transport.unix
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xmlm
 <simulator/xenops_simulator_main.{native,byte}>: use_xenopsd
+<simulator/*.ml{,i,y}>: pkg_bisect_ppx
 <simulator/*.ml{,i,y}>: pkg_cohttp
 <simulator/*.ml{,i,y}>: pkg_fd-send-recv
 <simulator/*.ml{,i,y}>: pkg_forkexec
@@ -307,6 +319,7 @@ true: annot, bin_annot
 <libvirt/*.ml{,i,y}>: oasis_executable_xenopsd_libvirt_main_byte
 <libvirt/xenops_libvirt_main.{native,byte}>: oasis_executable_xenopsd_libvirt_main_native
 <libvirt/*.ml{,i,y}>: oasis_executable_xenopsd_libvirt_main_native
+<libvirt/xenops_libvirt_main.{native,byte}>: pkg_bisect_ppx
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_cohttp
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_fd-send-recv
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_forkexec
@@ -330,6 +343,7 @@ true: annot, bin_annot
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore_transport.unix
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xmlm
 <libvirt/xenops_libvirt_main.{native,byte}>: use_xenopsd
+<libvirt/*.ml{,i,y}>: pkg_bisect_ppx
 <libvirt/*.ml{,i,y}>: pkg_cohttp
 <libvirt/*.ml{,i,y}>: pkg_fd-send-recv
 <libvirt/*.ml{,i,y}>: pkg_forkexec
@@ -364,6 +378,7 @@ true: annot, bin_annot
 "xl/fsync_stubs.c": oasis_executable_xenopsd_xenlight_main_native
 "xl/poll_stubs.c": oasis_executable_xenopsd_xenlight_main_native
 <xl/xenops_xl_main.{native,byte}>: use_libxenopsd_xenlight_main_stubs
+<xl/xenops_xl_main.{native,byte}>: pkg_bisect_ppx
 <xl/xenops_xl_main.{native,byte}>: pkg_cohttp
 <xl/xenops_xl_main.{native,byte}>: pkg_fd-send-recv
 <xl/xenops_xl_main.{native,byte}>: pkg_forkexec
@@ -392,6 +407,7 @@ true: annot, bin_annot
 <xl/xenops_xl_main.{native,byte}>: pkg_xentoollog
 <xl/xenops_xl_main.{native,byte}>: pkg_xmlm
 <xl/xenops_xl_main.{native,byte}>: use_xenopsd
+<xl/*.ml{,i,y}>: pkg_bisect_ppx
 <xl/*.ml{,i,y}>: pkg_cohttp
 <xl/*.ml{,i,y}>: pkg_fd-send-recv
 <xl/*.ml{,i,y}>: pkg_forkexec
@@ -420,6 +436,7 @@ true: annot, bin_annot
 <xl/*.ml{,i,y}>: pkg_xentoollog
 <xl/*.ml{,i,y}>: pkg_xmlm
 <xl/*.ml{,i,y}>: use_xenopsd
+"xl/fsync_stubs.c": pkg_bisect_ppx
 "xl/fsync_stubs.c": pkg_cohttp
 "xl/fsync_stubs.c": pkg_fd-send-recv
 "xl/fsync_stubs.c": pkg_forkexec
@@ -448,6 +465,7 @@ true: annot, bin_annot
 "xl/fsync_stubs.c": pkg_xentoollog
 "xl/fsync_stubs.c": pkg_xmlm
 "xl/fsync_stubs.c": use_xenopsd
+"xl/poll_stubs.c": pkg_bisect_ppx
 "xl/poll_stubs.c": pkg_cohttp
 "xl/poll_stubs.c": pkg_fd-send-recv
 "xl/poll_stubs.c": pkg_forkexec

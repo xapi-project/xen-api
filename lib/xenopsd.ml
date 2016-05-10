@@ -133,9 +133,17 @@ let main backend =
 		~rpc_fn
 	        () in
 
+  (** we need to catch this to make sure at_exit handlers are
+   * triggered. In particuar, triggers for the bisect_ppx coverage
+   * profiling *)
+
+  let signal_handler n =
+    debug "caught signal %d" n; exit 0 in
+
 	Xcp_service.maybe_daemonize ();
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler);
 
 	Xenops_utils.set_fs_backend
 		(Some (if !persist
