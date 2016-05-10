@@ -14,4 +14,4 @@
 
 (** Stop gpumon if it's running, perform f, then start gpumon if
   * no other threads which require gpumon to be stopped are running. *)
-val with_gpumon_stopped : (unit -> 'a) -> 'a
+val with_gpumon_stopped : ?timeout:float -> (unit -> 'a) -> 'a

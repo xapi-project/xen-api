@@ -43,8 +43,13 @@ module type DAEMON = sig
 end
 
 module Make : functor (D : DAEMON) -> sig
-	val with_daemon_stopped : (unit -> 'a) -> 'a
+	val with_daemon_stopped : ?timeout:float -> (unit -> 'a) -> 'a
 	(** If the daemon is running, stop it while [f] runs and restart it once [f]
 	    has returned. If multiple threads call [with_daemon_stopped] in parallel,
-	    the daemon will not be restarted until all threads have left [f]. *)
+	    the daemon will not be restarted until all threads have left [f].
+
+	    If the time out is set, [with_daemon_stopped] will catch any exceptions
+	    from [stop ()] and keep checking whether the daemon is running, until the
+	    timeout expires. If the daemon is still running after the timeout, the
+	    original exception will be thrown. *)
 end

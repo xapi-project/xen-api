@@ -63,14 +63,29 @@ module Make(D : DAEMON) = struct
 		end
 	| Function f -> f ()
 
-	let with_daemon_stopped f =
+	let start = D.start
+
+	let stop ?timeout () =
+		match timeout with
+		| Some t -> begin
+			let start = Unix.gettimeofday () in
+			try D.stop ()
+			with e ->
+				while (Unix.gettimeofday () -. start < t) && (is_running ()) do
+					Thread.delay 1.0
+				done;
+				if is_running () then raise e
+		end
+		| None -> D.stop ()
+
+	let with_daemon_stopped ?timeout f =
 		let thread_id = Thread.(id (self ())) in
 		(* Stop the daemon if it's running, then register this thread. *)
 		Mutex.execute m
 			(fun () ->
 				begin
 					match is_running (), !daemon_state with
-					| true, _ -> (daemon_state := `should_start; D.stop ())
+					| true, _ -> (daemon_state := `should_start; stop ?timeout ())
 					| false, `unmanaged -> daemon_state := `should_not_start
 					| false, _ -> ()
 				end;
@@ -85,6 +100,6 @@ module Make(D : DAEMON) = struct
 						deregister_thread thread_id;
 						match are_threads_registered (), !daemon_state with
 						| true, _ -> ()
-						| false, `should_start -> (D.start (); daemon_state := `unmanaged)
+						| false, `should_start -> (start (); daemon_state := `unmanaged)
 						| false, _ -> daemon_state := `unmanaged))
 end
