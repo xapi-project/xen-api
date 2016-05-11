@@ -14,14 +14,25 @@
 
 open OUnit
 
+type stop_failure = {
+	error: exn;
+	(** The exception thrown when trying to stop the daemon. *)
+	time_until_stopped: float;
+	(** The mock daemon will be marked as not running [t] seconds after the
+	    exception is thrown. *)
+}
+
 module Mock_daemon = struct
 	let running = ref true
+
+	let stop_failure : stop_failure option ref = ref None
 
 	let times_called_start = ref 0
 	let times_called_stop = ref 0
 
 	let reset ~is_running =
 		running := is_running;
+		stop_failure := None;
 		times_called_start := 0;
 		times_called_stop := 0
 
@@ -33,7 +44,21 @@ module Mock_daemon = struct
 
 	let stop () =
 		incr times_called_stop;
-		running := false
+		match !stop_failure with
+		| Some {error; time_until_stopped} -> begin
+			(* Raise the exception after spawning a thread which will set running to
+			   false after a specified time. *)
+			let (_: Thread.t) =
+				Thread.create
+					(fun () ->
+						Thread.delay time_until_stopped;
+						running := false)
+					()
+			in
+			raise error
+		end
+		| None ->
+			running := false
 end
 
 module Mock_manager = Daemon_manager.Make(Mock_daemon)
@@ -95,6 +120,29 @@ let test_threads () =
 	assert_equal !Mock_daemon.times_called_start 1;
 	assert_equal !Mock_daemon.times_called_stop 1
 
+(* The daemon initially fails to stop, but it stops within the timeout. *)
+let test_timeout_succeed () =
+	Mock_daemon.reset ~is_running:true;
+	Mock_daemon.stop_failure := Some {
+		error = Failure "stop failed";
+		time_until_stopped = 2.0;
+	};
+	Mock_manager.with_daemon_stopped ~timeout:5.0 (fun () -> ());
+	assert_equal !Mock_daemon.times_called_start 1;
+	assert_equal !Mock_daemon.times_called_stop 1
+
+(* The daemon does not stop within the timeout, so the exception is raised. *)
+let test_timeout_fail () =
+	Mock_daemon.reset ~is_running:true;
+	Mock_daemon.stop_failure := Some {
+		error = Failure "stop failed";
+		time_until_stopped = 5.0;
+	};
+	assert_raises (Failure "stop failed")
+		(fun () -> Mock_manager.with_daemon_stopped ~timeout:2.0 (fun () -> ()));
+	assert_equal !Mock_daemon.times_called_start 0;
+	assert_equal !Mock_daemon.times_called_stop 1
+
 let test =
 	"daemon_manager" >:::
 		[
@@ -103,4 +151,6 @@ let test =
 			"test_already_stopped" >:: test_already_stopped;
 			"test_exception" >:: test_exception;
 			"test_threads" >:: test_threads;
+			"test_timeout_succeed" >:: test_timeout_succeed;
+			"test_timeout_fail" >:: test_timeout_fail;
 		]
