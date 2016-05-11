@@ -215,7 +215,7 @@ let start ~__context ~vm ~start_paused ~force =
 		match vmr.API.vM_VGPUs with
 		| [] -> Xapi_xenops.start ~__context ~self:vm start_paused
 		| _ ->
-			Xapi_gpumon.with_gpumon_stopped
+			Xapi_gpumon.with_gpumon_stopped ~timeout:!Xapi_globs.gpumon_stop_timeout
 				(fun () -> Xapi_xenops.start ~__context ~self:vm start_paused)
 	end;
 	Xapi_vm_helpers.start_delay ~__context ~vm
