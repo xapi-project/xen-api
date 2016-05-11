@@ -276,7 +276,7 @@ let export_cmd =
   let vm = vm_arg "exported" in
   let filename =
     let doc = "Path to create in the filesystem" in
-    Arg.(value & opt (some file) None & info [ "filename" ] ~doc) in
+    Arg.(value & opt (some string) None & info [ "filename" ] ~doc) in
   let metadata =
     let doc = "Export the VM metadata only" in
     Arg.(value & flag & info [ "metadata-only" ] ~doc) in
