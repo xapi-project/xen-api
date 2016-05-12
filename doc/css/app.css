@@ -1,9 +1,25 @@
+.no-js .top-bar {
+    display: none;
+}
+
+@media screen and (min-width: 40em) {
+    .no-js .top-bar {
+       display: block;
+    }
+
+    .no-js .title-bar {
+       display: none;
+    }
+}
+				
 .title-bar {
     background: #333;
     padding: 0.9rem; }
 
 .top-bar {
-    background: #333; }
+    background: #333;
+    padding: 0;
+}
 
 .top-bar ul {
     background: #333; }
