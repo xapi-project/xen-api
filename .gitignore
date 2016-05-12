@@ -1,9 +1,4 @@
-*.annot
-*.cmo
-*.cma
-*.cmi
-*.a
-*.o
-*.cmx
-*.cmxs
-*.cmxa
+_build/
+main.native
+setup.data
+setup.log
