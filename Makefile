@@ -1,40 +1,41 @@
-.PHONY: all clean install build
-all: build doc
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-J=4
+SETUP = ocaml setup.ml
 
-BINDIR ?= /usr/bin
-DESTDIR ?= /
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-export OCAMLRUNPARAM=b
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
 
-setup.data: setup.bin
-	@./setup.bin -configure
+all:
+	$(SETUP) -all $(ALLFLAGS)
 
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
 
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
 
-install: setup.bin
-	@./setup.bin -install
-	install -D ./main.native $(DESTDIR)/$(BINDIR)/xenops-cli
-
-test: setup.bin build
-	@./setup.bin -test
-
-reinstall: setup.bin
-	@./setup.bin -reinstall
-	install -D ./main.native $(DESTDIR)/$(BINDIR)/xenops-cli
-
-uninstall:
-	rm -f $(DESTDIR)/$(BINDIR)/xenops-cli
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	$(SETUP) -clean $(CLEANFLAGS)
+
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
+
+# OASIS_STOP

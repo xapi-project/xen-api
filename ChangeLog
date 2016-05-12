@@ -1,3 +1,8 @@
+1.0.1 (12-May-2016):
+* Bug-fix: infinite loop on import
+* Bug-fix: cannot export without first creating empty file
+* Build now depends on Oasis
+
 0.9.1 (19-Jun-2013):
 * several new subcommands: tasks, task-cancel, cd-eject
 
