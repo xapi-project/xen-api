@@ -1,6 +1,7 @@
 Build dependencies include:
 
   * OCaml
+  * Oasis
   * findlib
   * cmdliner
   * xcp
