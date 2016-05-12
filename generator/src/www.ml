@@ -65,15 +65,19 @@ let of_args env args =
   >>
 
 let sidebar env x =
-  let of_typedecl t =
+  let of_typedecl name_opt t =
     let ident = ident_of_type_decl env t in
-    let target = [ `Data ("#a-" ^ ident.Ident.id) ] in
+    let target = [ `Data
+                     (match name_opt with
+                     | Some name -> Printf.sprintf "#a-%s-%s" name ident.Ident.id
+                     | None -> Printf.sprintf "#a-%s" ident.Ident.id)]
+    in
     let name = [ `Data t.TyDecl.name ] in
     <:html<
       <li><a href="$target$">$name$</a></li>
     >> in
-  let of_method m =
-    let target = [ `Data ("#a-" ^ m.Method.name) ] in
+  let of_method name m =
+    let target = [ `Data (Printf.sprintf "#a-%s-%s" name m.Method.name) ] in
     let name = [ `Data m.Method.name ] in
     <:html<
       <li><a href="$target$">$name$</a></li>
@@ -82,14 +86,14 @@ let sidebar env x =
     let name = [ `Data i.Interface.name ] in
     <:html<
       <li class="docs-nav-title">interface: $name$</li>
-      $ List.concat (List.map of_typedecl i.Interface.type_decls) $
-      $ List.concat (List.map of_method i.Interface.methods) $
+      $ List.concat (List.map (of_typedecl (Some i.Interface.name)) i.Interface.type_decls) $
+      $ List.concat (List.map (of_method i.Interface.name) i.Interface.methods) $
     >> in
   <:html<
       <div class="large-3 medium-3 columns">
         <ul class="menu vertical">
           <li class="docs-nav-title">types</li>
-          $List.concat (List.map of_typedecl x.Interfaces.type_decls)$
+          $List.concat (List.map (of_typedecl None) x.Interfaces.type_decls)$
           $List.concat (List.map of_interface x.Interfaces.interfaces)$
           <li class="docs-nav-title">exception</li>
           <li><a href="#a-exceptions">Exceptions</a></li>
@@ -123,9 +127,12 @@ let of_struct_variant_fields all =
     </table>
   >>
 
-let of_type_decl (env: 'a list) t =
+let of_type_decl (env: 'a list) i_opt t =
   let ident = ident_of_type_decl env t in
-  let anchor = [ `Data ("a-" ^ ident.Ident.id) ] in
+  let anchor =
+    match i_opt with
+    | Some i -> [ `Data (Printf.sprintf "a-%s-%s" i.Interface.name ident.Ident.id) ]
+    | None -> [`Data (Printf.sprintf "a-%s" ident.Ident.id) ] in
   let name = [ `Data t.TyDecl.name ] in
   let defn = [ `Data (Type.string_of_t ident.Ident.ty) ] in
   let description = [ `Data t.TyDecl.description ] in
@@ -187,7 +194,7 @@ let tabs_of env is i m =
   >>
 
 let of_method (env: 'a list) is i m =
-  let anchor = [ `Data ("a-" ^ m.Method.name) ] in
+  let anchor = [ `Data (Printf.sprintf "a-%s-%s" i.Interface.name m.Method.name) ] in
   let name = [ `Data m.Method.name ] in
   let description = [ `Data m.Method.description ] in
   <:html<
@@ -203,7 +210,7 @@ let of_interface (env: 'a list) is i =
   <:html<
     <h2 id="$anchor$">$name$</h2>
     <p>$description$</p>
-    $List.concat (List.map (of_type_decl env) i.Interface.type_decls)$
+    $List.concat (List.map (of_type_decl env (Some i)) i.Interface.type_decls)$
     $List.concat (List.map (of_method env is i) i.Interface.methods)$
   >>
 
@@ -247,7 +254,7 @@ let of_interfaces env x =
     <div class="large-9 medium-9 columns">
       <h1>$name$</h1>
       <p>$description$</p>
-      $List.concat (List.map (of_type_decl env) x.Interfaces.type_decls)$
+      $List.concat (List.map (of_type_decl env None) x.Interfaces.type_decls)$
       $List.concat (List.map (of_interface env x) x.Interfaces.interfaces)$
       $of_exception env x.Interfaces.exn_decls$
     </div>
