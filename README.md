@@ -12,7 +12,7 @@ and provides a simple RPC control interface to the layer above (typically xapi).
 ## Coverage Profiling
 
 This branch adds coverage profiling with bisect_ppx. Binaries write
-`bisect*.out` files, when they exit, to the current directory. These files
+`bisect*.out` files, when they exit to the current directory. These files
 can be analysed with bisect-ppx-report:
 
     bisect-ppx-report -I _build -html coverage     *.out
@@ -21,7 +21,7 @@ can be analysed with bisect-ppx-report:
 ## Location of Profiling Data
 
 By default, an instrumented binary writes to `$CWD/bisect*.out`. In the
-case of xenopsd in producion, this would be `/`. To avoid writing to `/`
+case of xenopsd in producition, this would be `/`. To avoid writing to `/`
 and to avoid several services writing to the same place, start xenopsd
 binaries with an evironment variable pointing to a better place:
 

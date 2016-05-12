@@ -58,6 +58,21 @@ let path () = Filename.concat !sockets_path "xenopsd"
 let forwarded_path () = path () ^ ".forwarded" (* receive an authenticated fd from xapi *)
 let json_path () = path () ^ ".json"
 
+(** [tmpdir] holds the path to a directory for temporary files *)
+let tmpdir =
+  let env n   = try Sys.getenv n with Not_found -> "" in
+  let dirs    = [env "TMP"; env "TEMP"; "/tmp"; "/usr/tmp"; "/var/tmp"] in
+  let is_dir  = function 
+    | ""    -> false
+    | path  -> try Sys.is_directory path with Sys_error _ -> false
+  in
+    try
+      List.find is_dir dirs
+    with
+      Not_found -> 
+        error "can't find temp directory %s" __LOC__;
+        exit 1
+ 
 module Server = Xenops_interface.Server(Xenops_server)
 
 let rpc_fn call =
@@ -99,6 +114,8 @@ let doc = String.concat "\n" [
 	"Xenopsd looks after a set of Xen domains, performing lifecycle operations including start/shutdown/migrate. A system may run multiple xenopsds, each looking after a different set of VMs. Xenopsd will always ignore domains that it hasn't been asked to manage. There are multiple xenopsd *backends*, including 'xc': which uses libxc directly and 'xenlight': which uses the new Xen libxl library (recommended).";
 ]
 
+       
+
 let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) () =
 	Debug.set_facility Syslog.Local5;
 
@@ -117,6 +134,16 @@ let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_n
 		error "%s" m;
 		exit 1
 
+(** set up the BISECT_FILE env var to point to a temp directory where
+ *  the log files go
+ *)
+let setup_bisect () =
+  let (//) = Filename.concat in
+  try 
+    ignore (Sys.getenv "BISECT_FILE") 
+  with Not_found ->
+    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s" name)
+ 
 let main backend =
 	Printexc.record_backtrace true;
 
@@ -144,6 +171,8 @@ let main backend =
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler);
+  
+  setup_bisect (); (* coverage profiling *)
 
 	Xenops_utils.set_fs_backend
 		(Some (if !persist
