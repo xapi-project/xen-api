@@ -51,3 +51,11 @@ Executable rrdp_xenpm
                             str,
                             threads,
                             xenctrl
+
+Executable read_blktap_stats
+  CompiledObject:           best
+  Path:                     src
+  MainIs:                   read_blktap_stats.ml
+  Install:                  false
+  BuildDepends:             rrdd-plugins-libs,
+                            unix
