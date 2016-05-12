@@ -25,6 +25,12 @@ case of xenopsd in producition, this would be `/`. To avoid writing to `/`
 and to avoid several services writing to the same place, start xenopsd
 binaries with an evironment variable pointing to a better place:
 
-    BISECT_FILE="/tmp/xenopsd-bisect"
+    BISECT_FILE="/tmp/bisect-xenopsd"
+
+Function `Bisect_setup.init name` sets the environment variable if it is
+unset from inside the program such that log data is written to the temp
+directory (repecting TMP and TEMP env vars id set). However, logging to
+$CWD will still work even if the `init` function is not called.
+
 
 
