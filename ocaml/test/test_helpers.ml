@@ -41,7 +41,7 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
 				(option string)
 				(option string))
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 	
 	let load_input __context (pifs, _) =
 		make_localhost ~__context;

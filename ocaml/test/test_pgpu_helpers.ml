@@ -30,7 +30,7 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.int64
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context (pgpu, _) =
 		let (_: API.ref_PGPU) = make_pgpu ~__context pgpu in ()
