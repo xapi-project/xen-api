@@ -14,7 +14,10 @@ Library rrdd_libs
   Modules:            Stats, Constants
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
-  BuildDepends:       xcp, stdext, threads
+  BuildDepends:       
+    xcp,
+    stdext,
+    threads
 
 Executable "xcp-rrdd"
   CompiledObject:     best
@@ -24,7 +27,30 @@ Executable "xcp-rrdd"
   Install:            false
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
-  BuildDepends:       threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, rrd, rrd.unix, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenops, rrd-transport, threads, rpclib.syntax, io-page.unix, xen-gnt.unix, oclock
+  BuildDepends:       
+    threads,
+    rpclib,
+    rpclib.unix,
+    gzip,
+    forkexec,
+    stdext,
+    uuid,
+    http-svr,
+    xcp-inventory,
+    rrd,
+    rrd.unix,
+    rrdd-libs,
+    xcp,
+    xcp.rrd,
+    xcp.network,
+    xcp.xen,
+    xenops,
+    rrd-transport,
+    threads,
+    rpclib.syntax,
+    io-page.unix,
+    xen-gnt.unix,
+    oclock
 
 Executable "test_rrdd_monitor"
   CompiledObject:     best
@@ -34,7 +60,31 @@ Executable "test_rrdd_monitor"
   Install:            false
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
-  BuildDepends:       oUnit, threads, rpclib, rpclib.unix, gzip, forkexec, stdext, uuid, http-svr, xcp-inventory, rrd, rrd.unix, rrdd-libs, xcp, xcp.rrd, xcp.network, xcp.xen, xenops, rrd-transport, threads, rpclib.syntax, io-page.unix, xen-gnt.unix, oclock
+  BuildDepends:       
+    oUnit,
+    threads,
+    rpclib,
+    rpclib.unix,
+    gzip,
+    forkexec,
+    stdext,
+    uuid,
+    http-svr,
+    xcp-inventory,
+    rrd,
+    rrd.unix,
+    rrdd-libs,
+    xcp,
+    xcp.rrd,
+    xcp.network,
+    xcp.xen,
+    xenops,
+    rrd-transport,
+    threads,
+    rpclib.syntax,
+    io-page.unix,
+    xen-gnt.unix,
+    oclock
 
 Test "test_rrdd_monitor"
   Command: $test_rrdd_monitor
