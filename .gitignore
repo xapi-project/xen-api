@@ -21,7 +21,6 @@ generator/main.native
 ocaml/lib/v.ml
 ocaml/lib/d.ml
 ocaml/lib/p.ml
-doc
 ocaml/examples
 python/build
 python/d.py
