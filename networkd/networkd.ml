@@ -54,6 +54,32 @@ let options = [
 	"mac-table-size", Arg.Set_int Network_utils.mac_table_size, (fun () -> string_of_int !Network_utils.mac_table_size), "Default value for the mac-table-size openvswitch parameter (see ovs-vswitchd.conf.db.5)";
 ]
 
+(** This just sets up an environment variable and has no effect unless
+ *  we are compiling for profiling *)
+
+let setup_coverage_profiling name =
+  let (//) = Filename.concat in
+  let tmpdir =
+    let getenv n   = try Sys.getenv n with Not_found -> "" in
+    let dirs    = 
+      [ getenv "TMP"
+      ; getenv "TEMP"
+      ; "/tmp"
+      ; "/usr/tmp"
+      ; "/var/tmp"
+      ] in
+    let is_dir  = function 
+    | ""    -> false
+    | path  -> try Sys.is_directory path with Sys_error _ -> false
+    in try
+      List.find is_dir dirs
+    with
+      Not_found -> D.error "can't find temp directory %s" __LOC__; exit 1
+  in try 
+    ignore (Sys.getenv "BISECT_FILE") 
+  with Not_found ->
+    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s" name)
+ 
 let start server =
 	Network_monitor_thread.start ();
 	Network_server.on_startup ();
@@ -88,6 +114,8 @@ let _ =
 		Printf.fprintf stderr "%s\n" m;
 		exit 1
 	end;
+
+  setup_coverage_profiling Sys.argv.(0);
 
 	let server = Xcp_service.make
 		~path:!Network_interface.default_path

@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 24d382d63f193063ab9b3c2a825d1463)
+# DO NOT EDIT (digest: abe036828d7944bed4687c8b446ac730)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -32,6 +32,7 @@ true: annot, bin_annot
 "lib/link_stubs.c": pkg_xcp-inventory
 "lib/link_stubs.c": pkg_xcp.network
 # Executable xcp_networkd
+<networkd/networkd.{native,byte}>: pkg_bisect_ppx
 <networkd/networkd.{native,byte}>: pkg_forkexec
 <networkd/networkd.{native,byte}>: pkg_netlink
 <networkd/networkd.{native,byte}>: pkg_rpclib
@@ -43,6 +44,7 @@ true: annot, bin_annot
 <networkd/networkd.{native,byte}>: pkg_xcp.network
 <networkd/networkd.{native,byte}>: pkg_xen-api-client
 <networkd/networkd.{native,byte}>: use_networklibs
+<networkd/*.ml{,i,y}>: pkg_bisect_ppx
 <networkd/*.ml{,i,y}>: pkg_forkexec
 <networkd/*.ml{,i,y}>: pkg_netlink
 <networkd/*.ml{,i,y}>: pkg_rpclib
@@ -56,6 +58,7 @@ true: annot, bin_annot
 <networkd/*.ml{,i,y}>: use_networklibs
 <networkd/networkd.{native,byte}>: custom
 # Executable networkd_db
+<networkd_db/networkd_db.{native,byte}>: pkg_bisect_ppx
 <networkd_db/networkd_db.{native,byte}>: pkg_forkexec
 <networkd_db/networkd_db.{native,byte}>: pkg_rpclib
 <networkd_db/networkd_db.{native,byte}>: pkg_stdext
@@ -63,6 +66,7 @@ true: annot, bin_annot
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp-inventory
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp.network
 <networkd_db/networkd_db.{native,byte}>: use_networklibs
+<networkd_db/*.ml{,i,y}>: pkg_bisect_ppx
 <networkd_db/*.ml{,i,y}>: pkg_forkexec
 <networkd_db/*.ml{,i,y}>: pkg_rpclib
 <networkd_db/*.ml{,i,y}>: pkg_stdext
@@ -72,6 +76,7 @@ true: annot, bin_annot
 <networkd_db/*.ml{,i,y}>: use_networklibs
 <networkd_db/networkd_db.{native,byte}>: custom
 # Executable network_test
+<test/network_test.{native,byte}>: pkg_bisect_ppx
 <test/network_test.{native,byte}>: pkg_forkexec
 <test/network_test.{native,byte}>: pkg_oUnit
 <test/network_test.{native,byte}>: pkg_rpclib
@@ -80,6 +85,7 @@ true: annot, bin_annot
 <test/network_test.{native,byte}>: pkg_xcp-inventory
 <test/network_test.{native,byte}>: pkg_xcp.network
 <test/network_test.{native,byte}>: use_networklibs
+<test/*.ml{,i,y}>: pkg_bisect_ppx
 <test/*.ml{,i,y}>: pkg_forkexec
 <test/*.ml{,i,y}>: pkg_oUnit
 <test/*.ml{,i,y}>: pkg_rpclib
@@ -89,6 +95,7 @@ true: annot, bin_annot
 <test/*.ml{,i,y}>: pkg_xcp.network
 <test/*.ml{,i,y}>: use_networklibs
 # Executable cli
+<cli/network_cli.{native,byte}>: pkg_bisect_ppx
 <cli/network_cli.{native,byte}>: pkg_cmdliner
 <cli/network_cli.{native,byte}>: pkg_forkexec
 <cli/network_cli.{native,byte}>: pkg_rpclib
@@ -98,6 +105,7 @@ true: annot, bin_annot
 <cli/network_cli.{native,byte}>: pkg_xcp-inventory
 <cli/network_cli.{native,byte}>: pkg_xcp.network
 <cli/network_cli.{native,byte}>: use_networklibs
+<cli/*.ml{,i,y}>: pkg_bisect_ppx
 <cli/*.ml{,i,y}>: pkg_cmdliner
 <cli/*.ml{,i,y}>: pkg_forkexec
 <cli/*.ml{,i,y}>: pkg_rpclib

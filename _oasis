@@ -30,6 +30,7 @@ Executable xcp_networkd
   Custom:             true
   Install:            false
   BuildDepends:       
+    bisect_ppx, # coverage profiling
     threads,
     rpclib,
     rpclib.unix,
@@ -49,6 +50,7 @@ Executable networkd_db
   Custom:             true
   Install:            false
   BuildDepends:       
+    bisect_ppx, # coverage profiling
     network-libs,
     stdext,
     threads,
@@ -60,6 +62,7 @@ Executable network_test
   MainIs:             network_test.ml
   Install:            false
   BuildDepends:       
+    bisect_ppx, # coverage profiling
     stdext,
     oUnit,
     network-libs
@@ -74,6 +77,7 @@ Executable cli
   Path:               cli
   MainIs:             network_cli.ml
   BuildDepends:       
+    bisect_ppx,
     cmdliner,
     stdext,
     network-libs,
