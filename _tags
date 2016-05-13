@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: abe036828d7944bed4687c8b446ac730)
+# DO NOT EDIT (digest: 995971be38af33c135997a642a4e0bf4)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -19,12 +19,14 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: oasis_library_networklibs_ccopt
 "lib/link_stubs.c": oasis_library_networklibs_ccopt
 <lib/networklibs.{cma,cmxa}>: use_libnetworklibs_stubs
+<lib/*.ml{,i,y}>: pkg_bisect_ppx
 <lib/*.ml{,i,y}>: pkg_forkexec
 <lib/*.ml{,i,y}>: pkg_rpclib
 <lib/*.ml{,i,y}>: pkg_stdext
 <lib/*.ml{,i,y}>: pkg_threads
 <lib/*.ml{,i,y}>: pkg_xcp-inventory
 <lib/*.ml{,i,y}>: pkg_xcp.network
+"lib/link_stubs.c": pkg_bisect_ppx
 "lib/link_stubs.c": pkg_forkexec
 "lib/link_stubs.c": pkg_rpclib
 "lib/link_stubs.c": pkg_stdext

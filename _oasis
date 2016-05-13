@@ -13,6 +13,7 @@ Library networklibs
   Findlibname:        network-libs
   Modules:            Network_config, Network_utils
   BuildDepends:       
+    bisect_ppx,       # coverage profiling
     forkexec,
     stdext,
     threads,
@@ -77,7 +78,7 @@ Executable cli
   Path:               cli
   MainIs:             network_cli.ml
   BuildDepends:       
-    bisect_ppx,
+    bisect_ppx, # coverage profiling 
     cmdliner,
     stdext,
     network-libs,

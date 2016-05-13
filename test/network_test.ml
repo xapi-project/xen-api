@@ -32,11 +32,11 @@ let setup_coverage_profiling name =
     in try
       List.find is_dir dirs
     with
-      Not_found -> failwith ("can't find temp directory "^__LOC__); exit 1
+      Not_found -> failwith ("can't find temp directory "^__LOC__)
   in try 
     ignore (Sys.getenv "BISECT_FILE") 
   with Not_found ->
-    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s" name)
+    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s-" name)
  
 
 
@@ -47,5 +47,5 @@ let base_suite =
 		]
 
 let _ = 
-  setup_coverage_profiling Sys.argv.(0);
+  setup_coverage_profiling "network_test";
   run_test_tt_main base_suite

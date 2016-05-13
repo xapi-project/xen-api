@@ -48,7 +48,7 @@ let setup_coverage_profiling name =
   in try 
     ignore (Sys.getenv "BISECT_FILE") 
   with Not_found ->
-    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s" name)
+    Unix.putenv "BISECT_FILE" (tmpdir // Printf.sprintf "bisect-%s-" name)
  
 
 let _ =
@@ -63,7 +63,7 @@ let _ =
 		(Printf.sprintf "Usage: %s [-bridge <bridge> | -iface <interface>]" name);
 
 	try
-    setup_coverage_profiling Sys.argv.(0);
+    setup_coverage_profiling "network_db";
 		let config = Network_config.read_config () in
 		if !bridge <> "" then
 			if List.mem_assoc !bridge config.bridge_config then begin
