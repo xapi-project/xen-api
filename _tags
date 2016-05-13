@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 995971be38af33c135997a642a4e0bf4)
+# DO NOT EDIT (digest: b74bb634db47e28ee82b535b78c98e87)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -14,6 +14,8 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library coverage
+"profiling/coverage.cmxs": use_coverage
 # Library networklibs
 "lib/networklibs.cmxs": use_networklibs
 <lib/*.ml{,i,y}>: oasis_library_networklibs_ccopt
@@ -45,6 +47,7 @@ true: annot, bin_annot
 <networkd/networkd.{native,byte}>: pkg_xcp-inventory
 <networkd/networkd.{native,byte}>: pkg_xcp.network
 <networkd/networkd.{native,byte}>: pkg_xen-api-client
+<networkd/networkd.{native,byte}>: use_coverage
 <networkd/networkd.{native,byte}>: use_networklibs
 <networkd/*.ml{,i,y}>: pkg_bisect_ppx
 <networkd/*.ml{,i,y}>: pkg_forkexec
@@ -57,6 +60,7 @@ true: annot, bin_annot
 <networkd/*.ml{,i,y}>: pkg_xcp-inventory
 <networkd/*.ml{,i,y}>: pkg_xcp.network
 <networkd/*.ml{,i,y}>: pkg_xen-api-client
+<networkd/*.ml{,i,y}>: use_coverage
 <networkd/*.ml{,i,y}>: use_networklibs
 <networkd/networkd.{native,byte}>: custom
 # Executable networkd_db
@@ -67,6 +71,7 @@ true: annot, bin_annot
 <networkd_db/networkd_db.{native,byte}>: pkg_threads
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp-inventory
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp.network
+<networkd_db/networkd_db.{native,byte}>: use_coverage
 <networkd_db/networkd_db.{native,byte}>: use_networklibs
 <networkd_db/*.ml{,i,y}>: pkg_bisect_ppx
 <networkd_db/*.ml{,i,y}>: pkg_forkexec
@@ -75,6 +80,7 @@ true: annot, bin_annot
 <networkd_db/*.ml{,i,y}>: pkg_threads
 <networkd_db/*.ml{,i,y}>: pkg_xcp-inventory
 <networkd_db/*.ml{,i,y}>: pkg_xcp.network
+<networkd_db/*.ml{,i,y}>: use_coverage
 <networkd_db/*.ml{,i,y}>: use_networklibs
 <networkd_db/networkd_db.{native,byte}>: custom
 # Executable network_test
@@ -86,6 +92,7 @@ true: annot, bin_annot
 <test/network_test.{native,byte}>: pkg_threads
 <test/network_test.{native,byte}>: pkg_xcp-inventory
 <test/network_test.{native,byte}>: pkg_xcp.network
+<test/network_test.{native,byte}>: use_coverage
 <test/network_test.{native,byte}>: use_networklibs
 <test/*.ml{,i,y}>: pkg_bisect_ppx
 <test/*.ml{,i,y}>: pkg_forkexec
@@ -95,6 +102,7 @@ true: annot, bin_annot
 <test/*.ml{,i,y}>: pkg_threads
 <test/*.ml{,i,y}>: pkg_xcp-inventory
 <test/*.ml{,i,y}>: pkg_xcp.network
+<test/*.ml{,i,y}>: use_coverage
 <test/*.ml{,i,y}>: use_networklibs
 # Executable cli
 <cli/network_cli.{native,byte}>: pkg_bisect_ppx
@@ -106,6 +114,7 @@ true: annot, bin_annot
 <cli/network_cli.{native,byte}>: pkg_xcp
 <cli/network_cli.{native,byte}>: pkg_xcp-inventory
 <cli/network_cli.{native,byte}>: pkg_xcp.network
+<cli/network_cli.{native,byte}>: use_coverage
 <cli/network_cli.{native,byte}>: use_networklibs
 <cli/*.ml{,i,y}>: pkg_bisect_ppx
 <cli/*.ml{,i,y}>: pkg_cmdliner
@@ -116,6 +125,7 @@ true: annot, bin_annot
 <cli/*.ml{,i,y}>: pkg_xcp
 <cli/*.ml{,i,y}>: pkg_xcp-inventory
 <cli/*.ml{,i,y}>: pkg_xcp.network
+<cli/*.ml{,i,y}>: use_coverage
 <cli/*.ml{,i,y}>: use_networklibs
 # OASIS_STOP
 

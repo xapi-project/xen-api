@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: 6e7f6cff169a3b5c960903046d1c6a00)
+version = "0.10.0"
+description = "XCP Network Daemon"
+archive(byte) = "coverage.cma"
+archive(byte, plugin) = "coverage.cma"
+archive(native) = "coverage.cmxa"
+archive(native, plugin) = "coverage.cmxs"
+exists_if = "coverage.cma"
+# OASIS_STOP
+

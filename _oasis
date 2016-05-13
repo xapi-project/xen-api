@@ -7,6 +7,13 @@ License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
 BuildTools:  ocamlbuild
 
+Library coverage
+  CompiledObject:     best
+  Path:               profiling
+  Findlibname:        coverage
+  Modules:            Coverage
+  BuildDepends: 
+
 Library networklibs
   CompiledObject:     best
   Path:               lib
@@ -31,7 +38,7 @@ Executable xcp_networkd
   Custom:             true
   Install:            false
   BuildDepends:       
-    bisect_ppx, # coverage profiling
+    coverage, bisect_ppx, # coverage profiling
     threads,
     rpclib,
     rpclib.unix,
@@ -51,7 +58,7 @@ Executable networkd_db
   Custom:             true
   Install:            false
   BuildDepends:       
-    bisect_ppx, # coverage profiling
+    coverage, bisect_ppx, # coverage profiling
     network-libs,
     stdext,
     threads,
@@ -63,7 +70,7 @@ Executable network_test
   MainIs:             network_test.ml
   Install:            false
   BuildDepends:       
-    bisect_ppx, # coverage profiling
+    coverage, bisect_ppx, # coverage profiling
     stdext,
     oUnit,
     network-libs
@@ -78,7 +85,7 @@ Executable cli
   Path:               cli
   MainIs:             network_cli.ml
   BuildDepends:       
-    bisect_ppx, # coverage profiling 
+    coverage, bisect_ppx, # coverage profiling 
     cmdliner,
     stdext,
     network-libs,
