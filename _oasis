@@ -12,7 +12,14 @@ Library networklibs
   Path:               lib
   Findlibname:        network-libs
   Modules:            Network_config, Network_utils
-  BuildDepends:       forkexec, stdext, threads, rpclib, stdext, xcp-inventory, xcp.network
+  BuildDepends:       
+    forkexec,
+    stdext,
+    threads,
+    rpclib,
+    stdext,
+    xcp-inventory,
+    xcp.network
   CSources:           link_stubs.c, netdev.h
   CCOpt:              -Wno-unused-function -g -ggdb
 
@@ -22,7 +29,18 @@ Executable xcp_networkd
   MainIs:             networkd.ml
   Custom:             true
   Install:            false
-  BuildDepends:       threads, rpclib, rpclib.unix, forkexec, stdext, xcp-inventory, network-libs, xen-api-client, xcp, xcp.network, netlink
+  BuildDepends:       
+    threads,
+    rpclib,
+    rpclib.unix,
+    forkexec,
+    stdext,
+    xcp-inventory,
+    network-libs,
+    xen-api-client,
+    xcp,
+    xcp.network,
+    netlink
 
 Executable networkd_db
   CompiledObject:     best
@@ -30,14 +48,21 @@ Executable networkd_db
   MainIs:             networkd_db.ml
   Custom:             true
   Install:            false
-  BuildDepends:       network-libs, stdext, threads, xcp.network
+  BuildDepends:       
+    network-libs,
+    stdext,
+    threads,
+    xcp.network
 
 Executable network_test
   CompiledObject:     best
   Path:               test
   MainIs:             network_test.ml
   Install:            false
-  BuildDepends:       stdext, oUnit, network-libs
+  BuildDepends:       
+    stdext,
+    oUnit,
+    network-libs
 
 Test test_networkd
   Run$: flag(tests)
@@ -48,5 +73,10 @@ Executable cli
   CompiledObject:     best
   Path:               cli
   MainIs:             network_cli.ml
-  BuildDepends:       cmdliner, stdext, network-libs, xcp, xcp.network
+  BuildDepends:       
+    cmdliner,
+    stdext,
+    network-libs,
+    xcp,
+    xcp.network
 
