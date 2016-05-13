@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 7684563d4f864c66f33c102c0bbef528) *)
+(* DO NOT EDIT (digest: 7ff3093d5d3cc62db6a2f9348d19a3a5) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -607,7 +607,8 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [("rrdd_libs", ["lib"], [])];
+     MyOCamlbuildBase.lib_ocaml =
+       [("coverage", ["profiling"], []); ("rrdd_libs", ["lib"], [])];
      lib_c = [];
      flags =
        [
@@ -679,7 +680,7 @@ let package_default =
            ],
             [(OASISExpr.EBool true, S [A "-bin-annot"])])
        ];
-     includes = [("rrdd", ["lib"])]
+     includes = [("rrdd", ["lib"; "profiling"])]
   }
   ;;
 
@@ -687,6 +688,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 691 "myocamlbuild.ml"
+# 692 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

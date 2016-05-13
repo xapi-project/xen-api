@@ -7,6 +7,15 @@ License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
+
+# Support files for coverage profiling
+Library coverage
+  CompiledObject:     best
+  Path:               profiling
+  Findlibname:        coverage
+  Modules:            Coverage
+  BuildDepends: 
+
 Library rrdd_libs
   CompiledObject:     best
   Path:               lib
@@ -15,6 +24,7 @@ Library rrdd_libs
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
+    bisect_ppx,
     xcp,
     stdext,
     threads
@@ -28,6 +38,7 @@ Executable "xcp-rrdd"
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
+    coverage, bisect_ppx,
     threads,
     rpclib,
     rpclib.unix,
@@ -61,6 +72,7 @@ Executable "test_rrdd_monitor"
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
+    bisect_ppx,
     oUnit,
     threads,
     rpclib,
