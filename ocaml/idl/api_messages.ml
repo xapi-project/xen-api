@@ -107,6 +107,14 @@ let vmpp_snapshot_missed_event = addMessage "VMPP_SNAPSHOT_MISSED_EVENT" 3L (*'A
 let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" 3L (*'A scheduled archive event was missed due to another on-going scheduled archive run. This is unexpected behaviour, please re-configure your archive sub-policy'*)
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" 3L (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
 
+(* VMSS message types *)
+let vmss_snapshot_lock_failed = addMessage "VMSS_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot is already executing for schedule snapshot. Please try again later'*)
+let vmss_snapshot_succeeded = addMessage "VMSS_SNAPSHOT_SUCCEEDED" 5L (*'Successfully performed the snapshot of the schedule snapshot'*)
+let vmss_snapshot_failed = addMessage "VMSS_SNAPSHOT_FAILED" 3L (*'The snapshot of the schedule snapshot has failed.'*)
+let vmss_license_error = addMessage "VMSS_LICENSE_ERROR" 3L (*'This operation is not allowed under your license.  Please contact your support representative'*)
+let vmss_xapi_logon_failure = addMessage "VMSS_XAPI_LOGON_FAILURE" 3L (*'Could not login to API session.'*)
+let vmss_snapshot_missed_event = addMessage "VMSS_SNAPSHOT_MISSED_EVENT" 3L (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your schedule snapshot',*)
+
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" 3L (* A link in a bond went down or came back up *) (* Previously missing from table *)
 
 let host_cpu_features_down = addMessage "HOST_CPU_FEATURES_DOWN" 3L

@@ -36,6 +36,7 @@ type feature =
 	| No_platform_filter           (** Filter platform data *)
 	| No_nag_dialog                (** Used by XenCenter *)
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
+	| VMSS                         (** Enable use of VM Scheduled Snapshot *)
 	| IntelliCache                 (** Enable use of IntelliCache feature *)
 	| GPU                          (** Enable use of GPU passthrough *)
 	| DR                           (** Enable disaster recovery *)
