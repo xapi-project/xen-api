@@ -1,6 +1,6 @@
 OASISFormat:                0.4
 Name:                       rrdd-plugins
-Version:                    1.0.0
+Version:                    1.0.1
 Synopsis:                   RRDD metrics plugins
 Authors:                    Guillem Rieu and Vincent Bernardoff
 License:                    LGPL-2.1 with OCaml linking exception

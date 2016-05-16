@@ -1,0 +1,15 @@
+1.0.1 (16-May-2016):
+ * Move build system to oasis
+ * Fix VBD stats reporting
+ * Add read_blktap_stats utility program
+
+1.0.0 (22-Mar-2016):
+ * Add RRD for number of tapdisks in low memory mode
+ * Add RRD for average CPU frequency
+ * Convert to new rrd-transport interface
+ * Add travis
+ * Use new blktap3 stats structure
+ * Bugfixes
+
+0.1.0 (30-Jun-2014):
+ * First public release
