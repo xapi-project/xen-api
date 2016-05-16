@@ -58,8 +58,6 @@ Requires: stunnel
 Requires: vhd-tool
 Requires: libffi
 
-
-
 %description
 XCP toolstack.
 
@@ -67,6 +65,9 @@ XCP toolstack.
 Summary: The xapi toolstack
 Group: System/Hypervisor
 Requires: busybox m2crypto net-tools
+Requires(post): /sbin/chkconfig
+Requires(preun): /sbin/chkconfig
+Requires(preun): /sbin/service
 Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
@@ -154,15 +155,52 @@ mkdir $RPM_BUILD_ROOT/etc/xapi.conf.d
 rm -rf $RPM_BUILD_ROOT
 
 %post core
-[ ! -x /sbin/chkconfig ] || chkconfig --add save-boot-info
-[ ! -x /sbin/chkconfig ] || chkconfig --add attach-static-vdis
-[ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
-[ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
-[ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
+case $1 in
+  1) # install
+    /sbin/chkconfig --add save-boot-info
+    /sbin/chkconfig --add attach-static-vdis
+    /sbin/chkconfig --add xapi
+    /sbin/chkconfig --add xapi-domains
+    /sbin/chkconfig --add perfmon
+    /sbin/chkconfig --add genptoken
+    ;;
+  2) # upgrade
+    /sbin/chkconfig --del save-boot-info
+    /sbin/chkconfig --del attach-static-vdis
+    /sbin/chkconfig --del xapi
+    /sbin/chkconfig --del xapi-domains
+    /sbin/chkconfig --del perfmon
+    /sbin/chkconfig --del genptoken
+    /sbin/chkconfig --add save-boot-info
+    /sbin/chkconfig --add attach-static-vdis
+    /sbin/chkconfig --add xapi
+    /sbin/chkconfig --add xapi-domains
+    /sbin/chkconfig --add perfmon
+    /sbin/chkconfig --add genptoken
+    ;;
+esac
 %systemd_post cdrommon@.service
 
 %preun core
+case $1 in
+  0) # uninstall
+    /sbin/service message-switch stop >/dev/null 2>&1 || :
+    /sbin/service save-boot-info stop >/dev/null 2>&1 || :
+    /sbin/service attach-static-vdis >/dev/null 2>&1 || :
+    /sbin/service xapi >/dev/null 2>&1 || :
+    /sbin/service xapi-domains >/dev/null 2>&1 || :
+    /sbin/service perfmon >/dev/null 2>&1 || :
+    /sbin/service genptoken >/dev/null 2>&1 || :
+    /sbin/chkconfig --del save-boot-info
+    /sbin/chkconfig --del attach-static-vdis
+    /sbin/chkconfig --del xapi
+    /sbin/chkconfig --del xapi-domains
+    /sbin/chkconfig --del perfmon
+    /sbin/chkconfig --del genptoken
+    ;;
+  1) # upgrade
+    ;;
+esac
 %systemd_preun cdrommon@.service
 
 %postun core
