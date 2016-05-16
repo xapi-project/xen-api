@@ -25,6 +25,7 @@ depends: [
   "xapi-rrd-transport"
   "oclock"
   "ounit"
+  "bisect_ppx"
 ]
 ocaml-version: [>= "4.01.0"]
 
