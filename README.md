@@ -29,7 +29,7 @@ binaries with an evironment variable pointing to a better place:
 
 Function `Bisect_setup.init name` sets the environment variable if it is
 unset from inside the program such that log data is written to the temp
-directory (repecting TMP and TEMP env vars id set). However, logging to
+directory (respecting TMP and TEMP env vars if set). However, logging to
 $CWD will still work even if the `init` function is not called.
 
 

@@ -149,7 +149,7 @@ let main backend =
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler);
   
-  Bisect_setup.init name; (* set up coverage profiling *)
+  Coverage.init name; (* set up coverage profiling *)
 
 	Xenops_utils.set_fs_backend
 		(Some (if !persist

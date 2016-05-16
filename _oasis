@@ -23,6 +23,16 @@ Flag simulator
   Description:        Build server with simulator support
   Default:            true
 
+
+# Support files for profiling 
+Library profiling
+  CompiledObject:     best
+  Path:               profiling
+  Install:            false
+  Findlibname:        profiling
+  Modules:            Coverage
+  BuildDepends: 
+
 Library xenopsd
   CompiledObject:     best
   Path:               lib
@@ -53,7 +63,6 @@ Library xenopsd
     Xenstore,
     Version
   BuildDepends:
-    bisect_ppx,       
     threads,
     threads.posix,
     uuidm,
@@ -86,10 +95,10 @@ Executable set_domain_uuid
   MainIs:             set_domain_uuid.ml
   Install:            false
   BuildDepends:
-    bisect_ppx, 
     xenctrl, 
     uuidm, 
-    cmdliner
+    cmdliner,
+    profiling
 
 Executable suspend_image_viewer
   CompiledObject:     best
@@ -99,9 +108,9 @@ Executable suspend_image_viewer
   MainIs:             suspend_image_viewer.ml
   Install:            false
   BuildDepends:
-    bisect_ppx,       
     xenopsd, 
-    cmdliner
+    cmdliner,
+    profiling
 
 Executable xenopsd_xc_main
   CompiledObject:     best
@@ -113,7 +122,6 @@ Executable xenopsd_xc_main
   Custom:             true
   Install:            false
   BuildDepends:
-    bisect_ppx,       
     xenctrl,
     xenopsd,
     xenstore,
@@ -128,7 +136,8 @@ Executable xenopsd_xc_main
     xcp.rrd,
     rrd,
     sexplib,
-    xcp-inventory
+    xcp-inventory,
+    profiling
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 Executable watch_test
@@ -139,13 +148,13 @@ Executable watch_test
   MainIs:             watch_test.ml
   Install:            false
   BuildDepends:
-    bisect_ppx,       
     xenopsd,
     xenstore,
     xenstore.unix,
     xenstore_transport,
     xenstore_transport.unix,
-    threads
+    threads,
+    profiling
 
 Executable xenopsd_simulator
   CompiledObject:     best
@@ -157,8 +166,8 @@ Executable xenopsd_simulator
   Custom:             true
   Install:            false
   BuildDepends:
-    bisect_ppx,       
-    xenopsd
+    xenopsd,
+    profiling
 
 Executable xenopsd_libvirt_main
   CompiledObject:     best
@@ -170,14 +179,14 @@ Executable xenopsd_libvirt_main
   Custom:             true
   Install:            false
   BuildDepends:
-    bisect_ppx,       
     xenopsd,
     rpclib,
     forkexec,
     xcp,
     xcp.storage,
     sexplib,
-    libvirt
+    libvirt,
+    profiling
 
 Executable xenopsd_xenlight_main
   CompiledObject:     best
@@ -189,7 +198,6 @@ Executable xenopsd_xenlight_main
   Custom:             true
   Install:            false
   BuildDepends:
-    bisect_ppx,       
     xenlight,
     xentoollog,
     xenctrl,
@@ -205,6 +213,7 @@ Executable xenopsd_xenlight_main
     xcp.memory,
     sexplib,
     xcp-inventory,
-    optcomp
+    optcomp,
+    profiling
   CSources:           fsync_stubs.c, poll_stubs.c
 

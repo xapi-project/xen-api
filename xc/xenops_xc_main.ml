@@ -46,6 +46,7 @@ let make_var_run_xen () =
 
 (* Start the program with the xen backend *)
 let _ =
+  Coverage.init "xenopsd-xc"; (* set up coverage profiling *)
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
 	Xenops_utils.set_root "xenopsd/classic";
 	Xenopsd.configure
