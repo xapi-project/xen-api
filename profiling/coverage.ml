@@ -1,6 +1,6 @@
 
 (** This module sets up the env variable for bisect_ppx which describes
- * where log files are writte
+ *  where log files are written.
  *)
 
 let (//) = Filename.concat 
@@ -25,7 +25,7 @@ let tmpdir =
     Not_found -> failwith "can't find temp directory "^__LOC__
 
 (** [init name] sets up coverage profiling for binary [name]. You could 
- *  use [Sys.argv.(0) for name
+ *  use [Sys.argv.(0)] for [name].
  *)
 let init name =
   try 

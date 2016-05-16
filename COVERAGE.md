@@ -23,7 +23,7 @@ of it.
 
 During program execution, a binary writes coverage data to
 
-    /tmp/bisect-lunarossa-*.out
+    /tmp/bisect-<binary>-*.out
 
 This can be overridden by setting the `BISECT_FILE` environment
 variable, which is otherwise set at startup using the code in
