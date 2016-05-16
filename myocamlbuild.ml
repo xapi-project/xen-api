@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 7ff3093d5d3cc62db6a2f9348d19a3a5) *)
+(* DO NOT EDIT (digest: dda5eb4734f83662e5a2880a13099786) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -608,7 +608,7 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
-       [("coverage", ["profiling"], []); ("rrdd_libs", ["lib"], [])];
+       [("profiling", ["profiling"], []); ("rrdd_libs", ["lib"], [])];
      lib_c = [];
      flags =
        [

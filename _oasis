@@ -9,10 +9,10 @@ BuildTools:  ocamlbuild
 
 
 # Support files for coverage profiling
-Library coverage
+Library profiling
   CompiledObject:     best
   Path:               profiling
-  Findlibname:        coverage
+  Install:            false
   Modules:            Coverage
   BuildDepends: 
 
@@ -38,7 +38,7 @@ Executable "xcp-rrdd"
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
-    coverage, bisect_ppx,
+    profiling,
     threads,
     rpclib,
     rpclib.unix,
@@ -72,7 +72,7 @@ Executable "test_rrdd_monitor"
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
-    bisect_ppx,
+    profiling,
     oUnit,
     threads,
     rpclib,
