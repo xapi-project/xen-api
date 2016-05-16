@@ -50,6 +50,7 @@ let make_var_run_xen () =
 
 (* Start the program with the xenlight backend *)
 let _ =
+  Coverage.init "xenopsd-xl";
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".xenlight";
 	Xenops_utils.set_root "xenopsd/xenlight";
 	Xenopsd.configure
