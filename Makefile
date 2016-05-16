@@ -47,4 +47,21 @@ clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
 	rm networkd/version.ml
-	rm xcp-networkd xcp-networkd.1
+	rm xcp-networkd.1
+
+
+# make coverage 
+# prepares for building with coverage analysis
+#
+# make uncover
+# reverses the setup from "make coverage"
+
+coverage: _tags _tags.coverage 
+	test ! -f _tags.orig && mv _tags _tags.orig || true
+	cat _tags.coverage _tags.orig > _tags
+
+uncover: _tags.orig
+	mv _tags.orig _tags
+
+.PHONY: default coverage uncover
+	

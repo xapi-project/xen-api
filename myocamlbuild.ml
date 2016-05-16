@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 14ff25fbda4435a4a93036984753949e) *)
+(* DO NOT EDIT (digest: cda025dade953b8f1e9b18cca6f3e0fb) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -608,7 +608,7 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
-       [("coverage", ["profiling"], []); ("networklibs", ["lib"], [])];
+       [("profiling", ["profiling"], []); ("networklibs", ["lib"], [])];
      lib_c = [("networklibs", "lib", ["lib/netdev.h"])];
      flags =
        [
