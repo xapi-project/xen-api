@@ -62,7 +62,7 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.(option string)
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context conf =
 		let (_ : API.ref_VM) = load_vm_config __context conf in ()
@@ -140,7 +140,7 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
 			| Vm.IGD_passthrough Vm.GVT_d -> "IGD_passthrough"
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context conf =
 		let (_ : API.ref_VM) = load_vm_config __context conf in ()
@@ -208,7 +208,7 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.int
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context conf =
 		let (_ : API.ref_VM) = load_vm_config __context conf in ()
@@ -247,7 +247,7 @@ module VgpuExtraArgs = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.string
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context conf =
 		let pgpu_ref = make_pgpu ~__context ~address:"0000:07:00.0" default_k1 in

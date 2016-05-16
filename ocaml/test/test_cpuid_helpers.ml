@@ -350,7 +350,7 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_input_t = Test_printers.(list (pair string string))
 		let string_of_output_t = Test_printers.(list string)
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let features_hvm = "feedface-feedface"
 	let features_pv  = "deadbeef-deadbeef"
@@ -400,7 +400,7 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 			Test_printers.(tuple3 string string (assoc_list string string))
 		let string_of_output_t = Test_printers.(either exn unit)
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let features_hvm = "feedface-feedface"
 	let features_pv  = "deadbeef-deadbeef"

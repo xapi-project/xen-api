@@ -23,7 +23,7 @@ module PoolCpuinfo = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_input_t = Test_printers.(list (assoc_list string string))
 		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	(* Create a host for each edition in the list. *)
 	let load_input __context inputs =

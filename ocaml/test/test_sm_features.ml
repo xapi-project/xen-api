@@ -198,7 +198,7 @@ module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = string_of_sm_object
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context features =
 		Xapi_sm.create_from_query_result ~__context {

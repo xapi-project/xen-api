@@ -69,7 +69,7 @@ module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
 
 		let string_of_output_t = Test_printers.option Date.to_string
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	(* Create a host in the database for each expiry date in the list. *)
 	let load_input __context expiry_dates =
@@ -104,7 +104,7 @@ module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_input_t = Test_printers.(list string)
 		let string_of_output_t = Test_printers.string
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	(* Create a host for each edition in the list. *)
 	let load_input __context editions =
@@ -135,7 +135,7 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_input_t = Test_printers.(list string_of_host_license_state)
 		let string_of_output_t = Test_printers.(pair string string)
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	(* For each (license_params, edition) pair, create a host.
 	 * Also create a pool object. *)
