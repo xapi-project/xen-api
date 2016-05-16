@@ -51,6 +51,7 @@ BuildRequires: python2-devel
 BuildRequires: ocaml-rrdd-plugin-devel
 BuildRequires: ocaml-pci-devel >= 0.2.0
 BuildRequires: xen-ocaml-devel
+BuildRequires: xapi-test-utils-devel
 Requires: hwdata
 Requires: ocaml-xcp-inventory
 Requires: redhat-lsb-core
