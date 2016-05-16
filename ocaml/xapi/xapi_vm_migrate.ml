@@ -488,16 +488,23 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
       vconf.location,dest_vdi_ref,None,None
     else begin
       let newdp = Printf.sprintf (if vconf.do_mirror then "mirror_%s" else "copy_%s") vconf.dp in
-      (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
-         It's not necessary for copy which will take care of that itself。*)
-      if vconf.do_mirror then begin
-        (* Though we have no intention of "write", here we use the same mode as the
-           associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
-           when we need to start/stop the VM along the migration. *)
-        let read_write = true in
-        ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr:vconf.sr ~vdi:vconf.location ~read_write);
-        SMAPI.VDI.activate ~dbg ~dp:newdp ~sr:vconf.sr ~vdi:vconf.location;
-      end;
+
+      let task =
+        if not vconf.do_mirror then
+          SMAPI.DATA.copy ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url:remote.sm_url ~dest:dest_sr_uuid
+        else begin
+          (* Though we have no intention of "write", here we use the same mode as the
+             associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
+             when we need to start/stop the VM along the migration. *)
+          let read_write = true in
+          (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
+             It's not necessary for copy which will take care of that itself. *)
+          ignore(SMAPI.VDI.attach ~dbg ~dp:newdp ~sr:vconf.sr ~vdi:vconf.location ~read_write);
+          SMAPI.VDI.activate ~dbg ~dp:newdp ~sr:vconf.sr ~vdi:vconf.location;
+          ignore(Storage_access.register_mirror __context vconf.location);
+          SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url:remote.sm_url ~dest:dest_sr_uuid
+        end
+      in
 
       let mapfn =
         let start = (Int64.to_float !so_far) /. (Int64.to_float total_size) in
@@ -505,14 +512,6 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         fun x -> start +. x *. len
       in
 
-      let task = if not vconf.do_mirror then
-          SMAPI.DATA.copy ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url:remote.sm_url ~dest:dest_sr_uuid
-        else begin
-          ignore(Storage_access.register_mirror __context vconf.location);
-          SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:newdp ~url:remote.sm_url ~dest:dest_sr_uuid
-        end
-      in
-      
       let open Storage_access in
       let task_result =
         task |> register_task __context
