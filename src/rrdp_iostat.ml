@@ -431,8 +431,8 @@ module Stats_value = struct
 				| Some last_s3 -> last_s3
 				in
 				{
-					rd_bytes = Int64.mul (Int64.sub s3.read_sectors last_s3.read_sectors) 512L;
-					wr_bytes = Int64.mul (Int64.sub s3.write_sectors last_s3.write_sectors) 512L;
+					rd_bytes = Int64.mul s3.read_sectors 512L;
+					wr_bytes = Int64.mul s3.write_sectors 512L;
 					rd_avg_usecs =
 						if s3.read_reqs_completed > 0L then
 							Int64.div s3.read_total_ticks s3.read_reqs_completed
