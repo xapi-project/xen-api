@@ -19,18 +19,6 @@ type daemon_check =
 	| Function of (unit -> bool)
 		(** Generic user-defined check, *)
 
-type daemon_state = [
-	`unmanaged |
-	(** No threads which care about the state of the daemon are running. *)
-	`should_start |
-	(** Daemon should be started when the last thread exits
-	    with_daemon_stopped. *)
-	`should_not_start
-	(** Daemon should not be started when the last thread exits
-	    with_daemon_stopped. *)
-]
-(** Tristate value for representing the state of a daemon we want to manage. *)
-
 module type DAEMON = sig
 	val check : daemon_check
 	(** A way to check whether the daemon is running. *)
