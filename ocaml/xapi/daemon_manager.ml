@@ -38,16 +38,13 @@ module Make(D : DAEMON) = struct
 	let registered_threads = ref IntSet.empty
 
 	let register_thread_nolock id =
-		let registered = !registered_threads in
-		registered_threads := (IntSet.add id registered)
+		registered_threads := (IntSet.add id !registered_threads)
 
 	let deregister_thread_nolock id =
-		let registered = !registered_threads in
-		registered_threads := (IntSet.remove id registered)
+		registered_threads := (IntSet.remove id !registered_threads)
 
 	let are_threads_registered_nolock () =
-		let registered = !registered_threads in
-		not (IntSet.is_empty registered)
+		not (IntSet.is_empty !registered_threads)
 
 	let daemon_state : daemon_state ref = ref `unmanaged
 	let m = Mutex.create ()
