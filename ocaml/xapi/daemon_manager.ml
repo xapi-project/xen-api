@@ -37,15 +37,15 @@ end
 module Make(D : DAEMON) = struct
 	let registered_threads = ref IntSet.empty
 
-	let register_thread id =
+	let register_thread_nolock id =
 		let registered = !registered_threads in
 		registered_threads := (IntSet.add id registered)
 
-	let deregister_thread id =
+	let deregister_thread_nolock id =
 		let registered = !registered_threads in
 		registered_threads := (IntSet.remove id registered)
 
-	let are_threads_registered () =
+	let are_threads_registered_nolock () =
 		let registered = !registered_threads in
 		not (IntSet.is_empty registered)
 
@@ -89,7 +89,7 @@ module Make(D : DAEMON) = struct
 					| false, `unmanaged -> daemon_state := `should_not_start
 					| false, _ -> ()
 				end;
-				register_thread thread_id);
+				register_thread_nolock thread_id);
 		Pervasiveext.finally
 			f
 			(* Deregister this thread, and if there are no more threads registered,
@@ -97,8 +97,8 @@ module Make(D : DAEMON) = struct
 			(fun () ->
 				Mutex.execute m
 					(fun () ->
-						deregister_thread thread_id;
-						match are_threads_registered (), !daemon_state with
+						deregister_thread_nolock thread_id;
+						match are_threads_registered_nolock (), !daemon_state with
 						| true, _ -> ()
 						| false, `should_start -> (start (); daemon_state := `unmanaged)
 						| false, _ -> daemon_state := `unmanaged))
