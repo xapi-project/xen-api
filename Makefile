@@ -50,11 +50,9 @@ clean:
 	rm xcp-networkd.1
 
 
-# make coverage 
-# prepares for building with coverage analysis
-#
-# make uncover
-# reverses the setup from "make coverage"
+# make coverage - prepares for building with coverage analysis
+# make uncover  - reverses the setup from "make coverage"
+# make report   - create coverage/index.html 
 
 coverage: _tags _tags.coverage 
 	test ! -f _tags.orig && mv _tags _tags.orig || true
@@ -63,5 +61,7 @@ coverage: _tags _tags.coverage
 uncover: _tags.orig
 	mv _tags.orig _tags
 
-.PHONY: default coverage uncover
-	
+report:
+	bisect-ppx-report -I _build -html coverage /tmp/bisect-network*out
+
+.PHONY: report coverage uncover

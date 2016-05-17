@@ -80,7 +80,7 @@ let doc = String.concat "\n" [
 ]
 
 let _ =
-  Coverage.init "networkd";
+	Coverage.init "networkd";
 	begin match Xcp_service.configure2
 		~name:Sys.argv.(0)
 		~version:Version.version
