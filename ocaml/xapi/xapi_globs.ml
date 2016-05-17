@@ -909,6 +909,8 @@ let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 let ciphersuites_good_outbound = ref None
 let ciphersuites_legacy_outbound = ref ""
 
+let gpumon_stop_timeout = ref 10.0
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
 (* Used only for testing hotfixes *)
@@ -1000,6 +1002,9 @@ let other_options = [
 
   "ciphersuites-legacy-outbound", Arg.Set_string ciphersuites_legacy_outbound,
     (fun () -> !ciphersuites_legacy_outbound), "For backwards compatibility: to be used in addition to ciphersuites-good-outbound for outgoing TLS connections";
+
+  "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
+    (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
