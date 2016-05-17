@@ -1,9 +1,3 @@
-# START_COVERAGE
-# coverage analysis with bisect_ppx
-# compile and link with package bisect_ppx
-<**/*.ml{,i,y}>: pkg_bisect_ppx
-<**/*.native>:   pkg_bisect_ppx
-# END_COVERAGE
 # OASIS_START
 # DO NOT EDIT (digest: e030a60e9b1e92164b626ef54d9678e0)
 # Ignore VCS directories, you can use the same kind of rule outside
