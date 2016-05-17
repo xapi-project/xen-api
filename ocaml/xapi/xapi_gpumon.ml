@@ -17,10 +17,15 @@ open D
 
 let systemctl = "/usr/bin/systemctl"
 let gpumon = "xcp-rrdd-gpumon"
-let pidfile = "/var/run/xcp-rrdd-gpumon.pid"
 
 module Gpumon = Daemon_manager.Make(struct
-	let check = Daemon_manager.Pidfile pidfile
+	let check = Daemon_manager.Function (fun () ->
+		try
+			ignore
+				(Forkhelpers.execute_command_get_output systemctl
+					["is-active"; "-q"; gpumon]);
+			true
+		with _ -> false)
 
 	let start () =
 		debug "Starting %s" gpumon;
