@@ -15,7 +15,7 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let service = "/sbin/service"
+let systemctl = "/usr/bin/systemctl"
 let gpumon = "xcp-rrdd-gpumon"
 let pidfile = "/var/run/xcp-rrdd-gpumon.pid"
 
@@ -24,11 +24,11 @@ module Gpumon = Daemon_manager.Make(struct
 
 	let start () =
 		debug "Starting %s" gpumon;
-		ignore (Forkhelpers.execute_command_get_output service [gpumon; "start"])
+		ignore (Forkhelpers.execute_command_get_output systemctl ["start"; gpumon])
 
 	let stop () =
 		debug "Stopping %s" gpumon;
-		ignore (Forkhelpers.execute_command_get_output service [gpumon; "stop"])
+		ignore (Forkhelpers.execute_command_get_output systemctl ["stop"; gpumon])
 end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped
