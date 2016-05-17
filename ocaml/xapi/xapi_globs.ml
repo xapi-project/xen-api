@@ -909,7 +909,7 @@ let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 let ciphersuites_good_outbound = ref None
 let ciphersuites_legacy_outbound = ref ""
 
-let gpumon_stop_timeout = ref 60.0
+let gpumon_stop_timeout = ref 10.0
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
