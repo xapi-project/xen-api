@@ -554,12 +554,12 @@ let doc = String.concat "\n" [
  * make sure profiling data is dumped
  *)
 let stop signal =
-  debug "caught signal %d" signal;
+	debug "caught signal %d" signal;
 	exit 1
 
 (* Entry point. *)
 let _ =
-  Coverage.init "xcp-rrdd";
+	Coverage.init "xcp-rrdd";
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
 	 * potential stunnel crashes. *)
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
