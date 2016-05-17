@@ -1003,7 +1003,7 @@ let other_options = [
   "ciphersuites-legacy-outbound", Arg.Set_string ciphersuites_legacy_outbound,
     (fun () -> !ciphersuites_legacy_outbound), "For backwards compatibility: to be used in addition to ciphersuites-good-outbound for outgoing TLS connections";
 
-  "gpumon-stop-timeout", Arg.Set_float gpumon_stop_timeout,
+  "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
     (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
 ] 
 
