@@ -36,8 +36,8 @@ module Make : functor (D : DAEMON) -> sig
 	    has returned. If multiple threads call [with_daemon_stopped] in parallel,
 	    the daemon will not be restarted until all threads have left [f].
 
-	    If the time out is set, [with_daemon_stopped] will catch any exceptions
-	    from [stop ()] and keep checking whether the daemon is running, until the
-	    timeout expires. If the daemon is still running after the timeout, the
-	    original exception will be thrown. *)
+	    If [timeout] is set, [with_daemon_stopped] will catch any exceptions from
+	    [stop ()] and keep checking whether the daemon is running, until [timeout]
+	    expires. If the daemon is still running after [timeout], the original
+	    exception will be thrown. *)
 end
