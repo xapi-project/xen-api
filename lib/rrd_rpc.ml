@@ -31,9 +31,9 @@ let assoc_opt ~(key : string) ~(default : string)
 (* Converts string to the corresponding datasource type. *)
 let ds_ty_of_string (s : string) : Rrd.ds_type =
 	match String.lowercase s with
-	| "absolute" -> Rrd.Gauge
-	| "rate" -> Rrd.Absolute
-	| "absolute_to_rate" -> Rrd.Derive
+	| "gauge" -> Rrd.Gauge
+	| "absolute" -> Rrd.Absolute
+	| "derive" -> Rrd.Derive
 	| _ -> raise Rrd_protocol.Invalid_payload
 
 (* Converts a string to value of datasource owner type. *)

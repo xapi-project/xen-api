@@ -30,9 +30,9 @@ let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
 			| Rrd.VT_Float f -> json_line_float "value" f; json_line_string "value_type" "float"
 			| Rrd.VT_Unknown  -> failwith "to_json: Impossible to represent VT_Unknown type");
 		json_line_string "type" (match ds.ds_type with
-			| Rrd.Gauge -> "absolute"
-			| Rrd.Absolute -> "rate"
-			| Rrd.Derive -> "absolute_to_rate");
+			| Rrd.Gauge -> "gauge"
+			| Rrd.Absolute -> "absolute"
+			| Rrd.Derive -> "derive");
 		json_line_bool "default" ds.ds_default;
 		json_line_string "units" ds.ds_units;
 		json_line_float "min" ds.ds_min;
@@ -80,9 +80,9 @@ let json_metadata_of_ds ?(owner=Rrd.Host) ds buf =
 			| Rrd.VT_Float _ -> "float"
 			| Rrd.VT_Unknown -> failwith "to_json: Impossible to represent VT_Unknown type");
 		json_line_string "type" (match ds.ds_type with
-			| Rrd.Gauge -> "absolute"
-			| Rrd.Absolute -> "rate"
-			| Rrd.Derive -> "absolute_to_rate");
+			| Rrd.Gauge -> "gauge"
+			| Rrd.Absolute -> "absolute"
+			| Rrd.Derive -> "derive");
 		json_line_bool "default" ds.ds_default;
 		json_line_string "units" ds.ds_units;
 		json_line_float "min" ds.ds_min;
