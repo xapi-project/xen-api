@@ -487,7 +487,12 @@ module Intel = struct
 						Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
 						Xapi_globs.vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz;
 						Xapi_globs.vgt_fence_sz, Int64.to_string conf.identifier.fence_sz;
-					];
+					] @ (
+						match conf.identifier.monitor_config_file with
+						| Some monitor_config_file ->
+							[Xapi_globs.vgt_monitor_config_file, monitor_config_file]
+						| None -> []
+					);
 					identifier = GVT_g conf.identifier;
 					experimental = conf.experimental;
 				})

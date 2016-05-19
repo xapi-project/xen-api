@@ -505,6 +505,7 @@ let igd_passthru_key = "igd_passthrough"
 let vgt_low_gm_sz = "vgt_low_gm_sz"
 let vgt_high_gm_sz = "vgt_high_gm_sz"
 let vgt_fence_sz = "vgt_fence_sz"
+let vgt_monitor_config_file = "vgt_monitor_config_file"
 
 let dev_zero = "/dev/zero"
 
