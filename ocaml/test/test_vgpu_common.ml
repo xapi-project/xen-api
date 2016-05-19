@@ -22,7 +22,9 @@ let k100 = {
 	max_resolution_x = 1920L;
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
-	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k100.conf"];
+	internal_config = [
+		Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k100.conf"
+	];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x0ff2;
 		psubdev_id = None;
@@ -40,7 +42,9 @@ let k140q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
-	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k140q.conf"];
+	internal_config = [
+		Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k140q.conf"
+	];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x0ff2;
 		psubdev_id = None;
@@ -58,7 +62,9 @@ let k200 = {
 	max_resolution_x = 1920L;
 	max_resolution_y = 1200L;
 	size = Int64.div Constants.pgpu_default_size 8L;
-	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k200.conf"];
+	internal_config = [
+		Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k200.conf"
+	];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
@@ -76,7 +82,9 @@ let k240q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 4L;
-	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k240q.conf"];
+	internal_config = [
+		Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k240q.conf"
+	];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
@@ -94,7 +102,9 @@ let k260q = {
 	max_resolution_x = 2560L;
 	max_resolution_y = 1600L;
 	size = Int64.div Constants.pgpu_default_size 2L;
-	internal_config = ["vgpu_config", "/usr/share/nvidia/vgx/grid_k260q.conf"];
+	internal_config = [
+		Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k260q.conf"
+	];
 	identifier = Identifier.(Nvidia {
 		pdev_id = 0x11bf;
 		psubdev_id = None;
