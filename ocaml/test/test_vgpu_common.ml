@@ -127,6 +127,35 @@ let k2_vgpu_types = [
 	passthrough_gpu;
 ]
 
+let gvt_g_041a = {
+	vendor_name = "Intel Corporation";
+	model_name = "Intel GVT-g";
+	framebuffer_size = 134217728L;
+	max_heads = 1L;
+	max_resolution_x = 1920L;
+	max_resolution_y = 1080L;
+	size = Int64.div Constants.pgpu_default_size 7L;
+	internal_config = [
+		Xapi_globs.vgt_low_gm_sz, "128";
+		Xapi_globs.vgt_high_gm_sz, "384";
+		Xapi_globs.vgt_fence_sz, "4";
+		Xapi_globs.vgt_monitor_config_file, "/etc/gvt-g-monitor.conf";
+	];
+	identifier = Identifier.(GVT_g {
+		pdev_id = 0x041a;
+		low_gm_sz = 128L;
+		high_gm_sz = 384L;
+		fence_sz = 4L;
+		monitor_config_file = Some "/etc/gvt-g-monitor.conf";
+	});
+	experimental = false;
+}
+
+let intel_041a_vgpu_types = [
+	gvt_g_041a;
+	passthrough_gpu;
+]
+
 (* Represents the state of a PGPU, its supported and enabled VGPU types, and
  * the types of the VGPUs running and scheduled to run on it. *)
 type pgpu_state = {
@@ -146,6 +175,13 @@ let default_k1 = {
 let default_k2 = {
 	supported_VGPU_types = k2_vgpu_types;
 	enabled_VGPU_types = k2_vgpu_types;
+	resident_VGPU_types = [];
+	scheduled_VGPU_types = [];
+}
+
+let default_intel_041a = {
+	supported_VGPU_types = intel_041a_vgpu_types;
+	enabled_VGPU_types = intel_041a_vgpu_types;
 	resident_VGPU_types = [];
 	scheduled_VGPU_types = [];
 }
