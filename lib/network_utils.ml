@@ -77,12 +77,14 @@ module Sysfs = struct
 		Printf.sprintf "/sys/class/net/%s/%s" dev attr
 
 	let read_one_line file =
-		let inchan = open_in file in
 		try
-			let result = input_line inchan in
-			close_in inchan;
-			result
-		with exn -> close_in inchan; raise (Read_error file)
+			let inchan = open_in file in
+			finally
+				(fun () -> input_line inchan)
+				(fun () -> close_in inchan)
+		with
+		| End_of_file -> ""
+		| exn -> error "%s" (Printexc.to_string exn); raise (Read_error file)
 
 	let write_one_line file l =
 		let outchan = open_out file in
