@@ -136,6 +136,7 @@ module Vgpu = struct
 		low_gm_sz: int64;
 		high_gm_sz: int64;
 		fence_sz: int64;
+		monitor_config_file: string option;
 	}
 	with sexp
 
