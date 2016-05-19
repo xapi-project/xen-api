@@ -1534,6 +1534,12 @@ let cmdline_of_disp info =
 				"-vgt_low_gm_sz"; Int64.to_string gvt_g.low_gm_sz;
 				"-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
 				"-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
+			] @ (
+				match gvt_g.monitor_config_file with
+				| Some monitor_config_file ->
+					["-vgt_monitor_config_file"; monitor_config_file]
+				| None -> []
+			) @ [
 				"-priv"
 			]
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
