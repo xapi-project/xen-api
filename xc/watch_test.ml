@@ -47,5 +47,7 @@ module Tests = struct
 end
 
 let _ =
+  Coverage.init "xenopsd-watch-test";
   Scheduler.start();
-  Tests.go ()
+  Tests.go ();
+  exit 0 (* run at_exit hooks *)

@@ -16,6 +16,7 @@ let specific_essential_paths = Path.hvm_guests @ Path.network_configuration
 
 (* Start the program with the libvirt backend *)
 let _ =
+	Coverage.init "xenopsd-libvirt";
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".libvirt";
 	Xenops_utils.set_root "xenopsd/libvirt";
 	Xenopsd.configure
@@ -23,3 +24,5 @@ let _ =
 		();
 	Xenopsd.main
 		(module Xenops_server_libvirt: Xenops_server_plugin.S)
+
+(* vim: ts=2 sw=2 noet *)

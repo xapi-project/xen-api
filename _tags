@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 76fa96e6edac33c29cf074bb5b0859c0)
+# DO NOT EDIT (digest: 75c8d08bbb53d180415f0183181b9cf1)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -14,6 +14,8 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library profiling
+"profiling/profiling.cmxs": use_profiling
 # Library xenopsd
 "lib/xenopsd.cmxs": use_xenopsd
 <lib/xenopsd.{cma,cmxa}>: oasis_library_xenopsd_byte
@@ -52,9 +54,11 @@ true: annot, bin_annot
 <tools/set_domain_uuid.{native,byte}>: pkg_cmdliner
 <tools/set_domain_uuid.{native,byte}>: pkg_uuidm
 <tools/set_domain_uuid.{native,byte}>: pkg_xenctrl
+<tools/set_domain_uuid.{native,byte}>: use_profiling
 <tools/*.ml{,i,y}>: pkg_cmdliner
 <tools/*.ml{,i,y}>: pkg_uuidm
 <tools/*.ml{,i,y}>: pkg_xenctrl
+<tools/*.ml{,i,y}>: use_profiling
 # Executable suspend_image_viewer
 <lib/suspend_image_viewer.{native,byte}>: oasis_executable_suspend_image_viewer_byte
 <lib/*.ml{,i,y}>: oasis_executable_suspend_image_viewer_byte
@@ -82,6 +86,7 @@ true: annot, bin_annot
 <lib/suspend_image_viewer.{native,byte}>: pkg_xenstore_transport
 <lib/suspend_image_viewer.{native,byte}>: pkg_xenstore_transport.unix
 <lib/suspend_image_viewer.{native,byte}>: pkg_xmlm
+<lib/suspend_image_viewer.{native,byte}>: use_profiling
 <lib/suspend_image_viewer.{native,byte}>: use_xenopsd
 <lib/*.ml{,i,y}>: pkg_cmdliner
 <lib/*.ml{,i,y}>: pkg_cohttp
@@ -105,6 +110,7 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: pkg_xenstore_transport
 <lib/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <lib/*.ml{,i,y}>: pkg_xmlm
+<lib/*.ml{,i,y}>: use_profiling
 <lib/*.ml{,i,y}>: use_xenopsd
 # Executable xenopsd_xc_main
 <xc/xenops_xc_main.{native,byte}>: oasis_executable_xenopsd_xc_main_byte
@@ -142,6 +148,7 @@ true: annot, bin_annot
 <xc/xenops_xc_main.{native,byte}>: pkg_xenstore_transport
 <xc/xenops_xc_main.{native,byte}>: pkg_xenstore_transport.unix
 <xc/xenops_xc_main.{native,byte}>: pkg_xmlm
+<xc/xenops_xc_main.{native,byte}>: use_profiling
 <xc/xenops_xc_main.{native,byte}>: use_xenopsd
 <xc/*.ml{,i,y}>: pkg_rrd
 <xc/*.ml{,i,y}>: pkg_xcp-inventory
@@ -174,6 +181,7 @@ true: annot, bin_annot
 "xc/fsync_stubs.c": pkg_xenstore_transport
 "xc/fsync_stubs.c": pkg_xenstore_transport.unix
 "xc/fsync_stubs.c": pkg_xmlm
+"xc/fsync_stubs.c": use_profiling
 "xc/fsync_stubs.c": use_xenopsd
 "xc/xenctrlext_stubs.c": pkg_cohttp
 "xc/xenctrlext_stubs.c": pkg_fd-send-recv
@@ -201,6 +209,7 @@ true: annot, bin_annot
 "xc/xenctrlext_stubs.c": pkg_xenstore_transport
 "xc/xenctrlext_stubs.c": pkg_xenstore_transport.unix
 "xc/xenctrlext_stubs.c": pkg_xmlm
+"xc/xenctrlext_stubs.c": use_profiling
 "xc/xenctrlext_stubs.c": use_xenopsd
 <xc/xenops_xc_main.{native,byte}>: custom
 # Executable watch_test
@@ -229,6 +238,7 @@ true: annot, bin_annot
 <xc/watch_test.{native,byte}>: pkg_xenstore_transport
 <xc/watch_test.{native,byte}>: pkg_xenstore_transport.unix
 <xc/watch_test.{native,byte}>: pkg_xmlm
+<xc/watch_test.{native,byte}>: use_profiling
 <xc/watch_test.{native,byte}>: use_xenopsd
 <xc/*.ml{,i,y}>: pkg_cohttp
 <xc/*.ml{,i,y}>: pkg_fd-send-recv
@@ -251,6 +261,7 @@ true: annot, bin_annot
 <xc/*.ml{,i,y}>: pkg_xenstore_transport
 <xc/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <xc/*.ml{,i,y}>: pkg_xmlm
+<xc/*.ml{,i,y}>: use_profiling
 <xc/*.ml{,i,y}>: use_xenopsd
 # Executable xenopsd_simulator
 <simulator/xenops_simulator_main.{native,byte}>: oasis_executable_xenopsd_simulator_byte
@@ -278,6 +289,7 @@ true: annot, bin_annot
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore_transport
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xenstore_transport.unix
 <simulator/xenops_simulator_main.{native,byte}>: pkg_xmlm
+<simulator/xenops_simulator_main.{native,byte}>: use_profiling
 <simulator/xenops_simulator_main.{native,byte}>: use_xenopsd
 <simulator/*.ml{,i,y}>: pkg_cohttp
 <simulator/*.ml{,i,y}>: pkg_fd-send-recv
@@ -300,6 +312,7 @@ true: annot, bin_annot
 <simulator/*.ml{,i,y}>: pkg_xenstore_transport
 <simulator/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <simulator/*.ml{,i,y}>: pkg_xmlm
+<simulator/*.ml{,i,y}>: use_profiling
 <simulator/*.ml{,i,y}>: use_xenopsd
 <simulator/xenops_simulator_main.{native,byte}>: custom
 # Executable xenopsd_libvirt_main
@@ -329,6 +342,7 @@ true: annot, bin_annot
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore_transport
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xenstore_transport.unix
 <libvirt/xenops_libvirt_main.{native,byte}>: pkg_xmlm
+<libvirt/xenops_libvirt_main.{native,byte}>: use_profiling
 <libvirt/xenops_libvirt_main.{native,byte}>: use_xenopsd
 <libvirt/*.ml{,i,y}>: pkg_cohttp
 <libvirt/*.ml{,i,y}>: pkg_fd-send-recv
@@ -352,6 +366,7 @@ true: annot, bin_annot
 <libvirt/*.ml{,i,y}>: pkg_xenstore_transport
 <libvirt/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <libvirt/*.ml{,i,y}>: pkg_xmlm
+<libvirt/*.ml{,i,y}>: use_profiling
 <libvirt/*.ml{,i,y}>: use_xenopsd
 <libvirt/xenops_libvirt_main.{native,byte}>: custom
 # Executable xenopsd_xenlight_main
@@ -391,6 +406,7 @@ true: annot, bin_annot
 <xl/xenops_xl_main.{native,byte}>: pkg_xenstore_transport.unix
 <xl/xenops_xl_main.{native,byte}>: pkg_xentoollog
 <xl/xenops_xl_main.{native,byte}>: pkg_xmlm
+<xl/xenops_xl_main.{native,byte}>: use_profiling
 <xl/xenops_xl_main.{native,byte}>: use_xenopsd
 <xl/*.ml{,i,y}>: pkg_cohttp
 <xl/*.ml{,i,y}>: pkg_fd-send-recv
@@ -419,6 +435,7 @@ true: annot, bin_annot
 <xl/*.ml{,i,y}>: pkg_xenstore_transport.unix
 <xl/*.ml{,i,y}>: pkg_xentoollog
 <xl/*.ml{,i,y}>: pkg_xmlm
+<xl/*.ml{,i,y}>: use_profiling
 <xl/*.ml{,i,y}>: use_xenopsd
 "xl/fsync_stubs.c": pkg_cohttp
 "xl/fsync_stubs.c": pkg_fd-send-recv
@@ -447,6 +464,7 @@ true: annot, bin_annot
 "xl/fsync_stubs.c": pkg_xenstore_transport.unix
 "xl/fsync_stubs.c": pkg_xentoollog
 "xl/fsync_stubs.c": pkg_xmlm
+"xl/fsync_stubs.c": use_profiling
 "xl/fsync_stubs.c": use_xenopsd
 "xl/poll_stubs.c": pkg_cohttp
 "xl/poll_stubs.c": pkg_fd-send-recv
@@ -475,6 +493,7 @@ true: annot, bin_annot
 "xl/poll_stubs.c": pkg_xenstore_transport.unix
 "xl/poll_stubs.c": pkg_xentoollog
 "xl/poll_stubs.c": pkg_xmlm
+"xl/poll_stubs.c": use_profiling
 "xl/poll_stubs.c": use_xenopsd
 <xl/xenops_xl_main.{native,byte}>: custom
 # OASIS_STOP

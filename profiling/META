@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: ee7e3fdd2b390090469a9e871a315e9c)
+version = "0.12.0"
+description = "XenServer domain managers"
+archive(byte) = "profiling.cma"
+archive(byte, plugin) = "profiling.cma"
+archive(native) = "profiling.cmxa"
+archive(native, plugin) = "profiling.cmxs"
+exists_if = "profiling.cma"
+# OASIS_STOP
+

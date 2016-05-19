@@ -23,14 +23,68 @@ Flag simulator
   Description:        Build server with simulator support
   Default:            true
 
+
+# Support files for profiling 
+Library profiling
+  CompiledObject:     best
+  Path:               profiling
+  Install:            false
+  Findlibname:        profiling
+  Modules:            Coverage
+  BuildDepends: 
+
 Library xenopsd
   CompiledObject:     best
   Path:               lib
   Findlibname:        xenopsd
   ByteOpt:            -warn-error +a
   NativeOpt:          -warn-error +a
-  Modules:            Suspend_image, Cancellable_subprocess, Bootloader, Ionice, Mac, Xenops_migrate, Xenops_hooks, Task_server, Xenops_task, Updates, Xenops_utils, Xenops_server, Xenopsd, Xenops_server_plugin, Xenops_server_skeleton, Scheduler, Path, Storage, Interface, Xenctrl_uuid, Xenstore, Version
-  BuildDepends:       threads, threads.posix, uuidm, xmlm, cohttp, uri, rpclib, rpclib.syntax, forkexec, fd-send-recv, xcp, xcp.xen, xcp.storage, sexplib, sexplib.syntax, xcp, uutf, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, oclock
+  Modules:            
+    Suspend_image,
+    Cancellable_subprocess,
+    Bootloader,
+    Ionice,
+    Mac,
+    Xenops_migrate,
+    Xenops_hooks,
+    Task_server,
+    Xenops_task,
+    Updates,
+    Xenops_utils,
+    Xenops_server,
+    Xenopsd,
+    Xenops_server_plugin,
+    Xenops_server_skeleton,
+    Scheduler,
+    Path,
+    Storage,
+    Interface,
+    Xenctrl_uuid,
+    Xenstore,
+    Version
+  BuildDepends:
+    threads,
+    threads.posix,
+    uuidm,
+    xmlm,
+    cohttp,
+    uri,
+    rpclib,
+    rpclib.syntax,
+    forkexec,
+    fd-send-recv,
+    xcp,
+    xcp.xen,
+    xcp.storage,
+    sexplib,
+    sexplib.syntax,
+    xcp,
+    uutf,
+    xenstore,
+    xenstore.unix,
+    xenstore_transport,
+    xenstore_transport.unix,
+    oclock
   CSources:	      sockopt_stubs.c
 
 Executable set_domain_uuid
@@ -40,7 +94,11 @@ Executable set_domain_uuid
   NativeOpt:          -warn-error +a-3
   MainIs:             set_domain_uuid.ml
   Install:            false
-  BuildDepends:       xenctrl, uuidm, cmdliner
+  BuildDepends:
+    xenctrl, 
+    uuidm, 
+    cmdliner,
+    profiling
 
 Executable suspend_image_viewer
   CompiledObject:     best
@@ -49,7 +107,10 @@ Executable suspend_image_viewer
   NativeOpt:          -warn-error +a-3
   MainIs:             suspend_image_viewer.ml
   Install:            false
-  BuildDepends:       xenopsd, cmdliner
+  BuildDepends:
+    xenopsd, 
+    cmdliner,
+    profiling
 
 Executable xenopsd_xc_main
   CompiledObject:     best
@@ -60,7 +121,23 @@ Executable xenopsd_xc_main
   Build$:             flag(xen)
   Custom:             true
   Install:            false
-  BuildDepends:       xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, xcp.rrd, rrd, sexplib, xcp-inventory
+  BuildDepends:
+    xenctrl,
+    xenopsd,
+    xenstore,
+    xenstore.unix,
+    xenstore_transport,
+    xenstore_transport.unix,
+    rpclib,
+    forkexec,
+    xcp,
+    xcp.storage,
+    xcp.memory,
+    xcp.rrd,
+    rrd,
+    sexplib,
+    xcp-inventory,
+    profiling
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 Executable watch_test
@@ -70,7 +147,14 @@ Executable watch_test
   NativeOpt:          -warn-error +a-3
   MainIs:             watch_test.ml
   Install:            false
-  BuildDepends:       xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, threads
+  BuildDepends:
+    xenopsd,
+    xenstore,
+    xenstore.unix,
+    xenstore_transport,
+    xenstore_transport.unix,
+    threads,
+    profiling
 
 Executable xenopsd_simulator
   CompiledObject:     best
@@ -81,7 +165,9 @@ Executable xenopsd_simulator
   Build$:             flag(simulator)
   Custom:             true
   Install:            false
-  BuildDepends:       xenopsd
+  BuildDepends:
+    xenopsd,
+    profiling
 
 Executable xenopsd_libvirt_main
   CompiledObject:     best
@@ -92,7 +178,15 @@ Executable xenopsd_libvirt_main
   Build$:             flag(libvirt)
   Custom:             true
   Install:            false
-  BuildDepends:       xenopsd, rpclib, forkexec, xcp, xcp.storage, sexplib, libvirt
+  BuildDepends:
+    xenopsd,
+    rpclib,
+    forkexec,
+    xcp,
+    xcp.storage,
+    sexplib,
+    libvirt,
+    profiling
 
 Executable xenopsd_xenlight_main
   CompiledObject:     best
@@ -103,6 +197,23 @@ Executable xenopsd_xenlight_main
   Build$:             flag(xenlight)
   Custom:             true
   Install:            false
-  BuildDepends:       xenlight, xentoollog, xenctrl, xenopsd, xenstore, xenstore.unix, xenstore_transport, xenstore_transport.unix, rpclib, forkexec, xcp, xcp.storage, xcp.memory, sexplib, xcp-inventory, optcomp
+  BuildDepends:
+    xenlight,
+    xentoollog,
+    xenctrl,
+    xenopsd,
+    xenstore,
+    xenstore.unix,
+    xenstore_transport,
+    xenstore_transport.unix,
+    rpclib,
+    forkexec,
+    xcp,
+    xcp.storage,
+    xcp.memory,
+    sexplib,
+    xcp-inventory,
+    optcomp,
+    profiling
   CSources:           fsync_stubs.c, poll_stubs.c
 

@@ -1,0 +1,10 @@
+
+# Support files for coverage profiling
+Library coverage
+  CompiledObject:     best
+  Path:               profiling
+  Findlibname:        coverage
+  Modules:            Coverage
+  BuildDepends: 
+
+

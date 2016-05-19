@@ -58,6 +58,7 @@ let path () = Filename.concat !sockets_path "xenopsd"
 let forwarded_path () = path () ^ ".forwarded" (* receive an authenticated fd from xapi *)
 let json_path () = path () ^ ".json"
 
+
 module Server = Xenops_interface.Server(Xenops_server)
 
 let rpc_fn call =
@@ -99,6 +100,8 @@ let doc = String.concat "\n" [
 	"Xenopsd looks after a set of Xen domains, performing lifecycle operations including start/shutdown/migrate. A system may run multiple xenopsds, each looking after a different set of VMs. Xenopsd will always ignore domains that it hasn't been asked to manage. There are multiple xenopsd *backends*, including 'xc': which uses libxc directly and 'xenlight': which uses the new Xen libxl library (recommended).";
 ]
 
+       
+
 let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) () =
 	Debug.set_facility Syslog.Local5;
 
@@ -117,6 +120,7 @@ let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_n
 		error "%s" m;
 		exit 1
 
+
 let main backend =
 	Printexc.record_backtrace true;
 
@@ -133,9 +137,18 @@ let main backend =
 		~rpc_fn
 	        () in
 
+  (** we need to catch this to make sure at_exit handlers are
+   * triggered. In particuar, triggers for the bisect_ppx coverage
+   * profiling *)
+
+  let signal_handler n =
+    debug "caught signal %d" n; exit 0 in
+
 	Xcp_service.maybe_daemonize ();
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler);
+  
 
 	Xenops_utils.set_fs_backend
 		(Some (if !persist
