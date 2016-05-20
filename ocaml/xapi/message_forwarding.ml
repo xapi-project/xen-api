@@ -2398,6 +2398,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 			info "Host.enable_external_auth: host = '%s'; service_name = '%s'; auth_type = '%s'" (host_uuid ~__context host) service_name auth_type;
+			(* First assert that the AD feature is enabled if AD is requested *)
+			if auth_type = Extauth.auth_type_AD_Likewise then
+				Pool_features.assert_enabled ~__context ~f:Features.AD;
 			let local_fn = Local.Host.enable_external_auth ~host ~config ~service_name ~auth_type in
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.enable_external_auth rpc session_id host config service_name auth_type)
