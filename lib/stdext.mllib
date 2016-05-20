@@ -1,31 +1,4 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3ba17b3a67d7a4ec569fbc8550f6f99c)
-Arrayext
-Base64
-Bigbuffer
-Config
-Date
-Either
-Encodings
-ExtentlistSet
-Filenameext
-Fring
-Fun
-Hashtblext
-Int64ext
-LazyList
-Listext
-Mapext
-Monad
-Opt
-Pervasiveext
-Qring
-Range
-Ring
-Xstringext
-Threadext
-Trie
-Unixext
-VIO
-Zerocheck
+# DO NOT EDIT (digest: 2bbe9a6396c26d99b35474fffa94ee2a)
+Stdext
 # OASIS_STOP

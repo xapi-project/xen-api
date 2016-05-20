@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 0b1ac2bd701986ac4e927661d05dbd2f)
+# DO NOT EDIT (digest: fd955a6e26aaf02da6d2229f5c87ec2e)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -16,6 +16,34 @@ true: annot, bin_annot
 "_darcs": not_hygienic
 # Library stdext
 "lib/stdext.cmxs": use_stdext
+"lib/arrayext.cmx": for-pack(Stdext)
+"lib/base64.cmx": for-pack(Stdext)
+"lib/bigbuffer.cmx": for-pack(Stdext)
+"lib/config.cmx": for-pack(Stdext)
+"lib/date.cmx": for-pack(Stdext)
+"lib/either.cmx": for-pack(Stdext)
+"lib/encodings.cmx": for-pack(Stdext)
+"lib/extentlistSet.cmx": for-pack(Stdext)
+"lib/filenameext.cmx": for-pack(Stdext)
+"lib/fring.cmx": for-pack(Stdext)
+"lib/fun.cmx": for-pack(Stdext)
+"lib/hashtblext.cmx": for-pack(Stdext)
+"lib/int64ext.cmx": for-pack(Stdext)
+"lib/lazyList.cmx": for-pack(Stdext)
+"lib/listext.cmx": for-pack(Stdext)
+"lib/mapext.cmx": for-pack(Stdext)
+"lib/monad.cmx": for-pack(Stdext)
+"lib/opt.cmx": for-pack(Stdext)
+"lib/pervasiveext.cmx": for-pack(Stdext)
+"lib/qring.cmx": for-pack(Stdext)
+"lib/range.cmx": for-pack(Stdext)
+"lib/ring.cmx": for-pack(Stdext)
+"lib/xstringext.cmx": for-pack(Stdext)
+"lib/threadext.cmx": for-pack(Stdext)
+"lib/trie.cmx": for-pack(Stdext)
+"lib/unixext.cmx": for-pack(Stdext)
+"lib/vIO.cmx": for-pack(Stdext)
+"lib/zerocheck.cmx": for-pack(Stdext)
 <lib/stdext.{cma,cmxa}>: use_libstdext_stubs
 <lib/*.ml{,i,y}>: pkg_bigarray
 <lib/*.ml{,i,y}>: pkg_fd-send-recv
