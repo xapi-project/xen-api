@@ -532,11 +532,11 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp ~url:remote.sm_url ~dest:dest_sr_uuid
       end in
 
-    let mapfn =
-      let start = (Int64.to_float !so_far) /. (Int64.to_float total_size) in
-      let len = (Int64.to_float vconf.size) /. (Int64.to_float total_size) in
-      fun x -> start +. x *. len
-    in
+    let mapfn x =
+      let total = Int64.to_float total_size in
+      let done_ = Int64.to_float !so_far /. total in
+      let remaining = Int64.to_float vconf.size /. total in
+      done_ +. x *. remaining in
 
     let open Storage_access in
 
