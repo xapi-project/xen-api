@@ -192,17 +192,22 @@ let make ~xc ~xs vm_info uuid =
 	let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
+		let xenops_dom_path = sprintf "/xenops/domain/%d" domid in
 		let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
 		let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
 		let roperm = Xenbus_utils.roperm_for_guest domid in
 		let rwperm = Xenbus_utils.rwperm_for_guest domid in
+		let zeroperm = Xenbus_utils.rwperm_for_guest 0 in
 		debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path;
 
 		let create_time = Oclock.gettime Oclock.monotonic in
 		Xs.transaction xs (fun t ->
 			(* Clear any existing rubbish in xenstored *)
 			t.Xst.rm dom_path;
+			t.Xst.rm xenops_dom_path;
+
 			t.Xst.mkdirperms dom_path roperm;
+			t.Xst.mkdirperms xenops_dom_path zeroperm;
 
 			(* The /vm path needs to be shared over a localhost migrate *)
 			let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
@@ -230,15 +235,34 @@ let make ~xc ~xs vm_info uuid =
 				let ent = sprintf "%s/%s" dom_path dir in
 				t.Xst.mkdirperms ent roperm
 			) [ "cpu"; "memory" ];
+
+			let mksubdirs base dirs perms =
+				List.iter (fun dir ->
+					let ent = base ^ "/" ^ dir in
+					t.Xst.mkdirperms ent perms
+				) dirs in
+
+			let device_dirs = ["device"; "device/vbd"; "device/vif"] in
+
 			(* create read/write nodes for the guest to use *)
-			List.iter (fun dir ->
-				let ent = sprintf "%s/%s" dom_path dir in
-				t.Xst.mkdirperms ent rwperm
-			) (
-				let dev_kinds = [ "vbd"; "vif" ] in
-				[ "feature"; "device"; "error"; "drivers"; "control"; "attr"; "data"; "messages"; "vm-data"; "hvmloader"; "rrd" ]
-				@ List.map (fun dev_kind -> "device/"^dev_kind) dev_kinds
-			);
+			mksubdirs
+				dom_path
+				(device_dirs @ [
+					"feature";
+					"error";
+					"drivers";
+					"control";
+					"attr";
+					"data";
+					"messages";
+					"vm-data";
+					"hvmloader";
+					"rrd";
+				])
+				rwperm;
+
+			(* ...and a few corresponding private nodes for us to use. *)
+			mksubdirs xenops_dom_path device_dirs zeroperm;
 		);
 
 		xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata);
@@ -346,6 +370,7 @@ let sysrq ~xs domid key =
 
 let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
+	let xenops_dom_path = sprintf "/xenops/domain/%d" domid in
 	let uuid = get_uuid ~xc domid in
 
 	(* Move this out of the way immediately *)
@@ -433,9 +458,11 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
 	Opt.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
-	(* Delete the /local/domain/<domid> and all the backend device paths *)
+	(* Delete /local/domain/<domid>, /xenops/domain/<domid>
+	 * and all the backend device paths *)
 	debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;
 	xs.Xs.rm dom_path;
+	xs.Xs.rm xenops_dom_path;
 	debug "VM = %s; domid = %d; deleting backends" (Uuid.to_string uuid) domid;
 	let backend_path = xs.Xs.getdomainpath 0 ^ "/backend" in
 	let all_backend_types = try xs.Xs.directory backend_path with _ -> [] in

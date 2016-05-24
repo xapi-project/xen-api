@@ -69,10 +69,17 @@ let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) =
 (** Location of the backend in xenstore *)
 let backend_path_of_device ~xs (x: device) = backend_path ~xs x.backend x.frontend.domid
 
-(** Location of the frontend in xenstore *)
-let frontend_path_of_device ~xs (x: device) = 
+(** Location of the frontend in xenstore: this is owned by the guest. *)
+let frontend_rw_path_of_device ~xs (x: device) = 
   sprintf "%s/device/%s/%d"
     (xs.Xs.getdomainpath x.frontend.domid)
+    (string_of_kind x.frontend.kind)
+    x.frontend.devid
+
+(** Location of the frontend read-only path (owned by dom0 not guest) in xenstore *)
+let frontend_ro_path_of_device ~xs (x: device) = 
+  sprintf "/xenops/domain/%d/device/%s/%d"
+    x.frontend.domid
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
@@ -210,9 +217,10 @@ let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
 (* NB: we only read data from the frontend directory. Therefore this gives
-   the "frontend's point of view". *)
+   the "frontend's point of view", using data that we wrote into a subtree
+   that is writable dom0 only (not by the frontend domain). *)
 let list_frontends ~xs ?for_devids domid =
-	let frontend_dir = xs.Xs.getdomainpath domid ^ "/device" in
+	let frontend_dir = sprintf "/xenops/domain/%d/device" domid in
 	let kinds = list_kinds ~xs frontend_dir in
 	List.concat (List.map
 		(fun k ->
