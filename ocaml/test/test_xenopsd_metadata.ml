@@ -29,6 +29,9 @@ let string_of_vm_config conf =
 		(Test_printers.(assoc_list string string) conf.oc)
 		(Test_printers.(assoc_list string string) conf.platform)
 
+let string_of_vgpu_type {Xapi_vgpu_type.vendor_name; model_name} =
+	Printf.sprintf "vendor_name = %s, model_name = %s" vendor_name model_name
+
 let load_vm_config __context conf =
 	let (self: API.ref_VM) = make_vm ~__context
 		~name_label:test_vm_name
@@ -236,6 +239,95 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
 	]
 end))
 
+module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
+	open Test_vgpu_common
+
+	module Io = struct
+		type input_t =
+			vm_config * (Test_vgpu_common.pgpu_state * Xapi_vgpu_type.vgpu_type) list
+		type output_t = Xenops_interface.Vgpu.implementation list
+
+		let string_of_input_t =
+			Test_printers.(pair
+				string_of_vm_config
+				(list (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type)))
+		let string_of_output_t =
+			Test_printers.list (fun vgpu ->
+				Xenops_interface.Vgpu.rpc_of_implementation vgpu |> Rpc.to_string)
+	end
+
+	module State = Test_state.XapiDb
+
+	let load_input __context (vm_config, pgpus_and_vgpu_types) =
+		let vm_ref = load_vm_config __context vm_config in
+		List.iteri
+			(fun index (pgpu, vgpu_type) ->
+				let pgpu_ref = make_pgpu ~__context
+					~address:(Printf.sprintf "0000:%02d:00.0" index) pgpu
+				in
+				let (_ : API.ref_VGPU) =
+					make_vgpu ~__context
+						~vm_ref ~scheduled_to_be_resident_on:pgpu_ref vgpu_type in
+				())
+			pgpus_and_vgpu_types
+
+	let extract_output __context _ =
+		let metadata = run_create_metadata ~__context in
+		List.map
+			(fun vgpu -> vgpu.Xenops_interface.Vgpu.implementation)
+			metadata.Metadata.vgpus
+
+	let tests = [
+		(* No vGPUs. *)
+		(
+			{oc = []; platform = []},
+			[]
+		),
+		[];
+		(* One passthrough GPU. *)
+		(
+			{oc = []; platform = []},
+			[default_k1, Xapi_vgpu_type.passthrough_gpu]
+		),
+		[];
+		(* One NVIDIA vGPU. *)
+		(
+			{oc = []; platform = []},
+			[default_k1, k100]
+		),
+		[
+			Xenops_interface.Vgpu.(Nvidia {
+				physical_pci_address = Xenops_interface.Pci.({
+					domain = 0;
+					bus = 0;
+					dev = 0;
+					fn = 0;
+				});
+				config_file = "/usr/share/nvidia/vgx/grid_k100.conf";
+			})
+		];
+		(* One Intel vGPU. *)
+		(
+			{oc = []; platform = []},
+			[default_intel_041a, gvt_g_041a]
+		),
+		[
+			Xenops_interface.Vgpu.(GVT_g {
+				physical_pci_address = Xenops_interface.Pci.({
+					domain = 0;
+					bus = 0;
+					dev = 0;
+					fn = 0;
+				});
+				low_gm_sz = 128L;
+				high_gm_sz = 384L;
+				fence_sz = 4L;
+				monitor_config_file = Some "/etc/gvt-g-monitor.conf";
+			})
+		];
+	]
+end))
+
 module VgpuExtraArgs = Generic.Make(Generic.EncapsulateState(struct
 	open Test_vgpu_common
 
@@ -281,5 +373,6 @@ let test =
 			"test_hvm_serial" >::: HVMSerial.tests;
 			"test_videomode" >::: VideoMode.tests;
 			"test_videoram" >::: VideoRam.tests;
+			"test_generate_vgpu_metadata" >::: GenerateVGPUMetadata.tests;
 			"test_vgpu_extra_args" >::: VgpuExtraArgs.tests;
 		]
