@@ -140,8 +140,8 @@ module Udhcpd_conf = struct
 		let network = Helpers.get_guest_installer_network ~__context in
 		let other_config = Db.Network.get_other_config ~__context ~self:network in
 		let include_gw =
-			try List.assoc ip_disable_gw_key other_config = "true"
-			with Not_found -> false in
+			try not (List.assoc ip_disable_gw_key other_config = "true")
+			with Not_found -> true in
 		let include_pxe =
 			try List.assoc pxe_server_key other_config = "true"
 			with Not_found -> false in
