@@ -69,29 +69,24 @@ let add_device ~xs device backend_list frontend_list private_list xenserver_list
 		   record our own use of /dev/loop devices. Clearing this causes us to leak
 		   one per PV .iso *)
 
-		t.Xst.mkdir frontend_path;
-		t.Xst.setperms frontend_path (Xenbus_utils.device_frontend device);
+		t.Xst.mkdirperms frontend_path (Xenbus_utils.device_frontend device);
 
-		t.Xst.mkdir backend_path;
-		t.Xst.setperms backend_path (Xenbus_utils.device_backend device);
+		t.Xst.mkdirperms backend_path (Xenbus_utils.device_backend device);
 
-		t.Xst.mkdir hotplug_path;
-		t.Xst.setperms hotplug_path (Xenbus_utils.hotplug device);
+		t.Xst.mkdirperms hotplug_path (Xenbus_utils.hotplug device);
 
 		t.Xst.writev frontend_path
 		             (("backend", backend_path) :: frontend_list);
 		t.Xst.writev backend_path
 		             (("frontend", frontend_path) :: backend_list);
 
-		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
+		t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path private_list;
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
 
-		t.Xst.mkdir extra_xenserver_path;
-		t.Xst.setperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
+		t.Xst.mkdirperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
 		t.Xst.writev extra_xenserver_path xenserver_list;
 	)
 	)
@@ -1260,8 +1255,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		if try ignore(t.Xst.read (frontend_path ^ "backend")); true with _ -> false
 		then debug "PCI frontend already exists: no work to do"
 		else begin
-			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
+			t.Xst.mkdirperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
@@ -1291,15 +1285,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
         let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl =[(0, READ)]}) in
-        t.Xst.mkdir frontend_path;
-        t.Xst.setperms frontend_path perms;
+        t.Xst.mkdirperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
         let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl = []}) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
-        t.Xst.mkdir request_path;
-        t.Xst.setperms request_path perms;
+        t.Xst.mkdirperms request_path perms;
         t.Xst.write (request_path ^ "/frontend") frontend_path;
     );
 	()
