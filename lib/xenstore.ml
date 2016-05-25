@@ -81,6 +81,9 @@ module Xs = struct
         unwatch : string -> string -> unit;
         introduce : domid -> nativeint -> int -> unit;
         set_target : domid -> domid -> unit;
+
+        (* Compound operations not corresponding one-to-one with those of Client *)
+        mkdirperms : string -> Xs_protocol.ACL.t -> unit;
 }
 
     let ops h = {
@@ -96,6 +99,8 @@ module Xs = struct
         unwatch = Client.unwatch h;
         introduce = Client.introduce h;
         set_target = Client.set_target h;
+
+        mkdirperms = (fun path -> (Client.mkdir h path; Client.setperms h path));
     }
     let with_xs f = Client.immediate (get_client ()) (fun h -> f (ops h))
     let wait f = Client.wait (get_client ()) (fun h -> f (ops h))
