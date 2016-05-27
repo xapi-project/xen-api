@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Stop gpumon if it's running, perform f, then start gpumon if
-  * no other threads which require gpumon to be stopped are running. *)
-val with_gpumon_stopped : ?timeout:float -> (unit -> 'a) -> 'a
+open Test_highlevel
+
+module XapiDb : Generic.STATE with type state_t = Context.t = struct
+	type state_t = Context.t
+	let create_default_state () = Mock.make_context_with_new_db "test context"
+end

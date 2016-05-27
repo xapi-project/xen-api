@@ -24,7 +24,7 @@ module CreateToolsSR = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_input_t = Test_printers.(list (tuple4 string string (assoc_list string string) bool))
 		let string_of_output_t = Test_printers.(list (tuple3 string string (assoc_list string string)))
 	end
-	module State = XapiDb
+	module State = Test_state.XapiDb
 	
 	let name = "Tools"
 	let description = "Tools ISOs"

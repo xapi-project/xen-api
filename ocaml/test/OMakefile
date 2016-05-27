@@ -2,7 +2,7 @@ OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid	\
              netdev tapctl xenctrl xenctrlext xenstore-compat	\
              pciutil oclock gzip sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
-             rrdd-plugin pci
+             rrdd-plugin pci xapi-test-utils
 
 OCAMLINCLUDES = \
 	../database \
@@ -25,14 +25,14 @@ OCAML_LIBS = \
 OCAML_OBJS = \
 	../idl/api_lowlevel \
 	mock \
-	test_highlevel \
-	test_printers \
+	test_state \
 	test_common \
 	test_basic \
 	test_agility \
 	test_helpers \
 	test_datamodel_utils \
 	test_db_lowlevel \
+	test_daemon_manager \
 	test_http \
 	test_pool_db_backup \
 	test_xapi_db_upgrade \

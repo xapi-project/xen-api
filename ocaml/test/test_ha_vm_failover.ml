@@ -159,7 +159,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.(list string)
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context input = setup ~__context input
 
@@ -243,7 +243,7 @@ module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
 			| No_plan_exists -> "No_plan_exists"
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context = setup ~__context
 
@@ -356,7 +356,7 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.(either Printexc.to_string unit)
 	end
 
-	module State = XapiDb
+	module State = Test_state.XapiDb
 
 	let load_input __context (pool, _) = setup ~__context pool
 
