@@ -123,7 +123,19 @@ def revert_etc_pamd_ssh(session, args):
         return "ERROR_1: revert_etc_pamd_ssh failed"
 
 
+def disable_pbis_pam_module(session, args):
+    # Distable PBIS pam module to fix CA-211425
+    status, output = commands.getstatusoutput('/opt/pbis/bin/domainjoin-cli configure --disable pam')
+    if status == 0:
+        return str(True)
+    else:
+        return "ERROR_2: disable_pbis_pam_module failed"
+
+
 def after_extauth_enable(session, args):
+    result = disable_pbis_pam_module(session, args)
+    if result != 'True':
+        return result
     return rewrite_etc_pamd_ssh(session, args)
 
 def after_xapi_initialize(session, args):
