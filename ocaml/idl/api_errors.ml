@@ -513,3 +513,5 @@ let sr_does_not_support_migration = "SR_DOES_NOT_SUPPORT_MIGRATION"
 let unimplemented_in_sm_backend = "UNIMPLEMENTED_IN_SM_BACKEND"
 
 let vm_call_plugin_rate_limit = "VM_CALL_PLUGIN_RATE_LIMIT"
+
+let suspend_image_not_accessible = "SUSPEND_IMAGE_NOT_ACCESSIBLE"

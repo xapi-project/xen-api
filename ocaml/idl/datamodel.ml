@@ -1036,6 +1036,9 @@ let _ =
   error Api_errors.vif_not_in_map [ "vif" ]
     ~doc:"This VIF was not mapped to a destination Network in VM.migrate_send operation" () ;
 
+  error Api_errors.suspend_image_not_accessible [ "vdi" ]
+    ~doc:"The suspend image of a checkpoint is not accessible from the host on which the VM is running" ();
+
   error Api_errors.sr_operation_not_supported [ "sr" ]
     ~doc:"The SR backend does not support the operation (check the SR's allowed operations)" ();
   error Api_errors.sr_not_empty [ ]
