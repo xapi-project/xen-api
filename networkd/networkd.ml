@@ -54,6 +54,7 @@ let options = [
 	"mac-table-size", Arg.Set_int Network_utils.mac_table_size, (fun () -> string_of_int !Network_utils.mac_table_size), "Default value for the mac-table-size openvswitch parameter (see ovs-vswitchd.conf.db.5)";
 ]
 
+
 let start server =
 	Network_monitor_thread.start ();
 	Network_server.on_startup ();
@@ -79,6 +80,7 @@ let doc = String.concat "\n" [
 ]
 
 let _ =
+	Coverage.init "networkd";
 	begin match Xcp_service.configure2
 		~name:Sys.argv.(0)
 		~version:Version.version

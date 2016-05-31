@@ -20,4 +20,6 @@ let base_suite =
 			Network_test_lacp_properties.suite;
 		]
 
-let _ = run_test_tt_main base_suite
+let _ = 
+  Coverage.init "network_test";
+  run_test_tt_main base_suite

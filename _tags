@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 24d382d63f193063ab9b3c2a825d1463)
+# DO NOT EDIT (digest: 6a8937157d81341f64a601d75a86be7f)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -14,6 +14,8 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library profiling
+"profiling/profiling.cmxs": use_profiling
 # Library networklibs
 "lib/networklibs.cmxs": use_networklibs
 <lib/*.ml{,i,y}>: oasis_library_networklibs_ccopt
@@ -43,6 +45,7 @@ true: annot, bin_annot
 <networkd/networkd.{native,byte}>: pkg_xcp.network
 <networkd/networkd.{native,byte}>: pkg_xen-api-client
 <networkd/networkd.{native,byte}>: use_networklibs
+<networkd/networkd.{native,byte}>: use_profiling
 <networkd/*.ml{,i,y}>: pkg_forkexec
 <networkd/*.ml{,i,y}>: pkg_netlink
 <networkd/*.ml{,i,y}>: pkg_rpclib
@@ -54,6 +57,7 @@ true: annot, bin_annot
 <networkd/*.ml{,i,y}>: pkg_xcp.network
 <networkd/*.ml{,i,y}>: pkg_xen-api-client
 <networkd/*.ml{,i,y}>: use_networklibs
+<networkd/*.ml{,i,y}>: use_profiling
 <networkd/networkd.{native,byte}>: custom
 # Executable networkd_db
 <networkd_db/networkd_db.{native,byte}>: pkg_forkexec
@@ -63,6 +67,7 @@ true: annot, bin_annot
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp-inventory
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp.network
 <networkd_db/networkd_db.{native,byte}>: use_networklibs
+<networkd_db/networkd_db.{native,byte}>: use_profiling
 <networkd_db/*.ml{,i,y}>: pkg_forkexec
 <networkd_db/*.ml{,i,y}>: pkg_rpclib
 <networkd_db/*.ml{,i,y}>: pkg_stdext
@@ -70,6 +75,7 @@ true: annot, bin_annot
 <networkd_db/*.ml{,i,y}>: pkg_xcp-inventory
 <networkd_db/*.ml{,i,y}>: pkg_xcp.network
 <networkd_db/*.ml{,i,y}>: use_networklibs
+<networkd_db/*.ml{,i,y}>: use_profiling
 <networkd_db/networkd_db.{native,byte}>: custom
 # Executable network_test
 <test/network_test.{native,byte}>: pkg_forkexec
@@ -80,6 +86,7 @@ true: annot, bin_annot
 <test/network_test.{native,byte}>: pkg_xcp-inventory
 <test/network_test.{native,byte}>: pkg_xcp.network
 <test/network_test.{native,byte}>: use_networklibs
+<test/network_test.{native,byte}>: use_profiling
 <test/*.ml{,i,y}>: pkg_forkexec
 <test/*.ml{,i,y}>: pkg_oUnit
 <test/*.ml{,i,y}>: pkg_rpclib
@@ -88,6 +95,7 @@ true: annot, bin_annot
 <test/*.ml{,i,y}>: pkg_xcp-inventory
 <test/*.ml{,i,y}>: pkg_xcp.network
 <test/*.ml{,i,y}>: use_networklibs
+<test/*.ml{,i,y}>: use_profiling
 # Executable cli
 <cli/network_cli.{native,byte}>: pkg_cmdliner
 <cli/network_cli.{native,byte}>: pkg_forkexec
@@ -98,6 +106,7 @@ true: annot, bin_annot
 <cli/network_cli.{native,byte}>: pkg_xcp-inventory
 <cli/network_cli.{native,byte}>: pkg_xcp.network
 <cli/network_cli.{native,byte}>: use_networklibs
+<cli/network_cli.{native,byte}>: use_profiling
 <cli/*.ml{,i,y}>: pkg_cmdliner
 <cli/*.ml{,i,y}>: pkg_forkexec
 <cli/*.ml{,i,y}>: pkg_rpclib
@@ -107,5 +116,6 @@ true: annot, bin_annot
 <cli/*.ml{,i,y}>: pkg_xcp-inventory
 <cli/*.ml{,i,y}>: pkg_xcp.network
 <cli/*.ml{,i,y}>: use_networklibs
+<cli/*.ml{,i,y}>: use_profiling
 # OASIS_STOP
 

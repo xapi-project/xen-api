@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 4ff56aec2dfea165b1692e299cedba7e) *)
+(* DO NOT EDIT (digest: cda025dade953b8f1e9b18cca6f3e0fb) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -607,7 +607,8 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [("networklibs", ["lib"], [])];
+     MyOCamlbuildBase.lib_ocaml =
+       [("profiling", ["profiling"], []); ("networklibs", ["lib"], [])];
      lib_c = [("networklibs", "lib", ["lib/netdev.h"])];
      flags =
        [
@@ -627,10 +628,10 @@ let package_default =
        ];
      includes =
        [
-          ("test", ["lib"]);
-          ("networkd_db", ["lib"]);
-          ("networkd", ["lib"]);
-          ("cli", ["lib"])
+          ("test", ["lib"; "profiling"]);
+          ("networkd_db", ["lib"; "profiling"]);
+          ("networkd", ["lib"; "profiling"]);
+          ("cli", ["lib"; "profiling"])
        ]
   }
   ;;
@@ -639,6 +640,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 643 "myocamlbuild.ml"
+# 644 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

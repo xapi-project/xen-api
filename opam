@@ -12,4 +12,5 @@ depends: [
   "xen-api-client"
   "xapi-inventory"
   "netlink"
+  "bisect_ppx"
 ]

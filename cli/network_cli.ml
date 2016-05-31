@@ -350,5 +350,6 @@ let cmds = [
 	config_cmd]
 
 let _ =
+	Coverage.init "network_cli";
 	match Term.eval_choice default_cmd cmds with
 	| `Error _ -> exit 1 | _ -> exit 0
