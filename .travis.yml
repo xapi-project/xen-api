@@ -1,6 +1,9 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
 script: bash -ex .travis-opam.sh
 env:
-  - PACKAGE="vhd-tool" OCAML_VERSION=4.01
-  - PACKAGE="vhd-tool" OCAML_VERSION=latest
+  global:
+    - PACKAGE=vhd-tool OPAM_LINT=false
+  matrix:
+    - OCAML_VERSION=4.01
+    - OCAML_VERSION=latest
