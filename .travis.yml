@@ -6,4 +6,4 @@ env:
     - PACKAGE=vhd-tool OPAM_LINT=false
   matrix:
     - OCAML_VERSION=4.01
-    - OCAML_VERSION=latest
+    - OCAML_VERSION=latest EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
