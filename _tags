@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6f6e8887c27edb280b24a3314cc1ccc8)
+# DO NOT EDIT (digest: e030a60e9b1e92164b626ef54d9678e0)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -14,12 +14,15 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library profiling
+"profiling/profiling.cmxs": use_profiling
 # Library rrdd_libs
 "lib/rrdd_libs.cmxs": use_rrdd_libs
 <lib/rrdd_libs.{cma,cmxa}>: oasis_library_rrdd_libs_byte
 <lib/*.ml{,i,y}>: oasis_library_rrdd_libs_byte
 <lib/rrdd_libs.{cma,cmxa}>: oasis_library_rrdd_libs_native
 <lib/*.ml{,i,y}>: oasis_library_rrdd_libs_native
+<lib/*.ml{,i,y}>: pkg_bisect_ppx
 <lib/*.ml{,i,y}>: pkg_stdext
 <lib/*.ml{,i,y}>: pkg_threads
 <lib/*.ml{,i,y}>: pkg_xcp
@@ -28,6 +31,7 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_byte
 <rrdd/xcp_rrdd.{native,byte}>: oasis_executable_xcp_rrdd_native
 <rrdd/*.ml{,i,y}>: oasis_executable_xcp_rrdd_native
+<rrdd/xcp_rrdd.{native,byte}>: pkg_bisect_ppx
 <rrdd/xcp_rrdd.{native,byte}>: pkg_forkexec
 <rrdd/xcp_rrdd.{native,byte}>: pkg_gzip
 <rrdd/xcp_rrdd.{native,byte}>: pkg_http-svr
@@ -49,6 +53,7 @@ true: annot, bin_annot
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xcp.xen
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xen-gnt.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xenops
+<rrdd/xcp_rrdd.{native,byte}>: use_profiling
 <rrdd/xcp_rrdd.{native,byte}>: use_rrdd_libs
 <rrdd/xcp_rrdd.{native,byte}>: custom
 # Executable test_rrdd_monitor
@@ -56,6 +61,7 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: oasis_executable_test_rrdd_monitor_byte
 <rrdd/test_rrdd_monitor.{native,byte}>: oasis_executable_test_rrdd_monitor_native
 <rrdd/*.ml{,i,y}>: oasis_executable_test_rrdd_monitor_native
+<rrdd/test_rrdd_monitor.{native,byte}>: pkg_bisect_ppx
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_forkexec
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_gzip
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_http-svr
@@ -78,7 +84,9 @@ true: annot, bin_annot
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_xcp.xen
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_xen-gnt.unix
 <rrdd/test_rrdd_monitor.{native,byte}>: pkg_xenops
+<rrdd/test_rrdd_monitor.{native,byte}>: use_profiling
 <rrdd/test_rrdd_monitor.{native,byte}>: use_rrdd_libs
+<rrdd/*.ml{,i,y}>: pkg_bisect_ppx
 <rrdd/*.ml{,i,y}>: pkg_forkexec
 <rrdd/*.ml{,i,y}>: pkg_gzip
 <rrdd/*.ml{,i,y}>: pkg_http-svr
@@ -101,6 +109,7 @@ true: annot, bin_annot
 <rrdd/*.ml{,i,y}>: pkg_xcp.xen
 <rrdd/*.ml{,i,y}>: pkg_xen-gnt.unix
 <rrdd/*.ml{,i,y}>: pkg_xenops
+<rrdd/*.ml{,i,y}>: use_profiling
 <rrdd/*.ml{,i,y}>: use_rrdd_libs
 <rrdd/test_rrdd_monitor.{native,byte}>: custom
 # OASIS_STOP

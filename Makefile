@@ -33,3 +33,19 @@ rrdd/version.ml: VERSION
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
+
+# make coverage - prepares for building with coverage analysis
+# make uncover  - reverses the setup from "make coverage"
+# make report   - create coverage/index.html 
+
+coverage: _tags _tags.coverage 
+	test ! -f _tags.orig && mv _tags _tags.orig || true
+	cat _tags.coverage _tags.orig > _tags
+
+uncover: _tags.orig
+	mv _tags.orig _tags
+
+report:
+	bisect-ppx-report -I _build -html coverage /tmp/bisect-xcp-rrdd*out
+
+.PHONY: report coverage uncover
