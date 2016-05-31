@@ -354,10 +354,10 @@ let index_html oc pages =
     </div>
   </header>
   >> in
-  print_file_to oc ("doc/header.html");
+  print_file_to oc ("doc/static/header.html");
   output_string oc (Cow.Html.to_string (topbar pages));
   output_string oc (Cow.Html.to_string header);
-  print_file_to oc ("doc/footer.html")
+  print_file_to oc ("doc/static/footer.html")
 
 let placeholder_html oc pages body =
   let header = <:html<
@@ -367,17 +367,17 @@ let placeholder_html oc pages body =
       </div>
     </div>
   >> in
-  print_file_to oc ("doc/header.html");
+  print_file_to oc ("doc/static/header.html");
   output_string oc (Cow.Html.to_string (topbar pages));
   if Sys.file_exists body
   then print_file_to oc body
   else output_string oc (Cow.Html.to_string header);
-  print_file_to oc ("doc/footer.html")
+  print_file_to oc ("doc/static/footer.html")
 
 let page_of_api api = {
   name = api.Interfaces.name;
   title = api.Interfaces.title;
-  path = "doc/" ^ api.Interfaces.name ^ ".html";
+  path = "doc/gen/" ^ api.Interfaces.name ^ ".html";
   filename = api.Interfaces.name ^ ".html";
   description = api.Interfaces.description;
   api = api;
@@ -390,11 +390,11 @@ let write apis =
     (fun page ->
        with_output_file page.path
          (fun oc ->
-            print_file_to oc ("doc/header.html");
+            print_file_to oc ("doc/static/header.html");
             output_string oc (Cow.Html.to_string (topbar pages));
             let idents, api = Types.resolve_refs_in_api page.api in
             output_string oc (to_string idents api);
-            print_file_to oc ("doc/footer.html")
+            print_file_to oc ("doc/static/footer.html")
          );
     ) pages;
   with_output_file "doc/index.html"
@@ -403,10 +403,11 @@ let write apis =
     );
   List.iter
     (fun placeholder ->
-      let filename = Filename.concat "doc" placeholder in
-      with_output_file filename
+       let out_filename = Printf.sprintf "doc/gen/%s" placeholder in
+       let in_filename = Printf.sprintf "doc/templates/%s.body" placeholder in
+      with_output_file out_filename
         (fun oc ->
-          placeholder_html oc pages (filename ^ ".body")
+          placeholder_html oc pages in_filename
         )
     ) [
       "contact.html";
