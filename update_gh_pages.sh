@@ -2,10 +2,9 @@
 set -e
 
 make html
-pushd doc/gen
-rm -f /tmp/doc
+rm -fr /tmp/doc
 rsync -av doc/gen/ /tmp/doc/
-popd
 git checkout gh-pages
+mv .git /tmp/doc/
 rsync --delete -av /tmp/doc/ .
 
