@@ -454,14 +454,12 @@ module Linux_bonding = struct
 		if is_bond_device master then
 			try
 				let slaves = get_bond_slaves master in
-				if slaves <> [] then begin
-					Ip.with_links_down slaves (fun () ->
-						remove_bond_slaves master slaves;
-						finally
-							f
-							(fun () -> add_bond_slaves master slaves)
-					)
-				end
+				Ip.with_links_down slaves (fun () ->
+					remove_bond_slaves master slaves;
+					finally
+						f
+						(fun () -> add_bond_slaves master slaves)
+				)
 			with _ ->
 				error "Failed to remove or re-add slaves from bond %s" master
 		else
@@ -503,10 +501,12 @@ module Linux_bonding = struct
 	let set_bond_properties master properties =
 		if is_bond_device master then begin
 			let current_props = get_bond_properties master in
+			debug "Current bond properties: %s" (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) current_props));
 			(* Find out which properties are known, but different from the current state,
 			 * and only continue if there is at least one of those. *)
 			let props_to_update = List.filter (fun (prop, value) ->
 				not (List.mem (prop, value) current_props) && List.mem prop known_props) properties in
+			debug "Bond properties to update: %s" (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) props_to_update));
 			if props_to_update <> [] then
 				let set_prop (prop, value) =
 					try
