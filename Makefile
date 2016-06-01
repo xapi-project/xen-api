@@ -13,6 +13,7 @@ build:
 .PHONY: html
 html: build
 	./generator/main.native -html
+	rsync -av ./doc/static/ ./doc/gen/
 
 .PHONY: install
 install:
