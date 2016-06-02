@@ -26,7 +26,10 @@ let is_class_of_kind kind id =
 	(* The base_class is the most-significant byte of the class ID *)
 	id land 0xff00 = base_class_id_of_kind kind
 
-let managed_classes = [Display_controller]
+let managed_classes = [
+	Network_controller;
+	Display_controller;
+]
 
 let string_of_pci ~__context ~self =
 	let pci = Db.PCI.get_record_internal ~__context ~self in
