@@ -528,8 +528,12 @@ let clone ~__context ~vm ~new_name =
 (* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
 (* the VBD level (with pause/unpause mechanism                                                   *)
 let snapshot ~__context ~vm ~new_name =
-	TaskHelper.set_cancellable ~__context;
-	Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
+	Local_work_queue.wait_in_line Local_work_queue.snapshot_vm_queue
+		(Printf.sprintf "VM.snapshot %s" (Context.string_of_task __context))
+		(fun () ->
+			TaskHelper.set_cancellable ~__context;
+			Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
+		)
 
 (* Snapshot_with_quiesce triggers the VSS plugin which will then calls the VM.snapshot API call.     *)
 (* Thus, to avoid dead-locks, do not put snapshot and snapshot_with_quiesce on the same waiting line *)

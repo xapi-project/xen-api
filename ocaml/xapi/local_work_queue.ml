@@ -33,6 +33,9 @@ let start_vm_lifecycle_queue () =
 (** Put "long running/streaming operations" into their own queue, so vm lifecycle ops can be parallelized with them *)
 let long_running_queue = Thread_queue.make ~name:"long_running_op" vm_lifecycle_queue_process_fn
   
+(** VM.{snapshot} etc are queued here *)
+let snapshot_vm_queue = Thread_queue.make ~name:"vm_snapshot_op" vm_lifecycle_queue_process_fn
+
 (** VM.{start,shutdown,copy,clone} etc are queued here *)
 let normal_vm_queue = Thread_queue.make ~name:"vm_lifecycle_op" vm_lifecycle_queue_process_fn
 
