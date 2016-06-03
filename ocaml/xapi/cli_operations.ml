@@ -4694,3 +4694,16 @@ let lvhd_enable_thin_provisioning printer rpc session_id params =
       ) params ["sr-uuid"; "initial-allocation";"allocation-quantum"]
   )
 
+module PVS_farm = struct
+  let introduce printer rpc session_id params =
+    let name  = List.assoc "name" params in
+    let ref   = Client.PVS_farm.introduce ~rpc ~session_id ~name in
+    let uuid  = Client.PVS_farm.get_uuid rpc session_id ref in
+    printer (Cli_printer.PList [uuid])
+
+  let forget printer rpc session_id params =
+    let uuid  = List.assoc "uuid" params in
+    let ref   = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.PVS_farm.forget rpc session_id ref
+end
+

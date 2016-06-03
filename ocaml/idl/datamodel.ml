@@ -150,6 +150,10 @@ let _pgpu = "PGPU"
 let _gpu_group = "GPU_group"
 let _vgpu = "VGPU"
 let _vgpu_type = "VGPU_type"
+let _pvs_farm = "PVS_farm"
+let _pvs_server = "PVS_server"
+let _pvs_proxy = "PVS_proxy"
+
 
 (** All the various static role names *)
 
@@ -8761,6 +8765,103 @@ let vgpu_type =
     ]
     ()
 
+module PVS_farm = struct
+  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"Introduce new PVS farm"
+      ~result:(Ref _pvs_farm, "the new PVS farm")
+      ~params:
+        [ String,"name","name of the PVS farm"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~doc:"Remove a farm's meta data"
+      ~params:
+        [ Ref _pvs_farm, "self", "this PVS farm"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+
+  let set_name = call
+      ~name:"set_name"
+      ~doc:"Update the name of the PVS farm"
+      ~params:
+        [ Ref _pvs_farm, "self", "this PVS farm"
+        ; String, "value", "name to be used"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let add_cache_storage = call
+      ~name:"add_cache_storage"
+      ~doc:"Add a cache SR for the proxies on the farm"
+      ~params:
+        [ Ref _pvs_farm, "self", "this PVS farm"
+        ; Ref _sr, "value", "SR to be used"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let remove_cache_storage = call
+      ~name:"remove_cache_storage"
+      ~doc:"Remove a cache SR for the proxies on the farm"
+      ~params:
+        [ Ref _pvs_farm, "self", "this PVS farm"
+        ; Ref _sr, "value", "SR to be removed"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    let null_str = Some (VString "") in
+    let null_set = Some (VSet []) in
+    create_obj
+      ~name: _pvs_farm
+      ~descr:"machines serving blocks of data for provisioning VMs"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _pvs_farm ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:String "name" ~default_value:null_str
+            "Name of the PVS farm. Must match name configured in PVS"
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+            ~ty:(Set (Ref _sr)) "cache_storage" ~default_value:null_set
+            ~ignore_foreign_key:true
+            "The SR used by PVS proxy for the cache"
+
+  (* add fields servers, proxies once the classes are defined *)
+        ]
+      ~messages:
+        [ introduce
+        ; forget
+        ; set_name
+        ; add_cache_storage
+        ; remove_cache_storage
+        ]
+      ()
+end
+let pvs_farm = PVS_farm.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -8819,6 +8920,7 @@ let all_system =
     gpu_group;
     vgpu;
     vgpu_type;
+    pvs_farm;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -8980,6 +9082,7 @@ let expose_get_all_messages_for = [
   _vgpu;
   _vgpu_type;
   _dr_task;
+  _pvs_farm;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

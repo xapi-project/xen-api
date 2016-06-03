@@ -1704,3 +1704,33 @@ let vgpu_type_record rpc session_id vgpu_type =
         ~get:(fun () -> string_of_bool (x ()).API.vGPU_type_experimental) ();
     ]
   }
+
+let pvs_farm_record rpc session_id pvs_farm =
+  let _ref = ref pvs_farm in
+  let empty_record =
+    ToGet (fun () -> Client.PVS_farm.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r ; record := empty_record)
+  ; setrefrec = (fun (a,b) -> _ref := a; record := Got b)
+  ; record    = x
+  ; getref    = (fun () -> !_ref)
+  ; fields=
+      [ make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.pVS_farm_uuid) ()
+      ; make_field ~name:"name"
+          ~get:(fun () -> (x ()).API.pVS_farm_name)
+          ~set:(fun name ->
+              Client.PVS_farm.set_name rpc session_id !_ref name) ()
+      ; make_field ~name:"cache_storage"
+          ~get:(fun () -> (x ()).API.pVS_farm_cache_storage
+                          |> List.map get_uuid_from_ref |> String.concat "; ")
+          ~add_to_set:(fun sr_uuid ->
+              let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
+              Client.PVS_farm.add_cache_storage rpc session_id !_ref sr)
+          ~remove_from_set:(fun sr_uuid ->
+              let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
+              Client.PVS_farm.remove_cache_storage rpc session_id !_ref sr)
+          ()
+      ]
+  }

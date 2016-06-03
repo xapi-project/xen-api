@@ -1338,7 +1338,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (Db.VM.get_name_label ~__context ~self:vm)
       in
       let (name, priority) = Api_messages.vm_shutdown in
-      (try ignore(Xapi_message.create ~__context ~name
+      (try ignore(Xapi_message.create ~__context ~name 
                     ~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
 
     let clean_reboot ~__context ~vm =
@@ -2985,7 +2985,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) in
       tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
-    let set_primary_address_type ~__context ~self ~primary_address_type =
+    let set_primary_address_type ~__context ~self ~primary_address_type = 
       info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
         (pif_uuid ~__context self)
         (Record_util.primary_address_type_to_string primary_address_type);
@@ -3897,5 +3897,27 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
   module VGPU_type = struct end
   module LVHD = struct end
+
+  module PVS_farm = struct
+    let introduce ~__context ~name =
+      info "PVS_farm.introduce %s" name;
+      Local.PVS_farm.introduce ~__context ~name
+
+    let forget ~__context ~self =
+      info "PVS_farm.forget";
+      Local.PVS_farm.forget ~__context ~self
+
+    let set_name ~__context ~self ~value =
+      info "PVS_farm.set_name %s" value;
+      Local.PVS_farm.set_name ~__context ~self ~value
+
+    let add_cache_storage ~__context ~self ~value =
+      info "PVS_farm.add_cache_storage";
+      Local.PVS_farm.add_cache_storage ~__context ~self ~value
+
+    let remove_cache_storage ~__context ~self ~value =
+      info "PVS_farm.remove_cache_storage";
+      Local.PVS_farm.remove_cache_storage ~__context ~self ~value
+  end
 end
 
