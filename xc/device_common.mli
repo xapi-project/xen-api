@@ -37,7 +37,8 @@ exception Hotplug_script_expecting_field of device * string
 
 val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
 val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
-val frontend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val frontend_rw_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val frontend_ro_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val kthread_pid_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string

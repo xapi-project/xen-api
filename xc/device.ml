@@ -50,48 +50,49 @@ let device_serialise_m = Mutex.create ()
 let add_device ~xs device backend_list frontend_list private_list xenserver_list =
 	Mutex.execute device_serialise_m (fun () ->
 
-	let frontend_path = frontend_path_of_device ~xs device
+	let frontend_ro_path = frontend_ro_path_of_device ~xs device
+	and frontend_rw_path = frontend_rw_path_of_device ~xs device
 	and backend_path = backend_path_of_device ~xs device
 	and hotplug_path = Hotplug.get_hotplug_path device
 	and private_data_path = Device_common.get_private_data_path_of_device device
 	and extra_xenserver_path = Device_common.extra_xenserver_path_of_device ~xs device in
 
-	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_path hotplug_path;
+	debug "adding device  B%d[%s]  F%d[%s]  H[%s]" device.backend.domid backend_path device.frontend.domid frontend_rw_path hotplug_path;
 	Xs.transaction xs (fun t ->
 		begin try
-			ignore (t.Xst.read frontend_path);
+			(* Use the ro one because a bad guest could delete the rw node. *)
+			ignore (t.Xst.read frontend_ro_path);
 			raise (Device_frontend_already_connected device)
 		with Xs_protocol.Enoent _ -> () end;
 
-		t.Xst.rm frontend_path;
+		t.Xst.rm frontend_rw_path;
+		t.Xst.rm frontend_ro_path;
 		t.Xst.rm backend_path;
 		(* CA-16259: don't clear the 'hotplug_path' because this is where we
 		   record our own use of /dev/loop devices. Clearing this causes us to leak
 		   one per PV .iso *)
 
-		t.Xst.mkdir frontend_path;
-		t.Xst.setperms frontend_path (Xenbus_utils.device_frontend device);
+		t.Xst.mkdirperms frontend_rw_path (Xenbus_utils.device_frontend device);
+		t.Xst.mkdirperms frontend_ro_path (Xenbus_utils.rwperm_for_guest 0);
 
-		t.Xst.mkdir backend_path;
-		t.Xst.setperms backend_path (Xenbus_utils.device_backend device);
+		t.Xst.mkdirperms backend_path (Xenbus_utils.device_backend device);
 
-		t.Xst.mkdir hotplug_path;
-		t.Xst.setperms hotplug_path (Xenbus_utils.hotplug device);
+		t.Xst.mkdirperms hotplug_path (Xenbus_utils.hotplug device);
 
-		t.Xst.writev frontend_path
+		t.Xst.writev frontend_rw_path
 		             (("backend", backend_path) :: frontend_list);
+		t.Xst.writev frontend_ro_path
+		             (("backend", backend_path) :: []);
 		t.Xst.writev backend_path
-		             (("frontend", frontend_path) :: backend_list);
+		             (("frontend", frontend_rw_path) :: backend_list);
 
-		t.Xst.mkdir private_data_path;
-		t.Xst.setperms private_data_path (Xenbus_utils.hotplug device);
+		t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device);
 		t.Xst.writev private_data_path private_list;
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
 
-		t.Xst.mkdir extra_xenserver_path;
-		t.Xst.setperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
+		t.Xst.mkdirperms extra_xenserver_path (Xenbus_utils.rwperm_for_guest device.frontend.domid);
 		t.Xst.writev extra_xenserver_path xenserver_list;
 	)
 	)
@@ -117,7 +118,8 @@ let safe_rm ~xs path =
    done as possible. *)
 let rm_device_state ~xs (x: device) =
 	debug "Device.rm_device_state %s" (string_of_device x);
-	safe_rm ~xs (frontend_path_of_device ~xs x);
+	safe_rm ~xs (frontend_ro_path_of_device ~xs x);
+	safe_rm ~xs (frontend_rw_path_of_device ~xs x);
 	safe_rm ~xs (backend_path_of_device ~xs x);
 	(* Cleanup the directory containing the error node *)
 	safe_rm ~xs (backend_error_path_of_device ~xs x);
@@ -165,7 +167,7 @@ let clean_shutdown_async ~xs (x: device) =
 
 let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
-let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
+let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_rw_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
 
 let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
@@ -187,7 +189,8 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device)
 	let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
 	if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
 	then begin
-		safe_rm ~xs (frontend_path_of_device ~xs x);
+		safe_rm ~xs (frontend_rw_path_of_device ~xs x);
+		safe_rm ~xs (frontend_ro_path_of_device ~xs x);
 		if cancellable_watch cancel [ unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
 		then rm_device_state ~xs x
 		else on_error ()
@@ -207,8 +210,8 @@ let hard_shutdown_request ~xs (x: device) =
 	xs.Xs.write online_path "0";
 
 	debug "Device.Generic.hard_shutdown about to blow away frontend";
-	let frontend_path = frontend_path_of_device ~xs x in
-	safe_rm xs frontend_path
+	safe_rm xs (frontend_rw_path_of_device ~xs x);
+	safe_rm xs (frontend_ro_path_of_device ~xs x)
 
 let hard_shutdown_complete ~xs (x: device) =
 	if !Xenopsd.run_hotplug_scripts
@@ -1260,8 +1263,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 		if try ignore(t.Xst.read (frontend_path ^ "backend")); true with _ -> false
 		then debug "PCI frontend already exists: no work to do"
 		else begin
-			t.Xst.mkdir frontend_path;
-			t.Xst.setperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
+			t.Xst.mkdirperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
 			t.Xst.writev frontend_path [
 				"backend", backend_path;
 				"backend-id", string_of_int backend_domid;
@@ -1291,15 +1293,13 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     Xs.transaction xs (fun t ->
         (* Add the frontend *)
         let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl =[(0, READ)]}) in
-        t.Xst.mkdir frontend_path;
-        t.Xst.setperms frontend_path perms;
+        t.Xst.mkdirperms frontend_path perms;
         t.Xst.writev frontend_path front;
 
         (* Now make the request *)
         let perms = Xs_protocol.ACL.({owner = domid; other = NONE; acl = []}) in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
-        t.Xst.mkdir request_path;
-        t.Xst.setperms request_path perms;
+        t.Xst.mkdirperms request_path perms;
         t.Xst.write (request_path ^ "/frontend") frontend_path;
     );
 	()
