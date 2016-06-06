@@ -73,7 +73,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 
 	(* Set the master's dom0 to ours *)
 	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-	begin match List.filter (fun self -> Db.VM.get_is_control_domain ~__context:new_context ~self)
+	begin match List.filter (fun vm -> Helpers.is_domain_zero ~__context:new_context vm)
 		(Db.Host.get_resident_VMs ~__context:new_context ~self:master) with
 			| [ dom0 ] ->
 				Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid

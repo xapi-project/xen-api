@@ -310,7 +310,11 @@ let get_user ~__context username =
         failwith "Failed to find any users";
     List.hd uuids (* FIXME! it assumes that there is only one element in the list (root), username is not used*)
 
-(* Expects only 1 control domain per host; just return first in list for now if multiple.. *)
+let is_domain_zero ~__context vm_ref =
+  Db.VM.get_is_control_domain ~__context ~self:vm_ref
+  && Db.VM.get_domid ~__context ~self:vm_ref = 0L
+
+(* Expects only 1 domain zero per host; just return first in list for now if multiple.. *)
 exception No_domain_zero of string
 let domain_zero_ref_cache = ref None
 let domain_zero_ref_cache_mutex = Mutex.create ()
@@ -324,14 +328,14 @@ let get_domain_zero ~__context : API.ref_VM =
 	 let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	 try
 	   let vm = Db.VM.get_by_uuid ~__context ~uuid in
-	   if not (Db.VM.get_is_control_domain ~__context ~self:vm) then begin
-	     error "VM uuid %s is not a control domain but the uuid is in my inventory file" uuid;
+	   if not (is_domain_zero ~__context vm) then begin
+	     error "VM uuid %s is not domain zero but the uuid is in my inventory file" uuid;
 	     raise (No_domain_zero uuid);
 	   end;
 	   domain_zero_ref_cache := Some vm;
 	   vm
 	 with _ ->
-	   error "Failed to find control domain (uuid = %s)" uuid;
+	   error "Failed to find domain zero (uuid = %s)" uuid;
 	   raise (No_domain_zero uuid)
     )
 
@@ -509,21 +513,19 @@ let boot_method_of_vm ~__context ~vm =
 (** Returns true if the supplied VM configuration is HVM.
     NB that just because a VM's current configuration looks like HVM doesn't imply it
     actually booted that way; you must check the boot_record to be sure *)
-let is_hvm (x: API.vM_t) = not(x.API.vM_is_control_domain) && x.API.vM_HVM_boot_policy <> ""
+let is_hvm (x: API.vM_t) = x.API.vM_HVM_boot_policy <> ""
 
 let will_boot_hvm ~__context ~self = Db.VM.get_HVM_boot_policy ~__context ~self <> ""
 
 let has_booted_hvm ~__context ~self =
-  (not (Db.VM.get_is_control_domain ~__context ~self))
-  &&
-    let boot_record = get_boot_record ~__context ~self in
-    boot_record.API.vM_HVM_boot_policy <> ""
+  let boot_record = get_boot_record ~__context ~self in
+  boot_record.API.vM_HVM_boot_policy <> ""
 
 let has_booted_hvm_of_record ~__context r =
-  (not (r.Db_actions.vM_is_control_domain))
-  &&
-    let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
-    boot_record.API.vM_HVM_boot_policy <> ""
+  let boot_record =
+    get_boot_record_of_record ~__context
+      ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
+  boot_record.API.vM_HVM_boot_policy <> ""
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 

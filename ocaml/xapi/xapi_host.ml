@@ -113,12 +113,19 @@ let assert_bacon_mode ~__context ~host =
 		let vm_data = [selfref; "vm"; Ref.string_of (List.hd guest_vms)] in
 		raise (Api_errors.Server_error (Api_errors.host_in_use, vm_data)));
 	debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
-	let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
-			Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in
-	let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
-			Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
-	if List.length vbds > 0 then
-		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
+	let control_domain_vbds =
+		List.filter (fun vm ->
+				Db.VM.get_resident_on ~__context ~self:vm = host
+				&& Db.VM.get_is_control_domain ~__context ~self:vm
+		) (Db.VM.get_all ~__context)
+		|> List.map (fun self -> Db.VM.get_VBDs ~__context ~self)
+		|> List.flatten
+		|> List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self) in
+	if List.length control_domain_vbds > 0 then
+		raise (Api_errors.Server_error (
+			Api_errors.host_in_use,
+			[ selfref; "vbd"; List.hd (List.map Ref.string_of control_domain_vbds) ]
+		));
 	debug "Bacon test: VBDs OK"
 
 let signal_networking_change ~__context =

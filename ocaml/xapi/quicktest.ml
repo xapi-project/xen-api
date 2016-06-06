@@ -717,11 +717,7 @@ let vdi_test session_id =
   debug test (Printf.sprintf "Time to create: %f%!" createtime);
   let pbd = List.hd (Client.SR.get_PBDs !rpc session_id sr) in
   let host = Client.PBD.get_host !rpc session_id pbd in
-  let vms = Client.VM.get_all !rpc session_id in
-  let filter vm =
-    Client.VM.get_is_control_domain !rpc session_id vm &&
-      Client.VM.get_resident_on !rpc session_id vm = host in
-  let dom0 = List.find filter vms in
+  let dom0 = dom0_of_host session_id host in
   let device = List.hd (Client.VM.get_allowed_VBD_devices !rpc session_id dom0) in
   debug test (Printf.sprintf "Creating a VBD connecting the VDI to localhost%!");
   let vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:dom0 ~vDI:newvdi ~userdevice:device ~bootable:false
@@ -748,11 +744,7 @@ let async_test session_id =
     "description" sr 4194304L `user false false [] [] [] [] in
   let pbd = List.hd (Client.SR.get_PBDs !rpc session_id sr) in
   let host = Client.PBD.get_host !rpc session_id pbd in
-  let vms = Client.VM.get_all !rpc session_id in
-  let filter vm =
-    Client.VM.get_is_control_domain !rpc session_id vm &&
-      Client.VM.get_resident_on !rpc session_id vm = host in
-  let dom0 = List.find filter vms in
+  let dom0 = dom0_of_host session_id host in
   let device = List.hd (Client.VM.get_allowed_VBD_devices !rpc session_id dom0) in
   let vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:dom0 ~vDI:newvdi ~userdevice:device ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] in

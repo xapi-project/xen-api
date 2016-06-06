@@ -568,8 +568,14 @@ let retrieve_wlb_config ~__context =
   perform_wlb_request ~meth:"GetXenPoolConfiguration" ~params ~handle_response
     ~__context ()
 
-  let get_dom0_vm ~__context host=
-    List.hd (List.filter (fun v -> (Db.VM.get_is_control_domain ~__context ~self:v)) (Db.Host.get_resident_VMs ~__context ~self:(Db.Host.get_by_uuid ~__context ~uuid:host)))
+  let get_dom0_vm ~__context host =
+    let resident_VMs =
+      Db.Host.get_resident_VMs ~__context
+        ~self:(Db.Host.get_by_uuid ~__context ~uuid:host) in
+    List.filter (fun v ->
+      Helpers.is_domain_zero ~__context v
+    ) resident_VMs
+    |> List.hd
 
 let get_opt_recommendations ~__context =
   assert_wlb_enabled ~__context;

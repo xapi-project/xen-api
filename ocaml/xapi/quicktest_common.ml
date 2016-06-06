@@ -240,3 +240,13 @@ let find_guest_installer_network session_id =
   match List.filter (fun (_, r) -> List.mem_assoc Xapi_globs.is_guest_installer_network r.API.network_other_config) all with
   | (rf, _) :: _ -> rf
   | _ -> failwith "Could not find guest installer network"
+
+(** Return a host's domain zero *)
+let dom0_of_host session_id host =
+  match
+    List.filter (fun vm ->
+      Client.VM.get_is_control_domain !rpc session_id vm
+      && Client.VM.get_domid !rpc session_id vm = 0L
+    ) (Client.Host.get_resident_VMs !rpc session_id host) with
+  | [] -> failwith (Printf.sprintf "Host %s has no running domain zero" (Client.Host.get_uuid !rpc session_id host))
+  | vm :: _ -> vm
