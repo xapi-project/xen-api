@@ -70,8 +70,15 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 					"-machine";
 					"-src"; infile;
 					"-dest"; outfile;
-					"-size"; Int64.to_string size
-				] @ (if prezeroed then [ "-prezeroed" ] else []
+					"-size"; Int64.to_string size;
+					"-good-ciphersuites"; (match !Xapi_globs.ciphersuites_good_outbound with
+								| Some s -> s
+								| None -> raise (Api_errors.Server_error
+										(Api_errors.internal_error,["Vdi_copy found no good ciphersuites in Xapi_globs."]))
+							      );
+					"-legacy-ciphersuites"; !Xapi_globs.ciphersuites_legacy_outbound
+				] @ (if Stunnel.is_legacy_protocol_and_ciphersuites_allowed () then [ "-ssl-legacy" ] else []
+				) @ (if prezeroed then [ "-prezeroed" ] else []
 				) @ (Opt.default [] (Opt.map (fun x -> [ "-base"; x ]) base)) in
 				debug "%s %s" sparse_dd_path (String.concat " " args);
 				let pid = Forkhelpers.safe_close_and_exec None (Some pipe_write) (Some log_fd) []
