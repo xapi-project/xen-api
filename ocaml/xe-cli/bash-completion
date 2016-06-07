@@ -315,6 +315,25 @@ _xe()
                 return 0
                 ;;
 
+            type) # for vmss
+                IFS=$'\n,'
+                set_completions 'snapshot,checkpoint,snapshot_with_quiesce' "$value"
+                return 0
+                ;;
+
+            frequency) # for vmss
+                IFS=$'\n,'
+                set_completions 'hourly,daily,weekly' "$value"
+                return 0
+                ;;
+
+            schedule:days) # for vmss
+                IFS=$'\n,'
+                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
+                return 0
+                ;;
+
             role-name)
                 IFS=$'\n,'
                 LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
@@ -373,6 +392,7 @@ _xe()
         isvmpparchiveschedule=`echo "${param}" | grep "archive-schedule:"`
         isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
         isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
+        isvmssscheduled=`echo "${param}" | grep "schedule:"`
 
         if [ "${isdeviceconfig}" ]; then
             IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
@@ -412,6 +432,10 @@ _xe()
         elif [ "${isvmppalarmconfig}" ]; then
             pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
             set_completions "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" "$param"
+            return 0
+        elif [ "${isvmssscheduled}" ]; then
+            pfx=`echo ${isvmssscheduled} | cut -d ':' -f 1`
+            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
             return 0
         else
             extraargs=""

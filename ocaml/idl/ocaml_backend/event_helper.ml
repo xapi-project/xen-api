@@ -41,6 +41,7 @@ type event_record =
     | Message of          [`message] Ref.t * API.message_t option
     | Secret of           [`secret] Ref.t * API.secret_t option
     | VMPP of             [`VMPP] Ref.t * API.vMPP_t option
+    | VMSS of             [`VMSS] Ref.t * API.vMSS_t option
 
 let maybe f x =
     match x with 
@@ -77,5 +78,6 @@ let record_of_event ev =
 		| "message" ->          Message (Ref.of_string ev.Event_types.reference, maybe (API.message_t_of_rpc) rpc)
 		| "secret" ->           Secret (Ref.of_string ev.Event_types.reference, maybe (API.secret_t_of_rpc) rpc)
 		| "vmpp" ->             VMPP (Ref.of_string ev.Event_types.reference, maybe (API.vMPP_t_of_rpc) rpc)
+		| "vmss" ->             VMSS (Ref.of_string ev.Event_types.reference, maybe (API.vMSS_t_of_rpc) rpc)
 		| _ -> failwith "unknown event type"
 			  
