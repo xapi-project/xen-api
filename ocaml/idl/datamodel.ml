@@ -3743,6 +3743,17 @@ let task_destroy = call ~flags:[`Session]
   ~params:[Ref _task, "self", "Reference to the task object"]
   ~allowed_roles:_R_READ_ONLY (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
   ()
+
+let task_set_status = call ~flags:[`Session]
+  ~in_oss_since:None
+  ~in_product_since:rel_ely
+  ~name:"set_status"
+  ~doc:"Set the task status"
+  ~params:[Ref _task, "self", "Reference to the task object";
+   status_type, "value", "task status value to be set"]
+  ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
+  ()
+
 (* this permission allows to destroy any task, instead of only the owned ones *)
 let extra_permission_task_destroy_any = "task.destroy/any"
 
@@ -3753,7 +3764,7 @@ let task =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
     ~doccomments:[] 
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [ task_create; task_destroy; task_cancel ]
+    ~messages: [ task_create; task_destroy; task_cancel; task_set_status ]
     ~contents: ([
       uid _task;
       namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
