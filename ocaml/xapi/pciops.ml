@@ -25,11 +25,6 @@ let get_free_functions ~__context pci =
 	let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
 	functions - assignments
 
-let unassign_all_for_vm ~__context vm =
-	(* Db.VM.set_attached_PCIs ~__context ~self:vm ~value:[] *)
-	let pcis = Db.VM.get_attached_PCIs ~__context ~self:vm in
-	List.iter (fun self -> Db.PCI.remove_attached_VMs ~__context ~self ~value:vm) pcis
-
 (* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
 (* It might be possible to refactor this but attempts so far have failed. *)
 let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x"
