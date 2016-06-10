@@ -1092,7 +1092,6 @@ let unbind_from_i915 devstr =
 		Forkhelpers.execute_command_get_output !Path.rmmod ["i915"] in ()
 
 let procfs_nvidia = "/proc/driver/nvidia/gpus"
-let bus_id_key = "Bus Location"
 
 let nvidia_smi = "/usr/bin/nvidia-smi"
 
