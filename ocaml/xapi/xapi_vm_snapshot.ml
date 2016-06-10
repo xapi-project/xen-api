@@ -408,6 +408,7 @@ let do_not_copy = [
   Db_names.resident_on;
   Db_names.domid;
   Db_names.protection_policy;
+  Db_names.snapshot_schedule;
   Db_names.scheduled_to_be_resident_on;
   (* Global persistent fields should keep *)
   "snapshots"; "tags"; "affinity";
