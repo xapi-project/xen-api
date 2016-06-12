@@ -102,6 +102,10 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
     Db.VM.remove_from_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type;
     Db.VM.add_to_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type ~value:Xapi_vm_clone.quiesced;
 
+    (* Update is-vmss-snapshot field for snapshot taken from VMSS policy *)
+    if Xapi_vmss.is_vmss_snapshot ~__context then
+      Db.VM.set_is_vmss_snapshot ~__context ~self:snapshot_ref  ~value:true;
+
     snapshot_ref
 
   | "snapshot-error" ->
