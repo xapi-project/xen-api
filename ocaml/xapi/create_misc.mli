@@ -32,7 +32,7 @@ type host_info = {
 val read_dom0_memory_usage : unit -> int64 option
 val read_localhost_info : unit -> host_info
 
-val ensure_domain_zero_records : __context:Context.t -> host_info -> unit
+val ensure_domain_zero_records : __context:Context.t -> host:[`host] Ref.t -> host_info -> unit
 
 val create_root_user : __context:Context.t -> unit
 

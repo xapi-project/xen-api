@@ -133,11 +133,12 @@ let (+++) = Int64.add
 (** This function makes sure there is exactly one record of each type. *)
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
-let rec ensure_domain_zero_records ~__context (host_info: host_info) : unit =
+let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : unit =
 	let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
 	ensure_domain_zero_console_record ~__context ~domain_zero_ref;
 	ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info;
-	ensure_domain_zero_shadow_record ~__context ~domain_zero_ref
+	ensure_domain_zero_shadow_record ~__context ~domain_zero_ref;
+	Db.Host.set_control_domain ~__context ~self:host ~value:domain_zero_ref
 
 and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 	let ref_lookup () = Helpers.get_domain_zero ~__context in

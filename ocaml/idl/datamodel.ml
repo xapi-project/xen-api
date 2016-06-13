@@ -4683,6 +4683,7 @@ let host =
 	field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
 	field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
+	field ~qualifier:DynamicRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~in_product_since:rel_dundee_plus ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
  ])
 	()
 

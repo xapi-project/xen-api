@@ -280,12 +280,12 @@ let update_env __context sync_keys =
     Create_misc.create_host_cpu ~__context;
   );
 
+  let localhost = Helpers.get_localhost ~__context in
+
   switched_sync Xapi_globs.sync_create_domain_zero (fun () ->
     debug "creating domain 0";
-    Create_misc.ensure_domain_zero_records ~__context info;
+    Create_misc.ensure_domain_zero_records ~__context ~host:localhost info;
   );
-
-  let localhost = Helpers.get_localhost ~__context in
 
   switched_sync Xapi_globs.sync_crashdump_resynchronise (fun () ->
     debug "resynchronising host crashdumps";
