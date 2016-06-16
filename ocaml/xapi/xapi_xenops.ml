@@ -358,7 +358,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 				| _, Some value -> Some value
 				| Some value, None -> Some value
 			end;
-			keymap = Some (string vm.API.vM_platform "en-us" "keymap");
+			keymap = begin
+				try Some (List.assoc "keymap" vm.API.vM_platform)
+				with Not_found -> None
+			end;
 			vnc_ip = None (*None PR-1255*);
 			pci_emulations = pci_emulations;
 			pci_passthrough = pci_passthrough;
