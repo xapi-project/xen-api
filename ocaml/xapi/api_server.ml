@@ -84,6 +84,7 @@ module Actions = struct
   module VGPU = Xapi_vgpu
   module VGPU_type = Xapi_vgpu_type
   module PVS_farm = Xapi_pvs_farm
+  module PVS_server = Xapi_pvs_server
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)

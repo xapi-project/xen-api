@@ -3919,5 +3919,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "PVS_farm.remove_cache_storage";
       Local.PVS_farm.remove_cache_storage ~__context ~self ~value
   end
+
+  module PVS_server = struct
+    let introduce ~__context ~addresses ~first_port ~last_port ~farm =
+      info "PVS_server.introduce";
+      Local.PVS_server.introduce ~__context
+        ~addresses ~first_port ~last_port ~farm
+
+    let forget ~__context ~self =
+      info "PVS_server.forget";
+      Local.PVS_server.forget ~__context ~self
+  end
 end
 

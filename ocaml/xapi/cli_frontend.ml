@@ -2649,7 +2649,23 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="forget a PVS farm";
       implementation=No_fd Cli_operations.PVS_farm.forget;
       flags=[];
-    }
+    };
+    "pvs-server-introduce",
+    {
+      reqd=["addresses"; "first-port"; "last-port"; "farm-uuid"];
+      optn=[];
+      help="introduce new PVS server";
+      implementation=No_fd Cli_operations.PVS_server.introduce;
+      flags=[];
+    };
+    "pvs-server-forget",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="forget a PVS server";
+      implementation=No_fd Cli_operations.PVS_server.forget;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

@@ -803,7 +803,8 @@ let gen_cmds rpc session_id =
   (*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
-  (make_param_funs (Client.PVS_farm.get_all) (Client.PVS_farm.get_all_records_where) (Client.PVS_farm.get_by_uuid) (pvs_farm_record) "pvs-farm" [] ["uuid";"name";"cache-storage"] rpc session_id) @
+  (make_param_funs (Client.PVS_farm.get_all) (Client.PVS_farm.get_all_records_where) (Client.PVS_farm.get_by_uuid) (pvs_farm_record) "pvs-farm" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id) @
+  (make_param_funs (Client.PVS_server.get_all) (Client.PVS_server.get_all_records_where) (Client.PVS_server.get_by_uuid) (pvs_server_record) "pvs-server" [] ["uuid"; "addresses"; "farm-uuid"] rpc session_id) @
   []
 
 (* NB, might want to put these back in at some point
@@ -4708,4 +4709,21 @@ module PVS_farm = struct
     let ref   = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid in
     Client.PVS_farm.forget rpc session_id ref
 end
+module PVS_server = struct
+  let introduce printer rpc session_id params =
+    let addresses  = List.assoc "addresses" params   |> String.split ',' in
+    let first_port = List.assoc "first-port" params  |> Int64.of_string in
+    let last_port  = List.assoc "last-port" params   |> Int64.of_string in
+    let farm_uuid  = List.assoc "farm-uuid" params in
+    let farm = Client.PVS_farm.get_by_uuid
+        ~rpc ~session_id ~uuid:farm_uuid in
+    let ref = Client.PVS_server.introduce
+        ~rpc ~session_id ~addresses ~first_port ~last_port ~farm in
+    let uuid = Client.PVS_server.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
 
+  let forget printer rpc session_id params =
+    let uuid  = List.assoc "uuid" params in
+    let ref   = Client.PVS_server.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.PVS_server.forget rpc session_id ref
+end

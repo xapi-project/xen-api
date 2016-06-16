@@ -279,6 +279,7 @@ XAPI_MODULES = $(COMMON) \
 	cluster_stack_constraints \
 	vm_platform \
 	xapi_pvs_farm \
+	xapi_pvs_server \
 
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
 

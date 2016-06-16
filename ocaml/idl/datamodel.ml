@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 101
+let schema_minor_vsn = 102
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -8849,7 +8849,15 @@ module PVS_farm = struct
             ~ignore_foreign_key:true
             "The SR used by PVS proxy for the cache"
 
-  (* add fields servers, proxies once the classes are defined *)
+        ; field   ~qualifier:DynamicRO ~lifecycle
+            ~ty:(Set (Ref _pvs_server)) "servers"
+            "The set of PVS servers in the farm"
+
+  (*
+		; field   ~qualifier:StaticRO ~lifecycle:PVS_farm.lifecycle
+		          ~ty:(refset _pvs_proxy) "proxies"
+		          "The set of proxies associated with the farm"
+		*)
         ]
       ~messages:
         [ introduce
@@ -8861,6 +8869,76 @@ module PVS_farm = struct
       ()
 end
 let pvs_farm = PVS_farm.obj
+
+module PVS_server = struct
+  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"introduce new PVS server"
+      ~result:(Ref _pvs_server, "the new PVS server")
+      ~params:
+        [ Set(String),"addresses","IPv4 addresses of the server"
+        ; Int, "first_port", "first UDP port accepted by this server"
+        ; Int, "last_port", "last UDP port accepted by this server"
+        ; Ref(_pvs_farm), "farm", "PVS farm this server is a part of"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~doc:"forget a PVS server"
+      ~params:
+        [ Ref _self, "self", "this PVS server"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    let null_ref = Some (VRef (Ref.string_of Ref.null)) in
+    let null_int = Some (VInt 0L) in
+    let null_set=  Some (VSet []) in
+    create_obj
+      ~name: _pvs_server
+      ~descr:"individual machine serving provisioning (block) data"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _pvs_server ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Set String) "addresses" ~default_value:null_set
+            "IPv4 addresses of this server"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:Int "first_port" ~default_value:null_int
+            "First UDP port accepted by this server"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:Int "last_port" ~default_value:null_int
+            "Last UDP port accepted by this server"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _pvs_farm) "farm" ~default_value:null_ref
+            "PVS farm this server is part of"
+        ]
+      ~messages:
+        [ introduce
+        ; forget
+        ]
+      ()
+end
+let pvs_server = PVS_server.obj
+
 
 (******************************************************************************************)
 
@@ -8921,6 +8999,7 @@ let all_system =
     vgpu;
     vgpu_type;
     pvs_farm;
+    pvs_server;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -8999,6 +9078,7 @@ let all_relations =
 
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
+    (_pvs_server, "farm"), (_pvs_farm, "servers");
   ]
 
 (** the full api specified here *)
@@ -9083,6 +9163,7 @@ let expose_get_all_messages_for = [
   _vgpu_type;
   _dr_task;
   _pvs_farm;
+  _pvs_server;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
