@@ -1528,19 +1528,17 @@ let cmdline_of_disp info =
 		match x with
 		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
 		| Vgpu [{implementation = GVT_g gvt_g}] ->
-			[
+			let base_opts = [
 				"-xengt";
 				"-vgt_low_gm_sz"; Int64.to_string gvt_g.low_gm_sz;
 				"-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
 				"-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
-			] @ (
-				match gvt_g.monitor_config_file with
-				| Some monitor_config_file ->
-					["-vgt_monitor_config_file"; monitor_config_file]
-				| None -> []
-			) @ [
-				"-priv"
 			]
+			and config_file_opt = match gvt_g.monitor_config_file with
+			| Some path -> ["-vgt_monitor_config_file"; path]
+			| None -> []
+			and priv_opt = ["-priv"] in
+			List.flatten [base_opts; config_file_opt; priv_opt]
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
 		| Std_vga -> ["-std-vga"]
 		| Cirrus -> []
