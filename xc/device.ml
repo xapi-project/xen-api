@@ -1418,7 +1418,7 @@ type disp_intf_opt =
 (* Display output / keyboard input *)
 type disp_opt =
 	| NONE
-	| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
+	| VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
 	| SDL of disp_intf_opt * string (* X11 display *)
 
 type media = Disk | Cdrom
@@ -1551,7 +1551,7 @@ let cmdline_of_disp info =
 			let ip_addr = Opt.default "127.0.0.1" ip_addr_opt
 			and port = if auto then "1" else string_of_int port in
 			["-vnc"; ip_addr ^ ":" ^ port] in
-		let keymap_opt = ["-k"; keymap] in
+		let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
 		List.flatten [unused_opt; vnc_opt; keymap_opt]
 	in
 	let disp_options, wait_for_port =
