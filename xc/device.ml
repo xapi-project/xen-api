@@ -1550,18 +1550,18 @@ let cmdline_of_disp info =
 	let disp_options, wait_for_port =
 		match info.disp with
 		| NONE -> 
-		    ([], false)
-		| SDL (opts,x11name) ->
-		    ( [], false)
+			([], false)
+		| SDL (opts, x11name) ->
+			([], false)
 		| VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
 			let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
-		    let vga_type_opts = vga_type_opts disp_intf in
-		    let vnc_opts = 
-		      if auto
-		      then [ "-vncunused"; "-k"; keymap; "-vnc"; ip_addr ^ ":1" ]
-		      else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
-		    in
-				(vga_type_opts @ videoram_opt @ vnc_opts), true
+			let vga_type_opts = vga_type_opts disp_intf in
+			let vnc_opts =
+				if auto
+				then [ "-vncunused"; "-k"; keymap; "-vnc"; ip_addr ^ ":1" ]
+				else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
+			in
+			(vga_type_opts @ videoram_opt @ vnc_opts), true
 	in
 	disp_options, wait_for_port
 
