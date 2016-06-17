@@ -125,4 +125,5 @@ let write oc x =
   Cstruct.blit_from_string x 0 buf 0 (String.length x);
   oc.Channels.really_write buf
 
-let flush oc = return ()
+let flush oc =
+  return ()
