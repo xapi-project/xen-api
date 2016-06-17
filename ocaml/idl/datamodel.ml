@@ -8890,7 +8890,7 @@ module PVS_server = struct
       ~name:"forget"
       ~doc:"forget a PVS server"
       ~params:
-        [ Ref _self, "self", "this PVS server"
+        [ Ref _pvs_server, "self", "this PVS server"
         ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
