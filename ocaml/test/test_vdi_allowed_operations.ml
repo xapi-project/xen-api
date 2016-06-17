@@ -108,7 +108,7 @@ let test_ca101669 () =
 		`copy (Some (Api_errors.vdi_in_use, []))
 
 let test_ca125187 () =
-	let __context = Mock.make_context_with_new_db "Mock context" in
+	let __context = Test_common.make_test_database () in
 
 	(* A VDI being copied can be copied again concurrently. *)
 	run_assert_equal_with_vdi ~__context
@@ -123,9 +123,8 @@ let test_ca125187 () =
 	 * the VBD is plugged after the VDI is marked with the copy operation. *)
 	let _, _ = setup_test ~__context
 		~vdi_fun:(fun vdi_ref ->
-			let vm_ref = make_vm ~__context () in
-			Db.VM.set_is_control_domain ~__context ~self:vm_ref ~value:true;
-			Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
+            let host_ref = Helpers.get_localhost ~__context in
+            let vm_ref = Db.Host.get_control_domain ~__context ~self:host_ref in
 			let vbd_ref = Ref.make () in
 			let (_: API.ref_VBD) = make_vbd ~__context
 				~ref:vbd_ref
