@@ -1418,7 +1418,7 @@ type disp_intf_opt =
 (* Display output / keyboard input *)
 type disp_opt =
 	| NONE
-	| VNC of disp_intf_opt * string option * bool * int * string (* IP address, auto-allocate, port if previous false, keymap *)
+	| VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
 	| SDL of disp_intf_opt * string (* X11 display *)
 
 type media = Disk | Cdrom
@@ -1528,40 +1528,42 @@ let cmdline_of_disp info =
 		match x with
 		| Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
 		| Vgpu [{implementation = GVT_g gvt_g}] ->
-			[
+			let base_opts = [
 				"-xengt";
 				"-vgt_low_gm_sz"; Int64.to_string gvt_g.low_gm_sz;
 				"-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
 				"-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
-			] @ (
-				match gvt_g.monitor_config_file with
-				| Some monitor_config_file ->
-					["-vgt_monitor_config_file"; monitor_config_file]
-				| None -> []
-			) @ [
-				"-priv"
 			]
+			and config_file_opt = match gvt_g.monitor_config_file with
+			| Some path -> ["-vgt_monitor_config_file"; path]
+			| None -> []
+			and priv_opt = ["-priv"] in
+			List.flatten [base_opts; config_file_opt; priv_opt]
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
 		| Std_vga -> ["-std-vga"]
 		| Cirrus -> []
 		| GVT_d -> ["-std-vga"; "-gfx_passthru"]
 	in
 	let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
+	let vnc_opts_of ip_addr_opt auto port keymap =
+		let unused_opt = if auto then ["-vncunused"] else [] in
+		let vnc_opt =
+			let ip_addr = Opt.default "127.0.0.1" ip_addr_opt
+			and port = if auto then "1" else string_of_int port in
+			["-vnc"; ip_addr ^ ":" ^ port] in
+		let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
+		List.flatten [unused_opt; vnc_opt; keymap_opt]
+	in
 	let disp_options, wait_for_port =
 		match info.disp with
 		| NONE -> 
-		    ([], false)
-		| SDL (opts,x11name) ->
-		    ( [], false)
+			([], false)
+		| SDL (opts, x11name) ->
+			([], false)
 		| VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
-			let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
-		    let vga_type_opts = vga_type_opts disp_intf in
-		    let vnc_opts = 
-		      if auto
-		      then [ "-vncunused"; "-k"; keymap; "-vnc"; ip_addr ^ ":1" ]
-		      else [ "-vnc"; ip_addr ^ ":" ^ (string_of_int port); "-k"; keymap ]
-		    in
-				(vga_type_opts @ videoram_opt @ vnc_opts), true
+			let vga_type_opts = vga_type_opts disp_intf in
+			let vnc_opts = vnc_opts_of ip_addr_opt auto port keymap in
+			(vga_type_opts @ videoram_opt @ vnc_opts), true
 	in
 	disp_options, wait_for_port
 

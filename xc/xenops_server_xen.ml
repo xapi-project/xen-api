@@ -1102,7 +1102,7 @@ module VM = struct
 					?(nics=[]) ?(disks=[]) ?(vgpus=[])
 					?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
-					?(acpi=true) ?(video=Cirrus) ?(keymap="en-us")
+					?(acpi=true) ?(video=Cirrus) ?keymap
 					?vnc_ip ?(pci_passthrough=false) ?(hvm=true) ?(video_mib=4) () =
 				let video = match video, vgpus with
 					| Cirrus, [] -> Device.Dm.Cirrus
