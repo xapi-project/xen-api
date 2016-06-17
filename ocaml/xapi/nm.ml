@@ -178,7 +178,7 @@ let create_bond ~__context bond mtu persistent =
   in
 
   let ports = [port, {interfaces=(List.map (fun (device, _, _) -> device) slave_devices_bridges_and_config);
-                      bond_properties=props; bond_mac=Some mac}] in
+                      bond_properties=props; bond_mac=Some mac; kind=Basic}] in
   cleanup,
   [master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
                                                           persistent_b=persistent}],
