@@ -765,48 +765,48 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 
 
 let gen_cmds rpc session_id =
-  (make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @
-  (make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @
-  (make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @
-  (make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @
-  (make_param_funs (Client.Tunnel.get_all) (Client.Tunnel.get_all_records_where) (Client.Tunnel.get_by_uuid) (tunnel_record) "tunnel" [] ["uuid";"transport-PIF";"access-PIF";"status"] rpc session_id) @
-  (make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
-  (make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
-  (make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
-  (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
-  (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id) @
-  (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id) @
-  (make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
-  (make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
-  (make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
-  (make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
-  (make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
-  (make_param_funs (Client.VBD.get_all) (Client.VBD.get_all_records_where) (Client.VBD.get_by_uuid) (vbd_record) "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id) @
-  (make_param_funs (Client.SR.get_all) (Client.SR.get_all_records_where) (Client.SR.get_by_uuid) (sr_record) "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id) @
-  (make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
-  (make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
-  (make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @
-  (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @
-  (make_param_funs (Client.Role.get_all) (fun ~rpc ~session_id ~expr -> Client.Role.get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions)
-     (Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @
-  (*
-		  (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
-		 *)
-  (make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id) @
-  (make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id) @
-  (make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id) @
-  (make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
-  (make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
-  (make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id) @
-  (make_param_funs (Client.VGPU_type.get_all) (Client.VGPU_type.get_all_records_where) (Client.VGPU_type.get_by_uuid) (vgpu_type_record) "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id) @
-  (make_param_funs (Client.DR_task.get_all) (Client.DR_task.get_all_records_where) (Client.DR_task.get_by_uuid) (dr_task_record) "drtask" [] [] rpc session_id) @
-  (*
-		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
-		 *)
-  (make_param_funs (Client.PVS_farm.get_all) (Client.PVS_farm.get_all_records_where) (Client.PVS_farm.get_by_uuid) (pvs_farm_record) "pvs-farm" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id) @
-  (make_param_funs (Client.PVS_server.get_all) (Client.PVS_server.get_all_records_where) (Client.PVS_server.get_by_uuid) (pvs_server_record) "pvs-server" [] ["uuid"; "addresses"; "farm-uuid"] rpc session_id) @
-  (make_param_funs (Client.PVS_proxy.get_all) (Client.PVS_proxy.get_all_records_where) (Client.PVS_proxy.get_by_uuid) (pvs_proxy_record) "pvs-proxy" [] ["uuid"; "vif-uuid" ;"farm-uuid"; "currently-attached"; "prepopulate"] rpc session_id) @
-  []
+  let mk = make_param_funs in
+  List.concat
+    [ Client.Pool.(mk get_all get_all_records_where get_by_uuid pool_record "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id)
+    ; Client.PIF.(mk get_all get_all_records_where get_by_uuid pif_record "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id)
+    ; Client.Bond.(mk get_all get_all_records_where get_by_uuid bond_record "bond" [] ["uuid";"master";"slaves"] rpc session_id)
+    ; Client.VLAN.(mk get_all get_all_records_where get_by_uuid vlan_record "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id)
+    ; Client.Tunnel.(mk get_all get_all_records_where get_by_uuid tunnel_record "tunnel" [] ["uuid";"transport-PIF";"access-PIF";"status"] rpc session_id)
+    ; Client.VIF.(mk get_all get_all_records_where get_by_uuid vif_record "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)
+    ; Client.Network.(mk get_all get_all_records_where get_by_uuid net_record "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id)
+    ; Client.Console.(mk get_all get_all_records_where get_by_uuid console_record "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id)
+    ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id)
+    ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id)
+    ; Client.VM.(mk get_all get_all_records_where get_by_uuid vm_record "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id)
+    ; Client.Host.(mk get_all get_all_records_where get_by_uuid host_record "host" [] ["uuid";"name-label";"name-description"] rpc session_id)
+    ; Client.Host_cpu.(mk get_all get_all_records_where get_by_uuid host_cpu_record "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id)
+    ; Client.Host_crashdump.(mk get_all get_all_records_where get_by_uuid host_crashdump_record "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id)
+    ; Client.Pool_patch.(mk get_all get_all_records_where get_by_uuid pool_patch_record "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id)
+    ; Client.VDI.(mk get_all get_all_records_where get_by_uuid vdi_record "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id)
+    ; Client.VBD.(mk get_all get_all_records_where get_by_uuid vbd_record "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id)
+    ; Client.SR.(mk get_all get_all_records_where get_by_uuid sr_record "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id)
+    ; Client.SM.(mk get_all get_all_records_where get_by_uuid sm_record "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id)
+    ; Client.PBD.(mk get_all get_all_records_where get_by_uuid pbd_record "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id)
+    ; Client.Task.(mk get_all get_all_records_where get_by_uuid task_record "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id)
+    ; Client.Subject.(mk get_all get_all_records_where get_by_uuid subject_record "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id)
+    ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions)
+                     get_by_uuid role_record "role" [] ["uuid";"name";"description";"subroles"] rpc session_id)
+    (* ; Client.Blob.(mk get_all get_all_records_where get_by_uuid blob_record "blob" [] ["uuid";"mime-type"] rpc session_id)
+       		 *)
+    ; Client.Message.(mk get_all get_all_records_where get_by_uuid message_record "message" [] [] rpc session_id)
+    ; Client.Secret.(mk get_all get_all_records_where get_by_uuid secret_record "secret" [] [] rpc session_id)
+    ; Client.VM_appliance.(mk get_all get_all_records_where get_by_uuid vm_appliance_record "appliance" [] [] rpc session_id)
+    ; Client.PGPU.(mk get_all get_all_records_where get_by_uuid pgpu_record "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id)
+    ; Client.GPU_group.(mk get_all get_all_records_where get_by_uuid gpu_group_record "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
+    ; Client.VGPU.(mk get_all get_all_records_where get_by_uuid vgpu_record "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
+    ; Client.VGPU_type.(mk get_all get_all_records_where get_by_uuid vgpu_type_record "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id)
+    ; Client.DR_task.(mk get_all get_all_records_where get_by_uuid dr_task_record "drtask" [] [] rpc session_id)
+    (*; Client.Alert.(mk get_all get_all_records_where get_by_uuid alert_record "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
+      		 *)
+    ; Client.PVS_farm.(mk get_all get_all_records_where get_by_uuid pvs_farm_record "pvs-farm" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id)
+    ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "farm-uuid"] rpc session_id)
+    ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid" ;"farm-uuid"; "currently-attached"; "prepopulate"] rpc session_id)
+    ]
 
 (* NB, might want to put these back in at some point
  * let zurich_params_gone =
