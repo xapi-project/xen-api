@@ -1738,6 +1738,12 @@ let pvs_farm_record rpc session_id pvs_farm =
           ~get_set:(fun () -> (x ()).API.pVS_farm_servers
                               |> List.map get_uuid_from_ref)
           ()
+      ; make_field ~name:"proxy-uuids"
+          ~get:(fun () -> (x ()).API.pVS_farm_proxies
+                          |> List.map get_uuid_from_ref |> String.concat "; ")
+          ~get_set:(fun () -> (x ()).API.pVS_farm_proxies
+                              |> List.map get_uuid_from_ref)
+          ()
       ]
   }
 
@@ -1763,6 +1769,38 @@ let pvs_server_record rpc session_id pvs_farm =
           ()
       ; make_field ~name:"farm-uuid"
           ~get:(fun () -> (x ()).API.pVS_server_farm |> get_uuid_from_ref)
+          ()
+      ]
+  }
+
+let pvs_proxy_record rpc session_id pvs_farm =
+  let _ref = ref pvs_farm in
+  let empty_record =
+    ToGet (fun () -> Client.PVS_proxy.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r ; record := empty_record)
+  ; setrefrec = (fun (a,b) -> _ref := a; record := Got b)
+  ; record    = x
+  ; getref    = (fun () -> !_ref)
+  ; fields=
+      [ make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.pVS_proxy_uuid)
+          ()
+      ; make_field ~name:"farm-uuid"
+          ~get:(fun () -> (x ()).API.pVS_proxy_farm |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"vif-uuid"
+          ~get:(fun () -> (x ()).API.pVS_proxy_VIF |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"prepopulate"
+          ~get:(fun () -> (x ()).API.pVS_proxy_prepopulate |> string_of_bool)
+          ~set:(fun str -> let value = bool_of_string str in
+                 Client.PVS_proxy.set_prepopulate rpc session_id !_ref value)
+          ()
+      ; make_field ~name:"currently-attached"
+          ~get:(fun () -> (x ()).API.pVS_proxy_currently_attached
+                          |> string_of_bool)
           ()
       ]
   }

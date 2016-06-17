@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 102
+let schema_minor_vsn = 103
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -8853,11 +8853,10 @@ module PVS_farm = struct
             ~ty:(Set (Ref _pvs_server)) "servers"
             "The set of PVS servers in the farm"
 
-  (*
-		; field   ~qualifier:StaticRO ~lifecycle:PVS_farm.lifecycle
-		          ~ty:(refset _pvs_proxy) "proxies"
-		          "The set of proxies associated with the farm"
-		*)
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+            ~ty:(Set (Ref _pvs_proxy)) "proxies"
+            "The set of proxies associated with the farm"
         ]
       ~messages:
         [ introduce
@@ -8939,6 +8938,84 @@ module PVS_server = struct
 end
 let pvs_server = PVS_server.obj
 
+module PVS_proxy = struct
+  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+
+  let create = call
+      ~name:"create"
+      ~doc:"Configure a VM/VIF to use a PVS proxy"
+      ~result:(Ref _pvs_proxy, "the new PVS proxy")
+      ~params:
+        [ Ref _pvs_farm   , "farm","PVS farm that we proxy for"
+        ; Ref _vif        , "vif", "VIF for the VM that needs to be proxied"
+        ; Bool            , "prepopulate", "if true, prefetch whole disk for VM"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"remove (or switch off) a PVS proxy for this VM"
+      ~params:
+        [ Ref _pvs_proxy  , "self", "this PVS proxy"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_prepopulate = call
+      ~name:"set_prepopulate"
+      ~doc:"change the value of the prepopulate field"
+      ~params:
+        [ Ref _pvs_proxy  , "self", "this PVS proxy"
+        ; Bool            , "value", "set to this value"
+        ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    let null_ref  = Some (VRef (Ref.string_of Ref.null)) in
+    let null_bool = Some (VBool false) in
+    create_obj
+      ~name: _pvs_proxy
+      ~descr:"a proxy connects a VM/VIF with a PVS farm"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _pvs_proxy ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _pvs_farm) "farm" ~default_value:null_ref
+            "PVS farm this proxy is part of"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _vif) "VIF" ~default_value:null_ref
+            "VIF of the VM using the proxy"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:Bool "prepopulate" ~default_value:null_bool
+            "true = proxy prefetches whole disk for the VM"
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+            ~ty:Bool "currently_attached" ~default_value:null_bool
+            "true = VM is currently proxied"
+        ]
+      ~messages:
+        [ create
+        ; destroy
+        ; set_prepopulate
+        ]
+      ()
+end
+let pvs_proxy = PVS_proxy.obj
 
 (******************************************************************************************)
 
@@ -9000,6 +9077,7 @@ let all_system =
     vgpu_type;
     pvs_farm;
     pvs_server;
+    pvs_proxy;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -9079,6 +9157,7 @@ let all_relations =
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
     (_pvs_server, "farm"), (_pvs_farm, "servers");
+    (_pvs_proxy,  "farm"), (_pvs_farm, "proxies");
   ]
 
 (** the full api specified here *)
@@ -9164,6 +9243,7 @@ let expose_get_all_messages_for = [
   _dr_task;
   _pvs_farm;
   _pvs_server;
+  _pvs_proxy;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

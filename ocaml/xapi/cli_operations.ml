@@ -805,6 +805,7 @@ let gen_cmds rpc session_id =
 		 *)
   (make_param_funs (Client.PVS_farm.get_all) (Client.PVS_farm.get_all_records_where) (Client.PVS_farm.get_by_uuid) (pvs_farm_record) "pvs-farm" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id) @
   (make_param_funs (Client.PVS_server.get_all) (Client.PVS_server.get_all_records_where) (Client.PVS_server.get_by_uuid) (pvs_server_record) "pvs-server" [] ["uuid"; "addresses"; "farm-uuid"] rpc session_id) @
+  (make_param_funs (Client.PVS_proxy.get_all) (Client.PVS_proxy.get_all_records_where) (Client.PVS_proxy.get_by_uuid) (pvs_proxy_record) "pvs-proxy" [] ["uuid"; "vif-uuid" ;"farm-uuid"; "currently-attached"; "prepopulate"] rpc session_id) @
   []
 
 (* NB, might want to put these back in at some point
@@ -4726,4 +4727,23 @@ module PVS_server = struct
     let uuid  = List.assoc "uuid" params in
     let ref   = Client.PVS_server.get_by_uuid ~rpc ~session_id ~uuid in
     Client.PVS_server.forget rpc session_id ref
+end
+
+module PVS_proxy = struct
+  let create printer rpc session_id params =
+    let farm_uuid  = List.assoc "farm-uuid" params in
+    let farm = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid:farm_uuid in
+    let vif_uuid  = List.assoc "vif-uuid" params in
+    let vif = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid in
+    let prepopulate = List.assoc "prepopulate" params
+                      |> bool_of_string "prepopulate" in
+    let ref = Client.PVS_proxy.create
+        ~rpc ~session_id ~farm ~vif ~prepopulate in
+    let uuid = Client.PVS_proxy.get_uuid rpc session_id ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy printer rpc session_id params =
+    let uuid  = List.assoc "uuid" params in
+    let ref   = Client.PVS_proxy.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.PVS_proxy.destroy rpc session_id ref
 end

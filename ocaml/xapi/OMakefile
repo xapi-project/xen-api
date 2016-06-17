@@ -280,6 +280,7 @@ XAPI_MODULES = $(COMMON) \
 	vm_platform \
 	xapi_pvs_farm \
 	xapi_pvs_server \
+	xapi_pvs_proxy \
 
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))
 

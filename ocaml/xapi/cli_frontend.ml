@@ -2638,7 +2638,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=["name"];
       optn=[];
-      help="introduce new PVS farm";
+      help="Introduce new PVS farm";
       implementation=No_fd Cli_operations.PVS_farm.introduce;
       flags=[];
     };
@@ -2646,7 +2646,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=["uuid"];
       optn=[];
-      help="forget a PVS farm";
+      help="Forget a PVS farm";
       implementation=No_fd Cli_operations.PVS_farm.forget;
       flags=[];
     };
@@ -2654,7 +2654,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=["addresses"; "first-port"; "last-port"; "farm-uuid"];
       optn=[];
-      help="introduce new PVS server";
+      help="Introduce new PVS server";
       implementation=No_fd Cli_operations.PVS_server.introduce;
       flags=[];
     };
@@ -2662,8 +2662,25 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=["uuid"];
       optn=[];
-      help="forget a PVS server";
+      help="Forget a PVS server";
       implementation=No_fd Cli_operations.PVS_server.forget;
+      flags=[];
+    };
+
+    "pvs-proxy-create",
+    {
+      reqd=["farm-uuid"; "vif-uuid"; "prepopulate"];
+      optn=[];
+      help="Configure a VM/VIF to use a PVS proxy";
+      implementation=No_fd Cli_operations.PVS_proxy.create;
+      flags=[];
+    };
+    "pvs-proxy-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Remove (or switch off) a PVS proxy for this VIF/VM";
+      implementation=No_fd Cli_operations.PVS_proxy.destroy;
       flags=[];
     };
   ]
