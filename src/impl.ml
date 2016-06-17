@@ -663,7 +663,7 @@ let make_stream common source relative_to source_format destination_format =
     Raw_input.raw t
   | _, _ -> assert false
 
-let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix = 
+let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites = 
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -697,7 +697,7 @@ let write_stream common s destination source_protocol destination_protocol preze
       Lwt_unix.connect sock sockaddr >>= fun () ->
 
       let open Cohttp in
-      ( if use_ssl then Channels.of_ssl_fd sock else Channels.of_raw_fd sock ) >>= fun c ->
+      ( if use_ssl then Channels.of_ssl_fd sock ssl_legacy good_ciphersuites legacy_ciphersuites else Channels.of_raw_fd sock ) >>= fun c ->
   
       let module Request = Request.Make(Cohttp_unbuffered_io) in
       let module Response = Response.Make(Cohttp_unbuffered_io) in
@@ -782,7 +782,7 @@ let write_stream common s destination source_protocol destination_protocol preze
 
 let stream_t common args ?(progress = no_progress_bar) () =
   make_stream common args.StreamCommon.source args.StreamCommon.relative_to args.StreamCommon.source_format args.StreamCommon.destination_format >>= fun s ->
-  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix
+  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix args.StreamCommon.ssl_legacy args.StreamCommon.good_ciphersuites args.StreamCommon.legacy_ciphersuites
 
 let stream common args =
   try
@@ -874,19 +874,22 @@ let serve_chunked_to_raw _ c dest _ _ _ _ =
     end in
   loop ()
 
-let serve_raw_to_raw common size c dest _ _ _ _ =
+let serve_raw_to_raw common size c dest _ progress _ _ =
   let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
+  let p = progress size in
   let rec loop offset remaining =
     let this = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
     let block = Cstruct.sub buffer 0 this in
     c.Channels.really_read block >>= fun () ->
     Vhd_lwt.IO.really_write dest offset block >>= fun () ->
     let offset = Int64.(add offset (of_int this)) in
-    let remaining = Int64.(sub remaining (of_int this)) in
-    if remaining > 0L
-    then loop offset remaining
-    else return () in
+    let remaining = Int64.(sub remaining (of_int this)) in begin
+      p Int64.(sub size remaining);
+      if remaining > 0L
+      then loop offset remaining
+      else return ()
+    end in
   loop 0L size
 
 let serve common_options source source_fd source_format source_protocol destination destination_fd destination_format destination_size prezeroed progress machine expected_prefix ignore_checksums =

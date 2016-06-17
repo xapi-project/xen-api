@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 59091d3a878b9b72b98c132652e76c6b)
+# DO NOT EDIT (digest: 7b3ae22e92b5db658e74329702f2169f)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -66,11 +66,8 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: pkg_cmdliner
 <src/*.ml{,i,y}>: pkg_cohttp
 <src/*.ml{,i,y}>: pkg_cohttp.lwt
-<src/*.ml{,i,y}>: pkg_io-page.unix
-<src/*.ml{,i,y}>: pkg_lwt
 <src/*.ml{,i,y}>: pkg_lwt.preemptive
 <src/*.ml{,i,y}>: pkg_lwt.syntax
-<src/*.ml{,i,y}>: pkg_lwt.unix
 <src/*.ml{,i,y}>: pkg_nbd
 <src/*.ml{,i,y}>: pkg_nbd.lwt
 <src/*.ml{,i,y}>: pkg_re.str
@@ -78,10 +75,7 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: pkg_sha.sha1
 <src/*.ml{,i,y}>: pkg_tapctl
 <src/*.ml{,i,y}>: pkg_tar
-<src/*.ml{,i,y}>: pkg_threads
 <src/*.ml{,i,y}>: pkg_uri
-<src/*.ml{,i,y}>: pkg_vhd-format
-<src/*.ml{,i,y}>: pkg_vhd-format.lwt
 <src/*.ml{,i,y}>: pkg_xcp
 <src/*.ml{,i,y}>: pkg_xenstore
 <src/*.ml{,i,y}>: pkg_xenstore.client
@@ -114,6 +108,22 @@ true: annot, bin_annot
 "src/sendfile64_stubs.c": pkg_xenstore_transport
 "src/sendfile64_stubs.c": pkg_xenstore_transport.unix
 <src/sparse_dd.{native,byte}>: custom
+# Executable get_vhd_vsize
+<src/get_vhd_vsize.{native,byte}>: pkg_cstruct
+<src/get_vhd_vsize.{native,byte}>: pkg_io-page.unix
+<src/get_vhd_vsize.{native,byte}>: pkg_lwt
+<src/get_vhd_vsize.{native,byte}>: pkg_lwt.unix
+<src/get_vhd_vsize.{native,byte}>: pkg_threads
+<src/get_vhd_vsize.{native,byte}>: pkg_vhd-format
+<src/get_vhd_vsize.{native,byte}>: pkg_vhd-format.lwt
+<src/*.ml{,i,y}>: pkg_cstruct
+<src/*.ml{,i,y}>: pkg_io-page.unix
+<src/*.ml{,i,y}>: pkg_lwt
+<src/*.ml{,i,y}>: pkg_lwt.unix
+<src/*.ml{,i,y}>: pkg_threads
+<src/*.ml{,i,y}>: pkg_vhd-format
+<src/*.ml{,i,y}>: pkg_vhd-format.lwt
+<src/get_vhd_vsize.{native,byte}>: custom
 # OASIS_STOP
 <src/chunked.ml>: syntax_camlp4o, pkg_cstruct.syntax
 <src/input.ml>: syntax_camlp4o, pkg_lwt.syntax
