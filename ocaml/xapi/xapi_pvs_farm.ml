@@ -27,7 +27,23 @@ let introduce ~__context ~name =
   pvs_farm
 
 let forget ~__context ~self =
-  not_implemented "PVS_farm.forget"
+  let open Db_filter_types in
+  (* Check there are no running proxies. *)
+  let running_proxies = Db.PVS_proxy.get_refs_where ~__context
+      ~expr:(And
+               ((Eq (Field "farm", Literal (Ref.string_of self))),
+                (Eq (Field "currently_attached", Literal "true"))))
+  in
+  if running_proxies <> []
+  then raise Api_errors.(Server_error
+                           (pvs_farm_contains_running_proxies,
+                            List.map Ref.string_of running_proxies));
+  (* Check there are no servers. *)
+  let servers = Db.PVS_farm.get_servers ~__context ~self in
+  if servers <> []
+  then raise Api_errors.(Server_error
+                           (pvs_farm_contains_servers, List.map Ref.string_of servers));
+  Db.PVS_farm.destroy ~__context ~self
 
 let set_name ~__context ~self ~value =
   not_implemented "PVS_farm.set_name"

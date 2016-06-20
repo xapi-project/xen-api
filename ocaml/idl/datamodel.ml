@@ -1353,7 +1353,13 @@ let _ =
     ~doc:"There is a minimal interval required between consecutive plugin calls made on the same VM, please wait before retry." ();
 
   error Api_errors.vm_is_immobile ["VM"]
-    ~doc:"The VM is configured in a way that prevents it from being mobile." ()
+    ~doc:"The VM is configured in a way that prevents it from being mobile." ();
+
+  (* PVS errors *)
+  error Api_errors.pvs_farm_contains_running_proxies ["proxies"]
+    ~doc:"The PVS farm contains running proxies and cannot be forgotten." ();
+  error Api_errors.pvs_farm_contains_servers ["servers"]
+    ~doc:"The PVS farm contains servers and cannot be forgotten." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
@@ -8785,6 +8791,10 @@ module PVS_farm = struct
       ~params:
         [ Ref _pvs_farm, "self", "this PVS farm"
         ]
+      ~errs:[
+        Api_errors.pvs_farm_contains_running_proxies;
+        Api_errors.pvs_farm_contains_servers;
+      ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
       ()

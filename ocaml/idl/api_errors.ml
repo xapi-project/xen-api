@@ -519,3 +519,7 @@ let unimplemented_in_sm_backend = "UNIMPLEMENTED_IN_SM_BACKEND"
 let vm_call_plugin_rate_limit = "VM_CALL_PLUGIN_RATE_LIMIT"
 
 let suspend_image_not_accessible = "SUSPEND_IMAGE_NOT_ACCESSIBLE"
+
+(* PVS *)
+let pvs_farm_contains_running_proxies = "PVS_FARM_CONTAINS_RUNNING_PROXIES"
+let pvs_farm_contains_servers = "PVS_FARM_CONTAINS_SERVERS"
