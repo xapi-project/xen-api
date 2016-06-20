@@ -20,7 +20,11 @@ let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
 let introduce ~__context ~name =
-  not_implemented "PVS_farm.introduce"
+  let pvs_farm = Ref.make () in
+  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  Db.PVS_farm.create ~__context
+    ~ref:pvs_farm ~uuid ~name ~cache_storage:[];
+  pvs_farm
 
 let forget ~__context ~self =
   not_implemented "PVS_farm.forget"
