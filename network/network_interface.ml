@@ -87,6 +87,14 @@ let duplex_of_string = function
 	| "half"    -> Duplex_half
 	| _         -> Duplex_unknown
 
+type port_kind =
+	| Basic
+	| PVS_proxy
+
+let string_of_port_kind = function
+	| Basic -> "basic"
+	| PVS_proxy -> "PVS proxy"
+
 type interface_config_t = {
 	ipv4_conf: ipv4;
 	ipv4_gateway: Unix.inet_addr option;
@@ -103,6 +111,7 @@ type port_config_t = {
 	interfaces: iface list;
 	bond_properties: (string * string) list;
 	bond_mac: string option;
+	kind: port_kind;
 }
 type bridge_config_t = {
 	ports: (port * port_config_t) list;
@@ -143,6 +152,7 @@ let default_port = {
 	interfaces = [];
 	bond_properties = [];
 	bond_mac = None;
+	kind = Basic;
 }
 let default_config = {
 	interface_config = [];
@@ -287,7 +297,7 @@ module Bridge = struct
 	external set_persistent : debug_info -> name:bridge -> value:bool -> unit = ""
 	external get_vlan : debug_info -> name:bridge -> (bridge * int) option = ""
 	external add_port : debug_info -> ?bond_mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
-		?bond_properties:(string * string) list -> unit -> unit = ""
+		?bond_properties:(string * string) list -> ?kind:port_kind -> unit -> unit = ""
 	external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
 	external get_interfaces : debug_info -> name:bridge -> iface list = ""
 	external get_fail_mode : debug_info -> name:bridge -> fail_mode option = ""
