@@ -110,6 +110,93 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
                                          ]
                                        end))
 
+module PortCheckers = Generic.Make (struct
+    module Io = struct
+      type input_t = (int * string)
+      type output_t = (exn, unit) Either.t
+
+      let string_of_input_t = Test_printers.(pair int string)
+      let string_of_output_t = Test_printers.(either exn unit)
+    end
+
+    open Api_errors
+    open Either
+
+    let transform (port, name) =
+      try
+        Right (Helpers.assert_is_valid_tcp_udp_port ~port ~name)
+      with e ->
+        Left e
+
+    let tests = [
+      (-22, "myport"),
+      left (Server_error
+              (value_not_supported,
+               ["myport"; "-22"; "Port out of range"]));
+      (0, "myport"),
+      left (Server_error
+              (value_not_supported,
+               ["myport"; "0"; "Port out of range"]));
+      (1, "myport"),
+      Right ();
+      (1234, "myport"),
+      Right ();
+      (65535, "myport"),
+      Right ();
+      (65536, "myport"),
+      left (Server_error
+              (value_not_supported,
+               ["myport"; "65536"; "Port out of range"]));
+      (123456, "myport"),
+      left (Server_error
+              (value_not_supported,
+               ["myport"; "123456"; "Port out of range"]));
+    ]
+  end)
+
+module PortRangeCheckers = Generic.Make (struct
+    module Io = struct
+      type input_t = ((int * string) * (int * string))
+      type output_t = (exn, unit) Either.t
+
+      let string_of_input_t =
+        Test_printers.(pair (pair int string) (pair int string))
+      let string_of_output_t = Test_printers.(either exn unit)
+    end
+
+    open Api_errors
+    open Either
+
+    let transform ((first_port, first_name), (last_port, last_name)) =
+      try
+        Right (Helpers.assert_is_valid_tcp_udp_port_range
+                 ~first_port ~first_name ~last_port ~last_name)
+      with e -> Left e
+
+    let tests = [
+      ((-22, "first_port"), (1234, "last_port")),
+      left (Server_error
+              (value_not_supported,
+               ["first_port"; "-22"; "Port out of range"]));
+      ((1, "first_port"), (1234, "last_port")),
+      Right ();
+      ((1234, "first_port"), (1234, "last_port")),
+      Right ();
+      ((1234, "first_port"), (5678, "last_port")),
+      Right ();
+      ((1234, "first_port"), (65535, "last_port")),
+      Right ();
+      ((1234, "first_port"), (123456, "last_port")),
+      Left (Server_error
+              (value_not_supported,
+               ["last_port"; "123456"; "Port out of range"]));
+      ((5678, "first_port"), (1234, "last_port")),
+      Left (Server_error
+              (value_not_supported,
+               ["last_port"; "1234"; "last_port smaller than first_port"]));
+    ]
+  end)
+
 module IPCheckers = Generic.Make (struct
     module Io = struct
       type input_t = [`ipv4 | `ipv6] * string * string
@@ -202,6 +289,8 @@ let test =
   "test_helpers" >:::
   [
     "test_determine_gateway" >::: DetermineGateway.tests;
+    "test_assert_is_valid_tcp_udp_port" >::: PortCheckers.tests;
+    "test_assert_is_valid_tcp_udp_port_range" >::: PortRangeCheckers.tests;
     "test_assert_is_valid_ip" >::: IPCheckers.tests;
     "test_assert_is_valid_cidr" >::: CIDRCheckers.tests;
   ]
