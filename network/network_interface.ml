@@ -144,10 +144,62 @@ let default_port = {
 	bond_properties = [];
 	bond_mac = None;
 }
+let default_config = {
+	interface_config = [];
+	bridge_config = [];
+	gateway_interface = None;
+	dns_interface = None
+}
+
+(** {2 RPC functions} *)
+
+let interface_config_t_add_defaults rpc =
+	Rpc.struct_extend rpc (rpc_of_interface_config_t default_interface)
+
+let port_config_t_add_defaults rpc =
+	Rpc.struct_extend rpc (rpc_of_port_config_t default_port)
+
+let bridge_config_t_add_defaults rpc =
+	(* This needs some special treatment, because bridge_config_t contains a list of port_config_t records
+	 * that may need to have defaults inserted. Rpc.struct_extend does not currently support this. *)
+	let open Rpc in
+	let rpc' = Rpc.struct_extend rpc (rpc_of_bridge_config_t default_bridge) in
+	match rpc' with
+	| Dict r ->
+		Dict (List.map (fun (k, v) ->
+			match k, v with
+			| "ports", Dict v' ->
+				k, Dict (List.map (fun (name, config) -> name, port_config_t_add_defaults config) v')
+			| x -> x
+		) r)
+	| x -> x
+
+let config_t_add_defaults rpc =
+	(* This needs some special treatment, because config_t contains lists of bridge_config_t and
+	 * interface_config_t records that may need to have defaults inserted. Rpc.struct_extend does
+	 * not currently support this. *)
+	let open Rpc in
+	let rpc' = Rpc.struct_extend rpc (rpc_of_config_t default_config) in
+	match rpc' with
+	| Dict r ->
+		Dict (List.map (fun (k, v) ->
+			match k, v with
+			| "bridge_config", Dict v' ->
+				k, Dict (List.map (fun (name, config) -> name, bridge_config_t_add_defaults config) v')
+			| "interface_config", Dict v' ->
+				k, Dict (List.map (fun (name, config) -> name, interface_config_t_add_defaults config) v')
+			| x -> x
+		) r)
+	| x -> x
+
+let interface_config_t_of_rpc rpc = rpc |> interface_config_t_add_defaults |> interface_config_t_of_rpc
+let port_config_t_of_rpc rpc =      rpc |> port_config_t_add_defaults      |> port_config_t_of_rpc
+let bridge_config_t_of_rpc rpc =    rpc |> bridge_config_t_add_defaults    |> bridge_config_t_of_rpc
+let config_t_of_rpc rpc =           rpc |> config_t_add_defaults           |> config_t_of_rpc
 
 (** {2 Configuration manipulation} *)
 
-let empty_config = {interface_config = []; bridge_config = []; gateway_interface = None; dns_interface = None}
+let empty_config = default_config
 
 let get_config config default name =
 	if List.mem_assoc name config = false then
