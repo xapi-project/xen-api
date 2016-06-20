@@ -1761,6 +1761,10 @@ let pvs_server_record rpc session_id pvs_farm =
       [ make_field ~name:"uuid"
           ~get:(fun () -> (x ()).API.pVS_server_uuid)
           ()
+      ; make_field ~name:"addresses"
+          ~get:(fun () -> String.concat "; " (x ()).API.pVS_server_addresses)
+          ~get_set:(fun () -> (x ()).API.pVS_server_addresses)
+          ()
       ; make_field ~name:"first-port"
           ~get:(fun () -> (x ()).API.pVS_server_first_port |> Int64.to_string)
           ()
