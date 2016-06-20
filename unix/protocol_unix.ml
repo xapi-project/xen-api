@@ -201,7 +201,7 @@ module Client = struct
     | `Error (`Message_switch `Timeout) -> `Error (`Message_switch `Timeout)
     | `Error (`Message_switch (`Queue_deleted name)) -> `Error (`Message_switch (`Queue_deleted name))
 
-  type 'a result = ('a, [ `Message_switch of error]) Result.result
+  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -419,7 +419,7 @@ module Server = struct
     | `Unsuccessful_response
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
