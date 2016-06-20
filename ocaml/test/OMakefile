@@ -65,6 +65,7 @@ OCAML_OBJS = \
 	test_xapi_xenops \
 	test_no_migrate \
 	test_features \
+	test_pvs_farm \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
