@@ -124,6 +124,7 @@ let sr_operation_to_string = function
   | `vdi_resize -> "VDI.resize"
   | `vdi_clone -> "VDI.clone"
   | `vdi_snapshot -> "VDI.snapshot"
+  | `vdi_mirror -> "VDI.mirror"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 

@@ -5541,6 +5541,7 @@ let storage_operations =
 	  "vdi_resize", "Resizing a VDI"; 
 	  "vdi_clone", "Cloneing a VDI"; 
 	  "vdi_snapshot", "Snapshotting a VDI";
+	  "vdi_mirror", "Mirroring a VDI";
 	  "pbd_create", "Creating a PBD for this SR";
 	  "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
