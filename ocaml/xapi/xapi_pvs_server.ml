@@ -19,25 +19,13 @@ open Listext
 
 module D = Debug.Make(struct let name = "xapi_pvs_server" end)
 
-let assert_ports_valid ~first_port ~last_port =
-  let assert_port_valid ~port ~name =
-    if port < 1L || port > 65535L
-    then raise Api_errors.(Server_error (value_not_supported, [
-        name; Int64.to_string port; "Port out of range"
-      ]))
-  in
-  assert_port_valid ~port:first_port ~name:"first_port";
-  assert_port_valid ~port:last_port ~name:"last_port";
-  if last_port < first_port
-  then raise Api_errors.(Server_error (value_not_supported ,[
-      "last_port"; Int64.to_string last_port; "last_port smaller than first_port";
-    ]))
-
 let introduce ~__context ~addresses ~first_port ~last_port ~farm =
   List.iter
     (fun address -> Helpers.assert_is_valid_ip `ipv4 "addresses" address)
     addresses;
-  assert_ports_valid ~first_port ~last_port;
+  Helpers.assert_is_valid_tcp_udp_port_range
+    ~first_port:(Int64.to_int first_port) ~first_name:"first_port"
+    ~last_port:(Int64.to_int last_port) ~last_name:"last_port";
   if not (Db.is_valid_ref __context farm)
   then raise Api_errors.(Server_error (invalid_value ,[
       "farm"; Ref.string_of farm
