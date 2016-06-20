@@ -323,7 +323,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
 	*)
 	let resident_h = (Db.VM.get_resident_on ~__context ~self:v) in
 	let target_uuid = List.hd (List.tl detail) in
-	if get_dom0_vm ~__context target_uuid != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
+	let target_host = Db.Host.get_by_uuid ~__context ~uuid:target_uuid in
+	if Db.Host.get_control_domain ~__context ~self:target_host != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
 	then
 	  (* resident host and migration host are the same. Reject this plan *)
 	  raise (Api_errors.Server_error

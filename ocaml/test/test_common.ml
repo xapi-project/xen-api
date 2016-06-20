@@ -60,7 +60,7 @@ let make_localhost ~__context =
 	   simple thing first and just set localhost_ref instead. *)
 	(* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
 	Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
-	Create_misc.ensure_domain_zero_records ~__context host_info;
+	Create_misc.ensure_domain_zero_records ~__context ~host:!Xapi_globs.localhost_ref host_info;
 	Dbsync_master.create_pool_record ~__context
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)

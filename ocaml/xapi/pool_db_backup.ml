@@ -73,12 +73,8 @@ let prepare_database_for_restore ~old_context ~new_context =
 
 	(* Set the master's dom0 to ours *)
 	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-	begin match List.filter (fun vm -> Helpers.is_domain_zero ~__context:new_context vm)
-		(Db.Host.get_resident_VMs ~__context:new_context ~self:master) with
-			| [ dom0 ] ->
-				Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid
-			| _ -> error "Failed to set master control domain's uuid"
-	end;
+	let dom0 = Db.Host.get_control_domain ~__context:new_context ~self:master in
+	Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid;
 	
 	(* Rewrite this host's PIFs' MAC addresses based on device name. *)
 	

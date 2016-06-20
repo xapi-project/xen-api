@@ -311,10 +311,10 @@ let get_user ~__context username =
     List.hd uuids (* FIXME! it assumes that there is only one element in the list (root), username is not used*)
 
 let is_domain_zero ~__context vm_ref =
+  let host_ref = Db.VM.get_resident_on ~__context ~self:vm_ref in
   Db.VM.get_is_control_domain ~__context ~self:vm_ref
-  && Db.VM.get_domid ~__context ~self:vm_ref = 0L
+  && Db.Host.get_control_domain ~__context ~self:host_ref = vm_ref
 
-(* Expects only 1 domain zero per host; just return first in list for now if multiple.. *)
 exception No_domain_zero of string
 let domain_zero_ref_cache = ref None
 let domain_zero_ref_cache_mutex = Mutex.create ()
