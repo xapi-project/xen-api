@@ -134,11 +134,21 @@ let (+++) = Int64.add
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
 let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : unit =
+	maybe_upgrade_domain_zero_record ~__context ~host host_info;
 	let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
 	ensure_domain_zero_console_record ~__context ~domain_zero_ref;
 	ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info;
-	ensure_domain_zero_shadow_record ~__context ~domain_zero_ref;
-	Db.Host.set_control_domain ~__context ~self:host ~value:domain_zero_ref
+	ensure_domain_zero_shadow_record ~__context ~domain_zero_ref
+
+and maybe_upgrade_domain_zero_record ~__context ~host (host_info: host_info) =
+	try
+		let control_domain = Db.VM.get_by_uuid ~__context ~uuid:host_info.dom0_uuid in
+		if Db.Host.get_control_domain ~__context ~self:host = Ref.null then begin
+			debug "Setting control domain for host %s to %s"
+				(Ref.string_of host) (Ref.string_of control_domain);
+			Db.Host.set_control_domain ~__context ~self:host ~value:control_domain;
+		end
+	with Db_exn.Read_missing_uuid(_) -> ()
 
 and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 	let ref_lookup () = Helpers.get_domain_zero ~__context in
@@ -226,6 +236,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~hardware_platform_version:0L
 		~has_vendor_device:false
 	;
+	Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol =
