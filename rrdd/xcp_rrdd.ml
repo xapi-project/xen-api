@@ -29,7 +29,8 @@
 module D = Debug.Make(struct let name = "rrdd_main" end)
 open D
 
-open Fun
+(*open Fun*)
+open Stdext
 open Pervasiveext
 
 (* A helper method for processing XMLRPC requests. *)

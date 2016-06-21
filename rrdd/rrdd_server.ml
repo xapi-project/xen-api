@@ -15,6 +15,7 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
+open Stdext
 open Fun
 open Listext
 open Pervasiveext

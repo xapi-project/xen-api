@@ -65,6 +65,7 @@ let plus_process_memory_info pmi1 pmi2 = {
 	lib = pmi1.lib + pmi2.lib;
 }
 
+open Stdext
 open Xstringext
 open Threadext
 

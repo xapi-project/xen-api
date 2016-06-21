@@ -1,4 +1,3 @@
-open Listext
 open Ds
 
 open Rrdd_fake_common
@@ -8,7 +7,7 @@ open D
 
 let read_fakestats fname ty =
 	try
-		let file = Unixext.string_of_file fname in
+		let file = Stdext.Unixext.string_of_file fname in
 		let ds_list = fake_ds_list_of_rpc (Jsonrpc.of_string file) in
 		debug "Got %d fake data source(s) from filename %s" (List.length ds_list) fname;
 		List.map (fun fake_ds ->
