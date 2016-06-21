@@ -718,7 +718,66 @@ module Bridge = struct
 			| Bridge -> ()
 		) ()
 
-	let add_port _ dbg ?bond_mac ~bridge ~name ~interfaces ?(bond_properties=[]) () =
+	let add_basic_port dbg bridge name {interfaces; bond_mac; bond_properties} =
+		match !backend_kind with
+		| Openvswitch ->
+			if List.length interfaces = 1 then begin
+				List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
+				ignore (Ovs.create_port (List.hd interfaces) bridge)
+			end else begin
+				if bond_mac = None then
+					warn "No MAC address specified for the bond";
+				ignore (Ovs.create_bond ?mac:bond_mac name interfaces bridge bond_properties);
+				List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
+			end;
+			if List.mem bridge !add_default then begin
+				let mac = match bond_mac with
+					| None -> (try Some (Ip.get_mac name) with _ -> None)
+					| Some mac -> Some mac
+				in
+				match mac with
+				| Some mac ->
+					add_default_flows () dbg bridge mac interfaces;
+					add_default := List.filter ((<>) bridge) !add_default
+				| None ->
+					warn "Could not add default flows for port %s on bridge %s because no MAC address was specified"
+						name bridge
+			end
+		| Bridge ->
+			if List.length interfaces = 1 then
+				List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
+			else begin
+				Linux_bonding.add_bond_master name;
+				let bond_properties =
+					if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
+						List.replace_assoc "mode" "802.3ad" bond_properties
+					else bond_properties
+				in
+				Linux_bonding.set_bond_properties name bond_properties;
+				Linux_bonding.set_bond_slaves name interfaces;
+				begin match bond_mac with
+					| Some mac -> Ip.set_mac name mac
+					| None -> warn "No MAC address specified for the bond"
+				end;
+				Interface.bring_up () dbg ~name
+			end;
+			if need_enic_workaround () then begin
+				debug "Applying enic workaround: adding VLAN0 device to bridge";
+				Ip.create_vlan name 0;
+				let vlan0 = Ip.vlan_name name 0 in
+				Interface.bring_up () dbg ~name:vlan0;
+				ignore (Brctl.create_port bridge vlan0)
+			end else
+				ignore (Brctl.create_port bridge name)
+
+	let add_pvs_proxy_port dbg bridge name port =
+		match !backend_kind with
+		| Openvswitch ->
+			ignore (Ovs.create_port ~internal:true name bridge)
+		| Bridge ->
+			raise Not_implemented
+
+	let add_port _ dbg ?bond_mac ~bridge ~name ~interfaces ?(bond_properties=[]) ?(kind=Basic) () =
 		Debug.with_thread_associated dbg (fun () ->
 			let config = get_config bridge in
 			let ports =
@@ -727,61 +786,17 @@ module Bridge = struct
 				else
 					config.ports
 			in
-			let ports = (name, {interfaces; bond_mac; bond_properties}) :: ports in
+			let port = {interfaces; bond_mac; bond_properties; kind} in
+			let ports = (name, port) :: ports in
 			update_config bridge {config with ports};
-			debug "Adding port %s to bridge %s with interfaces %s%s" name bridge
+			debug "Adding %s port %s to bridge %s with interface(s) %s%s"
+				(string_of_port_kind kind)
+				name bridge
 				(String.concat ", " interfaces)
 				(match bond_mac with Some mac -> " and MAC " ^ mac | None -> "");
-			match !backend_kind with
-			| Openvswitch ->
-				if List.length interfaces = 1 then begin
-					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces;
-					ignore (Ovs.create_port (List.hd interfaces) bridge)
-				end else begin
-					if bond_mac = None then
-						warn "No MAC address specified for the bond";
-					ignore (Ovs.create_bond ?mac:bond_mac name interfaces bridge bond_properties);
-					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
-				end;
-				if List.mem bridge !add_default then begin
-					let mac = match bond_mac with
-						| None -> (try Some (Ip.get_mac name) with _ -> None)
-						| Some mac -> Some mac
-					in
-					match mac with
-					| Some mac ->
-						add_default_flows () dbg bridge mac interfaces;
-						add_default := List.filter ((<>) bridge) !add_default
-					| None ->
-						warn "Could not add default flows for port %s on bridge %s because no MAC address was specified"
-							name bridge
-				end
-			| Bridge ->
-				if List.length interfaces = 1 then
-					List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
-				else begin
-					Linux_bonding.add_bond_master name;
-					let bond_properties =
-						if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
-							List.replace_assoc "mode" "802.3ad" bond_properties
-						else bond_properties
-					in
-					Linux_bonding.set_bond_properties name bond_properties;
-					Linux_bonding.set_bond_slaves name interfaces;
-					begin match bond_mac with
-						| Some mac -> Ip.set_mac name mac
-						| None -> warn "No MAC address specified for the bond"
-					end;
-					Interface.bring_up () dbg ~name
-				end;
-				if need_enic_workaround () then begin
-					debug "Applying enic workaround: adding VLAN0 device to bridge";
-					Ip.create_vlan name 0;
-					let vlan0 = Ip.vlan_name name 0 in
-					Interface.bring_up () dbg ~name:vlan0;
-					ignore (Brctl.create_port bridge vlan0)
-				end else
-					ignore (Brctl.create_port bridge name)
+			match kind with
+			| Basic -> add_basic_port dbg bridge name port
+			| PVS_proxy -> add_pvs_proxy_port dbg bridge name port
 		) ()
 
 	let remove_port _ dbg ~bridge ~name =
