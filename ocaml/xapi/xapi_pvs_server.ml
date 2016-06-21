@@ -26,10 +26,7 @@ let introduce ~__context ~addresses ~first_port ~last_port ~farm =
   Helpers.assert_is_valid_tcp_udp_port_range
     ~first_port:(Int64.to_int first_port) ~first_name:"first_port"
     ~last_port:(Int64.to_int last_port) ~last_name:"last_port";
-  if not (Db.is_valid_ref __context farm)
-  then raise Api_errors.(Server_error (invalid_value ,[
-      "farm"; Ref.string_of farm
-    ]));
+  Helpers.assert_is_valid_ref ~__context ~name:"farm" ~ref:farm;
   let pvs_server = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.PVS_server.create ~__context
