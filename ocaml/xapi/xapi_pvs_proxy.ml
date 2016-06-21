@@ -20,10 +20,24 @@ let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
 let create ~__context ~farm ~vIF ~prepopulate =
-  not_implemented "PVS_proxy.create"
+  Helpers.assert_is_valid_ref ~__context ~name:"farm" ~ref:farm;
+  Helpers.assert_is_valid_ref ~__context ~name:"VIF" ~ref:vIF;
+  let device = Db.VIF.get_device ~__context ~self:vIF in
+  if device <> "0"
+  then raise Api_errors.(Server_error (invalid_device, [device]));
+  let pvs_proxy = Ref.make () in
+  let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  Db.PVS_proxy.create ~__context
+    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate ~currently_attached:false;
+  if Db.VIF.get_currently_attached ~__context ~self:vIF
+  then (); (* TODO: Turn on the proxy. *)
+  pvs_proxy
 
 let destroy ~__context ~self =
-  not_implemented "PVS_proxy.destroy"
+  let vIF = Db.PVS_proxy.get_VIF ~__context ~self in
+  if Db.VIF.get_currently_attached ~__context ~self:vIF
+  then (); (* TODO: Turn off the proxy. *)
+  Db.PVS_proxy.destroy ~__context ~self
 
 let set_prepopulate ~__context ~self ~value =
   not_implemented "PVS_proxy.set_prepopulate"
