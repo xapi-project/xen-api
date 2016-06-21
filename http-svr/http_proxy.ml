@@ -16,6 +16,7 @@ module D=Debug.Make(struct let name="http_proxy" end)
 open D
 
 open Xmlrpc_client
+open Stdext
 open Threadext
 open Pervasiveext
 

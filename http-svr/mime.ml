@@ -13,7 +13,7 @@
  *)
 (* MIME handling for HTTP responses *)
 
-open Xstringext
+open Stdext.Xstringext
 open Printf
 
 (** Map extension to MIME type *)
@@ -22,7 +22,7 @@ type t = (string, string) Hashtbl.t
 (** Parse an Apache-format mime.types file and return mime_t *)
 let mime_of_file file =
     let h = Hashtbl.create 1024 in
-    Unixext.readfile_line (fun line ->
+    Stdext.Unixext.readfile_line (fun line ->
         if not (String.startswith "#" line) then begin
             match String.split_f String.isspace line with
             |[] |[_] -> ()

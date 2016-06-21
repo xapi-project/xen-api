@@ -15,6 +15,7 @@
 (** Path to the sha1sum binary (used in the new import/export code to append checksums *)
 let sha1sum = "/usr/bin/sha1sum"
 
+open Stdext
 open Pervasiveext
 open Xstringext
 

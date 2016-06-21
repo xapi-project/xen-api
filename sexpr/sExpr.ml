@@ -17,7 +17,7 @@ type t =
   | String of string
   | WeirdString of string * string
 
-open Xstringext
+open Stdext.Xstringext
 
 let unescape_buf buf s =
   let aux esc = function

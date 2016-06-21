@@ -31,7 +31,7 @@ let has_fired ~xs x =
 let wait_for ~xs ?(timeout=300.) (x: 'a t) =
   let task = Xs.wait x.evaluate in
   let (p1,p2) = Unix.pipe () in
-  Pervasiveext.finally (fun () -> 
+  Stdext.Pervasiveext.finally (fun () -> 
 	  let thread = Thread.create (fun () ->
 		  let r,_,_ = Unix.select [p1] [] [] timeout in
 		  if List.length r > 0 then () else begin

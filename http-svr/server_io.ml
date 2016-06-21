@@ -13,6 +13,7 @@
  *)
 
 open Unix
+open Stdext
 open Pervasiveext
 open Threadext
 

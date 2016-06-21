@@ -29,6 +29,7 @@
  *
  *)
 
+open Stdext
 open Http
 open Xstringext
 open Pervasiveext
