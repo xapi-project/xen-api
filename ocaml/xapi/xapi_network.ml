@@ -238,7 +238,8 @@ let attach_for_vif ~__context ~vif () =
   register_vif ~__context vif;
   let network = Db.VIF.get_network ~__context ~self:vif in
   attach_internal ~__context ~self:network ();
-  Xapi_udhcpd.maybe_add_lease ~__context vif
+  Xapi_udhcpd.maybe_add_lease ~__context vif;
+  Xapi_pvs_proxy.maybe_start_proxy_for_vif ~__context ~vif
 
 let attach_for_vm ~__context ~host ~vm =
   List.iter
@@ -246,11 +247,15 @@ let attach_for_vm ~__context ~host ~vm =
        attach_for_vif ~__context ~vif ()
     ) (Db.VM.get_VIFs ~__context ~self:vm)
 
+let detach_for_vif ~__context ~vif =
+  deregister_vif ~__context vif;
+  Xapi_pvs_proxy.maybe_stop_proxy_for_vif ~__context ~vif
+
 let detach_for_vm ~__context ~host ~vm =
   try
     List.iter
       (fun vif ->
-         deregister_vif ~__context vif
+         detach_for_vif ~__context ~vif
       ) (Db.VM.get_VIFs ~__context ~self:vm)
   with e ->
     error "Caught %s while detaching networks" (string_of_exn e)

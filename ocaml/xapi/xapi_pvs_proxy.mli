@@ -24,3 +24,5 @@ val set_prepopulate : __context:Context.t ->
   self:API.ref_PVS_proxy ->
   value:bool -> unit
 
+val maybe_start_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit
+val maybe_stop_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit
