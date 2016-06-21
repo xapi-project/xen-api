@@ -919,8 +919,10 @@ module Ovs = struct
 			List.map (fun (n, _) -> n) vlans_on_bridge
 		with _ -> []
 
-	let create_port name bridge =
-		vsctl ~log:true ["--"; "--may-exist"; "add-port"; bridge; name]
+	let create_port ?(internal=false) name bridge =
+		let type_args =
+			if internal then ["--"; "set"; "interface"; name; "type=internal"] else [] in
+		vsctl ~log:true (["--"; "--may-exist"; "add-port"; bridge; name] @ type_args)
 
 	let destroy_port name =
 		vsctl ~log:true ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
