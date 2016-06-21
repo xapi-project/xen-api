@@ -5851,6 +5851,7 @@ let vdi_operations =
 	  "resize", "Resizing the VDI";
 	  "resize_online", "Resizing the VDI which may or may not be online";
 	  "snapshot", "Snapshotting the VDI";
+	  "mirror", "Mirroring the VDI";
 	  "destroy", "Destroying the VDI";
 	  "forget", "Forget about the VDI";
 	  "update", "Refreshing the fields of the VDI";

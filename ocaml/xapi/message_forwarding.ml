@@ -3434,8 +3434,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 							(snapshot, host) in
 					VM.reserve_memory_for_vm ~__context ~vm:vm ~host ~snapshot ~host_op:`vm_migrate
 						(fun () ->
-							do_op_on ~local_fn ~__context ~host
-								(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options)))
+							with_sr_andor_vdi ~__context ~vdi:(vdi, `mirror) ~doc:"VDI.mirror"
+								(fun () ->
+									do_op_on ~local_fn ~__context ~host
+										(fun session_id rpc -> Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options))))
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;

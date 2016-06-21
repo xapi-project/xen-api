@@ -33,7 +33,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
 	(* Policy:
 	   1. any current_operation besides copy implies exclusivity; fail everything
-	      else
+	      else; except vdi mirroring is in current operations and destroy is performed
+	      as part of vdi_pool_migrate.
 	   2. if a copy is ongoing, don't fail with other_operation_in_progress, as
 	      blocked operations could then get stuck behind a long-running copy.
 	      Instead, rely on the blocked_by_attach check further down to decide
@@ -44,7 +45,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 	      has a current_operation itself
 	   5. HA prevents you from deleting statefiles or metadata volumes
 	   *)
-	if List.exists (fun (_, op) -> op <> `copy) current_ops
+	(* Don't fail with other_operation_in_progress if VDI mirroring is in progress
+	 * and destroy is called as part of VDI mirroring *)
+	let is_vdi_mirroring_in_progress = (List.exists (fun (_, op) -> op = `mirror) current_ops) && (op = `destroy) in
+	if (List.exists (fun (_, op) -> op <> `copy) current_ops) && not is_vdi_mirroring_in_progress
 	then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
 	else
 		(* check to see whether it's a local cd drive *)
@@ -96,7 +100,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
 			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
 			let operation_can_be_performed_live = match op with
-			| `snapshot | `resize_online | `blocked | `clone -> true
+			| `snapshot | `resize_online | `blocked | `clone | `mirror -> true
 			| _ -> false in
 
 			let operation_can_be_performed_with_ro_attach =
@@ -186,6 +190,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 					else None
 				| `clone ->
 					if not Smint.(has_capability Vdi_clone sm_features)
+					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+					else None
+				| `mirror ->
+					if not Smint.(has_capability Vdi_mirror sm_features)
 					then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 					else None
 				| _ -> None

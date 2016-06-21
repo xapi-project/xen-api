@@ -106,6 +106,7 @@ let vdi_operation_to_string = function
   | `destroy -> "destroy"
   | `force_unlock -> "force_unlock"
   | `snapshot -> "snapshot"
+  | `mirror -> "mirror"
   | `forget -> "forget"
   | `update -> "update"
   | `generate_config -> "generate_config"
