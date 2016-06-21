@@ -113,7 +113,7 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 	let fold f t init = M.fold f t.map init
 end
 
-open Threadext
+open Stdext.Threadext
 
 module U = UpdateRecorder(struct type t = Interface.Dynamic.id let compare = compare end)
 

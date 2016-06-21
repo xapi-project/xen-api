@@ -1463,7 +1463,7 @@ module VM = struct
 						List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
 						debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
 						List.iter (fun vbds_chunk ->
-							Threadext.thread_iter (fun device ->
+							Stdext.Threadext.thread_iter (fun device ->
 							let backend = Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
 							let dp = Device.Generic.get_private_key ~xs device _dp_id in
 							match backend with
@@ -2685,8 +2685,8 @@ module Actions = struct
 			else begin
 				let devices = IntMap.find domid !device_watches in
 				let devices' = Device_common.list_frontends ~xs domid in
-				let old_devices = Listext.List.set_difference devices devices' in
-				let new_devices = Listext.List.set_difference devices' devices in
+				let old_devices = Stdext.Listext.List.set_difference devices devices' in
+				let new_devices = Stdext.Listext.List.set_difference devices' devices in
 				List.iter (add_device_watch xs) new_devices;
 				List.iter (remove_device_watch xs) old_devices;
 			end in
@@ -2747,7 +2747,7 @@ module Actions = struct
 			RRDD.Plugin.Interdomain.deregister ~uid
 		in
 
-		match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
+		match List.filter (fun x -> x <> "") (Stdext.Xstringext.String.split '/' path) with
 			| "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: key ->
 				debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
 				fire_event_on_device frontend kind devid;
@@ -2765,7 +2765,7 @@ module Actions = struct
 						Printf.sprintf "/local/domain/%s/rrd/%s/protocol" domid name
 					in
 					let grant_refs = xs.Xs.read grant_refs_path
-						|> Xstringext.String.split ','
+						|> Stdext.Xstringext.String.split ','
 						|> List.map int_of_string
 					in
 					let protocol = Rpc.String (xs.Xs.read protocol_path)

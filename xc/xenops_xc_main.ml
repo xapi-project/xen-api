@@ -42,7 +42,7 @@ let check_domain0_uuid () =
 	forget_client ()
 
 let make_var_run_xen () =
-	Unixext.mkdir_rec "/var/run/xen" 0o0755
+	Stdext.Unixext.mkdir_rec "/var/run/xen" 0o0755
 
 (* Start the program with the xen backend *)
 let _ =
