@@ -15,7 +15,7 @@
 	Simulation environment and set of unit tests for the domain memory balancer.
 *)
 
-open Pervasiveext
+(*open Pervasiveext*)
 open Squeeze
 
 (**
@@ -418,7 +418,7 @@ let simulate scenario =
     declare_domain_stuck = (fun domid -> ());
   } in
 
-  finally
+  Stdext.Pervasiveext.finally
     (fun () ->
        (* Phase 1: attempt to free memory *)
        debug "%s: attempting to free %Ld KiB" scenario.name scenario.required_mem_kib;
@@ -449,7 +449,7 @@ let scenario_error_table = ref []
 let run_test scenario = 
 	try
 		simulate scenario;
-		List.iter Unixext.unlink_safe (files_created_by_scenario scenario);
+		List.iter Stdext.Unixext.unlink_safe (files_created_by_scenario scenario);
 		if not scenario.should_succeed then begin
 			failed_scenarios := scenario :: !failed_scenarios;
 			scenario_error_table :=
@@ -467,7 +467,7 @@ let run_test scenario =
 				)
 				:: !scenario_error_table
 		end else begin
-			List.iter Unixext.unlink_safe (files_created_by_scenario scenario);
+			List.iter Stdext.Unixext.unlink_safe (files_created_by_scenario scenario);
 		end
 
 let go () = 

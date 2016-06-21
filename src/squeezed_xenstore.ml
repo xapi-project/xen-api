@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Threadext
 open Xcp_service
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
@@ -46,7 +45,7 @@ let open_client () =
                 raise e
 
 let get_client () =
-	Mutex.execute myclient_m
+	Stdext.Threadext.Mutex.execute myclient_m
 	(fun () ->
 		match !myclient with 
 		| None ->
