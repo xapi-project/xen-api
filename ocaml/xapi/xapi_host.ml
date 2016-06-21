@@ -113,12 +113,19 @@ let assert_bacon_mode ~__context ~host =
 		let vm_data = [selfref; "vm"; Ref.string_of (List.hd guest_vms)] in
 		raise (Api_errors.Server_error (Api_errors.host_in_use, vm_data)));
 	debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
-	let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
-			Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in
-	let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
-			Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
-	if List.length vbds > 0 then
-		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
+	let control_domain_vbds =
+		List.filter (fun vm ->
+				Db.VM.get_resident_on ~__context ~self:vm = host
+				&& Db.VM.get_is_control_domain ~__context ~self:vm
+		) (Db.VM.get_all ~__context)
+		|> List.map (fun self -> Db.VM.get_VBDs ~__context ~self)
+		|> List.flatten
+		|> List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self) in
+	if List.length control_domain_vbds > 0 then
+		raise (Api_errors.Server_error (
+			Api_errors.host_in_use,
+			[ selfref; "vbd"; List.hd (List.map Ref.string_of control_domain_vbds) ]
+		));
 	debug "Bacon test: VBDs OK"
 
 let signal_networking_change ~__context =
@@ -316,7 +323,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
 	*)
 	let resident_h = (Db.VM.get_resident_on ~__context ~self:v) in
 	let target_uuid = List.hd (List.tl detail) in
-	if get_dom0_vm ~__context target_uuid != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
+	let target_host = Db.Host.get_by_uuid ~__context ~uuid:target_uuid in
+	if Db.Host.get_control_domain ~__context ~self:target_host != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
 	then
 	  (* resident host and migration host are the same. Reject this plan *)
 	  raise (Api_errors.Server_error
@@ -610,6 +618,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~guest_VCPUs_params:[]
 	~display:`enabled
 	~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
+	~control_domain:Ref.null
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));

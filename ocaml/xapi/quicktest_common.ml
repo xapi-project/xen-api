@@ -240,3 +240,7 @@ let find_guest_installer_network session_id =
   match List.filter (fun (_, r) -> List.mem_assoc Xapi_globs.is_guest_installer_network r.API.network_other_config) all with
   | (rf, _) :: _ -> rf
   | _ -> failwith "Could not find guest installer network"
+
+(** Return a host's domain zero *)
+let dom0_of_host session_id host =
+  Client.Host.get_control_domain !rpc session_id host

@@ -1096,6 +1096,7 @@ let host_record rpc session_id host =
 			make_field ~name:"virtual-hardware-platform-versions" 
 				~get:(fun () -> String.concat "; " (List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions)) 
 				~get_set:(fun () -> List.map Int64.to_string (x ()).API.host_virtual_hardware_platform_versions) ();
+			make_field ~name:"control-domain-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_control_domain) ();
 		]}
 
 let vdi_record rpc session_id vdi =

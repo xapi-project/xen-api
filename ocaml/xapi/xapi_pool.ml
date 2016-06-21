@@ -854,10 +854,10 @@ let eject ~__context ~host =
 		 * rest of the pool. *)
 		Pool_features.update_pool_features ~__context;
 
-		(* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
+		(* and destroy my control domains, since you can't do this from the API [operation not allowed] *)
 		begin try
-			let my_control_domain = List.find (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
-			Db.VM.destroy ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:my_control_domain.API.vM_uuid)
+			let my_control_domains = List.filter (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
+			List.iter (fun control_domain -> Db.VM.destroy ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:control_domain.API.vM_uuid)) my_control_domains;
 		with _ -> () end;
 		debug "Pool.eject: setting our role to be master";
 		Pool_role.set_role Pool_role.Master;

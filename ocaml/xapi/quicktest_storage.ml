@@ -73,13 +73,6 @@ let choose_active_pbd session_id sr =
   | [] -> failwith (Printf.sprintf "SR %s has no attached PBDs" (Client.SR.get_uuid !rpc session_id sr))
   | x :: _ -> x
 
-(** Return a host's control domain *)
-let control_domain_of_host session_id host = 
-  match List.filter (fun vm -> Client.VM.get_is_control_domain !rpc session_id vm) 
-  (Client.Host.get_resident_VMs !rpc session_id host) with
-  | [] -> failwith (Printf.sprintf "Host %s has no running control domain" (Client.Host.get_uuid !rpc session_id host))
-  | vm :: _ -> vm
-
 (** Scan an SR and return the number of VDIs contained within *)
 let count_vdis session_id sr = 
   Client.SR.scan !rpc session_id sr;
@@ -181,7 +174,7 @@ let vdi_create_destroy_plug_checksize caps session_id sr =
 
     let plug_in_check_size session_id host vdi = 
       let size_should_be = Client.VDI.get_virtual_size !rpc session_id vdi in
-      let dom0 = control_domain_of_host session_id host in
+      let dom0 = dom0_of_host session_id host in
       let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
       Client.VBD.plug !rpc session_id vbd;
       finally

@@ -1101,7 +1101,7 @@ let handler req fd _ =
            			   configure this to prevent the domain ballooning up and allocating more than target_kib
            			   of guest memory on unpause. *)
         let snapshot = { snapshot with API.vM_memory_target = XenopsMemory.bytes_of_kib target_kib } in
-        let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
+        let overhead_bytes = Memory_check.vm_compute_memory_overhead ~__context snapshot in
         let free_memory_required_kib = Int64.add (XenopsMemory.kib_of_bytes_used overhead_bytes) memory_required_kib in
         debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
