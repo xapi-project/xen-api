@@ -3932,9 +3932,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module PVS_proxy = struct
-    let create ~__context ~farm ~vif ~prepopulate =
+    let create ~__context ~farm ~vIF ~prepopulate =
       info "PVS_proxy.create";
-      Local.PVS_proxy.create ~__context ~farm ~vif ~prepopulate
+      Local.PVS_proxy.create ~__context ~farm ~vIF ~prepopulate
 
     let destroy ~__context ~self =
       info "PVS_proxy.destroy";

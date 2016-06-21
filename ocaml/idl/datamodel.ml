@@ -8957,7 +8957,7 @@ module PVS_proxy = struct
       ~result:(Ref _pvs_proxy, "the new PVS proxy")
       ~params:
         [ Ref _pvs_farm   , "farm","PVS farm that we proxy for"
-        ; Ref _vif        , "vif", "VIF for the VM that needs to be proxied"
+        ; Ref _vif        , "VIF", "VIF for the VM that needs to be proxied"
         ; Bool            , "prepopulate", "if true, prefetch whole disk for VM"
         ]
       ~lifecycle

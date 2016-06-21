@@ -14,7 +14,7 @@
 
 val create : __context:Context.t ->
   farm:API.ref_PVS_farm ->
-  vif:API.ref_VIF ->
+  vIF:API.ref_VIF ->
   prepopulate:bool ->
   API.ref_PVS_proxy
 

@@ -19,7 +19,7 @@ module D = Debug.Make(struct let name = "xapi_pvs_proxy" end)
 let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-let create ~__context ~farm ~vif ~prepopulate =
+let create ~__context ~farm ~vIF ~prepopulate =
   not_implemented "PVS_proxy.create"
 
 let destroy ~__context ~self =
