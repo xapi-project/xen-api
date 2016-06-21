@@ -54,6 +54,7 @@ let base_suite =
     Test_xapi_xenops.test;
     Test_no_migrate.test;
     Test_pvs_farm.test;
+    Test_pvs_proxy.test;
     Test_pvs_server.test;
   ]
 

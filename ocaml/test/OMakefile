@@ -66,6 +66,7 @@ OCAML_OBJS = \
 	test_no_migrate \
 	test_features \
 	test_pvs_farm \
+	test_pvs_proxy \
 	test_pvs_server \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
