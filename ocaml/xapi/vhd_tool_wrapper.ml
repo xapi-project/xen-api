@@ -18,8 +18,7 @@
 module D=Debug.Make(struct let name="vhd_tool_wrapper" end)
 open D
 
-open Pervasiveext
-open Xstringext
+open Stdext.Xstringext
 
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."
@@ -35,7 +34,7 @@ let run_vhd_tool progress_cb args s s' path =
   let pipe_read, pipe_write = Unix.pipe () in
   let to_close = ref [ pipe_read; pipe_write ] in
   let close x = if List.mem x !to_close then (Unix.close x; to_close := List.filter (fun y -> y <> x) !to_close) in
-  finally
+  Stdext.Pervasiveext.finally
   (fun () ->
     match with_logfile_fd "vhd-tool"
       (fun log_fd ->
@@ -45,7 +44,7 @@ let run_vhd_tool progress_cb args s s' path =
           try
             let buf = String.make 3 '\000' in
             while true do
-              Unixext.really_read pipe_read buf 0 (String.length buf);
+              Stdext.Unixext.really_read pipe_read buf 0 (String.length buf);
               progress_cb (int_of_string buf)
             done
           with End_of_file -> ()
@@ -81,7 +80,7 @@ let receive progress_cb format protocol (s: Unix.file_descr) (length: int64 opti
              (if prezeroed then [ "--prezeroed" ] else []) in
   run_vhd_tool progress_cb args s s' path
 
-open Fun
+open Stdext.Fun
 
 let startswith prefix x =
         let prefix' = String.length prefix
@@ -131,7 +130,7 @@ let vhd_of_device path =
                 | _ -> 
                         debug "Device %s has an unknown driver" path;
                         None in
-        find_backend_device path |> Opt.default path |> tapdisk_of_path
+        find_backend_device path |> Stdext.Opt.default path |> tapdisk_of_path
 
 let send progress_cb ?relative_to (protocol: string) (dest_format: string) (s: Unix.file_descr) (path: string) (prefix: string) =
   let s' = Uuidm.to_string (Uuidm.create `V4) in

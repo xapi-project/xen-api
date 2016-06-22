@@ -17,9 +17,9 @@
 type t = { 
   r: API.ref_session;
   pool: bool;
-  last_active: Date.iso8601 }
+  last_active: Stdext.Date.iso8601 }
 
-open Threadext
+open Stdext.Threadext
 
 let m = Mutex.create ()
 let table = Hashtbl.create 10
@@ -28,7 +28,7 @@ let get_all ~__context = Mutex.execute m (fun () -> Hashtbl.fold (fun k v acc ->
 
 let create ~__context ~pool = 
   let r = Ref.make () in
-  let session = { r = r; pool = pool; last_active = Date.of_float (Unix.gettimeofday ()) } in
+  let session = { r = r; pool = pool; last_active = Stdext.Date.of_float (Unix.gettimeofday ()) } in
   Mutex.execute m (fun () -> Hashtbl.replace table r session);
   r
 

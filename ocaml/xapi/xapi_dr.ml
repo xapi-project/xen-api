@@ -13,6 +13,7 @@
  *)
 
 open Db_cache_types
+open Stdext
 open Listext
 open Threadext
 

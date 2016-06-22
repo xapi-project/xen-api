@@ -51,7 +51,7 @@ let escape_commas x =
     let rules = [ ',', "\\,"; (* , -> \, *)
 		  '\\', "\\\\" (* \ -> \\ *)
 		] in
-    Xstringext.String.escaped ~rules x
+    Stdext.Xstringext.String.escaped ~rules x
 
 let make_printer sock minimal =
 	let buffer = ref [] in

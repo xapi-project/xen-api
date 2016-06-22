@@ -15,7 +15,7 @@
 module D=Debug.Make(struct let name="v6client" end)
 open D
 
-open Listext
+open Stdext.Listext
 
 exception V6DaemonFailure
 

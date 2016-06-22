@@ -16,13 +16,14 @@
    on a slave -- so don't ever call them on slaves! :) *)
 
 open Db_cache_types
+open Stdext
 
 type indexrec = {
 	name_label:string option; 
 	uuid: string; 
 	_ref:string 
 }
-let string_of (x: indexrec) = 
+let string_of (x: indexrec) =
   Printf.sprintf "%s%s" x.uuid (Opt.default "" (Opt.map (fun name -> Printf.sprintf " (%s)" name) x.name_label))
 
 let lookup key =

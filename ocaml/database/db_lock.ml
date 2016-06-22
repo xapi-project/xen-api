@@ -16,8 +16,8 @@
   module D = Debug.Make(struct let name = "db_lock" end)
   open D
 
-  open Threadext
-  open Pervasiveext
+  open Stdext.Threadext
+  open Stdext.Pervasiveext
 
 (* Withlock takes dbcache_mutex, and ref-counts to allow the same thread to re-enter without blocking as many times
    as it wants. *)
@@ -45,7 +45,7 @@ let with_lock f =
 
       allow_thread_through_dbcache_mutex := Some me;
       thread_reenter_count := 1;
-      Pervasiveext.finally
+      finally
 	f
 	(fun () ->
 	   thread_reenter_count := !thread_reenter_count -1;
@@ -62,7 +62,7 @@ let with_lock f =
 	    if id=me then
 	      begin
 		thread_reenter_count := !thread_reenter_count + 1;
-		Pervasiveext.finally
+		finally
 		  f
 		  (fun () -> thread_reenter_count := !thread_reenter_count - 1)
 	      end

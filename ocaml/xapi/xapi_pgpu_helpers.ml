@@ -14,6 +14,8 @@
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
+open Stdext
+
 let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
 	let supported_VGPU_types =
 		Db.PGPU.get_supported_VGPU_types ~__context ~self

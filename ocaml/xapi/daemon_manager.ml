@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Threadext
+open Stdext.Threadext
 
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
@@ -59,7 +59,7 @@ module Make(D : DAEMON) = struct
 		match D.check with
 		| Pidfile file -> begin
 			try
-				let pid = Unixext.string_of_file file |> String.trim |> int_of_string in
+				let pid = Stdext.Unixext.string_of_file file |> String.trim |> int_of_string in
 				Unix.kill pid 0;
 				true
 			with _ -> false
@@ -93,7 +93,7 @@ module Make(D : DAEMON) = struct
 					| false, _ -> ()
 				end;
 				register_thread_nolock thread_id);
-		Pervasiveext.finally
+		Stdext.Pervasiveext.finally
 			f
 			(* Deregister this thread, and if there are no more threads registered,
 			 * start the daemon if it was running in the first place. *)

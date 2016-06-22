@@ -15,6 +15,7 @@
 (* A simple locked queue implementation where a background thread pulls jobs serially from the queue and executes them.
    Useful for offloading potentially blocking but not critical tasks to background threads (like HA alerts) *)
 
+open Stdext
 open Pervasiveext
 open Threadext
 

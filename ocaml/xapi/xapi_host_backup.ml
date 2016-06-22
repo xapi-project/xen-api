@@ -15,6 +15,7 @@
  * @group Host Management
  *)
 
+open Stdext
 open Http
 open Pervasiveext
 open Forkhelpers

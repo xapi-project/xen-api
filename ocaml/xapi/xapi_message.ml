@@ -28,6 +28,7 @@
  *  /var/lib/xcp/blobs/messages/ref/<message ref> -> message
  *)
 
+open Stdext
 open Listext   
 open Xstringext
 open Threadext

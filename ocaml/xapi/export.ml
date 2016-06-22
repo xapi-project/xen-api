@@ -36,6 +36,7 @@
    to the VBDs, SRs connected to the VDIs (and maybe a suspend image?). *)
 
 open Importexport
+open Stdext
 open Pervasiveext
 
 module D=Debug.Make(struct let name="export" end)

@@ -15,6 +15,7 @@
 open OUnit
 open Test_common
 open Xapi_db_upgrade
+open Stdext
 
 let upgrade_vm_memory_for_dmc () = 
 	let __context = make_test_database () in

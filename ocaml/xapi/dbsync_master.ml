@@ -200,10 +200,10 @@ let ensure_vm_metrics_records_exist __context =
 					   ~vCPUs_CPU:[]
 					   ~vCPUs_params:[]
 					   ~vCPUs_flags:[]
-					   ~start_time:Date.never
-					   ~install_time:Date.never
+					   ~start_time:Stdext.Date.never
+					   ~install_time:Stdext.Date.never
 					   ~state: []
-					   ~last_updated:(Date.of_float 0.)
+					   ~last_updated:(Stdext.Date.of_float 0.)
 					   ~other_config:[];
 				   Db.VM.set_metrics ~__context ~self:vm ~value:m
 				 end

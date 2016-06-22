@@ -14,6 +14,8 @@
 (**
  * @group Virtual-Machine Management
  *)
+
+open Stdext
 open Client
 open Pervasiveext
 open Event_types

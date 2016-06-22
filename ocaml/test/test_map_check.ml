@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Stdext
 open Map_check
 open OUnit
 open Test_common

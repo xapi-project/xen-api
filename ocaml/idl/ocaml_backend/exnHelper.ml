@@ -18,7 +18,6 @@
 open XMLRPC
 open Api_errors
 open Printf
-open Xstringext
 
 module D = Debug.Make(struct let name="backtrace" end)
 open D

@@ -19,6 +19,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Client
+open Stdext
 open Listext
 open Xstringext
 

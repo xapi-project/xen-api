@@ -35,8 +35,8 @@ let ha_supported_srs = "ha_supported_srs"
 let get_supported_srs cluster_stack =
 	let fname = Filename.concat !Xapi_globs.cluster_stack_root cluster_stack in
 	try
-		let open Xstringext.String in
-		Some (Unixext.string_of_file fname |> strip isspace |> split_f isspace)
+		let open Stdext.Xstringext.String in
+		Some (Stdext.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
 	with _ ->
 		None
 
@@ -51,7 +51,7 @@ let call_script ?log_successful_output script args =
 	let script' = Filename.concat path script in
 	let env = [| (Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path) |] in
 	try
-		Threadext.Mutex.execute ha_script_m
+		Stdext.Threadext.Mutex.execute ha_script_m
 			(fun () -> Helpers.call_script ?log_successful_output ~env script' args)
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) ->
 		let code = Xha_errno.of_int n in

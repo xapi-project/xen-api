@@ -17,8 +17,8 @@
 
 open Printf
 open Http
-open Xstringext
-open Pervasiveext
+open Stdext.Xstringext
+open Stdext.Pervasiveext
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -65,7 +65,7 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
     (* file_path is the thing which should be served *)
     let file_path = dir ^ "/" ^ relative_url in
     (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
-    let file_path = Unixext.resolve_dot_and_dotdot file_path in
+    let file_path = Stdext.Unixext.resolve_dot_and_dotdot file_path in
 
     if not(String.startswith dir file_path) then begin 
       debug "Rejecting request for file: %s (outside of directory %s)" file_path dir;
@@ -76,8 +76,9 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
       let file_path = if stat.Unix.st_kind = Unix.S_DIR then file_path ^ "/index.html" else file_path in
       
       let mime_content_type =
-          let ext = Opt.map String.lowercase (get_extension file_path) in
-		  Opt.default application_octet_stream (Opt.map mime_of_extension ext) in
+        let open Stdext.Opt in
+          let ext = map String.lowercase (get_extension file_path) in
+		  default application_octet_stream (map mime_of_extension ext) in
       Http_svr.response_file ~mime_content_type s file_path
     end
   with

@@ -15,6 +15,7 @@
    * @group Host Management
 *)
 
+open Stdext
 open Listext
 open Pervasiveext
 open Xstringext

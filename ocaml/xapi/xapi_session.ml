@@ -20,6 +20,7 @@
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
+open Stdext
 open Threadext
 open Client
 open Auth_signature

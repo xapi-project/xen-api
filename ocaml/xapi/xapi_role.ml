@@ -187,7 +187,7 @@ let get_permissions_common ~__context ~role ~ret_value_fn =
 			(subroles)
 		)
 	in
-	Listext.List.setify (rec_get_permissions_of_role ~__context ~role)
+	Stdext.Listext.List.setify (rec_get_permissions_of_role ~__context ~role)
 
 let get_permissions ~__context ~self =
 	get_permissions_common ~__context ~role:self

@@ -17,6 +17,7 @@ open D
 module L = Debug.Make (struct let name="license" end)
 
 open Db_filter_types
+open Stdext
 open Fun
 open Listext
 open Pervasiveext

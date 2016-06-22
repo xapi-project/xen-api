@@ -16,7 +16,6 @@
  *)
  
 open Db_filter_types
-open Pervasiveext
 open Vm_placement
 
 (* === Snapshot constructors ================================================ *)

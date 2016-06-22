@@ -18,7 +18,6 @@ open D
 open Client
 open Db_filter
 open Record_util
-open Threadext
 open Api_errors
 
 let all_operations = [ `ha_enable; `ha_disable ]

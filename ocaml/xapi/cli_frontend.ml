@@ -21,6 +21,7 @@
 
 open Cli_util
 open Cli_cmdtable
+open Stdext
 open Xstringext
 
 module D = Debug.Make(struct let name = "cli" end)

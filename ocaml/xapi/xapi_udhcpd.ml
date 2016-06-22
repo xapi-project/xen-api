@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Interface to udhcpd *)
-
+open Stdext
 open Xstringext
 
 module D = Debug.Make(struct let name="xapi_udhcpd" end)

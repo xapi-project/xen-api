@@ -7,7 +7,7 @@ type serviceCred = { username:string; password:string}
 type serverInfo = {serverType:serverType; hostname:string; cred:serviceCred}
 type importInfo = { sRuuid:string }
 type jobInfo = {source:serverInfo; sourceVmUUID:string; sourceVmName:string; importInfo:importInfo}
-type dateTime = Date.iso8601
+type dateTime = Stdext.Date.iso8601
 type jobInstance = {
 	id:string; jobName:string; jobDesc:string ; xenServerName:string; 
 	sRName:string; createdTime:dateTime; startTime:dateTime; 
@@ -142,11 +142,11 @@ let serverInfo_of_rpc r =
 			password = get_string_dict r "Password" sn;
 		}
 	}
-let rpc_of_dateTime v = Rpc.DateTime (Date.to_string v)
+let rpc_of_dateTime v = Rpc.DateTime (Stdext.Date.to_string v)
 
 let dateTime_of_rpc r =
 	match r with
-		| Rpc.DateTime v -> Date.of_string v
+		| Rpc.DateTime v -> Stdext.Date.of_string v
 		| x -> rpc_type_error x "DateTime" "DateTime(datetime)"
 
 let rpc_of_importInfo v = Rpc.Dict[ "SRuuid", (Rpc.String v.sRuuid) ]

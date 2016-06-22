@@ -13,6 +13,7 @@
  *)
 
 open OUnit
+open Stdext
 open Test_common
 open Test_highlevel
 

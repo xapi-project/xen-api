@@ -16,6 +16,7 @@
 module D = Debug.Make(struct let name="sync" end)
 open D
 
+open Stdext
 open Threadext
 
 let sync_lock = Mutex.create ()

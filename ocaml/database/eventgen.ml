@@ -33,7 +33,7 @@ let compute_object_references_to_follow (obj_name:string) =
   let obj = List.find (fun obj -> obj.Datamodel_types.name = obj_name) objs in
   let relations = Dm_api.relations_of_api api in
   let symmetric = List.concat (List.map (fun (a, b) -> [ a, b; b, a ]) relations) in
-  let set = Listext.List.setify symmetric in
+  let set = Stdext.Listext.List.setify symmetric in
     List.concat 
       (List.map 
 	 (function { Datamodel_types.ty = Datamodel_types.Ref x;

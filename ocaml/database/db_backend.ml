@@ -14,8 +14,6 @@
 open Db_exn
 open Db_lock
 open Db_cache_types
-open Pervasiveext
-open Threadext
 
 module D = Debug.Make(struct let name = "sql" end)
 open D
@@ -71,6 +69,7 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 let db_registration_mutex = Mutex.create ()
 let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
 
+open Stdext.Threadext
 let create_registered_session create_session db_ref =
 	Mutex.execute db_registration_mutex
 		(fun () ->

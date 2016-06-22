@@ -14,6 +14,7 @@
 (* Tests *)
 
 open Client
+open Stdext
 open Listext 
 open Threadext
 open Xstringext

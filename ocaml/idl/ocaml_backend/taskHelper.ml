@@ -15,6 +15,7 @@ module D = Debug.Make(struct let name = "taskhelper" end)
 open D
 
 (*open API*)
+open Stdext
 open Threadext
 
 type t = API.ref_task

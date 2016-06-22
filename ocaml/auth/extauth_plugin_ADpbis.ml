@@ -30,8 +30,7 @@ struct
 
 let user_friendly_error_msg = "The Active Directory Plug-in could not complete the command. Additional information in the logs."
 
-open Pervasiveext
-open Xstringext
+open Stdext.Xstringext
 
 let splitlines s = String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)
 
@@ -113,7 +112,7 @@ let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:str
     let finalize () =
       List.iter close_fd !fds_to_close;
       List.iter unlink_file !files_to_unlink in
-    let finally_finalize f = finally f finalize in
+    let finally_finalize f = Stdext.Pervasiveext.finally f finalize in
 
     let exited_code = ref 0 in
     let output = ref "" in
@@ -133,7 +132,7 @@ let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:str
         fds_to_close := err_writeme :: !fds_to_close;
 
         let pid = Forkhelpers.safe_close_and_exec (Some in_readme) (Some out_writeme) (Some err_writeme) [] pbis_cmd pbis_args in
-        finally
+        Stdext.Pervasiveext.finally
             (fun () ->
                 debug "Created process pid %s for cmd %s" (Forkhelpers.string_of_pidty pid) debug_cmd;
                 (* Insert this delay to reproduce the cannot write to stdin bug:
@@ -165,7 +164,7 @@ let pbis_common ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:str
                 match Forkhelpers.waitpid pid with
                 | (_, Unix.WEXITED n) ->
                     exited_code := n;
-                    output := (Unixext.string_of_file out_tmpfile) ^ (Unixext.string_of_file err_tmpfile)
+                    output := (Stdext.Unixext.string_of_file out_tmpfile) ^ (Stdext.Unixext.string_of_file err_tmpfile)
                 | _ ->
                     error "PBIS %s exit with WSTOPPED or WSIGNALED" debug_cmd;
                     raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
@@ -251,7 +250,7 @@ let pbis_common_with_cache ?stdin_string:(stdin_string="") (pbis_cmd:string) (pb
             cache_of_pbis_common := !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))];
             result
     in
-    Threadext.Mutex.execute cache_of_pbis_common_m f
+    Stdext.Threadext.Mutex.execute cache_of_pbis_common_m f
 
 let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
@@ -676,7 +675,7 @@ let on_enable config_params =
                 Db.Host.set_external_auth_configuration ~__context ~self:host ~value:extauthconf;
                 debug "added external_auth_configuration for host %s" (Db.Host.get_name_label ~__context ~self:host)
             );
-        Threadext.Mutex.execute cache_of_pbis_common_m (fun _ -> cache_of_pbis_common := []);
+        Stdext.Threadext.Mutex.execute cache_of_pbis_common_m (fun _ -> cache_of_pbis_common := []);
         ensure_pbis_configured ()
 
     with e -> (*ERROR, we didn't join the AD domain*)

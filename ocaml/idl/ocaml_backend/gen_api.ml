@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Listext
+open Stdext.Listext
 open Printf
 
 module DT = Datamodel_types
@@ -130,7 +130,6 @@ let gen_client_types highapi =
 	let all_types = add_set_enums all_types in
 	List.iter (List.iter print)
 		(List.between [""] [
-			[ "open Date" ];
 			[
 				"type failure = (string list) with rpc";
 				"let response_of_failure code params =";
@@ -148,6 +147,7 @@ let gen_client_types highapi =
 				"end";
 			]; [
 				"module Date = struct";
+				"  open Stdext";
 				"  include Date";
 				"  let rpc_of_iso8601 x = DateTime (Date.to_string x)";
 				"  let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";

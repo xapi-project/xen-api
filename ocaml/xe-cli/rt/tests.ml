@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Now for some tests! *)
-   
+open Stdext
 open Cliops
 open Util
 open Log

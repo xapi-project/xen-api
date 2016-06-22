@@ -13,6 +13,7 @@
  *)
 (* String-based interface to the API *)
 
+open Stdext
 open Pervasiveext
 open Client
 open Db_cache (* eek! *)

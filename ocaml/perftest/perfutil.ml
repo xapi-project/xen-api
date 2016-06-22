@@ -14,7 +14,7 @@
 (* Utilities for performance monitor *)
 
 open Client
-open Xstringext
+open Stdext.Xstringext
 
 let rpc xml =
 	let open Xmlrpc_client in

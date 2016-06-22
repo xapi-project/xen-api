@@ -14,6 +14,7 @@
 
 module Rrdd = Rrd_client.Client
 
+open Stdext
 open Fun
 open Listext
 open Threadext

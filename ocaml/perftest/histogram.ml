@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext
+
 open Perfdebug
 open Statistics
 open Graphutil
@@ -52,7 +52,7 @@ let _ =
   let output_files = List.map (fun _ -> Filename.temp_file "histogram" "dat") inputs in
   let all = List.combine inputs output_files in
 
-  finally 
+  Stdext.Pervasiveext.finally 
     (fun () ->
        (* Write some summary statistics on stderr *)
        List.iter 
@@ -106,7 +106,7 @@ let _ =
 	    xrange_max := replace_assoc result (max (List.assoc result !xrange_max) (Hist.find_x cumulative (!max_percentile /. 100.))) !xrange_max;
 
 	    let x = if !integrate then Hist.integrate x else x in
-	    Unixext.with_file output_file [ Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT ] 0o644 (Hist.to_gnuplot x)
+	    Stdext.Unixext.with_file output_file [ Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT ] 0o644 (Hist.to_gnuplot x)
 	 ) all;
 
        let ls = List.map (fun ((info,floats), output) -> { Gnuplot.filename = output; title = short_info_to_title info; graphname = get_result info; field = 2; yaxis=1; scale=1.; style="linespoints" }) all in
@@ -129,5 +129,5 @@ let _ =
 	 | `X11 -> Gnuplot.X11 in
        ignore (Gnuplot.render g output)
 	) (get_result_types inputs)
-    ) (fun () -> List.iter Unixext.unlink_safe output_files)
+    ) (fun () -> List.iter Stdext.Unixext.unlink_safe output_files)
 

@@ -97,12 +97,12 @@ module Chunk = struct
 	(** Reads a type t from a file descriptor *)
 	let unmarshal fd = 
 		let buf = String.make 12 '\000' in
-		Unixext.really_read fd buf 0 (String.length buf);
+		Stdext.Unixext.really_read fd buf 0 (String.length buf);
 		let stream = (buf, 0) in
 		let start, stream = Unmarshal.int64 stream in
 		let len, stream = Unmarshal.int32 stream in
 		let payload = String.make (Int32.to_int len) '\000' in
-		Unixext.really_read fd payload 0 (String.length payload);
+		Stdext.Unixext.really_read fd payload 0 (String.length payload);
 		{ start = start; data = payload }
 
 	(** Writes a type t from a file descriptor *)

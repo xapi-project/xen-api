@@ -18,6 +18,7 @@
 (* The SMAPIv1 plugins are a static set in the filesystem.
    The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
 
+open Stdext
 open Listext
 open Xstringext
 open Threadext

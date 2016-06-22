@@ -17,6 +17,7 @@ open D
 
 type processor = Rpc.call -> Rpc.response
 
+open Stdext
 open Threadext
 open Storage_interface
 

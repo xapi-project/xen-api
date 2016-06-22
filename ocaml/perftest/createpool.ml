@@ -15,6 +15,7 @@
 
 open Client
 open Perfutil
+open Stdext
 open Listext
 open Pervasiveext
 open Xstringext

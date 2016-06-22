@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xstringext
+open Stdext.Xstringext
 
 (* TODO:
    1. Check for overflow in UInt32/UInt64 

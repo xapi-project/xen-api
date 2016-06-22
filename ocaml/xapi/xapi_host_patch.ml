@@ -15,12 +15,6 @@
  * @group Host Management
  *)
  
-open Pervasiveext
-open Xstringext
-open Unixext
-open Http
-open Forkhelpers
-
 module D = Debug.Make(struct let name="xapi" end)
 open D
 

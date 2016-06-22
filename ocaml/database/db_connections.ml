@@ -49,10 +49,10 @@ let exit_on_next_flush = ref false
 let db_flush_thread_refcount_m = Mutex.create()
 let db_flush_thread_refcount = ref 0
 let inc_db_flush_thread_refcount() =
-  Threadext.Mutex.execute db_flush_thread_refcount_m
+  Stdext.Threadext.Mutex.execute db_flush_thread_refcount_m
     (fun () -> db_flush_thread_refcount := !db_flush_thread_refcount + 1)
 let dec_and_read_db_flush_thread_refcount() =
-  Threadext.Mutex.execute db_flush_thread_refcount_m
+  Stdext.Threadext.Mutex.execute db_flush_thread_refcount_m
     (fun () ->
        db_flush_thread_refcount := !db_flush_thread_refcount - 1;
        !db_flush_thread_refcount

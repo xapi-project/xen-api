@@ -13,7 +13,6 @@
  *)
 
 open Rrdd_plugin
-open Threadext
 module D = Debug.Make(struct let name = "xapi_stats" end)
 
 let generate_master_stats ~__context =
@@ -143,7 +142,7 @@ let shared_page_count = 1
 let start () =
 	let __context = Context.make "xapi_stats" in
 	let master = (Pool_role.is_master ()) in
-	Mutex.execute reporter_m
+	Stdext.Threadext.Mutex.execute reporter_m
 		(fun () ->
 			match !reporter_cache with
 			| Some _ -> ()
@@ -160,7 +159,7 @@ let start () =
 				reporter_cache := (Some reporter))
 
 let stop () =
-	Mutex.execute reporter_m
+	Stdext.Threadext.Mutex.execute reporter_m
 		(fun () ->
 			match !reporter_cache with
 			| None -> ()

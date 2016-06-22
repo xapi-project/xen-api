@@ -15,6 +15,7 @@
  * Provide some helpers for XAPI
  *)
 
+open Stdext
 open Xstringext
 open Pervasiveext
 open Threadext

@@ -15,6 +15,7 @@
  * @group Storage
  *)
 
+open Stdext
 open Xstringext
 open Smint
 open Printf

@@ -13,7 +13,7 @@
  *)
 module D=Debug.Make(struct let name="xapi" end)
 open D
-
+open Stdext
 let create ~__context ~name_label ~name_description ~other_config =
 	let group = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in

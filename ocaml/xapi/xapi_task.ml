@@ -15,8 +15,6 @@
  * @group XenAPI functions
  *)
 
-open Threadext
- 
 module D = Debug.Make(struct let name="xapi" end)
 open D
 

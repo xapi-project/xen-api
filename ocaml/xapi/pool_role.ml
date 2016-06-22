@@ -15,6 +15,7 @@
  * @group Pool Management
  *)
 
+open Stdext
 open Xstringext
 open Threadext
 

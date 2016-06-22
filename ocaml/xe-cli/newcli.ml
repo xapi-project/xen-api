@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* New cli talking to the in-server cli interface *)
-open Xstringext
+open Stdext.Xstringext
 open Cli_protocol
 
 (* Param config priorities:
@@ -300,7 +300,7 @@ exception Server_internal_error
 
 let handle_unmarshal_failure ex ifd = match ex with
 	| Unmarshal_failure (e, s) ->
-		let s = s ^ Unixext.try_read_string ifd in
+		let s = s ^ Stdext.Unixext.try_read_string ifd in
 		debug "Read: %s\n" s;
 		if String.length s >= 4 && String.uppercase (String.sub s 0 4) = "HTTP"
 		then raise Server_internal_error
@@ -364,7 +364,7 @@ let main_loop ifd ofd =
             let left = ref length in
             while !left > 0 do
               let n = Unix.read fd buffer 0 (min (String.length buffer) !left) in
-              Unixext.really_write ofd buffer 0 n;
+              Stdext.Unixext.really_write ofd buffer 0 n;
               left := !left - n
             done;
             marshal ofd (Blob End);
@@ -478,7 +478,7 @@ let main_loop ifd ofd =
 		      try
 			      let ic, oc = open_tcp server in
 			      delay := 0.1;
-			      Pervasiveext.finally
+			      Stdext.Pervasiveext.finally
 				      (fun () -> connection ic oc)
 				      (fun () -> try close_in ic with _ -> ())
 		      with
@@ -522,7 +522,7 @@ let main_loop ifd ofd =
               (* Get the result header immediately *)
               match http_response_code resultline with
               | 200 ->
-	              Pervasiveext.finally
+	              Stdext.Pervasiveext.finally
 		              (fun () ->
 			              copy_with_heartbeat file_ch oc heartbeat_fun;
 			              marshal ofd (Response OK))
@@ -569,7 +569,7 @@ let main_loop ifd ofd =
 			                with e -> raise (ClientSideError (Printexc.to_string e))
 	                in
 	                while input_line ic <> "\r" do () done;
-	                Pervasiveext.finally
+	                Stdext.Pervasiveext.finally
 		                (fun ()  ->
 			                copy_with_heartbeat ic file_ch heartbeat_fun;
 			                marshal ofd (Response OK))
@@ -669,7 +669,7 @@ let main () =
       error "Stunnel process %d %s.\n" i
         (match e with
          | Unix.WEXITED c -> "existed with exit code " ^ string_of_int c
-         | Unix.WSIGNALED c -> "killed by signal " ^ (Unixext.string_of_signal c)
+         | Unix.WSIGNALED c -> "killed by signal " ^ (Stdext.Unixext.string_of_signal c)
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
   | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
@@ -691,7 +691,7 @@ let main () =
       close_out ch;
       if !exit_status <> 0 then begin
         output_string stderr "\nDebug info:\n\n";
-        output_string stderr (Unixext.string_of_file f)
+        output_string stderr (Stdext.Unixext.string_of_file f)
       end;
       try Unix.unlink f with _ -> ()
     end

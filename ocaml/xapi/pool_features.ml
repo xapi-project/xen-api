@@ -25,7 +25,7 @@ let new_restrictions params =
 	List.map (fun (k, v) -> k) kvs
 
 let pool_features_of_list hosts =
-	List.fold_left Listext.List.intersect all_features hosts
+	List.fold_left Stdext.Listext.List.intersect all_features hosts
 
 let get_pool_features ~__context =
 	let pool = Helpers.get_pool ~__context in

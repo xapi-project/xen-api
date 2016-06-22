@@ -15,7 +15,7 @@
 module D = Debug.Make(struct let name="backgroundscheduler" end)
 open D
 
-open Threadext 
+open Stdext.Threadext 
 
 type func_ty = OneShot | Periodic of float
 

@@ -14,7 +14,8 @@
 (**
  * @group Command-Line Interface (CLI)
  *)
- 
+
+open Stdext
 open Pervasiveext
 open Listext
 open Xstringext

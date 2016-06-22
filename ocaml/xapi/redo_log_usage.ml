@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext (* for ignore_exn *)
-
 module R = Debug.Make(struct let name = "redo_log" end)
 
 exception NoGeneration
@@ -31,11 +29,11 @@ let read_from_redo_log log staging_path db_ref =
     let read_db gen_count fd expected_length latest_response_time =
       (* Read the database from the fd into a file *)
       let temp_file = Filename.temp_file "from-vdi" ".db" in
-      finally
+	Stdext.Pervasiveext.finally
         (fun () ->
           let outfd = Unix.openfile temp_file [Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC] 0o755 in
           (* ideally, the reading would also respect the latest_response_time *)
-          let total_read = Unixext.read_data_in_chunks (fun str length -> Unixext.time_limited_write outfd length str latest_response_time) fd in
+          let total_read = Stdext.Unixext.read_data_in_chunks (fun str length -> Stdext.Unixext.time_limited_write outfd length str latest_response_time) fd in
           R.debug "Reading database from fd into file %s" temp_file;
 
           (* Check that we read the expected amount of data *)
@@ -55,7 +53,7 @@ let read_from_redo_log log staging_path db_ref =
         )
         (fun () ->
           (* Remove the temporary file *)
-          Unixext.unlink_safe temp_file
+          Stdext.Unixext.unlink_safe temp_file
         )
     in
 
@@ -83,7 +81,7 @@ let read_from_redo_log log staging_path db_ref =
      *   danger of conflicting writes. *)
     R.debug "Staging redo log to file %s" staging_path;
     (* Remove any existing file *)
-    Unixext.unlink_safe staging_path;
+    Stdext.Unixext.unlink_safe staging_path;
     begin
       match !latest_generation with
       | None ->
@@ -96,7 +94,7 @@ let read_from_redo_log log staging_path db_ref =
         Db_ref.update_database db_ref (Db_cache_types.Database.set_generation generation);
         let db = Db_ref.get_database db_ref in
         Db_xml.To.file staging_path db;
-        Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
+        Stdext.Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
     end
   with _ -> () (* it's just a best effort. if we can't read from the log, then don't worry. *)
 

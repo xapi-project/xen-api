@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext
 
 module D=Debug.Make(struct let name="dbsync" end)
 open D
@@ -94,7 +93,7 @@ let cancelled_m = Mutex.create ()
 (** Mark tasks that are pending or cancelling on this host as cancelled *)
 (** This function is called by master on behalf of slave, when slave sends a "Pool.hello" msg on reconnect *)
 let cancel_tasks_on_host ~__context ~host_opt =
-  Threadext.Mutex.execute cancelled_m
+  Stdext.Threadext.Mutex.execute cancelled_m
     (fun () ->
        (* Block Pool.hello on behalf of slaves until the master has finished the initial resync *)
        if host_opt = None (* initial sync, not Pool.hello *)
@@ -136,7 +135,8 @@ let cancel_tasks_on_host ~__context ~host_opt =
        List.iter (safe_wrapper "vdis" (fun self -> Xapi_vdi.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_vdis;
        List.iter (safe_wrapper "sr" (fun self -> Xapi_sr_operations.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_srs;
        List.iter (safe_wrapper "host" (fun self -> Xapi_host_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) all_hosts;
-       
+
+       let open Stdext.Pervasiveext in
        let hosts = default (Db.Host.get_all ~__context) (may (fun x -> [x]) host_opt) in
        List.iter (safe_wrapper "host_helpers - cancel tasks" (fun self -> Xapi_host_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) hosts;
        List.iter (safe_wrapper "host_helpers - allowed ops" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) hosts;

@@ -14,6 +14,7 @@
 module D=Debug.Make(struct let name="vgpuops" end)
 open D
 
+open Stdext
 open Listext
 open Xstringext
 

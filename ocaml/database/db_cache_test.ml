@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Pervasiveext
 open Db_cache_types
+open Stdext.Fun
 
 let create_test_db () =
   let schema = Test_schemas.many_to_many in

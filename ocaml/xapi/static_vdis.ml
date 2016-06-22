@@ -18,6 +18,7 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
+open Stdext
 open Xstringext
 open Pervasiveext
 include Static_vdis_list (* include the vdi type and the list() function *)

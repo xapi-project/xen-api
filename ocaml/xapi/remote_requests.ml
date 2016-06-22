@@ -31,6 +31,7 @@
   killed, to make cleanup quicker (i.e. to avoid waiting for the TCP timeout).
 *)
 
+open Stdext
 open Printf
 open Threadext
 

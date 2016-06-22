@@ -24,6 +24,7 @@
  *  Include other modules here.
  * -----------------------------------------------------------------------------
  *)
+open Stdext
 open Pervasiveext
 open Printf
 

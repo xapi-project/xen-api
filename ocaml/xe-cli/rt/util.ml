@@ -13,7 +13,7 @@
  *)
 (* Utility functions *)
 
-open Pervasiveext
+open Stdext.Pervasiveext
 
 type t_cli = ?dolog:bool -> string -> (string * string)list -> string list * Unix.process_status
 

@@ -35,7 +35,7 @@ type redo_log = {
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
 	pid: (Forkhelpers.pidty * string * string) option ref;
-	dying_processes_mutex: Threadext.Mutex.t;
+	dying_processes_mutex: Mutex.t;
 	num_dying_processes: int ref;
 }
 

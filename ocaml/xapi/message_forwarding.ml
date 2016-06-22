@@ -15,6 +15,7 @@
  * @group API Messaging
  *)
 
+open Stdext
 open Threadext
 open Pervasiveext
 open Listext

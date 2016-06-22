@@ -13,7 +13,7 @@
  *)
 
 open Printf
-open Listext
+open Stdext.Listext
 
 open Datamodel
 open Datamodel_utils

@@ -14,7 +14,8 @@
 (** Module that defines API functions for VBD objects
  * @group XenAPI functions
  *)
- 
+
+open Stdext
 open Xstringext
 open Xapi_vbd_helpers
 open Vbdops

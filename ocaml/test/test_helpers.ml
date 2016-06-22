@@ -15,6 +15,7 @@
 open OUnit
 open Test_common
 open Test_highlevel
+open Stdext
 
 type pif = {device: string; management: bool; other_config: (string * string) list}
 
@@ -54,13 +55,13 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
 		) pifs
 			
 	let extract_output __context (_, mgmt) =
-		let management_interface = Opt.map (fun device ->
+		let management_interface = Stdext.Opt.map (fun device ->
 			let open Db_filter_types in
 			let pifs = Db.PIF.get_refs_where ~__context ~expr:(Eq (Field "device", Literal device)) in
 			List.hd pifs
 		) mgmt in
 		let gateway, dns = Helpers.determine_gateway_and_dns_ifs ~__context ?management_interface () in
-		let get_device = Opt.map (fun (self, _) -> Db.PIF.get_device ~__context ~self) in
+		let get_device = Stdext.Opt.map (fun (self, _) -> Db.PIF.get_device ~__context ~self) in
 		get_device gateway,
 		get_device dns
 		

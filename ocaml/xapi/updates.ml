@@ -1,8 +1,6 @@
 (******************************************************************************)
 (* Object update tracking                                                     *)
 
-open Fun
-open Pervasiveext
 
 module type INTERFACE = sig
 	val service_name : string
@@ -22,7 +20,7 @@ open D
 module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
 module Scheduler = struct
-	open Threadext
+	open Stdext.Threadext
 	type item = {
 		id: int;
 		name: string;
@@ -198,7 +196,7 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 	let fold f t init = M.fold f t.map init
 end
 
-open Threadext
+open Stdext.Threadext
 
 module U = UpdateRecorder(struct type t = Interface.Dynamic.id let compare = compare end)
 
@@ -241,7 +239,7 @@ let t_of_rpc rpc =
 }
 	
 let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
-	let from = Opt.default U.initial from in
+	let from = Stdext.Opt.default U.initial from in
 	let cancel = ref false in
 	let cancel_fn () =
 		debug "Cancelling: Update.get";
@@ -251,11 +249,11 @@ let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 				Condition.broadcast t.c
 			)  
 	in
-	let id = Opt.map (fun timeout ->
+	let id = Stdext.Opt.map (fun timeout ->
 		Scheduler.one_shot (Scheduler.Delta timeout) dbg cancel_fn
 	) timeout in
 	with_cancel cancel_fn (fun () -> 
-		finally (fun () ->
+		Stdext.Pervasiveext.finally (fun () ->
 			Mutex.execute t.m (fun () ->
 				let is_empty (x,y,_) = x=[] && y=[] in
 
@@ -267,7 +265,7 @@ let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 				in
 				wait ()
 			)
-		) (fun () -> Opt.iter Scheduler.cancel id))
+		) (fun () -> Stdext.Opt.iter Scheduler.cancel id))
 
 let last_id dbg t =
 	Mutex.execute t.m

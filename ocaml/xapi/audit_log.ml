@@ -14,6 +14,7 @@
 module D = Debug.Make(struct let name="audit_log" end)
 open D
 
+open Stdext
 open Http
 open Xstringext
 open Pervasiveext

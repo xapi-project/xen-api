@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xstringext
+
+open Stdext.Xstringext
 open Datamodel_types
 open Printf
 

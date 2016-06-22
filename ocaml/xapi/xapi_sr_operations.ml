@@ -16,6 +16,7 @@
  *)
  
 open Printf
+open Stdext
 open Threadext
 open Pervasiveext
 open Listext

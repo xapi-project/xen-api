@@ -20,6 +20,7 @@
     co-ordinate tapdisk locking. We have not got code for this.
 *)
 
+open Stdext
 open Pervasiveext
 open Printf
 open Threadext

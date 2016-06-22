@@ -23,7 +23,7 @@ let test_mock_db () =
 	let blob_ref = Ref.make () in
 	Db.Blob.create __context blob_ref
 		(Uuid.to_string (Uuid.make_uuid ()))
-		"BLOB" "" 5L true (Date.of_float 0.0) "" ;
+		"BLOB" "" 5L true (Stdext.Date.of_float 0.0) "" ;
 	ignore (Db.Blob.get_record ~__context ~self:blob_ref) ;
 	ignore (Db.VM.get_all_records ~__context) ;
 	let blob_name = Db.Blob.get_name_label ~__context ~self:blob_ref in

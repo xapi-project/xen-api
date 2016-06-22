@@ -17,6 +17,7 @@
 module Rrdd = Rrd_client.Client
 
 open Printf
+open Stdext
 open Threadext
 open Pervasiveext
 open Listext

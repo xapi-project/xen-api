@@ -13,7 +13,8 @@
  *)
 (** Time activities, monitor the mean and standard deviation. Try to help understand how
     long key operations take under load. *)
-
+open Stdext
+    
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
   type t = { sigma_x: float;

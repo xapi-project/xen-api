@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Threadext
+open Stdext.Threadext
 
 (* A cache mapping PIF names to PIF structures. *)
 let pifs_cached_m : Mutex.t = Mutex.create ()
