@@ -1,7 +1,14 @@
-opam-version: "1"
+opam-version: "1.2"
 maintainer: "jonathan.ludlam@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/tapctl/issues"
+dev-repo: "git://github.com/xapi-project/tapctl.git"
 build: [
+  ["oasis" "setup"]
   [make]
+]
+install: [
   [make "install" "BINDIR=%{bin}%"]
 ]
 remove: [
@@ -10,6 +17,7 @@ remove: [
 ]
 depends: [
   "ocamlfind"
-  "xapi-stdext"
+  "xapi-stdext" {>= "2.0.0"}
   "xapi-forkexecd"
+  "oasis" {build}
 ] 
