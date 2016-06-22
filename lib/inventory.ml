@@ -13,6 +13,7 @@
  *)
 (* Code to parse the XenSource inventory file *)
 
+open Stdext
 open Pervasiveext
 open Xstringext
 open Threadext
