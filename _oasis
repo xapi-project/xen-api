@@ -14,6 +14,6 @@ Library stdext
   Pack: true
   Modules: Arrayext, Base64, Bigbuffer, Config, Date, Either, Encodings, ExtentlistSet, Filenameext, Fring, Fun, Hashtblext, Int64ext, LazyList, Listext, Mapext, Monad, Opt, Pervasiveext, Qring, Range, Ring, Xstringext, Threadext, Trie, Unixext, VIO, Zerocheck
   CSources: blkgetsize_stubs.c, unixext_open_stubs.c, unixext_stubs.c, unixext_write_stubs.c, zerocheck_stub.c
-  BuildDepends: threads, uuidm, unix, fd-send-recv, bigarray, sexplib, sexplib.syntax, xapi-backtrace
+  BuildDepends: threads, uuidm, unix, fd-send-recv, bigarray, xapi-backtrace
 
 
