@@ -71,7 +71,8 @@ let create ~__context ~farm ~vIF ~prepopulate =
   let pvs_proxy = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.PVS_proxy.create ~__context
-    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate ~currently_attached:false;
+    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate 
+    ~currently_attached:false ~cache_SR:Ref.null;
   if Db.VIF.get_currently_attached ~__context ~self:vIF then
     start ~__context vIF pvs_proxy;
   pvs_proxy

@@ -523,3 +523,8 @@ let suspend_image_not_accessible = "SUSPEND_IMAGE_NOT_ACCESSIBLE"
 (* PVS *)
 let pvs_farm_contains_running_proxies = "PVS_FARM_CONTAINS_RUNNING_PROXIES"
 let pvs_farm_contains_servers = "PVS_FARM_CONTAINS_SERVERS"
+let pvs_farm_sr_already_added = "PVS_FARM_SR_ALREADY_ADDED"
+let pvs_farm_sr_is_in_use = "PVS_FARM_SR_IS_IN_USE"
+let sr_not_in_pvs_farm = "SR_NOT_IN_PVS_FARM"
+
+

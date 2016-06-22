@@ -67,6 +67,100 @@ let test_forget_running_proxy_and_server () =
     ~args:[Ref.string_of pvs_proxy]
     (fun () -> Xapi_pvs_farm.forget ~__context ~self:pvs_farm)
 
+let test_add_local_sr () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let farm      = XF.introduce ~__context ~name in
+  let sr1       = make_sr ~__context ~shared:false () in
+  let sr2       = make_sr ~__context ~shared:false () in
+  let cache ()  = DF.get_cache_storage ~__context ~self:farm in
+  ( XF.add_cache_storage ~__context ~self:farm ~value:sr1
+  ; XF.add_cache_storage ~__context ~self:farm ~value:sr2
+  ; assert_equal true (List.mem sr1 @@ cache ())
+  ; assert_equal true (List.mem sr2 @@ cache ())
+  ; assert_raises_api_error Api_errors.pvs_farm_sr_already_added
+      (fun () -> XF.add_cache_storage ~__context ~self:farm ~value:sr1)
+  ; assert_raises_api_error Api_errors.pvs_farm_sr_already_added
+      (fun () -> XF.add_cache_storage ~__context ~self:farm ~value:sr2)
+  )
+
+let test_add_shared_sr () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let farm      = XF.introduce ~__context ~name in
+  let sr1       = make_sr ~__context ~shared:true () in
+  let cache ()  = DF.get_cache_storage ~__context ~self:farm in
+  ( XF.add_cache_storage ~__context ~self:farm ~value:sr1
+  ; assert_equal true (List.mem sr1 @@ cache ())
+  ; assert_raises_api_error Api_errors.pvs_farm_sr_already_added
+      (fun () -> XF.add_cache_storage ~__context ~self:farm ~value:sr1)
+  )
+
+let test_add_mixed_sr () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let farm      = XF.introduce ~__context ~name in
+  let cache ()  = DF.get_cache_storage ~__context ~self:farm in
+  let sr1       = make_sr ~__context ~shared:true  () in
+  let sr2       = make_sr ~__context ~shared:false () in
+  ( XF.add_cache_storage ~__context ~self:farm ~value:sr1
+  ; XF.add_cache_storage ~__context ~self:farm ~value:sr2
+  ; assert_equal true (List.mem sr1 @@ cache ())
+  ; assert_equal true (List.mem sr2 @@ cache ())
+  ; assert_raises_api_error Api_errors.pvs_farm_sr_already_added
+      (fun () -> XF.add_cache_storage ~__context ~self:farm ~value:sr1)
+  ; assert_raises_api_error Api_errors.pvs_farm_sr_already_added
+      (fun () -> XF.add_cache_storage ~__context ~self:farm ~value:sr2)
+  )
+
+let test_remove_local_sr () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let farm      = XF.introduce ~__context ~name in
+  let sr1       = make_sr ~__context ~shared:false () in
+  let sr2       = make_sr ~__context ~shared:false () in
+  let sr3       = make_sr ~__context ~shared:false () in
+  let cache ()  = DF.get_cache_storage ~__context ~self:farm in
+  ( XF.add_cache_storage ~__context ~self:farm ~value:sr1
+  ; XF.add_cache_storage ~__context ~self:farm ~value:sr2
+  ; assert_equal true  (List.mem sr1 @@ cache ())
+  ; assert_equal true  (List.mem sr2 @@ cache ())
+  ; assert_equal false (List.mem sr3 @@ cache ())
+  ; assert_raises_api_error Api_errors.sr_not_in_pvs_farm
+      (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr3)
+  ; XF.remove_cache_storage ~__context ~self:farm ~value:sr1
+  ; assert_equal true (List.mem sr2 @@ cache ())
+  ; XF.remove_cache_storage ~__context ~self:farm ~value:sr2
+  ; assert_equal [] (cache ())
+  ; assert_raises_api_error Api_errors.sr_not_in_pvs_farm
+      (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr2)
+  ; assert_raises_api_error Api_errors.sr_not_in_pvs_farm
+      (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr1)
+  )
+
+let test_remove_shared_sr () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let farm      = XF.introduce ~__context ~name in
+  let sr1       = make_sr ~__context ~shared:true () in
+  let sr2       = make_sr ~__context ~shared:true () in
+  let cache ()  = DF.get_cache_storage ~__context ~self:farm in
+  ( XF.add_cache_storage ~__context ~self:farm ~value:sr1
+  ; assert_equal true (List.mem sr1 @@ cache ())
+  ; assert_raises_api_error Api_errors.sr_not_in_pvs_farm
+      (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr2)
+  ; XF.remove_cache_storage ~__context ~self:farm ~value:sr1
+  ; assert_equal [] (cache ())
+  ; assert_raises_api_error Api_errors.sr_not_in_pvs_farm
+      (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr1)
+  )
+
+
 let test =
   "test_pvs_farm" >:::
   [
@@ -77,4 +171,11 @@ let test =
     "test_forget_server" >:: test_forget_server;
     "test_forget_running_proxy_and_server" >::
     test_forget_running_proxy_and_server;
+
+    "test_add_local_sr"     >:: test_add_local_sr;
+    "test_add_shared_sr"    >:: test_add_shared_sr;
+    "test_add_mixed_sr"     >:: test_add_mixed_sr;
+    "test_remove_local_sr"  >:: test_remove_local_sr;
+    "test_remove_shared_sr" >:: test_remove_shared_sr;
+
   ]

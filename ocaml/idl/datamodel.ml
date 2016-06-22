@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 103
+let schema_minor_vsn = 104
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -1358,8 +1358,22 @@ let _ =
   (* PVS errors *)
   error Api_errors.pvs_farm_contains_running_proxies ["proxies"]
     ~doc:"The PVS farm contains running proxies and cannot be forgotten." ();
+
   error Api_errors.pvs_farm_contains_servers ["servers"]
-    ~doc:"The PVS farm contains servers and cannot be forgotten." ()
+    ~doc:"The PVS farm contains servers and cannot be forgotten."
+    ();
+
+  error Api_errors.pvs_farm_sr_already_added ["farm"; "SR"]
+    ~doc:"Trying to add a cache SR that is already associated with the farm"
+    ();
+
+  error Api_errors.sr_not_in_pvs_farm ["farm"; "SR"]
+    ~doc:"The SR is not associated with the farm."
+    ();
+
+  error Api_errors.pvs_farm_sr_is_in_use ["farm"; "SR"]
+    ~doc:"The SR is in use by the farm and cannot be removed."
+    ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
@@ -9017,6 +9031,10 @@ module PVS_proxy = struct
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:Bool "currently_attached" ~default_value:null_bool
             "true = VM is currently proxied"
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+            ~ty:(Ref _sr) "cache_SR" ~default_value:null_ref
+            "SR used by this proxy"
         ]
       ~messages:
         [ create

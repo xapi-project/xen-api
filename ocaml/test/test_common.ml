@@ -286,9 +286,9 @@ let make_pvs_farm ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 
 let make_pvs_proxy ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(farm=Ref.null) ?(vIF=Ref.null) ?(prepopulate=false)
-    ?(currently_attached=false) () =
+    ?(currently_attached=false) ?(cache_SR=Ref.null) () =
   Db.PVS_proxy.create ~__context
-    ~ref ~uuid ~farm ~vIF ~prepopulate ~currently_attached;
+    ~ref ~uuid ~farm ~vIF ~prepopulate ~currently_attached ~cache_SR;
   ref
 
 let make_pvs_server ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
