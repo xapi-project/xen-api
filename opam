@@ -1,7 +1,13 @@
-opam-version: "1"
+opam-version: "1.2"
 maintainer: "jonathan.ludlam@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 build: [
   [make]
+]
+install: [
   [make "install" "BINDIR=%{bin}%"]
 ]
 remove: [
@@ -17,16 +23,17 @@ remove: [
   ["ocamlfind" "remove" "xenstore-compat"]
   ["ocamlfind" "remove" "xml-light2"]
 ]
-os: ["linux"]
+available: [ os = "linux" ]
 depends: [
   "ocamlfind"
-  "xapi-stdext" {>= "0.13.0"} 
+  "xapi-stdext" {>= "2.0.0"} 
   "xmlm"
   "xapi-forkexecd"
   "rpc"
   "xenctrl"
   "xenstore"
   "xenstore_transport"
+  "oasis" {build}
 ]
 depexts: [
   [["debian"] ["libxen-dev"]]

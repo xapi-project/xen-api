@@ -1,3 +1,7 @@
+1.0.0 (22-Jun-2016):
+* Use secure cypher suites in stunnel
+* Fix wsproxy in http-svr
+
 0.9.9 (20-Oct-2015):
 * Remove cpuid
 * Remove xen-utils
