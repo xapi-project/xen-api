@@ -5,6 +5,7 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/tapctl/issues"
 dev-repo: "git://github.com/xapi-project/tapctl.git"
 build: [
+  ["oasis" "setup"]
   [make]
 ]
 install: [
