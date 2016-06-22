@@ -304,3 +304,35 @@ module Bridge = struct
 	external make_config : debug_info -> ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
 end
 
+exception PVS_proxy_connection_error
+
+module PVS_proxy = struct
+	module Server = struct
+		type t = {
+			uuid: string;
+			addresses: Unix.inet_addr list;
+			first_port: int;
+			last_port: int;
+		}
+	end
+
+	module Client = struct
+		type t = {
+			uuid: string;
+			mac: string;
+			interface: string;
+			prepopulate: bool;
+		}
+	end
+
+	type t = {
+		farm_uuid: string;
+		farm_name: string;
+		servers: Server.t list;
+		clients: Client.t list;
+		vdi: string;
+	}
+	
+	external configure_farm : debug_info -> PVS_proxy.t -> unit = ""
+	external remove_farm : debug_info -> string -> unit = ""
+end
