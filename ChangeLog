@@ -1,3 +1,6 @@
+2.0.0 (22-Jun-2016):
+* Namespace everything under Stdext. This is a backwards incompatible change.
+
 0.13.0 (20-Nov-2014):
 * Depend on Backtrace from xapi-backtrace
 * Add an opam file
