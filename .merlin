@@ -1,0 +1,4 @@
+PKG threads uuidm unix fd-send-recv bigarray sexplib sexplib.syntax xapi-backtrace
+S lib
+B _build/lib
+
