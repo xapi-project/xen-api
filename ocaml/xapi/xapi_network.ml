@@ -20,13 +20,24 @@ open D
 open Db_filter
 open Network
 
+let internal_bridge_m = Mutex.create ()
+
 let create_internal_bridge ~__context ~bridge ~uuid =
-	debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
 	let dbg = Context.string_of_task __context in
 	let current = Net.Bridge.get_all dbg () in
-	if not(List.mem bridge current) then
-		let other_config = ["network-uuids", uuid] in
-		Net.Bridge.create dbg ~name:bridge ~other_config ()
+	if List.mem bridge current then
+		(* No serialisation needed in this case *)
+		debug "Internal bridge %s exists" bridge
+	else
+		(* Atomic test-and-set process *)
+		Mutex.execute internal_bridge_m (fun () ->
+			let current = Net.Bridge.get_all dbg () in
+			if not(List.mem bridge current) then begin
+				let other_config = ["network-uuids", uuid] in
+				debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
+				Net.Bridge.create dbg ~name:bridge ~other_config ();
+			end
+		)
 
 let set_himn_ip ~__context bridge other_config =
 	if not(List.mem_assoc "ip_begin" other_config) then
