@@ -1,5 +1,6 @@
 PKG oUnit
-PKG stdext
+PKG stdext cdrom forkexec xcp xapi-libs-transitional http-svr netdev threads uuid sha1 oPasswd
+B +threads
 S ./
 B ./
 S ./client_records
