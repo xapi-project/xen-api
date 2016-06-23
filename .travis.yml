@@ -12,3 +12,5 @@ env:
   - TESTS=true
 matrix:
   - OCAML_VERSION=4.02
+notifications:
+    slack: citrix:BHYQZbI8m036ELU21gZil75Y
