@@ -1,3 +1,4 @@
+.PHONY: build all
 all: build
 
 TESTS_FLAG=--enable-tests
