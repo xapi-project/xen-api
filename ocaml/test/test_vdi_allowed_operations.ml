@@ -123,8 +123,8 @@ let test_ca125187 () =
 	 * the VBD is plugged after the VDI is marked with the copy operation. *)
 	let _, _ = setup_test ~__context
 		~vdi_fun:(fun vdi_ref ->
-            let host_ref = Helpers.get_localhost ~__context in
-            let vm_ref = Db.Host.get_control_domain ~__context ~self:host_ref in
+			let host_ref = Helpers.get_localhost ~__context in
+			let vm_ref = Db.Host.get_control_domain ~__context ~self:host_ref in
 			let vbd_ref = Ref.make () in
 			let (_: API.ref_VBD) = make_vbd ~__context
 				~ref:vbd_ref
