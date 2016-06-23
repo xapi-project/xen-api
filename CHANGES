@@ -1,3 +1,6 @@
+0.9.12 (23-Jun-2016)
+* Update to latest XenAPI from xen-api.git#9415c46
+
 0.9.11 (18-Dec-2015)
 * Update to latest XenAPI from xen-api.git#098c548
 

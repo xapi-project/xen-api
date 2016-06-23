@@ -1192,7 +1192,7 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.host.license_remove" [ session_id; host ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info =
+      let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy =
         let session_id = rpc_of_ref_session session_id in
         let uuid = rpc_of_string uuid in
         let name_label = rpc_of_string name_label in
@@ -1207,8 +1207,9 @@ module ClientF = functor(X : IO) ->struct
         let license_server = rpc_of_string_to_string_map license_server in
         let local_cache_sr = rpc_of_ref_SR local_cache_sr in
         let chipset_info = rpc_of_string_to_string_map chipset_info in
+        let ssl_legacy = rpc_of_bool ssl_legacy in
         
-        rpc_wrapper rpc "Async.host.create" [ session_id; uuid; name_label; name_description; hostname; address; external_auth_type; external_auth_service_name; external_auth_configuration; license_params; edition; license_server; local_cache_sr; chipset_info ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.host.create" [ session_id; uuid; name_label; name_description; hostname; address; external_auth_type; external_auth_service_name; external_auth_configuration; license_params; edition; license_server; local_cache_sr; chipset_info; ssl_legacy ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let destroy ~rpc ~session_id ~self =
         let session_id = rpc_of_ref_session session_id in
@@ -1731,6 +1732,24 @@ module ClientF = functor(X : IO) ->struct
         let value = rpc_of_string value in
         
         rpc_wrapper rpc "Async.VIF.remove_ipv6_allowed" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let configure_ipv4 ~rpc ~session_id ~self ~mode ~address ~gateway =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VIF self in
+        let mode = rpc_of_vif_ipv4_configuration_mode mode in
+        let address = rpc_of_string address in
+        let gateway = rpc_of_string gateway in
+        
+        rpc_wrapper rpc "Async.VIF.configure_ipv4" [ session_id; self; mode; address; gateway ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let configure_ipv6 ~rpc ~session_id ~self ~mode ~address ~gateway =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VIF self in
+        let mode = rpc_of_vif_ipv6_configuration_mode mode in
+        let address = rpc_of_string address in
+        let gateway = rpc_of_string gateway in
+        
+        rpc_wrapper rpc "Async.VIF.configure_ipv6" [ session_id; self; mode; address; gateway ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
@@ -3507,6 +3526,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.get_cpu_info" [ session_id; self ] >>= fun x -> return (string_to_string_map_of_rpc  x)
     (**  *)
+    let get_policy_no_vendor_device ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_policy_no_vendor_device" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_pool self in
@@ -3649,6 +3674,13 @@ module ClientF = functor(X : IO) ->struct
       let value = rpc_of_bool value in
       
       rpc_wrapper rpc "pool.set_wlb_verify_cert" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_policy_no_vendor_device ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "pool.set_policy_no_vendor_device" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let join ~rpc ~session_id ~master_address ~master_username ~master_password =
       let session_id = rpc_of_ref_session session_id in
@@ -5806,18 +5838,6 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM_guest_metrics.get_PV_drivers_up_to_date" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
-    let get_network_paths_optimized ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM_guest_metrics self in
-      
-      rpc_wrapper rpc "VM_guest_metrics.get_network_paths_optimized" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
-    (**  *)
-    let get_storage_paths_optimized ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM_guest_metrics self in
-      
-      rpc_wrapper rpc "VM_guest_metrics.get_storage_paths_optimized" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
-    (**  *)
     let get_memory ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM_guest_metrics self in
@@ -5859,6 +5879,24 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_VM_guest_metrics self in
       
       rpc_wrapper rpc "VM_guest_metrics.get_live" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_can_use_hotplug_vbd ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_guest_metrics self in
+      
+      rpc_wrapper rpc "VM_guest_metrics.get_can_use_hotplug_vbd" [ session_id; self ] >>= fun x -> return (tristate_type_of_rpc  x)
+    (**  *)
+    let get_can_use_hotplug_vif ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_guest_metrics self in
+      
+      rpc_wrapper rpc "VM_guest_metrics.get_can_use_hotplug_vif" [ session_id; self ] >>= fun x -> return (tristate_type_of_rpc  x)
+    (**  *)
+    let get_PV_drivers_detected ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM_guest_metrics self in
+      
+      rpc_wrapper rpc "VM_guest_metrics.get_PV_drivers_detected" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
@@ -6839,6 +6877,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.get_virtual_hardware_platform_versions" [ session_id; self ] >>= fun x -> return (int64_set_of_rpc  x)
     (**  *)
+    let get_control_domain ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_host self in
+      
+      rpc_wrapper rpc "host.get_control_domain" [ session_id; self ] >>= fun x -> return (ref_VM_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_host self in
@@ -7079,7 +7123,7 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.license_remove" [ session_id; host ] >>= fun x -> return (ignore x)
     (**  *)
-    let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info =
+    let create ~rpc ~session_id ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy =
       let session_id = rpc_of_ref_session session_id in
       let uuid = rpc_of_string uuid in
       let name_label = rpc_of_string name_label in
@@ -7094,8 +7138,9 @@ module ClientF = functor(X : IO) ->struct
       let license_server = rpc_of_string_to_string_map license_server in
       let local_cache_sr = rpc_of_ref_SR local_cache_sr in
       let chipset_info = rpc_of_string_to_string_map chipset_info in
+      let ssl_legacy = rpc_of_bool ssl_legacy in
       
-      rpc_wrapper rpc "host.create" [ session_id; uuid; name_label; name_description; hostname; address; external_auth_type; external_auth_service_name; external_auth_configuration; license_params; edition; license_server; local_cache_sr; chipset_info ] >>= fun x -> return (ref_host_of_rpc  x)
+      rpc_wrapper rpc "host.create" [ session_id; uuid; name_label; name_description; hostname; address; external_auth_type; external_auth_service_name; external_auth_configuration; license_params; edition; license_server; local_cache_sr; chipset_info; ssl_legacy ] >>= fun x -> return (ref_host_of_rpc  x)
     (**  *)
     let destroy ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
@@ -8540,6 +8585,42 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VIF.get_ipv6_allowed" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
     (**  *)
+    let get_ipv4_configuration_mode ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv4_configuration_mode" [ session_id; self ] >>= fun x -> return (vif_ipv4_configuration_mode_of_rpc  x)
+    (**  *)
+    let get_ipv4_addresses ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv4_addresses" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+    (**  *)
+    let get_ipv4_gateway ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv4_gateway" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_ipv6_configuration_mode ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv6_configuration_mode" [ session_id; self ] >>= fun x -> return (vif_ipv6_configuration_mode_of_rpc  x)
+    (**  *)
+    let get_ipv6_addresses ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv6_addresses" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+    (**  *)
+    let get_ipv6_gateway ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      
+      rpc_wrapper rpc "VIF.get_ipv6_gateway" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VIF self in
@@ -8657,6 +8738,24 @@ module ClientF = functor(X : IO) ->struct
       let value = rpc_of_string value in
       
       rpc_wrapper rpc "VIF.remove_ipv6_allowed" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let configure_ipv4 ~rpc ~session_id ~self ~mode ~address ~gateway =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      let mode = rpc_of_vif_ipv4_configuration_mode mode in
+      let address = rpc_of_string address in
+      let gateway = rpc_of_string gateway in
+      
+      rpc_wrapper rpc "VIF.configure_ipv4" [ session_id; self; mode; address; gateway ] >>= fun x -> return (ignore x)
+    (**  *)
+    let configure_ipv6 ~rpc ~session_id ~self ~mode ~address ~gateway =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VIF self in
+      let mode = rpc_of_vif_ipv6_configuration_mode mode in
+      let address = rpc_of_string address in
+      let gateway = rpc_of_string gateway in
+      
+      rpc_wrapper rpc "VIF.configure_ipv6" [ session_id; self; mode; address; gateway ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -9802,6 +9901,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "SR.get_clustered" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
+    let get_is_tools_sr ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_SR self in
+      
+      rpc_wrapper rpc "SR.get_is_tools_sr" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_SR self in
@@ -10311,6 +10416,12 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_VDI self in
       
       rpc_wrapper rpc "VDI.get_metadata_latest" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
+    let get_is_tools_iso ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VDI self in
+      
+      rpc_wrapper rpc "VDI.get_is_tools_iso" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
