@@ -30,6 +30,7 @@
 
 (* Generator of C bindings from the datamodel *)
 
+open Stdext
 open Pervasiveext
 open Printf
 open Xstringext

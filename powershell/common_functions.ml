@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+open Stdext
 open Pervasiveext
 open Printf
 open Xstringext
