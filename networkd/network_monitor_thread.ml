@@ -14,7 +14,7 @@
 
 open Network_utils
 
-open Fun
+open Stdext
 open Xstringext
 open Listext
 open Threadext
