@@ -160,6 +160,21 @@ let test_remove_shared_sr () =
       (fun () -> XF.remove_cache_storage ~__context ~self:farm ~value:sr1)
   )
 
+let test_set_name () =
+  let module XF = Xapi_pvs_farm in
+  let module DF = Db.PVS_farm  in
+  let __context = make_test_database () in
+  let name1     = "name1" in
+  let name2     = "name2" in
+  let farm      = XF.introduce ~__context ~name:name1 in
+  ( assert_equal name1 (DF.get_name ~__context ~self:farm)
+  ; XF.set_name ~__context ~self:farm ~value:name2
+  ; assert_equal name2 (DF.get_name ~__context ~self:farm)
+  ; ignore@@make_pvs_proxy ~__context ~farm:farm ~currently_attached:true ()
+  ; assert_raises_api_error Api_errors.pvs_farm_cant_set_name
+      (fun () -> XF.set_name ~__context ~self:farm ~value:name1)
+  )
+
 
 let test =
   "test_pvs_farm" >:::
@@ -177,5 +192,6 @@ let test =
     "test_add_mixed_sr"     >:: test_add_mixed_sr;
     "test_remove_local_sr"  >:: test_remove_local_sr;
     "test_remove_shared_sr" >:: test_remove_shared_sr;
+    "test_set_name"         >:: test_set_name;
 
   ]
