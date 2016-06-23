@@ -9,6 +9,7 @@ sudo: true
 env:
     global:
         - CONTAINER_NAME=build-env
+        - OCAMLRUNPARAM=b
         - REPO_PACKAGE_NAME=xapi
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
