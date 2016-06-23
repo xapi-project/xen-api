@@ -79,6 +79,6 @@ let fold f acc t =
 	let rec inner p acc = function
 		| Node (p', v, ns) ->
 			let pp = p ^ p' in
-			let acc = Opt.default acc (Opt.map (fun v -> f pp v acc) v) in
+			let acc = Stdext.Opt.default acc (Stdext.Opt.map (fun v -> f pp v acc) v) in
 			List.fold_left (fun acc n -> inner pp acc n) acc ns in
 	inner "" acc t

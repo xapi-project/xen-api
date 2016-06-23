@@ -11,12 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Threadext
 
 let lock = Mutex.create ()
 
 let of_string s =
-	Mutex.execute lock
+	Stdext.Threadext.Mutex.execute lock
 		(fun () -> SExprParser.expr SExprLexer.token (Lexing.from_string s))
 
 let string_of = SExpr.string_of

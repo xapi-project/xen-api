@@ -52,6 +52,7 @@ let times : (int, float) Hashtbl.t ref = ref (Hashtbl.create capacity)
 (** A mapping of stunnel unique ID to Stunnel.t *)
 let stunnels : (int, Stunnel.t) Hashtbl.t ref = ref (Hashtbl.create capacity)
 
+open Stdext
 open Pervasiveext
 open Threadext
 open Listext

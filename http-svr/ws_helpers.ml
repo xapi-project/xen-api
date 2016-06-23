@@ -27,7 +27,7 @@
  * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17 
  *)
 
-open Xstringext
+open Stdext.Xstringext
 
 type protocol = | Hixie76 | Hybi10
 
@@ -201,7 +201,7 @@ let v10_upgrade req s =
   let key = find_header headers "sec-websocket-key" in
   (*let vsn = find_header headers "sec-websocket-version" in*)
   let result = sha_1 (key ^ ws_uuid) in
-  let key = Base64.encode result in 
+  let key = Stdext.Base64.encode result in 
   let headers = http_101_websocket_upgrade_15 key in
   Http.output_http s headers
 
@@ -219,7 +219,7 @@ let hixie_v76_upgrade req s =
   let s1 = marshal_int32 v1 in
   let s2 = marshal_int32 v2 in
   let s3 = String.make 8 '\000' in
-  Unixext.really_read s s3 0 8;
+  Stdext.Unixext.really_read s s3 0 8;
   let string = Printf.sprintf "%s%s%s" s1 s2 s3 in
   let digest = Digest.string string in
   

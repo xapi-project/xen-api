@@ -17,6 +17,7 @@ module D=Debug.Make(struct let name="stunnel" end)
 open D
 let trim = String.trim
 
+open Stdext
 open Printf
 open Pervasiveext
 open Xstringext
