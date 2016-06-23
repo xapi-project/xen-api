@@ -232,7 +232,7 @@ let check_host_liveness ~__context =
 	    with _ -> 0.0 (* never *)
 	in
 	let old_heartbeat_time = 
-		if rum && (Version.platform_version <> (Helpers.version_string_of ~__context (Helpers.LocalObject host))) then
+		if rum && (Version.platform_version () <> (Helpers.version_string_of ~__context (Helpers.LocalObject host))) then
 			(debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
 				Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
 		else 0.0 in
@@ -472,7 +472,7 @@ let detect_rolling_upgrade ~__context =
 				if actually_in_progress <> pool_says_in_progress then begin
 					let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context (Helpers.LocalObject host)) (Db.Host.get_all ~__context) in
 					debug "xapi platform version = %s; host platform versions = [ %s ]"
-						Version.platform_version (String.concat "; " platform_versions);
+						(Version.platform_version ()) (String.concat "; " platform_versions);
 
 					warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
 						(if pool_says_in_progress then "" else " not");
