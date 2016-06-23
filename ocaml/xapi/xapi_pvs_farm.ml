@@ -54,8 +54,7 @@ let forget ~__context ~self =
 let set_name ~__context ~self ~value =
   let px = proxies ~__context ~self in
   if px <> [] then
-    api_error E.pvs_farm_contains_running_proxies
-      (List.map Ref.string_of px)
+    api_error E.pvs_farm_cant_set_name [Ref.string_of self]
   else
     Db.PVS_farm.set_name ~__context ~self ~value
 
