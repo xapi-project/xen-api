@@ -19,6 +19,7 @@
    author of the plugin did not manage to add the necessary bindings to
    Xenctrl in time. *)
 
+open Stdext
 open Fun
 open Listext
 open Arrayext
