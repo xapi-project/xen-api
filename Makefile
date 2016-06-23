@@ -6,6 +6,9 @@ J=4
 
 export OCAMLRUNPARAM=b
 
+setup.ml: _oasis
+	@oasis setup
+
 setup.bin: setup.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo

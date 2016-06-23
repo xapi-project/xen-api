@@ -1,3 +1,6 @@
+1.0.1 (23-Jun-2016):
+* Use stdext 2.0.0
+
 1.0.0 (27-Apr-2016):
 * Don't use oasis to install binaries
 * Rename /xapi/* to /xenops/* in Xenstore
