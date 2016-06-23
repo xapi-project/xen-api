@@ -190,7 +190,7 @@ let parse_int i =
 	with _ -> None
 
 let parse_frontend_link x =
-	match Xstringext.String.split '/' x with
+	match Stdext.Xstringext.String.split '/' x with
 		| [ ""; "local"; "domain"; domid; "device"; kind; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with
@@ -201,7 +201,7 @@ let parse_frontend_link x =
 		| _ -> None
 
 let parse_backend_link x = 
-	match Xstringext.String.split '/' x with 
+	match Stdext.Xstringext.String.split '/' x with 
 		| [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
 			begin
 				match parse_int domid, parse_kind kind, parse_int devid with

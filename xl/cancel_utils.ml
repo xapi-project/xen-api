@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
 open Printf
+open Stdext
 open Xenops_utils
 open Xenstore
 open Xenops_helpers

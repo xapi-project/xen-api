@@ -43,10 +43,10 @@ let check_domain0_uuid () =
 
 let make_vnc_dir () =
 	Xl_path.vnc_dir := Filename.concat (Xenops_utils.get_root ()) "vnc";
-	Unixext.mkdir_rec !Xl_path.vnc_dir 0o0755
+	Stdext.Unixext.mkdir_rec !Xl_path.vnc_dir 0o0755
 
 let make_var_run_xen () =
-	Unixext.mkdir_rec "/var/run/xen" 0o0755
+	Stdext.Unixext.mkdir_rec "/var/run/xen" 0o0755
 
 (* Start the program with the xenlight backend *)
 let _ =
