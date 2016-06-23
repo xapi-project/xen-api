@@ -5542,6 +5542,7 @@ let storage_operations =
 	  "vdi_resize", "Resizing a VDI"; 
 	  "vdi_clone", "Cloneing a VDI"; 
 	  "vdi_snapshot", "Snapshotting a VDI";
+	  "vdi_mirror", "Mirroring a VDI";
 	  "pbd_create", "Creating a PBD for this SR";
 	  "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
@@ -5851,6 +5852,7 @@ let vdi_operations =
 	  "resize", "Resizing the VDI";
 	  "resize_online", "Resizing the VDI which may or may not be online";
 	  "snapshot", "Snapshotting the VDI";
+	  "mirror", "Mirroring the VDI";
 	  "destroy", "Destroying the VDI";
 	  "forget", "Forget about the VDI";
 	  "update", "Refreshing the fields of the VDI";

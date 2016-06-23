@@ -106,6 +106,7 @@ let vdi_operation_to_string = function
   | `destroy -> "destroy"
   | `force_unlock -> "force_unlock"
   | `snapshot -> "snapshot"
+  | `mirror -> "mirror"
   | `forget -> "forget"
   | `update -> "update"
   | `generate_config -> "generate_config"
@@ -124,6 +125,7 @@ let sr_operation_to_string = function
   | `vdi_resize -> "VDI.resize"
   | `vdi_clone -> "VDI.clone"
   | `vdi_snapshot -> "VDI.snapshot"
+  | `vdi_mirror -> "VDI.mirror"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 

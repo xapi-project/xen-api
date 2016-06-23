@@ -37,7 +37,7 @@ type capability =
 	| Sr_stats
     | Sr_metadata
     | Sr_trim
-    | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
+    | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach | Vdi_mirror
     | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
     | Vdi_update | Vdi_introduce 
     | Vdi_resize_online
@@ -69,6 +69,7 @@ let string_to_capability_table = [
 	"VDI_DELETE",     Vdi_delete;
 	"VDI_ATTACH",     Vdi_attach;
 	"VDI_DETACH",     Vdi_detach; 
+	"VDI_MIRROR",     Vdi_mirror;
 	"VDI_RESIZE",     Vdi_resize;
 	"VDI_RESIZE_ONLINE",Vdi_resize_online;
 	"VDI_CLONE",      Vdi_clone;
