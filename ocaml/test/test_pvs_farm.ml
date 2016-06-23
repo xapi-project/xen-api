@@ -171,7 +171,7 @@ let test_set_name () =
   ; XF.set_name ~__context ~self:farm ~value:name2
   ; assert_equal name2 (DF.get_name ~__context ~self:farm)
   ; ignore@@make_pvs_proxy ~__context ~farm:farm ~currently_attached:true ()
-  ; assert_raises_api_error Api_errors.pvs_farm_cant_set_name
+  ; assert_raises_api_error Api_errors.pvs_farm_contains_running_proxies
       (fun () -> XF.set_name ~__context ~self:farm ~value:name1)
   )
 

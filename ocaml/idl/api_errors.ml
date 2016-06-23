@@ -526,6 +526,5 @@ let pvs_farm_contains_servers = "PVS_FARM_CONTAINS_SERVERS"
 let pvs_farm_sr_already_added = "PVS_FARM_SR_ALREADY_ADDED"
 let pvs_farm_sr_is_in_use = "PVS_FARM_SR_IS_IN_USE"
 let sr_not_in_pvs_farm = "SR_NOT_IN_PVS_FARM"
-let pvs_farm_cant_set_name = "PVS_FARM_CANT_SET_NAME"
 
 

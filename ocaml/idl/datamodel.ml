@@ -1357,7 +1357,7 @@ let _ =
 
   (* PVS errors *)
   error Api_errors.pvs_farm_contains_running_proxies ["proxies"]
-    ~doc:"The PVS farm contains running proxies and cannot be forgotten." ();
+    ~doc:"The PVS farm contains running proxies." ();
 
   error Api_errors.pvs_farm_contains_servers ["servers"]
     ~doc:"The PVS farm contains servers and cannot be forgotten."
@@ -1373,10 +1373,6 @@ let _ =
 
   error Api_errors.pvs_farm_sr_is_in_use ["farm"; "SR"]
     ~doc:"The SR is in use by the farm and cannot be removed."
-    ();
-
-  error Api_errors.pvs_farm_cant_set_name ["farm"]
-    ~doc:"The name of the farm can't be set while proxies are active."
     ()
 
 let _ =
