@@ -4,7 +4,7 @@ Version:      1.0.1
 Synopsis:     Plugin library for the XCP RRD daemon
 Authors:      Rok Strnisa, John Else
 License:      LGPL-2.1 with OCaml linking exception
-Copyrights:   (C) 2013 Citrix Systems
+Copyrights:   (C) 2013-2016 Citrix Systems
 BuildTools:   ocamlbuild
 Plugins:      META (0.3)
 
