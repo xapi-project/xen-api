@@ -514,8 +514,11 @@ let boot_method_of_vm ~__context ~vm =
     NB that just because a VM's current configuration looks like HVM doesn't imply it
     actually booted that way; you must check the boot_record to be sure *)
 let is_hvm ~__context (x: API.vM_t) = 
-  let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:x.API.vM_uuid in
-  (not (is_domain_zero ~__context vm_ref)) && x.API.vM_HVM_boot_policy <> ""
+  let result = x.API.vM_HVM_boot_policy <> "" in
+  try
+    let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:x.API.vM_uuid in
+    (not (is_domain_zero ~__context vm_ref)) && result
+  with _ -> result
 
 let will_boot_hvm ~__context ~self = Db.VM.get_HVM_boot_policy ~__context ~self <> ""
 
