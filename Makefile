@@ -17,6 +17,9 @@ setup.data: setup.ml
 	rm -f configure.cmo configure.cmi
 	ocaml setup.ml -configure ${ENABLE_XENSERVER}
 
+setup.ml: _oasis
+	oasis setup
+
 .PHONY: clean
 clean: setup.data
 	rm -f configure.cmo configure.cmi
