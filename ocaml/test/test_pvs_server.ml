@@ -129,6 +129,23 @@ let test_forget () =
   Xapi_pvs_server.forget ~__context ~self:pvs_server;
   assert_equal (Db.is_valid_ref __context pvs_server) false
 
+let test_gc () =
+  let addresses = ["10.80.12.34"] in
+  let first_port = 1234L in
+  let last_port = 5678L in
+  let __context = make_test_database () in
+  let farm = make_pvs_farm ~__context ~name:"farm" () in
+  let server = Xapi_pvs_server.introduce ~__context
+      ~addresses ~first_port ~last_port ~farm
+  in
+  ( Db_gc.gc_PVS_servers ~__context
+  ; assert_equal (Db.PVS_server.get_farm ~__context ~self:server) farm
+  ; Db.PVS_server.set_farm ~__context ~self:server ~value:Ref.null
+  ; Db_gc.gc_PVS_servers ~__context (* should collect the server *)
+  ; assert_equal false (Db.is_valid_ref __context server)
+  )
+
+
 let test =
   "test_pvs_server" >:::
   [
@@ -140,5 +157,6 @@ let test =
     "test_introduce_invalid_low_port" >:: test_introduce_invalid_low_port;
     "test_introduce_invalid_high_port" >:: test_introduce_invalid_high_port;
     "test_introduce_invalid_ports" >:: test_introduce_invalid_ports;
+    "test_gc" >:: test_gc;
     "test_forget" >:: test_forget;
   ]
