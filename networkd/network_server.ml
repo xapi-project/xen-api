@@ -336,6 +336,12 @@ module Interface = struct
 			Sysfs.is_physical name
 		) ()
 
+	let has_vlan _ dbg ~name ~vlan =
+		(* Identify the vlan is used by kernel which is unknown to XAPI *)
+		Debug.with_thread_associated dbg (fun () ->
+			List.exists (fun (_, v, p) -> v = vlan && p = name) (Proc.get_vlans ())
+	) ()
+
 	let bring_up _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Bringing up interface %s" name;
@@ -507,18 +513,7 @@ module Bridge = struct
 				match vlan with
 				| None -> ()
 				| Some (parent, vlan) ->
-					(* Robustness enhancement: ensure there are no other VLANs in the bridge *)
-					let current_interfaces = List.filter (fun n ->
-						String.startswith "eth" n || String.startswith "bond" n
-					) (Sysfs.bridge_to_interfaces name) in
-					debug "Removing these non-VIF interfaces found on the bridge: %s"
-						(String.concat ", " current_interfaces);
-					List.iter (fun interface ->
-						Brctl.destroy_port name interface;
-						Interface.bring_down () dbg ~name:interface
-					) current_interfaces;
-
-					(* Now create the new VLAN device and add it to the bridge *)
+					let bridge_interfaces = Sysfs.bridge_to_interfaces name in
 					let parent_bridge_interface = List.hd (List.filter (fun n ->
 						String.startswith "eth" n || String.startswith "bond" n
 					) (Sysfs.bridge_to_interfaces parent)) in
@@ -532,8 +527,27 @@ module Bridge = struct
 						end else
 							parent_bridge_interface
 					in
-					Ip.create_vlan parent_interface vlan;
 					let vlan_name = Ip.vlan_name parent_interface vlan in
+					(* Check if the VLAN is already in use by something else *)
+					List.iter (fun (device, vlan', parent') ->
+						(* A device for the same VLAN (parent + tag), but with a different
+						 * device name or not on the requested bridge is bad. *)
+						if parent' = parent && vlan' = vlan &&
+							(device <> vlan_name || not (List.mem device bridge_interfaces)) then
+							raise (Vlan_in_use (parent, vlan))
+					) (Proc.get_vlans ());
+					(* Robustness enhancement: ensure there are no other VLANs in the bridge *)
+					let current_interfaces = List.filter (fun n ->
+						String.startswith "eth" n || String.startswith "bond" n
+					) bridge_interfaces in
+					debug "Removing these non-VIF interfaces found on the bridge: %s"
+						(String.concat ", " current_interfaces);
+					List.iter (fun interface ->
+						Brctl.destroy_port name interface;
+						Interface.bring_down () dbg ~name:interface
+					) current_interfaces;
+					(* Now create the new VLAN device and add it to the bridge *)
+					Ip.create_vlan parent_interface vlan;
 					Interface.bring_up () dbg ~name:vlan_name;
 					Brctl.create_port name vlan_name
 			end;
