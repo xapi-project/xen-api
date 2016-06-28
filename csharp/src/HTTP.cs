@@ -36,6 +36,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.Serialization;
 
@@ -106,6 +107,18 @@ namespace XenAPI
             protected CancelledException(SerializationInfo info, StreamingContext context) : base(info, context) { }
         }
 
+        [Serializable]
+        public class ProxyServerAuthenticationException : Exception
+        {
+            public ProxyServerAuthenticationException() : base() { }
+
+            public ProxyServerAuthenticationException(string message) : base(message) { }
+
+            public ProxyServerAuthenticationException(string message, Exception exception) : base(message, exception) { }
+
+            protected ProxyServerAuthenticationException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+        }
+
         public delegate bool FuncBool();
         public delegate void UpdateProgressDelegate(int percent);
         public delegate void DataCopiedDelegate(long bytes);
@@ -130,6 +143,10 @@ namespace XenAPI
             WriteLine("", stream);
         }
 
+        // Stream.ReadByte() is used because using StreamReader in its place causes the reading to become stuck,
+        // as it seems the Stream object has trouble recognizing the end of the stream. This seems to be a common
+        // problem, of which a common solution is to read each byte until an EndOfStreamException is thrown, as is
+        // done here.
         private static string ReadLine(Stream stream)
         {
             System.Text.StringBuilder result = new StringBuilder();
@@ -150,25 +167,81 @@ namespace XenAPI
         /// </summary>
         /// <param name="stream"></param>
         /// <returns>True if a redirect has occurred - headers will need to be resent.</returns>
-        private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, bool nodelay, int timeout_ms)
+        private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, bool nodelay, int timeout_ms, List<string> headers = null)
         {
-            string response = ReadLine(stream);
-            int code = getResultCode(response);
+            // read headers/fields
+            string line = ReadLine(stream), initialLine = line, transferEncodingField = null;
+            if (string.IsNullOrEmpty(initialLine)) // sanity check
+                return false;
+            while (!string.IsNullOrWhiteSpace(line)) // IsNullOrWhiteSpace also checks for empty string
+            {
+                if (headers != null)
+                {
+                    line = line.TrimEnd('\r', '\n');
+                    headers.Add(line);
+                    if (line == "Transfer-Encoding: Chunked")
+                        transferEncodingField = line;
+                }
+                line = ReadLine(stream);
+            }
 
+            // read chunks
+            string entityBody = "";
+            if (!string.IsNullOrEmpty(transferEncodingField))
+            {
+                int lastChunkSize = -1;
+                do
+                {
+                    string chunkSizeStr = ReadLine(stream);
+                    chunkSizeStr = chunkSizeStr.TrimEnd('\r', '\n');
+                    int chunkSize = int.Parse(chunkSizeStr, System.Globalization.NumberStyles.HexNumber);
+
+                    byte[] bytes = new byte[chunkSize];
+                    stream.Read(bytes, 0, chunkSize);
+
+                    if (headers != null)
+                    {
+                        string str = System.Text.Encoding.ASCII.GetString(bytes);
+                        string[] split = str.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                        headers.AddRange(split);
+                        
+                        entityBody += str;
+                    }
+
+                    line = ReadLine(stream); // empty line in the end of chunk
+
+                    lastChunkSize = chunkSize;
+                }
+                while (lastChunkSize != 0);
+
+                if (headers != null)
+                {
+                    entityBody = entityBody.TrimEnd('\r', '\n');
+                    headers.Add(entityBody); // keep entityBody if it's needed for Digest authentication (when qop="auth-int")
+                }
+            }
+            else
+            {
+                // todo: handle other transfer types, in case "Transfer-Encoding: Chunked" isn't used
+            }
+
+            // handle server response
+            int code = getResultCode(initialLine);
             switch (code)
             {
+                case 407: // authentication error; caller must handle this case
                 case 200:
                     break;
 
                 case 302:
                     string url = "";
-                    while (true)
+                    foreach (string header in headers)
                     {
-                        response = ReadLine(stream);
-                        if (response.StartsWith("Location: "))
-                            url = response.Substring(10);
-                        if (response.Equals("\r\n") || response.Equals("\n") || response.Equals(""))
+                        if (header.StartsWith("Location: "))
+                        {
+                            url = header.Substring(10);
                             break;
+                        }
                     }
                     Uri redirect = new Uri(url.Trim());
                     stream.Close();
@@ -176,19 +249,8 @@ namespace XenAPI
                     return true; // headers need to be sent again
 
                 default:
-                    if (response.EndsWith("\r\n"))
-                        response = response.Substring(0, response.Length - 2);
-                    else if (response.EndsWith("\n"))
-                        response = response.Substring(0, response.Length - 1);
                     stream.Close();
-                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", response));
-            }
-
-            while (true)
-            {
-                string line = ReadLine(stream);
-                if (System.Text.RegularExpressions.Regex.Match(line, "^\\s*$").Success)
-                    break;
+                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialLine));
             }
 
             return false;
@@ -212,6 +274,20 @@ namespace XenAPI
               SslPolicyErrors sslPolicyErrors)
         {
             return true;
+        }
+
+        /// <summary>
+        /// Returns a secure MD5 hash of the given input string.
+        /// </summary>
+        /// <param name="str">The string to hash.</param>
+        /// <returns>The secure hash as a hex string.</returns>
+        public static string MD5Hash(string str)
+        {
+            MD5 hasher = MD5.Create();
+            ASCIIEncoding enc = new ASCIIEncoding();
+            byte[] bytes = enc.GetBytes(str);
+            byte[] hash = hasher.ComputeHash(bytes);
+            return BitConverter.ToString(hash).Replace("-", "").ToLower();
         }
 
         public static long CopyStream(Stream inStream, Stream outStream,
@@ -299,6 +375,12 @@ namespace XenAPI
             return uri.Uri;
         }
 
+        private static string GetPartOrNull(string str, int partIndex)
+        {
+            string[] parts = str.Split(new char[] { ' ' }, partIndex + 2, StringSplitOptions.RemoveEmptyEntries);
+            return partIndex < parts.Length - 1 ? parts[partIndex] : null;
+        }
+
         #endregion
 
         private static NetworkStream ConnectSocket(Uri uri, bool nodelay, int timeout_ms)
@@ -348,11 +430,13 @@ namespace XenAPI
                 if (useProxy)
                 {
                     string line = String.Format("CONNECT {0}:{1} HTTP/1.0", uri.Host, uri.Port);
-
                     WriteLine(line, stream);
                     WriteLine(stream);
 
-                    ReadHttpHeaders(ref stream, proxy, nodelay, timeout_ms);
+                    List<string> initialResponse = new List<string>();
+                    ReadHttpHeaders(ref stream, proxy, nodelay, timeout_ms, initialResponse);
+
+                    AuthenticateProxy(ref stream, uri, proxy, nodelay, timeout_ms, initialResponse, line);
                 }
 
                 if (UseSSL(uri))
@@ -370,6 +454,157 @@ namespace XenAPI
             {
                 stream.Close();
                 throw;
+            }
+        }
+
+        private static void AuthenticateProxy(ref Stream stream, Uri uri, IWebProxy proxy, bool nodelay, int timeout_ms, List<string> initialResponse, string header)
+        {
+            // perform authentication only if proxy requires it
+            List<string> fields = initialResponse.FindAll(str => str.StartsWith("Proxy-Authenticate:"));
+            if (fields.Count > 0)
+            {
+                // clean up (if initial server response specifies "Proxy-Connection: Close" then stream cannot be re-used)
+                string field = initialResponse.Find(str => str.StartsWith("Proxy-Connection: Close"));
+                if (!string.IsNullOrEmpty(field))
+                {
+                    stream.Close();
+                    Uri proxyURI = proxy.GetProxy(uri);
+                    stream = ConnectSocket(proxyURI, nodelay, timeout_ms);
+                }
+            
+                if (proxy.Credentials == null)
+                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialResponse[0]));
+                NetworkCredential credentials = proxy.Credentials.GetCredential(uri, null);
+
+                string basicField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Basic"));
+                string digestField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Digest"));
+                if (!string.IsNullOrEmpty(basicField))
+                {
+                    string authenticationFieldReply = String.Format("Proxy-Authorization: Basic {0}",
+                        Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials.UserName + ":" + credentials.Password)));
+                    WriteLine(header, stream);
+                    WriteLine(authenticationFieldReply, stream);
+                    WriteLine(stream);
+                }
+                else if (!string.IsNullOrEmpty(digestField))
+                {
+                    string authenticationFieldReply = string.Format(
+                        "Proxy-Authorization: Digest username=\"{0}\", uri=\"{1}:{2}\"",
+                        credentials.UserName, uri.Host, uri.Port);
+
+                    string directiveString = digestField.Substring(27, digestField.Length - 27);
+                    string[] directives = directiveString.Split(new string[] { ", ", "\"" }, StringSplitOptions.RemoveEmptyEntries);
+
+                    string algorithm = null;    // optional
+                    string opaque = null;       // optional
+                    string qop = null;          // optional
+                    string realm = null;
+                    string nonce = null;
+
+                    for (int i = 0; i < directives.Length; ++i)
+                    {
+                        switch (directives[i])
+                        {
+                            case "stale=":
+                                if (directives[++i].ToLower() == "true")
+                                    throw new ProxyServerAuthenticationException("Stale nonce in Digest authentication attempt.");
+                                break;
+                            case "realm=":
+                                authenticationFieldReply += string.Format(", {0}\"{1}\"", directives[i], directives[++i]);
+                                realm = directives[i];
+                                break;
+                            case "nonce=":
+                                authenticationFieldReply += string.Format(", {0}\"{1}\"", directives[i], directives[++i]);
+                                nonce = directives[i];
+                                break;
+                            case "opaque=":
+                                authenticationFieldReply += string.Format(", {0}\"{1}\"", directives[i], directives[++i]);
+                                opaque = directives[i];
+                                break;
+                            case "algorithm=":
+                                authenticationFieldReply += string.Format(", {0}\"{1}\"", directives[i], directives[++i]);
+                                algorithm = directives[i];
+                                break;
+                            case "qop=":
+                                List<string> qops = new List<string>(directives[++i].Split(new char[] { ',' }));
+                                if (qops.Count > 0)
+                                {
+                                    if (qops.Contains("auth"))
+                                        qop = "auth";
+                                    else if (qops.Contains("auth-int"))
+                                        qop = "auth-int";
+                                    else
+                                        throw new ProxyServerAuthenticationException(
+                                            "Digest authentication's quality-of-protection directive of is not supported.");
+                                    authenticationFieldReply += string.Format(", qop=\"{0}\"", qop);
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+
+                    string clientNonce = "X3nC3nt3r"; // todo: generate random string
+                    if (qop != null)
+                        authenticationFieldReply += string.Format(", cnonce=\"{0}\"", clientNonce);
+
+                    string nonceCount = "00000001"; // todo: track nonces and their corresponding nonce counts
+                    if (qop != null)
+                        authenticationFieldReply += string.Format(", nc={0}", nonceCount);
+
+                    string HA1 = "";
+                    string scratch = string.Format("{0}:{1}:{2}", credentials.UserName, realm, credentials.Password);
+                    if (algorithm == null || algorithm == "MD5")
+                        HA1 = MD5Hash(scratch);
+                    else
+                        HA1 = MD5Hash(string.Format("{0}:{1}:{2}", MD5Hash(scratch), nonce, clientNonce));
+
+                    string HA2 = "";
+                    scratch = GetPartOrNull(header, 0);
+                    scratch = string.Format("{0}:{1}:{2}", scratch ?? "CONNECT", uri.Host, uri.Port);
+                    if (qop == null || qop == "auth")
+                        HA2 = MD5Hash(scratch);
+                    else
+                    {
+                        string entityBody = initialResponse[initialResponse.Count - 1]; // entity body should have been stored as last element of initialResponse
+                        string str = string.Format("{0}:{1}", scratch, MD5Hash(entityBody));
+                        HA2 = MD5Hash(str);
+                    }
+
+                    string response = "";
+                    if (qop == null)
+                        response = MD5Hash(string.Format("{0}:{1}:{2}", HA1, nonce, HA2));
+                    else
+                        response = MD5Hash(string.Format("{0}:{1}:{2}:{3}:{4}:{5}", HA1, nonce, nonceCount, clientNonce, qop, HA2));
+
+                    authenticationFieldReply += string.Format(", response=\"{0}\"", response);
+
+                    WriteLine(header, stream);
+                    WriteLine(authenticationFieldReply, stream);
+                    WriteLine(stream);
+                }
+                else
+                {
+                    string authType = GetPartOrNull(fields[0], 1);
+                    throw new ProxyServerAuthenticationException(
+                        string.Format("Proxy server's {0} authentication method is not supported.", authType ?? "chosen"));
+                }
+
+                // handle authentication attempt response
+                List<string> authenticatedResponse = new List<string>();
+                ReadHttpHeaders(ref stream, proxy, nodelay, timeout_ms, authenticatedResponse);
+                if (authenticatedResponse.Count == 0)
+                    throw new BadServerResponseException("No response from the proxy server after authentication attempt.");
+                switch (getResultCode(authenticatedResponse[0]))
+                {
+                    case 200:
+                        break;
+                    case 407:
+                        throw new ProxyServerAuthenticationException("Proxy server denied access due to wrong credentials.");
+                    default:
+                        throw new BadServerResponseException(string.Format(
+                            "Received error code {0} from the server", authenticatedResponse[0]));
+                }
             }
         }
 
