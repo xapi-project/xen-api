@@ -184,6 +184,7 @@ let owner_key = "owner" (* set in VBD other-config to indicate that clients can 
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
 let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
 let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
+let vbd_backend_local_key = "backend-local" (* set in VBD other-config *)
 
 let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
 
