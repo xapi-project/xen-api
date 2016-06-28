@@ -1725,6 +1725,8 @@ let pvs_farm_record rpc session_id pvs_farm =
       ; make_field ~name:"cache-storage"
           ~get:(fun () -> (x ()).API.pVS_farm_cache_storage
                           |> List.map get_uuid_from_ref |> String.concat "; ")
+          ~get_set:(fun () ->
+              List.map get_uuid_from_ref (x ()).API.pVS_farm_cache_storage)
           ~add_to_set:(fun sr_uuid ->
               let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
               Client.PVS_farm.add_cache_storage rpc session_id !_ref sr)
