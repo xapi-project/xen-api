@@ -203,12 +203,13 @@ let checkpoint ~__context ~vm ~new_name =
 		end;
 
 		(* snapshot the disks and the suspend VDI *)
-		let snap =
+		let snap, err =
 			if not (TaskHelper.is_cancelling ~__context) then begin
-				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name ~snapshot_info_record:!snapshot_info)
-				with Api_errors.Server_error (x, _) when x=Api_errors.task_cancelled -> None
-			end else
-				None in
+				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name ~snapshot_info_record:!snapshot_info), None
+				with e -> None, Some e
+			end
+			else None, None
+		in
 
 		(* restore the power state of the VM *)
 		if power_state = `Running
@@ -219,7 +220,12 @@ let checkpoint ~__context ~vm ~new_name =
 			Xapi_xenops.resume ~__context ~self:vm ~start_paused:false ~force:false;
 		end;
 		match snap with
-		| None -> TaskHelper.raise_cancelled ~__context
+		| None -> begin
+			match err with
+			| None -> TaskHelper.raise_cancelled ~__context
+			| Some Api_errors.Server_error (x, _) when x=Api_errors.task_cancelled  -> TaskHelper.raise_cancelled ~__context
+			| Some e -> raise e
+			end
 		| Some snap -> snap
 
 
