@@ -6,6 +6,9 @@ J=4
 
 export OCAMLRUNPARAM=b
 
+setup.ml:
+	oasis setup
+
 setup.bin: setup.ml lib/xcp_inventory_config.ml
 	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
