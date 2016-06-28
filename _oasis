@@ -30,7 +30,7 @@ Library "xen-api-client-lwt"
   Findlibparent: xen-api-client
   Findlibname: lwt
   Modules: Xen_api_lwt_unix, Data_channel, Cohttp_unbuffered_io, Disk
-  BuildDepends:	xen-api-client, rpclib, xmlm, lwt, lwt.ssl, lwt.unix, lwt.syntax, cohttp (>= 0.12.0), uri, cstruct, cstruct.lwt, re.str
+  BuildDepends:	xen-api-client, rpclib, rpclib.json, xmlm, lwt, lwt.ssl, lwt.unix, lwt.syntax, cohttp (>= 0.12.0), uri, cstruct, cstruct.lwt, re.str
 
 Library "xen-api-client-async"
   CompiledObject:     best
@@ -40,7 +40,7 @@ Library "xen-api-client-async"
   Findlibparent: xen-api-client
   Findlibname: async
   Modules: Xen_api_async_unix
-  BuildDepends:	xen-api-client, xmlm, core, async, async_unix, rpclib, cohttp (>= 0.12.0), uri, threads
+  BuildDepends:	xen-api-client, xmlm, core, async, async_unix, rpclib, rpclib.json, cohttp (>= 0.12.0), uri, threads
 
 
 Executable xen_api_test
