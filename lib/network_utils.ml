@@ -487,7 +487,10 @@ module Linux_bonding = struct
 		if is_bond_device master then begin
 			let get_prop prop =
 				try
-					Some (prop, Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop)))
+					let bond_prop = Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop)) in
+					if prop = "mode" then
+						Some (prop, List.hd (String.split ' ' bond_prop))
+					else Some (prop, bond_prop)
 				with _ ->
 					debug "Failed to get property \"%s\" on bond %s" prop master;
 					None
