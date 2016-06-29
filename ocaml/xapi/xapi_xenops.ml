@@ -481,11 +481,20 @@ module MD = struct
 			(other_config_keys Xapi_globs.vbd_polling_idle_threshold_key ~default:(Some (string_of_int !Xapi_globs.default_vbd3_polling_idle_threshold)))
 		in
 
+		let backend_of_vbd vbd =
+			let vbd_oc  = vbd.API.vBD_other_config in
+			if List.mem_assoc Xapi_globs.vbd_backend_local_key vbd_oc then
+				let path = List.assoc Xapi_globs.vbd_backend_local_key vbd_oc in
+				warn "Using local override for VBD backend: %s -> %s" vbd.API.vBD_uuid path;
+				Some (Local path)
+			else disk_of_vdi ~__context ~self:vbd.API.vBD_VDI
+		in
+
 		{
 			id = (vm.API.vM_uuid, Device_number.to_linux_device device_number);
 			position = Some device_number;
 			mode = if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite;
-			backend = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI;
+			backend = backend_of_vbd vbd;
 			ty = (match vbd.API.vBD_type with
 				| `Disk -> Disk
 				| `CD -> CDROM
