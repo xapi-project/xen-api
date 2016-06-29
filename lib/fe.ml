@@ -8,6 +8,7 @@ and setup_cmd = {
   env : string list;
   id_to_fd_map : (string * int option) list;
   syslog_stdout : syslog_stdout_t;
+  redirect_stderr_to_stdout : bool;
 } 
 
 and setup_response = {

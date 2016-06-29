@@ -15,6 +15,7 @@ type state_t = {
 	env : string list;
 	id_to_fd_map : (string * int option) list;
 	syslog_stdout : syslog_stdout_t;
+	redirect_stderr_to_stdout : bool;
 	ids_received : (string * Unix.file_descr) list;
 	fd_sock2 : Unix.file_descr option;
 	finished : bool;
@@ -189,6 +190,8 @@ let run state comms_sock fd_sock fd_sock_path =
 
 			(* Make the child's stdout go into the pipe *)
 			Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stdout) !out_childlogging;
+			if state.redirect_stderr_to_stdout then
+				Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stderr) !out_childlogging;
 
 			(* Now let's close everything except those fds mentioned in the ids_received list *)
 			Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
