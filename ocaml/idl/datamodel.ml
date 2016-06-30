@@ -536,6 +536,8 @@ let _ =
     ~doc:"You tried to create a PIF, but it already exists." ();
   error Api_errors.pif_vlan_still_exists [ "PIF" ]
     ~doc:"Operation cannot proceed while a VLAN exists on this interface." ();
+  error Api_errors.vlan_in_use ["device"; "vlan"]
+    ~doc:"Operation cannot be performed because this VLAN is already in use. Please check your network configuration." ();
   error Api_errors.pif_already_bonded [ "PIF" ]
     ~doc:"This operation cannot be performed because the pif is bonded." ();
   error Api_errors.pif_cannot_bond_cross_host []
