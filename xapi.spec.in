@@ -17,7 +17,6 @@ BuildRequires: ocaml-camlp4-devel
 BuildRequires: ocaml-findlib
 BuildRequires: ocaml-ocamldoc
 BuildRequires: pam-devel
-BuildRequires: tetex-latex
 BuildRequires: xen-devel
 BuildRequires: libffi-devel
 BuildRequires: zlib-devel
