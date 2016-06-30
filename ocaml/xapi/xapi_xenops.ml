@@ -1963,6 +1963,15 @@ let events_from_xenopsd queue_name =
 			done
 		)
 
+let refresh_vm ~__context ~self =
+	let id = id_of_vm ~__context ~self in
+	info "xenops: UPDATES.refresh_vm %s" id;
+	let dbg = Context.string_of_task __context in
+	let queue_name = queue_of_vm ~__context ~self in
+	let module Client = (val make_client queue_name : XENOPS) in
+	Client.UPDATES.refresh_vm dbg id;
+	Events_from_xenopsd.wait queue_name dbg id ()
+
 let on_xapi_restart ~__context =
 	let dbg = Context.string_of_task __context in
 	let localhost = Helpers.get_localhost ~__context in
@@ -2017,7 +2026,8 @@ let on_xapi_restart ~__context =
 		match xapi_power_state with
 		| `Running | `Paused ->
 			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
-			add_caches id
+			add_caches id;
+			refresh_vm ~__context ~self:vm;
 		| `Suspended | `Halted ->
 			let module Client = (val make_client queue_name : XENOPS) in
 			Client.VM.remove dbg id;
@@ -2226,15 +2236,6 @@ let transform_xenops_exn ~__context ~vm queue_name f =
 			reraise Api_errors.failed_to_start_emulator [Ref.string_of vm; name; msg]
 		| e -> raise e
 		end
-
-let refresh_vm ~__context ~self =
-	let id = id_of_vm ~__context ~self in
-	info "xenops: UPDATES.refresh_vm %s" id;
-	let dbg = Context.string_of_task __context in
-	let queue_name = queue_of_vm ~__context ~self in
-	let module Client = (val make_client queue_name : XENOPS) in
-	Client.UPDATES.refresh_vm dbg id;
-	Events_from_xenopsd.wait queue_name dbg id ()
 
 (* After this function is called, locally-generated events will be reflected
    in the xapi pool metadata. When this function returns we believe that the
