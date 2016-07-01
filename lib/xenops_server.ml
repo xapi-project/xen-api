@@ -2065,7 +2065,7 @@ module VM = struct
 				let remote_instance = List.assoc "instance_id" cookies in
 				let is_localhost = instance_id = remote_instance in
 				(* The URI is /service/xenops/memory/id *)
-				let bits = Xstringext.String.split '/' (Uri.path uri) in
+				let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
 				let id = bits |> List.rev |> List.hd in
 				debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
 				is_localhost, id

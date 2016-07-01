@@ -803,7 +803,7 @@ let is_cmdline_valid domid pid =
 	let cmdline =
 		Printf.sprintf "/proc/%d/cmdline" pid
 		|> Unixext.string_of_file
-		|> Xstringext.String.split '\000'
+		|> Stdext.Xstringext.String.split '\000'
 	in
 	if (List.mem !Xc_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 	then true
@@ -1066,7 +1066,7 @@ let bind_to_i915 devstr =
 	debug "pci: binding device %s to i915" devstr;
 	let is_loaded = Unixext.file_lines_fold (
 		fun loaded line ->
-			loaded || match Xstringext.String.split ' ' line with "i915" :: _ -> true | _ -> false
+			loaded || match Stdext.Xstringext.String.split ' ' line with "i915" :: _ -> true | _ -> false
 	) false "/proc/modules" in
 	if not is_loaded then ignore (Forkhelpers.execute_command_get_output !Path.modprobe ["i915"]);
 	match get_driver devstr	with
@@ -1110,8 +1110,8 @@ let unbind_from_nvidia devstr =
 			let devstr2 = String.copy devstr in
 			devstr2.[7] <- '.';
 			if false
-				|| (Xstringext.String.has_substr gpu_info devstr2)
-				|| (Xstringext.String.has_substr gpu_info devstr)
+				|| (Stdext.Xstringext.String.has_substr gpu_info devstr2)
+				|| (Stdext.Xstringext.String.has_substr gpu_info devstr)
 			then gpu_path
 			else find_gpu rest
 	in

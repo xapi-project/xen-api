@@ -48,8 +48,8 @@ module PV_Vnc = struct
 		let is_null = function | '\000' -> true | _ -> false in
 		let cmdline =
 			Printf.sprintf "/proc/%d/cmdline" pid
-			|> Unixext.string_of_file
-			|> Xstringext.String.split_f is_null
+			|> Stdext.Unixext.string_of_file
+			|> Stdext.Xstringext.String.split_f is_null
 		in
 		if (List.mem !Xl_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 		then true

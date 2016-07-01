@@ -14,6 +14,7 @@
 
 #include "../config.ml"
 
+open Stdext
 open Xenops_interface
 open Xenops_utils
 open Xenops_server_plugin
@@ -2482,16 +2483,16 @@ module VM = struct
 			with_disk ~xs task disk write (fun path ->
 				let with_fd_of_path p f =
 					let is_raw_image =
-						Unixext.with_file path [Unix.O_RDONLY; Unix.O_CLOEXEC] 0o400 (fun fd ->
+						Stdext.Unixext.with_file path [Unix.O_RDONLY; Unix.O_CLOEXEC] 0o400 (fun fd ->
 							match Suspend_image.read_save_signature fd with
 							| `Ok _ -> true | _ -> false
 						)
 					in
 					match (write, is_raw_image) with
 					| true, _ -> (* Always write raw *)
-						Unixext.with_file path [Unix.O_WRONLY; Unix.O_CLOEXEC] 0o600 f
+						Stdext.Unixext.with_file path [Unix.O_WRONLY; Unix.O_CLOEXEC] 0o600 f
 					| false, true -> (* We're reading raw *)
-						Unixext.with_file path [Unix.O_RDONLY; Unix.O_CLOEXEC] 0o600 f
+						Stdext.Unixext.with_file path [Unix.O_RDONLY; Unix.O_CLOEXEC] 0o600 f
 					| false, false -> (* Assume reading from filesystem *)
 						with_mounted_dir p (fun dir ->
 							let filename = dir ^ "/suspend-image" in

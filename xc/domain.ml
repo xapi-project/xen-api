@@ -677,7 +677,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 		   old kernels which had bugs preventing them succesfully autonegotiating
 		   the 64-bit version of the protocol. If we don't know the architecture,
 		   it should be safe to assume "native" i.e. let the domU do its thing. *)
-		match Xstringext.String.split ' ' line with
+		match Stdext.Xstringext.String.split ' ' line with
 		| [ store_mfn; console_mfn; protocol ] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol = %s" (Uuid.to_string uuid) domid store_mfn console_mfn protocol;
 			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, protocol
@@ -761,7 +761,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	end;
 
 	let store_mfn, console_mfn =
-		match Xstringext.String.split ' ' line with
+		match Stdext.Xstringext.String.split ' ' line with
 		| [ store_mfn; console_mfn] ->
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
 			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
@@ -810,7 +810,7 @@ let restore_libxc_record (task: Xenops_task.t) ~hvm ~store_port ~console_port ~e
 		"-console_port"; string_of_int console_port;
 		"-fork"; "true";
 	] @ extras) [ fd_uuid, fd ] XenguestHelper.receive_success in
-	match Xstringext.String.split ' ' line with
+	match Stdext.Xstringext.String.split ' ' line with
 	| [ store; console ] ->
 		debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
 		Nativeint.of_string store, Nativeint.of_string console
@@ -1077,7 +1077,7 @@ let write_libxc_record (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid uu
 			if String.startswith prefix txt then
 				let rest = String.sub txt (String.length prefix)
 				                   (String.length txt - (String.length prefix)) in
-				match Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
+				match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
 				| [ percent ] -> (
 					try
 						let percent = int_of_string percent in

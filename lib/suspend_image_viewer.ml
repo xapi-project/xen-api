@@ -97,7 +97,7 @@ let print_layout headers =
 	inner headers
 
 let print_image path =
-	Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
+	Stdext.Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
 		print_layout (parse_layout fd)
 	)
 

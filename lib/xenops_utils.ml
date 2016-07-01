@@ -273,7 +273,7 @@ module Unixext = struct
 
 
 	let atomic_write_to_file fname perms f =
-		let tmp = Filenameext.temp_file_in_dir fname in
+		let tmp = Stdext.Filenameext.temp_file_in_dir fname in
 		Unix.chmod tmp perms;
 		finally
 			(fun () ->
@@ -595,7 +595,7 @@ let get_network_backend () =
 	try
 		Unixext.string_of_file !Path.network_conf
 	|>  strip
-	|>  Xstringext.String.split ' '
+	|>  Stdext.Xstringext.String.split ' '
 	|>  List.hd
 	with _ ->
 		failwith (Printf.sprintf "Failed to read network backend from: %s" !Path.network_conf)

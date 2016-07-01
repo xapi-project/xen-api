@@ -71,7 +71,7 @@ let disconnect (_, _, r, w, pid) =
 
 let supports_feature path feat =
 	let open Forkhelpers in
-	let open Xstringext.String in
+	let open Stdext.Xstringext.String in
 	try
 		execute_command_get_output path ("-supports" :: [feat])
 			|> fst |> strip isspace |> lowercase = "true"
@@ -173,7 +173,7 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 	| Error x ->
 		(* These error strings match those in xenguest_stubs.c *)
 		begin
-			match Xstringext.String.split ~limit:3 ' ' x with
+			match Stdext.Xstringext.String.split ~limit:3 ' ' x with
 			| [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
 			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
 			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
