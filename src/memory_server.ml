@@ -15,6 +15,7 @@
  * @group Memory
  *)
 open Xcp_service
+open Stdext
 open Memory_interface
 open Squeezed_state
 open Squeezed_xenstore
