@@ -1,6 +1,7 @@
 module D = Debug.Make(struct let name="rrdd_http_handler" end)
 open D
 
+open Stdext
 open Threadext
 open Rrdd_shared
 

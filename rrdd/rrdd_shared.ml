@@ -15,6 +15,7 @@
 module D = Debug.Make(struct let name = "rrdd_shared" end)
 open D
 
+open Stdext
 module StringSet = Set.Make(String)
 
 (* Whether to enable all non-default datasources *)
