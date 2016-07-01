@@ -14,6 +14,7 @@
 
 open Network_interface
 
+open Stdext
 open Fun
 open Xstringext
 

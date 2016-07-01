@@ -1,7 +1,6 @@
 open Network_interface
 open Network_client
 open Cmdliner
-open Xstringext
 
 let dbg = "cli"
 
@@ -220,11 +219,11 @@ let get_dns_cmd =
 let set_dns iface nameservers domains =
 	try
 		let ns = match nameservers with
-			| Some x -> List.map Unix.inet_addr_of_string (String.split ',' x)
+			| Some x -> List.map Unix.inet_addr_of_string (Stdext.Xstringext.String.split ',' x)
 			| None -> []
 		in
 		let d = match domains with
-			| Some x -> String.split ',' x
+			| Some x -> Stdext.Xstringext.String.split ',' x
 			| None -> []
 		in
 		Client.Interface.set_dns dbg iface ns d;
@@ -317,7 +316,7 @@ let list_br_cmd =
 	Term.info "list-br" ~doc ~man
 
 let read_config path =
-	let config_json = Unixext.string_of_file path in
+	let config_json = Stdext.Unixext.string_of_file path in
 	config_json |> Jsonrpc.of_string |> config_t_of_rpc
 
 let config path =

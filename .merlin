@@ -2,10 +2,10 @@ S lib
 S networkd
 S networkd_db
 S test
-B dist/build/lib-network-libs/
-B dist/build/xcp-networkd
-B dist/build/networkd_db
-B dist/build/network_test
+S profiling
+B _build/profiling
+B _build/lib
+B _build/networkd
 PKG forkexec
 PKG rpclib
 PKG stdext
@@ -17,3 +17,5 @@ PKG xcp-inventory
 PKG xcp.network
 PKG xcp.network
 PKG xen-api-client
+PKG oUnit
+PKG bisect_ppx.runtime

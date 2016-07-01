@@ -15,9 +15,9 @@
 open Network_utils
 open Network_interface
 
-open Fun
-open Xstringext
-open Listext
+(*open Fun*)
+open Stdext.Xstringext
+open Stdext.Listext
 
 module D = Debug.Make(struct let name = "network_server" end)
 open D
@@ -141,7 +141,7 @@ module Interface = struct
 					Ip.flush_ip_addr name
 				end
 			| DHCP4 ->
-				let gateway = Opt.default [] (Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
+				let gateway = Stdext.Opt.default [] (Stdext.Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
 				let dns =
 					if !config.dns_interface = None || !config.dns_interface = Some name then begin
 						debug "%s is the DNS interface" name;
@@ -260,7 +260,7 @@ module Interface = struct
 
 	let get_dns _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			let nameservers, domains = Unixext.file_lines_fold (fun (nameservers, domains) line ->
+			let nameservers, domains = Stdext.Unixext.file_lines_fold (fun (nameservers, domains) line ->
 				if String.startswith "nameserver" line then
 					let server = List.nth (String.split_f String.isspace line) 1 in
 					(Unix.inet_addr_of_string server) :: nameservers, domains
@@ -284,7 +284,7 @@ module Interface = struct
 				let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
 				let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
 				let lines = domains' @ nameservers' in
-				Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+				Stdext.Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
 			end else
 				debug "%s is NOT the DNS interface" name
 		) ()
@@ -424,7 +424,7 @@ module Bridge = struct
 
 	let determine_backend () =
 		try
-			let backend = String.strip String.isspace (Unixext.string_of_file !network_conf) in
+			let backend = String.strip String.isspace (Stdext.Unixext.string_of_file !network_conf) in
 			match backend with
 			| "openvswitch" | "vswitch" -> backend_kind := Openvswitch
 			| "bridge" -> backend_kind := Bridge
@@ -503,7 +503,7 @@ module Bridge = struct
 				ignore (Brctl.create_bridge name);
 				Brctl.set_forwarding_delay name 0;
 				Sysfs.set_multicast_snooping name false;
-				Opt.iter (Ip.set_mac name) mac;
+				Stdext.Opt.iter (Ip.set_mac name) mac;
 				match vlan with
 				| None -> ()
 				| Some (parent, vlan) ->
@@ -852,12 +852,12 @@ let on_startup () =
 			(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
 			 * with this daemon. *)
 			try
-				let file = String.rtrim (Unixext.string_of_file "/etc/sysconfig/network") in
+				let file = String.rtrim (Stdext.Unixext.string_of_file "/etc/sysconfig/network") in
 				let args = String.split '\n' file in
 				let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
 				let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
 				let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
-				Unixext.write_string_to_file "/etc/sysconfig/network" s
+				Stdext.Unixext.write_string_to_file "/etc/sysconfig/network" s
 			with _ -> ()
 		in
 		try

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Fun
 open OUnit
 open Network_utils
 
@@ -91,7 +90,7 @@ let test_lacp_aggregation_key_vsctl arg () = skip_if true "Unimplemented" ;
 	print_endline answer ;
 	assert_bool "lacp_aggregation_key is passed to ovs-vsctl command"
 		(List.exists
-			(fun s -> (Xstringext.String.(strip isspace s) == answer))
+			(fun s -> (Stdext.Xstringext.String.(strip isspace s) == answer))
 			!OVS_Cli_test.vsctl_output)
 
 (* Test case for bond_create with default lacp-{time,aggregation-key} settings.
@@ -115,7 +114,7 @@ let test_lacp_defaults_bond_create () =
 	List.iter
 		(fun arg ->
 			assert_bool "key=value argument pairs can't have missing values"
-				(let open Xstringext.String in
+				(let open Stdext.Xstringext.String in
 				 arg |> strip isspace |> endswith "=" |> not))
 		!OVS_Cli_test.vsctl_output
 

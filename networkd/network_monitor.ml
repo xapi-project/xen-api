@@ -15,13 +15,9 @@
 open Network_interface
 include Network_stats
 
-open Fun
-open Xstringext
-open Threadext
-
 let write_stats stats =
 	let payload = stats |> rpc_of_stats_t |> Jsonrpc.to_string in
 	let checksum = payload |> Digest.string |> Digest.to_hex in
 	let length = String.length payload in
 	let data = Printf.sprintf "%s%s%08x%s" magic checksum length payload in
-	Unixext.write_string_to_file stats_file (data)
+	Stdext.Unixext.write_string_to_file stats_file (data)
