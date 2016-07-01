@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Xstringext
+open Stdext.Xstringext
 
 let rec formatted_wrap formatter s = 
   let split_in_2 c s =
