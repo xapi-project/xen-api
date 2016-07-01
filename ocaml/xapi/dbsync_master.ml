@@ -65,17 +65,17 @@ let set_master_pool_reference ~__context =
 	Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context)
 
 let refresh_console_urls ~__context =
-  List.iter
-    (fun console ->
-       Helpers.log_exn_continue (Printf.sprintf "Updating console: %s" (Ref.string_of console))
-	 (fun () ->
-	    let vm = Db.Console.get_VM ~__context ~self:console in
-	    let host = Db.VM.get_resident_on ~__context ~self:vm in
-	    let address = Db.Host.get_address ~__context ~self:host in
-	    let url_should_be = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of console) in
-	    Db.Console.set_location ~__context ~self:console ~value:url_should_be
-	 ) ()
-    ) (Db.Console.get_all ~__context)
+	List.iter (fun console ->
+		Helpers.log_exn_continue (Printf.sprintf "Updating console: %s" (Ref.string_of console)) (fun () ->
+			let vm = Db.Console.get_VM ~__context ~self:console in
+			let host = Db.VM.get_resident_on ~__context ~self:vm in
+			let url_should_be = match Db.Host.get_address ~__context ~self:host with
+			| "" -> ""
+			| address ->
+				Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of console) in
+			Db.Console.set_location ~__context ~self:console ~value:url_should_be
+		) ()
+	) (Db.Console.get_all ~__context)
 
 (** CA-15449: after a pool restore database VMs which were running on slaves now have dangling resident_on fields.
     If these are control domains we destroy them, otherwise we reset them to Halted. *)
