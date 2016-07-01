@@ -69,8 +69,10 @@ let refresh_console_urls ~__context =
 		Helpers.log_exn_continue (Printf.sprintf "Updating console: %s" (Ref.string_of console)) (fun () ->
 			let vm = Db.Console.get_VM ~__context ~self:console in
 			let host = Db.VM.get_resident_on ~__context ~self:vm in
-			let address = Db.Host.get_address ~__context ~self:host in
-			let url_should_be = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of console) in
+			let url_should_be = match Db.Host.get_address ~__context ~self:host with
+			| "" -> ""
+			| address ->
+				Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of console) in
 			Db.Console.set_location ~__context ~self:console ~value:url_should_be
 		) ()
 	) (Db.Console.get_all ~__context)
