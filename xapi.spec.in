@@ -75,6 +75,15 @@ BuildRequires: systemd
 %description core
 This package contains the xapi toolstack.
 
+%package gpg-keys
+Summary: gpg public keyring and trust DB
+Group: System/Hypervisor
+
+%description gpg-keys
+GPG public keyring (and trust DB) used for verifying the
+signatures of hotfix packages and of file-based licences.
+(There is also an empty private keyring.)
+
 %package xe
 Summary: The xapi toolstack CLI
 Group: System/Hypervisor
@@ -242,9 +251,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-enable-ipv6
 /etc/bash_completion.d/xe-switch-network-backend
 @OPTDIR@/bin/xsh
-@OPTDIR@/gpg/pubring.gpg
-@OPTDIR@/gpg/secring.gpg
-@OPTDIR@/gpg/trustdb.gpg
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
 /etc/xensource/bugtool/xenopsd.xml
@@ -320,6 +326,11 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe
 /usr/bin/xe
 /etc/bash_completion.d/xe
+
+%files gpg-keys
+%config(noreplace) @OPTDIR@/gpg/pubring.gpg
+%config(noreplace) @OPTDIR@/gpg/secring.gpg
+%config(noreplace) @OPTDIR@/gpg/trustdb.gpg
 
 %files tests
 %defattr(-,root,root,-)
