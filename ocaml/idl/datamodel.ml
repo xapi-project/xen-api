@@ -840,7 +840,7 @@ let _ =
   error Api_errors.pool_joining_host_must_have_same_product_version []
     ~doc:"The host joining the pool must have the same product version as the pool master." ();
   error Api_errors.pool_joining_host_must_only_have_physical_pifs []
-    ~doc:"The host joining the pool may not have any bonds, VLANs or tunnels." ();
+    ~doc:"The host joining the pool must not have any bonds, VLANs or tunnels." ();
   error Api_errors.pool_hosts_not_compatible []
     ~doc:"The hosts in this pool are not compatible." ();
   error Api_errors.pool_hosts_not_homogeneous [ "reason" ]
