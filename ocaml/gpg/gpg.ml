@@ -13,6 +13,7 @@
  *)
 (** Wrapper around gpg *)
 
+open Stdext
 open Xstringext
 open Pervasiveext
 

@@ -18,6 +18,7 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
+open Stdext
 open Db_filter
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)

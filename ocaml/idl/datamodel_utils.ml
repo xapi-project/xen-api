@@ -15,8 +15,8 @@ open Datamodel
 open Datamodel_types
 open Dm_api
 open Printf
-open Listext
-open Xstringext
+open Stdext.Listext
+open Stdext.Xstringext
 
 (** Utility functions relating to the types in the datamodel *)
 module Types = struct

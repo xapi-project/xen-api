@@ -71,9 +71,9 @@ let choose l n =
 
 (** Return all permutations of a list *)
 let rec permutations : 'a list -> 'a list list = 
-  let rotate n xs = let a, b = Listext.List.chop n xs in b @ a in
+  let rotate n xs = let a, b = Stdext.Listext.List.chop n xs in b @ a in
   let insert_at n x xs = rotate (List.length xs - n + 1) (x :: (rotate n xs)) in
-  let mkints_exclusive n = Range.to_list (Range.make 0 n) in
+  let mkints_exclusive n = Stdext.Range.to_list (Stdext.Range.make 0 n) in
   function
   | [] -> [ [] ]
   | x :: xs -> List.concat (List.map (fun perm -> List.map (fun n -> insert_at n x perm) (mkints_exclusive (List.length xs + 1))) (permutations xs))

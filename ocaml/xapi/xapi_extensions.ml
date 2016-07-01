@@ -37,7 +37,7 @@ let call_extension rpc =
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
 				raise (Api_errors.Server_error (Api_errors.internal_error, [path; "task stopped"; output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
-				raise (Api_errors.Server_error (Api_errors.internal_error, [path; Printf.sprintf "signal: %s" (Unixext.string_of_signal i); output; log ]))
+				raise (Api_errors.Server_error (Api_errors.internal_error, [path; Printf.sprintf "signal: %s" (Stdext.Unixext.string_of_signal i); output; log ]))
 			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
 				raise (Api_errors.Server_error (Api_errors.internal_error, [path; "non-zero exit"; output; log ])) in
 		begin

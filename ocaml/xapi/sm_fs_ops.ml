@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Make VDIs with ext2 filesystems on them *)
-open Pervasiveext
+
 open Client
 open Printf
 
@@ -41,7 +41,7 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
 				| `RO -> [ Unix.O_RDONLY ]
 				| `RW -> [ Unix.O_RDWR ] in
 			let fd = Unix.openfile path mode' 0 in
-			finally
+			Stdext.Pervasiveext.finally
 				(fun () -> f fd)
 				(fun () -> Unix.close fd)
 		)
@@ -99,7 +99,7 @@ let umount ?(retry=true) dest =
 	if not(!finished) then raise Umount_timeout
 
 let with_mounted_dir device mount_point rmdir f =
-	finally
+	Stdext.Pervasiveext.finally
 		(fun () ->
 			debug "About to create mount point (perhaps)";
 			let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in

@@ -14,7 +14,9 @@
 (**
  * @group Storage
  *)
- 
+
+open Stdext
+
 (** Represents the configuration of a static (ie attached on boot) vdi *)
 type vdi = {
   uuid:               string;        (* VDI.uuid *)

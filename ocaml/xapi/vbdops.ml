@@ -15,12 +15,6 @@
  * @group Storage
  *)
  
-open Printf
-open Threadext
-open Xstringext
-open Pervasiveext
-open Client
-
 module D = Debug.Make(struct let name="xapi" end)
 open D
 

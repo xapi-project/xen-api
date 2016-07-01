@@ -20,7 +20,7 @@ let create ~__context ~mime_type ~public =
   let uuid = Uuid.make_uuid () in
   let ref = Ref.make () in
   let mime_type' = if mime_type="" then "application/octet-stream" else mime_type in
-  Db.Blob.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~public ~mime_type:mime_type' ~size:0L ~last_updated:(Date.never) ~name_label:"" ~name_description:"";
+  Db.Blob.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~public ~mime_type:mime_type' ~size:0L ~last_updated:(Stdext.Date.never) ~name_label:"" ~name_description:"";
   ref
 
 let destroy ~__context ~self =
@@ -32,7 +32,7 @@ let destroy ~__context ~self =
   
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
-  Unixext.unlink_safe path;
+  Stdext.Unixext.unlink_safe path;
   Db.Blob.destroy ~__context ~self
 
 (* Send blobs to a remote host on a different pool. uuid_map is a
@@ -54,8 +54,8 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
 	    with_transport transport
 	      (with_http request (fun (response, put_fd) ->
 		let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
-		ignore (Pervasiveext.finally
-			  (fun () -> Unixext.copy_file blob_fd put_fd)
+		ignore (Stdext.Pervasiveext.finally
+			  (fun () -> Stdext.Unixext.copy_file blob_fd put_fd)
 			  (fun () -> Unix.close blob_fd)) ))
 	  with e -> 
 	    debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e);
@@ -137,8 +137,8 @@ let handler (req: Http.Request.t) s _ =
 							  Http_svr.headers s ((Http.http_200_ok_with_content 
 								  size ~version:"1.1" ~keep_alive:false ()) 
 							  @ [Http.Hdr.content_type ^": "^(Db.Blob.get_mime_type ~__context ~self)]);
-							  ignore(Pervasiveext.finally 
-								  (fun () -> Unixext.copy_file ifd s) 
+							  ignore(Stdext.Pervasiveext.finally 
+								  (fun () -> Stdext.Unixext.copy_file ifd s) 
 								  (fun () -> Unix.close ifd))
 						  with _ ->
 							  Http_svr.headers s (Http.http_404_missing ())
@@ -147,15 +147,15 @@ let handler (req: Http.Request.t) s _ =
 					  let ofd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_SYNC; Unix.O_CREAT] 0o600 in
 					  let limit = match req.Http.Request.content_length with Some x -> x | None -> failwith "Need content length" in
 					  let size = 
-						  Pervasiveext.finally
+						  Stdext.Pervasiveext.finally
 							  (fun () -> 
 								  Http_svr.headers s (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]);
-								  Unixext.copy_file ~limit s ofd)
+								  Stdext.Unixext.copy_file ~limit s ofd)
 							  (fun () -> 
 								  Unix.close ofd)
 					  in
 					  Db.Blob.set_size ~__context ~self ~value:size;
-					  Db.Blob.set_last_updated ~__context ~self ~value:(Date.of_float (Unix.gettimeofday ()))
+					  Db.Blob.set_last_updated ~__context ~self ~value:(Stdext.Date.of_float (Unix.gettimeofday ()))
 				  | _ -> failwith "Unsupported method for BLOB"
 					  
 		  in

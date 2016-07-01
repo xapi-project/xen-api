@@ -12,8 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Pervasiveext
-open Threadext
+open Stdext.Threadext
 
 (** A table of 'instance' locks with a single master lock *)
 type ('a, 'b) t = {
@@ -41,7 +40,7 @@ let with_instance_lock t key f =
 			Hashtbl.replace t.t key ()
 		);
 	Locking_helpers.Thread_state.acquired r;
-	finally f
+	Stdext.Pervasiveext.finally f
 		(fun () ->
 			Mutex.execute t.m
 				(fun () ->
@@ -65,7 +64,7 @@ let with_master_lock t f =
 			while Hashtbl.length t.t > 0 do Condition.wait t.c t.m done
 		);
 	Locking_helpers.Thread_state.acquired r;
-	finally f
+	Stdext.Pervasiveext.finally f
 		(fun () ->
 			Mutex.execute t.m
 				(fun () ->

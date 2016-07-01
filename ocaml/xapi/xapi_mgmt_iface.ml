@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Db_filter_types
+open Stdext
 open Pervasiveext
 open Threadext
 

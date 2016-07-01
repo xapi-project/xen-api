@@ -17,6 +17,7 @@
 
 module Rrdd = Rrd_client.Client
 
+open Stdext
 open Fun
 open Xstringext
 open Listext

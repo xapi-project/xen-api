@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Stdext
 open Fun
 open Listext
 open Xapi_globs

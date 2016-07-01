@@ -13,7 +13,7 @@
  *)
 (* Allows xapi to drive the sparse_dd program *)
 
-open Pervasiveext
+open Stdext
 open Client
 open Printf
 open Threadext
@@ -61,7 +61,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 	let pipe_read, pipe_write = Unix.pipe () in
 	let to_close = ref [ pipe_read; pipe_write ] in
 	let close x = if List.mem x !to_close then (Unix.close x; to_close := List.filter (fun y -> y <> x) !to_close) in
-	finally
+	Pervasiveext.finally
 	(fun () ->
 		try match Forkhelpers.with_logfile_fd "sparse_dd"
 			(fun log_fd ->

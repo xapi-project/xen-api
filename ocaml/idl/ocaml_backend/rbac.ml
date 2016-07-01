@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Listext
+open Stdext.Listext
 
 module D = Debug.Make(struct let name="rbac" end)
 open D
@@ -149,9 +149,9 @@ let permission_of_action ?args ~keys _action =
 						let key_name =
 							List.find
 							(fun key_name ->
-							 if Xstringext.String.endswith "*" key_name
+							 if Stdext.Xstringext.String.endswith "*" key_name
 							 then begin (* resolve wildcards at the end *)
-								 Xstringext.String.startswith
+								 Stdext.Xstringext.String.startswith
 									 (String.sub key_name 0 ((String.length key_name) - 1))
 									 key_name_in_args
 							 end

@@ -15,6 +15,7 @@
  * @group Import and Export
  *)
 
+open Stdext
 open Xstringext
 open Http
 open Importexport

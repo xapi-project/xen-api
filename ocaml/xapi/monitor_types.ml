@@ -15,14 +15,13 @@
  * @group Performance Monitoring
  *)
 
-open Fun
+open Stdext
 open Xstringext
-open Xenctrl
 
 type vcpu = {
 	vcpu_sumcpus: float;
 	vcpu_vcpus: float array;
-	vcpu_rawvcpus: vcpuinfo array;
+	vcpu_rawvcpus: Xenctrl.vcpuinfo array;
 	vcpu_cputime: int64;
 }
 

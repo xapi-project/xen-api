@@ -65,6 +65,7 @@
       SR_p, VDI_p_a, VDI_p_b, ..., VDI_p_z : for an SR.detach (to "quiesce" the SR)
 *)
 
+open Stdext
 open Threadext
 open Pervasiveext
 open Fun

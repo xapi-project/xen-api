@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xstringext
+open Stdext.Xstringext
 
 module D=Debug.Make(struct let name="xva" end)
 open D
@@ -235,7 +235,7 @@ let send path fd =
     Tar_unix.write_block hdr 
       (fun ofd ->
 	 let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
-	 Pervasiveext.finally (fun () -> Tar_unix.Archive.copy_n ifd ofd hdr.Tar_unix.Header.file_size)
+	 Stdext.Pervasiveext.finally (fun () -> Tar_unix.Archive.copy_n ifd ofd hdr.Tar_unix.Header.file_size)
 	   (fun () -> Unix.close ifd)) fd in
 
   let add_disk path = 

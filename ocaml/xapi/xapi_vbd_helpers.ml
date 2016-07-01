@@ -15,6 +15,7 @@
  * @group Storage
  *)
 
+open Stdext
 open Listext
 open Threadext
 open Xstringext

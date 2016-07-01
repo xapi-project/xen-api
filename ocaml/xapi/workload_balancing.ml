@@ -15,6 +15,7 @@
  *  @group Workload Balancing
  *)
 
+open Stdext
 open Printf
 open Xstringext
 open Threadext

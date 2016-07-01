@@ -13,7 +13,6 @@
  *)
  
 open Datamodel_types
-open Xstringext
 
 type change_t = lifecycle_change * string * string
 and changes_t = change_t list
@@ -25,12 +24,12 @@ let _ =
 	let create_json obj =
 		let name = obj.name in
 		let s = Jsonrpc.to_string (rpc_of_obj obj) in
-		Unixext.write_string_to_file ("api/" ^ name ^ ".json") ("clsdoc = " ^ s);
+		Stdext.Unixext.write_string_to_file ("api/" ^ name ^ ".json") ("clsdoc = " ^ s);
 		name
 	in
 	let names = List.map create_json objs in
 	let class_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") names) in
-	Unixext.write_string_to_file "api/index.json" ("classes = [" ^ class_list ^ "]");
+	Stdext.Unixext.write_string_to_file "api/index.json" ("classes = [" ^ class_list ^ "]");
 	
 	let changes_in_release rel =
 		let search_obj obj =
@@ -69,8 +68,8 @@ let _ =
 			"{'cls': '" ^ obj.name ^ "', 'obj_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t obj_changes) ^ ", 'field_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t field_changes) ^ ", 'msg_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t msg_changes) ^ "}"
 		in
 		let release_info = String.concat ", " (List.map search_obj objs) in
-		Unixext.write_string_to_file ("api/" ^ rel ^ ".json") ("release_info = [" ^ release_info ^ "]")
+		Stdext.Unixext.write_string_to_file ("api/" ^ rel ^ ".json") ("release_info = [" ^ release_info ^ "]")
 	in
 	List.iter changes_in_release release_order;
 	let release_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") release_order) in
-	Unixext.write_string_to_file "api/releases.json" ("releases = [" ^ release_list ^ "]");
+	Stdext.Unixext.write_string_to_file "api/releases.json" ("releases = [" ^ release_list ^ "]");

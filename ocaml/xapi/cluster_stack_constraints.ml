@@ -1,5 +1,5 @@
 open Db_filter_types
-open Listext
+open Stdext.Listext
 
 module D = Debug.Make(struct let name="cluster_stack_constraints" end)
 open D

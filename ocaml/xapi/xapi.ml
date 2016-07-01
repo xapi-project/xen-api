@@ -14,7 +14,8 @@
 (**
  * @group Main Loop and Start-up
  *)
- 
+
+open Stdext
 open Printf
 open Xstringext
 open Threadext

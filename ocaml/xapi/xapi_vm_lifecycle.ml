@@ -16,6 +16,7 @@
  *)
 
 open Xapi_pv_driver_version
+open Stdext
 open Listext
 
 module D = Debug.Make(struct let name="xapi" end)

@@ -18,6 +18,7 @@
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
+open Stdext
 open Xstringext
 open Pervasiveext
 open Listext

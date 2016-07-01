@@ -13,6 +13,7 @@
  *)
 (** Detect when PV drivers are out of date *)
 
+open Stdext
 open Xstringext
 open Printf
 

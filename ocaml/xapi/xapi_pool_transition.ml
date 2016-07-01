@@ -14,7 +14,8 @@
 (**
  * @group Pool Management
  *)
- 
+
+open Stdext
 open Threadext
 open Client
 

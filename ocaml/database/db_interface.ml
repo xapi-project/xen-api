@@ -14,7 +14,7 @@
 
 type response =
 	| String of string
-	| Bigbuf of Bigbuffer.t
+	| Bigbuf of Stdext.Bigbuffer.t
 
 (** A generic RPC interface *)
 module type RPC = sig 

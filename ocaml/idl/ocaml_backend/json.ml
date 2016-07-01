@@ -14,7 +14,7 @@
 (** Translate from the XMLRPC encoded response into a JSON response *)
 
 open Xml
-open Xstringext
+open Stdext.Xstringext
 
 let escape_string s =
   String.escaped ~rules:[('\n',"\\n");('"',"\\\"");('\\',"\\\\")] s

@@ -216,7 +216,7 @@ let cleanup (x: cleanup_stack) =
 	 )
     )
 
-open Pervasiveext
+open Stdext.Pervasiveext
 
 type vm_export_import = {
 	vm: API.ref_VM;
@@ -260,7 +260,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 				with_transport (Unix Xapi_globs.unix_domain_socket)
 					(with_http get
 						(fun (r, ifd) ->
-							debug "Content-length: %s" (Opt.default "None" (Opt.map Int64.to_string r.Http.Response.content_length));
+							debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
 							let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
 							debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
                                                         (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
@@ -272,7 +272,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 							with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
 								(with_http put
 									(fun (_, ofd) ->
-										let (n: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+										let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
 										debug "Written %Ld bytes" n
 									)
 								)

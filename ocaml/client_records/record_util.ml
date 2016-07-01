@@ -15,7 +15,7 @@
 
 exception Record_failure of string
 
-open Xstringext
+open Stdext.Xstringext
 
 let power_state_to_string state =
   match state with

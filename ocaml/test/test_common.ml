@@ -13,6 +13,7 @@
  *)
 
 open API
+open Stdext
 open Fun
 open OUnit
 

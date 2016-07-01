@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Pervasiveext
-
 type endpoint = { fdin: Unix.file_descr; fdout: Unix.file_descr; mutable buffer: string; mutable buffer_len: int }
 
 let make_endpoint fdin fdout = {
@@ -83,5 +81,5 @@ let _ =
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
   let fd = open_tcp_ssl host in
-  ignore_int (Unix.write fd req 0 (String.length req));
+  ignore (Unix.write fd req 0 (String.length req));
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)

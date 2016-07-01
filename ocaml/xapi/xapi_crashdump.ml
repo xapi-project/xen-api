@@ -22,7 +22,7 @@ let create ~__context ~vM ~vDI =
     cdumpref
 
 let destroy ~__context ~self =
-  Pervasiveext.finally
+  Stdext.Pervasiveext.finally
     (nothrow (fun ()->
 		let vdi = Db.Crashdump.get_VDI ~__context ~self in
 		  Helpers.call_api_functions ~__context

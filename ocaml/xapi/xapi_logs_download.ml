@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Http
-open Pervasiveext
 open Forkhelpers
 
 module D = Debug.Make(struct let name="xapi" end)

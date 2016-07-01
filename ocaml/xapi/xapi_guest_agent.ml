@@ -15,6 +15,7 @@
     Note this only deals with relatively static data (like version numbers) and
     not dynamic performance data. *)
 
+open Stdext
 open Fun
 open Xstringext
 open Threadext

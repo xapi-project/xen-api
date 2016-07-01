@@ -14,7 +14,9 @@
 (** Module for reading FIST points
  * @group Testing
  *)
- 
+
+open Stdext
+
 module D = Debug.Make(struct let name="xapi" end)
 open D
 

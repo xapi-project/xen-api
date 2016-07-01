@@ -146,6 +146,8 @@ let callback1 is_json req fd body call =
 
       (* debug(fmt "response = %s" response); *)
 
+open Stdext
+
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)

@@ -13,6 +13,7 @@
  *)
 
 open Client
+open Stdext
 open Pervasiveext
 open Fun
 open Listext

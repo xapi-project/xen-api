@@ -13,7 +13,7 @@
  *)
 module D = Debug.Make(struct let name="bios_strings" end)
 open D
-open Xstringext
+open Stdext.Xstringext
 
 let dmidecode_prog = "/usr/sbin/dmidecode"
 
@@ -77,7 +77,7 @@ let get_hp_rombios () =
 	let hp_rombios = String.make 6 ' ' in
 	begin try
 		let mem = Unix.openfile "/dev/mem" [Unix.O_RDONLY] 0 in
-		Pervasiveext.finally (fun () ->
+		Stdext.Pervasiveext.finally (fun () ->
 			ignore (Unix.lseek mem 0xfffea Unix.SEEK_SET);
 			ignore (Unix.read mem hp_rombios 0 6))
 		(fun () -> Unix.close mem)

@@ -14,10 +14,10 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
+
 open Client
-open Listext
-open Client
+open Stdext.Listext
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
@@ -131,7 +131,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 	let result = Xenstore.with_xs (fun xs ->
 		(* 1. We first check if the VM supports quiesce-mode *)
 		if quiesce_enabled ~xs ~domid ~vm
-		then begin Pervasiveext.finally
+		then begin Stdext.Pervasiveext.finally
 			(fun () ->
 				(* 2. if it the case, we can trigger a VSS snapshot *)
 				xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid);

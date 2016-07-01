@@ -72,7 +72,7 @@ exception Cannot_eject_master
 val no_exn : (unit -> unit) -> unit
 val unplug_pbds : __context:Context.t -> [ `host ] Ref.t -> unit
 val eject : __context:Context.t -> host:API.ref_host -> unit
-val sync_m : Threadext.Mutex.t
+val sync_m : Mutex.t
 val sync_database : __context:Context.t -> unit
 val designate_new_master : __context:Context.t -> host:API.ref_host -> unit
 val initial_auth : __context:'a -> string
@@ -94,7 +94,7 @@ val slave_network_report :
   
 (** {2 High availability (HA)} *)
   
-val enable_disable_m : Threadext.Mutex.t
+val enable_disable_m : Mutex.t
 val enable_ha :
   __context:Context.t ->
   heartbeat_srs:API.ref_SR list ->

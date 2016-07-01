@@ -14,7 +14,8 @@
 (**
  * @group Pool Management
  *)
- 
+
+open Stdext
 open Pervasiveext
 open Xstringext
 open Http

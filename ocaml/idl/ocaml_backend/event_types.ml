@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xstringext
+open Stdext.Xstringext
 
 (** Types used to store events: *****************************************************************)
 type op = API.event_operation 
@@ -74,7 +74,6 @@ let rec rpc_of_event_from e =
 (** Return result of an events.from call *)
 
 open Printf
-open Pervasiveext
 
 let string_of_op = function `add -> "add" | `_mod -> "mod" | `del -> "del" 
 let op_of_string x = match String.lowercase x with

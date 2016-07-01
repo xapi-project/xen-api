@@ -14,8 +14,6 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
-open Pervasiveext
 
 let ( ++ ) = Int64.add
 let ( -- ) = Int64.sub

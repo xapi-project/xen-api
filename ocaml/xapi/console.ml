@@ -17,8 +17,8 @@
  * console will be chosen) or a console object.
  *)
 
-open Fun
 open Http
+open Stdext
 
 module D = Debug.Make(struct let name="console" end)
 open D

@@ -16,8 +16,6 @@
 module D = Debug.Make(struct let name="backgroundscheduler" end)
 open D
 
-open Threadext 
-
 let register () =
   debug "Registering periodic calls";
 

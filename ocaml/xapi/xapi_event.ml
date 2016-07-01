@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
+open Stdext
 open Threadext
 open Pervasiveext
 open Listext

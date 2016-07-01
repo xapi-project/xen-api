@@ -19,6 +19,7 @@ open Sexplib.Std
 module D = Debug.Make(struct let name = "cli" end)
 open D
 
+open Stdext
 open Xstringext
 open Event_types
 open Event_helper

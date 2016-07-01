@@ -15,7 +15,7 @@
 module D = Debug.Make(struct let name = "xapi" end)
 open D
 
-open Xstringext
+open Stdext.Xstringext
 
 exception Parse_error of exn
 
@@ -229,7 +229,7 @@ module Nvidia = struct
 
 	let of_conf_file file_path =
 		try
-			let conf = Unixext.read_lines file_path in
+			let conf = Stdext.Unixext.read_lines file_path in
 			let args = List.filter
 				(fun s -> not (String.startswith "#" s || s = "")) conf in
 			let args = List.map (String.strip String.isspace) args in
@@ -429,7 +429,7 @@ module Intel = struct
 
 	let read_whitelist ~whitelist ~device_id =
 		if Sys.file_exists whitelist then begin
-			Unixext.file_lines_fold
+			Stdext.Unixext.file_lines_fold
 				Identifier.(fun acc line ->
 					match read_whitelist_line ~line with
 					| Some conf when conf.identifier.pdev_id = device_id -> conf :: acc

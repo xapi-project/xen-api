@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
 open Http
-open Pervasiveext
 open Forkhelpers
 
 module D = Debug.Make(struct let name="xapi" end)
@@ -30,7 +30,7 @@ let vncsnapshot_handler (req: Request.t) s _ =
 	 Console.rbac_check_for_control_domain __context req console
      Rbac_static.permission_http_get_vncsnapshot_host_console.Db_actions.role_name_label;
 	 let tmp = Filename.temp_file "snapshot" "jpg" in
-	 finally
+	 Stdext.Pervasiveext.finally
 	   (fun () ->
 	      let vnc_port = Int64.to_int (Db.Console.get_port ~__context ~self:console) in
 	      

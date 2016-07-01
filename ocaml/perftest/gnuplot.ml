@@ -13,7 +13,7 @@
  *)
 (** Module to drive gnuplot *)
 
-open Pervasiveext
+open Stdext.Pervasiveext
 
 type line = {
   graphname: string;
@@ -103,8 +103,8 @@ let render (x: t) output =
     ] in
   
   let f = Filename.temp_file "gnuplot" "gnuplot" in
-  Unixext.write_string_to_file f (String.concat "\n" config);
+  Stdext.Unixext.write_string_to_file f (String.concat "\n" config);
   finally
     (fun () ->
        Unix.system(Printf.sprintf "gnuplot %s %s" (if output = X11 then "-persist" else "") f);
-    ) (fun () -> Unixext.unlink_safe f)
+    ) (fun () -> Stdext.Unixext.unlink_safe f)

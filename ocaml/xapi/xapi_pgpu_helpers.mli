@@ -33,7 +33,7 @@ val assert_no_resident_VGPUs_of_type : __context:Context.t ->
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU, or an exception if the remaining capacity is zero. *)
 val get_remaining_capacity_internal : __context:Context.t ->
-	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> (exn, int64) Either.t
+	self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> (exn, int64) Stdext.Either.t
 
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU. *)

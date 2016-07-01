@@ -15,7 +15,6 @@ module D = Debug.Make(struct let name = "xapi-db-process" end)
 open D
 
 open Db_cache_types
-open Pervasiveext
 
 let compress = ref false
 let filename = ref ""

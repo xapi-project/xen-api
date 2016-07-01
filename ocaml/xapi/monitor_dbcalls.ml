@@ -13,6 +13,7 @@
  *)
 
 open Db_filter_types
+open Stdext
 open Listext
 open Monitor_types
 open Monitor_dbcalls_cache

@@ -25,6 +25,7 @@ let reason = "HA statefile"
 let statefile_sm_config = [ "type", "raw" ]
 
 open Client
+open Stdext
 open Listext
 open Xstringext
 

@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (* ------------------- List of db connections that are active (read from db.conf file) *)
+open Stdext
 
 let db_connections : Parse_db_conf.db_connection list ref = ref [] (* initalised by ocaml/xapi/xapi.ml *)
 

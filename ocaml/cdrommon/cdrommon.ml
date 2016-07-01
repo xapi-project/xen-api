@@ -15,7 +15,7 @@ let oldnotify = ref false
 
 let disc_inserted name =
 	let args = [| !Xapi_globs.xe_path; "host-notify"; "type=cdrom"; "params=inserted:" ^ name |] in
-	let ret = Unixext.spawnvp args.(0) args in
+	let ret = Stdext.Unixext.spawnvp args.(0) args in
 	(* check if we got an error, and record the fact *)
 	begin match ret with
 	| Unix.WEXITED 0 -> oldnotify := false
@@ -61,6 +61,6 @@ let () =
 		Printf.eprintf "usage: %s <cdrompath>\n" Sys.argv.(0);
 		exit 1
 	);
-	Unixext.daemonize ();
+	Stdext.Unixext.daemonize ();
 	(* check every 2 seconds *)
 	check 2 Sys.argv.(1)

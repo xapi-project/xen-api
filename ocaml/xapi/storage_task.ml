@@ -1,5 +1,3 @@
-open Threadext
-open Fun
 open Storage_interface
 
 module D=Debug.Make(struct let name=Storage_interface.service_name end)
@@ -13,7 +11,7 @@ let tasks = Storage_task.empty ()
 	
 let signal task =
 	let open Storage_task in
-	Mutex.execute tasks.m
+	Stdext.Threadext.Mutex.execute tasks.m
 		(fun () ->
 			if exists_locked tasks task then begin
 				debug "TASK.signal %s = %s" task ((find_locked tasks task).state |> Task.rpc_of_state |> Jsonrpc.to_string);

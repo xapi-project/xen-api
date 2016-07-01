@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Db_cache_types
-open Pervasiveext
 module R = Debug.Make(struct let name = "redo_log" end)
 module D = Debug.Make(struct let name = "database" end)
 
@@ -86,7 +85,7 @@ module To = struct
 
   let file (filename: string) db : unit = 
     let fdescr = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ] 0o600 in
-    finally
+    Stdext.Pervasiveext.finally
       (fun () -> fd fdescr db)
       (fun () -> Unix.close fdescr)
 end
@@ -172,6 +171,7 @@ module From = struct
 		let g = Int64.of_string (List.assoc _generation_count manifest) in
 		let (major_vsn, minor_vsn) = schema_vsn_of_manifest manifest in
 		let manifest = Manifest.make major_vsn minor_vsn g in
+		let open Stdext.Fun in
 		((Database.update_manifest (fun _ -> manifest)) 
 		++ (Database.update_tableset (fun _ -> ts)))
 			(Database.make schema)
@@ -179,7 +179,7 @@ module From = struct
 
   let file schema xml_filename =
       let input = open_in xml_filename in
-      finally 
+      Stdext.Pervasiveext.finally 
 		  (fun () -> database schema (Xmlm.make_input (`Channel input))) 
 		  (fun () -> close_in input) 
 

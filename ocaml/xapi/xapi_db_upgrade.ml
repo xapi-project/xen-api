@@ -19,6 +19,7 @@
 module D = Debug.Make(struct let name = "db_hiupgrade" end)
 open D
 
+open Stdext
 open Xstringext
 open Pervasiveext
 

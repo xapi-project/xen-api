@@ -22,7 +22,7 @@
 type write_entry = {period_start_time: float; writes_this_period: int}
 let backup_write_table : (Parse_db_conf.db_connection, write_entry) Hashtbl.t = Hashtbl.create 20
 let backup_m = Mutex.create()
-let with_backup_lock f = Threadext.Mutex.execute backup_m f
+let with_backup_lock f = Stdext.Threadext.Mutex.execute backup_m f
 
 (* lookup a write entry, returning one if there's one there. If there isn't one there then create a new one,
    log it in table and return that *)

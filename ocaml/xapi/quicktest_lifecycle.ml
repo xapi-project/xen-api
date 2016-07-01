@@ -104,9 +104,9 @@ let _ =
 
 open Quicktest_common
 open Client
-open Pervasiveext
 
 let one s vm test = 
+	let open Stdext in
 	let t = make_test (string_of_test test) 1 in
 	start t;
 	let event = "/tmp/fist_disable_event_lifecycle_path" in
@@ -114,7 +114,7 @@ let one s vm test =
 	let simulate = "/tmp/fist_simulate_internal_shutdown" in
 	let delay = "/tmp/fist_disable_reboot_delay" in
 
-	finally
+	Pervasiveext.finally
 		(fun () ->
 			try
 				begin 

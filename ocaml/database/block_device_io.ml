@@ -88,6 +88,7 @@
  *               "empty|nack"  otherwise
  *)
 
+open Stdext
 open Pervasiveext
 
 let name = "block_device_io"

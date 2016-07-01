@@ -22,7 +22,7 @@ let run_hook_script_after_subject_add () =
 	(* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 	(* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
 	(* potentially create different sshd configuration files in different hosts of the pool. *)
-	Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+	Stdext.Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
 		ignore (Server_helpers.exec_with_new_task "run_hook_script_after_subject_add"
 			(fun __context -> 
 			Extauth.call_extauth_hook_script_in_pool ~__context Extauth.event_name_after_subject_add
@@ -91,7 +91,7 @@ let run_hook_script_after_subject_remove () =
 	(* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 	(* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
 	(* potentially create different sshd configuration files in different hosts of the pool. *)
-	Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+	Stdext.Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
 		ignore (Server_helpers.exec_with_new_task "run_hook_script_after_subject_remove"
 			(fun __context -> 
 			Extauth.call_extauth_hook_script_in_pool ~__context Extauth.event_name_after_subject_remove
@@ -150,7 +150,7 @@ let get_permissions_name_label ~__context ~self =
 	  fold get_all_permissions ~__context ~role
 	  setify
 	*)
-	Listext.List.setify
+	Stdext.Listext.List.setify
 		(List.fold_left 
 			(fun accu role -> 
 				List.rev_append 
@@ -165,7 +165,7 @@ let run_hook_script_after_subject_roles_update () =
 	(* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 	(* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
 	(* potentially create different sshd configuration files in different hosts of the pool. *)
-	Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+	Stdext.Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
 		ignore (Server_helpers.exec_with_new_task "run_hook_script_after_subject_roles_update"
 			(fun __context -> 
 			Extauth.call_extauth_hook_script_in_pool ~__context Extauth.event_name_after_roles_update

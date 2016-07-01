@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-open Pervasiveext
+open Stdext
 open Xstringext
 open Listext
 

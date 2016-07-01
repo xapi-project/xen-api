@@ -17,7 +17,7 @@ open Format
 open Ocaml_utils
 open Gen_db_actions
 
-open Listext
+open Stdext.Listext
 
 let ( @- ) a b = a @ List.map (( ^ ) "  ") b
 let ( @-- ) a b = a @ List.map (( ^ ) "    ") b

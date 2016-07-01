@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xstringext
+open Stdext.Xstringext
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -213,7 +213,7 @@ let create ~__context ~device ~network ~vM
 	end;
 
 	(* Check to make sure the device is unique *)
-	Threadext.Mutex.execute m
+	Stdext.Threadext.Mutex.execute m
 	  (fun () ->
 	let all = Db.VM.get_VIFs ~__context ~self:vM in
 	let all_devices = List.map (fun self -> Db.VIF.get_device ~__context ~self) all in
@@ -222,7 +222,7 @@ let create ~__context ~device ~network ~vM
 	
 	let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-	  ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.) ~other_config:[];
+	  ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Stdext.Date.of_float 0.) ~other_config:[];
 	
 	let (_:unit) = Db.VIF.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
 	  ~current_operations:[] ~allowed_operations:[] ~reserved:false

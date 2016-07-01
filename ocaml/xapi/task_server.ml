@@ -15,8 +15,8 @@
  * @group Xenops
  *)
 
+open Stdext
 open Threadext
-open Pervasiveext
 open Listext
 open Fun
 
@@ -223,7 +223,7 @@ let check_cancelling t =
 
 let with_cancel t cancel_fn f =
 	Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);
-	finally
+	Stdext.Pervasiveext.finally
 		(fun () ->
 			check_cancelling t;
 			f ()

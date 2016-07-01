@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Fun
+open Stdext
 open OUnit
 open Test_highlevel
 

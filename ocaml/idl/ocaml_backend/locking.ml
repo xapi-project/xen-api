@@ -16,7 +16,7 @@
    These functions are called by used to statically determine which locks we should acquire when
     autogenerating server functor.
    --------------------------------------------------------------------------------------------- *)
-open Listext
+open Stdext.Listext
 
 module DT = Datamodel_types
 module DM = Datamodel

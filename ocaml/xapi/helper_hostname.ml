@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Threadext
+open Stdext.Threadext
 open Helper_process
 
 let filter_newline s =

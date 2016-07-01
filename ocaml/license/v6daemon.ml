@@ -13,7 +13,7 @@
  *)
 
 (* v6 licensing daemon *)
-open Xstringext
+open Stdext.Xstringext
 open Printf
 
 module D=Debug.Make(struct let name="v6daemon" end)
@@ -49,8 +49,8 @@ let daemon_init post_daemonize_hook process =
 
 		(* unix socket *)
 		let unix_socket_path = Filename.concat "/var/lib/xcp" "v6" in
-		Unixext.mkdir_safe (Filename.dirname unix_socket_path) 0o700;
-		Unixext.unlink_safe unix_socket_path;
+		Stdext.Unixext.mkdir_safe (Filename.dirname unix_socket_path) 0o700;
+		Stdext.Unixext.unlink_safe unix_socket_path;
 		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(unix_socket_path)) "unix_rpc" in
 		Http_svr.start server domain_sock;
 		Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
@@ -61,7 +61,7 @@ let daemon_init post_daemonize_hook process =
 			ignore(Http_svr.start (localhost_sock, "inet-RPC"));*)
 
 		(* keep daemon alive *)
-		Threadext.keep_alive ()
+		Stdext.Threadext.keep_alive ()
 	) ()
 
 let watchdog f =
@@ -126,7 +126,7 @@ let watchdog f =
 									last_badexit := ctime
 								end
 						| Unix.WSIGNALED i ->
-							loginfo "Received signal %s" (Unixext.string_of_signal i);
+							loginfo "Received signal %s" (Stdext.Unixext.string_of_signal i);
 							pid := 0;
 							(* arbitrary choice of signals, probably need more though, for real use *)
 							if i = Sys.sigsegv || i = Sys.sigpipe then
@@ -182,10 +182,10 @@ let startup post_daemonize_hook process =
 		"v6 licensing daemon";
 
 	if !daemon then
-		Unixext.daemonize ();
+		Stdext.Unixext.daemonize ();
 
 	if !pidfile <> "" then
-		Unixext.pidfile_write !pidfile;
+		Stdext.Unixext.pidfile_write !pidfile;
 
 	watchdog (fun () -> daemon_init post_daemonize_hook process)
 	

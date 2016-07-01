@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext
 
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
@@ -28,6 +27,7 @@ let by_order (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
   let vm2_order = negative_high (vm_rec2.API.vM_order) in
   compare vm1_order vm2_order
 
+let ($) x y = x y
 
 (*****************************************************************************************************)
 (* Planning code follows                                                                             *)
@@ -74,7 +74,7 @@ let string_of_configuration_change ~__context (x: configuration_change) =
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
-    (Opt.default "no change" (Opt.map string_of_int x.num_failures))
+    (Stdext.Opt.default "no change" (Stdext.Opt.map string_of_int x.num_failures))
     (String.concat "; " (List.map Helpers.short_string_of_ref x.new_vms_to_protect))
 
 (* Deterministic function which chooses a single host to 'pin' a non-agile VM to. Note we don't consider only live hosts:
@@ -125,7 +125,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
 	   will use their new memory_static_max: so we always use a live 'VM.get_record' and not a 'last_booted_record' *)
 
 	(* Allow the num_failures to be overriden *)
-	let (num_failures: int) = Opt.default num_failures change.num_failures in
+	let (num_failures: int) = Stdext.Opt.default num_failures change.num_failures in
 
 	(* All the VMs to protect; these VMs may or may not be currently running anywhere: they will be offline when a host has
 	   failed and possibly initially during the enable-ha transient. *)
@@ -460,7 +460,7 @@ let restart_auto_run_vms ~__context live_set n =
 					let current = Db.Host_metrics.get_live ~__context ~self:h_metrics in
 					if current then begin
 						(* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
-						let shutting_down = Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
+						let shutting_down = Stdext.Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
 						if not (List.exists (fun x -> x=h) shutting_down) then begin
 							let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
 							let host_name = Db.Host.get_name_label ~__context ~self:h in
@@ -577,7 +577,7 @@ let restart_auto_run_vms ~__context live_set n =
 					| Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
 						(* This should never happen since the planning code would always allow the restart of a protected VM... *)
 						error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
-						ignore_bool(mark_pool_as_overcommitted ~__context ~live_set);
+						ignore (mark_pool_as_overcommitted ~__context ~live_set : bool);
 						begin
 							try
 								go ();

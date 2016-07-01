@@ -17,6 +17,7 @@
 
 open Client
 open Db_cache_types
+open Stdext
 open Pervasiveext
 open Threadext
 

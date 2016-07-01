@@ -27,7 +27,7 @@ module Tests = Generic.Make (struct
 			| Expired hosts -> "Expired on hosts: " ^ (Test_printers.(list string) hosts)
 	end
 
-	let now = Date.to_float (Date.of_string "20160601T04:00:00Z")
+	let now = Stdext.Date.to_float (Stdext.Date.of_string "20160601T04:00:00Z")
 
 	let transform = fun (pool_license_state, all_license_params) ->
 		check_license now pool_license_state all_license_params

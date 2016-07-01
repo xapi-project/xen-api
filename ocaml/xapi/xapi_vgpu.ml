@@ -42,7 +42,7 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
 		end
 	in
 
-	Threadext.Mutex.execute m (fun () ->
+	Stdext.Threadext.Mutex.execute m (fun () ->
 		(* Check to make sure the device is unique *)
 		let all = Db.VM.get_VGPUs ~__context ~self:vM in
 		let all_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self) all in

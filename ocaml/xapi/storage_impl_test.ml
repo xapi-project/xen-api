@@ -15,6 +15,7 @@
  * @group Storage
  *)
 
+open Stdext
 open Pervasiveext
 open Threadext
 open Storage_interface

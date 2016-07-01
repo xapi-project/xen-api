@@ -130,7 +130,7 @@ let start session_id sr =
      we've written to the original *)
   read_from_vdi ~session_id ~vdi:snapshot_backup
     (fun fd ->
-      let a = Unixext.really_read_string fd 512 in
+      let a = Stdext.Unixext.really_read_string fd 512 in
       for i = 0 to String.length a - 1 do
         if a.[i] <> 'b' then begin
           let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i a.[i] 'b' in
@@ -139,7 +139,7 @@ let start session_id sr =
         end
       done;
       debug t "First sector is full of 'b's";
-      let b = Unixext.really_read_string fd (1024 * 1024 - 512) in
+      let b = Stdext.Unixext.really_read_string fd (1024 * 1024 - 512) in
       for i = 0 to String.length b - 1 do
         if b.[i] <> 'a' then begin
           let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i b.[i] 'a' in

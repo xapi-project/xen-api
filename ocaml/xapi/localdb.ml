@@ -14,8 +14,8 @@
 (* Store and retrieve some host-specific data as key-value pairs. This can
    be used in emergency mode since every slave has its own copy. *)
 
-open Threadext
-open Pervasiveext
+open Stdext.Threadext
+open Stdext.Pervasiveext
 
 module D=Debug.Make(struct let name="localdb" end)
 open D
@@ -44,7 +44,7 @@ let assert_loaded () =
       | Xmlm.Error _ ->
 	  debug "Xml error processing local database %s. Moving it out of the way." Xapi_globs.local_database;
 	  let corrupt_fname = Xapi_globs.local_database^".corrupt" in
-	  Unixext.unlink_safe corrupt_fname;
+	  Stdext.Unixext.unlink_safe corrupt_fname;
 	  Unix.rename Xapi_globs.local_database corrupt_fname	    
   end
 
@@ -77,7 +77,7 @@ let flush () =
   let b = Buffer.create 256 in
   to_db (Xmlm.make_output (`Buffer b));
   let s = Buffer.contents b in
-  Unixext.write_string_to_file Xapi_globs.local_database s
+  Stdext.Unixext.write_string_to_file Xapi_globs.local_database s
 
 let put (key: string) (v: string) = 
   Mutex.execute m

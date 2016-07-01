@@ -14,7 +14,8 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
+open Stdext
 open Pervasiveext
 open Client
 open Forkhelpers

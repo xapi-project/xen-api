@@ -16,14 +16,12 @@ module D = Debug.Make(struct let name = "xapi" (* this is set to 'xapi' delibera
 open D
 
 open Db_cache_types
-open Xstringext
-open Pervasiveext
 
 (** Automatically insert blank tables and new columns with default values *)
 let generic_database_upgrade db =
   let existing_table_names = TableSet.fold (fun name _ _ acc -> name :: acc) (Database.tableset db) [] in
   let schema_table_names = Schema.table_names (Database.schema db) in
-  let created_table_names = Listext.List.set_difference schema_table_names existing_table_names in
+  let created_table_names = Stdext.Listext.List.set_difference schema_table_names existing_table_names in
   let g = Manifest.generation (Database.manifest db) in
   let db = Database.update
 	  (fun ts ->
@@ -32,6 +30,7 @@ let generic_database_upgrade db =
 			  TableSet.add g tblname Table.empty ts) ts created_table_names) db in
   
   (* for each table, go through and fill in missing default values *)
+  let open Stdext.Fun in
   List.fold_left
       (fun db tblname ->
 		  let tbl = TableSet.find tblname (Database.tableset db) in

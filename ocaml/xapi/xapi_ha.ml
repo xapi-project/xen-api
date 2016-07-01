@@ -23,6 +23,7 @@ open D
 
 module Rrdd = Rrd_client.Client
 
+open Stdext
 open Listext
 open Xstringext
 open Threadext
