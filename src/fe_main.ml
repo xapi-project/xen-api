@@ -8,7 +8,7 @@ let setup sock cmdargs id_to_fd_map syslog_stdout env =
   let fd_sock_path = Printf.sprintf "/var/xapi/forker/fd_%s" 
     (Uuidm.to_string (Uuidm.create `V4)) in
   let fd_sock = Fecomms.open_unix_domain_sock () in
-  Unixext.unlink_safe fd_sock_path;
+  Stdext.Unixext.unlink_safe fd_sock_path;
   debug "About to bind to %s" fd_sock_path;
   Unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path);
   Unix.listen fd_sock 5;
@@ -54,13 +54,13 @@ let _ =
     (fun _ -> failwith "Invalid argument")
     "Usage: fe [-daemon] [-pidfile filename]";
 
-  if !daemonize then Unixext.daemonize ();
+  if !daemonize then Stdext.Unixext.daemonize ();
 
   Sys.set_signal Sys.sigpipe (Sys.Signal_ignore);
 
   let main_sock = Fecomms.open_unix_domain_sock_server "/var/xapi/forker/main" in
 
-  Unixext.pidfile_write !pidfile;
+  Stdext.Unixext.pidfile_write !pidfile;
 
   (* At this point the init.d script should return and we are listening on our socket. *)
 

@@ -1,7 +1,14 @@
-opam-version: "1"
+opam-version: "1.2"
 maintainer: "dave.scott@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/"
+bug-reports: "https://github.com/xapi-project/forkexecd/issues"
+dev-repo: "git://github.com/xapi-project/forkexecd"
 build: [
+  ["oasis" "setup"]
   [make]
+]
+install: [
   [make "install" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "ETCDIR=%{prefix}%/etc"]
 ]
 remove: [make "uninstall" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "ETCDIR=%{prefix}%/etc"]
@@ -12,7 +19,7 @@ depends: [
   "rpc"
   "fd-send-recv"
   "uuidm"
-  "xapi-stdext"
+  "xapi-stdext" {>= "2.0.0"}
   "re"
   "xapi-idl"
 ]

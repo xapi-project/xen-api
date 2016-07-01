@@ -23,7 +23,7 @@
 
 let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
 
-open Pervasiveext
+open Stdext.Pervasiveext
 
 type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 
@@ -75,7 +75,7 @@ type 'a result = Success of string * 'a | Failure of string * exn
 let with_logfile_fd ?(delete = true) prefix f = 
   let logfile = Filename.temp_file prefix ".log" in
   let read_logfile () = 
-    let contents = Unixext.string_of_file logfile in
+    let contents = Stdext.Unixext.string_of_file logfile in
     Unix.unlink logfile;
     contents in
 
@@ -175,16 +175,16 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?
 			Unix.close fd;
 			to_close := List.filter (fun x -> x <> fd) !to_close;
 		end in
-	let stdinandpipes = Opt.map (fun str -> 
+	let stdinandpipes = Stdext.Opt.map (fun str -> 
 		let (x,y) = Unix.pipe () in
 		to_close := x :: y :: !to_close;
 		(str,x,y)) stdin in
-	Pervasiveext.finally (fun () -> 
+	finally (fun () -> 
 		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
 			with_logfile_fd "execute_command_get_err" (fun err_fd ->
-				let (sock,pid) = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
-				Opt.map (fun (str,_,wr) ->
-					Unixext.really_write_string wr str;
+				let (sock,pid) = safe_close_and_exec ?env (Stdext.Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
+				Stdext.Opt.map (fun (str,_,wr) ->
+					Stdext.Unixext.really_write_string wr str;
 					close wr;
 				) stdinandpipes;
 				match Unix.select [sock] [] [] timeout with

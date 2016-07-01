@@ -1,6 +1,6 @@
 (* stdin stdout stderr (name, fd) cmd args *)
 
-let mkints n = Range.to_list (Range.make 0 n)
+let mkints n = Stdext.Range.to_list (Stdext.Range.make 0 n)
 
 (* All combinations of stdin, stdout, stderr
    0 - 5 named fds on the commandline
@@ -108,7 +108,7 @@ let master fds =
 	let frac = float_of_int (!i) /. (float_of_int (List.length combinations)) in
 	let hashes = int_of_float (frac *. 70.) in
 	let percent = int_of_float (frac *. 100.) in
-	  Printf.printf "\r%5d %3d %s" !i (int_of_float (frac *. 100.)) (String.concat "" (List.map (fun _ -> "#") (Range.to_list (Range.make 0 hashes))));
+	  Printf.printf "\r%5d %3d %s" !i (int_of_float (frac *. 100.)) (String.concat "" (List.map (fun _ -> "#") (Stdext.Range.to_list (Stdext.Range.make 0 hashes))));
 	  flush stdout;
 	f x;
   in
@@ -117,7 +117,7 @@ let master fds =
 
 
 let fail x =
-  Unixext.write_string_to_file "/tmp/fe-test.log" x;
+  Stdext.Unixext.write_string_to_file "/tmp/fe-test.log" x;
   Printf.fprintf stderr "%s\n" x;
   assert false
 

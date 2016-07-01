@@ -1,3 +1,4 @@
+open Stdext
 open Xstringext
 open Pervasiveext
 

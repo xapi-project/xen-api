@@ -1,3 +1,4 @@
+open Stdext
 open Fe
 
 let open_unix_domain_sock () =
