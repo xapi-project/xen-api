@@ -26,7 +26,7 @@ let power_state_to_string state =
   | `ShuttingDown -> "Shutting down"
   | `Migrating -> "Migrating"
 
-let vm_operation_table =
+let vm_operation_table = 
   [
     `assert_operation_valid, "assertoperationvalid";
     `changing_dynamic_range, "changing_dynamic_range";
@@ -72,12 +72,12 @@ let vm_operation_table =
     `call_plugin, "call_plugin";
   ]
 
-let vm_operation_to_string x =
-  if not(List.mem_assoc x vm_operation_table)
+let vm_operation_to_string x = 
+  if not(List.mem_assoc x vm_operation_table) 
   then "(unknown operation)"
   else List.assoc x vm_operation_table
 
-let string_to_vm_operation x =
+let string_to_vm_operation x = 
   let table = List.map (fun (a, b) -> b, a) vm_operation_table in
   if not(List.mem_assoc x table)
   then (raise (Api_errors.Server_error(Api_errors.invalid_value, [ "blocked_operation"; x ])))
@@ -363,6 +363,7 @@ let string_to_vdi_type x = match (String.lowercase x) with
   | "metadata" -> Some `metadata
   | "redo log" -> Some `redo_log
   | "rrd" -> Some `rrd
+  | "pvs_cache" -> Some `pvs_cache
   | _ -> None
 
 let vdi_type_to_string t =
@@ -376,6 +377,7 @@ let vdi_type_to_string t =
   | `metadata -> "Metadata"
   | `redo_log -> "Redo log"
   | `rrd -> "rrd"
+  | `pvs_cache -> "PVS cache"
 
 let ip_configuration_mode_to_string = function
   | `None -> "None"
