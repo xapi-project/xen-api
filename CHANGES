@@ -1,3 +1,10 @@
+1.0.1 (04-Jul-2016):
+* Add an optional monitor config file to the gvt_g type
+* Rebuild with stdext 2.0.0
+
+1.0.0 (13-Apr-2016):
+* Declare this package stable
+
 0.14.0 (09-Sep-2015):
 * support directories full of configuration file fragment overrides
 * storage: add `required_cluster_stack`
