@@ -48,6 +48,9 @@ let forget ~__context ~self =
   let servers = Db.PVS_farm.get_servers ~__context ~self in
   if servers <> [] then raise Api_errors.(Server_error
                                             (pvs_farm_contains_servers, List.map Ref.string_of servers));
+  List.iter
+    (fun sr -> Xapi_pvs_cache.on_sr_remove ~__context ~sr)
+    (Db.PVS_farm.get_cache_storage ~__context ~self);
   Db.PVS_farm.destroy ~__context ~self
 
 (** set the name of [self] *)
