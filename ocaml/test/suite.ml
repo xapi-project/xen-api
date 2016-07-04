@@ -80,6 +80,7 @@ let harness_init () =
 let harness_destroy () = ()
 
 let () =
+	Printexc.record_backtrace true;
 	Inventory.inventory_filename :=
 		Filename.concat Test_common.working_area "xcp-inventory";
 	harness_init ();

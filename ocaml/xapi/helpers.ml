@@ -714,7 +714,7 @@ let assert_host_versions_not_decreasing :
 let pool_has_different_host_platform_versions ~__context =
 	let all_hosts = Db.Host.get_all ~__context in
 	let platform_versions = List.map (fun host -> version_string_of ~__context (LocalObject host)) all_hosts in
-	let is_different_to_me platform_version = platform_version <> Version.platform_version in
+	let is_different_to_me platform_version = platform_version <> Version.platform_version () in
 	List.fold_left (||) false (List.map is_different_to_me platform_versions)
 
 let get_vm_metrics ~__context ~self =

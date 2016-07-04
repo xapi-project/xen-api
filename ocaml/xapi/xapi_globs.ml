@@ -142,8 +142,8 @@ let software_version () =
 		[_product_version, Version.product_version ();
 			_product_version_text,       Version.product_version_text ();
 			_product_version_text_short, Version.product_version_text_short ();
-			_platform_name, Version.platform_name;
-			_platform_version, Version.platform_version;
+			_platform_name, Version.platform_name ();
+			_platform_version, Version.platform_version ();
 			 _product_brand,   Version.product_brand ();
 			 _build_number,    Version.build_number ();
 			 _git_id,           Version.git_id;
