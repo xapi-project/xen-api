@@ -26,6 +26,9 @@ let proxy_port_name bridge =
 
 let start ~__context vif proxy =
   if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
+    Xapi_pvs_cache.on_proxy_start ~__context
+      ~host:(Helpers.get_localhost ~__context)
+      ~farm:(Db.PVS_proxy.get_farm ~__context ~self:proxy);
     let dbg = Context.string_of_task __context in
     let network = Db.VIF.get_network ~__context ~self:vif in
     let bridge = Db.Network.get_bridge ~__context ~self:network in
