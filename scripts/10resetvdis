@@ -28,7 +28,6 @@ case "$REASON" in
 		reset
 		;;
 	assume-failed)
-		reset
 		;;
 	clean-shutdown)
 		;;
