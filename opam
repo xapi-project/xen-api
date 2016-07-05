@@ -26,6 +26,7 @@ depends: [
   "oclock"
   "ounit"
   "bisect_ppx"
+  "systemd"
 ]
 ocaml-version: [>= "4.01.0"]
 

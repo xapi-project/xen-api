@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e030a60e9b1e92164b626ef54d9678e0)
+# DO NOT EDIT (digest: 1ae5bc57b14bc82456a65280317dd678)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -44,6 +44,7 @@ true: annot, bin_annot
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rrd-transport
 <rrdd/xcp_rrdd.{native,byte}>: pkg_rrd.unix
 <rrdd/xcp_rrdd.{native,byte}>: pkg_stdext
+<rrdd/xcp_rrdd.{native,byte}>: pkg_systemd
 <rrdd/xcp_rrdd.{native,byte}>: pkg_threads
 <rrdd/xcp_rrdd.{native,byte}>: pkg_uuid
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xcp
@@ -55,6 +56,7 @@ true: annot, bin_annot
 <rrdd/xcp_rrdd.{native,byte}>: pkg_xenops
 <rrdd/xcp_rrdd.{native,byte}>: use_profiling
 <rrdd/xcp_rrdd.{native,byte}>: use_rrdd_libs
+<rrdd/*.ml{,i,y}>: pkg_systemd
 <rrdd/xcp_rrdd.{native,byte}>: custom
 # Executable test_rrdd_monitor
 <rrdd/test_rrdd_monitor.{native,byte}>: oasis_executable_test_rrdd_monitor_byte

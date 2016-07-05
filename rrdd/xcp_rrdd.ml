@@ -608,6 +608,8 @@ let _ =
                 with e ->
                         error "xenstore-watching thread has failed" in
 
+	ignore (Daemon.notify Daemon.State.Ready);
+
 	debug "Creating monitoring loop thread ..";
         let () =
                 try
