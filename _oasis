@@ -26,7 +26,8 @@ Library networklibs
     rpclib,
     stdext,
     xcp-inventory,
-    xcp.network
+    xcp.network,
+    systemd
   CSources:           link_stubs.c, netdev.h
   CCOpt:              -Wno-unused-function -g -ggdb
 
@@ -48,7 +49,8 @@ Executable xcp_networkd
     xen-api-client,
     xcp,
     xcp.network,
-    netlink
+    netlink,
+    systemd
 
 Executable networkd_db
   CompiledObject:     best

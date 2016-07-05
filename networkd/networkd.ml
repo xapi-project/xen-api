@@ -108,6 +108,8 @@ let _ =
 		Debug.with_thread_associated "main" start server
 	) ();
 
+	ignore (Daemon.notify Daemon.State.Ready);
+
 	while true do
 		Thread.delay 300.;
 		Network_server.on_timer ()

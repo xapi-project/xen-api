@@ -7,6 +7,7 @@ build: [
 remove: [make "uninstall" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "LIBEXECDIR=%{bin}%" "SCRIPTSDIR=%{bin}%" "ETCDIR=%{prefix}%/etc"]
 depends: [
   "ocamlfind"
+  "systemd"
   "xapi-idl"
   "xapi-libs-transitional"
   "xen-api-client"
