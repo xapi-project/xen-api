@@ -1,7 +1,3 @@
-
-(** We write our PID here when we're ready to receive connections. *)
-let default_pidfile = "/var/run/fe.pid"
-
 open Fe_debug
 
 let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env =
@@ -45,23 +41,11 @@ let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env 
   end
 
 let _ =
-  let pidfile = ref default_pidfile in
-  let daemonize = ref false in
- 
-  Arg.parse (Arg.align [
-	       "-daemon", Arg.Set daemonize, "Create a daemon";
-	       "-pidfile", Arg.Set_string pidfile, Printf.sprintf "Set the pid file (default \"%s\")" !pidfile;
-	     ])
-    (fun _ -> failwith "Invalid argument")
-    "Usage: fe [-daemon] [-pidfile filename]";
-
-  if !daemonize then Stdext.Unixext.daemonize ();
-
   Sys.set_signal Sys.sigpipe (Sys.Signal_ignore);
 
   let main_sock = Fecomms.open_unix_domain_sock_server "/var/xapi/forker/main" in
 
-  Stdext.Unixext.pidfile_write !pidfile;
+  Daemon.notify Daemon.State.Ready;
 
   (* At this point the init.d script should return and we are listening on our socket. *)
 
