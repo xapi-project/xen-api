@@ -202,6 +202,8 @@ xen_api_version_to_string(xen_api_version version)
         return "2.4";
     case xen_api_version_2_5:
         return "2.5";
+    case xen_api_version_2_6:
+        return "2.6";
     default:
         return "Unknown";
     }
@@ -331,6 +333,9 @@ set_api_version(xen_session *session)
 
     if (major_version == (int64_t)2)
     {
+        if (minor_version == (int64_t)6)
+            session->api_version = xen_api_version_2_6;
+
         if (minor_version == (int64_t)5)
             session->api_version = xen_api_version_2_5;
 

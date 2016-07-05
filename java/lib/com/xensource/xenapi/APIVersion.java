@@ -33,7 +33,7 @@ package com.xensource.xenapi;
 public enum APIVersion
 {
     API_1_1, API_1_2, API_1_3, API_1_4, API_1_5, API_1_6, API_1_7, API_1_8, API_1_9, API_1_10,
-    API_2_0, API_2_1, API_2_2, API_2_3, API_2_4, API_2_5, UNKNOWN;
+    API_2_0, API_2_1, API_2_2, API_2_3, API_2_4, API_2_5, API_2_6, UNKNOWN;
 
     public static APIVersion latest()
     {
@@ -42,38 +42,48 @@ public enum APIVersion
 
     public static APIVersion fromMajorMinor(long major, long minor)
     {
-        if (major == 2 && minor == 5) {
-            return API_2_5;
-        } else if (major == 2 && minor == 4) {
-            return API_2_4;
-        } else if (major == 2 && minor == 3) {
-            return API_2_3;
-        } else if (major == 2 && minor == 2) {
-            return API_2_2;
-        } else if (major == 2 && minor == 1) {
-            return API_2_1;
-        } else if (major == 2 && minor == 0) {
-            return API_2_0;
-        } else if (major == 1 && minor == 10) {
-            return API_1_10;
-        } else if (major == 1 && minor == 9) {
-            return API_1_9;
-        } else if (major == 1 && minor == 8) {
-            return API_1_8;
-        } else if (major == 1 && minor == 7) {
-            return API_1_7;
-        } else if (major == 1 && minor == 6) {
-            return API_1_6;
-        } else if (major == 1 && minor == 5) {
-            return API_1_5;
-        } else if (major == 1 && minor == 4) {
-            return API_1_4;
-        } else if (major == 1 && minor == 3) {
-            return API_1_3;
-        } else if (major == 1 && minor == 2) {
-            return API_1_2;
-        } else if (major == 1 && minor == 1) {
-            return API_1_1;
+        if (major == 2 ) {
+            if (minor == 6) {
+                return API_2_6;
+            } else if (minor == 5) {
+                return API_2_5;
+            } else if (minor == 4) {
+                return API_2_4;
+            } else if (minor == 3) {
+                return API_2_3;
+            } else if (minor == 2) {
+                return API_2_2;
+            } else if (minor == 1) {
+                return API_2_1;
+            } else if (minor == 0) {
+                return API_2_0;
+            } else {
+                return UNKNOWN;
+            }
+        } else if (major == 1) {
+            if (minor == 10) {
+                return API_1_10;
+            } else if (minor == 9) {
+                return API_1_9;
+            } else if (minor == 8) {
+                return API_1_8;
+            } else if (minor == 7) {
+                return API_1_7;
+            } else if (minor == 6) {
+                return API_1_6;
+            } else if (minor == 5) {
+                return API_1_5;
+            } else if (minor == 4) {
+                return API_1_4;
+            } else if (minor == 3) {
+                return API_1_3;
+            } else if (minor == 2) {
+                return API_1_2;
+            }  else if (minor == 1) {
+                return API_1_1;
+            } else {
+                return UNKNOWN;
+            }
         } else {
             return UNKNOWN;
         }
@@ -116,6 +126,8 @@ public enum APIVersion
                 return "2.4";
             case API_2_5:
                 return "2.5";
+            case API_2_6:
+                return "2.6";
             default:
                 return "Unknown";
         }
