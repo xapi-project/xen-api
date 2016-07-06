@@ -114,7 +114,7 @@ let move_vlan ~__context host new_slave old_vlan =
 			let new_network = Db.PIF.get_network ~__context ~self:new_master in
 			(* Move VIFs to other VLAN's network *)
 			let vifs = get_local_vifs ~__context host [network] in
-			ignore (List.map (Xapi_vif.move ~__context ~network:new_network) vifs);
+			ignore (List.map (fun self -> Xapi_vif.move ~__context ~network:new_network ~self) vifs);
 			new_vlan, new_master
 		| [] ->
 			(* VLAN with this tag not yet on bond *)
@@ -140,7 +140,7 @@ let move_vlan ~__context host new_slave old_vlan =
 		let vifs = List.filter (fun vif ->
 			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
 			vifs in
-		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
+		ignore (List.map (fun self -> Xapi_vif.move ~__context ~network:network ~self) vifs);
 	end
 
 let move_tunnel ~__context host new_transport_PIF old_tunnel =
@@ -168,7 +168,7 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
 		let vifs = List.filter (fun vif ->
 			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
 			vifs in
-		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
+		ignore (List.map (fun self -> Xapi_vif.move ~__context ~network:network ~self) vifs);
 	end
 
 let move_management ~__context from_pif to_pif =
@@ -202,7 +202,7 @@ let fix_bond ~__context ~bond =
 
 	(* Move VIFs from members to master *)
 	debug "Checking VIFs to move from slaves to master";
-	List.iter (Xapi_vif.move ~__context ~network) local_vifs;
+	List.iter (fun self -> Xapi_vif.move ~__context ~network ~self) local_vifs;
 
 	begin match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
 		| management_pif :: _ -> 
@@ -396,7 +396,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 
 		(* Move VIFs from members to master *)
 		debug "Check VIFs to move from slaves to master";
-		List.iter (Xapi_vif.move ~__context ~network) local_vifs;
+		List.iter (fun self -> Xapi_vif.move ~__context ~network ~self) local_vifs;
 		TaskHelper.set_progress ~__context 0.8;
 
 		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above),
@@ -449,7 +449,7 @@ let destroy ~__context ~self =
 
 		(* Move VIFs from master to slaves *)
 		debug "Check VIFs to move from master to slaves";
-		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs;
+		List.iter (fun self -> Xapi_vif.move ~__context ~network:primary_slave_network ~self) local_vifs;
 		TaskHelper.set_progress ~__context 0.4;
 
 		(* Move VLANs down *)

@@ -14,6 +14,7 @@
 
 open Stdext
 open Listext
+open Xapi_network_attach_helpers
 open Xapi_vif_helpers
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -55,12 +56,18 @@ let refresh_filtering_rules ~__context ~self =
 
 (* This function moves a dom0 vif device from one bridge to another, without involving the guest,
  * so it also works on guests that do not support hot(un)plug of VIFs. *)
-let move ~__context ~network vif =
-	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
+let move ~__context ~network ~self =
+	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self)
 		(Db.Network.get_uuid ~__context ~self:network);
-	Db.VIF.set_network ~__context ~self:vif ~value:network;
-	if device_active ~__context ~self:vif
-	then Xapi_xenops.vif_move ~__context ~self:vif network
+        if device_active ~__context ~self
+        then begin
+                let vm = Db.VIF.get_VM ~__context ~self in
+                let host = Db.VM.get_resident_on ~__context ~self:vm in
+                assert_can_see_named_networks ~__context ~self:vm ~host:host [network];
+	end;
+	Db.VIF.set_network ~__context ~self ~value:network;
+	if device_active ~__context ~self
+	then Xapi_xenops.vif_move ~__context ~self network
 
 let change_locking_config ~__context ~self ~licence_check f =
 	if licence_check then assert_locking_licensed ~__context;

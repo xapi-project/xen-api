@@ -5344,6 +5344,15 @@ let vif_unplug_force = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vif_move = call
+  ~name:"move"
+  ~in_product_since:rel_dundee_jiffy
+  ~doc:"Move the specified VIF to the specified network"
+  ~params:[Ref _network, "network", "The network to move it to";
+	   Ref _vif, "self", "The VIF to move"]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
 let vif_operations =
   Enum ("vif_operations", 
 	[ "attach", "Attempting to attach this VIF to a VM";
@@ -5469,7 +5478,7 @@ let vif =
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~doc_tags:[Networking]
-      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
+      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_move; vif_set_locking_mode;
         vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; 
 	vif_configure_ipv4; vif_configure_ipv6]
       ~contents:

@@ -55,6 +55,7 @@ let rel_cream = "cream"
 let rel_indigo = "indigo"
 let rel_dundee = "dundee"
 let rel_dundee_plus = "dundee-plus"
+let rel_dundee_jiffy = "dundee-jiffy"
 let rel_ely = "ely"
 
 let release_order =
@@ -78,6 +79,7 @@ let release_order =
 	; rel_indigo
 	; rel_dundee
 	; rel_dundee_plus
+	; rel_dundee_jiffy
 	; rel_ely
 	]
 
