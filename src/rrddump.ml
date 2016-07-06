@@ -13,7 +13,7 @@
  *)
 
 let _ = 
-  let body = Unixext.string_of_file Sys.argv.(1) in
+  let body = Stdext.Unixext.string_of_file Sys.argv.(1) in
   let input = Xmlm.make_input (`String (0, body)) in
   let rrd = Rrd.from_xml input in
   Rrd_unix.text_export rrd []
