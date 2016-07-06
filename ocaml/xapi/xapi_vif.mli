@@ -64,7 +64,7 @@ val destroy : __context:Context.t -> self:[ `VIF ] Ref.t -> unit
 val move :
 	__context:Context.t ->
 	network:[ `network ] Ref.t ->
-	[ `VIF ] Ref.t ->
+	self:[ `VIF ] Ref.t ->
 	unit
 	
 (** Throw error if the given operation is not in the list of allowed operations.
