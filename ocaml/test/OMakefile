@@ -65,6 +65,7 @@ OCAML_OBJS = \
 	test_xapi_xenops \
 	test_no_migrate \
 	test_features \
+	test_pvs_cache \
 	test_pvs_farm \
 	test_pvs_proxy \
 	test_pvs_server \
