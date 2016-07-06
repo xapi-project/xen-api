@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Listext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
@@ -69,4 +70,72 @@ let assert_no_slave ~__context pif =
 let assert_can_attach_network_on_host ~__context ~self ~host =
   let local_pifs = get_local_pifs ~__context ~network:self ~host in
   List.iter (fun pif -> assert_no_slave ~__context pif) local_pifs
+
+let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
+	let is_network_available_on host net =
+		(* has the network been actualised by one or more PIFs? *)
+		let pifs = Db.Network.get_PIFs ~__context ~self:net in
+		if pifs <> [] then begin
+			(* network is only available if one of  *)
+			(* the PIFs connects to the target host *)
+			let hosts =
+				List.map (fun self -> Db.PIF.get_host ~__context ~self) pifs in
+			List.mem host hosts
+		end else begin
+			let other_config = Db.Network.get_other_config ~__context ~self:net in
+			if List.mem_assoc Xapi_globs.assume_network_is_shared other_config && (List.assoc Xapi_globs.assume_network_is_shared other_config = "true") then begin
+				debug "other_config:%s is set on Network %s" Xapi_globs.assume_network_is_shared (Ref.string_of net);
+				true
+			end else begin
+				(* find all the VIFs on this network and whose VM's are running. *)
+				(* XXX: in many environments this will perform O (Vms) calls to  *)
+				(* VM.getRecord. *)
+				let vifs = Db.Network.get_VIFs ~__context ~self:net in
+				let vms = List.map (fun self -> Db.VIF.get_VM ~__context ~self) vifs in
+				let vms = List.map (fun self -> Db.VM.get_record ~__context ~self) vms in
+				let vms = List.filter (fun vm -> vm.API.vM_power_state = `Running) vms in
+				let hosts = List.map (fun vm -> vm.API.vM_resident_on) vms in
+				(* either not pinned to any host OR pinned to this host already *)
+				hosts = [] || (List.mem host hosts)
+			end
+		end
+	in
+
+	let avail_nets = List.filter (is_network_available_on host) reqd_nets in
+	let not_available = List.set_difference reqd_nets avail_nets in
+
+	List.iter
+		(fun net -> warn "Host %s cannot see Network %s"
+			(Helpers.checknull
+				(fun () -> Db.Host.get_name_label ~__context ~self:host))
+			(Helpers.checknull
+				(fun () -> Db.Network.get_name_label ~__context ~self:net)))
+		not_available;
+	if not_available <> [] then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_net, [
+			Ref.string_of vm;
+			Ref.string_of (List.hd not_available)
+		]));
+
+	(* Also, for each of the available networks, we need to ensure that we can bring it
+	 * up on the specified host; i.e. it doesn't need an enslaved PIF. *)
+	List.iter
+		(fun network->
+			try
+				assert_can_attach_network_on_host
+					~__context
+					~self:network
+					~host
+			(* throw exception more appropriate to this context: *)
+			with exn ->
+				debug
+					"Caught exception while checking if network %s could be attached on host %s:%s"
+					(Ref.string_of network)
+					(Ref.string_of host)
+					(ExnHelper.string_of_exn exn);
+				raise (Api_errors.Server_error (
+					Api_errors.host_cannot_attach_network, [
+						Ref.string_of host; Ref.string_of network ]))
+		)
+		avail_nets
 

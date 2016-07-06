@@ -37,6 +37,11 @@ val assert_no_slave :
   [ `PIF ] Ref.t ->
   unit
 
+(** Raises an exception if any network cannot be seen *)
+val assert_can_see_named_networks :
+  __context:Context.t ->
+  vm:[ `VM ]Ref.t -> host:[ `host ] Ref.t -> [ `network ] Ref.t list -> unit
+
 (** Raises an exception if the network cannot be attached. *)
 val assert_can_attach_network_on_host :
   __context:Context.t ->

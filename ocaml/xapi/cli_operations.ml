@@ -1590,6 +1590,13 @@ let vif_configure_ipv6 printer rpc session_id params =
 	if mode = `Static && address = "" then failwith "Required parameter not found: address";
 	Client.VIF.configure_ipv6 rpc session_id vif mode address gateway
 
+let vif_move printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let network_uuid = List.assoc "network-uuid" params in
+	let vif = Client.VIF.get_by_uuid rpc session_id uuid in
+	let network = Client.Network.get_by_uuid rpc session_id network_uuid in
+	Client.VIF.move rpc session_id vif network
+
 let net_create printer rpc session_id params =
 	let network = List.assoc "name-label" params in
 	let descr = List.assoc_default "name-description" params "" in

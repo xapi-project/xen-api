@@ -1998,6 +1998,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vif_configure_ipv6;
       flags=[];
     };
+   "vif-move",
+    {
+      reqd=["uuid";"network-uuid"];
+      optn=[];
+      help="Move the VIF to another network.";
+      implementation=No_fd Cli_operations.vif_move;
+      flags=[];
+    };
    "vm-create",
     {
       reqd=["name-label"];

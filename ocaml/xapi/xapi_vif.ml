@@ -53,12 +53,32 @@ let refresh_filtering_rules ~__context ~self =
 
 (* This function moves a dom0 vif device from one bridge to another, without involving the guest,
  * so it also works on guests that do not support hot(un)plug of VIFs. *)
-let move ~__context ~network vif =
+let move_internal ~__context ~network ?active vif =
 	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
 		(Db.Network.get_uuid ~__context ~self:network);
+	let active =
+		match active with
+		| None -> device_active ~__context ~self:vif
+		| Some x -> x
+	in
 	Db.VIF.set_network ~__context ~self:vif ~value:network;
-	if device_active ~__context ~self:vif
+	if active
 	then Xapi_xenops.vif_move ~__context ~self:vif network
+
+let move ~__context ~self ~network =
+	let active = device_active ~__context ~self in
+	if active
+	then begin
+		let vm = Db.VIF.get_VM ~__context ~self in
+		let host = Db.VM.get_resident_on ~__context ~self:vm in
+		try Xapi_network_attach_helpers.assert_can_see_named_networks ~__context ~vm:vm ~host:host [network] with
+		| Api_errors.Server_error (name, _)
+			when name = Api_errors.vm_requires_net ->
+				raise (Api_errors.Server_error (
+					Api_errors.host_cannot_attach_network, [
+					Ref.string_of host; Ref.string_of network ]))
+	end;
+	move_internal ~__context ~network ~active self
 
 let change_locking_config ~__context ~self ~licence_check f =
 	if licence_check then assert_locking_licensed ~__context;
