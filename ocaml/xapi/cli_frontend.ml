@@ -2615,7 +2615,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			optn=[];
 			help="Enable thin-provisioning on an LVHD SR.";
 			implementation=No_fd Cli_operations.lvhd_enable_thin_provisioning;
-			flags=[];
+			flags=[Host_selectors];
 		}
   ]
 

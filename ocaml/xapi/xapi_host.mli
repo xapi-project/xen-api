@@ -166,6 +166,12 @@ val call_plugin :
   __context:Context.t ->
   host:[ `host ] Ref.t ->
   plugin:string -> fn:string -> args:(string * string) list -> string
+val call_extension :
+  __context:Context.t ->
+  host:[ `host ] Ref.t -> call:string -> string
+val has_extension :
+  __context:Context.t ->
+  host:[ `host ] Ref.t -> name:string -> bool
 val sync_data : __context:Context.t -> host:API.ref_host -> unit
 val backup_rrds : __context:Context.t -> host:'b -> delay:float -> unit
 val get_servertime : __context:'a -> host:'b -> Stdext.Date.iso8601

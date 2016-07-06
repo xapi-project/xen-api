@@ -2369,6 +2369,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			do_op_on ~local_fn ~__context ~host
 				(fun session_id rpc -> Client.Host.call_plugin rpc session_id host plugin fn args)
 
+		let call_extension ~__context ~host ~call =
+			info "Host.call_extension host = '%s'; call = '%s'" (host_uuid ~__context host) call;
+			let local_fn = Local.Host.call_extension ~host ~call in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.call_extension rpc session_id host call)
+
+		let has_extension ~__context ~host ~name =
+			info "Host.has_extension: host = '%s'; name = '%s'" (host_uuid ~__context host) name;
+			let local_fn = Local.Host.has_extension ~host ~name in
+			do_op_on ~local_fn ~__context ~host
+				(fun session_id rpc -> Client.Host.has_extension rpc session_id host name)
+
 		let sync_data ~__context ~host =
 			info "Host.sync_data: host = '%s'" (host_uuid ~__context host);
 			Local.Host.sync_data ~__context ~host

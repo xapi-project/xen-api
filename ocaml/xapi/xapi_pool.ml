@@ -1741,11 +1741,12 @@ let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
 let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
 
 let has_extension ~__context ~self ~name =
-	try
-		let (_: string) = Xapi_extensions.find_extension name in
-		true
-	with _ ->
-		false
+	let hosts = Db.Host.get_all ~__context in
+	List.for_all (fun host ->
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.Host.has_extension rpc session_id host name
+		)
+	) hosts
 
 let guest_agent_config_requirements =
 	let open Map_check in
