@@ -2732,6 +2732,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
 		let unplug_force ~__context ~self = unplug_common ~__context ~self ~force:true
 
+		let move ~__context ~network ~self =
+			info "VIF.move: network = '%s' VIF = '%s'" (network_uuid ~__context network) (vif_uuid ~__context self);
+			let local_fn = Local.VIF.move ~network ~self in
+			let remote_fn = (fun session_id rpc -> Client.VIF.move rpc session_id network self) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
 		let set_locking_mode ~__context ~self ~value =
 			info "VIF.set_locking_mode: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) (Record_util.vif_locking_mode_to_string value);
 			let local_fn = Local.VIF.set_locking_mode ~self ~value in
