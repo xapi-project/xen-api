@@ -74,7 +74,7 @@ let check_cache_availability ~__context ~host ~farm =
 
 let on_proxy_start ~__context ~host ~farm =
   match check_cache_availability ~__context ~host ~farm with
-  | None -> failwith "no sr"
+  | None -> raise No_cache_sr_available
   | Some (sr, None) -> ignore (VDI.create ~__context ~sr)
   | Some (_, Some vdi) -> ()
 
