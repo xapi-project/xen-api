@@ -27,7 +27,7 @@ let proxy_port_name bridge =
 let start ~__context vif proxy =
   if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
     try
-      let _ = Xapi_pvs_cache.find_or_create_cache_vdi ~__context
+      let sr, _ = Xapi_pvs_cache.find_or_create_cache_vdi ~__context
           ~host:(Helpers.get_localhost ~__context)
           ~farm:(Db.PVS_proxy.get_farm ~__context ~self:proxy) in
       let dbg = Context.string_of_task __context in
@@ -35,7 +35,8 @@ let start ~__context vif proxy =
       let bridge = Db.Network.get_bridge ~__context ~self:network in
       let name = proxy_port_name bridge in
       Network.Net.Bridge.add_port dbg ~bridge ~name ~kind:Network_interface.PVS_proxy ~interfaces:[] ();
-      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true
+      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
+      Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
     with Xapi_pvs_cache.No_cache_sr_available ->
       D.warn "No PVS cache SR available - starting with proxy unattached"
   end
@@ -47,7 +48,8 @@ let stop ~__context vif proxy =
     let bridge = Db.Network.get_bridge ~__context ~self:network in
     let name = proxy_port_name bridge in
     Network.Net.Bridge.remove_port dbg ~bridge ~name;
-    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false
+    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
+    Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
   end
 
 let find_proxy_for_vif ~__context ~vif =
