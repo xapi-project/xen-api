@@ -15,6 +15,7 @@
 open Client
 open Stdext
 open Listext
+open Threadext
 
 exception No_cache_sr_available
 
@@ -72,11 +73,14 @@ let check_cache_availability ~__context ~host ~farm =
       | (sr, vdi) :: _ -> Some (sr, Some vdi)
     end
 
+let cache_m = Mutex.create ()
+
 let on_proxy_start ~__context ~host ~farm =
-  match check_cache_availability ~__context ~host ~farm with
-  | None -> raise No_cache_sr_available
-  | Some (sr, None) -> ignore (VDI.create ~__context ~sr)
-  | Some (_, Some vdi) -> ()
+  Mutex.execute cache_m (fun () ->
+      match check_cache_availability ~__context ~host ~farm with
+      | None -> raise No_cache_sr_available
+      | Some (sr, None) -> ignore (VDI.create ~__context ~sr)
+      | Some (_, Some vdi) -> ())
 
 let on_sr_remove ~__context ~sr =
   match VDI.find_all ~__context ~sr with
