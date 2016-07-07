@@ -18,6 +18,7 @@ open Listext
 open Threadext
 
 exception No_cache_sr_available
+exception No_cache_vdi_present
 
 module VDI = struct
   (* TODO: make this configurable. *)
@@ -81,6 +82,11 @@ let find_or_create_cache_vdi ~__context ~host ~farm =
       | None -> raise No_cache_sr_available
       | Some (sr, None) -> sr, VDI.create ~__context ~sr
       | Some (sr, Some vdi) -> sr, vdi)
+
+let find_cache_vdi ~__context ~sr =
+  match VDI.find_one ~__context ~sr with
+  | None -> raise No_cache_vdi_present
+  | Some vdi -> vdi
 
 let on_sr_remove ~__context ~sr =
   match VDI.find_all ~__context ~sr with
