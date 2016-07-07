@@ -75,12 +75,12 @@ let check_cache_availability ~__context ~host ~farm =
 
 let cache_m = Mutex.create ()
 
-let on_proxy_start ~__context ~host ~farm =
+let find_or_create_cache_vdi ~__context ~host ~farm =
   Mutex.execute cache_m (fun () ->
       match check_cache_availability ~__context ~host ~farm with
       | None -> raise No_cache_sr_available
-      | Some (sr, None) -> ignore (VDI.create ~__context ~sr)
-      | Some (_, Some vdi) -> ())
+      | Some (sr, None) -> sr, VDI.create ~__context ~sr
+      | Some (sr, Some vdi) -> sr, vdi)
 
 let on_sr_remove ~__context ~sr =
   match VDI.find_all ~__context ~sr with
