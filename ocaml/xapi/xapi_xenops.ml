@@ -379,7 +379,7 @@ module MD = struct
       persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);
     }
 
-  let of_vif ~__context ~vm ~vif =
+  let of_vif ~__context ~vm ~vif:(vif_ref, vif) =
     let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
     let net_mtu = Int64.to_int (net.API.network_MTU) in
     let mtu =
@@ -449,6 +449,13 @@ module MD = struct
         let gateway = if vif.API.vIF_ipv6_gateway = "" then None else Some vif.API.vIF_ipv6_gateway in
         Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
     in
+    let pvs_proxy_keys = Xapi_pvs_proxy.make_xenstore_keys_for_vif ~__context ~vif:vif_ref in
+    let extra_private_keys =
+      pvs_proxy_keys @ [
+        "vif-uuid", vif.API.vIF_uuid;
+        "network-uuid", net.API.network_uuid;
+      ]
+    in
     let open Vif in {
       id = (vm.API.vM_uuid, vif.API.vIF_device);
       position = int_of_string vif.API.vIF_device;
@@ -459,10 +466,7 @@ module MD = struct
       backend = backend_of_network net;
       other_config = vif.API.vIF_other_config;
       locking_mode = locking_mode;
-      extra_private_keys = [
-        "vif-uuid", vif.API.vIF_uuid;
-        "network-uuid", net.API.network_uuid;
-      ];
+      extra_private_keys;
       ipv4_configuration = ipv4_configuration;
       ipv6_configuration = ipv6_configuration
     }
@@ -840,8 +844,8 @@ let create_metadata ~__context ~upgrade ~self =
   let vbds = List.filter (fun vbd -> vbd.API.vBD_currently_attached)
       (List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs) in
   let vbds' = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds in
-  let vifs = List.filter (fun vif -> vif.API.vIF_currently_attached)
-      (List.map (fun self -> Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
+  let vifs = List.filter (fun (_, vif) -> vif.API.vIF_currently_attached)
+      (List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
   let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
   let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
@@ -2711,7 +2715,7 @@ let vbd_insert ~__context ~self ~vdi =
 
 let md_of_vif ~__context ~self =
   let vm = Db.VIF.get_VM ~__context ~self in
-  MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(Db.VIF.get_record ~__context ~self)
+  MD.of_vif ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vif:(self, Db.VIF.get_record ~__context ~self)
 
 let vif_plug ~__context ~self =
   let vm = Db.VIF.get_VM ~__context ~self in
