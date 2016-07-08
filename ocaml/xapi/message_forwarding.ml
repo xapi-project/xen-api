@@ -797,6 +797,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				~allowed:[`Running; `Paused];
 			do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
 
+		(* Clear scheduled_to_be_resident_on for a VM and all its vGPUs. *)
+		let clear_scheduled_to_be_resident_on ~__context ~vm =
+			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
+			List.iter
+				(fun vgpu ->
+					Db.VGPU.set_scheduled_to_be_resident_on ~__context
+						~self:vgpu
+						~value:Ref.null)
+				(Db.VM.get_VGPUs ~__context ~self:vm)
+
 		(* Notes on memory checking/reservation logic:
 		   When computing the hosts free memory we consider all VMs resident_on (ie running
 		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
@@ -853,16 +863,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		   (which must not change whilst someone is calling choose_host_for_vm) only executes in exclusion with
 		   choose_host_for_vm.
 		*)
-
-		(* Clear scheduled_to_be_resident_on for a VM and all its vGPUs. *)
-		let clear_scheduled_to_be_resident_on ~__context ~vm =
-			Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
-			List.iter
-				(fun vgpu ->
-					Db.VGPU.set_scheduled_to_be_resident_on ~__context
-						~self:vgpu
-						~value:Ref.null)
-				(Db.VM.get_VGPUs ~__context ~self:vm)
 
 		(* Used by VM.start and VM.resume to choose a host with enough resource and to
 		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
