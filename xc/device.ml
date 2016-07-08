@@ -351,23 +351,6 @@ let devty_of_string = function
 	| "floppy" -> Floppy
 	| _       -> invalid_arg "devty_of_string"
 
-let add_backend_keys ~xs (x: device) subdir keys =
-	let backend_stub = backend_path_of_device ~xs x in
-	let backend = backend_stub ^ "/" ^ subdir in
-	debug "About to write data %s to path %s" (String.concat ";" (List.map (fun (a,b) -> "("^a^","^b^")") keys)) backend;
-	Xs.transaction xs (fun t ->
-		ignore(t.Xst.read backend_stub);
-		t.Xst.writev backend keys
-	)
-
-let remove_backend_keys ~xs (x: device) subdir keys =
-	let backend_stub = backend_path_of_device ~xs x in
-	let backend = backend_stub ^ "/" ^ subdir in
-	Xs.transaction xs (fun t ->
-		List.iter (fun key -> t.Xst.rm (backend ^ "/" ^ key)) keys
-	)
-
-
 let uses_blktap ~phystype = List.mem phystype [ Qcow; Vhd; Aio ]
 
 (** Request either a clean or hard shutdown *)
