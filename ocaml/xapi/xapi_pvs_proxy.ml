@@ -25,15 +25,10 @@ let not_implemented x =
 let start ~__context vif proxy =
   if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
     try
-      let dbg = Context.string_of_task __context in
       let host = Helpers.get_localhost ~__context in
-      let network = Db.VIF.get_network ~__context ~self:vif in
-      let bridge = Db.Network.get_bridge ~__context ~self:network in
-      let port_name = Xapi_pvs_farm.proxy_port_name bridge in
       let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
       let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~farm in
-      Network.Net.Bridge.add_port dbg ~bridge ~name:port_name ~kind:Network_interface.PVS_proxy ~interfaces:[] ();
-      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~starting_proxies:[proxy] ();
+      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~starting_proxies:[vif, proxy] ();
       Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
     with e ->
@@ -49,15 +44,10 @@ let start ~__context vif proxy =
 let stop ~__context vif proxy =
   if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
     try
-      let dbg = Context.string_of_task __context in
-      let network = Db.VIF.get_network ~__context ~self:vif in
-      let bridge = Db.Network.get_bridge ~__context ~self:network in
-      let port_name = Xapi_pvs_farm.proxy_port_name bridge in
       let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
       let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
       let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
-      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~stopping_proxies:[proxy] ();
-      Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name;
+      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~stopping_proxies:[vif, proxy] ();
       Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
     with e ->

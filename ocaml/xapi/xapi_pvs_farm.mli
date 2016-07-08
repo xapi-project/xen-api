@@ -32,7 +32,7 @@ val proxy_port_name : string -> string
 val update_farm_on_localhost : __context:Context.t ->
   self:API.ref_PVS_farm ->
   vdi:API.ref_VDI ->
-  ?starting_proxies:API.ref_PVS_proxy list ->
-  ?stopping_proxies:API.ref_PVS_proxy list ->
+  ?starting_proxies:(API.ref_VIF * API.ref_PVS_proxy) list ->
+  ?stopping_proxies:(API.ref_VIF * API.ref_PVS_proxy) list ->
   unit ->
   unit
