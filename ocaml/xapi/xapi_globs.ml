@@ -39,7 +39,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 (* Normally xencenter_min_verstring and xencenter_max_verstring below should be set to the same value,
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 5L
+let api_version_minor = 6L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -57,8 +57,8 @@ let api_version_vendor_implementation = []
  *
  * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
  * will need to be made in XenCenter *)
-let xencenter_min_verstring = "2.5"
-let xencenter_max_verstring = "2.5"
+let xencenter_min_verstring = "2.6"
+let xencenter_max_verstring = "2.6"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
