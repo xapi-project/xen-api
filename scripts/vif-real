@@ -200,6 +200,8 @@ add_to_bridge()
 
 remove_from_bridge()
 {
+    ${IP} link set "${dev}" down || logger -t scripts-vif "Failed to ip link set ${dev} down"
+
     local setup_pvs_proxy_rules=$(xenstore-read "${PRIVATE}/setup-pvs-proxy-rules" 2>/dev/null)
     /usr/libexec/xenopsd/setup-pvs-proxy-rules remove "$PRIVATE" || logger -t scripts-vif "Failed to $setup_pvs_proxy_rules remove $PRIVATE"
 
@@ -319,6 +321,7 @@ add)
     ;;
 
 remove)
+    remove_from_bridge
     if [ "${TYPE}" = "vif" ] ;then
         call_hook_script $DOMID "${ACTION}"
 		# Unclear whether this is necessary, since netback also does it:
@@ -329,7 +332,6 @@ remove)
         xenstore-rm "${HOTPLUG}/hotplug"
     fi
     logger -t scripts-vif "${dev} has been removed"
-    remove_from_bridge
     ;;
 
 move)
