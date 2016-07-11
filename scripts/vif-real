@@ -191,12 +191,18 @@ add_to_bridge()
         ;;
     esac
 
+    local setup_pvs_proxy_rules=$(xenstore-read "${PRIVATE}/setup-pvs-proxy-rules" 2>/dev/null)
+    $setup_pvs_proxy_rules add "$PRIVATE" || logger -t scripts-vif "Failed to $setup_pvs_proxy_rules add $PRIVATE"
+
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID filter         || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID filter"
 }
 
 remove_from_bridge()
 {
+    local setup_pvs_proxy_rules=$(xenstore-read "${PRIVATE}/setup-pvs-proxy-rules" 2>/dev/null)
+    /usr/libexec/xenopsd/setup-pvs-proxy-rules remove "$PRIVATE" || logger -t scripts-vif "Failed to $setup_pvs_proxy_rules remove $PRIVATE"
+
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
     $setup_vif_rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID clear          || logger -t scripts-vif "Failed to setup-vif-rules $XENOPSD_BACKEND ${dev} $DOMUUID $DEVID clear"
 
