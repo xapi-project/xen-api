@@ -1,0 +1,134 @@
+#!/bin/bash
+
+if [[ $# -ne 2 ]]
+then
+    echo "Usage: $0 [add|remove] <private_xs_path>" >&2
+    exit 1;
+fi
+
+LOG_TAG="setup-pvs-proxy-rules"
+
+handle_error()
+{
+    echo "$1" >&2
+    logger -t "$LOG_TAG" "$1"
+    exit 1
+}
+
+handle_xs_error()
+{
+    handle_error "Failed to read $1 from xenstore"
+}
+
+logger -t "$LOG_TAG" "Called as $0 $*"
+
+PRIVATE_PATH=$2
+
+path="${PRIVATE_PATH}/pvs-interface"
+PVS_INTERFACE=$(xenstore-read "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_INTERFACE" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/mac"
+PVS_VM_MAC=$(xenstore-read "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_VM_MAC" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/pvs-server-num"
+PVS_SERVER_NUM=$(xenstore-read "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_SERVER_NUM" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/bridge"
+PVS_BRIDGE=$(xenstore-read "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_BRIDGE" ]; then
+    handle_xs_error "$path"
+fi
+
+PVS_RULE_PRIO=1000
+
+case $1 in
+    add)
+        PVS_INTERFACE_MAC=$(ovs-vsctl get interface "$PVS_INTERFACE" mac_in_use | tr -d '"')
+        PVS_OFPORT=$(ovs-vsctl get interface "$PVS_INTERFACE" ofport)
+
+        logger -t "$LOG_TAG" "Adding proxy rules to $PVS_OFPORT/$PVS_INTERFACE_MAC@$PVS_BRIDGE for VM $PVS_VM_MAC"
+
+        for ((j=0; j<PVS_SERVER_NUM; j++)) do
+            path="${PRIVATE_PATH}/pvs-server-$j-addresses"
+            PVS_SERVER_IPS=$(xenstore-read "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_SERVER_IPS" ]; then
+                handle_xs_error "$path"
+            fi
+
+            path="${PRIVATE_PATH}/pvs-server-$j-ports"
+            PVS_PORTS=$(xenstore-read "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_PORTS" ]; then
+                handle_xs_error "$path"
+            fi
+            PVS_STARTPORT=$(echo "$PVS_PORTS" | cut -f1 -d-)
+            PVS_ENDPORT=$(echo "$PVS_PORTS" | cut -f2 -d-)
+
+            logger -t "$LOG_TAG" "PVS server $j: $PVS_SERVER_IPS ($PVS_STARTPORT-$PVS_ENDPORT)"
+
+            IFS=$','
+            for PVS_SERVER_IP in $PVS_SERVER_IPS; do
+                for ((i=PVS_STARTPORT; i<=PVS_ENDPORT; i++)) do
+                    # Packets from client->server that needs to be proxied
+                    ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_OFPORT"
+                    # Packets from server->client that is proxied
+                    ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_INTERFACE_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions=NORMAL
+                    # Packets from server->client that needs to be proxied
+                    ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_OFPORT"
+                done
+            done
+            unset IFS
+        done
+        ;;
+    remove)
+        PVS_INTERFACE_MAC=$(ovs-vsctl get interface "$PVS_INTERFACE" mac_in_use | tr -d '"')
+
+        logger -t "$LOG_TAG" "Removing proxy rules to $PVS_INTERFACE_MAC@$PVS_BRIDGE for VM $PVS_VM_MAC"
+        
+        for ((j=0; j<PVS_SERVER_NUM; j++)) do
+            path="${PRIVATE_PATH}/pvs-server-$j-addresses"
+            PVS_SERVER_IPS=$(xenstore-read "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_SERVER_IPS" ]; then
+                handle_xs_error "$path"
+            fi
+
+            path="${PRIVATE_PATH}/pvs-server-$j-ports"
+            PVS_PORTS=$(xenstore-read "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_PORTS" ]; then
+                handle_xs_error "$path"
+            fi
+            PVS_STARTPORT=$(echo "$PVS_PORTS" | cut -f1 -d-)
+            PVS_ENDPORT=$(echo "$PVS_PORTS" | cut -f2 -d-)
+
+            logger -t "$LOG_TAG" "PVS server $j: $PVS_SERVER_IPS ($PVS_STARTPORT-$PVS_ENDPORT)"
+
+            IFS=$','
+            for PVS_SERVER_IP in $PVS_SERVER_IPS; do
+                for ((i=PVS_STARTPORT; i<=PVS_ENDPORT; i++)) do
+                    # Packets from client->server that needs to be proxied
+                    ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i
+                    # Packets from server->client that is proxied
+                    ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_INTERFACE_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
+                    # Packets from server->client that needs to be proxied
+                    ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
+                done
+            done
+            unset IFS
+        done
+        ;;
+    reset)
+        ovs-ofctl del-flows "$PVS_BRIDGE"
+        ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=0,actions=NORMAL
+        ;;
+    *)
+        handle_error "Unknown command '$1'"
+        ;;
+esac
