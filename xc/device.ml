@@ -692,6 +692,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 	let extra_private_keys = List.map (fun (k, v) -> "other-config/" ^ k, v) other_config @ extra_private_keys in
 	(* Add the rest of the important configuration to the private bit of xenstore so we can access it later *)
 	let extra_private_keys = extra_private_keys @
+	  ("mac", mac) ::
 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
 	  (match netty with
 	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", "fe:ff:ff:ff:ff:ff"; ]
