@@ -76,7 +76,7 @@ exception Subprocess_timeout
 	with the optional [stdin], [stdout] and [stderr] file descriptors (or /dev/null if not
 	specified) and with any key from [id_to_fd_list] in [args] replaced by the integer
 	value of the file descriptor in the final process. *)
-val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> ?syslog_stdout:syslog_stdout_t -> string -> string list -> pidty
+val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> ?syslog_stdout:syslog_stdout_t -> ?redirect_stderr_to_stdout: bool -> string -> string list -> pidty
 
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 val waitpid : pidty -> (int * Unix.process_status)
