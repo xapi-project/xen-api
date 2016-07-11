@@ -53,7 +53,8 @@ namespace XenAPI
         API_2_3 = 14, // XenServer Creedence
         API_2_4 = 15, // XenServer Cream
         API_2_5 = 16, // XenServer Dundee
-        LATEST = 16,
+        API_2_6 = 17, // XenServer Dundee Plus
+        LATEST = 17,
         // Don't forget to change LATEST above, and APIVersionString below.
         UNKNOWN = 99
     }
@@ -98,6 +99,8 @@ namespace XenAPI
                     return "2.4";
                 case API_Version.API_2_5:
                     return "2.5";
+                case API_Version.API_2_6:
+                    return "2.6";
                 default:
                     return "Unknown";
             }

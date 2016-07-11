@@ -54,14 +54,23 @@ XML-RPC.NET is available from http://www.xml-rpc.net.
 Getting Started
 ---------------
 
-1.  Unzip the XenServer PowerShell Module in your PowerShell modules directory.
+1.  Download and unzip the XenServer-SDK-@SDK_VERSION@.zip.
 
-2.  Start > Windows PowerShell 4.0 > Right click Windows PowerShell >
+    Note that, if you use Internet Explorer, it is likely that the zip file will
+    be marked as "blocked" during the download, in which case you will need to
+    unblock it before unzipping it, in order to import the module successfully.
+
+    To unblock the zip file, right-click on it and launch the Properties dialog.
+    Click the "Unblock" button, then the Apply or OK button.
+
+2.  Navigate to the extracted XenServer\XenServerPowerShell directory and copy
+    the whole folder XenServerPSModule into your PowerShell modules directory,
+    which will normally be %UserProfile%\Documents\WindowsPowerShell\Modules.
+
+3.  Start > Windows PowerShell 4.0 > Right click Windows PowerShell >
     Run as administrator.
-    Note that in Vista you may need to "Run as administrator" even if your
-    current user is privileged.
 
-3.  Determine the current execution policy, like this:
+4.  Determine the current execution policy, like this:
     PS> Get-ExecutionPolicy
 
     If the current policy is Restricted, then you need to set it to
@@ -79,9 +88,9 @@ Getting Started
     If the current policy is Unrestricted or RemoteSigned, then this is
     compatible with XS-PS, so there is nothing to do.
 
-4.  Exit the privileged instance of PowerShell.
+5.  Exit the privileged instance of PowerShell.
 
-5.  Start > Windows PowerShell 4.0
+6.  Start > Windows PowerShell 4.0
 
     PS> Import-Module XenServerPSModule
     PS> Get-Help about_XenServer
