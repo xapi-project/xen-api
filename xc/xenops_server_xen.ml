@@ -2360,6 +2360,7 @@ module VIF = struct
 				let id = _device_id Device_common.Vif, id_of vif in
 
 				let setup_vif_rules = [ "setup-vif-rules", !Xc_path.setup_vif_rules ] in
+				let setup_pvs_proxy_rules = [ "setup-pvs-proxy-rules", !Xc_path.setup_pvs_proxy_rules ] in
 				let xenopsd_backend = [ "xenopsd-backend", "classic" ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 				let static_ip_setting = xenstore_of_static_ip_setting vif in
@@ -2379,7 +2380,8 @@ module VIF = struct
 								~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
 								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
-								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @ xenopsd_backend)
+								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @
+									setup_pvs_proxy_rules @ xenopsd_backend)
 								~extra_xenserver_keys:static_ip_setting
 								frontend_domid in
 						let (_: Device_common.device) = create task frontend_domid in
