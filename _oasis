@@ -93,3 +93,10 @@ Executable cli
     xcp,
     xcp.network
 
+Executable jsonrpc_dummy
+  CompiledObject:     best
+  Path:               test
+  MainIs:             jsonrpc_dummy.ml
+  Install:            false
+  BuildDepends:
+    network-libs
