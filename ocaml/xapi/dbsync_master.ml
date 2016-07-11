@@ -78,20 +78,32 @@ let refresh_console_urls ~__context =
 	) (Db.Console.get_all ~__context)
 
 (** CA-15449: after a pool restore database VMs which were running on slaves now have dangling resident_on fields.
-    If these are control domains we destroy them, otherwise we reset them to Halted. *)
+    If these are control domains, we check if their VDIs are attached to a valid host ref and, if not, destroy
+    them (CA-215578). If they are not control domains, we reset them to Halted. *)
 let reset_vms_running_on_missing_hosts ~__context =
   List.iter (fun vm ->
 	       let vm_r = Db.VM.get_record ~__context ~self:vm in
 	       let valid_resident_on = Db.is_valid_ref __context vm_r.API.vM_resident_on in
 	       if not valid_resident_on then begin
-		 if vm_r.API.vM_is_control_domain then begin
-		   info "Deleting control domain VM uuid '%s' ecause VM.resident_on refers to a Host which is nolonger in the Pool" vm_r.API.vM_uuid;
-		   Db.VM.destroy ~__context ~self:vm
-		 end else if vm_r.API.vM_power_state = `Running then begin
-		   let msg = Printf.sprintf "Resetting VM uuid '%s' to Halted because VM.resident_on refers to a Host which is nolonger in the Pool" vm_r.API.vM_uuid in
+		if vm_r.API.vM_is_control_domain then begin
+		  let get_resident_host vm =
+		  (try
+		    let vdis = List.map (fun v -> Db.VBD.get_VDI ~__context ~self:v)
+		                 (Db.VM.get_VBDs ~__context ~self:vm) in
+		    let sr = List.hd (List.map (fun v -> Db.VDI.get_SR ~__context ~self:v) vdis) in
+		    List.hd (List.map (fun p -> Db.PBD.get_host ~__context ~self:p)
+		      (Db.SR.get_PBDs ~__context ~self:sr))
+		  with
+		    _ -> Ref.null) in
+		  if not (Db.is_valid_ref __context (get_resident_host vm)) then begin
+		    info "Deleting control domain VM uuid '%s' because it is resident on a Host which is no longer in the Pool" vm_r.API.vM_uuid;
+		    Db.VM.destroy ~__context ~self:vm
+		  end
+		end else if vm_r.API.vM_power_state = `Running then begin
+		   let msg = Printf.sprintf "Resetting VM uuid '%s' to Halted because VM.resident_on refers to a Host which is no longer in the Pool" vm_r.API.vM_uuid in
 		   info "%s" msg;
 		   Helpers.log_exn_continue msg (fun () -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted) ()
-		 end
+		end
 	       end) (Db.VM.get_all ~__context)
 
 (** Release 'locks' on VMs in the Halted state: ie {VBD,VIF}.{currently_attached,reserved}
