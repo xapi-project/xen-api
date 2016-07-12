@@ -1650,7 +1650,10 @@ let prepend_wrapper_args domid args =
  * exception is raised *)
 let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
 	debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
-	let pid = Forkhelpers.safe_close_and_exec None None None [] path args in
+	let syslog_key = (Printf.sprintf "%s-%d" name domid) in
+	let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
+	let redirect_stderr_to_stdout = true in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout ~redirect_stderr_to_stdout path args in
 	debug
 		"%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
 		name (Forkhelpers.string_of_pidty pid);
@@ -1684,7 +1687,7 @@ let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeo
 		if not !finished then
 			raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 	end;
-	debug "Daemon initialised: %s" (Printf.sprintf "%s-%d" name domid);
+	debug "Daemon initialised: %s" syslog_key;
 	pid
 
 let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
