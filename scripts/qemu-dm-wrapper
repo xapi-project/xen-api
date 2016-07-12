@@ -43,6 +43,7 @@ def enable_core_dumps():
 
 def main(argv):
 	import os
+	import sys
 
 	qemu_env = os.environ
 	qemu_dm_list =[]
@@ -77,6 +78,7 @@ def main(argv):
 	xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid())
 
 	os.dup2(1, 2)
+	sys.stdout.flush()
 	os.execve(qemu_dm, qemu_args, qemu_env)
 
 if __name__ == '__main__':
