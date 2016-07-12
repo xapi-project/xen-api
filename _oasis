@@ -74,7 +74,8 @@ Executable network_test
     profiling,
     stdext,
     oUnit,
-    network-libs
+    network-libs,
+    xapi-test-utils
 
 Test test_networkd
   Run$: flag(tests)

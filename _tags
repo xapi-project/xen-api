@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: e04367a949141a8df6b1750a04277a1e)
+# DO NOT EDIT (digest: 6789724751e66864fb1299d08f339eb0)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -90,11 +90,13 @@ true: annot, bin_annot
 <test/network_test.{native,byte}>: pkg_stdext
 <test/network_test.{native,byte}>: pkg_systemd
 <test/network_test.{native,byte}>: pkg_threads
+<test/network_test.{native,byte}>: pkg_xapi-test-utils
 <test/network_test.{native,byte}>: pkg_xcp-inventory
 <test/network_test.{native,byte}>: pkg_xcp.network
 <test/network_test.{native,byte}>: use_networklibs
 <test/network_test.{native,byte}>: use_profiling
 <test/*.ml{,i,y}>: pkg_oUnit
+<test/*.ml{,i,y}>: pkg_xapi-test-utils
 <test/*.ml{,i,y}>: use_profiling
 # Executable cli
 <cli/network_cli.{native,byte}>: pkg_cmdliner
