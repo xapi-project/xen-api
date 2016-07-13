@@ -23,14 +23,14 @@ def call_datapath_plugin(name, command, args):
 def read_whole_file(filename):
     f = open(filename)
     try:
-        return reduce(lambda x, y: x + y, f.readlines(), "").strip()
+        return reduce(lambda x, y: x + y.decode('utf8'), f.readlines(), "").strip()
     finally:
         f.close()
 
 def write_whole_file(filename, contents):
     f = open(filename, "w")
     try:
-        f.write(contents)
+        f.write(contents.encode('utf8'))
     finally:
         f.close()
 
@@ -186,7 +186,8 @@ def doexec(args, inputtext=None):
     return (rc,stdout,stderr)
 
 def call_backend_attach(driver, config):
-    xml = doexec([ driver, config ])
+    args = map(lambda arg: arg.encode('utf8'), [driver, config])
+    xml = doexec(args)
     if xml[0] <> 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xmlrpc = xmlrpclib.loads(xml[1])
