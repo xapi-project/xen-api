@@ -68,6 +68,7 @@ endif
 	install -D ./scripts/qemu-dm-wrapper $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	install -D ./scripts/qemu-vif-script $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	install -D ./scripts/setup-pvs-proxy-rules $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./set_domain_uuid.native $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
@@ -94,6 +95,7 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-dm-wrapper
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/qemu-vif-script
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 
 .PHONY: release
