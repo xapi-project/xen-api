@@ -497,7 +497,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 	if state = `Halted then begin
 		(* archive the rrd for this vm *)
 		let vm_uuid = Db.VM.get_uuid ~__context ~self in
-		Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None)
+		log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
 	end;
 
 	Db.VM.set_power_state ~__context ~self ~value:state;
