@@ -79,6 +79,9 @@ val list_devices_between : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid 
 
 val device_of_backend : endpoint -> Xenctrl.domid -> device
 
+val add_backend_keys : xs:Xenstore.Xs.xsh -> device -> string -> (string * string) list -> unit
+val remove_backend_keys: xs:Xenstore.Xs.xsh -> device -> string -> string list -> unit
+
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
 val string_of_protocol : protocol -> string
 val protocol_of_string : string -> protocol
