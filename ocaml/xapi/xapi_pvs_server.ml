@@ -20,6 +20,7 @@ open Listext
 module D = Debug.Make(struct let name = "xapi_pvs_server" end)
 
 let introduce ~__context ~addresses ~first_port ~last_port ~farm =
+  Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   List.iter
     (fun address -> Helpers.assert_is_valid_ip `ipv4 "addresses" address)
     addresses;

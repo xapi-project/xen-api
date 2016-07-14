@@ -102,6 +102,7 @@ let make_xenstore_keys_for_vif ~__context ~vif =
     server_keys
 
 let create ~__context ~farm ~vIF ~prepopulate =
+  Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   Helpers.assert_is_valid_ref ~__context ~name:"farm" ~ref:farm;
   Helpers.assert_is_valid_ref ~__context ~name:"VIF" ~ref:vIF;
   let device = Db.VIF.get_device ~__context ~self:vIF in
