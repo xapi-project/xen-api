@@ -50,6 +50,7 @@ type feature =
 	| Guest_ip_setting
 	| AD
 	| Ssl_legacy_switch
+	| Live_patching
 	with rpc
 
 type orientation = Positive | Negative
@@ -89,6 +90,7 @@ let keys_of_features =
 		Guest_ip_setting, ("restrict_guest_ip_setting", Negative, "GuestIP");
 		AD, ("restrict_ad", Negative, "AD");
 		Ssl_legacy_switch, ("restrict_ssl_legacy_switch", Negative, "Ssl_legacy_switch");
+		Live_patching, ("restrict_live_patching", Negative, "Live_patching");
 	]
 
 let name_of_feature f =
