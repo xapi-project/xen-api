@@ -109,6 +109,7 @@ module Platform = struct
 	let vgpu_config = Xapi_globs.vgpu_config_key
 	let igd_passthru_key = Xapi_globs.igd_passthru_key
 	let featureset = "featureset"
+	let nested_virt = "nested-virt"
 
 	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 	let filtered_flags = [
@@ -136,6 +137,7 @@ module Platform = struct
 		vgpu_pci_id;
 		vgpu_config;
 		featureset;
+		nested_virt;
 	]
 
 	(* Other keys we might want to write to the platform map. *)
@@ -143,12 +145,21 @@ module Platform = struct
 	let generation_id = "generation-id"
 
 	(* Helper functions. *)
+	(* [is_valid key platformdata] returns true if:
+	   1. The key is _not_ in platformdata (absence of key is valid) or
+	   2. The key is in platformdata, associated with a booleanish value *)
+	let is_valid ~key ~platformdata =
+		(not (List.mem_assoc key platformdata)) ||
+		(match List.assoc key platformdata |> String.lowercase with
+		| "true" | "1" | "false" | "0" -> true
+		| v -> false)
+
 	let is_true ~key ~platformdata ~default =
 		try
-			match List.assoc key platformdata with
+			match List.assoc key platformdata |> String.lowercase with
 			| "true" | "1" -> true
 			| "false" | "0" -> false
-			| _ -> default
+			| _ -> default (* Check for validity using is_valid if required *)
 		with Not_found ->
 			default
 
@@ -208,6 +219,17 @@ module Platform = struct
 				platformdata
 		in
 		platformdata
+
+
+	let check_restricted_flags ~__context platform =
+		if not (is_valid nested_virt platform) then
+			raise (Api_errors.Server_error
+				(Api_errors.invalid_value,
+				 [Printf.sprintf "platform:%s" nested_virt;
+				  List.assoc nested_virt platform]));
+
+		if is_true nested_virt platform false
+		then Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
 end
 
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
