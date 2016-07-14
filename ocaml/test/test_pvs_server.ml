@@ -15,6 +15,18 @@
 open OUnit
 open Test_common
 
+let test_unlicensed () =
+  let addresses = ["10.80.12.34"] in
+  let first_port = 1234L in
+  let last_port = 5678L in
+  let __context = make_test_database ~features:[] () in
+  let valid_farm = make_pvs_farm ~__context ~name:"farm" () in
+  assert_raises
+    Api_errors.(Server_error (license_restriction, ["PVS_proxy"]))
+    (fun () ->
+       Xapi_pvs_server.introduce ~__context
+         ~addresses ~first_port ~last_port ~farm:valid_farm)
+
 let test_introduce_ok () =
   let addresses = ["10.80.12.34"] in
   let first_port = 1234L in
@@ -149,6 +161,7 @@ let test_gc () =
 let test =
   "test_pvs_server" >:::
   [
+    "test_unlicensed" >:: test_unlicensed;
     "test_introduce_ok" >:: test_introduce_ok;
     "test_introduce_duplicate_addresses" >:: test_introduce_duplicate_addresses;
     "test_introduce_multiple_addresses" >:: test_introduce_multiple_addresses;

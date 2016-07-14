@@ -15,6 +15,14 @@
 open OUnit
 open Test_common
 
+let test_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  let farm = make_pvs_farm ~__context () in
+  let vIF = make_vif ~__context ~device:"0" () in
+  assert_raises
+    Api_errors.(Server_error (license_restriction, ["PVS_proxy"]))
+    (fun () -> Xapi_pvs_proxy.create ~__context ~farm ~vIF ~prepopulate:true)
+
 let test_create_ok () =
   let __context = make_test_database () in
   let farm = make_pvs_farm ~__context () in
@@ -85,6 +93,7 @@ let test_gc_proxy () =
 let test =
   "test_pvs_proxy" >:::
   [
+    "test_unlicensed" >:: test_unlicensed;
     "test_create_ok" >:: test_create_ok;
     "test_create_invalid_device" >:: test_create_invalid_device;
     "test_create_invalid_farm" >:: test_create_invalid_farm;

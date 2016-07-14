@@ -17,6 +17,12 @@ open Test_common
 
 let name = "my_pvs_farm"
 
+let test_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  assert_raises
+    Api_errors.(Server_error (license_restriction, ["PVS_proxy"]))
+    (fun () -> Xapi_pvs_farm.introduce ~__context ~name)
+
 let test_introduce () =
   let __context = make_test_database () in
   let pvs_farm = Xapi_pvs_farm.introduce ~__context ~name in
@@ -179,6 +185,7 @@ let test_set_name () =
 let test =
   "test_pvs_farm" >:::
   [
+    "test_unlicensed" >:: test_unlicensed;
     "test_introduce" >:: test_introduce;
     "test_forget_ok" >:: test_forget_ok;
     "test_forget_stopped_proxy" >:: test_forget_stopped_proxy;
