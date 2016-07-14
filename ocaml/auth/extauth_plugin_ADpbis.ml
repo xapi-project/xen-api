@@ -379,7 +379,7 @@ let get_subject_identifier _subject_name =
 
     Takes a username and password, and tries to authenticate against an already configured
     auth service (see XenAPI requirements Wiki page for details of how auth service configuration
-    takes place and the appropriate vlaues are stored within the XenServer Metadata).
+    takes place and the appropriate values are stored within the XenServer Metadata).
     If authentication is successful then a subject_id is returned representing the account
     corresponding to the supplied credentials (where the subject_id is in a namespace managed by
     the auth module/service itself -- e.g. maybe a SID or something in the AD case).

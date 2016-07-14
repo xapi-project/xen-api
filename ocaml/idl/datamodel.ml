@@ -2575,7 +2575,7 @@ let host_ha_join_liveset = call
   ~in_product_since:rel_orlando
   ~name:"ha_join_liveset"
   ~doc:"Block until this host joins the liveset."
-  ~params:[Ref _host, "host", "The Host whose HA datmon to start"]
+  ~params:[Ref _host, "host", "The Host whose HA daemon to start"]
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY

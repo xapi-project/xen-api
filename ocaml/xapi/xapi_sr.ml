@@ -674,7 +674,7 @@ let physical_utilisation_thread ~__context () =
 					let value = Rrdd.query_sr_ds ~sr_uuid ~ds_name:"physical_utilisation" |> Int64.of_float in
 					Db.SR.set_physical_utilisation ~__context ~self:sr ~value
 				with Rrd_interface.Internal_error("Not_found") ->
-					debug "Cannot update physical unilisation for SR %s: RRD unavailable" sr_uuid
+					debug "Cannot update physical utilisation for SR %s: RRD unavailable" sr_uuid
 				) (srs_to_update ())
 		with e -> warn "Exception in SR physical utilisation scanning thread: %s" (Printexc.to_string e)
 	done
