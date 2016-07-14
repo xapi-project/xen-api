@@ -50,6 +50,7 @@ type feature =
 	| Guest_ip_setting             (** Enable use of Guest ip seting *)
 	| AD                           (** Enable use of Active Directory *)
 	| Ssl_legacy_switch            (** Enable the control switch for SSL/TLS legacy-mode. *)
+	| Nested_virt                  (** Enable the use of nested virtualisation *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
