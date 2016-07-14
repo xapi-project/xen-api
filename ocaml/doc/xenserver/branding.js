@@ -29,55 +29,42 @@ function get_release_name(s)
 	switch (s) {
 	case 'rio':
 		return 'XenServer 4.0';
-		break;
 	case 'miami':
 		return 'XenServer 4.1';
-		break;
 	case 'symc':
 		return 'XenServer 4.1.1';
-		break;
 	case 'orlando':
 		return 'XenServer 5.0';
-		break;
 	case 'orlando-update-1':
 		return 'XenServer 5.0 Update 1';
-		break;
 	case 'george':
 		return 'XenServer 5.5';
-		break;
 	case 'midnight-ride':
 		return 'XenServer 5.6';
-		break;
 	case 'cowley':
 		return 'XenServer 5.6 FP1';
-		break;
 	case 'boston':
 		return 'XenServer 6.0';
-		break;
 	case 'tampa':
 		return 'XenServer 6.1';
-		break;
 	case 'clearwater':
 		return 'XenServer 6.2';
-		break;
 	case 'vgpu-tech-preview':
 		return 'XenServer 6.2 vGPU preview';
-		break;
 	case 'vgpu-productisation':
 		return 'XenServer 6.2 SP1';
-		break;
 	case 'clearwater-felton':
 		return 'XenServer 6.2 SP1 Hotfix 4';
-		break;
 	case 'clearwater-whetstone':
 		return 'XenServer 6.2 SP1 Hotfix 11';
-		break;
 	case 'creedence':
 		return 'XenServer 6.5';
-		break;
+	case 'cream':
+		return 'XenServer 6.5 SP1';
+	case 'dundee':
+		return 'XenServer 7.0';
 	default:
 		return 'Unreleased';
-		break;
 	}
 }
 

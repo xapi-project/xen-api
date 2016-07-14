@@ -41,37 +41,30 @@ function get_release_name(s)
 	case 'george':
 	case 'midnight-ride':
 		return 'XCP 0.5';
-		break;
 	case 'cowley':
 		return 'XCP 1.0';
-		break;
 	case 'boston':
 		return 'XCP 1.5';
-		break;
 	case 'tampa':
 		return 'XCP 1.6';
-		break;
 	case 'clearwater':
 		return 'XenServer 6.2';
-		break;
 	case 'vgpu-tech-preview':
 		return 'XenServer 6.2 vGPU preview';
-		break;
 	case 'vgpu-productisation':
 		return 'XenServer 6.2 SP1';
-		break;
 	case 'clearwater-felton':
 		return 'XenServer 6.2 SP1 Hotfix 4';
-		break;
 	case 'clearwater-whetstone':
 		return 'XenServer 6.2 SP1 Hotfix 11';
-		break;
 	case 'creedence':
 		return 'XenServer 6.5';
-		break;
+	case 'cream':
+		return 'XenServer 6.5 SP1';
+	case 'dundee':
+		return 'XenServer 7.0';
 	default:
 		return (s + ' (unreleased)');
-		break;
 	}
 }
 
