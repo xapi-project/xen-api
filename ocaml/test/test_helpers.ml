@@ -45,7 +45,7 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
                                          module State = Test_state.XapiDb
 
                                          let load_input __context (pifs, _) =
-                                           make_localhost ~__context;
+                                           make_localhost ~__context ();
                                            List.iter (fun pif ->
                                                let network = make_network ~__context () in
                                                let _ = make_pif ~__context ~network ~host:!Xapi_globs.localhost_ref

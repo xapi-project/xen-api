@@ -37,7 +37,7 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
     | Some args ->
       assert_equal ~printer:Test_printers.(list string) ~msg:"Function raised API error with unexpected args" args a
 
-let make_localhost ~__context =
+let make_localhost ~__context ?(features=Features.all_features) () =
   let host_info = {
     Create_misc.name_label = "test host";
     xen_verstring = "unknown";
@@ -62,12 +62,16 @@ let make_localhost ~__context =
   (* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
   Create_misc.ensure_domain_zero_records ~__context ~host:!Xapi_globs.localhost_ref host_info;
-  Dbsync_master.create_pool_record ~__context
+  Dbsync_master.create_pool_record ~__context;
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_restrictions ~__context
+    ~self:pool
+    ~value:(Features.to_assoc_list features)
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
-let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) () =
+let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) ?features () =
   let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
-  make_localhost ~__context;
+  make_localhost ~__context ?features ();
   __context
 
 let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
