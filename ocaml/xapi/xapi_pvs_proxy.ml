@@ -25,6 +25,7 @@ let not_implemented x =
 let start ~__context vif proxy =
   if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
     try
+      Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
       let host = Helpers.get_localhost ~__context in
       let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
       let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~farm in
@@ -36,6 +37,10 @@ let start ~__context vif proxy =
         match e with
         | Xapi_pvs_cache.No_cache_sr_available -> "no PVS cache SR available"
         | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
+        | Api_errors.Server_error (code, args) when
+            code = Api_errors.license_restriction
+            && args = [Features.(name_of_feature PVS_proxy)] ->
+          "PVS proxy not licensed"
         | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
       in
       warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason
