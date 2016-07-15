@@ -63,6 +63,7 @@ OCAML_OBJS = \
 	test_daily_license_check \
 	test_dbsync_master \
 	test_xapi_xenops \
+	test_no_migrate \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
