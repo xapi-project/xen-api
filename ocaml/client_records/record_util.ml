@@ -92,6 +92,7 @@ let host_operation_to_string = function
   | `evacuate -> "evacuate"
   | `shutdown -> "shutdown"
   | `reboot -> "reboot"
+  | `reboot_required -> "reboot_required"
   | `power_on -> "power_on"
   | `vm_start -> "VM.start"
   | `vm_resume -> "VM.resume"

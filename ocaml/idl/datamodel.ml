@@ -2877,6 +2877,17 @@ let host_reboot = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+(* Host.reboot_required *)
+
+let host_reboot_required = call
+  ~name:"reboot_required"
+  ~in_product_since:rel_rio
+  ~doc:"Check if reboot required for the host."
+  ~params:[Ref _host, "host", "The Host to check reboot required"]
+  ~result:(Map(String,String), "key-value pairs containing reboot_required and reboot_why")
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* Host.power_on *)
 
 let host_power_on = call
@@ -4309,6 +4320,7 @@ let host_operations =
 	  "vm_start", "This host is starting a VM";
 	  "vm_resume", "This host is resuming a VM";
 	  "vm_migrate", "This host is the migration target of a VM";
+	  "reboot_required", "Show if reboot is required";
 	])
 
 let host_enable_external_auth = call ~flags:[`Session]
@@ -4633,6 +4645,7 @@ let host =
 		 host_disable_display;
 		 host_set_ssl_legacy;
 		 host_apply_guest_agent_config;
+		 host_reboot_required;
 		 ]
       ~contents:
         ([ uid _host;

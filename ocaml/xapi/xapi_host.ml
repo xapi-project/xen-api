@@ -518,6 +518,40 @@ let reboot ~__context ~host =
   shutdown_and_reboot_common ~__context ~host "Host is rebooting" "Host is rebooting"
 	`shutdown "/sbin/shutdown -r now"
 
+let read_lines fi =
+	let rec loop acc =
+		let l = try Some (input_line fi) with _ -> None
+		in match l with
+			| None -> List.rev acc
+			| Some l -> loop (l :: acc)
+	in loop []
+
+let read_file file =
+	let fi = try Some (open_in file) with _ -> None in
+	match fi with
+	| None -> []
+	| Some fi ->
+		let lines = read_lines fi in
+		close_in fi ;
+		lines
+
+let rec has_no_file dir =
+	let file_and_folder = try Some (Sys.readdir dir) with _ -> None in
+	match file_and_folder with
+	| None -> true
+	| Some ff -> 
+		if (List.exists (fun f -> not (Sys.file_exists (dir^f))) (Array.to_list ff)) 
+		then false
+		else not (List.exists (fun f -> not (has_no_file (dir^f))) (Array.to_list ff))
+
+let reboot_required ~__context ~host =
+  let required = not (has_no_file "/run/reboot-required.d/") in
+  let reboot_why = if not required then "" else	begin
+  	let lines = read_file "/run/reboot-required.hfxs" in
+  	String.concat ", " lines
+  end in
+  [("reboot-required", (string_of_bool required)); ("reboot-why", reboot_why)]
+
 let power_on ~__context ~host =
   let result = Xapi_plugins.call_plugin (Context.get_session_id __context)
 	Constants.power_on_plugin Constants.power_on_fn
