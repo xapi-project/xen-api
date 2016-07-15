@@ -81,7 +81,7 @@ c_source: gen_c_binding
 .PHONY: c_binaries
 c_binaries:  c_source
   if $(equal $(COMPILE_C), yes)
-    make -C $(C_SRC_TMP_FOLDER) -f Makefile libxenserver.so
+    make -C $(C_SRC_TMP_FOLDER) -f Makefile all
   else
     touch $(C_SRC_TMP_FOLDER)/libxenserver.so $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_MAJOR) $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_VER)
     touch $(addprefix $(SDK_C_FOLDER)/, COPYING README)
