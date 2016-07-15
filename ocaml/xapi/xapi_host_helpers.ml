@@ -25,7 +25,7 @@ open Record_util (* for host_operation_to_string *)
 open Threadext
 
 let all_operations = [ `provision; `evacuate; `reboot; `shutdown;
-		       `vm_start; `vm_resume; `vm_migrate; `power_on ]
+		       `vm_start; `vm_resume; `vm_migrate; `power_on; `reboot_required ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' = 

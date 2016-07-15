@@ -150,6 +150,8 @@ let host_shutdown = Cli_operations.host_shutdown
 
 let host_reboot = Cli_operations.host_reboot
 
+let host_reboot_required = Cli_operations.host_reboot_required
+
 let host_pif_list printer rpc session_id params =
   let host = Cli_operations.get_host_from_session rpc session_id in
   let host_r = Client.Host.get_record rpc session_id host in

@@ -2195,6 +2195,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.shutdown rpc session_id host)
 				)
 
+		let reboot_required ~__context ~host =
+			info "Host.reboot: host = '%s'" (host_uuid ~__context host);
+			let local_fn = Local.Host.reboot_required ~host in
+			with_host_operation ~__context ~self:host ~doc:"Host.reboot_required" ~op:`reboot_required
+				(fun () ->
+					do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reboot_required rpc session_id host)
+				)
+
 		let reboot ~__context ~host =
 			info "Host.reboot: host = '%s'" (host_uuid ~__context host);
 			let local_fn = Local.Host.reboot ~host in

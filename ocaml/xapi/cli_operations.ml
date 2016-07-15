@@ -3973,6 +3973,12 @@ let host_shutdown printer rpc session_id params =
 let host_reboot printer rpc session_id params =
 	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.reboot rpc session_id (host.getref ())) params [])
 
+let host_reboot_required printer rpc session_id params =
+	ignore(do_host_op rpc session_id (fun _ host -> 
+		let result = Client.Host.reboot_required rpc session_id (host.getref ()) in
+		printer (Cli_printer.PTable [result])
+	) params [])
+
 let host_power_on printer rpc session_id params =
 	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.power_on rpc session_id (host.getref ())) params [])
 
