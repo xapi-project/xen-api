@@ -53,6 +53,7 @@ let base_suite =
 			Test_daily_license_check.test;
 			Test_dbsync_master.test;
 			Test_xapi_xenops.test;
+			Test_no_migrate.test;
 		]
 
 let handlers = [
