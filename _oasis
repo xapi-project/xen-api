@@ -217,3 +217,14 @@ Executable xenopsd_xenlight_main
     profiling
   CSources:           fsync_stubs.c, poll_stubs.c
 
+Executable xenopsd_test
+  CompiledObject:     best
+  Path:               test
+  MainIs:             xenopsd_test.ml
+  Install:            false
+  BuildDepends:       oUnit, xenopsd
+
+Test xenopsd_test
+  Run$:               flag(tests)
+  Command:            $xenopsd_test
+  WorkingDirectory:   .

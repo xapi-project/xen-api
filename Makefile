@@ -1,8 +1,10 @@
-.PHONY: all clean install build reinstall uninstall distclean
+.PHONY: all clean install build test reinstall uninstall distclean
 all: build
 
 NAME=xenops
 J=4
+
+ENABLE_TESTS=--enable-tests
 
 clean:
 	@rm -f setup.data setup.log setup.bin lib/version.ml
@@ -22,7 +24,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN)
+	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN)
 
 build: setup.data setup.bin version.ml
 	@./setup.bin -build -j $(J)
@@ -38,6 +40,9 @@ endif
 	./xenopsd-simulator --help=groff > xenopsd-simulator.1
 	ln -s ./xenops_xc_main.native xenopsd-xc || true
 	./xenopsd-xc --help=groff > xenopsd-xc.1
+
+test: build
+	@./setup.bin -test
 
 version.ml: VERSION
 	echo "let version = \"$(shell cat VERSION)\"" > lib/version.ml

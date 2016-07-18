@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 75c8d08bbb53d180415f0183181b9cf1)
+# DO NOT EDIT (digest: 109e0ec543651aed62733bb129a75555)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -496,6 +496,53 @@ true: annot, bin_annot
 "xl/poll_stubs.c": use_profiling
 "xl/poll_stubs.c": use_xenopsd
 <xl/xenops_xl_main.{native,byte}>: custom
+# Executable xenopsd_test
+<test/xenopsd_test.{native,byte}>: pkg_cohttp
+<test/xenopsd_test.{native,byte}>: pkg_fd-send-recv
+<test/xenopsd_test.{native,byte}>: pkg_forkexec
+<test/xenopsd_test.{native,byte}>: pkg_oUnit
+<test/xenopsd_test.{native,byte}>: pkg_oclock
+<test/xenopsd_test.{native,byte}>: pkg_rpclib
+<test/xenopsd_test.{native,byte}>: pkg_rpclib.syntax
+<test/xenopsd_test.{native,byte}>: pkg_sexplib
+<test/xenopsd_test.{native,byte}>: pkg_sexplib.syntax
+<test/xenopsd_test.{native,byte}>: pkg_threads
+<test/xenopsd_test.{native,byte}>: pkg_threads.posix
+<test/xenopsd_test.{native,byte}>: pkg_uri
+<test/xenopsd_test.{native,byte}>: pkg_uuidm
+<test/xenopsd_test.{native,byte}>: pkg_uutf
+<test/xenopsd_test.{native,byte}>: pkg_xcp
+<test/xenopsd_test.{native,byte}>: pkg_xcp.storage
+<test/xenopsd_test.{native,byte}>: pkg_xcp.xen
+<test/xenopsd_test.{native,byte}>: pkg_xenstore
+<test/xenopsd_test.{native,byte}>: pkg_xenstore.unix
+<test/xenopsd_test.{native,byte}>: pkg_xenstore_transport
+<test/xenopsd_test.{native,byte}>: pkg_xenstore_transport.unix
+<test/xenopsd_test.{native,byte}>: pkg_xmlm
+<test/xenopsd_test.{native,byte}>: use_xenopsd
+<test/*.ml{,i,y}>: pkg_cohttp
+<test/*.ml{,i,y}>: pkg_fd-send-recv
+<test/*.ml{,i,y}>: pkg_forkexec
+<test/*.ml{,i,y}>: pkg_oUnit
+<test/*.ml{,i,y}>: pkg_oclock
+<test/*.ml{,i,y}>: pkg_rpclib
+<test/*.ml{,i,y}>: pkg_rpclib.syntax
+<test/*.ml{,i,y}>: pkg_sexplib
+<test/*.ml{,i,y}>: pkg_sexplib.syntax
+<test/*.ml{,i,y}>: pkg_threads
+<test/*.ml{,i,y}>: pkg_threads.posix
+<test/*.ml{,i,y}>: pkg_uri
+<test/*.ml{,i,y}>: pkg_uuidm
+<test/*.ml{,i,y}>: pkg_uutf
+<test/*.ml{,i,y}>: pkg_xcp
+<test/*.ml{,i,y}>: pkg_xcp.storage
+<test/*.ml{,i,y}>: pkg_xcp.xen
+<test/*.ml{,i,y}>: pkg_xenstore
+<test/*.ml{,i,y}>: pkg_xenstore.unix
+<test/*.ml{,i,y}>: pkg_xenstore_transport
+<test/*.ml{,i,y}>: pkg_xenstore_transport.unix
+<test/*.ml{,i,y}>: pkg_xmlm
+<test/*.ml{,i,y}>: use_xenopsd
 # OASIS_STOP
 <lib/updates.ml>: syntax_camlp4o, pkg_rpc.syntax
 <lib/scheduler.ml>: syntax_camlp4o, pkg_rpc.syntax
