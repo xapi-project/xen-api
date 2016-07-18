@@ -1064,7 +1064,7 @@ namespace XenAPI
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal
+          List.mem rel_rio obj.obj_release.internal
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1085,8 +1085,8 @@ namespace XenAPI
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_miami obj.obj_release.internal
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1108,9 +1108,9 @@ namespace XenAPI
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_orlando) obj.obj_release.internal
-          && not (List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_orlando obj.obj_release.internal
+          && not (List.mem rel_miami obj.obj_release.internal)
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1132,10 +1132,10 @@ namespace XenAPI
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_george) obj.obj_release.internal
-          && not (List.exists (fun rel -> rel = rel_orlando) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_george obj.obj_release.internal
+          && not (List.mem rel_orlando obj.obj_release.internal)
+          && not (List.mem rel_miami obj.obj_release.internal)
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1157,11 +1157,11 @@ namespace XenAPI
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_midnight_ride) obj.obj_release.internal
-          && not (List.exists (fun rel -> rel = rel_george) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_orlando) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_midnight_ride obj.obj_release.internal
+          && not (List.mem rel_george obj.obj_release.internal)
+          && not (List.mem rel_orlando obj.obj_release.internal)
+          && not (List.mem rel_miami obj.obj_release.internal)
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1183,12 +1183,12 @@ print
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_cowley) obj.obj_release.internal
-	  && not (List.exists (fun rel -> rel = rel_midnight_ride) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_george) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_orlando) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_cowley obj.obj_release.internal
+          && not (List.mem rel_midnight_ride obj.obj_release.internal)
+          && not (List.mem rel_george obj.obj_release.internal)
+          && not (List.mem rel_orlando obj.obj_release.internal)
+          && not (List.mem rel_miami obj.obj_release.internal)
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1210,13 +1210,13 @@ print
     List.iter (
       fun obj ->
         if
-          List.exists (fun rel -> rel = rel_boston) obj.obj_release.internal
-	  && not (List.exists (fun rel -> rel = rel_cowley) obj.obj_release.internal)
-	  && not (List.exists (fun rel -> rel = rel_midnight_ride) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_george) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_orlando) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_miami) obj.obj_release.internal)
-          && not (List.exists (fun rel -> rel = rel_rio) obj.obj_release.internal)
+          List.mem rel_boston obj.obj_release.internal
+          && not (List.mem rel_cowley obj.obj_release.internal)
+          && not (List.mem rel_midnight_ride obj.obj_release.internal)
+          && not (List.mem rel_george obj.obj_release.internal)
+          && not (List.mem rel_orlando obj.obj_release.internal)
+          && not (List.mem rel_miami obj.obj_release.internal)
+          && not (List.mem rel_rio obj.obj_release.internal)
           && List.exists (fun x -> x.msg_name = "get_all") obj.messages
           && cached_by_gui obj
         then
@@ -1241,6 +1241,13 @@ print
     (* Generate the Download_T methods *)
     List.iter (fun obj -> 
       if (List.exists (fun x -> x.msg_name = "get_all") obj.messages)
+        && (List.exists (fun rel -> rel = rel_boston
+                                || rel = rel_cowley
+                                || rel = rel_midnight_ride
+                                || rel = rel_george
+                                || rel = rel_orlando
+                                || rel = rel_miami
+                                || rel = rel_rio) obj.obj_release.internal)
         && cached_by_gui obj
       then
         gen_download_method out_chan obj
