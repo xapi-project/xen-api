@@ -264,12 +264,15 @@ let check_protection_policy ~vmr ~op ~ref_str =
 (** Some VMs can't migrate. The predicate [check_migratable] is true, if and
  * only if a VM can migrate. A VM cannot migrate, if in its
  * [last_booted_record] any of the following values are true:
- * [platform:nomingrate], [platform:nested-virt]. If we cannot find
+ * [platform:nomigrate], [platform:nested-virt]. If we cannot find
  * a boot record this mea
  **)
 let check_migratable vm =
+	let to_bool str = str |> String.lowercase |> function
+		| "true" | "yes" | "1" -> true
+		| _                    -> false in
 	let get key platform = (* absent key is equivalent to false *)
-		try List.assoc key platform |> bool_of_string with Not_found -> false in
+		try List.assoc key platform |> to_bool with Not_found -> false in
 	match vm.Db_actions.vM_last_booted_record with
 	| ""  -> true (* no last boot record exists, VM is not yet started *)
 	| xml ->
