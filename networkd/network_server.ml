@@ -773,7 +773,8 @@ module Bridge = struct
 	let add_pvs_proxy_port dbg bridge name port =
 		match !backend_kind with
 		| Openvswitch ->
-			ignore (Ovs.create_port ~internal:true name bridge)
+			ignore (Ovs.create_port ~internal:true name bridge);
+			Interface.bring_up () dbg ~name
 		| Bridge ->
 			raise Not_implemented
 
