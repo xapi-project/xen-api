@@ -24,56 +24,6 @@ let critical =
 	; `migrate_send
 	]
 
-let ops =
-	[ `assert_operation_valid
-	; `awaiting_memory_live
-	; `call_plugin
-	; `changing_dynamic_range
-	; `changing_memory_limits
-	; `changing_memory_live
-	; `changing_shadow_memory
-	; `changing_shadow_memory_live
-	; `changing_static_range
-	; `changing_VCPUs
-	; `changing_VCPUs_live
-	; `checkpoint
-	; `clean_reboot
-	; `clean_shutdown
-	; `clone
-	; `copy
-	; `create_template
-	; `csvm
-	; `data_source_op
-	; `destroy
-	; `export
-	; `get_boot_record
-	; `hard_reboot
-	; `hard_shutdown
-	; `import
-	; `make_into_template
-	; `metadata_export
-	; `migrate_send
-	; `pause
-	; `pool_migrate
-	; `power_state_reset
-	; `provision
-	; `query_services
-	; `resume
-	; `resume_on
-	; `revert
-	; `reverting
-	; `send_sysrq
-	; `send_trigger
-	; `shutdown
-	; `snapshot
-	; `snapshot_with_quiesce
-	; `start
-	; `start_on
-	; `suspend
-	; `unpause
-	; `update_allowed_operations
-	]
-
 let base_case () =
 	let __context = make_test_database () in
 	let vm        = make_vm ~__context () in
