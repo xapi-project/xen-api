@@ -900,7 +900,7 @@ module PVS_proxy = struct
 	
 	let do_call call =
 		try
-			Jsonrpc_client.with_rpc ~path:!path ~call
+			Jsonrpc_client.with_rpc ~path:!path ~call ()
 		with e ->
 			error "Error when calling PVS proxy: %s" (Printexc.to_string e);
 			raise PVS_proxy_connection_error

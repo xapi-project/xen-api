@@ -53,10 +53,10 @@ let with_connection sockaddr f =
 	debug "Shut down.";
 	result
 
-let with_rpc ~path ~call =
+let with_rpc ?(version=Jsonrpc.V2) ~path ~call () =
 	let sockaddr = Unix.ADDR_UNIX path in
 	with_connection sockaddr (fun fin fout ->
-		let req = Jsonrpc.string_of_call call in
+		let req = Jsonrpc.string_of_call ~version call in
 		debug "Request: %s" req;
 		output_string fout req;
 		flush fout;

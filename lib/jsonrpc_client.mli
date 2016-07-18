@@ -14,7 +14,7 @@
 
 (** Do an JSON-RPC call to a server that is listening on a Unix domain 
  *  socket at the given path. *)
-val with_rpc : path:string -> call:Rpc.call -> Rpc.response
+val with_rpc : ?version:Jsonrpc.version -> path:string -> call:Rpc.call -> unit -> Rpc.response
 
 (** Read an entire JSON object from an input channel. *)
 val input_json_object : in_channel -> string
