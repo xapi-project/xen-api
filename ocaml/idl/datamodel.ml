@@ -2877,6 +2877,17 @@ let host_reboot = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+(* Host.reboot_required *)
+
+let host_reboot_required = call
+  ~name:"reboot_required"
+  ~in_product_since:rel_rio
+  ~doc:"Check if reboot required for the host."
+  ~params:[Ref _host, "host", "The Host to check reboot required"]
+  ~result:(Map(String,String), "key-value pairs containing reboot_required and reboot_why")
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* Host.power_on *)
 
 let host_power_on = call
@@ -4309,6 +4320,7 @@ let host_operations =
 	  "vm_start", "This host is starting a VM";
 	  "vm_resume", "This host is resuming a VM";
 	  "vm_migrate", "This host is the migration target of a VM";
+	  "reboot_required", "Show if reboot is required";
 	])
 
 let host_enable_external_auth = call ~flags:[`Session]
@@ -4633,6 +4645,7 @@ let host =
 		 host_disable_display;
 		 host_set_ssl_legacy;
 		 host_apply_guest_agent_config;
+		 host_reboot_required;
 		 ]
       ~contents:
         ([ uid _host;
@@ -6924,6 +6937,7 @@ let pool =
 			[ field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "guest_agent_config" "Pool-wide guest agent configuration information"
 			; field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on the pool"
 			; field ~qualifier:RW ~in_product_since:rel_dundee ~default_value:(Some (VBool false)) ~ty:Bool "policy_no_vendor_device" "The pool-wide policy for clients on whether to use the vendor device or not on newly created VMs. This field will also be consulted if the 'has_vendor_device' field is not specified in the VM.create call."
+			; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool true)) ~ty:Bool "live_patching_enabled" "The pool-wide flag to show if the live patching feauture is enabled or not."
 			])
 		()
 

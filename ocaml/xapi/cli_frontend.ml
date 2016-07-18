@@ -554,6 +554,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[Host_selectors];
     };
 
+    "host-reboot-required",
+    {
+      reqd=[];
+      optn=[];
+      help="Check if reboot required for the XE host.";
+      implementation=No_fd Cli_operations.host_reboot_required;
+      flags=[Host_selectors];
+    };
+
    "host-power-on",
     {
       reqd=[];
