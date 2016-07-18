@@ -261,6 +261,25 @@ let check_protection_policy ~vmr ~op ~ref_str =
 		[ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy])
 	| _ -> None
 
+(** Some VMs can't migrate. The predicate [check_migratable] is true, if and
+ * only if a VM can migrate. A VM cannot migrate, if in its
+ * [last_booted_record] any of the following values are true:
+ * [platform:nomigrate], [platform:nested-virt]. If we cannot find
+ * a boot record this mea
+ **)
+let check_migratable vm =
+	let to_bool str = str |> String.lowercase |> function
+		| "true" | "yes" | "1" -> true
+		| _                    -> false in
+	let get key platform = (* absent key is equivalent to false *)
+		try List.assoc key platform |> to_bool with Not_found -> false in
+	match vm.Db_actions.vM_last_booted_record with
+	| ""  -> true (* no last boot record exists, VM is not yet started *)
+	| xml ->
+		Helpers.parse_boot_record ~string:xml
+		|> fun lbr -> lbr.API.vM_platform
+		|> fun plf -> not (get "nomigrate" plf) && not (get "nested-virt" plf)
+
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
     corresponding to the first error found. Checking stops at the first error.
@@ -316,6 +335,19 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		if op = `revert && (not is_snapshot)
 		then Some (Api_errors.only_revert_snapshot, [])
 		else None) in
+
+	(* Migration must be blocked if nested virtualisation is active *)
+	let current_error = check current_error (fun () ->
+		match op with
+		| `suspend
+		| `checkpoint
+		| `pool_migrate
+		| `migrate_send ->
+			if check_migratable vmr
+			then None
+			else Some (Api_errors.vm_cant_migrate, [ref_str])
+		| _ -> None
+		) in
 
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)

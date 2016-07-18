@@ -51,6 +51,7 @@ let vm_hvm_required = "VM_HVM_REQUIRED"
 let vm_no_vcpus = "VM_NO_VCPUS"
 let vm_toomany_vcpus = "VM_TOO_MANY_VCPUS"
 let vm_is_protected = "VM_IS_PROTECTED"
+let vm_cant_migrate = "VM_CANT_MIGRATE"
 
 let host_in_use = "HOST_IN_USE"
 let host_in_emergency_mode = "HOST_IN_EMERGENCY_MODE"
