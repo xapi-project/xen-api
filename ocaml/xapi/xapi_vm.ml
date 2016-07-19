@@ -195,6 +195,9 @@ let start ~__context ~vm ~start_paused ~force =
 		debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
 	end;
 
+	(* Check to see if we're using any restricted platform kvs. This raises
+	   an exception if so *)
+	Xapi_xenops.Platform.check_restricted_flags ~__context vmr.API.vM_platform;
 
 	(* Clear out any VM guest metrics record. Guest metrics will be updated by
 	 * the running VM and for now they might be wrong, especially network
