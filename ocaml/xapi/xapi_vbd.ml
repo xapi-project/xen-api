@@ -22,13 +22,13 @@ open Vbdops
 open Threadext
 open D
 
-let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) =
+let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) = 
   assert_operation_valid ~__context ~self ~op
 
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations ~__context ~self
 
-let assert_attachable ~__context ~self : unit =
+let assert_attachable ~__context ~self : unit = 
   assert_attachable ~__context ~self
 
 
@@ -100,7 +100,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 
   if not empty then begin
     let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
-    if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata; `rrd])
+    if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata; `rrd; `pvs_cache])
     then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))
   end;
 
