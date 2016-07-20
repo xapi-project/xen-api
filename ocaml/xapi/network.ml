@@ -43,6 +43,6 @@ let transform_networkd_exn pif f =
 		let e = "networkd function not implemented" in
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
 	| e ->
-		error "Caught %s while trying to talk to xcp-networkd" (ExnHelper.string_of_exn e);
+		error "Caught %s while trying to plug a PIF" (ExnHelper.string_of_exn e);
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; ""]
 

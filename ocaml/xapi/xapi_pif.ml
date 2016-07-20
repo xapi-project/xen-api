@@ -577,6 +577,11 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	if iPv6 <> "" then
 		Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6;
 
+	if dNS <> "" then
+		List.iter
+			(fun address -> Helpers.assert_is_valid_ip `ipv6 "DNS" address)
+			(String.split ',' dNS);
+
 	(* Management iface must have an address for the primary address type *)
 	let management = Db.PIF.get_management ~__context ~self in
 	let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
@@ -625,10 +630,11 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	List.iter
 		(fun (param, value) -> if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value)
 		["IP",iP; "netmask",netmask; "gateway",gateway];
+	if dNS <> "" then
+		List.iter
+			(fun address -> Helpers.assert_is_valid_ip `ipv4 "DNS" address)
+			(String.split ',' dNS);
 
-	(* Do NOT check DNS is a valid IP cos it can be a number
-	 * of things, including a list of IPs separated by commas
-	 *)
 	(* If this is a management PIF, make sure the IP config mode isn't None *)
 	let management=Db.PIF.get_management ~__context ~self in
 	let primary_address_type=Db.PIF.get_primary_address_type ~__context ~self in
