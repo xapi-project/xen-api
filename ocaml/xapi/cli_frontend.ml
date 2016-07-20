@@ -2669,8 +2669,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "pvs-proxy-create",
     {
-      reqd=["farm-uuid"; "vif-uuid"; "prepopulate"];
-      optn=[];
+      reqd=["farm-uuid"; "vif-uuid"];
+      optn=["prepopulate"];
       help="Configure a VM/VIF to use a PVS proxy";
       implementation=No_fd Cli_operations.PVS_proxy.create;
       flags=[];

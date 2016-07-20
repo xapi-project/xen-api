@@ -4735,8 +4735,10 @@ module PVS_proxy = struct
     let farm = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid:farm_uuid in
     let vif_uuid  = List.assoc "vif-uuid" params in
     let vIF = Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid in
-    let prepopulate = List.assoc "prepopulate" params
-                      |> bool_of_string "prepopulate" in
+    let prepopulate =
+      List.mem_assoc "prepopulate" params &&
+      (List.assoc "prepopulate" params |> bool_of_string "prepopulate")
+    in
     let ref = Client.PVS_proxy.create
         ~rpc ~session_id ~farm ~vIF ~prepopulate in
     let uuid = Client.PVS_proxy.get_uuid rpc session_id ref in
