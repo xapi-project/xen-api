@@ -1,9 +1,9 @@
 #! /bin/bash
 #
-# attach-static-vdis    Attaches any statically-configured VDIs to dom0
+# attach-static-vdis    Attaches/detaches any statically-configured VDIs to dom0
 #
 # chkconfig: 2345 20 78
-# description: attaches any statically-configured VDIs to dom0
+# description: attaches/detaches any statically-configured VDIs to dom0
 
 STATE_DIR=/etc/xensource/static-vdis
 
@@ -44,6 +44,19 @@ attach_all(){
 	done
 }
 
+detach_all(){
+	ALL=$(ls -1 ${STATE_DIR})
+
+	for i in ${ALL}; do
+	    UUID=$(cat ${STATE_DIR}/${i}/vdi-uuid)
+	    logger "Attempting to detach VDI: ${UUID}"
+	    OUTPUT=$(/opt/xensource/bin/static-vdis detach ${UUID} 2>&1)
+	    if [ $? -ne 0 ]; then
+	       logger "Attempt to detach VDI: ${UUID} failed -- skipping (Error was: ${OUTPUT})"
+	    fi
+	done
+}
+
 start() {
 	echo -n $"Attempting to attach all statically-configured VDIs"
 	clear_stale_state
@@ -52,11 +65,20 @@ start() {
 	return 0
 }
 
+
+stop() {
+	echo -n $"Attempting to detach all statically-configured VDIs"
+	detach_all
+	echo
+	return 0
+}
+
 case "$1" in
 start)
 	start
 	;;
 stop)
+	stop
 	;;
 restart)
 	start
