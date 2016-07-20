@@ -269,19 +269,10 @@ let check_protection_policy ~vmr ~op ~ref_str =
  * [platform:nested-virt]. If we cannot find a boot record the VM can
  * migrate. A VM can always migrate if strict=false.
  *
- * This function cannot use Xapi_xenops.Platform.is_true as it would
- * create a dependency cycle.
  **)
 let is_mobile strict vm =
-	let is_true ~key ~platform ~default = (* from Xapi_xenops *)
-		try
-			match List.assoc key platform |> String.lowercase with
-			| "true"  | "1" -> true
-			| "false" | "0" -> false
-			| _ -> default (* Check for validity using is_valid if required *)
-		with Not_found -> default in
-	let not_true platform key =
-		not @@ is_true ~key ~platform ~default:false in
+	let not_true platformdata key =
+		not @@ Vm_platform.is_true ~key ~platformdata ~default:false in
 	match strict, vm.Db_actions.vM_last_booted_record with
 	| false, _  -> true (* --force overrides actual checks *)
 	| true , "" -> true (* no LBR exists, VM is not yet started *)
