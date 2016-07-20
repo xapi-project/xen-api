@@ -197,6 +197,20 @@ def call_backend_attach(driver, config):
 	path = xmlrpc[0][0]
     return path
 
+def call_backend_detach(driver, config):
+    params = xmlrpclib.loads(config)[0][0]
+    params['command'] = 'vdi_detach_from_config'
+    config = xmlrpclib.dumps(tuple([params]), params['command'])
+    xml = doexec([ driver, config ])
+    if xml[0] <> 0:
+        raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
+    xmlrpc = xmlrpclib.loads(xml[1])
+    try:
+        res = xmlrpc[0][0]['params']
+    except:
+        res = xmlrpc[0][0]
+    return res
+
 def attach(vdi_uuid):
     found = False
     for existing in list():
@@ -230,6 +244,32 @@ def attach(vdi_uuid):
                 return d + "/disk"
     if not found:
         raise Exception("Disk configuration not found")
+
+def detach(vdi_uuid):
+    found = False
+    for existing in list():
+        if existing['vdi-uuid'] == vdi_uuid:
+            if not (existing.has_key('disk')):
+                return
+            found = True
+            d = main_dir + "/" + existing['id']
+            if not (os.path.exists(d + "/sr-uri")):
+                # SMAPIv1
+                config = read_whole_file(d + "/config")
+                driver = read_whole_file(d + "/driver")
+                call_backend_detach(driver, config)
+            else:
+                volume_plugin = read_whole_file(d + "/volume-plugin")
+                vol_key = read_whole_file(d + "/volume-key")
+                vol_uri = read_whole_file(d + "/volume-uri")
+                scheme = urlparse.urlparse(vol_uri).scheme
+                call_datapath_plugin(scheme, "Datapath.deactivate", [ vol_uri, "0" ])
+                call_datapath_plugin(scheme, "Datapath.detach", [ vol_uri, "0" ])
+            os.unlink(d + "/disk")
+            return
+    if not found:
+        raise Exception("Disk configuration not found")
+
     
 def usage():
     print "Usage:"
@@ -237,6 +277,7 @@ def usage():
     print " %s add <uuid> <reason>  -- make the VDI <uuid> available on host boot" % sys.argv[0]
     print " %s del <uuid>           -- cease making the VDI <uuid> available on host boot" % sys.argv[0]
     print " %s attach <uuid>        -- attach the VDI immediately" % sys.argv[0]    
+    print " %s detach <uuid>        -- detach the VDI immediately" % sys.argv[0]
     sys.exit(1)
     
 if  __name__ == "__main__":
@@ -260,6 +301,8 @@ if  __name__ == "__main__":
     elif sys.argv[1] == "attach" and len(sys.argv) == 3:
         path = attach(sys.argv[2])
         print path
+    elif sys.argv[1] == "detach" and len(sys.argv) == 3:
+        detach(sys.argv[2])
     else:
         usage()
     
