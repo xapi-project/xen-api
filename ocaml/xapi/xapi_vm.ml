@@ -197,7 +197,7 @@ let start ~__context ~vm ~start_paused ~force =
 
 	(* Check to see if we're using any restricted platform kvs. This raises
 	   an exception if so *)
-	Xapi_xenops.Platform.check_restricted_flags ~__context vmr.API.vM_platform;
+	Vm_platform.check_restricted_flags ~__context vmr.API.vM_platform;
 
 	(* Clear out any VM guest metrics record. Guest metrics will be updated by
 	 * the running VM and for now they might be wrong, especially network
