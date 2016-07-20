@@ -387,7 +387,38 @@ let make_packs_info () =
 		in
 		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
 	with _ -> []
-  
+
+let trim s = String.filter_chars s (not ++ String.isspace)
+
+let get_xen_livepatch_list () = 
+	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/xen-livepatch list") in
+	let patchs = List.fold_left(
+		fun acc l ->
+		match List.map trim (String.split ~limit:2 '|' l) with
+		| [ key; "APPLIED" ] -> key :: acc
+		| _ -> acc;
+	)[] lines in
+	String.concat ", " patchs
+
+let get_kpatch_list () = 
+	let start_line = "Loaded patch modules:" in 
+	let end_line = "Installed patch modules:" in
+	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/kpatch list") in
+	let startpoint = ref false in
+	let patchs = List.fold_left(
+		fun acc l ->
+		if !startpoint then begin
+			if String.compare l end_line == 0 then startpoint := false;
+			let trimmed_l = trim l in
+			if !startpoint && String.length trimmed_l > 0 then trimmed_l :: acc else acc
+		end 
+		else begin
+			if String.compare l start_line == 0 then startpoint := true;
+			acc
+		end 
+	)[] lines in
+	String.concat ", " patchs
+
 (** Create a complete assoc list of version information *)
 let make_software_version ~__context =
 	let dbg = Context.string_of_task __context in
@@ -411,6 +442,8 @@ let make_software_version ~__context =
 		"xencenter_min", Xapi_globs.xencenter_min_verstring;
 		"xencenter_max", Xapi_globs.xencenter_max_verstring;
 		"network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
+		"xen_livepatches", get_xen_livepatch_list ();
+		"kernel_livepatches", get_kpatch_list ();
 	] @
 	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
 	(option_to_list "oem_model" info.oem_model) @
