@@ -22,29 +22,6 @@ open D
 let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-let make_xenstore_keys_for_vif ~__context ~vif =
-  match Pvs_proxy_control.find_proxy_for_vif ~__context ~vif with
-  | None -> []
-  | Some proxy ->
-    let network = Db.VIF.get_network ~__context ~self:vif in
-    let bridge = Db.Network.get_bridge ~__context ~self:network in
-    let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
-    let servers = Db.PVS_farm.get_servers ~__context ~self:farm in
-    let server_keys =
-      List.mapi (fun i server ->
-          let open Printf in
-          let rc = Db.PVS_server.get_record ~__context ~self:server in
-          [
-            sprintf "pvs-server-%d-addresses" i, String.concat "," rc.API.pVS_server_addresses;
-            sprintf "pvs-server-%d-ports" i, sprintf "%Ld-%Ld" rc.API.pVS_server_first_port rc.API.pVS_server_last_port;
-          ]
-        ) servers
-      |> List.flatten
-    in
-    ("pvs-interface", Pvs_proxy_control.proxy_port_name bridge) ::
-    ("pvs-server-num", string_of_int (List.length servers)) ::
-    server_keys
-
 let create ~__context ~farm ~vIF ~prepopulate =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   Helpers.assert_is_valid_ref ~__context ~name:"farm" ~ref:farm;

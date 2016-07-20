@@ -379,6 +379,23 @@ module MD = struct
       persistent = (try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist with _ -> true);
     }
 
+  let of_pvs_proxy ~__context vif proxy =
+    let bridge = Db.Network.get_bridge ~__context ~self:vif.API.vIF_network in
+    let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
+    let servers = Db.PVS_farm.get_servers ~__context ~self:farm in
+    let servers =
+      List.map (fun server ->
+          let rc = Db.PVS_server.get_record ~__context ~self:server in
+          {
+            Vif.PVS_proxy.addresses = rc.API.pVS_server_addresses;
+            first_port = Int64.to_int rc.API.pVS_server_first_port;
+            last_port = Int64.to_int rc.API.pVS_server_last_port;
+          }
+        ) servers
+    in
+    let interface = Pvs_proxy_control.proxy_port_name bridge in
+    servers, interface
+
   let of_vif ~__context ~vm ~vif:(vif_ref, vif) =
     let net = Db.Network.get_record ~__context ~self:vif.API.vIF_network in
     let net_mtu = Int64.to_int (net.API.network_MTU) in
@@ -449,12 +466,16 @@ module MD = struct
         let gateway = if vif.API.vIF_ipv6_gateway = "" then None else Some vif.API.vIF_ipv6_gateway in
         Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
     in
-    let pvs_proxy_keys = Xapi_pvs_proxy.make_xenstore_keys_for_vif ~__context ~vif:vif_ref in
     let extra_private_keys =
-      pvs_proxy_keys @ [
+      [
         "vif-uuid", vif.API.vIF_uuid;
         "network-uuid", net.API.network_uuid;
       ]
+    in
+    let pvs_proxy =
+      Opt.map
+        (of_pvs_proxy ~__context vif)
+        (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:vif_ref)
     in
     let open Vif in {
       id = (vm.API.vM_uuid, vif.API.vIF_device);
@@ -468,7 +489,8 @@ module MD = struct
       locking_mode = locking_mode;
       extra_private_keys;
       ipv4_configuration = ipv4_configuration;
-      ipv6_configuration = ipv6_configuration
+      ipv6_configuration = ipv6_configuration;
+      pvs_proxy;
     }
 
   let pcis_of_vm ~__context (vmref, vm) =
