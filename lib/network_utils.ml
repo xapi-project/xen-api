@@ -678,6 +678,19 @@ module Proc = struct
 		else
 			raise Not_found
 
+let get_vlans () =
+	try
+		Unixext.file_lines_fold (fun vlans line ->
+			try
+				let x = Scanf.sscanf line "%s | %d | %s" (fun device vlan parent -> device, vlan, parent) in
+				x :: vlans
+			with _ ->
+				vlans
+			) [] "/proc/net/vlan/config"
+	with e ->
+		error "Error: could not read /proc/net/vlan/config";
+		[]
+
 	let get_bond_links_up name =
 		let statusses = get_bond_slave_info name "MII Status" in
 		List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
