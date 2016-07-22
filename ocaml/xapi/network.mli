@@ -69,6 +69,7 @@ module Net :
 					params:(string * string) list -> unit
 				val is_connected : string -> name:Network_interface.iface -> bool
 				val is_physical : string -> name:Network_interface.iface -> bool
+				val has_vlan : string  -> name:Network_interface.iface -> vlan:int -> bool
 				val bring_up : string -> name:Network_interface.iface -> unit
 				val bring_down : string -> name:Network_interface.iface -> unit
 				val is_persistent :

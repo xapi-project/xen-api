@@ -42,6 +42,8 @@ let transform_networkd_exn pif f =
 	| Not_implemented ->
 		let e = "networkd function not implemented" in
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
+	| Vlan_in_use (device, vlan) ->
+		reraise Api_errors.vlan_in_use [device; string_of_int vlan]
 	| e ->
 		error "Caught %s while trying to plug a PIF" (ExnHelper.string_of_exn e);
 		reraise Api_errors.pif_configuration_error [Ref.string_of pif; ""]
