@@ -887,20 +887,32 @@ static void destring(xen_session *s, xmlChar *name, const abstract_type *type,
 {
     switch (type->typename)
     {
-    case STRING:
-        *((char **)value) = xen_strdup_((const char *)name);
-        break;
-
-    case INT:
-        *((int64_t *)value) = atoll((const char *)name);
-        break;
-
-    case FLOAT:
-        *((double *)value) = atof((const char *)name);
-        break;
-
-    default:
-        server_error(s, "Invalid Map key type");
+        case STRING:
+        {
+            *((char **)value) = xen_strdup_((const char *)name);
+            break;
+        }
+        case INT:
+        {
+            *((int64_t *)value) = atoll((const char *)name);
+            break;
+        }
+        case FLOAT:
+        {
+            *((double *)value) = atof((const char *)name);
+            break;
+        }
+        case ENUM:
+        {
+            *((int *)value) = type->enum_demarshaller(s, (const char *)name);
+            break;
+        }
+        default:
+        {
+            char buf[256];
+            snprintf(buf, sizeof (buf), "Invalid Map key type: %s", name);
+            server_error(s, buf);
+        }
     }
 }
 

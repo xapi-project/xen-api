@@ -124,7 +124,7 @@ call_func(const void *data, size_t len, void *user_handle,
 
 static void print_error(xen_session *session)
 {
-    fprintf(stderr, "Error: %d", session->error_description_count);
+    fprintf(stderr, "Error: %d\n", session->error_description_count);
     for (int i = 0; i < session->error_description_count; i++)
     {
         fprintf(stderr, "%s ", session->error_description[i]);
@@ -198,7 +198,45 @@ int main(int argc, char **argv)
     
     xen_vm_xen_vm_record_map_free(vmRecords);
     
-     /* Print some info for storage repositories */
+    /* clone the first vm, add a blocked operation to the clone
+     * and then print out its allowed and blocked oeprations */
+
+    struct xen_vm_set *vms;
+    if (!xen_vm_get_all(session, &vms) || vms->size < 1)
+    {
+        print_error(session);
+        CLEANUP;
+        return 1;
+    }
+
+    xen_vm clone;
+    xen_vm_clone(session, &clone, vms->contents[0], "clonedVM");
+    xen_vm_set_free(vms);
+
+    xen_vm_add_to_blocked_operations(session, clone, XEN_VM_OPERATIONS_POOL_MIGRATE, "123");
+
+    xen_vm_record *vm_rec;
+    xen_vm_get_record(session, &vm_rec, clone);
+
+    for (size_t j = 0; j < vm_rec->allowed_operations->size; j++)
+    {
+        printf("VM: %s, Allowed operation: %s\n",
+                vm_rec->name_label,
+                xen_vm_operations_to_string(vm_rec->allowed_operations->contents[j]));
+    }
+
+    for (size_t k = 0; k < vm_rec->blocked_operations->size; k++)
+    {
+        printf("VM: %s, Blocked operation: %s, Error code: %s\n",
+                vm_rec->name_label,
+                xen_vm_operations_to_string(vm_rec->blocked_operations->contents[k].key),
+                vm_rec->blocked_operations->contents[k].val);
+    }
+
+    xen_vm_record_free(vm_rec);
+    xen_vm_destroy(session, clone);
+
+    /* Print some info for storage repositories */
     
     xen_sr_xen_sr_record_map *srRecords;    
     if (!xen_sr_get_all_records(session, &srRecords))

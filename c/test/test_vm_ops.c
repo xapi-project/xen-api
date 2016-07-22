@@ -146,7 +146,7 @@ call_func(const void *data, size_t len, void *user_handle,
 
 static void print_error(xen_session *session)
 {
-    fprintf(stderr, "Error: %d", session->error_description_count);
+    fprintf(stderr, "Error: %d\n", session->error_description_count);
     for (int i = 0; i < session->error_description_count; i++)
     {
         fprintf(stderr, "%s ", session->error_description[i]);
