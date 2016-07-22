@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: af90c479b482802612f1748ad1f42661)
-version = "0.12.0"
+# DO NOT EDIT (digest: 3dd117a9835d3c306223cef35b85ba80)
+version = "0.12.1"
 description = "Xen host memory ballooning daemon"
 requires = "stdext re re.str xcp threads"
 archive(byte) = "squeeze.cma"
