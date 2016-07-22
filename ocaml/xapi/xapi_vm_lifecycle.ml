@@ -261,6 +261,26 @@ let check_protection_policy ~vmr ~op ~ref_str =
 		[ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy])
 	| _ -> None
 
+(** Some VMs can't migrate. The predicate [is_mobile] is true, if and
+ * only if a VM is mobile.
+ *
+ * A VM is not mobile if in its [last_booted_record] any of the
+ * following values are true: [platform:nomigrate] or
+ * [platform:nested-virt]. If we cannot find a boot record the VM can
+ * migrate. A VM can always migrate if strict=false.
+ *
+ **)
+let is_mobile strict vm =
+	let not_true platformdata key =
+		not @@ Vm_platform.is_true ~key ~platformdata ~default:false in
+	match strict, vm.Db_actions.vM_last_booted_record with
+	| false, _  -> true (* --force overrides actual checks *)
+	| true , "" -> true (* no LBR exists, VM is not yet started *)
+	| true, xml ->      (* check platform of last boot record *)
+		Helpers.parse_boot_record ~string:xml
+		|> fun lbr -> lbr.API.vM_platform
+		|> fun plf -> not_true plf "nomigrate" && not_true plf "nested-virt"
+
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
     corresponding to the first error found. Checking stops at the first error.
@@ -316,6 +336,17 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		if op = `revert && (not is_snapshot)
 		then Some (Api_errors.only_revert_snapshot, [])
 		else None) in
+
+	(* Migration must be blocked if VM is not mobile *)
+	let current_error = check current_error (fun () ->
+		match op with
+		| `suspend
+		| `checkpoint
+		| `pool_migrate
+		| `migrate_send
+			when not (is_mobile strict vmr) -> Some (Api_errors.vm_is_immobile, [ref_str])
+		| _ -> None
+		) in
 
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)

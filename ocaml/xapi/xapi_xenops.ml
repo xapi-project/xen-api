@@ -82,156 +82,6 @@ let xenops_of_xenapi_power_state = function
 	| `Suspended -> Suspended
 	| `Paused -> Paused
 
-module Platform = struct
-	(* Keys we push through to xenstore. *)
-	let acpi = "acpi"
-	let apic = "apic"
-	let nx = "nx"
-	let pae = "pae"
-	let viridian = "viridian"
-	let acpi_s3 = "acpi_s3"
-	let acpi_s4 = "acpi_s4"
-	let mmio_size_mib = "mmio_size_mib"
-	let revision = "revision"
-	let device_id = "device_id"
-	let tsc_mode = "tsc_mode"
-	let device_model = "device-model"
-	let xenguest = "xenguest"
-	let pv_kernel_max_size = "pv-kernel-max-size"
-	let pv_ramdisk_max_size = "pv-ramdisk-max-size"
-	let pv_postinstall_kernel_max_size = "pv-postinstall-kernel-max-size"
-	let pv_postinstall_ramdisk_max_size = "pv-postinstall-ramdisk-max-size"
-	let usb = "usb"
-	let usb_tablet = "usb_tablet"
-	let parallel = "parallel"
-	let vga = "vga"
-	let vgpu_pci_id = Xapi_globs.vgpu_pci_key
-	let vgpu_config = Xapi_globs.vgpu_config_key
-	let igd_passthru_key = Xapi_globs.igd_passthru_key
-	let featureset = "featureset"
-	let nested_virt = "nested-virt"
-
-	(* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
-	let filtered_flags = [
-		acpi;
-		apic;
-		nx;
-		pae;
-		viridian;
-		acpi_s3;
-		acpi_s4;
-		mmio_size_mib;
-		revision;
-		device_id;
-		tsc_mode;
-		device_model;
-		xenguest;
-		pv_kernel_max_size;
-		pv_ramdisk_max_size;
-		pv_postinstall_kernel_max_size;
-		pv_postinstall_ramdisk_max_size;
-		usb;
-		usb_tablet;
-		parallel;
-		vga;
-		vgpu_pci_id;
-		vgpu_config;
-		featureset;
-		nested_virt;
-	]
-
-	(* Other keys we might want to write to the platform map. *)
-	let timeoffset = "timeoffset"
-	let generation_id = "generation-id"
-
-	(* Helper functions. *)
-	(* [is_valid key platformdata] returns true if:
-	   1. The key is _not_ in platformdata (absence of key is valid) or
-	   2. The key is in platformdata, associated with a booleanish value *)
-	let is_valid ~key ~platformdata =
-		(not (List.mem_assoc key platformdata)) ||
-		(match List.assoc key platformdata |> String.lowercase with
-		| "true" | "1" | "false" | "0" -> true
-		| v -> false)
-
-	let is_true ~key ~platformdata ~default =
-		try
-			match List.assoc key platformdata |> String.lowercase with
-			| "true" | "1" -> true
-			| "false" | "0" -> false
-			| _ -> default (* Check for validity using is_valid if required *)
-		with Not_found ->
-			default
-
-	let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns =
-		(* Filter out unknown flags, if applicable *)
-		let platformdata =
-			if filter_out_unknowns
-			then List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
-			else platformdata
-		in
-		(* Filter out invalid TSC modes. *)
-		let platformdata =
-			List.filter
-				(fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
-				platformdata
-		in
-		(* Sanity check for HVM domains with invalid VCPU configuration*)
-		if hvm && (List.mem_assoc "cores-per-socket" platformdata) then
-		begin
-			try
-				let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
-				(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
-				if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) 
-					|| ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
-					raise (Api_errors.Server_error(Api_errors.invalid_value, 
-						["platform:cores-per-socket"; 
-						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
-			with Failure msg ->
-				raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; 
-					Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
-		end;
-		(* Add usb emulation flags.
-		   Make sure we don't send usb=false and usb_tablet=true,
-		   as that wouldn't make sense. *)
-		let usb_enabled =
-			is_true ~key:usb ~platformdata ~default:true in
-		let usb_tablet_enabled =
-			if usb_enabled
-			then is_true ~key:usb_tablet ~platformdata ~default:true
-			else false
-		in
-		let platformdata =
-			List.update_assoc
-				[(usb, string_of_bool usb_enabled);
-					(usb_tablet, string_of_bool usb_tablet_enabled)]
-				platformdata
-		in
-		(* Filter out invalid values for the "parallel" key. We don't want to give
-		 * guests access to anything other than a real parallel port. *)
-		let platformdata =
-			let is_valid_parallel_flag = function
-				| "none" -> true
-				| dev -> String.startswith "/dev/parport" dev
-			in
-			List.filter
-				(fun (k, v) -> k <> parallel || is_valid_parallel_flag v)
-				platformdata
-		in
-		platformdata
-
-
-	let check_restricted_flags ~__context platform =
-		if not (is_valid nested_virt platform) then
-			raise (Api_errors.Server_error
-				(Api_errors.invalid_value,
-				 [Printf.sprintf "platform:%s" nested_virt;
-				  List.assoc nested_virt platform]));
-
-		if is_true nested_virt platform false
-		then Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
-end
-
 let xenops_vdi_locator_of_strings sr_uuid vdi_location =
 	Printf.sprintf "%s/%s" sr_uuid vdi_location
 
@@ -280,7 +130,7 @@ let int = find int_of_string
 let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
 
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
-	let timeoffset = string vm_t.API.vM_platform "0" Platform.timeoffset in
+	let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
 	(* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
 	   then we override the platform/timeoffset. This is needed because windows
 	   stores the local time in timeoffset (the BIOS clock) but records whether
@@ -296,7 +146,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 		|> List.filter_map (fun (reference, record) ->
 			Opt.of_exception (fun () ->
 				reference,
-				List.assoc Platform.timeoffset
+				List.assoc Vm_platform.timeoffset
 					record.API.vDI_other_config)) in
 	match vdis_with_timeoffset_to_be_reset_on_boot with
 		| [] ->
@@ -326,13 +176,13 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 
 	let video_mode =
 		if vgpu then Vgpu
-		else if (Platform.is_true
-			~key:Platform.igd_passthru_key
+		else if (Vm_platform.is_true
+			~key:Vm_platform.igd_passthru_key
 			~platformdata:vm.API.vM_platform
 			~default:false)
 		then (IGD_passthrough GVT_d)
 		else
-			match string vm.API.vM_platform "cirrus" Platform.vga with
+			match string vm.API.vM_platform "cirrus" Vm_platform.vga with
 			| "std" -> Standard_VGA
 			| "cirrus" -> Cirrus
 			| x ->
@@ -720,8 +570,8 @@ module MD = struct
 	let vgpus_of_vm ~__context (vmref, vm) =
 		let open Vgpu in
 		if Vgpuops.vgpu_manual_setup_of_vm vm
-			&& (List.mem_assoc Platform.vgpu_pci_id vm.API.vM_platform)
-			&& (List.mem_assoc Platform.vgpu_config vm.API.vM_platform)
+			&& (List.mem_assoc Vm_platform.vgpu_pci_id vm.API.vM_platform)
+			&& (List.mem_assoc Vm_platform.vgpu_config vm.API.vM_platform)
 		then begin
 			(* We're using the vGPU manual setup mode, so get the vGPU configuration
 			 * from the VM platform keys. *)
@@ -729,8 +579,8 @@ module MD = struct
 				Nvidia {
 					physical_pci_address =
 						Xenops_interface.Pci.address_of_string
-							(List.assoc Platform.vgpu_pci_id vm.API.vM_platform);
-					config_file = List.assoc Platform.vgpu_config vm.API.vM_platform;
+							(List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
+					config_file = List.assoc Vm_platform.vgpu_config vm.API.vM_platform;
 				}
 			in [{
 				id = (vm.API.vM_uuid, "0");
@@ -816,7 +666,7 @@ module MD = struct
 			{ priority = priority; affinity = affinity } in
 
 		let platformdata =
-			Platform.sanity_check
+			Vm_platform.sanity_check
 				~platformdata:vm.API.vM_platform
 				~vcpu_max:vm.API.vM_VCPUs_max
 				~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
@@ -827,24 +677,24 @@ module MD = struct
 		(* Replace the timeoffset in the platform data too, to avoid confusion *)
 		let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
 		let platformdata =
-			(Platform.timeoffset, timeoffset) ::
-				(List.filter (fun (key, _) -> key <> Platform.timeoffset) platformdata) in
+			(Vm_platform.timeoffset, timeoffset) ::
+				(List.filter (fun (key, _) -> key <> Vm_platform.timeoffset) platformdata) in
 		let platformdata =
 			let genid = match vm.API.vM_generation_id with
 				| "0:0" -> Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
 				| _ -> vm.API.vM_generation_id in
-			(Platform.generation_id, genid) :: platformdata
+			(Vm_platform.generation_id, genid) :: platformdata
 		in
 		(* Add the CPUID feature set for the VM to the platform data. *)
 		let platformdata =
-			if not (List.mem_assoc Platform.featureset platformdata) then
+			if not (List.mem_assoc Vm_platform.featureset platformdata) then
 				let featureset =
 					if List.mem_assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags then
 						List.assoc Xapi_globs.cpu_info_features_key vm.API.vM_last_boot_CPU_flags
 					else
 						failwith "VM's CPU featureset not initialised"
 				in
-				(Platform.featureset, featureset) :: platformdata
+				(Vm_platform.featureset, featureset) :: platformdata
 			else
 				platformdata
 		in
@@ -1493,8 +1343,8 @@ let update_vm ~__context id =
 								(fun (_, state) ->
 									if state.rtc_timeoffset <> "" then begin
 										debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-										(try Db.VM.remove_from_platform ~__context ~self ~key:Platform.timeoffset with _ -> ());
-										Db.VM.add_to_platform ~__context ~self ~key:Platform.timeoffset ~value:state.rtc_timeoffset;
+										(try Db.VM.remove_from_platform ~__context ~self ~key:Vm_platform.timeoffset with _ -> ());
+										Db.VM.add_to_platform ~__context ~self ~key:Vm_platform.timeoffset ~value:state.rtc_timeoffset;
 									end
 								) info
 						with e ->
