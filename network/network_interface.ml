@@ -63,6 +63,7 @@ exception Script_error of (string * string) list
 exception Read_error of string
 exception Write_error of string
 exception Not_implemented
+exception Vlan_in_use of (string * int)
 
 (** {2 Types} *)
 
@@ -203,6 +204,7 @@ module Interface = struct
 	external get_capabilities : debug_info -> name:iface -> string list = ""
 	external is_connected : debug_info -> name:iface -> bool = ""
 	external is_physical : debug_info -> name:iface -> bool = ""
+	external has_vlan: debug_info -> name:iface -> vlan:int -> bool = ""
 	external bring_up : debug_info -> name:iface -> unit = ""
 	external bring_down : debug_info -> name:iface -> unit = ""
 	external is_persistent : debug_info -> name:iface -> bool = ""
