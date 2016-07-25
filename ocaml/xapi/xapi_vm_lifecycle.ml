@@ -270,14 +270,15 @@ let check_protection_policy ~vmr ~op ~ref_str =
  * migrate. A VM can always migrate if strict=false.
  *
  **)
-let is_mobile strict vm =
+let is_mobile ~__context strict vm =
 	let not_true platformdata key =
 		not @@ Vm_platform.is_true ~key ~platformdata ~default:false in
 	match strict, vm.Db_actions.vM_last_booted_record with
 	| false, _  -> true (* --force overrides actual checks *)
 	| true , "" -> true (* no LBR exists, VM is not yet started *)
 	| true, xml ->      (* check platform of last boot record *)
-		Helpers.parse_boot_record ~string:xml
+		Helpers.get_boot_record_of_record ~__context
+			~string:xml ~uuid:vm.Db_actions.vM_uuid
 		|> fun lbr -> lbr.API.vM_platform
 		|> fun plf -> not_true plf "nomigrate" && not_true plf "nested-virt"
 
@@ -344,7 +345,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		| `checkpoint
 		| `pool_migrate
 		| `migrate_send
-			when not (is_mobile strict vmr) -> Some (Api_errors.vm_is_immobile, [ref_str])
+			when not (is_mobile ~__context strict vmr) ->
+				Some (Api_errors.vm_is_immobile, [ref_str])
 		| _ -> None
 		) in
 
