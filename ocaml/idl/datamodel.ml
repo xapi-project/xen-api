@@ -1337,10 +1337,8 @@ let _ =
 		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ();
 
 	error Api_errors.vm_call_plugin_rate_limit ["VM"; "interval"; "wait"]
-		~doc:"There is a minimal interval required between consecutive plugin calls made on the same VM, please wait before retry." ();
+		~doc:"There is a minimal interval required between consecutive plugin calls made on the same VM, please wait before retry." ()
 
-	error Api_errors.vm_is_immobile ["VM"]
-		~doc:"The VM is configured in a way that prevents it from being mobile." ()
 
 let _ =
     message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();

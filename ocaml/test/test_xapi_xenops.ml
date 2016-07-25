@@ -13,8 +13,8 @@ let test_enabled_in_xenguest () =
 
   let k = "test_key" in
   let p v = [k,v] in
-  let val_fn p = Vm_platform.is_true ~key:k ~platformdata:p ~default:false in
-  let valid_fn p = Vm_platform.is_valid ~key:k ~platformdata:p in
+  let val_fn p = Xapi_xenops.Platform.is_true ~key:k ~platformdata:p ~default:false in
+  let valid_fn p = Xapi_xenops.Platform.is_valid ~key:k ~platformdata:p in
 
   (* Empty list should be valid *)
   if not (valid_fn []) then err "[]";
@@ -61,7 +61,7 @@ let test_nested_virt_licensing () =
     begin
       try
         Db.Pool.set_restrictions ~__context ~self:pool ~value:["restrict_nested_virt","true"];
-        Vm_platform.check_restricted_flags ~__context platform;
+        Xapi_xenops.Platform.check_restricted_flags ~__context platform;
         if should_raise
         then
           failwith
@@ -77,7 +77,7 @@ let test_nested_virt_licensing () =
 
     (* If the feature is unrestricted, nothing should raise an exception *)
     Db.Pool.set_restrictions ~__context ~self:pool ~value:["restrict_nested_virt","false"];
-    Vm_platform.check_restricted_flags ~__context platform
+    Xapi_xenops.Platform.check_restricted_flags ~__context platform
   in
 
   List.iter check_one nested_virt_checks
