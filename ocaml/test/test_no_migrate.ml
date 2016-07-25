@@ -67,7 +67,7 @@ let base () =
 		)
 
 (** [with_platform] checks that mobility is signaled according to the
- * values found in the platform flags of the last_booted_record *)
+ * values found in the platform flags *)
 let with_platform () =
 	let __context = make_test_database () in
 	let self      = make_vm ~__context ~hVM_boot_policy:"" () in
