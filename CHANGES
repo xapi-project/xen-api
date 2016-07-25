@@ -1,3 +1,6 @@
+1.1.0 (25-Jul-2016):
+* Networkd: Add the ability to report back when VLANs are in use
+
 1.0.1 (04-Jul-2016):
 * Add an optional monitor config file to the gvt_g type
 * Rebuild with stdext 2.0.0
