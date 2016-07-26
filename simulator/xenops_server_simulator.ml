@@ -319,6 +319,12 @@ let set_ipv6_configuration vm vif ipv6_configuration () =
 	let vifs = List.map (fun vif -> { vif with Vif.ipv6_configuration = if this_one vif then ipv6_configuration else vif.Vif.ipv6_configuration }) d.Domain.vifs in
 	DB.write vm { d with Domain.vifs = vifs }
 
+let set_pvs_proxy vm vif proxy () =
+	let d = DB.read_exn vm in
+	let this_one x = x.Vif.id = vif.Vif.id in
+	let vifs = List.map (fun vif -> { vif with Vif.pvs_proxy = if this_one vif then proxy else vif.Vif.pvs_proxy }) d.Domain.vifs in
+	DB.write vm { d with Domain.vifs = vifs }
+
 let remove_pci vm pci () =
 	let d = DB.read_exn vm in
 	let this_one x = x.Pci.id = pci.Pci.id in
@@ -429,6 +435,7 @@ module VIF = struct
 	let set_locking_mode _ vm vif mode = Mutex.execute m (set_locking_mode vm vif mode)
 	let set_ipv4_configuration _ vm vif ipv4_configuration = Mutex.execute m (set_ipv4_configuration vm vif ipv4_configuration)
 	let set_ipv6_configuration _ vm vif ipv6_configuration = Mutex.execute m (set_ipv6_configuration vm vif ipv6_configuration)
+	let set_pvs_proxy _ vm vif proxy = Mutex.execute m (set_pvs_proxy vm vif proxy)
 
 	let get_state vm vif = Mutex.execute m (vif_state vm vif)
 

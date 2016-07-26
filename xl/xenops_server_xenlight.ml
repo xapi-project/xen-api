@@ -1264,6 +1264,8 @@ module VBD = struct
 end
 
 module VIF = struct
+	include Xenops_server_skeleton.VIF
+
 	open Vif
 
 	let id_of vif = snd vif.id

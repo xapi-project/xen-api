@@ -2290,6 +2290,8 @@ module VIF = struct
 		_ipv6_allowed;
 	]
 
+	let pvs_proxy_key_prefix = "pvs-"
+
 	let xenstore_of_locking_mode = function
 		| Locked { ipv4 = ipv4; ipv6 = ipv6 } -> [
 			_locking_mode, "locked";
@@ -2335,6 +2337,25 @@ module VIF = struct
 		let flag = if disconnected then "1" else "0" in
 		path, flag
 
+	let xenstore_of_pvs_proxy proxy =
+		match proxy with
+		| None -> []
+		| Some (servers, interface) ->
+			let open Vif.PVS_proxy in
+			let server_keys =
+				List.mapi (fun i server ->
+					let open Printf in
+					[
+						sprintf "pvs-server-%d-addresses" i, String.concat "," server.addresses;
+						sprintf "pvs-server-%d-ports" i, sprintf "%d-%d" server.first_port server.last_port;
+					]
+				) servers
+				|> List.flatten
+			in
+			("pvs-interface", interface) ::
+			("pvs-server-num", string_of_int (List.length servers)) ::
+			server_keys
+
 	let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
 
 	let set_active task vm vif active =
@@ -2364,6 +2385,7 @@ module VIF = struct
 				let xenopsd_backend = [ "xenopsd-backend", "classic" ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 				let static_ip_setting = xenstore_of_static_ip_setting vif in
+				let pvs_proxy = xenstore_of_pvs_proxy vif.pvs_proxy in
 
 				let interfaces = interfaces_of_vif frontend_domid vif.id vif.position in
 
@@ -2381,7 +2403,7 @@ module VIF = struct
 								~mtu:vif.mtu ~rate:vif.rate ~backend_domid
 								~other_config:vif.other_config
 								~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @
-									setup_pvs_proxy_rules @ xenopsd_backend)
+									setup_pvs_proxy_rules @ pvs_proxy @ xenopsd_backend)
 								~extra_xenserver_keys:static_ip_setting
 								frontend_domid in
 						let (_: Device_common.device) = create task frontend_domid in
@@ -2579,6 +2601,33 @@ module VIF = struct
 					set_ip_static xs xenstore_path "6" address gateway
 				| Static6 ([], _) ->
 					raise (Internal_error "Static IPv6 configuration selected, but no address specified.")
+			)
+
+	let set_pvs_proxy task vm vif proxy =
+		let open Device_common in
+		let setup action path =
+			ignore (run !Xc_path.setup_pvs_proxy_rules [action; path])
+		in
+		with_xc_and_xs
+			(fun xc xs ->
+				(* If the device is gone then this is ok *)
+				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
+				let path = Device_common.get_private_data_path_of_device device in
+				if proxy = None then begin
+					setup "remove" path;
+					Xs.transaction xs (fun t ->
+						let keys = t.Xs.directory path in
+						List.iter (fun key ->
+							if String.startswith pvs_proxy_key_prefix key then
+								t.Xs.rm (Printf.sprintf "%s/%s" path key)
+						) keys
+					)
+				end else begin
+					Xs.transaction xs (fun t ->
+						t.Xs.writev path (xenstore_of_pvs_proxy proxy)
+					);
+					setup "add" path
+				end
 			)
 
 	let get_state vm vif =

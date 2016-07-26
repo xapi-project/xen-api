@@ -129,6 +129,7 @@ module type S = sig
 		val set_locking_mode: Xenops_task.t -> Vm.id -> Vif.t -> Vif.locking_mode -> unit
 		val set_ipv4_configuration: Xenops_task.t -> Vm.id -> Vif.t -> Vif.ipv4_configuration -> unit
 		val set_ipv6_configuration: Xenops_task.t -> Vm.id -> Vif.t -> Vif.ipv6_configuration -> unit
+		val set_pvs_proxy: Xenops_task.t -> Vm.id -> Vif.t -> Vif.PVS_proxy.t option -> unit
 
 		val get_state: Vm.id -> Vif.t -> Vif.state
 
