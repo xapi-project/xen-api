@@ -239,7 +239,7 @@ let attach_for_vif ~__context ~vif () =
   let network = Db.VIF.get_network ~__context ~self:vif in
   attach_internal ~__context ~self:network ();
   Xapi_udhcpd.maybe_add_lease ~__context vif;
-  Xapi_pvs_proxy.maybe_start_proxy_for_vif ~__context ~vif
+  Pvs_proxy_control.maybe_start_proxy_for_vif ~__context ~vif
 
 let attach_for_vm ~__context ~host ~vm =
   List.iter
@@ -249,7 +249,7 @@ let attach_for_vm ~__context ~host ~vm =
 
 let detach_for_vif ~__context ~vif =
   deregister_vif ~__context vif;
-  Xapi_pvs_proxy.maybe_stop_proxy_for_vif ~__context ~vif
+  Pvs_proxy_control.maybe_stop_proxy_for_vif ~__context ~vif
 
 let detach_for_vm ~__context ~host ~vm =
   try

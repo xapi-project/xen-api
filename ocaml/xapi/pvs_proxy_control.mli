@@ -12,16 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val create : __context:Context.t ->
-  farm:API.ref_PVS_farm ->
-  vIF:API.ref_VIF ->
-  prepopulate:bool ->
-  API.ref_PVS_proxy
+val proxy_port_name : string -> string
+val get_running_proxies : __context:Context.t -> farm:API.ref_PVS_farm -> API.ref_PVS_proxy list
 
-val destroy : __context:Context.t -> self:API.ref_PVS_proxy -> unit
+val start_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit
+val stop_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit
 
-val set_prepopulate : __context:Context.t ->
-  self:API.ref_PVS_proxy ->
-  value:bool -> unit
-
-val make_xenstore_keys_for_vif : __context:Context.t -> vif:API.ref_VIF -> (string * string) list
+val find_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> API.ref_PVS_proxy option
+val maybe_start_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit
+val maybe_stop_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit

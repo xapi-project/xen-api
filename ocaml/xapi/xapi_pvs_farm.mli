@@ -24,15 +24,3 @@ val add_cache_storage : __context:Context.t ->
 
 val remove_cache_storage : __context:Context.t ->
   self:API.ref_PVS_farm -> value:API.ref_SR -> unit
-
-val proxy_port_name : string -> string
-
-(** Request xcp-networkd to update a farm's PVS-proxy daemon configuration,
- *  for all locally running proxies, taking into account starting and stopping proxies *)
-val update_farm_on_localhost : __context:Context.t ->
-  self:API.ref_PVS_farm ->
-  vdi:API.ref_VDI ->
-  ?starting_proxies:(API.ref_VIF * API.ref_PVS_proxy) list ->
-  ?stopping_proxies:(API.ref_VIF * API.ref_PVS_proxy) list ->
-  unit ->
-  unit

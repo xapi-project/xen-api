@@ -22,69 +22,8 @@ open D
 let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-let start ~__context vif proxy =
-  if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
-    try
-      Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
-      let host = Helpers.get_localhost ~__context in
-      let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
-      let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~farm in
-      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~starting_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
-      Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
-    with e ->
-      let reason =
-        match e with
-        | Xapi_pvs_cache.No_cache_sr_available -> "no PVS cache SR available"
-        | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
-        | Api_errors.Server_error (code, args) when
-            code = Api_errors.license_restriction
-            && args = [Features.(name_of_feature PVS_proxy)] ->
-          "PVS proxy not licensed"
-        | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
-      in
-      warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason
-  end
-
-let stop ~__context vif proxy =
-  if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
-    try
-      let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
-      let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
-      let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
-      Xapi_pvs_farm.update_farm_on_localhost ~__context ~self:farm ~vdi ~stopping_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
-      Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
-    with e ->
-      let reason =
-        match e with
-        | Xapi_pvs_cache.No_cache_vdi_present -> "no PVS cache VDI found"
-        | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
-        | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
-      in
-      error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif) reason
-  end
-
-let find_proxy_for_vif ~__context ~vif =
-  let open Db_filter_types in
-  let proxies = Db.PVS_proxy.get_refs_where ~__context
-      ~expr:(Eq (Field "VIF", Literal (Ref.string_of vif))) in
-  match proxies with
-  | [] -> None
-  | proxy :: _ -> Some proxy
-
-let maybe_start_proxy_for_vif ~__context ~vif =
-  Opt.iter
-    (start ~__context vif)
-    (find_proxy_for_vif ~__context ~vif)
-
-let maybe_stop_proxy_for_vif ~__context ~vif =
-  Opt.iter
-    (stop ~__context vif)
-    (find_proxy_for_vif ~__context ~vif)
-
 let make_xenstore_keys_for_vif ~__context ~vif =
-  match find_proxy_for_vif ~__context ~vif with
+  match Pvs_proxy_control.find_proxy_for_vif ~__context ~vif with
   | None -> []
   | Some proxy ->
     let network = Db.VIF.get_network ~__context ~self:vif in
@@ -102,7 +41,7 @@ let make_xenstore_keys_for_vif ~__context ~vif =
         ) servers
       |> List.flatten
     in
-    ("pvs-interface", Xapi_pvs_farm.proxy_port_name bridge) ::
+    ("pvs-interface", Pvs_proxy_control.proxy_port_name bridge) ::
     ("pvs-server-num", string_of_int (List.length servers)) ::
     server_keys
 
@@ -119,13 +58,13 @@ let create ~__context ~farm ~vIF ~prepopulate =
     ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate 
     ~currently_attached:false ~cache_SR:Ref.null;
   if Db.VIF.get_currently_attached ~__context ~self:vIF then
-    start ~__context vIF pvs_proxy;
+    Pvs_proxy_control.start_proxy ~__context vIF pvs_proxy;
   pvs_proxy
 
 let destroy ~__context ~self =
   let vIF = Db.PVS_proxy.get_VIF ~__context ~self in
   if Db.VIF.get_currently_attached ~__context ~self:vIF then
-    stop ~__context vIF self;
+    Pvs_proxy_control.stop_proxy ~__context vIF self;
   Db.PVS_proxy.destroy ~__context ~self
 
 let set_prepopulate ~__context ~self ~value =
