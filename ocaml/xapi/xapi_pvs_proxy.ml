@@ -32,16 +32,20 @@ let create ~__context ~farm ~vIF ~prepopulate =
   let pvs_proxy = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.PVS_proxy.create ~__context
-    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate 
-    ~currently_attached:false ~cache_SR:Ref.null;
-  if Db.VIF.get_currently_attached ~__context ~self:vIF then
+    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate ~currently_attached:false ~cache_SR:Ref.null;
+  if Db.VIF.get_currently_attached ~__context ~self:vIF then begin
     Pvs_proxy_control.start_proxy ~__context vIF pvs_proxy;
+    if Db.PVS_proxy.get_currently_attached ~__context ~self:pvs_proxy then
+      Xapi_xenops.vif_set_pvs_proxy ~__context ~self:vIF true
+  end;
   pvs_proxy
 
 let destroy ~__context ~self =
-  let vIF = Db.PVS_proxy.get_VIF ~__context ~self in
-  if Db.VIF.get_currently_attached ~__context ~self:vIF then
-    Pvs_proxy_control.stop_proxy ~__context vIF self;
+  if Db.PVS_proxy.get_currently_attached ~__context ~self then begin
+    let vif = Db.PVS_proxy.get_VIF ~__context ~self in
+    Xapi_xenops.vif_set_pvs_proxy ~__context ~self:vif false;
+    Pvs_proxy_control.stop_proxy ~__context vif self
+  end;
   Db.PVS_proxy.destroy ~__context ~self
 
 let set_prepopulate ~__context ~self ~value =

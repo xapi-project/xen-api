@@ -2777,6 +2777,21 @@ let vif_set_locking_mode ~__context ~self =
        Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
     )
 
+let vif_set_pvs_proxy ~__context ~self creating =
+  let vm = Db.VIF.get_VM ~__context ~self in
+  let queue_name = queue_of_vm ~__context ~self:vm in
+  transform_xenops_exn ~__context ~vm queue_name
+    (fun () ->
+       assert_resident_on ~__context ~self:vm;
+       let vif = md_of_vif ~__context ~self in
+       let proxy = if creating then vif.Vif.pvs_proxy else None in
+       info "xenops: VIF.set_pvs_proxy %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
+       let dbg = Context.string_of_task __context in
+       let module Client = (val make_client queue_name : XENOPS) in
+       Client.VIF.set_pvs_proxy dbg vif.Vif.id proxy |> sync_with_task __context queue_name;
+       Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
+    )
+
 let vif_unplug ~__context ~self force =
   let vm = Db.VIF.get_VM ~__context ~self in
   let queue_name = queue_of_vm ~__context ~self:vm in
