@@ -282,6 +282,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_pvs_site \
 	xapi_pvs_server \
 	xapi_pvs_proxy \
+	xapi_pvs_cache_storage \
 	pvs_proxy_control \
 
 OCamlProgram(xapi, xapi_main $(XAPI_MODULES))

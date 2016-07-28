@@ -86,6 +86,7 @@ module Actions = struct
   module PVS_site = Xapi_pvs_site
   module PVS_server = Xapi_pvs_server
   module PVS_proxy = Xapi_pvs_proxy
+  module PVS_cache_storage = Xapi_pvs_cache_storage
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)

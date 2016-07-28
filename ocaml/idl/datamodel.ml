@@ -153,6 +153,7 @@ let _vgpu_type = "VGPU_type"
 let _pvs_site = "PVS_site"
 let _pvs_server = "PVS_server"
 let _pvs_proxy = "PVS_proxy"
+let _pvs_cache_storage = "PVS_cache_storage"
 
 
 (** All the various static role names *)
@@ -9046,6 +9047,44 @@ module PVS_proxy = struct
 end
 let pvs_proxy = PVS_proxy.obj
 
+module PVS_cache_storage = struct
+  let lifecycle = [Prototyped, rel_ely, ""]
+
+  let obj =
+    let null_ref  = Some (VRef (Ref.string_of Ref.null)) in
+    create_obj
+      ~name: _pvs_cache_storage
+      ~descr:"Describes the storage that is available to a PVS site for caching purposes"
+      ~doccomments:[]
+      ~gen_constructor_destructor:true
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _pvs_cache_storage ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _pvs_site) "site" ~default_value:null_ref
+            "PVS site this proxy is part of"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _sr) "SR" ~default_value:null_ref
+            "SR providing storage for the PVS cache"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:Int "size" ~default_value:(Some (VInt (Int64.of_int (20 * 1024 * 1024 * 1024))))
+            "The size of the cache VDI (in bytes)"
+        ]
+      ~messages:
+        [ 
+        ]
+      ()
+end
+let pvs_cache_storage = PVS_cache_storage.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9107,6 +9146,7 @@ let all_system =
     pvs_site;
     pvs_server;
     pvs_proxy;
+    pvs_cache_storage;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)

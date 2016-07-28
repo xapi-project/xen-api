@@ -3945,5 +3945,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.PVS_proxy.set_prepopulate ~__context ~self ~value
   end
 
+  module PVS_cache_storage = struct
+    let create ~__context ~site ~sR ~size =
+      info "PVS_cache_storage.create";
+      Local.PVS_cache_storage.create ~__context ~site ~sR ~size
+
+    let destroy ~__context ~self =
+      info "PVS_cache_storage.destroy";
+      Local.PVS_cache_storage.destroy ~__context ~self
+  end
 end
 
