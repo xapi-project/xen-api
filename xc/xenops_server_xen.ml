@@ -2047,6 +2047,9 @@ module VBD = struct
 							| Device_not_connected ->
 								debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd);
 								None in
+					let backend = match device with
+						| None -> None
+						| Some dv -> Device.Generic.get_private_key ~xs dv _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
 					Opt.iter
 						(fun device ->
 							if force && (not (Device.can_surprise_remove ~xs device))
@@ -2057,7 +2060,7 @@ module VBD = struct
 							Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
 								(fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
 						) device;
-					(* We now have a shutdown device but an active DP: we should unconditionally destroy the DP *)
+					(* We now have a shutdown device but an active DP: we should destroy the DP if the backend is of type VDI *)
 					finally
 						(fun () ->
 							Opt.iter
@@ -2081,9 +2084,9 @@ module VBD = struct
 							)
 						)
 						(fun () ->
-							Opt.iter (fun domid ->
-								Storage.dp_destroy task (Storage.id_of (string_of_int domid) vbd.Vbd.id)
-							) domid
+							match domid, backend with
+							| Some x, Some (VDI _) -> Storage.dp_destroy task (Storage.id_of (string_of_int x) vbd.Vbd.id)
+							| _ -> ()
 						)
 				with 
 					| Device_common.Device_error(_, s) ->
