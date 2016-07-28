@@ -19,9 +19,6 @@ open Stdext
 module D = Debug.Make(struct let name = "xapi_pvs_proxy" end)
 open D
 
-let not_implemented x =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
-
 let create ~__context ~site ~vIF ~prepopulate =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site;
@@ -49,4 +46,9 @@ let destroy ~__context ~self =
   Db.PVS_proxy.destroy ~__context ~self
 
 let set_prepopulate ~__context ~self ~value =
-  not_implemented "PVS_proxy.set_prepopulate"
+  Db.PVS_proxy.set_prepopulate ~__context ~self ~value;
+  if Db.PVS_proxy.get_currently_attached ~__context ~self then begin
+    let vif = Db.PVS_proxy.get_VIF ~__context ~self in
+    Pvs_proxy_control.start_proxy ~__context vif self
+  end
+

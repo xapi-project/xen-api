@@ -97,7 +97,7 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
       else
         None
     ) running_proxies in
-  let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) in
+  let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) |> List.setify in
   let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
   if proxy_config.clients <> [] then
     Network.Net.PVS_proxy.configure_site dbg proxy_config
@@ -118,28 +118,26 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
       stopping_proxies
 
 let start_proxy ~__context vif proxy =
-  if not (Db.PVS_proxy.get_currently_attached ~__context ~self:proxy) then begin
-    try
-      Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
-      let host = Helpers.get_localhost ~__context in
-      let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
-      let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
-      update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
-      Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
-    with e ->
-      let reason =
-        match e with
-        | Xapi_pvs_cache.No_cache_sr_available -> "no PVS cache SR available"
-        | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
-        | Api_errors.Server_error (code, args) when
-            code = Api_errors.license_restriction
-            && args = [Features.(name_of_feature PVS_proxy)] ->
-          "PVS proxy not licensed"
-        | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
-      in
-      warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason
-  end
+  try
+    Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
+    let host = Helpers.get_localhost ~__context in
+    let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
+    let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
+    update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
+    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
+    Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
+  with e ->
+    let reason =
+      match e with
+      | Xapi_pvs_cache.No_cache_sr_available -> "no PVS cache SR available"
+      | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
+      | Api_errors.Server_error (code, args) when
+          code = Api_errors.license_restriction
+          && args = [Features.(name_of_feature PVS_proxy)] ->
+        "PVS proxy not licensed"
+      | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
+    in
+    warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason
 
 let stop_proxy ~__context vif proxy =
   if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
