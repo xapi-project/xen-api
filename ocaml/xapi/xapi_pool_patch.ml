@@ -673,8 +673,9 @@ let apply ~__context ~self ~host =
 		(* should never happen but just in case... *)
 		error "Caught exception rescanning patch applied directory: %s" (ExnHelper.string_of_exn e)
 	    end;
+          let patches_requiring_reboot = Create_misc.create_patches_requiring_reboot_info ~__context ~host in
+          Db.Host.set_patches_requiring_reboot ~__context ~self:host ~value:patches_requiring_reboot;
 	        output;
-		
         | Failure(log, exn) ->
 		debug "error from patch application: %s" log;
            	erase_patch_applied_db ~__context ~self ~host ();

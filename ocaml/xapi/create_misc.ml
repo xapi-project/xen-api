@@ -573,3 +573,8 @@ let create_chipset_info ~__context =
 	let info = ["iommu", iommu] in
 	Db.Host.set_chipset_info ~__context ~self:host ~value:info
 
+let create_patches_requiring_reboot_info ~__context ~host =
+  let patch_uuids = Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs in
+  let host_patches = Db.Host.get_patches ~__context ~self:host in
+  let pool_patches = List.map (fun hp -> Db.Host_patch.get_pool_patch ~__context ~self:hp) host_patches in
+  List.filter (fun patch -> List.mem (Db.Pool_patch.get_uuid ~__context ~self:patch) patch_uuids) pool_patches

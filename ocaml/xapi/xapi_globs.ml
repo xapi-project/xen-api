@@ -913,6 +913,8 @@ let ciphersuites_legacy_outbound = ref ""
 
 let gpumon_stop_timeout = ref 10.0
 
+let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
 (* Used only for testing hotfixes *)
@@ -1007,6 +1009,9 @@ let other_options = [
 
   "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
     (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
+
+  "reboot_required_hfxs", Arg.Set_string reboot_required_hfxs,
+    (fun () -> !default_xenopsd), "File to query hostfix uuids which require reboot";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
