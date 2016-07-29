@@ -1007,6 +1007,23 @@ end
 module Xenopsd_metadata = struct
 	(** Manage the lifetime of VM metadata pushed to xenopsd *)
 
+	(* If the VM has Xapi_globs.persist_xenopsd_md -> filename in its other_config,
+	   we persist the xenopsd metadata to a well-known location in the filesystem *)
+	let maybe_persist_md ~__context ~self md =
+		let oc = Db.VM.get_other_config ~__context ~self in
+		if List.mem_assoc Xapi_globs.persist_xenopsd_md oc then begin
+			let file_path =
+				Filename.concat Xapi_globs.persist_xenopsd_md_root (List.assoc Xapi_globs.persist_xenopsd_md oc) |>
+				Stdext.Unixext.resolve_dot_and_dotdot in
+
+			if not (String.startswith Xapi_globs.persist_xenopsd_md_root file_path) then begin
+				warn "Not persisting xenopsd metadata to bad location: '%s'" file_path
+			end else begin
+				Unixext.mkdir_safe Xapi_globs.persist_xenopsd_md_root 0o755;
+				Unixext.write_string_to_file file_path md
+			end
+		end
+
 	let push ~__context ~upgrade ~self =
 		Mutex.execute metadata_m (fun () ->
 			let md = create_metadata ~__context ~upgrade ~self in
@@ -1015,6 +1032,8 @@ module Xenopsd_metadata = struct
 			let dbg = Context.string_of_task __context in
 			let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
 			let id = Client.VM.import_metadata dbg txt in
+
+			maybe_persist_md ~__context ~self txt;
 
 			Xapi_cache._register_nolock id (Some txt);
 			Xenops_cache._register_nolock id;
@@ -1073,6 +1092,7 @@ module Xenopsd_metadata = struct
 						| _ ->
 							debug "VM %s metadata has changed: updating xenopsd" id;
 							info "xenops: VM.import_metadata %s" txt;
+							maybe_persist_md ~__context ~self txt;
 							Xapi_cache.update_nolock id (Some txt);
 							let module Client = (val make_client queue_name : XENOPS) in
 							let (_: Vm.id) = Client.VM.import_metadata dbg txt in
