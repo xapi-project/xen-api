@@ -313,8 +313,9 @@ let get_user ~__context username =
 
 let is_domain_zero ~__context vm_ref =
   let host_ref = Db.VM.get_resident_on ~__context ~self:vm_ref in
-  Db.VM.get_is_control_domain ~__context ~self:vm_ref
-  && Db.Host.get_control_domain ~__context ~self:host_ref = vm_ref
+  (Db.VM.get_is_control_domain ~__context ~self:vm_ref)
+  	&& (Db.is_valid_ref __context host_ref)
+  	&& (Db.Host.get_control_domain ~__context ~self:host_ref = vm_ref)
 
 exception No_domain_zero of string
 let domain_zero_ref_cache = ref None
