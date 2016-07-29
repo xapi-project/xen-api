@@ -342,6 +342,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~generation_id
 		~hardware_platform_version:all.Db_actions.vM_hardware_platform_version
 		~has_vendor_device:all.Db_actions.vM_has_vendor_device
+		~requires_reboot:false
 	;
 
 	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"

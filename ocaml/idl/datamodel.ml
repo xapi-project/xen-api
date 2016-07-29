@@ -7416,14 +7416,17 @@ let vm =
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
 	field ~qualifier:StaticRO ~in_product_since:rel_clearwater ~default_value:(Some (VString "0:0")) ~ty:(String) "generation_id" "Generation ID of the VM";
 	field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version" "The host virtual hardware platform version the VM can run on";
- field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~doc_tags:[Windows] ~default_value:(Some (VCustom (String.concat "\n" [
-     "(try Rpc.Bool (";
-     "let pool = List.hd (Db_actions.DB_Action.Pool.get_all ~__context) in";
-     "let restrictions = Db_actions.DB_Action.Pool.get_restrictions ~__context ~self:pool in ";
-     "let vendor_device_allowed = try List.assoc \"restrict_pci_device_for_auto_update\" restrictions = \"false\" with _ -> false in";
-     "let policy_says_its_ok = not (Db_actions.DB_Action.Pool.get_policy_no_vendor_device ~__context ~self:pool) in";
-     "vendor_device_allowed && policy_says_its_ok) with e -> D.error \"Failure when defaulting has_vendor_device field: %s\" (Printexc.to_string e); Rpc.Bool false)"], VBool false))) ~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
-    ])
+	field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~doc_tags:[Windows] ~default_value:(Some (VCustom (String.concat "\n" [
+		"(try Rpc.Bool (";
+		"let pool = List.hd (Db_actions.DB_Action.Pool.get_all ~__context) in";
+		"let restrictions = Db_actions.DB_Action.Pool.get_restrictions ~__context ~self:pool in ";
+		"let vendor_device_allowed = try List.assoc \"restrict_pci_device_for_auto_update\" restrictions = \"false\" with _ -> false in";
+		"let policy_says_its_ok = not (Db_actions.DB_Action.Pool.get_policy_no_vendor_device ~__context ~self:pool) in";
+		"vendor_device_allowed && policy_says_its_ok) with e -> D.error \"Failure when defaulting has_vendor_device field: %s\" (Printexc.to_string e); Rpc.Bool false)"], VBool false)))
+		~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
+	field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_ely, ""] ~default_value:(Some (VBool false))
+		"requires_reboot" "Indicates whether a VM requires a reboot in order to update its configuration, e.g. its memory allocation."
+	])
 	()
 
 let vm_memory_metrics = 
