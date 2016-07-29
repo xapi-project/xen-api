@@ -166,10 +166,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		let my_vms = Db.VM.get_all_records ~__context in
  		let my_running_vms =
 			List.filter
-				(fun (_,vmrec) -> 
-					(not vmrec.API.vM_is_control_domain) && vmrec.API.vM_power_state = `Running
-				)
-				my_vms in
+				(fun (_,vmrec) -> (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:vmrec.API.vM_uuid)))
+			&& vmrec.API.vM_power_state = `Running) my_vms in
 		if List.length my_running_vms > 0 then begin
 			error "The current host has running or suspended VMs: it cannot join a new pool";
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_have_running_VMs, []))

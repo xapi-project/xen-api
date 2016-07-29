@@ -476,7 +476,7 @@ let metadata_handler (req: Request.t) s _ =
 					let all_vms = Db.VM.get_all_records ~__context in
 					let interesting_vms = List.filter (fun (_, vm) ->
 						not (is_default_template vm)
-						&& (not vm.API.vM_is_control_domain)
+						&& (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:vm.API.vM_uuid)))
 					) all_vms in
 					List.map fst interesting_vms
 				end else
