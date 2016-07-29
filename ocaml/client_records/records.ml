@@ -923,6 +923,8 @@ let vm_record rpc session_id vm =
 			make_field ~name:"has-vendor-device"
 				~get:(fun () -> string_of_bool (x ()).API.vM_has_vendor_device)
 				~set:(fun x -> Client.VM.set_has_vendor_device rpc session_id vm (safe_bool_of_string "has-vendor-device" x)) ();
+			make_field ~name:"requires-reboot"
+				~get:(fun () -> string_of_bool (x ()).API.vM_requires_reboot) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
