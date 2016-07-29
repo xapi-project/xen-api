@@ -905,15 +905,15 @@ module PVS_proxy = struct
 			error "Error when calling PVS proxy: %s" (Printexc.to_string e);
 			raise PVS_proxy_connection_error
 
-	let configure_farm _ dbg config =
-		debug "Configuring PVS proxy for farm %s" config.farm_uuid;
-		let call = {Rpc.name = "configure_farm"; params = [rpc_of_t config]} in
+	let configure_site _ dbg config =
+		debug "Configuring PVS proxy for site %s" config.site_uuid;
+		let call = {Rpc.name = "configure_site"; params = [rpc_of_t config]} in
 		let _ = do_call call in
 		()
 
-	let remove_farm _ dbg uuid =
-		debug "Removing PVS proxy for farm %s" uuid;
-		let call = Rpc.{name = "remove_farm"; params = [Dict ["farm_uuid", rpc_of_string uuid]]} in
+	let remove_site _ dbg uuid =
+		debug "Removing PVS proxy for site %s" uuid;
+		let call = Rpc.{name = "remove_site"; params = [Dict ["site_uuid", rpc_of_string uuid]]} in
 		let _ = do_call call in
 		()
 end
