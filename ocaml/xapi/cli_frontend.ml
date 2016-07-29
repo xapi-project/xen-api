@@ -2652,7 +2652,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "pvs-server-introduce",
     {
-      reqd=["addresses"; "first-port"; "last-port"; "site-uuid"];
+      reqd=["addresses"; "first-port"; "last-port"; "pvs-site-uuid"];
       optn=[];
       help="Introduce new PVS server";
       implementation=No_fd Cli_operations.PVS_server.introduce;
@@ -2669,7 +2669,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "pvs-proxy-create",
     {
-      reqd=["site-uuid"; "vif-uuid"];
+      reqd=["pvs-site-uuid"; "vif-uuid"];
       optn=["prepopulate"];
       help="Configure a VM/VIF to use a PVS proxy";
       implementation=No_fd Cli_operations.PVS_proxy.create;
