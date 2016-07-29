@@ -326,13 +326,13 @@ module PVS_proxy = struct
 	end
 
 	type t = {
-		farm_uuid: string;
-		farm_name: string;
+		site_uuid: string;
+		site_name: string;
 		servers: Server.t list;
 		clients: Client.t list;
 		vdi: string;
 	}
 	
-	external configure_farm : debug_info -> PVS_proxy.t -> unit = ""
-	external remove_farm : debug_info -> string -> unit = ""
+	external configure_site : debug_info -> PVS_proxy.t -> unit = ""
+	external remove_site : debug_info -> string -> unit = ""
 end
