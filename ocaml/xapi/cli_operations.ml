@@ -2258,7 +2258,7 @@ let vm_query_services printer rpc session_id params =
 let vm_start printer rpc session_id params =
 	let force = get_bool_param params "force" in
 	let paused = get_bool_param params "paused" in
-	ignore(do_vm_op printer rpc session_id
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id
 		(fun vm ->
 			let vm=vm.getref () in
 			let task =
