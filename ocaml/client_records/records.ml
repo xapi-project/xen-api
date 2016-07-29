@@ -1705,10 +1705,10 @@ let vgpu_type_record rpc session_id vgpu_type =
     ]
   }
 
-let pvs_farm_record rpc session_id pvs_farm =
-  let _ref = ref pvs_farm in
+let pvs_site_record rpc session_id pvs_site =
+  let _ref = ref pvs_site in
   let empty_record =
-    ToGet (fun () -> Client.PVS_farm.get_record rpc session_id !_ref) in
+    ToGet (fun () -> Client.PVS_site.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
   { setref    = (fun r -> _ref := r ; record := empty_record)
@@ -1717,40 +1717,40 @@ let pvs_farm_record rpc session_id pvs_farm =
   ; getref    = (fun () -> !_ref)
   ; fields=
       [ make_field ~name:"uuid"
-          ~get:(fun () -> (x ()).API.pVS_farm_uuid) ()
+          ~get:(fun () -> (x ()).API.pVS_site_uuid) ()
       ; make_field ~name:"name"
-          ~get:(fun () -> (x ()).API.pVS_farm_name)
+          ~get:(fun () -> (x ()).API.pVS_site_name)
           ~set:(fun name ->
-              Client.PVS_farm.set_name rpc session_id !_ref name) ()
+              Client.PVS_site.set_name rpc session_id !_ref name) ()
       ; make_field ~name:"cache-storage"
-          ~get:(fun () -> (x ()).API.pVS_farm_cache_storage
+          ~get:(fun () -> (x ()).API.pVS_site_cache_storage
                           |> List.map get_uuid_from_ref |> String.concat "; ")
           ~get_set:(fun () ->
-              List.map get_uuid_from_ref (x ()).API.pVS_farm_cache_storage)
+              List.map get_uuid_from_ref (x ()).API.pVS_site_cache_storage)
           ~add_to_set:(fun sr_uuid ->
               let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
-              Client.PVS_farm.add_cache_storage rpc session_id !_ref sr)
+              Client.PVS_site.add_cache_storage rpc session_id !_ref sr)
           ~remove_from_set:(fun sr_uuid ->
               let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
-              Client.PVS_farm.remove_cache_storage rpc session_id !_ref sr)
+              Client.PVS_site.remove_cache_storage rpc session_id !_ref sr)
           ()
       ; make_field ~name:"server-uuids"
-          ~get:(fun () -> (x ()).API.pVS_farm_servers
+          ~get:(fun () -> (x ()).API.pVS_site_servers
                           |> List.map get_uuid_from_ref |> String.concat "; ")
-          ~get_set:(fun () -> (x ()).API.pVS_farm_servers
+          ~get_set:(fun () -> (x ()).API.pVS_site_servers
                               |> List.map get_uuid_from_ref)
           ()
       ; make_field ~name:"proxy-uuids"
-          ~get:(fun () -> (x ()).API.pVS_farm_proxies
+          ~get:(fun () -> (x ()).API.pVS_site_proxies
                           |> List.map get_uuid_from_ref |> String.concat "; ")
-          ~get_set:(fun () -> (x ()).API.pVS_farm_proxies
+          ~get_set:(fun () -> (x ()).API.pVS_site_proxies
                               |> List.map get_uuid_from_ref)
           ()
       ]
   }
 
-let pvs_server_record rpc session_id pvs_farm =
-  let _ref = ref pvs_farm in
+let pvs_server_record rpc session_id pvs_site =
+  let _ref = ref pvs_site in
   let empty_record =
     ToGet (fun () -> Client.PVS_server.get_record rpc session_id !_ref) in
   let record = ref empty_record in
@@ -1773,14 +1773,14 @@ let pvs_server_record rpc session_id pvs_farm =
       ; make_field ~name:"last-port"
           ~get:(fun () -> (x ()).API.pVS_server_last_port |> Int64.to_string)
           ()
-      ; make_field ~name:"farm-uuid"
-          ~get:(fun () -> (x ()).API.pVS_server_farm |> get_uuid_from_ref)
+      ; make_field ~name:"site-uuid"
+          ~get:(fun () -> (x ()).API.pVS_server_site |> get_uuid_from_ref)
           ()
       ]
   }
 
-let pvs_proxy_record rpc session_id pvs_farm =
-  let _ref = ref pvs_farm in
+let pvs_proxy_record rpc session_id pvs_site =
+  let _ref = ref pvs_site in
   let empty_record =
     ToGet (fun () -> Client.PVS_proxy.get_record rpc session_id !_ref) in
   let record = ref empty_record in
@@ -1793,8 +1793,8 @@ let pvs_proxy_record rpc session_id pvs_farm =
       [ make_field ~name:"uuid"
           ~get:(fun () -> (x ()).API.pVS_proxy_uuid)
           ()
-      ; make_field ~name:"farm-uuid"
-          ~get:(fun () -> (x ()).API.pVS_proxy_farm |> get_uuid_from_ref)
+      ; make_field ~name:"site-uuid"
+          ~get:(fun () -> (x ()).API.pVS_proxy_site |> get_uuid_from_ref)
           ()
       ; make_field ~name:"vif-uuid"
           ~get:(fun () -> (x ()).API.pVS_proxy_VIF |> get_uuid_from_ref)

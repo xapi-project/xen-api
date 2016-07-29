@@ -2634,25 +2634,25 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.lvhd_enable_thin_provisioning;
       flags=[Host_selectors];
     };
-    "pvs-farm-introduce",
+    "pvs-site-introduce",
     {
       reqd=["name"];
       optn=[];
-      help="Introduce new PVS farm";
-      implementation=No_fd Cli_operations.PVS_farm.introduce;
+      help="Introduce new PVS site";
+      implementation=No_fd Cli_operations.PVS_site.introduce;
       flags=[];
     };
-    "pvs-farm-forget",
+    "pvs-site-forget",
     {
       reqd=["uuid"];
       optn=[];
-      help="Forget a PVS farm";
-      implementation=No_fd Cli_operations.PVS_farm.forget;
+      help="Forget a PVS site";
+      implementation=No_fd Cli_operations.PVS_site.forget;
       flags=[];
     };
     "pvs-server-introduce",
     {
-      reqd=["addresses"; "first-port"; "last-port"; "farm-uuid"];
+      reqd=["addresses"; "first-port"; "last-port"; "site-uuid"];
       optn=[];
       help="Introduce new PVS server";
       implementation=No_fd Cli_operations.PVS_server.introduce;
@@ -2669,7 +2669,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "pvs-proxy-create",
     {
-      reqd=["farm-uuid"; "vif-uuid"];
+      reqd=["site-uuid"; "vif-uuid"];
       optn=["prepopulate"];
       help="Configure a VM/VIF to use a PVS proxy";
       implementation=No_fd Cli_operations.PVS_proxy.create;

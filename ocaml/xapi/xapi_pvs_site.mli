@@ -12,15 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val introduce : __context:Context.t -> name:string -> API.ref_PVS_farm
+val introduce : __context:Context.t -> name:string -> API.ref_PVS_site
 
-val forget : __context:Context.t -> self:API.ref_PVS_farm -> unit
+val forget : __context:Context.t -> self:API.ref_PVS_site -> unit
 
 val set_name : __context:Context.t ->
-  self:API.ref_PVS_farm -> value:string -> unit
+  self:API.ref_PVS_site -> value:string -> unit
 
 val add_cache_storage : __context:Context.t ->
-  self:API.ref_PVS_farm -> value:API.ref_SR -> unit
+  self:API.ref_PVS_site -> value:API.ref_SR -> unit
 
 val remove_cache_storage : __context:Context.t ->
-  self:API.ref_PVS_farm -> value:API.ref_SR -> unit
+  self:API.ref_PVS_site -> value:API.ref_SR -> unit

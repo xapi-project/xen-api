@@ -17,7 +17,7 @@ val introduce :
   addresses:API.string_set ->
   first_port:int64 ->
   last_port:int64 ->
-  farm:API.ref_PVS_farm ->
+  site:API.ref_PVS_site ->
   API.ref_PVS_server
 
 val forget :

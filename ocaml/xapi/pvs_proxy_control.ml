@@ -22,18 +22,18 @@ let proxy_port_name bridge =
   "pvs-" ^ bridge
 
 (** [proxies] returns all currently attached proxies *)
-let get_running_proxies ~__context ~farm =
+let get_running_proxies ~__context ~site =
   let open Db_filter_types in
   Db.PVS_proxy.get_refs_where ~__context
     ~expr:
       (And
-         ((Eq (Field "farm", Literal (Ref.string_of farm)))
+         ((Eq (Field "site", Literal (Ref.string_of site)))
          ,(Eq (Field "currently_attached", Literal "true"))
          ))
 
-let metadata_of_farm ~__context ~farm ~vdi ~proxies =
+let metadata_of_site ~__context ~site ~vdi ~proxies =
   let open Network_interface in
-  let farm_rc = Db.PVS_farm.get_record ~__context ~self:farm in
+  let site_rc = Db.PVS_site.get_record ~__context ~self:site in
   let servers =
     List.map (fun self ->
         let rc = Db.PVS_server.get_record ~__context ~self in
@@ -43,7 +43,7 @@ let metadata_of_farm ~__context ~farm ~vdi ~proxies =
           first_port = Int64.to_int rc.API.pVS_server_first_port;
           last_port = Int64.to_int rc.API.pVS_server_last_port;
         }
-      ) farm_rc.API.pVS_farm_servers
+      ) site_rc.API.pVS_site_servers
   in
   let clients =
     List.map (fun (vif, proxy) ->
@@ -59,18 +59,18 @@ let metadata_of_farm ~__context ~farm ~vdi ~proxies =
   in
   let vdi = Db.VDI.get_uuid ~__context ~self:vdi in
   PVS_proxy.{
-    farm_uuid = farm_rc.API.pVS_farm_uuid;
-    farm_name = farm_rc.API.pVS_farm_name;
+    site_uuid = site_rc.API.pVS_site_uuid;
+    site_name = site_rc.API.pVS_site_name;
     servers;
     clients;
     vdi;
   }
 
-(** Request xcp-networkd to update a farm's PVS-proxy daemon configuration,
+(** Request xcp-networkd to update a site's PVS-proxy daemon configuration,
  *  for all locally running proxies, taking into account starting and stopping proxies *)
-let update_farm_on_localhost ~__context ~farm ~vdi ?(starting_proxies=[]) ?(stopping_proxies=[]) () =
-  debug "Updating PVS farm %s. Starting proxies: [%s]. Stopping proxies: [%s]."
-    (Ref.string_of farm)
+let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stopping_proxies=[]) () =
+  debug "Updating PVS site %s. Starting proxies: [%s]. Stopping proxies: [%s]."
+    (Ref.string_of site)
     (String.concat ", " (List.map (fun (_, p) -> Ref.string_of p) starting_proxies))
     (String.concat ", " (List.map (fun (_, p) -> Ref.string_of p) stopping_proxies));
 
@@ -87,7 +87,7 @@ let update_farm_on_localhost ~__context ~farm ~vdi ?(starting_proxies=[]) ?(stop
     )
     starting_proxies;
 
-  let running_proxies = get_running_proxies ~__context ~farm in
+  let running_proxies = get_running_proxies ~__context ~site in
   let localhost = Helpers.get_localhost ~__context in
   let local_running_proxies = List.filter_map (fun proxy ->
       let vif = Db.PVS_proxy.get_VIF ~__context ~self:proxy in
@@ -98,12 +98,12 @@ let update_farm_on_localhost ~__context ~farm ~vdi ?(starting_proxies=[]) ?(stop
         None
     ) running_proxies in
   let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) in
-  let proxy_config = metadata_of_farm ~__context ~farm ~vdi ~proxies in
+  let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
   if proxy_config.clients <> [] then
-    Network.Net.PVS_proxy.configure_farm dbg proxy_config
+    Network.Net.PVS_proxy.configure_site dbg proxy_config
   else
-    let uuid = Db.PVS_farm.get_uuid ~__context ~self:farm in
-    Network.Net.PVS_proxy.remove_farm dbg uuid;
+    let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    Network.Net.PVS_proxy.remove_site dbg uuid;
 
     (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
     List.iter
@@ -122,9 +122,9 @@ let start_proxy ~__context vif proxy =
     try
       Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
       let host = Helpers.get_localhost ~__context in
-      let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
-      let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~farm in
-      update_farm_on_localhost ~__context ~farm ~vdi ~starting_proxies:[vif, proxy] ();
+      let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
+      let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
+      update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
       Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
     with e ->
@@ -144,10 +144,10 @@ let start_proxy ~__context vif proxy =
 let stop_proxy ~__context vif proxy =
   if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
     try
-      let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
+      let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
       let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
       let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
-      update_farm_on_localhost ~__context ~farm ~vdi ~stopping_proxies:[vif, proxy] ();
+      update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
       Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
     with e ->

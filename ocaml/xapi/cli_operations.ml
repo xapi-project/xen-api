@@ -803,9 +803,9 @@ let gen_cmds rpc session_id =
     ; Client.DR_task.(mk get_all get_all_records_where get_by_uuid dr_task_record "drtask" [] [] rpc session_id)
     (*; Client.Alert.(mk get_all get_all_records_where get_by_uuid alert_record "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
       		 *)
-    ; Client.PVS_farm.(mk get_all get_all_records_where get_by_uuid pvs_farm_record "pvs-farm" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id)
-    ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "farm-uuid"] rpc session_id)
-    ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid" ;"farm-uuid"; "currently-attached"; "prepopulate"; "cache-sr-uuid"] rpc session_id)
+    ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid";"name";"cache-storage";"server-uuids"] rpc session_id)
+    ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "site-uuid"] rpc session_id)
+    ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid" ;"site-uuid"; "currently-attached"; "prepopulate"; "cache-sr-uuid"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -4698,28 +4698,28 @@ let lvhd_enable_thin_provisioning printer rpc session_id params =
       ) params ["sr-uuid"; "initial-allocation";"allocation-quantum"]
   )
 
-module PVS_farm = struct
+module PVS_site = struct
   let introduce printer rpc session_id params =
     let name  = List.assoc "name" params in
-    let ref   = Client.PVS_farm.introduce ~rpc ~session_id ~name in
-    let uuid  = Client.PVS_farm.get_uuid rpc session_id ref in
+    let ref   = Client.PVS_site.introduce ~rpc ~session_id ~name in
+    let uuid  = Client.PVS_site.get_uuid rpc session_id ref in
     printer (Cli_printer.PList [uuid])
 
   let forget printer rpc session_id params =
     let uuid  = List.assoc "uuid" params in
-    let ref   = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid in
-    Client.PVS_farm.forget rpc session_id ref
+    let ref   = Client.PVS_site.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.PVS_site.forget rpc session_id ref
 end
 module PVS_server = struct
   let introduce printer rpc session_id params =
     let addresses  = List.assoc "addresses" params   |> String.split ',' in
     let first_port = List.assoc "first-port" params  |> Int64.of_string in
     let last_port  = List.assoc "last-port" params   |> Int64.of_string in
-    let farm_uuid  = List.assoc "farm-uuid" params in
-    let farm = Client.PVS_farm.get_by_uuid
-        ~rpc ~session_id ~uuid:farm_uuid in
+    let site_uuid  = List.assoc "site-uuid" params in
+    let site = Client.PVS_site.get_by_uuid
+        ~rpc ~session_id ~uuid:site_uuid in
     let ref = Client.PVS_server.introduce
-        ~rpc ~session_id ~addresses ~first_port ~last_port ~farm in
+        ~rpc ~session_id ~addresses ~first_port ~last_port ~site in
     let uuid = Client.PVS_server.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
 
@@ -4731,8 +4731,8 @@ end
 
 module PVS_proxy = struct
   let create printer rpc session_id params =
-    let farm_uuid  = List.assoc "farm-uuid" params in
-    let farm = Client.PVS_farm.get_by_uuid ~rpc ~session_id ~uuid:farm_uuid in
+    let site_uuid  = List.assoc "site-uuid" params in
+    let site = Client.PVS_site.get_by_uuid ~rpc ~session_id ~uuid:site_uuid in
     let vif_uuid  = List.assoc "vif-uuid" params in
     let vIF = Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid in
     let prepopulate =
@@ -4740,7 +4740,7 @@ module PVS_proxy = struct
       (List.assoc "prepopulate" params |> bool_of_string "prepopulate")
     in
     let ref = Client.PVS_proxy.create
-        ~rpc ~session_id ~farm ~vIF ~prepopulate in
+        ~rpc ~session_id ~site ~vIF ~prepopulate in
     let uuid = Client.PVS_proxy.get_uuid rpc session_id ref in
     printer (Cli_printer.PList [uuid])
 

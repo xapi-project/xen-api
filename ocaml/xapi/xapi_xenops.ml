@@ -381,8 +381,8 @@ module MD = struct
 
   let of_pvs_proxy ~__context vif proxy =
     let bridge = Db.Network.get_bridge ~__context ~self:vif.API.vIF_network in
-    let farm = Db.PVS_proxy.get_farm ~__context ~self:proxy in
-    let servers = Db.PVS_farm.get_servers ~__context ~self:farm in
+    let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
+    let servers = Db.PVS_site.get_servers ~__context ~self:site in
     let servers =
       List.map (fun server ->
           let rc = Db.PVS_server.get_record ~__context ~self:server in

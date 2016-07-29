@@ -22,9 +22,9 @@ open D
 let not_implemented x =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-let create ~__context ~farm ~vIF ~prepopulate =
+let create ~__context ~site ~vIF ~prepopulate =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
-  Helpers.assert_is_valid_ref ~__context ~name:"farm" ~ref:farm;
+  Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site;
   Helpers.assert_is_valid_ref ~__context ~name:"VIF" ~ref:vIF;
   let device = Db.VIF.get_device ~__context ~self:vIF in
   if device <> "0"
@@ -32,7 +32,7 @@ let create ~__context ~farm ~vIF ~prepopulate =
   let pvs_proxy = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.PVS_proxy.create ~__context
-    ~ref:pvs_proxy ~uuid ~farm ~vIF ~prepopulate ~currently_attached:false ~cache_SR:Ref.null;
+    ~ref:pvs_proxy ~uuid ~site ~vIF ~prepopulate ~currently_attached:false ~cache_SR:Ref.null;
   if Db.VIF.get_currently_attached ~__context ~self:vIF then begin
     Pvs_proxy_control.start_proxy ~__context vIF pvs_proxy;
     if Db.PVS_proxy.get_currently_attached ~__context ~self:pvs_proxy then

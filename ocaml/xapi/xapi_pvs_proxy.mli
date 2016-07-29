@@ -13,7 +13,7 @@
  *)
 
 val create : __context:Context.t ->
-  farm:API.ref_PVS_farm ->
+  site:API.ref_PVS_site ->
   vIF:API.ref_VIF ->
   prepopulate:bool ->
   API.ref_PVS_proxy

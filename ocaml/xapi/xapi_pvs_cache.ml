@@ -51,11 +51,11 @@ module VDI = struct
           ~tags:[])
 end
 
-let check_cache_availability ~__context ~host ~farm =
+let check_cache_availability ~__context ~host ~site =
   match
     List.filter
       (fun sr -> Helpers.host_has_pbd_for_sr ~__context ~host ~sr)
-      (Db.PVS_farm.get_cache_storage ~__context ~self:farm)
+      (Db.PVS_site.get_cache_storage ~__context ~self:site)
   with
   | [] -> None
   | srs -> begin
@@ -76,9 +76,9 @@ let check_cache_availability ~__context ~host ~farm =
 
 let cache_m = Mutex.create ()
 
-let find_or_create_cache_vdi ~__context ~host ~farm =
+let find_or_create_cache_vdi ~__context ~host ~site =
   Mutex.execute cache_m (fun () ->
-      match check_cache_availability ~__context ~host ~farm with
+      match check_cache_availability ~__context ~host ~site with
       | None -> raise No_cache_sr_available
       | Some (sr, None) -> sr, VDI.create ~__context ~sr
       | Some (sr, Some vdi) -> sr, vdi)

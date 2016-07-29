@@ -82,18 +82,18 @@ let gc_PVS_proxies ~__context =
     Db.PVS_proxy.get_all
     Db.PVS_proxy.get_record
     (fun x -> valid_ref __context x.pVS_proxy_VIF)
-    (fun x -> valid_ref __context x.pVS_proxy_farm)
+    (fun x -> valid_ref __context x.pVS_proxy_site)
     Db.PVS_proxy.destroy
 
-(* A PVS server refers to a PVS farm. We delete it, if the reference
- * becomes invalid. At creation, the server is connected to a farm and
+(* A PVS server refers to a PVS site. We delete it, if the reference
+ * becomes invalid. At creation, the server is connected to a site and
  * hence we never GC a server right after it was created. *)
 let gc_PVS_servers ~__context =
   gc_connector ~__context
     Db.PVS_server.get_all
     Db.PVS_server.get_record
     (fun x -> true)
-    (fun x -> valid_ref __context x.pVS_server_farm)
+    (fun x -> valid_ref __context x.pVS_server_site)
     Db.PVS_server.destroy
 
 let gc_PIFs ~__context =

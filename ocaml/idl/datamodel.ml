@@ -150,7 +150,7 @@ let _pgpu = "PGPU"
 let _gpu_group = "GPU_group"
 let _vgpu = "VGPU"
 let _vgpu_type = "VGPU_type"
-let _pvs_farm = "PVS_farm"
+let _pvs_site = "PVS_site"
 let _pvs_server = "PVS_server"
 let _pvs_proxy = "PVS_proxy"
 
@@ -1356,23 +1356,23 @@ let _ =
     ~doc:"The VM is configured in a way that prevents it from being mobile." ();
 
   (* PVS errors *)
-  error Api_errors.pvs_farm_contains_running_proxies ["proxies"]
-    ~doc:"The PVS farm contains running proxies." ();
+  error Api_errors.pvs_site_contains_running_proxies ["proxies"]
+    ~doc:"The PVS site contains running proxies." ();
 
-  error Api_errors.pvs_farm_contains_servers ["servers"]
-    ~doc:"The PVS farm contains servers and cannot be forgotten."
+  error Api_errors.pvs_site_contains_servers ["servers"]
+    ~doc:"The PVS site contains servers and cannot be forgotten."
     ();
 
-  error Api_errors.pvs_farm_sr_already_added ["farm"; "SR"]
-    ~doc:"Trying to add a cache SR that is already associated with the farm"
+  error Api_errors.pvs_site_sr_already_added ["site"; "SR"]
+    ~doc:"Trying to add a cache SR that is already associated with the site"
     ();
 
-  error Api_errors.sr_not_in_pvs_farm ["farm"; "SR"]
-    ~doc:"The SR is not associated with the farm."
+  error Api_errors.sr_not_in_pvs_site ["site"; "SR"]
+    ~doc:"The SR is not associated with the site."
     ();
 
-  error Api_errors.pvs_farm_sr_is_in_use ["farm"; "SR"]
-    ~doc:"The SR is in use by the farm and cannot be removed."
+  error Api_errors.pvs_site_sr_is_in_use ["site"; "SR"]
+    ~doc:"The SR is in use by the site and cannot be removed."
     ()
 
 let _ =
@@ -8786,15 +8786,15 @@ let vgpu_type =
     ]
     ()
 
-module PVS_farm = struct
+module PVS_site = struct
   let lifecycle = [Prototyped, rel_dundee_plus, ""]
 
   let introduce = call
       ~name:"introduce"
-      ~doc:"Introduce new PVS farm"
-      ~result:(Ref _pvs_farm, "the new PVS farm")
+      ~doc:"Introduce new PVS site"
+      ~result:(Ref _pvs_site, "the new PVS site")
       ~params:
-        [ String,"name","name of the PVS farm"
+        [ String,"name","name of the PVS site"
         ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -8802,13 +8802,13 @@ module PVS_farm = struct
 
   let forget = call
       ~name:"forget"
-      ~doc:"Remove a farm's meta data"
+      ~doc:"Remove a site's meta data"
       ~params:
-        [ Ref _pvs_farm, "self", "this PVS farm"
+        [ Ref _pvs_site, "self", "this PVS site"
         ]
       ~errs:[
-        Api_errors.pvs_farm_contains_running_proxies;
-        Api_errors.pvs_farm_contains_servers;
+        Api_errors.pvs_site_contains_running_proxies;
+        Api_errors.pvs_site_contains_servers;
       ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -8817,9 +8817,9 @@ module PVS_farm = struct
 
   let set_name = call
       ~name:"set_name"
-      ~doc:"Update the name of the PVS farm"
+      ~doc:"Update the name of the PVS site"
       ~params:
-        [ Ref _pvs_farm, "self", "this PVS farm"
+        [ Ref _pvs_site, "self", "this PVS site"
         ; String, "value", "name to be used"
         ]
       ~lifecycle
@@ -8828,9 +8828,9 @@ module PVS_farm = struct
 
   let add_cache_storage = call
       ~name:"add_cache_storage"
-      ~doc:"Add a cache SR for the proxies on the farm"
+      ~doc:"Add a cache SR for the proxies on the site"
       ~params:
-        [ Ref _pvs_farm, "self", "this PVS farm"
+        [ Ref _pvs_site, "self", "this PVS site"
         ; Ref _sr, "value", "SR to be used"
         ]
       ~lifecycle
@@ -8839,9 +8839,9 @@ module PVS_farm = struct
 
   let remove_cache_storage = call
       ~name:"remove_cache_storage"
-      ~doc:"Remove a cache SR for the proxies on the farm"
+      ~doc:"Remove a cache SR for the proxies on the site"
       ~params:
-        [ Ref _pvs_farm, "self", "this PVS farm"
+        [ Ref _pvs_site, "self", "this PVS site"
         ; Ref _sr, "value", "SR to be removed"
         ]
       ~lifecycle
@@ -8852,7 +8852,7 @@ module PVS_farm = struct
     let null_str = Some (VString "") in
     let null_set = Some (VSet []) in
     create_obj
-      ~name: _pvs_farm
+      ~name: _pvs_site
       ~descr:"machines serving blocks of data for provisioning VMs"
       ~doccomments:[]
       ~gen_constructor_destructor:false
@@ -8863,11 +8863,11 @@ module PVS_farm = struct
       ~in_oss_since:None
       ~messages_default_allowed_roles:_R_POOL_OP
       ~contents:
-        [ uid     _pvs_farm ~lifecycle
+        [ uid     _pvs_site ~lifecycle
 
         ; field   ~qualifier:StaticRO ~lifecycle
             ~ty:String "name" ~default_value:null_str
-            "Name of the PVS farm. Must match name configured in PVS"
+            "Name of the PVS site. Must match name configured in PVS"
 
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:(Set (Ref _sr)) "cache_storage" ~default_value:null_set
@@ -8876,12 +8876,12 @@ module PVS_farm = struct
 
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:(Set (Ref _pvs_server)) "servers"
-            "The set of PVS servers in the farm"
+            "The set of PVS servers in the site"
 
 
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:(Set (Ref _pvs_proxy)) "proxies"
-            "The set of proxies associated with the farm"
+            "The set of proxies associated with the site"
         ]
       ~messages:
         [ introduce
@@ -8892,7 +8892,7 @@ module PVS_farm = struct
         ]
       ()
 end
-let pvs_farm = PVS_farm.obj
+let pvs_site = PVS_site.obj
 
 module PVS_server = struct
   let lifecycle = [Prototyped, rel_dundee_plus, ""]
@@ -8905,7 +8905,7 @@ module PVS_server = struct
         [ Set(String),"addresses","IPv4 addresses of the server"
         ; Int, "first_port", "first UDP port accepted by this server"
         ; Int, "last_port", "last UDP port accepted by this server"
-        ; Ref(_pvs_farm), "farm", "PVS farm this server is a part of"
+        ; Ref(_pvs_site), "site", "PVS site this server is a part of"
         ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -8952,8 +8952,8 @@ module PVS_server = struct
             "Last UDP port accepted by this server"
 
         ; field   ~qualifier:StaticRO ~lifecycle
-            ~ty:(Ref _pvs_farm) "farm" ~default_value:null_ref
-            "PVS farm this server is part of"
+            ~ty:(Ref _pvs_site) "site" ~default_value:null_ref
+            "PVS site this server is part of"
         ]
       ~messages:
         [ introduce
@@ -8971,7 +8971,7 @@ module PVS_proxy = struct
       ~doc:"Configure a VM/VIF to use a PVS proxy"
       ~result:(Ref _pvs_proxy, "the new PVS proxy")
       ~params:
-        [ Ref _pvs_farm   , "farm","PVS farm that we proxy for"
+        [ Ref _pvs_site   , "site","PVS site that we proxy for"
         ; Ref _vif        , "VIF", "VIF for the VM that needs to be proxied"
         ; Bool            , "prepopulate", "if true, prefetch whole disk for VM"
         ]
@@ -9005,7 +9005,7 @@ module PVS_proxy = struct
     let null_bool = Some (VBool false) in
     create_obj
       ~name: _pvs_proxy
-      ~descr:"a proxy connects a VM/VIF with a PVS farm"
+      ~descr:"a proxy connects a VM/VIF with a PVS site"
       ~doccomments:[]
       ~gen_constructor_destructor:false
       ~gen_events:true
@@ -9018,8 +9018,8 @@ module PVS_proxy = struct
         [ uid     _pvs_proxy ~lifecycle
 
         ; field   ~qualifier:StaticRO ~lifecycle
-            ~ty:(Ref _pvs_farm) "farm" ~default_value:null_ref
-            "PVS farm this proxy is part of"
+            ~ty:(Ref _pvs_site) "site" ~default_value:null_ref
+            "PVS site this proxy is part of"
 
         ; field   ~qualifier:StaticRO ~lifecycle
             ~ty:(Ref _vif) "VIF" ~default_value:null_ref
@@ -9104,7 +9104,7 @@ let all_system =
     gpu_group;
     vgpu;
     vgpu_type;
-    pvs_farm;
+    pvs_site;
     pvs_server;
     pvs_proxy;
   ]
@@ -9185,8 +9185,8 @@ let all_relations =
 
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
-    (_pvs_server, "farm"), (_pvs_farm, "servers");
-    (_pvs_proxy,  "farm"), (_pvs_farm, "proxies");
+    (_pvs_server, "site"), (_pvs_site, "servers");
+    (_pvs_proxy,  "site"), (_pvs_site, "proxies");
   ]
 
 (** the full api specified here *)
@@ -9270,7 +9270,7 @@ let expose_get_all_messages_for = [
   _vgpu;
   _vgpu_type;
   _dr_task;
-  _pvs_farm;
+  _pvs_site;
   _pvs_server;
   _pvs_proxy;
 ]

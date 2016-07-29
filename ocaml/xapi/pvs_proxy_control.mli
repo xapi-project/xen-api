@@ -13,7 +13,7 @@
  *)
 
 val proxy_port_name : string -> string
-val get_running_proxies : __context:Context.t -> farm:API.ref_PVS_farm -> API.ref_PVS_proxy list
+val get_running_proxies : __context:Context.t -> site:API.ref_PVS_site -> API.ref_PVS_proxy list
 
 val start_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit
 val stop_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit

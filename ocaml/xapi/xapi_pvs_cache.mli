@@ -17,7 +17,7 @@ exception No_cache_vdi_present
 
 (** Check the pool for PVS cache SRs which are
     a) visible to the specified host
-    b) listed as cache storage for the specified PVS farm.
+    b) listed as cache storage for the specified PVS site.
 
     Returns
       Some (sr, Some vdi)
@@ -33,13 +33,13 @@ exception No_cache_vdi_present
 val check_cache_availability :
   __context:Context.t ->
   host:API.ref_host ->
-  farm:API.ref_PVS_farm ->
+  site:API.ref_PVS_site ->
   (API.ref_SR * API.ref_VDI option) option
 
-(** Ensure a cache VDI exists in an SR suitable for this host and PVS farm.
+(** Ensure a cache VDI exists in an SR suitable for this host and PVS site.
     If there is no suitable SR, raise [No_cache_sr_available]. *)
 val find_or_create_cache_vdi :
-  __context:Context.t -> host:API.ref_host -> farm:API.ref_PVS_farm -> API.ref_SR * API.ref_VDI
+  __context:Context.t -> host:API.ref_host -> site:API.ref_PVS_site -> API.ref_SR * API.ref_VDI
 
 (** Find a cache VDI on the given SR.
     If there is none, raise [No_cache_vdi_present]. *)

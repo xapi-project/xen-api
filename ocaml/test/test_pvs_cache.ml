@@ -21,76 +21,76 @@ let uuid2 = "22222222-2222-2222-2222-222222222222"
 let test_no_sr () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm) None
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site) None
 
 let test_one_sr_no_vdi () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   let sr = make_sr ~__context () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr () in
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr;
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm)
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr, None))
 
 let test_one_sr_one_vdi () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   let sr = make_sr ~__context () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr () in
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr;
   let vdi = make_vdi ~__context ~_type:`pvs_cache ~sR:sr () in
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm)
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr, Some vdi))
 
 let test_two_srs_no_vdi () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   let sr1 = make_sr ~__context ~uuid:uuid1 () in
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr1;
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr2;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm)
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr1, None))
 
 let test_two_srs_one_vdi () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   let sr1 = make_sr ~__context ~uuid:uuid1 () in
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr1;
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr2;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
   let vdi = make_vdi ~__context ~_type:`pvs_cache ~sR:sr2 () in
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm)
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr2, Some vdi))
 
 let test_two_srs_two_vdis () =
   let __context = make_test_database () in
   let host = Helpers.get_localhost ~__context in
-  let farm = make_pvs_farm ~__context () in
+  let site = make_pvs_site ~__context () in
   let sr1 = make_sr ~__context ~uuid:uuid1 () in
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr1;
-  Xapi_pvs_farm.add_cache_storage ~__context ~self:farm ~value:sr2;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
+  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
   let vdi1 = make_vdi ~__context ~_type:`pvs_cache ~sR:sr1 () in
   let (_: API.ref_VDI) = make_vdi ~__context ~_type:`pvs_cache ~sR:sr2 () in
   assert_equal
-    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~farm)
+    (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr1, Some vdi1))
 
 let test =

@@ -3898,33 +3898,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VGPU_type = struct end
   module LVHD = struct end
 
-  module PVS_farm = struct
+  module PVS_site = struct
     let introduce ~__context ~name =
-      info "PVS_farm.introduce %s" name;
-      Local.PVS_farm.introduce ~__context ~name
+      info "PVS_site.introduce %s" name;
+      Local.PVS_site.introduce ~__context ~name
 
     let forget ~__context ~self =
-      info "PVS_farm.forget";
-      Local.PVS_farm.forget ~__context ~self
+      info "PVS_site.forget";
+      Local.PVS_site.forget ~__context ~self
 
     let set_name ~__context ~self ~value =
-      info "PVS_farm.set_name %s" value;
-      Local.PVS_farm.set_name ~__context ~self ~value
+      info "PVS_site.set_name %s" value;
+      Local.PVS_site.set_name ~__context ~self ~value
 
     let add_cache_storage ~__context ~self ~value =
-      info "PVS_farm.add_cache_storage";
-      Local.PVS_farm.add_cache_storage ~__context ~self ~value
+      info "PVS_site.add_cache_storage";
+      Local.PVS_site.add_cache_storage ~__context ~self ~value
 
     let remove_cache_storage ~__context ~self ~value =
-      info "PVS_farm.remove_cache_storage";
-      Local.PVS_farm.remove_cache_storage ~__context ~self ~value
+      info "PVS_site.remove_cache_storage";
+      Local.PVS_site.remove_cache_storage ~__context ~self ~value
   end
 
   module PVS_server = struct
-    let introduce ~__context ~addresses ~first_port ~last_port ~farm =
+    let introduce ~__context ~addresses ~first_port ~last_port ~site =
       info "PVS_server.introduce";
       Local.PVS_server.introduce ~__context
-        ~addresses ~first_port ~last_port ~farm
+        ~addresses ~first_port ~last_port ~site
 
     let forget ~__context ~self =
       info "PVS_server.forget";
@@ -3932,9 +3932,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module PVS_proxy = struct
-    let create ~__context ~farm ~vIF ~prepopulate =
+    let create ~__context ~site ~vIF ~prepopulate =
       info "PVS_proxy.create";
-      Local.PVS_proxy.create ~__context ~farm ~vIF ~prepopulate
+      Local.PVS_proxy.create ~__context ~site ~vIF ~prepopulate
 
     let destroy ~__context ~self =
       info "PVS_proxy.destroy";
