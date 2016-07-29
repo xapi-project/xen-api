@@ -105,14 +105,14 @@ _xe()
                       || /^vgpu-type-/\
                       || /^pvs-server-/\
                       || /^pvs-proxy-/\
-                      || /^pvs-farm-/ { print $1 "-" $2 }
+                      || /^pvs-site-/ { print $1 "-" $2 }
                          $0 !~ /^host-cpu-/\
                       && $0 !~ /^host-crashdump-/\
                       && $0 !~ /^gpu-group-/\
                       && $0 !~ /^vgpu-type-/\
                       && $0 !~ /^pvs-server-/\
                       && $0 !~ /^pvs-proxy-/\
-                      && $0 !~ /^pvs-farm-/ { print $1 }')-list
+                      && $0 !~ /^pvs-site-/ { print $1 }')-list
                       ;;
                 esac
                 IFS=$'\n,'
