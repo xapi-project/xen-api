@@ -1964,6 +1964,18 @@ let vm_set_memory_limits = call
 	~doc_tags:[Memory]
 	()
 
+let vm_set_memory = call
+	~name:"set_memory"
+	~in_product_since:rel_ely
+	~doc:"Set the memory allocation of this VM. Sets all of memory_static_max, memory_dynamic_min, and memory_dynamic_max to the given value, and leaves memory_static_min untouched."
+	~allowed_roles:_R_VM_POWER_ADMIN
+	~params:[
+		Ref _vm, "self", "The VM";
+		Int, "value", "The new memory allocation (bytes).";
+	]
+	~doc_tags:[Memory]
+	()
+
 let vm_set_memory_target_live = call
 	~name:"set_memory_target_live"
 	~in_product_since:rel_rio
@@ -7299,6 +7311,7 @@ let vm =
 		vm_set_memory_static_min;
 		vm_set_memory_static_range;
 		vm_set_memory_limits;
+		vm_set_memory;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
 		vm_get_cooperative;

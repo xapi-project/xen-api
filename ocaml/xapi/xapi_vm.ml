@@ -165,6 +165,11 @@ let set_memory_limits ~__context ~self
 	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
 	update_memory_overhead ~__context ~vm:self
 
+let set_memory ~__context ~self ~value =
+	set_memory_limits ~__context ~self
+		~static_min:(Db.VM.get_memory_static_min ~__context ~self)
+		~static_max:value ~dynamic_min:value ~dynamic_max:value
+
 (* If HA is enabled on the Pool and the VM is marked as always_run then block the action *)
 let assert_not_ha_protected ~__context ~vm =
 	let pool = Helpers.get_pool ~__context in
