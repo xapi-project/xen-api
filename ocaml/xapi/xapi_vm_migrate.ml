@@ -93,30 +93,37 @@ open Storage_interface
 open Listext
 open Fun
 
-let assert_sr_support_migration ~__context ~vdi_map ~remote =
+let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
+  let op_supported_on_source_sr vdi ops =
+    (* Check VDIs must not be present on SR which doesn't have required capability *)
+    let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
+    let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
+    let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
+    if not (List.for_all (fun op -> Smint.(has_capability op sr_features)) ops) then
+      raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr]));
+  in
+  let op_supported_on_dest_sr sr ops sm_record remote =
+    (* Check VDIs must not be mirrored to SR which doesn't have required capability *)
+    let sr_type = XenAPI.SR.get_type remote.rpc remote.session sr in
+    let sm_capabilities =
+      match List.filter (fun (_, r) -> r.API.sM_type = sr_type) sm_record with
+      | [ _, plugin ] -> plugin.API.sM_capabilities
+      | _ -> []
+    in
+    if not (List.for_all (fun op -> List.mem Smint.(string_of_capability op) sm_capabilities) ops) then
+      raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
+  in
   (* Get destination host SM record *)
   let sm_record = XenAPI.SM.get_all_records remote.rpc remote.session in
-  List.iter (fun (vdi, sr) ->
-      (* Check VDIs must not be present on SR which doesn't have snapshot capability *)
-      let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
-      let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
-      let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-      if not Smint.(has_capability Vdi_snapshot sr_features) then
-        raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr]));
-      (* Check VDIs must not be mirrored to SR which doesn't have snapshot capability *)
-      let sr_type = XenAPI.SR.get_type remote.rpc remote.session sr in
-      let sm_capabilities =
-        match List.filter (fun (_, r) -> r.API.sM_type = sr_type) sm_record with
-        | [ _, plugin ] -> plugin.API.sM_capabilities
-        | _ -> []
-      in
-      if not (List.exists (fun cp -> cp = Smint.(string_of_capability Vdi_snapshot)) sm_capabilities) then
-        raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
-    ) vdi_map
+  (* Don't fail if source and destination SR for all VDIs are same *)
+  List.filter (fun (vdi,sr) -> Db.VDI.get_SR ~__context ~self:vdi <> sr) vdi_map
+  |> List.iter (fun (vdi, sr) ->
+      op_supported_on_source_sr vdi ops;
+      op_supported_on_dest_sr sr ops sm_record remote;
+     )
 
 let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
-
 
 let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
   let open Xapi_xenops_queue in
@@ -975,6 +982,11 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       debug "This is a cross-pool migration";
       `cross_pool
   in
+  
+  (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+  let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
+  assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
+
   match migration_type with
   | `intra_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
@@ -998,9 +1010,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
     (* Check the host can support the VM's required version of virtual hardware platform *)
     Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
-    (* Check VDIs are not on SR which doesn't have snapshot capability *)
-    assert_sr_support_migration ~__context ~vdi_map ~remote;
-
     (*Check that the remote host is enabled and not in maintenance mode*)
     let check_host_enabled = XenAPI.Host.get_enabled remote.rpc remote.session (remote.dest_host) in
     if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[Ref.string_of remote.dest_host]));
