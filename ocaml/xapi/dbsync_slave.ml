@@ -79,12 +79,11 @@ let get_start_time () =
 let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
   let software_version = Create_misc.make_software_version ~__context in
-  let patches_requiring_reboot = Create_misc.create_patches_requiring_reboot_info ~__context ~host in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
   debug "Updating host software_version and patches_requiring_reboot";
 
-    Db.Host.set_patches_requiring_reboot ~__context ~self:host ~value:patches_requiring_reboot;
+    Create_misc.create_patches_requiring_reboot_info ~__context ~host;
     Db.Host.set_software_version ~__context ~self:host ~value:software_version;
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;

@@ -1011,7 +1011,7 @@ let other_options = [
     (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
 
   "reboot_required_hfxs", Arg.Set_string reboot_required_hfxs,
-    (fun () -> !default_xenopsd), "File to query hostfix uuids which require reboot";
+    (fun () -> !reboot_required_hfxs), "File to query hotfix uuids which require reboot";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
