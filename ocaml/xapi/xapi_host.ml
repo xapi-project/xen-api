@@ -960,7 +960,13 @@ let call_plugin ~__context ~host ~plugin ~fn ~args =
 	then call_extauth_plugin ~__context ~host ~fn ~args
 	else Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 
-let has_extension ~__context ~name =
+(* this is the generic extension call available to xapi users *)
+let call_extension ~__context ~host ~call =
+	let rpc = Jsonrpc.call_of_string call in
+	let response = Xapi_extensions.call_extension rpc in
+	Jsonrpc.string_of_response response
+
+let has_extension ~__context ~host ~name =
 	try
 		let (_: string) = Xapi_extensions.find_extension name in
 		true

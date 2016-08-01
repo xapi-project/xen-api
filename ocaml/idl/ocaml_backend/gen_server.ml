@@ -89,6 +89,11 @@ let operation (obj: obj) (x: message) =
     | true, _ -> "(fun x -> x)"
     | false, Some (ty,_) -> Printf.sprintf "(fun x -> rpc_of_%s x)" (OU.alias_of_ty ty)
     | false, None -> "(fun _ -> Rpc.String \"\")" in
+  (* Result unmarshaller converts the result to a rpc type for the Task table *)
+  let result_unmarshaller = match x.msg_custom_marshaller, x.msg_result with
+    | true, _ -> "(fun x -> x)"
+    | false, Some (ty,_) -> Printf.sprintf "(fun x -> %s_of_rpc x)" (OU.alias_of_ty ty)
+    | false, None -> "(fun _ -> ())" in
 
   let wire_name = DU.wire_name ~sync:true obj x in
   let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
@@ -214,6 +219,26 @@ let operation (obj: obj) (x: message) =
 		[
 			"Server_helpers.forward_extension ~__context rbac call"
 		]
+	| Some HostExtension name ->
+		[
+			"let host = ref_host_of_rpc host_rpc in";
+			"let call_string = Jsonrpc.string_of_call call in";
+			"let marshaller = "^result_marshaller^" in";
+			"let local_op = fun ~__context ->(rbac __context (fun()->(Custom.Host.call_extension ~__context:(Context.check_for_foreign_database ~__context) ~host ~call:call_string))) in";
+			"let supports_async = true in";
+			"let generate_task_for = true in";
+			"let forward_op = fun ~local_fn ~__context -> (rbac __context (fun()-> (Forward.Host.call_extension ~__context:(Context.check_for_foreign_database ~__context) ~host ~call:call_string) )) in";
+			"let resp = Server_helpers.do_dispatch ~session_id ~forward_op __async supports_async __call local_op marshaller fd http_req __label generate_task_for in";
+			"if resp.Rpc.success then";
+			"  let rpc = Jsonrpc.response_of_string (string_of_rpc resp.contents) in";
+			"  try";
+			"    let _ = "^result_unmarshaller^" rpc.contents in";
+			"    rpc";
+			"  with";
+			"  | _ -> API.response_of_failure Api_errors.internal_error [string_of_rpc resp.Rpc.contents]";
+			"else";
+			"  Server_helpers.unknown_rpc_failure __call";
+		]
 	| None ->
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
 		let common_let_decs =
@@ -322,10 +347,10 @@ let gen_module api : O.Module.t =
 			"    | session_id_rpc::_->";
 			"      let session_id = ref_session_of_rpc session_id_rpc in";
 			"      Session_check.check false session_id;";
-			"      (* based on the pool.has_extension call *)";
+			"      (* based on the Host.call_extension call *)";
 			"      let arg_names = \"session_id\"::__call::[] in";
 			"      let key_names = [] in";
-			"      let rbac __context fn = Rbac.check session_id \"pool.has_extension\" ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in";
+			"      let rbac __context fn = Rbac.check session_id \"Host.call_extension\" ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in";
 			"      Server_helpers.forward_extension ~__context rbac { call with Rpc.name = __call }";
 			"    | _ ->";
 			"      Server_helpers.unknown_rpc_failure func ";

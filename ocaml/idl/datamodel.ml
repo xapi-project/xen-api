@@ -3059,6 +3059,26 @@ let host_call_plugin = call
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
+let host_has_extension = call
+  ~name:"has_extension"
+  ~in_product_since:rel_dundee_plus
+  ~doc:"Return true if the extension is available on the host"
+  ~params:[Ref _host, "host", "The host";
+	   String, "name", "The name of the API call";]
+  ~result:(Bool, "True if the extension exists, false otherwise")
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
+let host_call_extension = call
+  ~name:"call_extension"
+  ~in_product_since:rel_dundee_plus
+  ~doc:"Call a XenAPI extension on this host"
+  ~params:[Ref _host, "host", "The host";
+	   String, "call", "Rpc call for the extension";]
+  ~result:(String, "Result from the extension")
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
 let host_enable_binary_storage = call
   ~name:"enable_binary_storage"
   ~in_product_since:rel_orlando
@@ -4597,6 +4617,8 @@ let host =
 		 host_backup_rrds;
 		 host_create_new_blob;
 		 host_call_plugin;
+		 host_has_extension;
+		 host_call_extension;
 		 host_get_servertime;
 		 host_get_server_localtime;
 		 host_enable_binary_storage;
@@ -5711,12 +5733,14 @@ let lvhd_enable_thin_provisioning = call
    ~in_product_since:rel_dundee
    ~allowed_roles:_R_POOL_ADMIN
    ~params:[
+     Ref _host, "host", "The LVHD Host to upgrade to being thin-provisioned.";
      Ref _sr, "SR", "The LVHD SR to upgrade to being thin-provisioned.";
      Int, "initial_allocation", "The initial amount of space to allocate to a newly-created VDI in bytes";
      Int, "allocation_quantum", "The amount of space to allocate to a VDI when it needs to be enlarged in bytes";
    ]
    ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
-   ~forward_to:(Extension "LVHD.enable_thin_provisioning")
+   ~forward_to:(HostExtension "LVHD.enable_thin_provisioning")
+   ~result:(String, "Message from LVHD.enable_thin_provisioning extension")
    ()  
 
 let lvhd = 

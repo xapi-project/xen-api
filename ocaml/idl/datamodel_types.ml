@@ -162,7 +162,7 @@ and param = {param_type:ty; param_name:string; param_doc:string; param_release: 
 
 and doc_tag = VM_lifecycle | Snapshots | Networking | Memory | Windows
 
-and forward = Extension of string
+and forward = Extension of string | HostExtension of string
 
 (** Types of RPC messages; in addition to those generated for object fields *)
 and message = { 
