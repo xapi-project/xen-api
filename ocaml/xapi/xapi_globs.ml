@@ -633,6 +633,10 @@ let network_reset_trigger = "/tmp/network-reset"
 
 let first_boot_dir = "/etc/firstboot.d/"
 
+(** {2 Xenopsd metadata persistence} *)
+
+let persist_xenopsd_md = "persist_xenopsd_md"
+let persist_xenopsd_md_root = Filename.concat "/var/lib/xcp" "xenopsd_md"
 
 (** Dynamic configurations to be read whenever xapi (re)start *)
 
@@ -832,6 +836,8 @@ let disable_logging_for= ref []
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
+
+
 
 (* The bfs-interfaces script returns boot from SAN NICs.
  * All ISCSI Boot Firmware Table (ibft) NICs should be marked
