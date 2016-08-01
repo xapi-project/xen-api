@@ -2971,7 +2971,7 @@ let vm_cd_insert printer rpc session_id params =
 	in
 	ignore(do_vm_op printer rpc session_id op params ["cd-name"])
 
-let host_careful_op op fd printer rpc session_id params =
+let host_careful_op op warnings fd printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let host = Client.Host.get_by_uuid rpc session_id uuid in
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
@@ -2986,16 +2986,26 @@ let host_careful_op op fd printer rpc session_id params =
 	then go ()
 	else begin
 		(* Best-effort attempt to warn the user *)
-		marshal fd (Command (Print "WARNING: A host should only be forgotten if it is physically unrecoverable;"));
-		marshal fd (Command (Print "WARNING: if possible, Hosts should be 'ejected' from the Pool instead."));
-		marshal fd (Command (Print "WARNING: Once a host has been forgotten it will have to be re-installed."));
-		marshal fd (Command (Print "WARNING: This operation is irreversible."));
+		List.iter (fun x-> marshal fd (Command (Print x))) warnings;
 		if user_says_yes fd
 		then go ()
 	end
 
-let host_forget x = host_careful_op Client.Host.destroy x
-let host_declare_dead x = host_careful_op (fun ~rpc ~session_id ~self -> Client.Host.declare_dead ~rpc ~session_id ~host:self) x
+let host_forget x =
+	let warnings = [
+		"WARNING: A host should only be forgotten if it is physically unrecoverable;";
+		"WARNING: if possible, Hosts should be 'ejected' from the Pool instead.";
+		"WARNING: Once a host has been forgotten it will have to be re-installed.";
+		"WARNING: This operation is irreversible."] in
+	host_careful_op Client.Host.destroy warnings x
+
+let host_declare_dead x =
+	let warnings = [
+		"WARNING: A host should only be declared dead if it is verified offline.";
+		"WARNING: Performing this operation if the host is still online and has any";
+		"WARNING: running VMs may lead to possible data loss and/or corruption."
+	] in
+	host_careful_op (fun ~rpc ~session_id ~self -> Client.Host.declare_dead ~rpc ~session_id ~host:self) warnings x
 
 let host_license_add fd printer rpc session_id params =
 	let host =
