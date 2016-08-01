@@ -20,7 +20,6 @@ open Fun
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Printf
-open Xstringext
 open Db_filter
 open Db_filter_types
 open Network
@@ -45,6 +44,50 @@ type host_info = {
 	dom0_static_max: int64;
 	ssl_legacy: bool;
 }
+
+(** The format of the response looks like
+ *  # xen-livepatch list
+ *   ID                                     | status
+ *  ----------------------------------------+------------
+ *  hp_1_1                                  | CHECKED
+ *  hp_2_1                                  | APPLIED
+ *  hp_3_2                                  | APPLIED *)
+let make_xen_livepatch_list () = 
+	let lines = try Xstringext.String.split '\n' (Helpers.get_process_output !Xapi_globs.xen_livepatch_list) with _ -> [] in
+	let patches = List.fold_left(
+		fun acc l ->
+		match List.map String.trim (Xstringext.String.split ~limit:2 '|' l) with
+		| [ key; "APPLIED" ] -> key :: acc
+		| _ -> acc;
+	)[] lines in
+	if List.length patches > 0 then Some(String.concat ", " patches) else None
+
+(** The format of the response looks like
+ *  # kpatch list
+ *  Loaded patch modules:
+ *  kpatch_hp_1_1
+ *  kpatch_hp_2_1
+
+ *  Installed patch modules: *)
+let make_kpatch_list () = 
+	let start_line = "Loaded patch modules:" in 
+	let end_line = "Installed patch modules:" in
+	let lines = try Xstringext.String.split '\n' (Helpers.get_process_output !Xapi_globs.kpatch_list) with _ -> []in
+	let rec loop acc started = function
+		| []                                  -> acc
+		| line :: _    when line = end_line   -> acc
+		| line :: rest when line = start_line -> loop acc true rest
+		| line :: rest ->
+			let line' = String.trim line in
+			if line' <> "" && started then
+				loop (line' :: acc) true rest
+			else
+				loop acc started rest
+	in
+	let patches = loop [] false lines in
+	if List.length patches > 0 then Some(String.concat ", " patches) else None
+
+open Xstringext
 
 (* NB: this is dom0's view of the world, not Xen's. *)
 let read_dom0_memory_usage () =
@@ -388,37 +431,6 @@ let make_packs_info () =
 		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
 	with _ -> []
 
-let trim s = String.filter_chars s (not ++ String.isspace)
-
-let make_xen_livepatch_list () = 
-	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/xen-livepatch list") in
- 	let patches = List.fold_left(
-		fun acc l ->
-		match List.map trim (String.split ~limit:2 '|' l) with
-		| [ key; "APPLIED" ] -> key :: acc
-		| _ -> acc;
-	)[] lines in
-	if List.length patches > 0 then Some(String.concat ", " patches) else None
-
-let make_kpatch_list () = 
-	let start_line = "Loaded patch modules:" in 
-	let end_line = "Installed patch modules:" in
-	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/kpatch list") in
-	let startpoint = ref false in
-	let patches = List.fold_left(
-		fun acc l ->
-		if !startpoint then begin
-			if String.compare l end_line == 0 then startpoint := false;
-			let trimmed_l = trim l in
-			if !startpoint && String.length trimmed_l > 0 then trimmed_l :: acc else acc
-		end 
-		else begin
-			if String.compare l start_line == 0 then startpoint := true;
-			acc
-		end 
-	)[] lines in
-	if List.length patches > 0 then Some(String.concat ", " patches) else None
-
 (** Create a complete assoc list of version information *)
 let make_software_version ~__context =
 	let dbg = Context.string_of_task __context in
@@ -451,6 +463,11 @@ let make_software_version ~__context =
 	(option_to_list "xen_livepatches" (make_xen_livepatch_list ())) @
 	(option_to_list "kernel_livepatches" (make_kpatch_list ())) @
 	make_packs_info ()
+
+let create_software_version ~__context =
+	let software_version = make_software_version ~__context in
+	let host = Helpers.get_localhost ~__context in
+	Db.Host.set_software_version ~__context ~self:host ~value:software_version
 
 let create_host_cpu ~__context =
 	let open Xapi_xenops_queue in
