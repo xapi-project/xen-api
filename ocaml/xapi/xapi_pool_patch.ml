@@ -674,6 +674,7 @@ let apply ~__context ~self ~host =
 		error "Caught exception rescanning patch applied directory: %s" (ExnHelper.string_of_exn e)
 	    end;
           Create_misc.create_patches_requiring_reboot_info ~__context ~host;
+          Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Host.refresh_pack_info ~rpc ~session_id ~host);
 	        output;
         | Failure(log, exn) ->
 		debug "error from patch application: %s" log;

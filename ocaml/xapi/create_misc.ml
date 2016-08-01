@@ -387,7 +387,38 @@ let make_packs_info () =
 		in
 		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
 	with _ -> []
-  
+
+let trim s = String.filter_chars s (not ++ String.isspace)
+
+let make_xen_livepatch_list () = 
+	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/xen-livepatch list") in
+ 	let patches = List.fold_left(
+		fun acc l ->
+		match List.map trim (String.split ~limit:2 '|' l) with
+		| [ key; "APPLIED" ] -> key :: acc
+		| _ -> acc;
+	)[] lines in
+	if List.length patches > 0 then Some(String.concat ", " patches) else None
+
+let make_kpatch_list () = 
+	let start_line = "Loaded patch modules:" in 
+	let end_line = "Installed patch modules:" in
+	let lines = String.split '\n' (Helpers.get_process_output "/usr/sbin/kpatch list") in
+	let startpoint = ref false in
+	let patches = List.fold_left(
+		fun acc l ->
+		if !startpoint then begin
+			if String.compare l end_line == 0 then startpoint := false;
+			let trimmed_l = trim l in
+			if !startpoint && String.length trimmed_l > 0 then trimmed_l :: acc else acc
+		end 
+		else begin
+			if String.compare l start_line == 0 then startpoint := true;
+			acc
+		end 
+	)[] lines in
+	if List.length patches > 0 then Some(String.concat ", " patches) else None
+
 (** Create a complete assoc list of version information *)
 let make_software_version ~__context =
 	let dbg = Context.string_of_task __context in
@@ -417,6 +448,8 @@ let make_software_version ~__context =
 	(option_to_list "oem_build_number" info.oem_build_number) @
 	(option_to_list "machine_serial_number" info.machine_serial_number) @
 	(option_to_list "machine_serial_name" info.machine_serial_name) @
+	(option_to_list "xen_livepatches" (make_xen_livepatch_list ())) @
+	(option_to_list "kernel_livepatches" (make_kpatch_list ())) @
 	make_packs_info ()
 
 let create_host_cpu ~__context =
