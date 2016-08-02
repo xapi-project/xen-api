@@ -1223,6 +1223,82 @@ module VGPU : HandlerTools = struct
       end
 end
 
+module PVS_Proxy : HandlerTools = struct
+  type precheck_t =
+    | Drop (* can't find a PVS Site at destination to use *)
+    | Create of API.pVS_proxy_t
+
+  (* find a PVS site of a given [uuid] and [name] with [uuid] taking
+     	 * precedence *)
+  let find_pvs_site __context config rpc session_id name uuid =
+    let sites = Db.PVS_site.get_all_records ~__context in
+    let has_name (_, site) = site.API.pVS_site_name = name in
+    let has_uuid (_, site) = site.API.pVS_site_uuid = uuid in
+    let candidates = List.concat
+        [ List.filter has_uuid sites
+        ; List.filter has_name sites
+        ] in
+    match candidates with
+    | (ref, _) :: _ -> Some ref
+    | []            -> None
+
+  (** We obtain the name and uuid of the PVS site this
+      	 * proxy was linked to. Then we use these trying to find
+      	 * a matching site on this (destination) side. The result is recorded
+      	 * in the [precheck_t] value.
+      	 *)
+  let precheck __context config rpc session_id state obj =
+    let proxy = API.Legacy.From.pVS_proxy_t "" obj.snapshot in
+    let site =
+      proxy.API.pVS_proxy_site
+      |> fun ref -> find_in_export (Ref.string_of ref) state.export
+                    |> API.Legacy.From.pVS_site_t "" in
+    let name  = site.API.pVS_site_name in
+    let uuid  = site.API.pVS_site_uuid in
+    match find_pvs_site __context config rpc session_id name uuid with
+    | None -> Drop
+    | Some site -> Create
+                     { proxy with
+                       API.pVS_proxy_site = site
+                     ; API.pVS_proxy_VIF = lookup proxy.API.pVS_proxy_VIF state.table
+                     }
+
+  let handle_dry_run __context config rpc session_id state obj = function
+    | Drop -> debug "no matching PVS Site found for PVS Proxy %s" obj.id
+    | Create _ ->
+      let dummy = Ref.make () in
+      state.table <- (obj.cls, obj.id, Ref.string_of dummy) :: state.table
+
+  let handle __context config rpc session_id state obj = function
+    | Drop -> debug "no matching PVS Site found for PVS Proxy %s" obj.id
+    | Create p ->
+      let proxy = Client.PVS_proxy.create
+          ~rpc
+          ~session_id
+          ~site:p.API.pVS_proxy_site
+          ~vIF:p.API.pVS_proxy_VIF
+          ~prepopulate:p.API.pVS_proxy_prepopulate
+      in
+      debug "creating PVS Proxy %s btw PVS Site %s <-> %s VIF during import"
+        (Ref.string_of proxy)
+        (Ref.string_of p.API.pVS_proxy_site)
+        (Ref.string_of p.API.pVS_proxy_VIF);
+      state.cleanup <- (fun __context rpc session_id ->
+          Client.PVS_proxy.destroy rpc session_id proxy) :: state.cleanup;
+      state.table <- (obj.cls, obj.id, Ref.string_of proxy) :: state.table
+end
+
+module PVS_Site : HandlerTools = struct
+  (* A PVS site is never re-created as part of the import of a VM that
+     	 * refers to it. We just forget it.
+     	 *)
+
+  type precheck_t = unit
+  let precheck __context config rpc session_id state obj = ()
+  let handle_dry_run __context config rpc session_id state obj () = ()
+  let handle __context config rpc session_id state obj () = ()
+end
+
 (** Create a handler for each object type. *)
 module HostHandler = MakeHandler(Host)
 module SRHandler = MakeHandler(SR)
@@ -1235,6 +1311,8 @@ module VBDHandler = MakeHandler(VBD)
 module VIFHandler = MakeHandler(VIF)
 module VGPUTypeHandler = MakeHandler(VGPUType)
 module VGPUHandler = MakeHandler(VGPU)
+module PVS_SiteHandler = MakeHandler(PVS_Site)
+module PVS_ProxyHandler = MakeHandler(PVS_Proxy)
 
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
@@ -1250,6 +1328,8 @@ let handlers =
     Datamodel._vif, VIFHandler.handle;
     Datamodel._vgpu_type, VGPUTypeHandler.handle;
     Datamodel._vgpu, VGPUHandler.handle;
+    Datamodel._pvs_site, PVS_SiteHandler.handle;
+    Datamodel._pvs_proxy, PVS_ProxyHandler.handle;
   ]
 
 let update_snapshot_and_parent_links ~__context state =
