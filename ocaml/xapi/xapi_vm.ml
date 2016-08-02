@@ -146,6 +146,19 @@ let set_memory_dynamic_max ~__context ~self ~value = assert false
 let set_memory_static_min ~__context ~self ~value = assert false
 let set_memory_static_max ~__context ~self ~value = assert false
 
+(* Since dom0 is not started by the toolstack but by Xen at boot time,
+   we have to modify the Xen command line in order to update dom0's
+   memory allocation. *)
+let set_dom0_memory ~__context ~self ~bytes =
+	let arg = Printf.sprintf "dom0_mem=%LdB,max:%LdB" bytes bytes in
+	let args = ["--set-xen"; arg] in
+	try
+		let _ = Helpers.call_script !Xapi_globs.xen_cmdline_script args in
+		()
+	with
+	| _ ->
+		raise Api_errors.(Server_error (internal_error, ["Failed to update control domain memory"]))
+
 let set_memory_limits ~__context ~self
 	~static_min ~static_max ~dynamic_min ~dynamic_max =
 	(* For non-control domains, this function is only called on the master and
@@ -166,7 +179,9 @@ let set_memory_limits ~__context ~self
 	Vm_memory_constraints.assert_valid_for_current_context
 		~__context ~constraints;
 	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
-	update_memory_overhead ~__context ~vm:self
+	update_memory_overhead ~__context ~vm:self;
+	if Helpers.is_domain_zero ~__context self then
+		set_dom0_memory ~__context ~self ~bytes:static_max;
 
 let set_memory ~__context ~self ~value =
 	set_memory_limits ~__context ~self
