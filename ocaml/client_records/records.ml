@@ -536,6 +536,7 @@ let pool_record rpc session_id pool =
 				();
 			make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_cpu_info) ~get_map:(fun () -> (x ()).API.pool_cpu_info) ();
 			make_field ~name:"policy-no-vendor-device" ~get:(fun () -> string_of_bool (x ()).API.pool_policy_no_vendor_device) ~set:(fun s -> Client.Pool.set_policy_no_vendor_device rpc session_id pool (safe_bool_of_string "policy-no-vendor-device" s)) ();
+			make_field ~name:"live-patching-disabled"  ~get:(fun () -> string_of_bool (x ()).API.pool_live_patching_disabled) ~set:(fun s -> Client.Pool.set_live_patching_disabled rpc session_id pool (safe_bool_of_string "live-patching-disabled" s)) ();
 		]}
 
 let subject_record rpc session_id subject = 
@@ -1101,6 +1102,9 @@ let host_record rpc session_id host =
 			make_field ~name:"resident-vms"
 				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_resident_VMs))
 				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_resident_VMs) ();
+			make_field ~name:"patches-requiring-reboot"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot) ();
 		]}
 
 let vdi_record rpc session_id vdi =

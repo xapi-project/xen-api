@@ -620,6 +620,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
 	~display:`enabled
 	~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
 	~control_domain:Ref.null
+	~patches_requiring_reboot:[]
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1353,8 +1354,7 @@ let license_remove ~__context ~host =
 
 let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version ~__context in
-	Db.Host.set_software_version ~__context ~self:host ~value:software_version
+	Create_misc.create_software_version ~__context
 
 (* Network reset *)
 

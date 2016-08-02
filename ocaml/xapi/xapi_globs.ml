@@ -833,6 +833,10 @@ let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
 
+let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
+
+let kpatch_list = ref "/usr/sbin/kpatch list"
+
 (* The bfs-interfaces script returns boot from SAN NICs.
  * All ISCSI Boot Firmware Table (ibft) NICs should be marked
  * with PIF.managed = false and all FCoE boot from SAN * NICs
@@ -912,6 +916,8 @@ let ciphersuites_good_outbound = ref None
 let ciphersuites_legacy_outbound = ref ""
 
 let gpumon_stop_timeout = ref 10.0
+
+let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
@@ -1007,6 +1013,15 @@ let other_options = [
 
   "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
     (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
+
+  "reboot_required_hfxs", Arg.Set_string reboot_required_hfxs,
+    (fun () -> !reboot_required_hfxs), "File to query hotfix uuids which require reboot";
+
+  "xen_livepatch_list", Arg.Set_string reboot_required_hfxs,
+    (fun () -> !xen_livepatch_list), "Command to query current xen livepatch list";
+
+  "kpatch_list", Arg.Set_string reboot_required_hfxs,
+    (fun () -> !kpatch_list), "Command to query current kernel patch list";
 ] 
 
 let all_options = options_of_xapi_globs_spec @ other_options

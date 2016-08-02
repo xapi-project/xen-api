@@ -51,6 +51,7 @@ type feature =
 	| AD
 	| Ssl_legacy_switch
 	| Nested_virt
+	| Live_patching
 	with rpc
 
 type orientation = Positive | Negative
@@ -91,6 +92,7 @@ let keys_of_features =
 		AD, ("restrict_ad", Negative, "AD");
 		Ssl_legacy_switch, ("restrict_ssl_legacy_switch", Negative, "Ssl_legacy_switch");
 		Nested_virt, ("restrict_nested_virt", Negative, "Nested_virt");
+		Live_patching, ("restrict_live_patching", Negative, "Live_patching");
 	]
 
 let name_of_feature f =
