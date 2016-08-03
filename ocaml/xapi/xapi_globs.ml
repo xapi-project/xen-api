@@ -1017,10 +1017,10 @@ let other_options = [
   "reboot_required_hfxs", Arg.Set_string reboot_required_hfxs,
     (fun () -> !reboot_required_hfxs), "File to query hotfix uuids which require reboot";
 
-  "xen_livepatch_list", Arg.Set_string reboot_required_hfxs,
+  "xen_livepatch_list", Arg.Set_string xen_livepatch_list,
     (fun () -> !xen_livepatch_list), "Command to query current xen livepatch list";
 
-  "kpatch_list", Arg.Set_string reboot_required_hfxs,
+  "kpatch_list", Arg.Set_string kpatch_list,
     (fun () -> !kpatch_list), "Command to query current kernel patch list";
 ] 
 
