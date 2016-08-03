@@ -92,6 +92,6 @@ let gc () =
 let reattempt_on_boot_attach () =
 	let script = "attach-static-vdis" in
 	try
-		ignore(Helpers.call_script "/sbin/service" [ script; "restart" ])
+		ignore(Helpers.call_script "/sbin/service" [ script; "start" ])
 	with e ->
-		warn "Attempt to reattach static VDIs via '%s restart' failed: %s" script (ExnHelper.string_of_exn e)
+		warn "Attempt to reattach static VDIs via '%s start' failed: %s" script (ExnHelper.string_of_exn e)

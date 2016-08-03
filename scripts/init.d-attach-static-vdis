@@ -32,6 +32,7 @@ clear_stale_state(){
 }
 
 attach_all(){
+	RC=0
 	ALL=$(ls -1 ${STATE_DIR})
 
 	for i in ${ALL}; do
@@ -39,9 +40,11 @@ attach_all(){
 	    logger "Attempting to attach VDI: ${UUID}"
 	    OUTPUT=$(/opt/xensource/bin/static-vdis attach ${UUID} 2>&1)
 	    if [ $? -ne 0 ]; then
+	       RC=1
 	       logger "Attempt to attach VDI: ${UUID} failed -- skipping (Error was: ${OUTPUT})"
 	    fi
 	done
+	return $RC
 }
 
 detach_all(){
@@ -61,8 +64,9 @@ start() {
 	echo -n $"Attempting to attach all statically-configured VDIs"
 	clear_stale_state
 	attach_all
+	RC=$?
 	echo 
-	return 0
+	return $RC
 }
 
 
