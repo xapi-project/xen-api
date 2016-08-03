@@ -181,13 +181,9 @@ let parse_sysfs_balloon () =
 		_requested_target;
 		_low_mem_balloon;
 		_high_mem_balloon] in
-	let r = Re_str.regexp "[ \t\n]+" in
-	let strip line = match Re_str.split_delim r line with
-		| x :: _ -> x
-		| [] -> "" in
 	List.map (fun key ->
 		let s = Unixext.string_of_file (sysfs_stem ^ key) in
-		key, Int64.of_string (strip s)
+		key, Int64.of_string (String.trim s)
 	) keys
 
 (* The total amount of memory addressable by this OS, read without
