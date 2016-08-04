@@ -9,8 +9,9 @@
 [ -e /proc/xen ] || exit 0
 
 usage () {
-  echo Usage: $0 \<timeout\> \(seconds\)
-  echo Poll for xapi to complete initialisation, for up to \<timeout\> seconds
+  echo Usage: $0 \<timeout\> \(seconds\) \[tag\]
+  echo Poll for xapi to complete initialisation, for up to \<timeout\> seconds.
+  echo Log to syslog on failure, optionally tagging with \[tag\].
   exit 1
 }
 
@@ -32,4 +33,7 @@ while [ ${RETRIES} -ne 0 ]; do
 done
 
 # xapi did not complete initialisation during specified timeout interval
+TAG=${2:-wait-xapi-init-complete}
+logger --tag ${TAG} --stderr "Failed to detect xapi init complete after ${1}s"
+
 exit 1
