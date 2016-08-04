@@ -633,6 +633,10 @@ let network_reset_trigger = "/tmp/network-reset"
 
 let first_boot_dir = "/etc/firstboot.d/"
 
+(** {2 Xenopsd metadata persistence} *)
+
+let persist_xenopsd_md = "persist_xenopsd_md"
+let persist_xenopsd_md_root = Filename.concat "/var/lib/xcp" "xenopsd_md"
 
 (** Dynamic configurations to be read whenever xapi (re)start *)
 
