@@ -167,6 +167,16 @@ let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_host_initial_free_memory _ dbg = 0L (* XXX *)
 
+let get_total_memory_from_xen () =
+	try
+		Xenctrl.with_intf (fun xc ->
+			let di = Xenctrl.domain_getinfo xc 0 in
+			Some (Int64.mul 1024L (Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages)))
+		)
+	with _ ->
+		error "Failed get total memory from Xen";
+		None
+
 let sysfs_stem = "/sys/devices/system/xen_memory/xen_memory0/"
 
 let _current_allocation = "info/current_kb"
@@ -181,52 +191,61 @@ let parse_sysfs_balloon () =
 		_requested_target;
 		_low_mem_balloon;
 		_high_mem_balloon] in
-	let r = Re_str.regexp "[ \t\n]+" in
-	let strip line = match Re_str.split_delim r line with
-		| x :: _ -> x
-		| [] -> "" in
 	List.map (fun key ->
 		let s = Unixext.string_of_file (sysfs_stem ^ key) in
-		key, Int64.of_string (strip s)
+		key, Int64.of_string (String.trim s)
 	) keys
 
-(* The total amount of memory addressable by this OS, read without
-   asking xen (which may not be running if we've just installed
-   the packages and are now setting them up) *)
-let parse_proc_meminfo () =
+let get_total_memory_from_balloon_driver () =
+	try
+		let pairs = parse_sysfs_balloon () in
+		let keys = [ _low_mem_balloon; _high_mem_balloon; _current_allocation ] in
+		let vs = List.map (fun x -> List.assoc x pairs) keys in
+		Some (Int64.mul 1024L (List.fold_left Int64.add 0L vs))
+	with _ ->
+		error "Failed to query balloon driver";
+		None
+
+let get_total_memory_from_proc_meminfo () =
 	let ic = open_in "/proc/meminfo" in
 	finally
 		(fun () ->
 			let rec loop () =
 				match Xstringext.String.split_f Xstringext.String.isspace (input_line ic) with
 				| [ "MemTotal:"; total; "kB" ] ->
-					Int64.(mul (of_string total) 1024L)
+					Some (Int64.(mul (of_string total) 1024L))
 				| _ -> loop () in
 			try
 				loop ()
 			with End_of_file ->
 				error "Failed to read MemTotal from /proc/meminfo";
-				failwith "Failed to read MemTotal from /proc/meminfo"
-
+				None
 		) (fun () -> close_in ic)
 
+(* The total amount of memory addressable by this OS. If we cannot get it
+   from Xen (which may not be running if we've just installed
+   the packages and are now setting them up), then we ask the balloon driver, or
+   worst-case, /proc/meminfo. *)
 let get_total_memory () =
-	try
-		let pairs = parse_sysfs_balloon () in
-		let keys = [ _low_mem_balloon; _high_mem_balloon; _current_allocation ] in
-		let vs = List.map (fun x -> List.assoc x pairs) keys in
-		Int64.mul 1024L (List.fold_left Int64.add 0L vs)
-	with _ ->
-		error "Failed to query balloon driver; parsing /proc/meminfo instead";
-		parse_proc_meminfo ()
+	let (>>) x f =
+		match x with
+		| Some x -> Some x
+		| None -> f ()
+	in
+	None >>
+	get_total_memory_from_xen >>
+	get_total_memory_from_balloon_driver >>
+	get_total_memory_from_proc_meminfo
 
 let get_domain_zero_policy _ dbg =
 	wrap dbg
 	(fun () ->
-		let dom0_max = get_total_memory () in
-		if !Squeeze.manage_domain_zero
-		then Auto_balloon(!Squeeze.domain_zero_dynamic_min, match !Squeeze.domain_zero_dynamic_max with
-			| None -> dom0_max
-			| Some x -> x)
-		else Fixed_size dom0_max
+		match get_total_memory () with
+		| None -> failwith "Failed to obtain total memory"
+		| Some dom0_max ->
+			if !Squeeze.manage_domain_zero
+			then Auto_balloon(!Squeeze.domain_zero_dynamic_min, match !Squeeze.domain_zero_dynamic_max with
+				| None -> dom0_max
+				| Some x -> x)
+			else Fixed_size dom0_max
 	)
