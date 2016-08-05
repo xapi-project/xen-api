@@ -148,8 +148,11 @@ let set_memory_static_max ~__context ~self ~value = assert false
 
 let set_memory_limits ~__context ~self
 	~static_min ~static_max ~dynamic_min ~dynamic_max =
-	(* Called on the master only when the VM is halted. *)
-	if Db.VM.get_power_state ~__context ~self <> `Halted
+	(* For non-control domains, this function is only called on the master and
+	 * for halted VMs. *)
+	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self in
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	if not is_control_domain && power_state <> `Halted
 	then failwith "assertion_failed: set_memory_limits should only be \
 		called when the VM is Halted";
 	(* Check that the new limits are in the correct order. *)
