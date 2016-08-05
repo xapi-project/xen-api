@@ -154,7 +154,7 @@ let set_dom0_memory ~__context ~self ~bytes =
 	let args = ["--set-xen"; arg] in
 	try
 		let _ = Helpers.call_script !Xapi_globs.xen_cmdline_script args in
-		()
+		Xapi_host_helpers.Host_requires_reboot.set ()
 	with
 	| _ ->
 		raise Api_errors.(Server_error (internal_error, ["Failed to update control domain memory"]))
@@ -182,6 +182,11 @@ let set_memory_limits ~__context ~self
 	update_memory_overhead ~__context ~vm:self;
 	if Helpers.is_domain_zero ~__context self then
 		set_dom0_memory ~__context ~self ~bytes:static_max;
+	(* It is allowed to update the memory settings of a running control domain,
+	 * but it needs to be rebooted for the changes to take effect. We signal
+	 * the client to do so. *)
+	if is_control_domain && power_state = `Running then
+		Db.VM.set_requires_reboot ~__context ~self ~value:true
 
 let set_memory ~__context ~self ~value =
 	set_memory_limits ~__context ~self

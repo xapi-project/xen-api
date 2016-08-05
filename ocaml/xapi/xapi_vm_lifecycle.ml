@@ -517,6 +517,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 					Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
 			)
 			(Db.PCI.get_all ~__context);
+		(* Blank the requires_reboot flag *)
+		Db.VM.set_requires_reboot ~__context ~self ~value:false
 	end;
 
 	if state = `Halted || state = `Suspended then begin

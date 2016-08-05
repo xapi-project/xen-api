@@ -329,9 +329,13 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~other_config:[];
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
+	(* Write the updated memory constraints to the database, if the VM is not
+	   marked as requiring reboot. *)
 	let constraints = create_domain_zero_memory_constraints host_info in
-	(* Write the updated memory constraints to the database. *)
-	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints;
+	if not (Xapi_host_helpers.Host_requires_reboot.get ()) then begin
+		Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints;
+		Db.VM.set_requires_reboot ~__context ~self:domain_zero_ref ~value:false
+	end;
 	let localhost = Helpers.get_localhost ~__context in
 	Helpers.update_domain_zero_name ~__context localhost host_info.hostname
 

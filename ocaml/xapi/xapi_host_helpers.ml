@@ -269,3 +269,16 @@ let consider_enabling_host ~__context =
 	debug "Xapi_host_helpers.consider_enabling_host called";
 	consider_enabling_host_request ~__context
 
+module Host_requires_reboot = struct
+	let m = Mutex.create ()
+
+	let get () =
+		Mutex.execute m (fun () ->
+			try Unix.access Xapi_globs.requires_reboot_file [Unix.F_OK]; true with _ -> false
+		)
+
+	let set () =
+		Mutex.execute m (fun () ->
+			Unixext.touch_file Xapi_globs.requires_reboot_file
+		)
+end
