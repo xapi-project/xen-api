@@ -1782,11 +1782,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			dynamic_min = %Ld; dynamic_max = %Ld"
 				(vm_uuid ~__context self)
 				static_min static_max dynamic_min dynamic_max;
-			with_vm_operation ~__context ~self ~doc:"VM.set_memory_limits"
-				~op:`changing_memory_limits
+			let local_fn = Local.VM.set_memory_limits ~self
+				~static_min ~static_max ~dynamic_min ~dynamic_max in
+			with_vm_operation ~__context ~self ~doc:"VM.set_memory_limits" ~op:`changing_memory_limits
 				(fun () ->
-					Local.VM.set_memory_limits ~__context ~self
-						~static_min ~static_max ~dynamic_min ~dynamic_max)
+					forward_vm_op ~local_fn ~__context ~vm:self
+						(fun session_id rpc -> Client.VM.set_memory_limits rpc session_id self
+							static_min static_max dynamic_min dynamic_max))
+
+		let set_memory ~__context ~self ~value =
+			info "VM.set_memory: self = %s; value = %Ld" (vm_uuid ~__context self) value;
+			let local_fn = Local.VM.set_memory ~self ~value in
+			with_vm_operation ~__context ~self ~doc:"VM.set_memory" ~op:`changing_memory_limits
+				(fun () ->
+					forward_vm_op ~local_fn ~__context ~vm:self
+						(fun session_id rpc -> Client.VM.set_memory rpc session_id self value))
 
 		let set_memory_target_live ~__context ~self ~target =
 			info "VM.set_memory_target_live: VM = '%s'; min = %Ld" (vm_uuid ~__context self) target;

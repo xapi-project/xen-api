@@ -96,6 +96,7 @@ let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
 let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
 let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
+let requires_reboot_file = "/var/run/nonpersistent/xapi/host-requires-reboot"
 let using_rrds = ref false
 
 let ready_file = ref ""
@@ -847,6 +848,8 @@ let kpatch_list = ref "/usr/sbin/kpatch list"
  * should be set with disallow-unplug=true, during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
+let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
+
 let sr_health_check_task_label = "SR Recovering"
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
@@ -1078,6 +1081,7 @@ module Resources = struct
 		"xe-toolstack-restart", xe_toolstack_restart, "Path to xe-toolstack-restart script";
 		"xsh", xsh, "Path to xsh binary";
 		"static-vdis", static_vdis, "Path to static-vdis script";
+		"xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script";
 	]
 	let nonessential_executables = [
 		"startup-script-hook", startup_script_hook, "Executed during startup";

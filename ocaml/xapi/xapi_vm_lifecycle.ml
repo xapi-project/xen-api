@@ -38,7 +38,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
-	| `changing_memory_limits
+	| `changing_memory_limits       -> `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
 	| `changing_shadow_memory
 	| `changing_static_range
 	| `changing_VCPUs
@@ -358,6 +358,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `awaiting_memory_live
 			&& op <> `metadata_export
 			&& op <> `changing_dynamic_range
+			&& op <> `changing_memory_limits
 			&& op <> `start
 		then Some (Api_errors.operation_not_allowed, ["Operations on control domain are not allowed"])
 		else None) in
@@ -516,6 +517,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 					Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
 			)
 			(Db.PCI.get_all ~__context);
+		(* Blank the requires_reboot flag *)
+		Db.VM.set_requires_reboot ~__context ~self ~value:false
 	end;
 
 	if state = `Halted || state = `Suspended then begin

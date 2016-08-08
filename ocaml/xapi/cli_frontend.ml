@@ -957,12 +957,12 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		flags=[Vm_selectors];
 	};
 
-	"vm-memory-limits-set",
+	"vm-memory-set",
 	{
-		reqd=["static-min"; "static-max"; "dynamic-min"; "dynamic-max"];
+		reqd=["memory"];
 		optn=[];
-		help="Configure the memory limits of a VM.";
-		implementation=No_fd Cli_operations.vm_memory_limits_set;
+		help="Configure the memory allocation of a VM.";
+		implementation=No_fd Cli_operations.vm_memory_set;
 		flags=[Vm_selectors];
 	};
 
