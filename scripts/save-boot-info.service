@@ -1,0 +1,12 @@
+[Unit]
+Description=Record boot-time CPU config for xapi
+Before=xapi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@LIBEXECDIR@/save-boot-info
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

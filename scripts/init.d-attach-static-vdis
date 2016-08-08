@@ -1,9 +1,6 @@
 #! /bin/bash
 #
-# attach-static-vdis    Attaches/detaches any statically-configured VDIs to dom0
-#
-# chkconfig: 2345 20 78
-# description: attaches/detaches any statically-configured VDIs to dom0
+# attach-static-vdis    Attaches any statically-configured VDIs to dom0
 
 STATE_DIR=/etc/xensource/static-vdis
 

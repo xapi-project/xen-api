@@ -1,0 +1,28 @@
+#! /bin/bash
+# Source function library.
+. /etc/init.d/functions
+
+if [ -f /etc/sysconfig/xapi ]; then
+  . /etc/sysconfig/xapi
+fi
+
+case "$1" in
+  start)
+	systemctl start xapi
+	;;
+  stop)
+	systemctl stop xapi
+	;;
+  restart)
+	systemctl restart xapi
+	;;
+  status)
+	systemctl status xapi
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/xapi ] && systemctl restart xapi || :
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	exit 1
+esac

@@ -1,12 +1,4 @@
 #! /bin/bash
-#
-# xapi          Start/Stop the XAPI server
-#
-# chkconfig: 2345 23 77
-# description: XenServer server
-# processname: xapi
-# config: /etc/xapi.conf
-# pidfile: /var/run/xapi.pid
 
 # Source function library.
 . /etc/init.d/functions
@@ -57,29 +49,14 @@ start() {
 	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
-	    "@BINDIR@/xapi" -daemon true ${xapiflags} \
+	    #rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
+	    exec "@BINDIR@/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
 		RETVAL=$?
-	    rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
 	else
-	    "@BINDIR@/xapi" -daemon true ${xapiflags} \
+	    exec "@BINDIR@/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
 		RETVAL=$?
-	fi
-
-	if [ $RETVAL -eq 0 ]; then
-		touch /var/lock/subsys/xapi
-		echo -n $"OK"
-		success $"OK"
-		echo
-		return 0
-	else
-		echo -n $"failed to start xapi."
-		failure $"failed to start xapi."
-		killproc xapi
-		rm -f /var/lock/subsys/xapi /var/run/xapi.pid
-		echo
-		return 1
 	fi
 }
 
