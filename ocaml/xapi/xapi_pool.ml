@@ -268,7 +268,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		print_software_version master_software_compare;
 		
 		if my_software_compare <> master_software_compare then
-			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["Software version differs"]));
 		
 		(* Check CPUs *)
 		
@@ -781,14 +781,36 @@ let eject ~__context ~host =
 
 	if Pool_role.is_master () then raise Cannot_eject_master
 	else begin
-		(* Fail the operation if any VMs are running here (except control domains) *)
+		(* Fail the operation if any VMs are running here (except dom0) *)
 		let my_vms_with_records = Db.VM.get_records_where ~__context ~expr:(Eq(Field "resident_on", Literal (Ref.string_of host))) in
 		List.iter (fun (_, x) -> 
-			if (not x.API.vM_is_control_domain) && x.API.vM_power_state<>`Halted
+			if (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:x.API.vM_uuid))) && x.API.vM_power_state <>`Halted
 			then begin
 				error "VM uuid %s not in Halted state and resident_on this host" (x.API.vM_uuid);
 				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VM resident on host"]))
 			end) my_vms_with_records;
+
+		(* all control domains resident on me should be destroyed once I leave the
+		pool, therefore pick them out as follows: if they have a valid resident_on,
+		the latter should be me; if they don't (e.g. they are halted), they should have
+		disks on my local storage *)
+		let vm_is_resident_on_host vm_rec host =
+			(Db.is_valid_ref __context vm_rec.API.vM_resident_on) && (vm_rec.API.vM_resident_on = host)
+		in
+		let vm_has_disks_on_local_sr_of_host vm_ref host =
+			let is_sr_local x = not (Helpers.is_sr_shared ~__context ~self:x) in
+			let host_has_sr x = (Helpers.check_sr_exists_for_host ~__context ~self:x ~host:host) <> None in
+			Db.VM.get_VBDs ~__context ~self:vm_ref
+			|> List.map (fun x -> Db.VBD.get_VDI ~__context ~self:x)
+			|> List.filter (fun x -> x <> Ref.null) (* filter out null ref VDIs (can happen e.g. for CDs) *)
+			|> List.map (fun x -> Db.VDI.get_SR ~__context ~self:x)
+			|> List.exists (fun x -> (is_sr_local x) && (host_has_sr x))
+		in
+		let is_obsolete_control_domain (vm_ref, vm_rec) =
+			vm_rec.API.vM_is_control_domain
+			&& ((vm_is_resident_on_host vm_rec host) || (vm_has_disks_on_local_sr_of_host vm_ref host))
+		in
+		let control_domains_to_destroy = List.filter is_obsolete_control_domain (Db.VM.get_all_records ~__context) in
 
 		debug "Pool.eject: unplugging PBDs";
 		(* unplug all my PBDs; will deliberately fail if any unplugs fail *)
@@ -856,8 +878,7 @@ let eject ~__context ~host =
 
 		(* and destroy my control domains, since you can't do this from the API [operation not allowed] *)
 		begin try
-			let my_control_domains = List.filter (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
-			List.iter (fun control_domain -> Db.VM.destroy ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:control_domain.API.vM_uuid)) my_control_domains;
+			List.iter (fun x -> Db.VM.destroy ~__context ~self:(fst x)) control_domains_to_destroy;
 		with _ -> () end;
 		debug "Pool.eject: setting our role to be master";
 		Pool_role.set_role Pool_role.Master;
