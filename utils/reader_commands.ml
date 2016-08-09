@@ -62,10 +62,15 @@ let protocol_of_string = function
 	| "v2" -> Rrd_protocol_v2.protocol
 	| _ -> failwith "Unknown protocol"
 
-let read_file path protocol =
+
+let read_file once path protocol =
 	let protocol = protocol_of_string protocol in
 	let reader = Rrd_reader.FileReader.create path protocol in
-	main_loop reader 5.0
+	if once then begin
+		reader.Rrd_reader.read_payload () |> interpret_payload;
+		reader.Rrd_reader.cleanup ()
+	end else
+		main_loop reader 5.0
 
 let read_page domid grantref protocol =
 	let protocol = protocol_of_string protocol in
