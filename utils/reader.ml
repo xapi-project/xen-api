@@ -35,12 +35,16 @@ let read_file_cmd =
 		let doc = "The protocol to use to read the rrd data" in
 		Arg.(required & pos 1 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
 	in
+	let once =
+		let doc = "If set, only read data once rather than in a loop." in
+		Arg.(value & flag & info ["once"] ~docv:"ONCE" ~doc)
+	in
 	let doc = "read from a file" in
 	let man = [
 		`S "DESCRIPTION";
 		`P "Read rrd data from a file, using the specified protocol"
 	] @ help_secs in
-	Term.(pure Reader_commands.read_file $ path $ protocol),
+	Term.(pure Reader_commands.read_file $ once $ path $ protocol),
 	Term.info "file" ~doc ~man
 
 let read_page_cmd =
