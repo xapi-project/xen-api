@@ -793,9 +793,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		(* Read resisdent-on field from vm to determine who to forward to  *)
 		let forward_vm_op ~local_fn ~__context ~vm op =
-			Xapi_vm_lifecycle.assert_power_state_in ~__context ~self:vm
-				~allowed:[`Running; `Paused];
-			do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
+			let power_state = Db.VM.get_power_state ~__context ~self:vm in
+			if List.mem power_state [`Running; `Paused] then
+				do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op
+			else
+				local_fn ~__context
 
 		(* Clear scheduled_to_be_resident_on for a VM and all its vGPUs. *)
 		let clear_scheduled_to_be_resident_on ~__context ~vm =
