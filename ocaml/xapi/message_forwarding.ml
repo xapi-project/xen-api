@@ -3110,12 +3110,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let set_name_label ~__context ~sr ~value =
 			info "SR.set_name_label: SR = '%s' name-label = '%s'"
 				(sr_uuid ~__context sr) value;
-			Local.SR.set_name_label ~__context ~sr ~value
+			let local_fn = Local.SR.set_name_label ~sr ~value in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc -> Client.SR.set_name_label rpc session_id sr value)
 
 		let set_name_description ~__context ~sr ~value =
 			info "SR.set_name_description: SR = '%s' name-description = '%s'"
 				(sr_uuid ~__context sr) value;
-			Local.SR.set_name_description ~__context ~sr ~value
+			let local_fn = Local.SR.set_name_description ~sr ~value in
+			forward_sr_op ~local_fn ~__context ~self:sr
+				(fun session_id rpc -> Client.SR.set_name_description rpc session_id sr value)
 
 		let assert_can_host_ha_statefile ~__context ~sr =
 			info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
