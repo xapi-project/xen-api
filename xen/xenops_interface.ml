@@ -374,6 +374,8 @@ module Vm = struct
 		pv_drivers_detected: bool;
 		last_start_time: float;
 		hvm: bool;
+		nomigrate: bool; (* true: VM must not migrate *)
+		nested_virt: bool (* true: VM uses nested virtualisation *)
 	} with sexp
 
 end
