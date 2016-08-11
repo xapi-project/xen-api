@@ -20,6 +20,7 @@ open Forkhelpers
 open Xml
 open Helpers
 open Listext
+open Client
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -42,6 +43,124 @@ type update_info = {
   vdi: API.ref_VDI;
   hosts: API.ref_host list
 }
+
+(** Mount a filesystem somewhere, with optional type *)
+let mount ?ty:(ty = None) ?lo:(lo = true) src dest =
+  let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
+  let lo = if lo then ["-o"; "loop"] else [] in
+  ignore(Forkhelpers.execute_command_get_output "/bin/mount" (ty @ lo @ [src; dest ]))
+
+let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
+exception Umount_timeout
+
+(** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before returning failure *)
+let umount ?(retry=true) dest =
+  let finished = ref false in
+  let start = Unix.gettimeofday () in
+
+  while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
+    try
+      ignore(Forkhelpers.execute_command_get_output "/bin/umount" [dest] );
+      finished := true
+    with e ->
+      if not(retry) then raise e;
+      debug "Caught exception (%s) while unmounting %s: pausing before retrying"
+        (ExnHelper.string_of_exn e) dest;
+      Thread.delay 5.
+  done;
+  if not(!finished) then raise Umount_timeout
+
+let detach ~__context ~self ~host =
+  let uuid = Db.Pool_update.get_uuid ~__context ~self in
+  let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+  let mount_point = String.concat "/" [mount_point_parent_dir; "vdi"] in
+  let vdi = Db.Pool_update.get_vdi ~__context ~self in
+  let sr = Db.VDI.get_SR ~__context ~self:vdi in
+  let shared = Db.SR.get_shared ~__context ~self:sr in
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
+  let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
+  debug "pool_update.detach %s from %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
+  if (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts)) then begin
+    umount mount_point;
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+         let dom0 = Helpers.get_domain_zero ~__context in
+         let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
+         let vbd = List.find (fun self -> Client.VBD.get_VM ~rpc ~session_id ~self = dom0) vbds in
+         Client.VBD.unplug ~rpc ~session_id ~self:vbd;
+         Client.VBD.destroy ~rpc ~session_id ~self:vbd
+      )
+  end;
+  let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
+  debug "pool_update.detach Mountpoint removed (output=%s)" output
+
+let with_api_errors f x =
+  try f x
+  with
+  | Smint.Command_failed(ret, status, stdout_log, stderr_log)
+  | Smint.Command_killed(ret, status, stdout_log, stderr_log) ->
+    let msg = Printf.sprintf "Smint.Command_{failed,killed} ret = %d; status = %s; stdout = %s; stderr = %s"
+        ret status stdout_log stderr_log in
+    raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
+
+(* yum confif example
+   [main]
+   keepcache=0
+   reposdir=/dev/null
+   gpgcheck=$signed
+   repo_gpgcheck=$signed
+
+   [$label]
+   name=$label
+   baseurl=url
+   ${signed:+gpgkey=file:///etc/pki/rpm-gpg/key}
+*)
+let create_yum_config ~__context ~self ~url ~location =
+  let key = Db.Pool_update.get_key ~__context ~self in
+  let signed = if String.length key = 0 then 0 else 1 in
+  let name_label = Db.Pool_update.get_name_label ~__context ~self in
+  let yum_config = location ^ "/yum.conf" in
+  let oc = open_out yum_config in
+  Printf.fprintf oc "[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n" signed signed;
+  Printf.fprintf oc "[%s]\nname=%s\nbaseurl=%s\n" name_label name_label url;
+  if signed = 1 then Printf.fprintf oc "gpgkey=file:///etc/pki/rpm-gpg/key";
+  close_out oc
+
+let attach ~__context ~self ~host =
+  let uuid = Db.Pool_update.get_uuid ~__context ~self in
+  let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+  let mount_point = String.concat "/" [mount_point_parent_dir; "vdi"] in
+  debug "pool_update.attach %s to %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
+  if (try Sys.is_directory mount_point with _ -> false) then detach ~__context ~self ~host;
+  let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
+  debug "pool_update.attach Mountpoint created (output=%s)" output;
+  let vdi = Db.Pool_update.get_vdi ~__context ~self in
+  let sr = Db.VDI.get_SR ~__context ~self:vdi in
+  let shared = Db.SR.get_shared ~__context ~self:sr in
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
+  let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
+  let url = if (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts)) then begin
+      let device = Helpers.call_api_functions ~__context
+          (fun rpc session_id ->
+             let dom0 = Helpers.get_domain_zero ~__context in
+             let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
+                 ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
+                 ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+                 ~other_config:[] in
+             Client.VBD.plug ~rpc ~session_id ~self:vbd;
+             "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd)) in
+      with_api_errors (mount device) mount_point;
+      debug "pool_update.attach Mounted %s" mount_point;
+      "file://" ^ mount_point
+    end
+    else begin
+      let ip = try Pool_role.get_master_address () with _ -> "127.0.0.1" in
+      "http://" ^ ip ^ mount_point
+    end in
+  create_yum_config ~__context ~self ~url:url ~location:mount_point_parent_dir;
+  url
 
 exception Missing_update_key of string
 exception Bad_update_info
