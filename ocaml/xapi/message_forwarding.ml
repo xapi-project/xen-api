@@ -1867,6 +1867,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let query_data_source ~__context ~self ~data_source =
 			info "VM.query_data_source: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
+			Xapi_vm_lifecycle.assert_power_state_in ~__context ~self ~allowed:[`Running; `Paused];
 			let local_fn = Local.VM.query_data_source ~self ~data_source in
 			forward_vm_op ~local_fn ~__context ~vm:self
 				(fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source)
