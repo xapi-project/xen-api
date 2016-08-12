@@ -57,7 +57,7 @@ module CreateToolsSR = Generic.Make(Generic.EncapsulateState(struct
                                               :: acc
                                             else
                                               acc
-                                          ) [] (Db.SR.get_all ~__context)	
+                                          ) [] (Db.SR.get_all ~__context)
 
                                       (* And other_config key/value pair we use to prove that and existing Tools SR is
                                          	 * reused rather than destroyed and recreated. *)

@@ -303,8 +303,8 @@ let get_vms_which_prevent_evacuation ~__context ~self =
   let get_error_per_vm vm plan acc =
     match plan with
     | Error(code, params) ->
-        if List.exists (fun (x,_) -> x = vm) acc then acc
-        else (vm, (code :: params)) :: acc
+      if List.exists (fun (x,_) -> x = vm) acc then acc
+      else (vm, (code :: params)) :: acc
     | _ -> acc
   in
   Hashtbl.fold get_error_per_vm plans []
@@ -1333,7 +1333,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
   (* Construct the RPC params to be sent to v6d *)
   let params =
     ("current_edition", current_edition) ::
-     license_server @ current_license_params @ additional in
+    license_server @ current_license_params @ additional in
   let edition', features', additional =
     let open V6_interface in
     let dbg = Context.string_of_task __context in

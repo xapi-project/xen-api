@@ -65,18 +65,18 @@ module Vm_memory_constraints : T = struct
   let assert_valid ~constraints =
     if not (are_valid ~constraints)
     then raise (Api_errors.Server_error (
-      Api_errors.memory_constraint_violation, [order_constraint]))
+        Api_errors.memory_constraint_violation, [order_constraint]))
 
   let assert_valid_and_pinned_at_static_max ~constraints =
     if not (are_valid_and_pinned_at_static_max ~constraints)
     then raise (Api_errors.Server_error (
-      Api_errors.memory_constraint_violation, [equality_constraint]))
+        Api_errors.memory_constraint_violation, [equality_constraint]))
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
     if Pool_features.is_enabled ~__context Features.DMC
-      && not is_control_domain
-      && not (nested_virt ~__context vm)
+    && not is_control_domain
+    && not (nested_virt ~__context vm)
     then assert_valid ~constraints
     else assert_valid_and_pinned_at_static_max ~constraints
 

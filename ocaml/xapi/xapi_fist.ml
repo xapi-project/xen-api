@@ -114,9 +114,13 @@ let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
 
 let allow_test_patches () = fistpoint "allow_test_patches"
 
+let allow_test_updates () = fistpoint "allow_test_updates"
+
 let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
 
 let allowed_unsigned_patches () = fistpoint_read "allowed_unsigned_patches"
+
+let allowed_unsigned_updates () = fistpoint_read "allowed_unsigned_updates"
 
 (** Allows migration and suspension of VMs with NVIDIA vGPUs. *)
 let allow_nvidia_vgpu_migration () = fistpoint "allow_nvidia_vgpu_migration"

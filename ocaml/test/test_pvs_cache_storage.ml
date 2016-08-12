@@ -104,7 +104,7 @@ module Assert_not_in_use = Generic.Make(Generic.EncapsulateState(struct
                                             let _ = make_pvs_cache_storage ~__context ~site:site2 ~host:host1 () in
                                             let _ = make_pvs_cache_storage ~__context ~site:site2 ~host:host2 () in
                                             let _ = make_pvs_proxy ~__context ~site:site1 ~vIF:vif1 ~currently_attached:true () in
-                                            let _ = make_pvs_proxy ~__context ~site:site2 ~vIF:vif2 ~currently_attached:false () in		
+                                            let _ = make_pvs_proxy ~__context ~site:site2 ~vIF:vif2 ~currently_attached:false () in
                                             ()
 
                                           let extract_output __context (site, host) =

@@ -42,7 +42,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
      	      whether an operation should be allowed.
      	   3. if doing a VM start then assume the sharing check is done elsewhere
      	      (so VMs may share disks but our operations cannot)
-     	   4. for other operations, fail if any VBD has currently-attached=true or any VBD 
+     	   4. for other operations, fail if any VBD has currently-attached=true or any VBD
      	      has a current_operation itself
      	   5. HA prevents you from deleting statefiles or metadata volumes
      	   *)
@@ -200,7 +200,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         | _ -> None
       )
 
-let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
@@ -214,7 +214,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
   let all = Db.VDI.get_record_internal ~__context ~self in
-  let allowed = 
+  let allowed =
     let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
     List.fold_left (fun accu op -> check op @ accu) []
       [ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online; `forget ] in
@@ -224,7 +224,7 @@ let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id = 
+let cancel_task ~__context ~self ~task_id =
   let all = List.map fst (Db.VDI.get_current_operations ~__context ~self) in
   if List.mem task_id all then
     begin
@@ -241,7 +241,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (** Helper function to create a new VDI record with all fields copied from
     an original, except ref and *_operations, UUID and others supplied as optional arguments.
-    If a new UUID is not supplied, a fresh one is generated. 
+    If a new UUID is not supplied, a fresh one is generated.
     storage_lock defaults to false.
     Parent defaults to Ref.null.
 *)
@@ -250,12 +250,12 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
     ?xenstore_data ?sm_config ~current_operations ~__context ~original () =
   let a = Db.VDI.get_record_internal ~__context ~self:original in
   let r = Ref.make () in
-  Db.VDI.create ~__context ~ref:r 
+  Db.VDI.create ~__context ~ref:r
     ~uuid:(Uuid.to_string uuid)
     ~name_label:(default a.Db_actions.vDI_name_label name_label)
     ~name_description:(default a.Db_actions.vDI_name_description name_description)
     ~allowed_operations:[] ~current_operations
-    ~sR:(default a.Db_actions.vDI_SR sR)    
+    ~sR:(default a.Db_actions.vDI_SR sR)
     ~virtual_size:(default a.Db_actions.vDI_virtual_size virtual_size)
     ~physical_utilisation:(default a.Db_actions.vDI_physical_utilisation physical_utilisation)
     ~_type:(default a.Db_actions.vDI_type _type)
@@ -269,10 +269,10 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
     ~parent:(default Ref.null parent);
   r*)
 
-let require_uuid vdi_info = 
+let require_uuid vdi_info =
   match vdi_info.Smint.vdi_info_uuid with
   | Some uuid -> uuid
-  | None -> failwith "SM backend failed to return <uuid> field" 
+  | None -> failwith "SM backend failed to return <uuid> field"
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
@@ -346,7 +346,7 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
   let ref = Ref.make() in
   debug "VDI.introduce read_only = %b" read_only;
   Db.VDI.create ~__context ~ref ~uuid:uuid
-    ~name_label ~name_description 
+    ~name_label ~name_description
     ~current_operations:[] ~allowed_operations:[]
     ~is_a_snapshot ~snapshot_of ~snapshot_time
     ~sR ~virtual_size
@@ -368,14 +368,14 @@ let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_t
 let pool_introduce = internal_db_introduce
 let db_introduce = internal_db_introduce
 
-let db_forget ~__context ~vdi = 
+let db_forget ~__context ~vdi =
   debug "db_forget uuid=%s" (Db.VDI.get_uuid ~__context ~self:vdi);
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   let open Storage_access in
   let open Storage_interface in
-  debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
+  debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   (* Verify that the location field is unique in this SR - ignore if the vdi is being introduced with same location*)
   List.iter
@@ -384,7 +384,7 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
        && Db.VDI.get_uuid ~__context ~self:vdi <> uuid
        then raise (Api_errors.Server_error (Api_errors.location_not_unique, [ Ref.string_of sR; location ]))
     ) (Db.SR.get_VDIs ~__context ~self:sR);
-  let task = Context.get_task_id __context in	
+  let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sR in
   let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
@@ -411,10 +411,10 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
   update_allowed_operations ~__context ~self:ref;
   ref
 
-let update ~__context ~vdi = 
+let update ~__context ~vdi =
   let vdi_loc = Db.VDI.get_location ~__context ~self:vdi in
   debug "update ref=%s location=%s" (Ref.string_of vdi) vdi_loc;
-  let task = Context.get_task_id __context in	
+  let task = Context.get_task_id __context in
   let sR = Db.VDI.get_SR ~__context ~self:vdi in
   let sr' = Db.SR.get_uuid ~__context ~self:sR in
   let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
@@ -435,9 +435,9 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   let a = Db.VDI.get_record_internal ~__context ~self:vdi in
 
-  let call_snapshot () = 
+  let call_snapshot () =
     let open Storage_access in
-    let task = Context.get_task_id __context in	
+    let task = Context.get_task_id __context in
     let open Storage_interface in
     let vdi' = Db.VDI.get_location ~__context ~self:vdi in
     let vdi_info = {
@@ -493,7 +493,7 @@ let destroy ~__context ~self =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
-  let attached_vbds = List.filter 
+  let attached_vbds = List.filter
       (fun vbd->
          let r = Db.VBD.get_record_internal ~__context ~self:vbd in
          r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) vbds in
@@ -520,14 +520,14 @@ let destroy ~__context ~self =
       (* Db.VDI.destroy ~__context ~self *)
     end
 
-let resize_online ~__context ~vdi ~size = 
+let resize_online ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   Storage_access.transform_storage_exn
     (fun () ->
        let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
        let sr = Db.VDI.get_SR ~__context ~self:vdi in
-       let sr = Db.SR.get_uuid ~__context ~self:sr in      
+       let sr = Db.SR.get_uuid ~__context ~self:sr in
        let vdi' = Db.VDI.get_location ~__context ~self:vdi in
        let dbg = Ref.string_of (Context.get_task_id __context) in
        let new_size = C.VDI.resize ~dbg ~sr ~vdi:vdi' ~new_size:size in
@@ -536,12 +536,12 @@ let resize_online ~__context ~vdi ~size =
 
 let resize = resize_online
 
-let generate_config ~__context ~host ~vdi = 
+let generate_config ~__context ~host ~vdi =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   Sm.call_sm_vdi_functions ~__context ~vdi
     (fun srconf srtype sr ->
-       Sm.vdi_generate_config srconf srtype sr vdi) 
+       Sm.vdi_generate_config srconf srtype sr vdi)
 
 let clone ~__context ~vdi ~driver_params =
   Storage_access.transform_storage_exn
@@ -552,7 +552,7 @@ let clone ~__context ~vdi ~driver_params =
        with Storage_interface.Unimplemented _ ->
          debug "Backend does not implement VDI clone: doing it ourselves";
          let a = Db.VDI.get_record_internal ~__context ~self:vdi in
-         let newvdi = create ~__context 
+         let newvdi = create ~__context
              ~name_label:a.Db_actions.vDI_name_label
              ~name_description:a.Db_actions.vDI_name_description
              ~sR:a.Db_actions.vDI_SR
@@ -662,7 +662,7 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
     end;
     raise e
 
-let force_unlock ~__context ~vdi = 
+let force_unlock ~__context ~vdi =
   raise (Api_errors.Server_error(Api_errors.message_deprecated,[]))
 
 let set_sharable ~__context ~self ~value =
@@ -671,16 +671,16 @@ let set_sharable ~__context ~self ~value =
 let set_managed ~__context ~self ~value =
   Db.VDI.set_managed ~__context ~self ~value
 
-let set_read_only ~__context ~self ~value = 
+let set_read_only ~__context ~self ~value =
   Db.VDI.set_read_only ~__context ~self ~value
 
-let set_missing ~__context ~self ~value = 
+let set_missing ~__context ~self ~value =
   Db.VDI.set_missing ~__context ~self ~value
 
-let set_virtual_size ~__context ~self ~value = 
+let set_virtual_size ~__context ~self ~value =
   Db.VDI.set_virtual_size ~__context ~self ~value
 
-let set_physical_utilisation ~__context ~self ~value = 
+let set_physical_utilisation ~__context ~self ~value =
   Db.VDI.set_physical_utilisation ~__context ~self ~value
 
 let set_is_a_snapshot ~__context ~self ~value =

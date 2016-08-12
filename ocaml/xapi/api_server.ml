@@ -41,6 +41,7 @@ module Actions = struct
   module Host = Xapi_host
   module Host_crashdump = Xapi_host_crashdump
   module Pool = Xapi_pool
+  module Pool_update = Xapi_pool_update
   module Pool_patch = Xapi_pool_patch
   module Host_patch = Xapi_host_patch
   module Host_metrics = struct end
@@ -63,11 +64,11 @@ module Actions = struct
   module Data_source = struct end
   let not_implemented x = raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-  module VTPM = struct 
+  module VTPM = struct
     let create ~__context ~vM ~backend = not_implemented "VTPM.create"
     let destroy ~__context ~self = not_implemented "VTPM.destroy"
   end
-  module Console = struct 
+  module Console = struct
     let create ~__context ~other_config = not_implemented "Console.create"
     let destroy ~__context ~self = not_implemented "Console.destroy"
   end
@@ -108,7 +109,7 @@ let forward req body rpc =
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
    synchronous. However, we'd probably want to change this is the list starts getting longer. *)
-let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist 
+let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist
 let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.emergency_calls
 
 let is_himn_req req =
@@ -132,14 +133,14 @@ let callback1 is_json req fd body call =
 
   if !Xapi_globs.slave_emergency_mode && (not emergency_call)
   then raise !Xapi_globs.emergency_mode_error;
-  if is_slave && 
+  if is_slave &&
      ((Context.is_unix_socket fd && not whitelisted) ||
       (is_himn_req req && not emergency_call))
   then
     forward req body call
   else
     let response = Server.dispatch_call req fd call in
-    let translated = 
+    let translated =
       if is_json && response.Rpc.success && call.Rpc.name <> "system.listMethods" then
         {response with Rpc.contents = Rpc.rpc_of_string (Jsonrpc.to_string response.Rpc.contents)}
       else
@@ -158,10 +159,10 @@ let callback is_json req bio _ =
   try
     let rpc = Xmlrpc.call_of_string body in
     let response = callback1 is_json req fd (Some body) rpc in
-    let response_str = 
-      if rpc.Rpc.name = "system.listMethods" 
-      then 
-        let inner = Xmlrpc.to_a 
+    let response_str =
+      if rpc.Rpc.name = "system.listMethods"
+      then
+        let inner = Xmlrpc.to_a
             ~empty:Bigbuffer.make
             ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
             response.Rpc.contents in
@@ -169,16 +170,16 @@ let callback is_json req bio _ =
         let buf = Bigbuffer.make () in
         Bigbuffer.append_string buf s;
         buf
-      else 
-        Xmlrpc.a_of_response 
-          ~empty:Bigbuffer.make 
-          ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+      else
+        Xmlrpc.a_of_response
+          ~empty:Bigbuffer.make
+          ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
           response in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response_str)
       (fun fd -> Bigbuffer.to_fct response_str (fun s -> ignore(Unixext.really_write_string fd s)))
-  with 
+  with
   | (Api_errors.Server_error (err, params)) ->
     Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
       (Xmlrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
@@ -196,19 +197,19 @@ let jsoncallback req bio _ =
     debug "Got the jsonrpc body: %s" body;
     let rpc = Jsonrpc.call_of_string body in
     debug "Got the jsonrpc body: %s" body;
-    let response = Jsonrpc.a_of_response 
-        ~empty:Bigbuffer.make 
-        ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s)) 
+    let response = Jsonrpc.a_of_response
+        ~empty:Bigbuffer.make
+        ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
         (callback1 false req fd (Some body) rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
       (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
-  with 
+  with
   | (Api_errors.Server_error (err, params)) ->
     Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "application/json" ] fd
       (Jsonrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
 
 let options_callback req bio _ =
   let fd = Buf_io.fd_of bio in
-  Http_svr.respond_to_options req fd 
+  Http_svr.respond_to_options req fd

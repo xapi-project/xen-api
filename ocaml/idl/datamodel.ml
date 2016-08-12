@@ -137,6 +137,7 @@ let _alert = "alert"
 let _crashdump = "crashdump"
 let _pool = "pool"
 let _pool_patch = "pool_patch"
+let _pool_update = "pool_update"
 let _data_source = "data_source"
 let _blob = "blob"
 let _message = "message"
@@ -3969,6 +3970,115 @@ let host_crashdump =
       ]
     ()
 
+(* New Ely pool update mechanism *)
+
+let pool_update_after_apply_guidance =
+  Enum ("update_after_apply_guidance",
+        [ "restartHVM",  "This update requires HVM guests to be restarted once applied.";
+          "restartPV",   "This update requires PV guests to be restarted once applied.";
+          "restartHost", "This update requires the host to be restarted once applied.";
+          "restartXAPI", "This update requires XAPI to be restarted once applied.";
+        ])
+
+let pool_update_introduce = call
+    ~name:"introduce"
+    ~doc:"Introduce update VDI"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _vdi, "vdi", "The VDI which contains a software update." ]
+    ~result:(Ref _pool_update, "the introduced pool update")
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let pool_update_precheck = call
+    ~name:"precheck"
+    ~doc:"Execute the precheck stage of the selected update on a host"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on." ]
+    ~allowed_roles:_R_POOL_OP
+    ~forward_to:(HostExtension "Pool_update.precheck")
+    ()
+
+let pool_update_apply = call
+    ~name:"apply"
+    ~doc:"Apply the selected update to a host"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update to apply"; Ref _host, "host", "The host to apply the update to." ]
+    ~allowed_roles:_R_POOL_OP
+    ~forward_to:(HostExtension "Pool_update.apply")
+    ()
+
+let pool_update_pool_apply = call
+    ~name:"pool_apply"
+    ~doc:"Apply the selected update to all hosts in the pool"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update to apply"]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let pool_update_clean = call
+    ~name:"clean"
+    ~doc:"Removes the update's files from the host"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update to clean up"; Ref _host, "host", "The host to clean the update from." ]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let pool_update_pool_clean = call
+    ~name:"pool_clean"
+    ~doc:"Removes the update's files from all hosts in the pool, but does not revert the update"
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update to clean up" ]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let pool_update_destroy = call
+    ~name:"destroy"
+    ~doc:"Removes the update's files from all hosts in the pool, and removes the database entries. But does not revert the update."
+    ~in_oss_since:None
+    ~in_product_since:rel_ely
+    ~params:[ Ref _pool_update, "self", "The update to destroy" ]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let pool_update =
+  create_obj ~in_db:true
+    ~in_product_since:rel_ely
+    ~in_oss_since:None
+    ~internal_deprecated_since:None
+
+    ~persist:PersistEverything
+    ~gen_constructor_destructor:false
+    ~gen_events:true
+
+    ~name:_pool_update
+    ~descr:"Pool-wide updates to the host software"
+    ~doccomments:[]
+    ~messages_default_allowed_roles:_R_POOL_OP
+    ~messages:[
+      pool_update_introduce;
+      pool_update_precheck;
+      pool_update_apply;
+      pool_update_pool_apply;
+      pool_update_clean;
+      pool_update_pool_clean;
+      pool_update_destroy;
+    ]
+    ~contents:
+      [ uid       ~in_oss_since:None _pool_update;
+        namespace ~name:"name" ~contents:(names None StaticRO) ();
+        field     ~in_product_since:rel_ely ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None ~qualifier:StaticRO ~ty:Int "installation_size" "Size of the update in bytes";
+        field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set pool_update_after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
+        field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
+        field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
+      ]
+    ()
+
 (* New Miami pool patching mechanism *)
 
 let pool_patch_after_apply_guidance =
@@ -4759,6 +4869,7 @@ let host =
          field ~qualifier:RW ~ty:(Ref _sr) "crash_dump_sr" "The SR in which VDIs for crash dumps are created";
          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_crashdump)) "crashdumps" "Set of host crash dumps";
          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "patches" "Set of host patches";
+         field ~in_oss_since:None ~in_product_since:rel_ely ~qualifier:DynamicRO ~ty:(Set (Ref _pool_update)) "updates" "Set of updates";
          field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "physical blockdevices";
          field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu)) "host_CPUs" "The physical CPUs on this host";
          field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on this host";
@@ -9093,6 +9204,7 @@ let all_system =
 
     pool;
     pool_patch;
+    pool_update;
 
     vm;
     vm_metrics;
@@ -9196,6 +9308,8 @@ let all_relations =
     (_host_patch, "host"), (_host, "patches");
     (_host_patch, "pool_patch"), (_pool_patch, "host_patches");
 
+    (_pool_update, "hosts"), (_host, "updates");
+
     (_subject, "roles"), (_subject, "roles");
     (*(_subject, "roles"), (_role, "subjects");*)
     (_role, "subroles"), (_role, "subroles");
@@ -9289,6 +9403,7 @@ let expose_get_all_messages_for = [
   _pool;
   _sm;
   _pool_patch;
+  _pool_update;
   _bond;
   _vlan;
   _blob;

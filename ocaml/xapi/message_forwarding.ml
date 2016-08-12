@@ -400,6 +400,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of patch
     with _ -> "invalid"
 
+  let pool_update_uuid ~__context update =
+    try if Pool_role.is_master () then
+        Db.Pool_update.get_uuid __context update
+      else
+        Ref.string_of update
+    with _ -> "invalid"
+
   let pci_uuid ~__context pci =
     try if Pool_role.is_master () then
         Db.PCI.get_uuid __context pci
@@ -2643,6 +2650,30 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "Pool_patch.destroy: pool patch = '%s'" (pool_patch_uuid ~__context self);
       Xapi_pool_patch.destroy ~__context ~self
+  end
+
+  module Pool_update = struct
+    let introduce ~__context ~vdi =
+      info "Pool_update.introduce: vdi = '%s'" (vdi_uuid ~__context vdi);
+      Local.Pool_update.introduce ~__context ~vdi
+
+    let pool_apply ~__context ~self =
+      info "Pool_update.pool_apply: pool update = '%s'" (pool_update_uuid ~__context self);
+      Local.Pool_update.pool_apply ~__context ~self
+
+    let clean ~__context ~self ~host =
+      info "Pool_update.clean: pool update = '%s'" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.clean ~self ~host in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc -> Client.Pool_update.clean rpc session_id self host)
+
+    let pool_clean ~__context ~self =
+      info "Pool_update.pool_clean: pool update = '%s'" (pool_update_uuid ~__context self);
+      Local.Pool_update.pool_clean ~__context ~self
+
+    let destroy ~__context ~self =
+      info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);
+      Local.Pool_update.destroy ~__context ~self
   end
 
   module Host_metrics = struct
