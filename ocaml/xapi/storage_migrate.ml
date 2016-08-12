@@ -670,7 +670,12 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 			| Some vdi ->
 				debug "Cloning VDI %s" vdi.vdi;
 				let vdi = add_to_sm_config vdi "base_mirror" id in
-				Local.VDI.clone ~dbg ~sr ~vdi_info:vdi
+				let vdi_clone = Local.VDI.clone ~dbg ~sr ~vdi_info:vdi in
+				if vdi_clone.virtual_size <> vdi_info.virtual_size then begin
+					let new_size = Local.VDI.resize ~dbg ~sr ~vdi:vdi_clone.vdi ~new_size:vdi_info.virtual_size in
+					debug "Resize local VDI %s to %Ld: result %Ld" vdi_clone.vdi vdi_info.virtual_size new_size;
+				end;
+				vdi_clone
 			| None ->
 				debug "Creating a blank remote VDI";
 				Local.VDI.create ~dbg ~sr ~vdi_info
@@ -826,7 +831,12 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 			let remote_base = match nearest with
 				| Some vdi ->
 						debug "Cloning VDI %s" vdi.vdi;
-						Remote.VDI.clone ~dbg ~sr:dest ~vdi_info:vdi
+						let vdi_clone = Remote.VDI.clone ~dbg ~sr:dest ~vdi_info:vdi in
+						if vdi_clone.virtual_size <> local_vdi.virtual_size then begin
+							let new_size = Remote.VDI.resize ~dbg ~sr:dest ~vdi:vdi_clone.vdi ~new_size:local_vdi.virtual_size in
+							debug "Resize remote VDI %s to %Ld: result %Ld" vdi_clone.vdi local_vdi.virtual_size new_size;
+						end;
+						vdi_clone
 				| None ->
 						debug "Creating a blank remote VDI";
 						Remote.VDI.create ~dbg ~sr:dest ~vdi_info:{ local_vdi with sm_config = [] }  in
