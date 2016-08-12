@@ -2085,7 +2085,9 @@ module VBD = struct
 						)
 						(fun () ->
 							match domid, backend with
-							| Some x, Some (VDI _) -> Storage.dp_destroy task (Storage.id_of (string_of_int x) vbd.Vbd.id)
+							| Some x, None
+							| Some x, Some (VDI _)
+								-> Storage.dp_destroy task (Storage.id_of (string_of_int x) vbd.Vbd.id)
 							| _ -> ()
 						)
 				with 
