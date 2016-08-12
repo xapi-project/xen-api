@@ -486,7 +486,11 @@ let create ~__context ~name_label ~name_description
 		~start_time:Date.never
 		~install_time:Date.never
 		~last_updated:Date.never
-		~other_config:[];
+		~other_config:[]
+		~hvm:false
+		~nested_virt:false
+		~nomigrate:false
+		;
 	Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
 		~power_state:(`Halted) ~allowed_operations:[]
 		~current_operations:[]

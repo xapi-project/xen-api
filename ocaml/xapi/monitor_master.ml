@@ -43,8 +43,10 @@ let set_vm_metrics ~__context ~vm ~memory ~cpus =
 	let metrics = Db.VM.get_metrics ~__context ~self:vm in
 	if not (Db.is_valid_ref __context metrics) then (
 		let ref = Ref.make () in
-		Db.VM_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-			~memory_actual:0L ~vCPUs_number:0L
+		Db.VM_metrics.create ~__context ~ref
+			~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~memory_actual:0L
+			~vCPUs_number:0L
 			~vCPUs_utilisation:[]
 			~vCPUs_CPU:[]
 			~vCPUs_params:[]
@@ -53,7 +55,11 @@ let set_vm_metrics ~__context ~vm ~memory ~cpus =
 			~start_time:Date.never
 			~install_time:Date.never
 			~last_updated:Date.never
-			~other_config:[];
+			~other_config:[]
+			~hvm:false
+			~nested_virt:false
+			~nomigrate:false
+			;
 		Db.VM.set_metrics ~__context ~self:vm ~value:ref
 	);
 

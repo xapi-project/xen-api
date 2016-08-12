@@ -183,26 +183,32 @@ let create_tools_sr_noexn __context =
 	)
 
 let ensure_vm_metrics_records_exist __context =
-  List.iter (fun vm ->
-				 let m = Db.VM.get_metrics ~__context ~self:vm in
-				 if not(Db.is_valid_ref __context m) then begin
-				   info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
-				   let m = Ref.make () in
-				   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-				   Db.VM_metrics.create ~__context ~ref:m ~uuid
-					   ~vCPUs_number:0L
-					   ~vCPUs_utilisation:[] ~memory_actual:0L
-					   ~vCPUs_CPU:[]
-					   ~vCPUs_params:[]
-					   ~vCPUs_flags:[]
-					   ~start_time:Stdext.Date.never
-					   ~install_time:Stdext.Date.never
-					   ~state: []
-					   ~last_updated:(Stdext.Date.of_float 0.)
-					   ~other_config:[];
-				   Db.VM.set_metrics ~__context ~self:vm ~value:m
-				 end
-			) (Db.VM.get_all __context)
+	List.iter (fun vm ->
+		let m = Db.VM.get_metrics ~__context ~self:vm in
+		if not(Db.is_valid_ref __context m) then begin
+			info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
+			let m = Ref.make () in
+			let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+			Db.VM_metrics.create
+				~__context ~ref:m
+				~uuid
+				~vCPUs_number:0L
+				~vCPUs_utilisation:[]
+				~memory_actual:0L
+				~vCPUs_CPU:[]
+				~vCPUs_params:[]
+				~vCPUs_flags:[]
+				~start_time:Stdext.Date.never
+				~install_time:Stdext.Date.never
+				~state: []
+				~last_updated:(Stdext.Date.of_float 0.)
+				~other_config:[]
+				~hvm:false
+				~nested_virt:false
+				~nomigrate:false
+				;
+		 Db.VM.set_metrics ~__context ~self:vm ~value:m
+	 end) (Db.VM.get_all __context)
 
 let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "ensuring VM_metrics flags exist" ensure_vm_metrics_records_exist __context
 

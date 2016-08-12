@@ -253,7 +253,11 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 		~install_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_install_time) m))
 		~state:(default [] (may (fun x -> x.Db_actions.vM_metrics_state) m))
 		~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
-		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m));	
+		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m))
+		~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
+		~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
+		~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+		;
 
 	let guest_metrics = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm in
 

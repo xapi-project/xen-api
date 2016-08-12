@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 100
+let schema_minor_vsn = 101
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -7498,6 +7498,18 @@ let vm_metrics =
 		; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
 		  ~ty:(Map(String, String))
 		  "other_config" "additional configuration"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool
+		  "hvm" "hardware virtual machine"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool
+		  "nested_virt" "VM supports nested virtualisation"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool
+		  "nomigrate" "VM is immobile and can't migrate between hosts"
 		  ~persist:false
 		]
 		()

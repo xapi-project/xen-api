@@ -315,18 +315,25 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 	let rec mkints = function
 		| 0 -> []
 		| n -> (mkints (n - 1) @ [n]) in
-	Db.VM_metrics.create ~__context ~ref: domain_zero_metrics_ref ~uuid: (Uuid.to_string (Uuid.make_uuid ()))
+	Db.VM_metrics.create
+		~__context
+		~ref:domain_zero_metrics_ref
+		~uuid:(Uuid.to_string (Uuid.make_uuid ()))
 		~memory_actual: memory_constraints.target
-		~vCPUs_utilisation: (List.map (fun x -> Int64.of_int x, 0.) (mkints vcpus))
-		~vCPUs_number: (Int64.of_int vcpus)
+		~vCPUs_utilisation:(List.map (fun x -> Int64.of_int x, 0.) (mkints vcpus))
+		~vCPUs_number:(Int64.of_int vcpus)
 		~vCPUs_CPU:[]
 		~vCPUs_params:[]
-		~vCPUs_flags: []
-		~state: []
-		~start_time: Date.never
-		~install_time: Date.never
-		~last_updated: Date.never
-		~other_config:[];
+		~vCPUs_flags:[]
+		~state:[]
+		~start_time:Date.never
+		~install_time:Date.never
+		~last_updated:Date.never
+		~other_config:[]
+		~hvm:false
+		~nomigrate:false
+		~nested_virt:false
+		;
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Write the updated memory constraints to the database, if the VM is not
