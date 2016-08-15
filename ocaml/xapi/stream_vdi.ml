@@ -123,6 +123,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
     with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
       (fun ifd ->
 
+	 let reusable_buffer = String.make (Int64.to_int chunk_size) '\000' in
 
 	 (* NB. It used to be that chunks could be larger than a native int *)
 	 (* could handle, but this is no longer the case! Ensure all chunks *)
@@ -150,7 +151,10 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 			 (* no progress has been made *)
 			 stream_from (chunk_no + 1) offset
 		   end else begin
-			 let buffer = String.make this_chunk '\000' in
+			 let buffer = if (Int64.of_int this_chunk) = chunk_size
+				then reusable_buffer
+				else String.make this_chunk '\000'
+			 in
 			 Unixext.really_read ifd buffer 0 this_chunk;
 			 if not (Zerocheck.is_all_zeros buffer this_chunk) || first_or_last then begin
 			   last_transmission_time := now;
