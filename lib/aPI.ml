@@ -1,19 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-
-open Date
-
 type failure = (string list) with rpc
 let response_of_failure code params =
   Rpc.failure (rpc_of_failure (code::params))
@@ -24,14 +8,13 @@ include Rpc
 type string_list = string list with rpc
 
 module Ref = struct
-  type 'a t=string
-  let of_string x = x
-  let string_of x = x
-  let rpc_of_t _ x = rpc_of_string (string_of x)
+  include Ref
+  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)
   let t_of_rpc _ x = of_string (string_of_rpc x);
 end
 
 module Date = struct
+  open Stdext
   include Date
   let rpc_of_iso8601 x = DateTime (Date.to_string x)
   let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith "Date.iso8601_of_rpc"
@@ -142,6 +125,7 @@ type ref_pool_patch = [`pool_patch] Ref.t with rpc
 type ref_host_crashdump = [`host_crashdump] Ref.t with rpc
 type ref_VDI_set = [`VDI] Ref.t list with rpc
 type ref_VDI_to_string_map = (ref_VDI * string) list with rpc
+type ref_pool_patch_set = [`pool_patch] Ref.t list with rpc
 type int64_set = int64 list with rpc
 type host_display = [ `enabled | `disable_on_reboot | `disabled | `enable_on_reboot ] with rpc
 type host_display_set = host_display list with rpc
@@ -219,7 +203,6 @@ type hello_return_set = hello_return list with rpc
 type ref_VM_to_string_to_string_map_map = (ref_VM * string_to_string_map) list with rpc
 type ref_VM_to_string_set_map = (ref_VM * string_set) list with rpc
 type ref_pool_set = [`pool] Ref.t list with rpc
-type ref_pool_patch_set = [`pool_patch] Ref.t list with rpc
 type ref_host_patch_set = [`host_patch] Ref.t list with rpc
 type ref_console_set = [`console] Ref.t list with rpc
 type ref_VIF_set = [`VIF] Ref.t list with rpc
@@ -443,9 +426,9 @@ let host_crashdump_t_of_rpc x = on_dict (fun x -> { host_crashdump_uuid = string
 type ref_host_crashdump_to_host_crashdump_t_map = (ref_host_crashdump * host_crashdump_t) list with rpc
 type host_crashdump_t_set = host_crashdump_t list with rpc
 
-type host_t = { host_uuid : string; host_name_label : string; host_name_description : string; host_memory_overhead : int64; host_allowed_operations : host_allowed_operations_set; host_current_operations : string_to_host_allowed_operations_map; host_API_version_major : int64; host_API_version_minor : int64; host_API_version_vendor : string; host_API_version_vendor_implementation : string_to_string_map; host_enabled : bool; host_software_version : string_to_string_map; host_other_config : string_to_string_map; host_capabilities : string_set; host_cpu_configuration : string_to_string_map; host_sched_policy : string; host_supported_bootloaders : string_set; host_resident_VMs : ref_VM_set; host_logging : string_to_string_map; host_PIFs : ref_PIF_set; host_suspend_image_sr : ref_SR; host_crash_dump_sr : ref_SR; host_crashdumps : ref_host_crashdump_set; host_patches : ref_host_patch_set; host_PBDs : ref_PBD_set; host_host_CPUs : ref_host_cpu_set; host_cpu_info : string_to_string_map; host_hostname : string; host_address : string; host_metrics : ref_host_metrics; host_license_params : string_to_string_map; host_ha_statefiles : string_set; host_ha_network_peers : string_set; host_blobs : string_to_ref_blob_map; host_tags : string_set; host_external_auth_type : string; host_external_auth_service_name : string; host_external_auth_configuration : string_to_string_map; host_edition : string; host_license_server : string_to_string_map; host_bios_strings : string_to_string_map; host_power_on_mode : string; host_power_on_config : string_to_string_map; host_local_cache_sr : ref_SR; host_chipset_info : string_to_string_map; host_PCIs : ref_PCI_set; host_PGPUs : ref_PGPU_set; host_ssl_legacy : bool; host_guest_VCPUs_params : string_to_string_map; host_display : host_display; host_virtual_hardware_platform_versions : int64_set; host_control_domain : ref_VM }
-let rpc_of_host_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_uuid; "name_label",rpc_of_string x.host_name_label; "name_description",rpc_of_string x.host_name_description; "memory_overhead",rpc_of_int64 x.host_memory_overhead; "allowed_operations",rpc_of_host_allowed_operations_set x.host_allowed_operations; "current_operations",rpc_of_string_to_host_allowed_operations_map x.host_current_operations; "API_version_major",rpc_of_int64 x.host_API_version_major; "API_version_minor",rpc_of_int64 x.host_API_version_minor; "API_version_vendor",rpc_of_string x.host_API_version_vendor; "API_version_vendor_implementation",rpc_of_string_to_string_map x.host_API_version_vendor_implementation; "enabled",rpc_of_bool x.host_enabled; "software_version",rpc_of_string_to_string_map x.host_software_version; "other_config",rpc_of_string_to_string_map x.host_other_config; "capabilities",rpc_of_string_set x.host_capabilities; "cpu_configuration",rpc_of_string_to_string_map x.host_cpu_configuration; "sched_policy",rpc_of_string x.host_sched_policy; "supported_bootloaders",rpc_of_string_set x.host_supported_bootloaders; "resident_VMs",rpc_of_ref_VM_set x.host_resident_VMs; "logging",rpc_of_string_to_string_map x.host_logging; "PIFs",rpc_of_ref_PIF_set x.host_PIFs; "suspend_image_sr",rpc_of_ref_SR x.host_suspend_image_sr; "crash_dump_sr",rpc_of_ref_SR x.host_crash_dump_sr; "crashdumps",rpc_of_ref_host_crashdump_set x.host_crashdumps; "patches",rpc_of_ref_host_patch_set x.host_patches; "PBDs",rpc_of_ref_PBD_set x.host_PBDs; "host_CPUs",rpc_of_ref_host_cpu_set x.host_host_CPUs; "cpu_info",rpc_of_string_to_string_map x.host_cpu_info; "hostname",rpc_of_string x.host_hostname; "address",rpc_of_string x.host_address; "metrics",rpc_of_ref_host_metrics x.host_metrics; "license_params",rpc_of_string_to_string_map x.host_license_params; "ha_statefiles",rpc_of_string_set x.host_ha_statefiles; "ha_network_peers",rpc_of_string_set x.host_ha_network_peers; "blobs",rpc_of_string_to_ref_blob_map x.host_blobs; "tags",rpc_of_string_set x.host_tags; "external_auth_type",rpc_of_string x.host_external_auth_type; "external_auth_service_name",rpc_of_string x.host_external_auth_service_name; "external_auth_configuration",rpc_of_string_to_string_map x.host_external_auth_configuration; "edition",rpc_of_string x.host_edition; "license_server",rpc_of_string_to_string_map x.host_license_server; "bios_strings",rpc_of_string_to_string_map x.host_bios_strings; "power_on_mode",rpc_of_string x.host_power_on_mode; "power_on_config",rpc_of_string_to_string_map x.host_power_on_config; "local_cache_sr",rpc_of_ref_SR x.host_local_cache_sr; "chipset_info",rpc_of_string_to_string_map x.host_chipset_info; "PCIs",rpc_of_ref_PCI_set x.host_PCIs; "PGPUs",rpc_of_ref_PGPU_set x.host_PGPUs; "ssl_legacy",rpc_of_bool x.host_ssl_legacy; "guest_VCPUs_params",rpc_of_string_to_string_map x.host_guest_VCPUs_params; "display",rpc_of_host_display x.host_display; "virtual_hardware_platform_versions",rpc_of_int64_set x.host_virtual_hardware_platform_versions; "control_domain",rpc_of_ref_VM x.host_control_domain ]
-let host_t_of_rpc x = on_dict (fun x -> { host_uuid = string_of_rpc (List.assoc "uuid" x); host_name_label = string_of_rpc (List.assoc "name_label" x); host_name_description = string_of_rpc (List.assoc "name_description" x); host_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); host_allowed_operations = host_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); host_current_operations = string_to_host_allowed_operations_map_of_rpc (List.assoc "current_operations" x); host_API_version_major = int64_of_rpc (List.assoc "API_version_major" x); host_API_version_minor = int64_of_rpc (List.assoc "API_version_minor" x); host_API_version_vendor = string_of_rpc (List.assoc "API_version_vendor" x); host_API_version_vendor_implementation = string_to_string_map_of_rpc (List.assoc "API_version_vendor_implementation" x); host_enabled = bool_of_rpc (List.assoc "enabled" x); host_software_version = string_to_string_map_of_rpc (List.assoc "software_version" x); host_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); host_capabilities = string_set_of_rpc (List.assoc "capabilities" x); host_cpu_configuration = string_to_string_map_of_rpc (List.assoc "cpu_configuration" x); host_sched_policy = string_of_rpc (List.assoc "sched_policy" x); host_supported_bootloaders = string_set_of_rpc (List.assoc "supported_bootloaders" x); host_resident_VMs = ref_VM_set_of_rpc (List.assoc "resident_VMs" x); host_logging = string_to_string_map_of_rpc (List.assoc "logging" x); host_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); host_suspend_image_sr = ref_SR_of_rpc (List.assoc "suspend_image_sr" x); host_crash_dump_sr = ref_SR_of_rpc (List.assoc "crash_dump_sr" x); host_crashdumps = ref_host_crashdump_set_of_rpc (List.assoc "crashdumps" x); host_patches = ref_host_patch_set_of_rpc (List.assoc "patches" x); host_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); host_host_CPUs = ref_host_cpu_set_of_rpc (List.assoc "host_CPUs" x); host_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); host_hostname = string_of_rpc (List.assoc "hostname" x); host_address = string_of_rpc (List.assoc "address" x); host_metrics = ref_host_metrics_of_rpc (List.assoc "metrics" x); host_license_params = string_to_string_map_of_rpc (List.assoc "license_params" x); host_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); host_ha_network_peers = string_set_of_rpc (List.assoc "ha_network_peers" x); host_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); host_tags = string_set_of_rpc (List.assoc "tags" x); host_external_auth_type = string_of_rpc (List.assoc "external_auth_type" x); host_external_auth_service_name = string_of_rpc (List.assoc "external_auth_service_name" x); host_external_auth_configuration = string_to_string_map_of_rpc (List.assoc "external_auth_configuration" x); host_edition = string_of_rpc (List.assoc "edition" x); host_license_server = string_to_string_map_of_rpc (List.assoc "license_server" x); host_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); host_power_on_mode = string_of_rpc (List.assoc "power_on_mode" x); host_power_on_config = string_to_string_map_of_rpc (List.assoc "power_on_config" x); host_local_cache_sr = ref_SR_of_rpc (List.assoc "local_cache_sr" x); host_chipset_info = string_to_string_map_of_rpc (List.assoc "chipset_info" x); host_PCIs = ref_PCI_set_of_rpc (List.assoc "PCIs" x); host_PGPUs = ref_PGPU_set_of_rpc (List.assoc "PGPUs" x); host_ssl_legacy = bool_of_rpc (List.assoc "ssl_legacy" x); host_guest_VCPUs_params = string_to_string_map_of_rpc (List.assoc "guest_VCPUs_params" x); host_display = host_display_of_rpc (List.assoc "display" x); host_virtual_hardware_platform_versions = int64_set_of_rpc (List.assoc "virtual_hardware_platform_versions" x); host_control_domain = ref_VM_of_rpc (List.assoc "control_domain" x) }) x
+type host_t = { host_uuid : string; host_name_label : string; host_name_description : string; host_memory_overhead : int64; host_allowed_operations : host_allowed_operations_set; host_current_operations : string_to_host_allowed_operations_map; host_API_version_major : int64; host_API_version_minor : int64; host_API_version_vendor : string; host_API_version_vendor_implementation : string_to_string_map; host_enabled : bool; host_software_version : string_to_string_map; host_other_config : string_to_string_map; host_capabilities : string_set; host_cpu_configuration : string_to_string_map; host_sched_policy : string; host_supported_bootloaders : string_set; host_resident_VMs : ref_VM_set; host_logging : string_to_string_map; host_PIFs : ref_PIF_set; host_suspend_image_sr : ref_SR; host_crash_dump_sr : ref_SR; host_crashdumps : ref_host_crashdump_set; host_patches : ref_host_patch_set; host_PBDs : ref_PBD_set; host_host_CPUs : ref_host_cpu_set; host_cpu_info : string_to_string_map; host_hostname : string; host_address : string; host_metrics : ref_host_metrics; host_license_params : string_to_string_map; host_ha_statefiles : string_set; host_ha_network_peers : string_set; host_blobs : string_to_ref_blob_map; host_tags : string_set; host_external_auth_type : string; host_external_auth_service_name : string; host_external_auth_configuration : string_to_string_map; host_edition : string; host_license_server : string_to_string_map; host_bios_strings : string_to_string_map; host_power_on_mode : string; host_power_on_config : string_to_string_map; host_local_cache_sr : ref_SR; host_chipset_info : string_to_string_map; host_PCIs : ref_PCI_set; host_PGPUs : ref_PGPU_set; host_ssl_legacy : bool; host_guest_VCPUs_params : string_to_string_map; host_display : host_display; host_virtual_hardware_platform_versions : int64_set; host_control_domain : ref_VM; host_patches_requiring_reboot : ref_pool_patch_set }
+let rpc_of_host_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_uuid; "name_label",rpc_of_string x.host_name_label; "name_description",rpc_of_string x.host_name_description; "memory_overhead",rpc_of_int64 x.host_memory_overhead; "allowed_operations",rpc_of_host_allowed_operations_set x.host_allowed_operations; "current_operations",rpc_of_string_to_host_allowed_operations_map x.host_current_operations; "API_version_major",rpc_of_int64 x.host_API_version_major; "API_version_minor",rpc_of_int64 x.host_API_version_minor; "API_version_vendor",rpc_of_string x.host_API_version_vendor; "API_version_vendor_implementation",rpc_of_string_to_string_map x.host_API_version_vendor_implementation; "enabled",rpc_of_bool x.host_enabled; "software_version",rpc_of_string_to_string_map x.host_software_version; "other_config",rpc_of_string_to_string_map x.host_other_config; "capabilities",rpc_of_string_set x.host_capabilities; "cpu_configuration",rpc_of_string_to_string_map x.host_cpu_configuration; "sched_policy",rpc_of_string x.host_sched_policy; "supported_bootloaders",rpc_of_string_set x.host_supported_bootloaders; "resident_VMs",rpc_of_ref_VM_set x.host_resident_VMs; "logging",rpc_of_string_to_string_map x.host_logging; "PIFs",rpc_of_ref_PIF_set x.host_PIFs; "suspend_image_sr",rpc_of_ref_SR x.host_suspend_image_sr; "crash_dump_sr",rpc_of_ref_SR x.host_crash_dump_sr; "crashdumps",rpc_of_ref_host_crashdump_set x.host_crashdumps; "patches",rpc_of_ref_host_patch_set x.host_patches; "PBDs",rpc_of_ref_PBD_set x.host_PBDs; "host_CPUs",rpc_of_ref_host_cpu_set x.host_host_CPUs; "cpu_info",rpc_of_string_to_string_map x.host_cpu_info; "hostname",rpc_of_string x.host_hostname; "address",rpc_of_string x.host_address; "metrics",rpc_of_ref_host_metrics x.host_metrics; "license_params",rpc_of_string_to_string_map x.host_license_params; "ha_statefiles",rpc_of_string_set x.host_ha_statefiles; "ha_network_peers",rpc_of_string_set x.host_ha_network_peers; "blobs",rpc_of_string_to_ref_blob_map x.host_blobs; "tags",rpc_of_string_set x.host_tags; "external_auth_type",rpc_of_string x.host_external_auth_type; "external_auth_service_name",rpc_of_string x.host_external_auth_service_name; "external_auth_configuration",rpc_of_string_to_string_map x.host_external_auth_configuration; "edition",rpc_of_string x.host_edition; "license_server",rpc_of_string_to_string_map x.host_license_server; "bios_strings",rpc_of_string_to_string_map x.host_bios_strings; "power_on_mode",rpc_of_string x.host_power_on_mode; "power_on_config",rpc_of_string_to_string_map x.host_power_on_config; "local_cache_sr",rpc_of_ref_SR x.host_local_cache_sr; "chipset_info",rpc_of_string_to_string_map x.host_chipset_info; "PCIs",rpc_of_ref_PCI_set x.host_PCIs; "PGPUs",rpc_of_ref_PGPU_set x.host_PGPUs; "ssl_legacy",rpc_of_bool x.host_ssl_legacy; "guest_VCPUs_params",rpc_of_string_to_string_map x.host_guest_VCPUs_params; "display",rpc_of_host_display x.host_display; "virtual_hardware_platform_versions",rpc_of_int64_set x.host_virtual_hardware_platform_versions; "control_domain",rpc_of_ref_VM x.host_control_domain; "patches_requiring_reboot",rpc_of_ref_pool_patch_set x.host_patches_requiring_reboot ]
+let host_t_of_rpc x = on_dict (fun x -> { host_uuid = string_of_rpc (List.assoc "uuid" x); host_name_label = string_of_rpc (List.assoc "name_label" x); host_name_description = string_of_rpc (List.assoc "name_description" x); host_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); host_allowed_operations = host_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); host_current_operations = string_to_host_allowed_operations_map_of_rpc (List.assoc "current_operations" x); host_API_version_major = int64_of_rpc (List.assoc "API_version_major" x); host_API_version_minor = int64_of_rpc (List.assoc "API_version_minor" x); host_API_version_vendor = string_of_rpc (List.assoc "API_version_vendor" x); host_API_version_vendor_implementation = string_to_string_map_of_rpc (List.assoc "API_version_vendor_implementation" x); host_enabled = bool_of_rpc (List.assoc "enabled" x); host_software_version = string_to_string_map_of_rpc (List.assoc "software_version" x); host_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); host_capabilities = string_set_of_rpc (List.assoc "capabilities" x); host_cpu_configuration = string_to_string_map_of_rpc (List.assoc "cpu_configuration" x); host_sched_policy = string_of_rpc (List.assoc "sched_policy" x); host_supported_bootloaders = string_set_of_rpc (List.assoc "supported_bootloaders" x); host_resident_VMs = ref_VM_set_of_rpc (List.assoc "resident_VMs" x); host_logging = string_to_string_map_of_rpc (List.assoc "logging" x); host_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); host_suspend_image_sr = ref_SR_of_rpc (List.assoc "suspend_image_sr" x); host_crash_dump_sr = ref_SR_of_rpc (List.assoc "crash_dump_sr" x); host_crashdumps = ref_host_crashdump_set_of_rpc (List.assoc "crashdumps" x); host_patches = ref_host_patch_set_of_rpc (List.assoc "patches" x); host_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); host_host_CPUs = ref_host_cpu_set_of_rpc (List.assoc "host_CPUs" x); host_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); host_hostname = string_of_rpc (List.assoc "hostname" x); host_address = string_of_rpc (List.assoc "address" x); host_metrics = ref_host_metrics_of_rpc (List.assoc "metrics" x); host_license_params = string_to_string_map_of_rpc (List.assoc "license_params" x); host_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); host_ha_network_peers = string_set_of_rpc (List.assoc "ha_network_peers" x); host_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); host_tags = string_set_of_rpc (List.assoc "tags" x); host_external_auth_type = string_of_rpc (List.assoc "external_auth_type" x); host_external_auth_service_name = string_of_rpc (List.assoc "external_auth_service_name" x); host_external_auth_configuration = string_to_string_map_of_rpc (List.assoc "external_auth_configuration" x); host_edition = string_of_rpc (List.assoc "edition" x); host_license_server = string_to_string_map_of_rpc (List.assoc "license_server" x); host_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); host_power_on_mode = string_of_rpc (List.assoc "power_on_mode" x); host_power_on_config = string_to_string_map_of_rpc (List.assoc "power_on_config" x); host_local_cache_sr = ref_SR_of_rpc (List.assoc "local_cache_sr" x); host_chipset_info = string_to_string_map_of_rpc (List.assoc "chipset_info" x); host_PCIs = ref_PCI_set_of_rpc (List.assoc "PCIs" x); host_PGPUs = ref_PGPU_set_of_rpc (List.assoc "PGPUs" x); host_ssl_legacy = bool_of_rpc (List.assoc "ssl_legacy" x); host_guest_VCPUs_params = string_to_string_map_of_rpc (List.assoc "guest_VCPUs_params" x); host_display = host_display_of_rpc (List.assoc "display" x); host_virtual_hardware_platform_versions = int64_set_of_rpc (List.assoc "virtual_hardware_platform_versions" x); host_control_domain = ref_VM_of_rpc (List.assoc "control_domain" x); host_patches_requiring_reboot = ref_pool_patch_set_of_rpc (List.assoc "patches_requiring_reboot" x) }) x
 type ref_host_to_host_t_map = (ref_host * host_t) list with rpc
 type host_t_set = host_t list with rpc
 
@@ -479,9 +462,9 @@ let vM_metrics_t_of_rpc x = on_dict (fun x -> { vM_metrics_uuid = string_of_rpc 
 type ref_VM_metrics_to_vM_metrics_t_map = (ref_VM_metrics * vM_metrics_t) list with rpc
 type vM_metrics_t_set = vM_metrics_t list with rpc
 
-type vM_t = { vM_uuid : string; vM_allowed_operations : vm_operations_set; vM_current_operations : string_to_vm_operations_map; vM_power_state : vm_power_state; vM_name_label : string; vM_name_description : string; vM_user_version : int64; vM_is_a_template : bool; vM_suspend_VDI : ref_VDI; vM_resident_on : ref_host; vM_affinity : ref_host; vM_memory_overhead : int64; vM_memory_target : int64; vM_memory_static_max : int64; vM_memory_dynamic_max : int64; vM_memory_dynamic_min : int64; vM_memory_static_min : int64; vM_VCPUs_params : string_to_string_map; vM_VCPUs_max : int64; vM_VCPUs_at_startup : int64; vM_actions_after_shutdown : on_normal_exit; vM_actions_after_reboot : on_normal_exit; vM_actions_after_crash : on_crash_behaviour; vM_consoles : ref_console_set; vM_VIFs : ref_VIF_set; vM_VBDs : ref_VBD_set; vM_crash_dumps : ref_crashdump_set; vM_VTPMs : ref_VTPM_set; vM_PV_bootloader : string; vM_PV_kernel : string; vM_PV_ramdisk : string; vM_PV_args : string; vM_PV_bootloader_args : string; vM_PV_legacy_args : string; vM_HVM_boot_policy : string; vM_HVM_boot_params : string_to_string_map; vM_HVM_shadow_multiplier : float; vM_platform : string_to_string_map; vM_PCI_bus : string; vM_other_config : string_to_string_map; vM_domid : int64; vM_domarch : string; vM_last_boot_CPU_flags : string_to_string_map; vM_is_control_domain : bool; vM_metrics : ref_VM_metrics; vM_guest_metrics : ref_VM_guest_metrics; vM_last_booted_record : string; vM_recommendations : string; vM_xenstore_data : string_to_string_map; vM_ha_always_run : bool; vM_ha_restart_priority : string; vM_is_a_snapshot : bool; vM_snapshot_of : ref_VM; vM_snapshots : ref_VM_set; vM_snapshot_time : datetime; vM_transportable_snapshot_id : string; vM_blobs : string_to_ref_blob_map; vM_tags : string_set; vM_blocked_operations : vm_operations_to_string_map; vM_snapshot_info : string_to_string_map; vM_snapshot_metadata : string; vM_parent : ref_VM; vM_children : ref_VM_set; vM_bios_strings : string_to_string_map; vM_protection_policy : ref_VMPP; vM_is_snapshot_from_vmpp : bool; vM_appliance : ref_VM_appliance; vM_start_delay : int64; vM_shutdown_delay : int64; vM_order : int64; vM_VGPUs : ref_VGPU_set; vM_attached_PCIs : ref_PCI_set; vM_suspend_SR : ref_SR; vM_version : int64; vM_generation_id : string; vM_hardware_platform_version : int64; vM_has_vendor_device : bool }
-let rpc_of_vM_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_uuid; "allowed_operations",rpc_of_vm_operations_set x.vM_allowed_operations; "current_operations",rpc_of_string_to_vm_operations_map x.vM_current_operations; "power_state",rpc_of_vm_power_state x.vM_power_state; "name_label",rpc_of_string x.vM_name_label; "name_description",rpc_of_string x.vM_name_description; "user_version",rpc_of_int64 x.vM_user_version; "is_a_template",rpc_of_bool x.vM_is_a_template; "suspend_VDI",rpc_of_ref_VDI x.vM_suspend_VDI; "resident_on",rpc_of_ref_host x.vM_resident_on; "affinity",rpc_of_ref_host x.vM_affinity; "memory_overhead",rpc_of_int64 x.vM_memory_overhead; "memory_target",rpc_of_int64 x.vM_memory_target; "memory_static_max",rpc_of_int64 x.vM_memory_static_max; "memory_dynamic_max",rpc_of_int64 x.vM_memory_dynamic_max; "memory_dynamic_min",rpc_of_int64 x.vM_memory_dynamic_min; "memory_static_min",rpc_of_int64 x.vM_memory_static_min; "VCPUs_params",rpc_of_string_to_string_map x.vM_VCPUs_params; "VCPUs_max",rpc_of_int64 x.vM_VCPUs_max; "VCPUs_at_startup",rpc_of_int64 x.vM_VCPUs_at_startup; "actions_after_shutdown",rpc_of_on_normal_exit x.vM_actions_after_shutdown; "actions_after_reboot",rpc_of_on_normal_exit x.vM_actions_after_reboot; "actions_after_crash",rpc_of_on_crash_behaviour x.vM_actions_after_crash; "consoles",rpc_of_ref_console_set x.vM_consoles; "VIFs",rpc_of_ref_VIF_set x.vM_VIFs; "VBDs",rpc_of_ref_VBD_set x.vM_VBDs; "crash_dumps",rpc_of_ref_crashdump_set x.vM_crash_dumps; "VTPMs",rpc_of_ref_VTPM_set x.vM_VTPMs; "PV_bootloader",rpc_of_string x.vM_PV_bootloader; "PV_kernel",rpc_of_string x.vM_PV_kernel; "PV_ramdisk",rpc_of_string x.vM_PV_ramdisk; "PV_args",rpc_of_string x.vM_PV_args; "PV_bootloader_args",rpc_of_string x.vM_PV_bootloader_args; "PV_legacy_args",rpc_of_string x.vM_PV_legacy_args; "HVM_boot_policy",rpc_of_string x.vM_HVM_boot_policy; "HVM_boot_params",rpc_of_string_to_string_map x.vM_HVM_boot_params; "HVM_shadow_multiplier",rpc_of_float x.vM_HVM_shadow_multiplier; "platform",rpc_of_string_to_string_map x.vM_platform; "PCI_bus",rpc_of_string x.vM_PCI_bus; "other_config",rpc_of_string_to_string_map x.vM_other_config; "domid",rpc_of_int64 x.vM_domid; "domarch",rpc_of_string x.vM_domarch; "last_boot_CPU_flags",rpc_of_string_to_string_map x.vM_last_boot_CPU_flags; "is_control_domain",rpc_of_bool x.vM_is_control_domain; "metrics",rpc_of_ref_VM_metrics x.vM_metrics; "guest_metrics",rpc_of_ref_VM_guest_metrics x.vM_guest_metrics; "last_booted_record",rpc_of_string x.vM_last_booted_record; "recommendations",rpc_of_string x.vM_recommendations; "xenstore_data",rpc_of_string_to_string_map x.vM_xenstore_data; "ha_always_run",rpc_of_bool x.vM_ha_always_run; "ha_restart_priority",rpc_of_string x.vM_ha_restart_priority; "is_a_snapshot",rpc_of_bool x.vM_is_a_snapshot; "snapshot_of",rpc_of_ref_VM x.vM_snapshot_of; "snapshots",rpc_of_ref_VM_set x.vM_snapshots; "snapshot_time",rpc_of_datetime x.vM_snapshot_time; "transportable_snapshot_id",rpc_of_string x.vM_transportable_snapshot_id; "blobs",rpc_of_string_to_ref_blob_map x.vM_blobs; "tags",rpc_of_string_set x.vM_tags; "blocked_operations",rpc_of_vm_operations_to_string_map x.vM_blocked_operations; "snapshot_info",rpc_of_string_to_string_map x.vM_snapshot_info; "snapshot_metadata",rpc_of_string x.vM_snapshot_metadata; "parent",rpc_of_ref_VM x.vM_parent; "children",rpc_of_ref_VM_set x.vM_children; "bios_strings",rpc_of_string_to_string_map x.vM_bios_strings; "protection_policy",rpc_of_ref_VMPP x.vM_protection_policy; "is_snapshot_from_vmpp",rpc_of_bool x.vM_is_snapshot_from_vmpp; "appliance",rpc_of_ref_VM_appliance x.vM_appliance; "start_delay",rpc_of_int64 x.vM_start_delay; "shutdown_delay",rpc_of_int64 x.vM_shutdown_delay; "order",rpc_of_int64 x.vM_order; "VGPUs",rpc_of_ref_VGPU_set x.vM_VGPUs; "attached_PCIs",rpc_of_ref_PCI_set x.vM_attached_PCIs; "suspend_SR",rpc_of_ref_SR x.vM_suspend_SR; "version",rpc_of_int64 x.vM_version; "generation_id",rpc_of_string x.vM_generation_id; "hardware_platform_version",rpc_of_int64 x.vM_hardware_platform_version; "has_vendor_device",rpc_of_bool x.vM_has_vendor_device ]
-let vM_t_of_rpc x = on_dict (fun x -> { vM_uuid = string_of_rpc (List.assoc "uuid" x); vM_allowed_operations = vm_operations_set_of_rpc (List.assoc "allowed_operations" x); vM_current_operations = string_to_vm_operations_map_of_rpc (List.assoc "current_operations" x); vM_power_state = vm_power_state_of_rpc (List.assoc "power_state" x); vM_name_label = string_of_rpc (List.assoc "name_label" x); vM_name_description = string_of_rpc (List.assoc "name_description" x); vM_user_version = int64_of_rpc (List.assoc "user_version" x); vM_is_a_template = bool_of_rpc (List.assoc "is_a_template" x); vM_suspend_VDI = ref_VDI_of_rpc (List.assoc "suspend_VDI" x); vM_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); vM_affinity = ref_host_of_rpc (List.assoc "affinity" x); vM_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); vM_memory_target = int64_of_rpc (List.assoc "memory_target" x); vM_memory_static_max = int64_of_rpc (List.assoc "memory_static_max" x); vM_memory_dynamic_max = int64_of_rpc (List.assoc "memory_dynamic_max" x); vM_memory_dynamic_min = int64_of_rpc (List.assoc "memory_dynamic_min" x); vM_memory_static_min = int64_of_rpc (List.assoc "memory_static_min" x); vM_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_VCPUs_max = int64_of_rpc (List.assoc "VCPUs_max" x); vM_VCPUs_at_startup = int64_of_rpc (List.assoc "VCPUs_at_startup" x); vM_actions_after_shutdown = on_normal_exit_of_rpc (List.assoc "actions_after_shutdown" x); vM_actions_after_reboot = on_normal_exit_of_rpc (List.assoc "actions_after_reboot" x); vM_actions_after_crash = on_crash_behaviour_of_rpc (List.assoc "actions_after_crash" x); vM_consoles = ref_console_set_of_rpc (List.assoc "consoles" x); vM_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); vM_VBDs = ref_VBD_set_of_rpc (List.assoc "VBDs" x); vM_crash_dumps = ref_crashdump_set_of_rpc (List.assoc "crash_dumps" x); vM_VTPMs = ref_VTPM_set_of_rpc (List.assoc "VTPMs" x); vM_PV_bootloader = string_of_rpc (List.assoc "PV_bootloader" x); vM_PV_kernel = string_of_rpc (List.assoc "PV_kernel" x); vM_PV_ramdisk = string_of_rpc (List.assoc "PV_ramdisk" x); vM_PV_args = string_of_rpc (List.assoc "PV_args" x); vM_PV_bootloader_args = string_of_rpc (List.assoc "PV_bootloader_args" x); vM_PV_legacy_args = string_of_rpc (List.assoc "PV_legacy_args" x); vM_HVM_boot_policy = string_of_rpc (List.assoc "HVM_boot_policy" x); vM_HVM_boot_params = string_to_string_map_of_rpc (List.assoc "HVM_boot_params" x); vM_HVM_shadow_multiplier = float_of_rpc (List.assoc "HVM_shadow_multiplier" x); vM_platform = string_to_string_map_of_rpc (List.assoc "platform" x); vM_PCI_bus = string_of_rpc (List.assoc "PCI_bus" x); vM_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_domid = int64_of_rpc (List.assoc "domid" x); vM_domarch = string_of_rpc (List.assoc "domarch" x); vM_last_boot_CPU_flags = string_to_string_map_of_rpc (List.assoc "last_boot_CPU_flags" x); vM_is_control_domain = bool_of_rpc (List.assoc "is_control_domain" x); vM_metrics = ref_VM_metrics_of_rpc (List.assoc "metrics" x); vM_guest_metrics = ref_VM_guest_metrics_of_rpc (List.assoc "guest_metrics" x); vM_last_booted_record = string_of_rpc (List.assoc "last_booted_record" x); vM_recommendations = string_of_rpc (List.assoc "recommendations" x); vM_xenstore_data = string_to_string_map_of_rpc (List.assoc "xenstore_data" x); vM_ha_always_run = bool_of_rpc (List.assoc "ha_always_run" x); vM_ha_restart_priority = string_of_rpc (List.assoc "ha_restart_priority" x); vM_is_a_snapshot = bool_of_rpc (List.assoc "is_a_snapshot" x); vM_snapshot_of = ref_VM_of_rpc (List.assoc "snapshot_of" x); vM_snapshots = ref_VM_set_of_rpc (List.assoc "snapshots" x); vM_snapshot_time = datetime_of_rpc (List.assoc "snapshot_time" x); vM_transportable_snapshot_id = string_of_rpc (List.assoc "transportable_snapshot_id" x); vM_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); vM_tags = string_set_of_rpc (List.assoc "tags" x); vM_blocked_operations = vm_operations_to_string_map_of_rpc (List.assoc "blocked_operations" x); vM_snapshot_info = string_to_string_map_of_rpc (List.assoc "snapshot_info" x); vM_snapshot_metadata = string_of_rpc (List.assoc "snapshot_metadata" x); vM_parent = ref_VM_of_rpc (List.assoc "parent" x); vM_children = ref_VM_set_of_rpc (List.assoc "children" x); vM_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); vM_protection_policy = ref_VMPP_of_rpc (List.assoc "protection_policy" x); vM_is_snapshot_from_vmpp = bool_of_rpc (List.assoc "is_snapshot_from_vmpp" x); vM_appliance = ref_VM_appliance_of_rpc (List.assoc "appliance" x); vM_start_delay = int64_of_rpc (List.assoc "start_delay" x); vM_shutdown_delay = int64_of_rpc (List.assoc "shutdown_delay" x); vM_order = int64_of_rpc (List.assoc "order" x); vM_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vM_attached_PCIs = ref_PCI_set_of_rpc (List.assoc "attached_PCIs" x); vM_suspend_SR = ref_SR_of_rpc (List.assoc "suspend_SR" x); vM_version = int64_of_rpc (List.assoc "version" x); vM_generation_id = string_of_rpc (List.assoc "generation_id" x); vM_hardware_platform_version = int64_of_rpc (List.assoc "hardware_platform_version" x); vM_has_vendor_device = bool_of_rpc (List.assoc "has_vendor_device" x) }) x
+type vM_t = { vM_uuid : string; vM_allowed_operations : vm_operations_set; vM_current_operations : string_to_vm_operations_map; vM_power_state : vm_power_state; vM_name_label : string; vM_name_description : string; vM_user_version : int64; vM_is_a_template : bool; vM_suspend_VDI : ref_VDI; vM_resident_on : ref_host; vM_affinity : ref_host; vM_memory_overhead : int64; vM_memory_target : int64; vM_memory_static_max : int64; vM_memory_dynamic_max : int64; vM_memory_dynamic_min : int64; vM_memory_static_min : int64; vM_VCPUs_params : string_to_string_map; vM_VCPUs_max : int64; vM_VCPUs_at_startup : int64; vM_actions_after_shutdown : on_normal_exit; vM_actions_after_reboot : on_normal_exit; vM_actions_after_crash : on_crash_behaviour; vM_consoles : ref_console_set; vM_VIFs : ref_VIF_set; vM_VBDs : ref_VBD_set; vM_crash_dumps : ref_crashdump_set; vM_VTPMs : ref_VTPM_set; vM_PV_bootloader : string; vM_PV_kernel : string; vM_PV_ramdisk : string; vM_PV_args : string; vM_PV_bootloader_args : string; vM_PV_legacy_args : string; vM_HVM_boot_policy : string; vM_HVM_boot_params : string_to_string_map; vM_HVM_shadow_multiplier : float; vM_platform : string_to_string_map; vM_PCI_bus : string; vM_other_config : string_to_string_map; vM_domid : int64; vM_domarch : string; vM_last_boot_CPU_flags : string_to_string_map; vM_is_control_domain : bool; vM_metrics : ref_VM_metrics; vM_guest_metrics : ref_VM_guest_metrics; vM_last_booted_record : string; vM_recommendations : string; vM_xenstore_data : string_to_string_map; vM_ha_always_run : bool; vM_ha_restart_priority : string; vM_is_a_snapshot : bool; vM_snapshot_of : ref_VM; vM_snapshots : ref_VM_set; vM_snapshot_time : datetime; vM_transportable_snapshot_id : string; vM_blobs : string_to_ref_blob_map; vM_tags : string_set; vM_blocked_operations : vm_operations_to_string_map; vM_snapshot_info : string_to_string_map; vM_snapshot_metadata : string; vM_parent : ref_VM; vM_children : ref_VM_set; vM_bios_strings : string_to_string_map; vM_protection_policy : ref_VMPP; vM_is_snapshot_from_vmpp : bool; vM_appliance : ref_VM_appliance; vM_start_delay : int64; vM_shutdown_delay : int64; vM_order : int64; vM_VGPUs : ref_VGPU_set; vM_attached_PCIs : ref_PCI_set; vM_suspend_SR : ref_SR; vM_version : int64; vM_generation_id : string; vM_hardware_platform_version : int64; vM_has_vendor_device : bool; vM_requires_reboot : bool }
+let rpc_of_vM_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_uuid; "allowed_operations",rpc_of_vm_operations_set x.vM_allowed_operations; "current_operations",rpc_of_string_to_vm_operations_map x.vM_current_operations; "power_state",rpc_of_vm_power_state x.vM_power_state; "name_label",rpc_of_string x.vM_name_label; "name_description",rpc_of_string x.vM_name_description; "user_version",rpc_of_int64 x.vM_user_version; "is_a_template",rpc_of_bool x.vM_is_a_template; "suspend_VDI",rpc_of_ref_VDI x.vM_suspend_VDI; "resident_on",rpc_of_ref_host x.vM_resident_on; "affinity",rpc_of_ref_host x.vM_affinity; "memory_overhead",rpc_of_int64 x.vM_memory_overhead; "memory_target",rpc_of_int64 x.vM_memory_target; "memory_static_max",rpc_of_int64 x.vM_memory_static_max; "memory_dynamic_max",rpc_of_int64 x.vM_memory_dynamic_max; "memory_dynamic_min",rpc_of_int64 x.vM_memory_dynamic_min; "memory_static_min",rpc_of_int64 x.vM_memory_static_min; "VCPUs_params",rpc_of_string_to_string_map x.vM_VCPUs_params; "VCPUs_max",rpc_of_int64 x.vM_VCPUs_max; "VCPUs_at_startup",rpc_of_int64 x.vM_VCPUs_at_startup; "actions_after_shutdown",rpc_of_on_normal_exit x.vM_actions_after_shutdown; "actions_after_reboot",rpc_of_on_normal_exit x.vM_actions_after_reboot; "actions_after_crash",rpc_of_on_crash_behaviour x.vM_actions_after_crash; "consoles",rpc_of_ref_console_set x.vM_consoles; "VIFs",rpc_of_ref_VIF_set x.vM_VIFs; "VBDs",rpc_of_ref_VBD_set x.vM_VBDs; "crash_dumps",rpc_of_ref_crashdump_set x.vM_crash_dumps; "VTPMs",rpc_of_ref_VTPM_set x.vM_VTPMs; "PV_bootloader",rpc_of_string x.vM_PV_bootloader; "PV_kernel",rpc_of_string x.vM_PV_kernel; "PV_ramdisk",rpc_of_string x.vM_PV_ramdisk; "PV_args",rpc_of_string x.vM_PV_args; "PV_bootloader_args",rpc_of_string x.vM_PV_bootloader_args; "PV_legacy_args",rpc_of_string x.vM_PV_legacy_args; "HVM_boot_policy",rpc_of_string x.vM_HVM_boot_policy; "HVM_boot_params",rpc_of_string_to_string_map x.vM_HVM_boot_params; "HVM_shadow_multiplier",rpc_of_float x.vM_HVM_shadow_multiplier; "platform",rpc_of_string_to_string_map x.vM_platform; "PCI_bus",rpc_of_string x.vM_PCI_bus; "other_config",rpc_of_string_to_string_map x.vM_other_config; "domid",rpc_of_int64 x.vM_domid; "domarch",rpc_of_string x.vM_domarch; "last_boot_CPU_flags",rpc_of_string_to_string_map x.vM_last_boot_CPU_flags; "is_control_domain",rpc_of_bool x.vM_is_control_domain; "metrics",rpc_of_ref_VM_metrics x.vM_metrics; "guest_metrics",rpc_of_ref_VM_guest_metrics x.vM_guest_metrics; "last_booted_record",rpc_of_string x.vM_last_booted_record; "recommendations",rpc_of_string x.vM_recommendations; "xenstore_data",rpc_of_string_to_string_map x.vM_xenstore_data; "ha_always_run",rpc_of_bool x.vM_ha_always_run; "ha_restart_priority",rpc_of_string x.vM_ha_restart_priority; "is_a_snapshot",rpc_of_bool x.vM_is_a_snapshot; "snapshot_of",rpc_of_ref_VM x.vM_snapshot_of; "snapshots",rpc_of_ref_VM_set x.vM_snapshots; "snapshot_time",rpc_of_datetime x.vM_snapshot_time; "transportable_snapshot_id",rpc_of_string x.vM_transportable_snapshot_id; "blobs",rpc_of_string_to_ref_blob_map x.vM_blobs; "tags",rpc_of_string_set x.vM_tags; "blocked_operations",rpc_of_vm_operations_to_string_map x.vM_blocked_operations; "snapshot_info",rpc_of_string_to_string_map x.vM_snapshot_info; "snapshot_metadata",rpc_of_string x.vM_snapshot_metadata; "parent",rpc_of_ref_VM x.vM_parent; "children",rpc_of_ref_VM_set x.vM_children; "bios_strings",rpc_of_string_to_string_map x.vM_bios_strings; "protection_policy",rpc_of_ref_VMPP x.vM_protection_policy; "is_snapshot_from_vmpp",rpc_of_bool x.vM_is_snapshot_from_vmpp; "appliance",rpc_of_ref_VM_appliance x.vM_appliance; "start_delay",rpc_of_int64 x.vM_start_delay; "shutdown_delay",rpc_of_int64 x.vM_shutdown_delay; "order",rpc_of_int64 x.vM_order; "VGPUs",rpc_of_ref_VGPU_set x.vM_VGPUs; "attached_PCIs",rpc_of_ref_PCI_set x.vM_attached_PCIs; "suspend_SR",rpc_of_ref_SR x.vM_suspend_SR; "version",rpc_of_int64 x.vM_version; "generation_id",rpc_of_string x.vM_generation_id; "hardware_platform_version",rpc_of_int64 x.vM_hardware_platform_version; "has_vendor_device",rpc_of_bool x.vM_has_vendor_device; "requires_reboot",rpc_of_bool x.vM_requires_reboot ]
+let vM_t_of_rpc x = on_dict (fun x -> { vM_uuid = string_of_rpc (List.assoc "uuid" x); vM_allowed_operations = vm_operations_set_of_rpc (List.assoc "allowed_operations" x); vM_current_operations = string_to_vm_operations_map_of_rpc (List.assoc "current_operations" x); vM_power_state = vm_power_state_of_rpc (List.assoc "power_state" x); vM_name_label = string_of_rpc (List.assoc "name_label" x); vM_name_description = string_of_rpc (List.assoc "name_description" x); vM_user_version = int64_of_rpc (List.assoc "user_version" x); vM_is_a_template = bool_of_rpc (List.assoc "is_a_template" x); vM_suspend_VDI = ref_VDI_of_rpc (List.assoc "suspend_VDI" x); vM_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); vM_affinity = ref_host_of_rpc (List.assoc "affinity" x); vM_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); vM_memory_target = int64_of_rpc (List.assoc "memory_target" x); vM_memory_static_max = int64_of_rpc (List.assoc "memory_static_max" x); vM_memory_dynamic_max = int64_of_rpc (List.assoc "memory_dynamic_max" x); vM_memory_dynamic_min = int64_of_rpc (List.assoc "memory_dynamic_min" x); vM_memory_static_min = int64_of_rpc (List.assoc "memory_static_min" x); vM_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_VCPUs_max = int64_of_rpc (List.assoc "VCPUs_max" x); vM_VCPUs_at_startup = int64_of_rpc (List.assoc "VCPUs_at_startup" x); vM_actions_after_shutdown = on_normal_exit_of_rpc (List.assoc "actions_after_shutdown" x); vM_actions_after_reboot = on_normal_exit_of_rpc (List.assoc "actions_after_reboot" x); vM_actions_after_crash = on_crash_behaviour_of_rpc (List.assoc "actions_after_crash" x); vM_consoles = ref_console_set_of_rpc (List.assoc "consoles" x); vM_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); vM_VBDs = ref_VBD_set_of_rpc (List.assoc "VBDs" x); vM_crash_dumps = ref_crashdump_set_of_rpc (List.assoc "crash_dumps" x); vM_VTPMs = ref_VTPM_set_of_rpc (List.assoc "VTPMs" x); vM_PV_bootloader = string_of_rpc (List.assoc "PV_bootloader" x); vM_PV_kernel = string_of_rpc (List.assoc "PV_kernel" x); vM_PV_ramdisk = string_of_rpc (List.assoc "PV_ramdisk" x); vM_PV_args = string_of_rpc (List.assoc "PV_args" x); vM_PV_bootloader_args = string_of_rpc (List.assoc "PV_bootloader_args" x); vM_PV_legacy_args = string_of_rpc (List.assoc "PV_legacy_args" x); vM_HVM_boot_policy = string_of_rpc (List.assoc "HVM_boot_policy" x); vM_HVM_boot_params = string_to_string_map_of_rpc (List.assoc "HVM_boot_params" x); vM_HVM_shadow_multiplier = float_of_rpc (List.assoc "HVM_shadow_multiplier" x); vM_platform = string_to_string_map_of_rpc (List.assoc "platform" x); vM_PCI_bus = string_of_rpc (List.assoc "PCI_bus" x); vM_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_domid = int64_of_rpc (List.assoc "domid" x); vM_domarch = string_of_rpc (List.assoc "domarch" x); vM_last_boot_CPU_flags = string_to_string_map_of_rpc (List.assoc "last_boot_CPU_flags" x); vM_is_control_domain = bool_of_rpc (List.assoc "is_control_domain" x); vM_metrics = ref_VM_metrics_of_rpc (List.assoc "metrics" x); vM_guest_metrics = ref_VM_guest_metrics_of_rpc (List.assoc "guest_metrics" x); vM_last_booted_record = string_of_rpc (List.assoc "last_booted_record" x); vM_recommendations = string_of_rpc (List.assoc "recommendations" x); vM_xenstore_data = string_to_string_map_of_rpc (List.assoc "xenstore_data" x); vM_ha_always_run = bool_of_rpc (List.assoc "ha_always_run" x); vM_ha_restart_priority = string_of_rpc (List.assoc "ha_restart_priority" x); vM_is_a_snapshot = bool_of_rpc (List.assoc "is_a_snapshot" x); vM_snapshot_of = ref_VM_of_rpc (List.assoc "snapshot_of" x); vM_snapshots = ref_VM_set_of_rpc (List.assoc "snapshots" x); vM_snapshot_time = datetime_of_rpc (List.assoc "snapshot_time" x); vM_transportable_snapshot_id = string_of_rpc (List.assoc "transportable_snapshot_id" x); vM_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); vM_tags = string_set_of_rpc (List.assoc "tags" x); vM_blocked_operations = vm_operations_to_string_map_of_rpc (List.assoc "blocked_operations" x); vM_snapshot_info = string_to_string_map_of_rpc (List.assoc "snapshot_info" x); vM_snapshot_metadata = string_of_rpc (List.assoc "snapshot_metadata" x); vM_parent = ref_VM_of_rpc (List.assoc "parent" x); vM_children = ref_VM_set_of_rpc (List.assoc "children" x); vM_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); vM_protection_policy = ref_VMPP_of_rpc (List.assoc "protection_policy" x); vM_is_snapshot_from_vmpp = bool_of_rpc (List.assoc "is_snapshot_from_vmpp" x); vM_appliance = ref_VM_appliance_of_rpc (List.assoc "appliance" x); vM_start_delay = int64_of_rpc (List.assoc "start_delay" x); vM_shutdown_delay = int64_of_rpc (List.assoc "shutdown_delay" x); vM_order = int64_of_rpc (List.assoc "order" x); vM_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vM_attached_PCIs = ref_PCI_set_of_rpc (List.assoc "attached_PCIs" x); vM_suspend_SR = ref_SR_of_rpc (List.assoc "suspend_SR" x); vM_version = int64_of_rpc (List.assoc "version" x); vM_generation_id = string_of_rpc (List.assoc "generation_id" x); vM_hardware_platform_version = int64_of_rpc (List.assoc "hardware_platform_version" x); vM_has_vendor_device = bool_of_rpc (List.assoc "has_vendor_device" x); vM_requires_reboot = bool_of_rpc (List.assoc "requires_reboot" x) }) x
 type ref_VM_to_vM_t_map = (ref_VM * vM_t) list with rpc
 type vM_t_set = vM_t list with rpc
 
@@ -491,9 +474,9 @@ let pool_patch_t_of_rpc x = on_dict (fun x -> { pool_patch_uuid = string_of_rpc 
 type ref_pool_patch_to_pool_patch_t_map = (ref_pool_patch * pool_patch_t) list with rpc
 type pool_patch_t_set = pool_patch_t list with rpc
 
-type pool_t = { pool_uuid : string; pool_name_label : string; pool_name_description : string; pool_master : ref_host; pool_default_SR : ref_SR; pool_suspend_image_SR : ref_SR; pool_crash_dump_SR : ref_SR; pool_other_config : string_to_string_map; pool_ha_enabled : bool; pool_ha_configuration : string_to_string_map; pool_ha_statefiles : string_set; pool_ha_host_failures_to_tolerate : int64; pool_ha_plan_exists_for : int64; pool_ha_allow_overcommit : bool; pool_ha_overcommitted : bool; pool_blobs : string_to_ref_blob_map; pool_tags : string_set; pool_gui_config : string_to_string_map; pool_health_check_config : string_to_string_map; pool_wlb_url : string; pool_wlb_username : string; pool_wlb_enabled : bool; pool_wlb_verify_cert : bool; pool_redo_log_enabled : bool; pool_redo_log_vdi : ref_VDI; pool_vswitch_controller : string; pool_restrictions : string_to_string_map; pool_metadata_VDIs : ref_VDI_set; pool_ha_cluster_stack : string; pool_allowed_operations : pool_allowed_operations_set; pool_current_operations : string_to_pool_allowed_operations_map; pool_guest_agent_config : string_to_string_map; pool_cpu_info : string_to_string_map; pool_policy_no_vendor_device : bool }
-let rpc_of_pool_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_uuid; "name_label",rpc_of_string x.pool_name_label; "name_description",rpc_of_string x.pool_name_description; "master",rpc_of_ref_host x.pool_master; "default_SR",rpc_of_ref_SR x.pool_default_SR; "suspend_image_SR",rpc_of_ref_SR x.pool_suspend_image_SR; "crash_dump_SR",rpc_of_ref_SR x.pool_crash_dump_SR; "other_config",rpc_of_string_to_string_map x.pool_other_config; "ha_enabled",rpc_of_bool x.pool_ha_enabled; "ha_configuration",rpc_of_string_to_string_map x.pool_ha_configuration; "ha_statefiles",rpc_of_string_set x.pool_ha_statefiles; "ha_host_failures_to_tolerate",rpc_of_int64 x.pool_ha_host_failures_to_tolerate; "ha_plan_exists_for",rpc_of_int64 x.pool_ha_plan_exists_for; "ha_allow_overcommit",rpc_of_bool x.pool_ha_allow_overcommit; "ha_overcommitted",rpc_of_bool x.pool_ha_overcommitted; "blobs",rpc_of_string_to_ref_blob_map x.pool_blobs; "tags",rpc_of_string_set x.pool_tags; "gui_config",rpc_of_string_to_string_map x.pool_gui_config; "health_check_config",rpc_of_string_to_string_map x.pool_health_check_config; "wlb_url",rpc_of_string x.pool_wlb_url; "wlb_username",rpc_of_string x.pool_wlb_username; "wlb_enabled",rpc_of_bool x.pool_wlb_enabled; "wlb_verify_cert",rpc_of_bool x.pool_wlb_verify_cert; "redo_log_enabled",rpc_of_bool x.pool_redo_log_enabled; "redo_log_vdi",rpc_of_ref_VDI x.pool_redo_log_vdi; "vswitch_controller",rpc_of_string x.pool_vswitch_controller; "restrictions",rpc_of_string_to_string_map x.pool_restrictions; "metadata_VDIs",rpc_of_ref_VDI_set x.pool_metadata_VDIs; "ha_cluster_stack",rpc_of_string x.pool_ha_cluster_stack; "allowed_operations",rpc_of_pool_allowed_operations_set x.pool_allowed_operations; "current_operations",rpc_of_string_to_pool_allowed_operations_map x.pool_current_operations; "guest_agent_config",rpc_of_string_to_string_map x.pool_guest_agent_config; "cpu_info",rpc_of_string_to_string_map x.pool_cpu_info; "policy_no_vendor_device",rpc_of_bool x.pool_policy_no_vendor_device ]
-let pool_t_of_rpc x = on_dict (fun x -> { pool_uuid = string_of_rpc (List.assoc "uuid" x); pool_name_label = string_of_rpc (List.assoc "name_label" x); pool_name_description = string_of_rpc (List.assoc "name_description" x); pool_master = ref_host_of_rpc (List.assoc "master" x); pool_default_SR = ref_SR_of_rpc (List.assoc "default_SR" x); pool_suspend_image_SR = ref_SR_of_rpc (List.assoc "suspend_image_SR" x); pool_crash_dump_SR = ref_SR_of_rpc (List.assoc "crash_dump_SR" x); pool_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pool_ha_enabled = bool_of_rpc (List.assoc "ha_enabled" x); pool_ha_configuration = string_to_string_map_of_rpc (List.assoc "ha_configuration" x); pool_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); pool_ha_host_failures_to_tolerate = int64_of_rpc (List.assoc "ha_host_failures_to_tolerate" x); pool_ha_plan_exists_for = int64_of_rpc (List.assoc "ha_plan_exists_for" x); pool_ha_allow_overcommit = bool_of_rpc (List.assoc "ha_allow_overcommit" x); pool_ha_overcommitted = bool_of_rpc (List.assoc "ha_overcommitted" x); pool_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); pool_tags = string_set_of_rpc (List.assoc "tags" x); pool_gui_config = string_to_string_map_of_rpc (List.assoc "gui_config" x); pool_health_check_config = string_to_string_map_of_rpc (List.assoc "health_check_config" x); pool_wlb_url = string_of_rpc (List.assoc "wlb_url" x); pool_wlb_username = string_of_rpc (List.assoc "wlb_username" x); pool_wlb_enabled = bool_of_rpc (List.assoc "wlb_enabled" x); pool_wlb_verify_cert = bool_of_rpc (List.assoc "wlb_verify_cert" x); pool_redo_log_enabled = bool_of_rpc (List.assoc "redo_log_enabled" x); pool_redo_log_vdi = ref_VDI_of_rpc (List.assoc "redo_log_vdi" x); pool_vswitch_controller = string_of_rpc (List.assoc "vswitch_controller" x); pool_restrictions = string_to_string_map_of_rpc (List.assoc "restrictions" x); pool_metadata_VDIs = ref_VDI_set_of_rpc (List.assoc "metadata_VDIs" x); pool_ha_cluster_stack = string_of_rpc (List.assoc "ha_cluster_stack" x); pool_allowed_operations = pool_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); pool_current_operations = string_to_pool_allowed_operations_map_of_rpc (List.assoc "current_operations" x); pool_guest_agent_config = string_to_string_map_of_rpc (List.assoc "guest_agent_config" x); pool_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); pool_policy_no_vendor_device = bool_of_rpc (List.assoc "policy_no_vendor_device" x) }) x
+type pool_t = { pool_uuid : string; pool_name_label : string; pool_name_description : string; pool_master : ref_host; pool_default_SR : ref_SR; pool_suspend_image_SR : ref_SR; pool_crash_dump_SR : ref_SR; pool_other_config : string_to_string_map; pool_ha_enabled : bool; pool_ha_configuration : string_to_string_map; pool_ha_statefiles : string_set; pool_ha_host_failures_to_tolerate : int64; pool_ha_plan_exists_for : int64; pool_ha_allow_overcommit : bool; pool_ha_overcommitted : bool; pool_blobs : string_to_ref_blob_map; pool_tags : string_set; pool_gui_config : string_to_string_map; pool_health_check_config : string_to_string_map; pool_wlb_url : string; pool_wlb_username : string; pool_wlb_enabled : bool; pool_wlb_verify_cert : bool; pool_redo_log_enabled : bool; pool_redo_log_vdi : ref_VDI; pool_vswitch_controller : string; pool_restrictions : string_to_string_map; pool_metadata_VDIs : ref_VDI_set; pool_ha_cluster_stack : string; pool_allowed_operations : pool_allowed_operations_set; pool_current_operations : string_to_pool_allowed_operations_map; pool_guest_agent_config : string_to_string_map; pool_cpu_info : string_to_string_map; pool_policy_no_vendor_device : bool; pool_live_patching_disabled : bool }
+let rpc_of_pool_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_uuid; "name_label",rpc_of_string x.pool_name_label; "name_description",rpc_of_string x.pool_name_description; "master",rpc_of_ref_host x.pool_master; "default_SR",rpc_of_ref_SR x.pool_default_SR; "suspend_image_SR",rpc_of_ref_SR x.pool_suspend_image_SR; "crash_dump_SR",rpc_of_ref_SR x.pool_crash_dump_SR; "other_config",rpc_of_string_to_string_map x.pool_other_config; "ha_enabled",rpc_of_bool x.pool_ha_enabled; "ha_configuration",rpc_of_string_to_string_map x.pool_ha_configuration; "ha_statefiles",rpc_of_string_set x.pool_ha_statefiles; "ha_host_failures_to_tolerate",rpc_of_int64 x.pool_ha_host_failures_to_tolerate; "ha_plan_exists_for",rpc_of_int64 x.pool_ha_plan_exists_for; "ha_allow_overcommit",rpc_of_bool x.pool_ha_allow_overcommit; "ha_overcommitted",rpc_of_bool x.pool_ha_overcommitted; "blobs",rpc_of_string_to_ref_blob_map x.pool_blobs; "tags",rpc_of_string_set x.pool_tags; "gui_config",rpc_of_string_to_string_map x.pool_gui_config; "health_check_config",rpc_of_string_to_string_map x.pool_health_check_config; "wlb_url",rpc_of_string x.pool_wlb_url; "wlb_username",rpc_of_string x.pool_wlb_username; "wlb_enabled",rpc_of_bool x.pool_wlb_enabled; "wlb_verify_cert",rpc_of_bool x.pool_wlb_verify_cert; "redo_log_enabled",rpc_of_bool x.pool_redo_log_enabled; "redo_log_vdi",rpc_of_ref_VDI x.pool_redo_log_vdi; "vswitch_controller",rpc_of_string x.pool_vswitch_controller; "restrictions",rpc_of_string_to_string_map x.pool_restrictions; "metadata_VDIs",rpc_of_ref_VDI_set x.pool_metadata_VDIs; "ha_cluster_stack",rpc_of_string x.pool_ha_cluster_stack; "allowed_operations",rpc_of_pool_allowed_operations_set x.pool_allowed_operations; "current_operations",rpc_of_string_to_pool_allowed_operations_map x.pool_current_operations; "guest_agent_config",rpc_of_string_to_string_map x.pool_guest_agent_config; "cpu_info",rpc_of_string_to_string_map x.pool_cpu_info; "policy_no_vendor_device",rpc_of_bool x.pool_policy_no_vendor_device; "live_patching_disabled",rpc_of_bool x.pool_live_patching_disabled ]
+let pool_t_of_rpc x = on_dict (fun x -> { pool_uuid = string_of_rpc (List.assoc "uuid" x); pool_name_label = string_of_rpc (List.assoc "name_label" x); pool_name_description = string_of_rpc (List.assoc "name_description" x); pool_master = ref_host_of_rpc (List.assoc "master" x); pool_default_SR = ref_SR_of_rpc (List.assoc "default_SR" x); pool_suspend_image_SR = ref_SR_of_rpc (List.assoc "suspend_image_SR" x); pool_crash_dump_SR = ref_SR_of_rpc (List.assoc "crash_dump_SR" x); pool_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pool_ha_enabled = bool_of_rpc (List.assoc "ha_enabled" x); pool_ha_configuration = string_to_string_map_of_rpc (List.assoc "ha_configuration" x); pool_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); pool_ha_host_failures_to_tolerate = int64_of_rpc (List.assoc "ha_host_failures_to_tolerate" x); pool_ha_plan_exists_for = int64_of_rpc (List.assoc "ha_plan_exists_for" x); pool_ha_allow_overcommit = bool_of_rpc (List.assoc "ha_allow_overcommit" x); pool_ha_overcommitted = bool_of_rpc (List.assoc "ha_overcommitted" x); pool_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); pool_tags = string_set_of_rpc (List.assoc "tags" x); pool_gui_config = string_to_string_map_of_rpc (List.assoc "gui_config" x); pool_health_check_config = string_to_string_map_of_rpc (List.assoc "health_check_config" x); pool_wlb_url = string_of_rpc (List.assoc "wlb_url" x); pool_wlb_username = string_of_rpc (List.assoc "wlb_username" x); pool_wlb_enabled = bool_of_rpc (List.assoc "wlb_enabled" x); pool_wlb_verify_cert = bool_of_rpc (List.assoc "wlb_verify_cert" x); pool_redo_log_enabled = bool_of_rpc (List.assoc "redo_log_enabled" x); pool_redo_log_vdi = ref_VDI_of_rpc (List.assoc "redo_log_vdi" x); pool_vswitch_controller = string_of_rpc (List.assoc "vswitch_controller" x); pool_restrictions = string_to_string_map_of_rpc (List.assoc "restrictions" x); pool_metadata_VDIs = ref_VDI_set_of_rpc (List.assoc "metadata_VDIs" x); pool_ha_cluster_stack = string_of_rpc (List.assoc "ha_cluster_stack" x); pool_allowed_operations = pool_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); pool_current_operations = string_to_pool_allowed_operations_map_of_rpc (List.assoc "current_operations" x); pool_guest_agent_config = string_to_string_map_of_rpc (List.assoc "guest_agent_config" x); pool_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); pool_policy_no_vendor_device = bool_of_rpc (List.assoc "policy_no_vendor_device" x); pool_live_patching_disabled = bool_of_rpc (List.assoc "live_patching_disabled" x) }) x
 type ref_pool_to_pool_t_map = (ref_pool * pool_t) list with rpc
 type pool_t_set = pool_t list with rpc
 
@@ -650,6 +633,7 @@ module type API = sig
       val set_memory_dynamic_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> ref_task
       val set_memory_static_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> ref_task
       val set_memory_limits : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> static_min:int64 -> static_max:int64 -> dynamic_min:int64 -> dynamic_max:int64 -> ref_task
+      val set_memory : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> ref_task
       val set_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> target:int64 -> ref_task
       val wait_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_task
       val get_cooperative : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_task
@@ -749,6 +733,8 @@ module type API = sig
       val compute_memory_overhead : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> mime_type:string -> public:bool -> ref_task
       val call_plugin : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> plugin:string -> fn:string -> args:string_to_string_map -> ref_task
+      val has_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> ref_task
+      val call_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> call:string -> ref_task
       val enable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val disable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val retrieve_wlb_evacuate_recommendations : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_task
@@ -866,7 +852,7 @@ module type API = sig
       val disable_database_replication : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sr:ref_SR -> ref_task
     end
     module LVHD : sig
-      val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> ref_task
+      val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> ref_task
     end
     module VDI : sig
       val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> sR:ref_SR -> virtual_size:int64 -> _type:vdi_type -> sharable:bool -> read_only:bool -> other_config:string_to_string_map -> xenstore_data:string_to_string_map -> sm_config:string_to_string_map -> tags:string_set -> ref_task
@@ -1123,6 +1109,7 @@ module type API = sig
     val get_guest_agent_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> string_to_string_map
     val get_cpu_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> string_to_string_map
     val get_policy_no_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> bool
+    val get_live_patching_disabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> bool
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:string -> unit
     val set_default_SR : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:ref_SR -> unit
@@ -1144,6 +1131,7 @@ module type API = sig
     val set_wlb_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val set_wlb_verify_cert : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val set_policy_no_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
+    val set_live_patching_disabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val join : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> master_address:string -> master_username:string -> master_password:string -> unit
     val join_force : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> master_address:string -> master_username:string -> master_password:string -> unit
     val eject : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
@@ -1314,6 +1302,7 @@ module type API = sig
     val get_generation_id : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string
     val get_hardware_platform_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> int64
     val get_has_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
+    val get_requires_reboot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:string -> unit
     val set_user_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
@@ -1390,6 +1379,7 @@ module type API = sig
     val set_memory_static_min : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_memory_static_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> unit
     val set_memory_limits : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> static_min:int64 -> static_max:int64 -> dynamic_min:int64 -> dynamic_max:int64 -> unit
+    val set_memory : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> target:int64 -> unit
     val wait_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> unit
     val get_cooperative : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
@@ -1639,6 +1629,7 @@ module type API = sig
     val get_display : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> host_display
     val get_virtual_hardware_platform_versions : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> int64_set
     val get_control_domain : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_VM
+    val get_patches_requiring_reboot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_pool_patch_set
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string -> unit
     val set_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string_to_string_map -> unit
@@ -1722,6 +1713,8 @@ module type API = sig
     val backup_rrds : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> delay:float -> unit
     val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> mime_type:string -> public:bool -> ref_blob
     val call_plugin : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> plugin:string -> fn:string -> args:string_to_string_map -> string
+    val has_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> bool
+    val call_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> call:string -> string
     val get_servertime : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> datetime
     val get_server_localtime : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> datetime
     val enable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
@@ -2165,7 +2158,7 @@ module type API = sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_LVHD -> lVHD_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_LVHD
     val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_LVHD -> string
-    val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> unit
+    val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> string
   end
   module VDI : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> vDI_t
@@ -2591,5 +2584,2977 @@ module type API = sig
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_VGPU_type_to_vGPU_type_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VGPU_type_to_vGPU_type_t_map
   end
+
+end
+
+
+module Legacy = struct
+open XMLRPC
+module D=Debug.Make(struct let name="legacy_marshallers" end)
+open D
+
+module From = struct
+  open Xml
+  
+  exception Dispatcher_FieldNotFound of string
+  
+  let my_assoc fld assoc_list = try List.assoc fld assoc_list with Not_found -> raise (Dispatcher_FieldNotFound fld)
+  
+  let fromstring_reference = Ref.of_string
+  
+  let methodCall = From.methodCall
+  
+  let methodResponse = From.methodResponse
+  
+  let set f (xml: XMLRPC.xmlrpc) =
+    From.array f xml
+  
+  let map fk fv (xml: XMLRPC.xmlrpc) =
+    List.map (fun (k, v) -> fk k, fv v) (From.structure xml)
+  
+  let structure = From.structure
+  
+  let rec unused' = ()
+  
+  and ref_session_set : string -> xml -> ref_session_set =
+    fun param -> (fun xml -> try (set (ref_session param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_auth_set : string -> xml -> ref_auth_set =
+    fun param -> (fun xml -> try (set (ref_auth param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_auth : string -> xml -> ref_auth =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_event_set : string -> xml -> ref_event_set =
+    fun param -> (fun xml -> try (set (ref_event param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_event : string -> xml -> ref_event =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_LVHD_set : string -> xml -> ref_LVHD_set =
+    fun param -> (fun xml -> try (set (ref_LVHD param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_user_set : string -> xml -> ref_user_set =
+    fun param -> (fun xml -> try (set (ref_user param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_data_source_set : string -> xml -> ref_data_source_set =
+    fun param -> (fun xml -> try (set (ref_data_source param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_data_source : string -> xml -> ref_data_source =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and event_operation_set : string -> xml -> event_operation_set =
+    fun param -> (fun xml -> try (set (event_operation param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and event_operation : string -> xml -> event_operation =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "add" -> `add
+    | "del" -> `del
+    | "mod" -> `_mod
+    | _ -> log_backtrace(); raise (RunTimeTypeError("event_operation", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_type_to_vGPU_type_t_map : string -> xml -> ref_VGPU_type_to_vGPU_type_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vGPU_type_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_to_vGPU_t_map : string -> xml -> ref_VGPU_to_vGPU_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vGPU_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_GPU_group_to_gPU_group_t_map : string -> xml -> ref_GPU_group_to_gPU_group_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((gPU_group_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PGPU_to_pGPU_t_map : string -> xml -> ref_PGPU_to_pGPU_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pGPU_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PCI_to_pCI_t_map : string -> xml -> ref_PCI_to_pCI_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pCI_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_tunnel_to_tunnel_t_map : string -> xml -> ref_tunnel_to_tunnel_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((tunnel_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_secret_to_secret_t_map : string -> xml -> ref_secret_to_secret_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((secret_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_secret_set : string -> xml -> ref_secret_set =
+    fun param -> (fun xml -> try (set (ref_secret param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_message_set : string -> xml -> ref_message_set =
+    fun param -> (fun xml -> try (set (ref_message param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_message_to_message_t_map : string -> xml -> ref_message_to_message_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((message_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and message_t : string -> xml -> message_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { message_uuid = (string param)(my_assoc "uuid" all);
+ message_name = (string param)(my_assoc "name" all);
+ message_priority = (int64 param)(my_assoc "priority" all);
+ message_cls = (cls param)(my_assoc "cls" all);
+ message_obj_uuid = (string param)(my_assoc "obj_uuid" all);
+ message_timestamp = (datetime param)(my_assoc "timestamp" all);
+ message_body = (string param)(my_assoc "body" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_blob_to_blob_t_map : string -> xml -> ref_blob_to_blob_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((blob_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_blob_set : string -> xml -> ref_blob_set =
+    fun param -> (fun xml -> try (set (ref_blob param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_console_to_console_t_map : string -> xml -> ref_console_to_console_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((console_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_crashdump_to_crashdump_t_map : string -> xml -> ref_crashdump_to_crashdump_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((crashdump_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PBD_to_pBD_t_map : string -> xml -> ref_PBD_to_pBD_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pBD_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD_metrics_to_vBD_metrics_t_map : string -> xml -> ref_VBD_metrics_to_vBD_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vBD_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD_metrics_set : string -> xml -> ref_VBD_metrics_set =
+    fun param -> (fun xml -> try (set (ref_VBD_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD_to_vBD_t_map : string -> xml -> ref_VBD_to_vBD_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vBD_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VDI_to_vDI_t_map : string -> xml -> ref_VDI_to_vDI_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vDI_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SR_to_sR_t_map : string -> xml -> ref_SR_to_sR_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((sR_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SM_to_sM_t_map : string -> xml -> ref_SM_to_sM_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((sM_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SM_set : string -> xml -> ref_SM_set =
+    fun param -> (fun xml -> try (set (ref_SM param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VLAN_to_vLAN_t_map : string -> xml -> ref_VLAN_to_vLAN_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vLAN_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_Bond_to_bond_t_map : string -> xml -> ref_Bond_to_bond_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((bond_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF_metrics_to_pIF_metrics_t_map : string -> xml -> ref_PIF_metrics_to_pIF_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pIF_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF_metrics_set : string -> xml -> ref_PIF_metrics_set =
+    fun param -> (fun xml -> try (set (ref_PIF_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF_to_pIF_t_map : string -> xml -> ref_PIF_to_pIF_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pIF_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_tunnel_set : string -> xml -> ref_tunnel_set =
+    fun param -> (fun xml -> try (set (ref_tunnel param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VLAN_set : string -> xml -> ref_VLAN_set =
+    fun param -> (fun xml -> try (set (ref_VLAN param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_Bond_set : string -> xml -> ref_Bond_set =
+    fun param -> (fun xml -> try (set (ref_Bond param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_metrics_to_vIF_metrics_t_map : string -> xml -> ref_VIF_metrics_to_vIF_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vIF_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_metrics_set : string -> xml -> ref_VIF_metrics_set =
+    fun param -> (fun xml -> try (set (ref_VIF_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_to_vIF_t_map : string -> xml -> ref_VIF_to_vIF_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vIF_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_network_to_network_t_map : string -> xml -> ref_network_to_network_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((network_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_network_set : string -> xml -> ref_network_set =
+    fun param -> (fun xml -> try (set (ref_network param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_cpu_to_host_cpu_t_map : string -> xml -> ref_host_cpu_to_host_cpu_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((host_cpu_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_metrics_to_host_metrics_t_map : string -> xml -> ref_host_metrics_to_host_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((host_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_metrics_set : string -> xml -> ref_host_metrics_set =
+    fun param -> (fun xml -> try (set (ref_host_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_patch_to_host_patch_t_map : string -> xml -> ref_host_patch_to_host_patch_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((host_patch_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_crashdump_to_host_crashdump_t_map : string -> xml -> ref_host_crashdump_to_host_crashdump_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((host_crashdump_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_to_host_t_map : string -> xml -> ref_host_to_host_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((host_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_cpu_set : string -> xml -> ref_host_cpu_set =
+    fun param -> (fun xml -> try (set (ref_host_cpu param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PBD_set : string -> xml -> ref_PBD_set =
+    fun param -> (fun xml -> try (set (ref_PBD param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_crashdump_set : string -> xml -> ref_host_crashdump_set =
+    fun param -> (fun xml -> try (set (ref_host_crashdump param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_DR_task_to_dR_task_t_map : string -> xml -> ref_DR_task_to_dR_task_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((dR_task_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_DR_task_set : string -> xml -> ref_DR_task_set =
+    fun param -> (fun xml -> try (set (ref_DR_task param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_appliance_to_vM_appliance_t_map : string -> xml -> ref_VM_appliance_to_vM_appliance_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vM_appliance_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_appliance_set : string -> xml -> ref_VM_appliance_set =
+    fun param -> (fun xml -> try (set (ref_VM_appliance param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VMPP_to_vMPP_t_map : string -> xml -> ref_VMPP_to_vMPP_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vMPP_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VMPP_set : string -> xml -> ref_VMPP_set =
+    fun param -> (fun xml -> try (set (ref_VMPP param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_guest_metrics_to_vM_guest_metrics_t_map : string -> xml -> ref_VM_guest_metrics_to_vM_guest_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vM_guest_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_guest_metrics_set : string -> xml -> ref_VM_guest_metrics_set =
+    fun param -> (fun xml -> try (set (ref_VM_guest_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_metrics_to_vM_metrics_t_map : string -> xml -> ref_VM_metrics_to_vM_metrics_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vM_metrics_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_metrics_set : string -> xml -> ref_VM_metrics_set =
+    fun param -> (fun xml -> try (set (ref_VM_metrics param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_to_vM_t_map : string -> xml -> ref_VM_to_vM_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((vM_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_to_string_set_map : string -> xml -> ref_host_to_string_set_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string_set param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and data_source_t_set : string -> xml -> data_source_t_set =
+    fun param -> (fun xml -> try (set (data_source_t param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and data_source_t : string -> xml -> data_source_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { data_source_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ data_source_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ data_source_enabled = (bool param)(my_assoc "enabled" all);
+ data_source_standard = (bool param)(my_assoc "standard" all);
+ data_source_units = (string param)(my_assoc "units" all);
+ data_source_min = (float param)(my_assoc "min" all);
+ data_source_max = (float param)(my_assoc "max" all);
+ data_source_value = (float param)(my_assoc "value" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_set : string -> xml -> ref_VGPU_set =
+    fun param -> (fun xml -> try (set (ref_VGPU param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VTPM_set : string -> xml -> ref_VTPM_set =
+    fun param -> (fun xml -> try (set (ref_VTPM param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_crashdump_set : string -> xml -> ref_crashdump_set =
+    fun param -> (fun xml -> try (set (ref_crashdump param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD_set : string -> xml -> ref_VBD_set =
+    fun param -> (fun xml -> try (set (ref_VBD param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_set : string -> xml -> ref_VIF_set =
+    fun param -> (fun xml -> try (set (ref_VIF param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_console_set : string -> xml -> ref_console_set =
+    fun param -> (fun xml -> try (set (ref_console param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool_patch_to_pool_patch_t_map : string -> xml -> ref_pool_patch_to_pool_patch_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pool_patch_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_patch_set : string -> xml -> ref_host_patch_set =
+    fun param -> (fun xml -> try (set (ref_host_patch param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool_to_pool_t_map : string -> xml -> ref_pool_to_pool_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((pool_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool_set : string -> xml -> ref_pool_set =
+    fun param -> (fun xml -> try (set (ref_pool param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_to_string_set_map : string -> xml -> ref_VM_to_string_set_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string_set param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_to_string_to_string_map_map : string -> xml -> ref_VM_to_string_to_string_map_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string_to_string_map param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and hello_return_set : string -> xml -> hello_return_set =
+    fun param -> (fun xml -> try (set (hello_return param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and hello_return : string -> xml -> hello_return =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "ok" -> `ok
+    | "unknown_host" -> `unknown_host
+    | "cannot_talk_back" -> `cannot_talk_back
+    | _ -> log_backtrace(); raise (RunTimeTypeError("hello_return", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and event_t_set : string -> xml -> event_t_set =
+    fun param -> (fun xml -> try (set (event_t param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and event_t : string -> xml -> event_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { event_id = (int64 param)(my_assoc "id" all);
+ event_timestamp = (datetime param)(my_assoc "timestamp" all);
+ event_class = (string param)(my_assoc "class" all);
+ event_operation = (event_operation param)(my_assoc "operation" all);
+ event_ref = (string param)(my_assoc "ref" all);
+ event_obj_uuid = (string param)(my_assoc "obj_uuid" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_task_to_task_t_map : string -> xml -> ref_task_to_task_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((task_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_role_to_role_t_map : string -> xml -> ref_role_to_role_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((role_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_subject_to_subject_t_map : string -> xml -> ref_subject_to_subject_t_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((subject_t param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_subject_set : string -> xml -> ref_subject_set =
+    fun param -> (fun xml -> try (set (ref_subject param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_task_set : string -> xml -> ref_task_set =
+    fun param -> (fun xml -> try (set (ref_task param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and session_t : string -> xml -> session_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { session_uuid = (string param)(my_assoc "uuid" all);
+ session_this_host = (ref_host param)(my_assoc "this_host" all);
+ session_this_user = (ref_user param)(my_assoc "this_user" all);
+ session_last_active = (datetime param)(my_assoc "last_active" all);
+ session_pool = (bool param)(my_assoc "pool" all);
+ session_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ session_is_local_superuser = (bool param)(if (List.mem_assoc "is_local_superuser" all) then (my_assoc "is_local_superuser" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ session_subject = (ref_subject param)(if (List.mem_assoc "subject" all) then (my_assoc "subject" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ session_validation_time = (datetime param)(if (List.mem_assoc "validation_time" all) then (my_assoc "validation_time" all) else Xml.parse_string ("<value><dateTime.iso8601>19700101T00:00:00Z</dateTime.iso8601></value>"));
+ session_auth_user_sid = (string param)(if (List.mem_assoc "auth_user_sid" all) then (my_assoc "auth_user_sid" all) else Xml.parse_string ("<value/>"));
+ session_auth_user_name = (string param)(if (List.mem_assoc "auth_user_name" all) then (my_assoc "auth_user_name" all) else Xml.parse_string ("<value/>"));
+ session_rbac_permissions = (string_set param)(if (List.mem_assoc "rbac_permissions" all) then (my_assoc "rbac_permissions" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ session_tasks = (ref_task_set param)(if (List.mem_assoc "tasks" all) then (my_assoc "tasks" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ session_parent = (ref_session param)(if (List.mem_assoc "parent" all) then (my_assoc "parent" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ session_originator = (string param)(if (List.mem_assoc "originator" all) then (my_assoc "originator" all) else Xml.parse_string ("<value/>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and subject_t : string -> xml -> subject_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { subject_uuid = (string param)(my_assoc "uuid" all);
+ subject_subject_identifier = (string param)(if (List.mem_assoc "subject_identifier" all) then (my_assoc "subject_identifier" all) else Xml.parse_string ("<value/>"));
+ subject_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ subject_roles = (ref_role_set param)(if (List.mem_assoc "roles" all) then (my_assoc "roles" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_subject : string -> xml -> ref_subject =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and role_t : string -> xml -> role_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { role_uuid = (string param)(my_assoc "uuid" all);
+ role_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ role_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ role_subroles = (ref_role_set param)(if (List.mem_assoc "subroles" all) then (my_assoc "subroles" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_role_set : string -> xml -> ref_role_set =
+    fun param -> (fun xml -> try (set (ref_role param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_role : string -> xml -> ref_role =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and task_t : string -> xml -> task_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { task_uuid = (string param)(my_assoc "uuid" all);
+ task_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ task_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ task_allowed_operations = (task_allowed_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ task_current_operations = (string_to_task_allowed_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ task_created = (datetime param)(my_assoc "created" all);
+ task_finished = (datetime param)(my_assoc "finished" all);
+ task_status = (task_status_type param)(my_assoc "status" all);
+ task_resident_on = (ref_host param)(my_assoc "resident_on" all);
+ task_progress = (float param)(my_assoc "progress" all);
+ task_type = (string param)(my_assoc "type" all);
+ task_result = (string param)(my_assoc "result" all);
+ task_error_info = (string_set param)(my_assoc "error_info" all);
+ task_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ task_subtask_of = (ref_task param)(if (List.mem_assoc "subtask_of" all) then (my_assoc "subtask_of" all) else Xml.parse_string ("<value/>"));
+ task_subtasks = (ref_task_set param)(if (List.mem_assoc "subtasks" all) then (my_assoc "subtasks" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ task_backtrace = (string param)(if (List.mem_assoc "backtrace" all) then (my_assoc "backtrace" all) else Xml.parse_string ("<value>()</value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and task_allowed_operations_set : string -> xml -> task_allowed_operations_set =
+    fun param -> (fun xml -> try (set (task_allowed_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_task_allowed_operations_map : string -> xml -> string_to_task_allowed_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((task_allowed_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and task_allowed_operations : string -> xml -> task_allowed_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "cancel" -> `cancel
+    | "destroy" -> `destroy
+    | _ -> log_backtrace(); raise (RunTimeTypeError("task_allowed_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and task_status_type_set : string -> xml -> task_status_type_set =
+    fun param -> (fun xml -> try (set (task_status_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and task_status_type : string -> xml -> task_status_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "pending" -> `pending
+    | "success" -> `success
+    | "failure" -> `failure
+    | "cancelling" -> `cancelling
+    | "cancelled" -> `cancelled
+    | _ -> log_backtrace(); raise (RunTimeTypeError("task_status_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_task : string -> xml -> ref_task =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pool_t : string -> xml -> pool_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pool_uuid = (string param)(my_assoc "uuid" all);
+ pool_name_label = (string param)(my_assoc "name_label" all);
+ pool_name_description = (string param)(my_assoc "name_description" all);
+ pool_master = (ref_host param)(my_assoc "master" all);
+ pool_default_SR = (ref_SR param)(my_assoc "default_SR" all);
+ pool_suspend_image_SR = (ref_SR param)(my_assoc "suspend_image_SR" all);
+ pool_crash_dump_SR = (ref_SR param)(my_assoc "crash_dump_SR" all);
+ pool_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ pool_ha_enabled = (bool param)(if (List.mem_assoc "ha_enabled" all) then (my_assoc "ha_enabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_ha_configuration = (string_to_string_map param)(if (List.mem_assoc "ha_configuration" all) then (my_assoc "ha_configuration" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_ha_statefiles = (string_set param)(if (List.mem_assoc "ha_statefiles" all) then (my_assoc "ha_statefiles" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_ha_host_failures_to_tolerate = (int64 param)(if (List.mem_assoc "ha_host_failures_to_tolerate" all) then (my_assoc "ha_host_failures_to_tolerate" all) else Xml.parse_string ("<value>0</value>"));
+ pool_ha_plan_exists_for = (int64 param)(if (List.mem_assoc "ha_plan_exists_for" all) then (my_assoc "ha_plan_exists_for" all) else Xml.parse_string ("<value>0</value>"));
+ pool_ha_allow_overcommit = (bool param)(if (List.mem_assoc "ha_allow_overcommit" all) then (my_assoc "ha_allow_overcommit" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_ha_overcommitted = (bool param)(if (List.mem_assoc "ha_overcommitted" all) then (my_assoc "ha_overcommitted" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_blobs = (string_to_ref_blob_map param)(if (List.mem_assoc "blobs" all) then (my_assoc "blobs" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_gui_config = (string_to_string_map param)(if (List.mem_assoc "gui_config" all) then (my_assoc "gui_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_health_check_config = (string_to_string_map param)(if (List.mem_assoc "health_check_config" all) then (my_assoc "health_check_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_wlb_url = (string param)(if (List.mem_assoc "wlb_url" all) then (my_assoc "wlb_url" all) else Xml.parse_string ("<value/>"));
+ pool_wlb_username = (string param)(if (List.mem_assoc "wlb_username" all) then (my_assoc "wlb_username" all) else Xml.parse_string ("<value/>"));
+ pool_wlb_enabled = (bool param)(if (List.mem_assoc "wlb_enabled" all) then (my_assoc "wlb_enabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_wlb_verify_cert = (bool param)(if (List.mem_assoc "wlb_verify_cert" all) then (my_assoc "wlb_verify_cert" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_redo_log_enabled = (bool param)(if (List.mem_assoc "redo_log_enabled" all) then (my_assoc "redo_log_enabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_redo_log_vdi = (ref_VDI param)(if (List.mem_assoc "redo_log_vdi" all) then (my_assoc "redo_log_vdi" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ pool_vswitch_controller = (string param)(if (List.mem_assoc "vswitch_controller" all) then (my_assoc "vswitch_controller" all) else Xml.parse_string ("<value/>"));
+ pool_restrictions = (string_to_string_map param)(if (List.mem_assoc "restrictions" all) then (my_assoc "restrictions" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_metadata_VDIs = (ref_VDI_set param)(if (List.mem_assoc "metadata_VDIs" all) then (my_assoc "metadata_VDIs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_ha_cluster_stack = (string param)(if (List.mem_assoc "ha_cluster_stack" all) then (my_assoc "ha_cluster_stack" all) else Xml.parse_string ("<value/>"));
+ pool_allowed_operations = (pool_allowed_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_current_operations = (string_to_pool_allowed_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_guest_agent_config = (string_to_string_map param)(if (List.mem_assoc "guest_agent_config" all) then (my_assoc "guest_agent_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_cpu_info = (string_to_string_map param)(if (List.mem_assoc "cpu_info" all) then (my_assoc "cpu_info" all) else Xml.parse_string ("<value><struct/></value>"));
+ pool_policy_no_vendor_device = (bool param)(if (List.mem_assoc "policy_no_vendor_device" all) then (my_assoc "policy_no_vendor_device" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_live_patching_disabled = (bool param)(if (List.mem_assoc "live_patching_disabled" all) then (my_assoc "live_patching_disabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pool_allowed_operations_set : string -> xml -> pool_allowed_operations_set =
+    fun param -> (fun xml -> try (set (pool_allowed_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_pool_allowed_operations_map : string -> xml -> string_to_pool_allowed_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((pool_allowed_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pool_allowed_operations : string -> xml -> pool_allowed_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "ha_enable" -> `ha_enable
+    | "ha_disable" -> `ha_disable
+    | _ -> log_backtrace(); raise (RunTimeTypeError("pool_allowed_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SR_set : string -> xml -> ref_SR_set =
+    fun param -> (fun xml -> try (set (ref_SR param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_to_string_map : string -> xml -> ref_VM_to_string_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_set : string -> xml -> ref_host_set =
+    fun param -> (fun xml -> try (set (ref_host param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_set : string -> xml -> ref_VM_set =
+    fun param -> (fun xml -> try (set (ref_VM param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pool_patch_t : string -> xml -> pool_patch_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pool_patch_uuid = (string param)(my_assoc "uuid" all);
+ pool_patch_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ pool_patch_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ pool_patch_version = (string param)(if (List.mem_assoc "version" all) then (my_assoc "version" all) else Xml.parse_string ("<value/>"));
+ pool_patch_size = (int64 param)(if (List.mem_assoc "size" all) then (my_assoc "size" all) else Xml.parse_string ("<value>0</value>"));
+ pool_patch_pool_applied = (bool param)(if (List.mem_assoc "pool_applied" all) then (my_assoc "pool_applied" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pool_patch_host_patches = (ref_host_patch_set param)(if (List.mem_assoc "host_patches" all) then (my_assoc "host_patches" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_patch_after_apply_guidance = (after_apply_guidance_set param)(if (List.mem_assoc "after_apply_guidance" all) then (my_assoc "after_apply_guidance" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pool_patch_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and after_apply_guidance_set : string -> xml -> after_apply_guidance_set =
+    fun param -> (fun xml -> try (set (after_apply_guidance param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and after_apply_guidance : string -> xml -> after_apply_guidance =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "restarthvm" -> `restartHVM
+    | "restartpv" -> `restartPV
+    | "restarthost" -> `restartHost
+    | "restartxapi" -> `restartXAPI
+    | _ -> log_backtrace(); raise (RunTimeTypeError("after_apply_guidance", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vM_t : string -> xml -> vM_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vM_uuid = (string param)(my_assoc "uuid" all);
+ vM_allowed_operations = (vm_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_current_operations = (string_to_vm_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_power_state = (vm_power_state param)(my_assoc "power_state" all);
+ vM_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ vM_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ vM_user_version = (int64 param)(my_assoc "user_version" all);
+ vM_is_a_template = (bool param)(my_assoc "is_a_template" all);
+ vM_suspend_VDI = (ref_VDI param)(my_assoc "suspend_VDI" all);
+ vM_resident_on = (ref_host param)(my_assoc "resident_on" all);
+ vM_affinity = (ref_host param)(my_assoc "affinity" all);
+ vM_memory_overhead = (int64 param)(if (List.mem_assoc "memory_overhead" all) then (my_assoc "memory_overhead" all) else Xml.parse_string ("<value>0</value>"));
+ vM_memory_target = (int64 param)(if (List.mem_assoc "memory_target" all) then (my_assoc "memory_target" all) else Xml.parse_string ("<value>0</value>"));
+ vM_memory_static_max = (int64 param)(my_assoc "memory_static_max" all);
+ vM_memory_dynamic_max = (int64 param)(my_assoc "memory_dynamic_max" all);
+ vM_memory_dynamic_min = (int64 param)(my_assoc "memory_dynamic_min" all);
+ vM_memory_static_min = (int64 param)(my_assoc "memory_static_min" all);
+ vM_VCPUs_params = (string_to_string_map param)(my_assoc "VCPUs_params" all);
+ vM_VCPUs_max = (int64 param)(my_assoc "VCPUs_max" all);
+ vM_VCPUs_at_startup = (int64 param)(my_assoc "VCPUs_at_startup" all);
+ vM_actions_after_shutdown = (on_normal_exit param)(my_assoc "actions_after_shutdown" all);
+ vM_actions_after_reboot = (on_normal_exit param)(my_assoc "actions_after_reboot" all);
+ vM_actions_after_crash = (on_crash_behaviour param)(my_assoc "actions_after_crash" all);
+ vM_consoles = (ref_console_set param)(if (List.mem_assoc "consoles" all) then (my_assoc "consoles" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_VIFs = (ref_VIF_set param)(if (List.mem_assoc "VIFs" all) then (my_assoc "VIFs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_VBDs = (ref_VBD_set param)(if (List.mem_assoc "VBDs" all) then (my_assoc "VBDs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_crash_dumps = (ref_crashdump_set param)(if (List.mem_assoc "crash_dumps" all) then (my_assoc "crash_dumps" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_VTPMs = (ref_VTPM_set param)(if (List.mem_assoc "VTPMs" all) then (my_assoc "VTPMs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_PV_bootloader = (string param)(my_assoc "PV_bootloader" all);
+ vM_PV_kernel = (string param)(my_assoc "PV_kernel" all);
+ vM_PV_ramdisk = (string param)(my_assoc "PV_ramdisk" all);
+ vM_PV_args = (string param)(my_assoc "PV_args" all);
+ vM_PV_bootloader_args = (string param)(my_assoc "PV_bootloader_args" all);
+ vM_PV_legacy_args = (string param)(my_assoc "PV_legacy_args" all);
+ vM_HVM_boot_policy = (string param)(my_assoc "HVM_boot_policy" all);
+ vM_HVM_boot_params = (string_to_string_map param)(my_assoc "HVM_boot_params" all);
+ vM_HVM_shadow_multiplier = (float param)(if (List.mem_assoc "HVM_shadow_multiplier" all) then (my_assoc "HVM_shadow_multiplier" all) else Xml.parse_string ("<value><double>1</double></value>"));
+ vM_platform = (string_to_string_map param)(my_assoc "platform" all);
+ vM_PCI_bus = (string param)(my_assoc "PCI_bus" all);
+ vM_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ vM_domid = (int64 param)(my_assoc "domid" all);
+ vM_domarch = (string param)(my_assoc "domarch" all);
+ vM_last_boot_CPU_flags = (string_to_string_map param)(my_assoc "last_boot_CPU_flags" all);
+ vM_is_control_domain = (bool param)(my_assoc "is_control_domain" all);
+ vM_metrics = (ref_VM_metrics param)(my_assoc "metrics" all);
+ vM_guest_metrics = (ref_VM_guest_metrics param)(my_assoc "guest_metrics" all);
+ vM_last_booted_record = (string param)(if (List.mem_assoc "last_booted_record" all) then (my_assoc "last_booted_record" all) else Xml.parse_string ("<value/>"));
+ vM_recommendations = (string param)(my_assoc "recommendations" all);
+ vM_xenstore_data = (string_to_string_map param)(if (List.mem_assoc "xenstore_data" all) then (my_assoc "xenstore_data" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_ha_always_run = (bool param)(if (List.mem_assoc "ha_always_run" all) then (my_assoc "ha_always_run" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vM_ha_restart_priority = (string param)(if (List.mem_assoc "ha_restart_priority" all) then (my_assoc "ha_restart_priority" all) else Xml.parse_string ("<value/>"));
+ vM_is_a_snapshot = (bool param)(if (List.mem_assoc "is_a_snapshot" all) then (my_assoc "is_a_snapshot" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vM_snapshot_of = (ref_VM param)(if (List.mem_assoc "snapshot_of" all) then (my_assoc "snapshot_of" all) else Xml.parse_string ("<value/>"));
+ vM_snapshots = (ref_VM_set param)(if (List.mem_assoc "snapshots" all) then (my_assoc "snapshots" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_snapshot_time = (datetime param)(if (List.mem_assoc "snapshot_time" all) then (my_assoc "snapshot_time" all) else Xml.parse_string ("<value><dateTime.iso8601>19700101T00:00:00Z</dateTime.iso8601></value>"));
+ vM_transportable_snapshot_id = (string param)(if (List.mem_assoc "transportable_snapshot_id" all) then (my_assoc "transportable_snapshot_id" all) else Xml.parse_string ("<value/>"));
+ vM_blobs = (string_to_ref_blob_map param)(if (List.mem_assoc "blobs" all) then (my_assoc "blobs" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_blocked_operations = (vm_operations_to_string_map param)(if (List.mem_assoc "blocked_operations" all) then (my_assoc "blocked_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_snapshot_info = (string_to_string_map param)(if (List.mem_assoc "snapshot_info" all) then (my_assoc "snapshot_info" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_snapshot_metadata = (string param)(if (List.mem_assoc "snapshot_metadata" all) then (my_assoc "snapshot_metadata" all) else Xml.parse_string ("<value/>"));
+ vM_parent = (ref_VM param)(if (List.mem_assoc "parent" all) then (my_assoc "parent" all) else Xml.parse_string ("<value/>"));
+ vM_children = (ref_VM_set param)(if (List.mem_assoc "children" all) then (my_assoc "children" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_bios_strings = (string_to_string_map param)(if (List.mem_assoc "bios_strings" all) then (my_assoc "bios_strings" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_protection_policy = (ref_VMPP param)(if (List.mem_assoc "protection_policy" all) then (my_assoc "protection_policy" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ vM_is_snapshot_from_vmpp = (bool param)(if (List.mem_assoc "is_snapshot_from_vmpp" all) then (my_assoc "is_snapshot_from_vmpp" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vM_appliance = (ref_VM_appliance param)(if (List.mem_assoc "appliance" all) then (my_assoc "appliance" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ vM_start_delay = (int64 param)(if (List.mem_assoc "start_delay" all) then (my_assoc "start_delay" all) else Xml.parse_string ("<value>0</value>"));
+ vM_shutdown_delay = (int64 param)(if (List.mem_assoc "shutdown_delay" all) then (my_assoc "shutdown_delay" all) else Xml.parse_string ("<value>0</value>"));
+ vM_order = (int64 param)(if (List.mem_assoc "order" all) then (my_assoc "order" all) else Xml.parse_string ("<value>0</value>"));
+ vM_VGPUs = (ref_VGPU_set param)(if (List.mem_assoc "VGPUs" all) then (my_assoc "VGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_attached_PCIs = (ref_PCI_set param)(if (List.mem_assoc "attached_PCIs" all) then (my_assoc "attached_PCIs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_suspend_SR = (ref_SR param)(if (List.mem_assoc "suspend_SR" all) then (my_assoc "suspend_SR" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ vM_version = (int64 param)(if (List.mem_assoc "version" all) then (my_assoc "version" all) else Xml.parse_string ("<value>0</value>"));
+ vM_generation_id = (string param)(if (List.mem_assoc "generation_id" all) then (my_assoc "generation_id" all) else Xml.parse_string ("<value>0:0</value>"));
+ vM_hardware_platform_version = (int64 param)(if (List.mem_assoc "hardware_platform_version" all) then (my_assoc "hardware_platform_version" all) else Xml.parse_string ("<value>0</value>"));
+ vM_has_vendor_device = (bool param)(if (List.mem_assoc "has_vendor_device" all) then (my_assoc "has_vendor_device" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vM_requires_reboot = (bool param)(if (List.mem_assoc "requires_reboot" all) then (my_assoc "requires_reboot" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_operations_set : string -> xml -> vm_operations_set =
+    fun param -> (fun xml -> try (set (vm_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_vm_operations_map : string -> xml -> string_to_vm_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((vm_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_power_state_set : string -> xml -> vm_power_state_set =
+    fun param -> (fun xml -> try (set (vm_power_state param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_power_state : string -> xml -> vm_power_state =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "halted" -> `Halted
+    | "paused" -> `Paused
+    | "running" -> `Running
+    | "suspended" -> `Suspended
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vm_power_state", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_normal_exit_set : string -> xml -> on_normal_exit_set =
+    fun param -> (fun xml -> try (set (on_normal_exit param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_normal_exit : string -> xml -> on_normal_exit =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "destroy" -> `destroy
+    | "restart" -> `restart
+    | _ -> log_backtrace(); raise (RunTimeTypeError("on_normal_exit", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_crash_behaviour_set : string -> xml -> on_crash_behaviour_set =
+    fun param -> (fun xml -> try (set (on_crash_behaviour param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_crash_behaviour : string -> xml -> on_crash_behaviour =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "destroy" -> `destroy
+    | "coredump_and_destroy" -> `coredump_and_destroy
+    | "restart" -> `restart
+    | "coredump_and_restart" -> `coredump_and_restart
+    | "preserve" -> `preserve
+    | "rename_restart" -> `rename_restart
+    | _ -> log_backtrace(); raise (RunTimeTypeError("on_crash_behaviour", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_operations_to_string_map : string -> xml -> vm_operations_to_string_map =
+    fun param -> (fun xml -> try (map (fun txt -> try (
+    match String.lowercase txt with
+      "snapshot" -> `snapshot
+    | "clone" -> `clone
+    | "copy" -> `copy
+    | "create_template" -> `create_template
+    | "revert" -> `revert
+    | "checkpoint" -> `checkpoint
+    | "snapshot_with_quiesce" -> `snapshot_with_quiesce
+    | "provision" -> `provision
+    | "start" -> `start
+    | "start_on" -> `start_on
+    | "pause" -> `pause
+    | "unpause" -> `unpause
+    | "clean_shutdown" -> `clean_shutdown
+    | "clean_reboot" -> `clean_reboot
+    | "hard_shutdown" -> `hard_shutdown
+    | "power_state_reset" -> `power_state_reset
+    | "hard_reboot" -> `hard_reboot
+    | "suspend" -> `suspend
+    | "csvm" -> `csvm
+    | "resume" -> `resume
+    | "resume_on" -> `resume_on
+    | "pool_migrate" -> `pool_migrate
+    | "migrate_send" -> `migrate_send
+    | "get_boot_record" -> `get_boot_record
+    | "send_sysrq" -> `send_sysrq
+    | "send_trigger" -> `send_trigger
+    | "query_services" -> `query_services
+    | "shutdown" -> `shutdown
+    | "call_plugin" -> `call_plugin
+    | "changing_memory_live" -> `changing_memory_live
+    | "awaiting_memory_live" -> `awaiting_memory_live
+    | "changing_dynamic_range" -> `changing_dynamic_range
+    | "changing_static_range" -> `changing_static_range
+    | "changing_memory_limits" -> `changing_memory_limits
+    | "changing_shadow_memory" -> `changing_shadow_memory
+    | "changing_shadow_memory_live" -> `changing_shadow_memory_live
+    | "changing_vcpus" -> `changing_VCPUs
+    | "changing_vcpus_live" -> `changing_VCPUs_live
+    | "assert_operation_valid" -> `assert_operation_valid
+    | "data_source_op" -> `data_source_op
+    | "update_allowed_operations" -> `update_allowed_operations
+    | "make_into_template" -> `make_into_template
+    | "import" -> `import
+    | "export" -> `export
+    | "metadata_export" -> `metadata_export
+    | "reverting" -> `reverting
+    | "destroy" -> `destroy
+    | _ -> raise (RunTimeTypeError("vm_operations", Xml.parse_string txt))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param]))) ((string param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VDI_to_ref_SR_map : string -> xml -> ref_VDI_to_ref_SR_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((ref_SR param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_to_ref_network_map : string -> xml -> ref_VIF_to_ref_network_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((ref_network param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_operations : string -> xml -> vm_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "snapshot" -> `snapshot
+    | "clone" -> `clone
+    | "copy" -> `copy
+    | "create_template" -> `create_template
+    | "revert" -> `revert
+    | "checkpoint" -> `checkpoint
+    | "snapshot_with_quiesce" -> `snapshot_with_quiesce
+    | "provision" -> `provision
+    | "start" -> `start
+    | "start_on" -> `start_on
+    | "pause" -> `pause
+    | "unpause" -> `unpause
+    | "clean_shutdown" -> `clean_shutdown
+    | "clean_reboot" -> `clean_reboot
+    | "hard_shutdown" -> `hard_shutdown
+    | "power_state_reset" -> `power_state_reset
+    | "hard_reboot" -> `hard_reboot
+    | "suspend" -> `suspend
+    | "csvm" -> `csvm
+    | "resume" -> `resume
+    | "resume_on" -> `resume_on
+    | "pool_migrate" -> `pool_migrate
+    | "migrate_send" -> `migrate_send
+    | "get_boot_record" -> `get_boot_record
+    | "send_sysrq" -> `send_sysrq
+    | "send_trigger" -> `send_trigger
+    | "query_services" -> `query_services
+    | "shutdown" -> `shutdown
+    | "call_plugin" -> `call_plugin
+    | "changing_memory_live" -> `changing_memory_live
+    | "awaiting_memory_live" -> `awaiting_memory_live
+    | "changing_dynamic_range" -> `changing_dynamic_range
+    | "changing_static_range" -> `changing_static_range
+    | "changing_memory_limits" -> `changing_memory_limits
+    | "changing_shadow_memory" -> `changing_shadow_memory
+    | "changing_shadow_memory_live" -> `changing_shadow_memory_live
+    | "changing_vcpus" -> `changing_VCPUs
+    | "changing_vcpus_live" -> `changing_VCPUs_live
+    | "assert_operation_valid" -> `assert_operation_valid
+    | "data_source_op" -> `data_source_op
+    | "update_allowed_operations" -> `update_allowed_operations
+    | "make_into_template" -> `make_into_template
+    | "import" -> `import
+    | "export" -> `export
+    | "metadata_export" -> `metadata_export
+    | "reverting" -> `reverting
+    | "destroy" -> `destroy
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vm_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vM_metrics_t : string -> xml -> vM_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vM_metrics_uuid = (string param)(my_assoc "uuid" all);
+ vM_metrics_memory_actual = (int64 param)(my_assoc "memory_actual" all);
+ vM_metrics_VCPUs_number = (int64 param)(my_assoc "VCPUs_number" all);
+ vM_metrics_VCPUs_utilisation = (int64_to_float_map param)(my_assoc "VCPUs_utilisation" all);
+ vM_metrics_VCPUs_CPU = (int64_to_int64_map param)(my_assoc "VCPUs_CPU" all);
+ vM_metrics_VCPUs_params = (string_to_string_map param)(my_assoc "VCPUs_params" all);
+ vM_metrics_VCPUs_flags = (int64_to_string_set_map param)(my_assoc "VCPUs_flags" all);
+ vM_metrics_state = (string_set param)(my_assoc "state" all);
+ vM_metrics_start_time = (datetime param)(my_assoc "start_time" all);
+ vM_metrics_install_time = (datetime param)(my_assoc "install_time" all);
+ vM_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ vM_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and int64_to_float_map : string -> xml -> int64_to_float_map =
+    fun param -> (fun xml -> try (map (FromString.int64) ((float param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and int64_to_int64_map : string -> xml -> int64_to_int64_map =
+    fun param -> (fun xml -> try (map (FromString.int64) ((int64 param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and int64_to_string_set_map : string -> xml -> int64_to_string_set_map =
+    fun param -> (fun xml -> try (map (FromString.int64) ((string_set param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_metrics : string -> xml -> ref_VM_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vM_guest_metrics_t : string -> xml -> vM_guest_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vM_guest_metrics_uuid = (string param)(my_assoc "uuid" all);
+ vM_guest_metrics_os_version = (string_to_string_map param)(my_assoc "os_version" all);
+ vM_guest_metrics_PV_drivers_version = (string_to_string_map param)(my_assoc "PV_drivers_version" all);
+ vM_guest_metrics_PV_drivers_up_to_date = (bool param)(my_assoc "PV_drivers_up_to_date" all);
+ vM_guest_metrics_memory = (string_to_string_map param)(my_assoc "memory" all);
+ vM_guest_metrics_disks = (string_to_string_map param)(my_assoc "disks" all);
+ vM_guest_metrics_networks = (string_to_string_map param)(my_assoc "networks" all);
+ vM_guest_metrics_other = (string_to_string_map param)(my_assoc "other" all);
+ vM_guest_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ vM_guest_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_guest_metrics_live = (bool param)(if (List.mem_assoc "live" all) then (my_assoc "live" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vM_guest_metrics_can_use_hotplug_vbd = (tristate_type param)(if (List.mem_assoc "can_use_hotplug_vbd" all) then (my_assoc "can_use_hotplug_vbd" all) else Xml.parse_string ("<value>unspecified</value>"));
+ vM_guest_metrics_can_use_hotplug_vif = (tristate_type param)(if (List.mem_assoc "can_use_hotplug_vif" all) then (my_assoc "can_use_hotplug_vif" all) else Xml.parse_string ("<value>unspecified</value>"));
+ vM_guest_metrics_PV_drivers_detected = (bool param)(if (List.mem_assoc "PV_drivers_detected" all) then (my_assoc "PV_drivers_detected" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and tristate_type_set : string -> xml -> tristate_type_set =
+    fun param -> (fun xml -> try (set (tristate_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and tristate_type : string -> xml -> tristate_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "yes" -> `yes
+    | "no" -> `no
+    | "unspecified" -> `unspecified
+    | _ -> log_backtrace(); raise (RunTimeTypeError("tristate_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_guest_metrics : string -> xml -> ref_VM_guest_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vMPP_t : string -> xml -> vMPP_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vMPP_uuid = (string param)(my_assoc "uuid" all);
+ vMPP_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ vMPP_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ vMPP_is_policy_enabled = (bool param)(if (List.mem_assoc "is_policy_enabled" all) then (my_assoc "is_policy_enabled" all) else Xml.parse_string ("<value><boolean>1</boolean></value>"));
+ vMPP_backup_type = (vmpp_backup_type param)(if (List.mem_assoc "backup_type" all) then (my_assoc "backup_type" all) else Xml.parse_string ("<value>snapshot</value>"));
+ vMPP_backup_retention_value = (int64 param)(if (List.mem_assoc "backup_retention_value" all) then (my_assoc "backup_retention_value" all) else Xml.parse_string ("<value>7</value>"));
+ vMPP_backup_frequency = (vmpp_backup_frequency param)(if (List.mem_assoc "backup_frequency" all) then (my_assoc "backup_frequency" all) else Xml.parse_string ("<value>daily</value>"));
+ vMPP_backup_schedule = (string_to_string_map param)(if (List.mem_assoc "backup_schedule" all) then (my_assoc "backup_schedule" all) else Xml.parse_string ("<value><struct/></value>"));
+ vMPP_is_backup_running = (bool param)(my_assoc "is_backup_running" all);
+ vMPP_backup_last_run_time = (datetime param)(if (List.mem_assoc "backup_last_run_time" all) then (my_assoc "backup_last_run_time" all) else Xml.parse_string ("<value><dateTime.iso8601>19700101T00:00:00Z</dateTime.iso8601></value>"));
+ vMPP_archive_target_type = (vmpp_archive_target_type param)(if (List.mem_assoc "archive_target_type" all) then (my_assoc "archive_target_type" all) else Xml.parse_string ("<value>none</value>"));
+ vMPP_archive_target_config = (string_to_string_map param)(if (List.mem_assoc "archive_target_config" all) then (my_assoc "archive_target_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ vMPP_archive_frequency = (vmpp_archive_frequency param)(if (List.mem_assoc "archive_frequency" all) then (my_assoc "archive_frequency" all) else Xml.parse_string ("<value>never</value>"));
+ vMPP_archive_schedule = (string_to_string_map param)(if (List.mem_assoc "archive_schedule" all) then (my_assoc "archive_schedule" all) else Xml.parse_string ("<value><struct/></value>"));
+ vMPP_is_archive_running = (bool param)(my_assoc "is_archive_running" all);
+ vMPP_archive_last_run_time = (datetime param)(if (List.mem_assoc "archive_last_run_time" all) then (my_assoc "archive_last_run_time" all) else Xml.parse_string ("<value><dateTime.iso8601>19700101T00:00:00Z</dateTime.iso8601></value>"));
+ vMPP_VMs = (ref_VM_set param)(if (List.mem_assoc "VMs" all) then (my_assoc "VMs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vMPP_is_alarm_enabled = (bool param)(if (List.mem_assoc "is_alarm_enabled" all) then (my_assoc "is_alarm_enabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vMPP_alarm_config = (string_to_string_map param)(if (List.mem_assoc "alarm_config" all) then (my_assoc "alarm_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ vMPP_recent_alerts = (string_set param)(if (List.mem_assoc "recent_alerts" all) then (my_assoc "recent_alerts" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_backup_type_set : string -> xml -> vmpp_backup_type_set =
+    fun param -> (fun xml -> try (set (vmpp_backup_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_backup_type : string -> xml -> vmpp_backup_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "snapshot" -> `snapshot
+    | "checkpoint" -> `checkpoint
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vmpp_backup_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_backup_frequency_set : string -> xml -> vmpp_backup_frequency_set =
+    fun param -> (fun xml -> try (set (vmpp_backup_frequency param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_backup_frequency : string -> xml -> vmpp_backup_frequency =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "hourly" -> `hourly
+    | "daily" -> `daily
+    | "weekly" -> `weekly
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vmpp_backup_frequency", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_archive_frequency_set : string -> xml -> vmpp_archive_frequency_set =
+    fun param -> (fun xml -> try (set (vmpp_archive_frequency param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_archive_frequency : string -> xml -> vmpp_archive_frequency =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "never" -> `never
+    | "always_after_backup" -> `always_after_backup
+    | "daily" -> `daily
+    | "weekly" -> `weekly
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vmpp_archive_frequency", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_archive_target_type_set : string -> xml -> vmpp_archive_target_type_set =
+    fun param -> (fun xml -> try (set (vmpp_archive_target_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vmpp_archive_target_type : string -> xml -> vmpp_archive_target_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "none" -> `none
+    | "cifs" -> `cifs
+    | "nfs" -> `nfs
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vmpp_archive_target_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VMPP : string -> xml -> ref_VMPP =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vM_appliance_t : string -> xml -> vM_appliance_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vM_appliance_uuid = (string param)(my_assoc "uuid" all);
+ vM_appliance_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ vM_appliance_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ vM_appliance_allowed_operations = (vm_appliance_operation_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vM_appliance_current_operations = (string_to_vm_appliance_operation_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vM_appliance_VMs = (ref_VM_set param)(if (List.mem_assoc "VMs" all) then (my_assoc "VMs" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_appliance_operation_set : string -> xml -> vm_appliance_operation_set =
+    fun param -> (fun xml -> try (set (vm_appliance_operation param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_vm_appliance_operation_map : string -> xml -> string_to_vm_appliance_operation_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((vm_appliance_operation param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vm_appliance_operation : string -> xml -> vm_appliance_operation =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "start" -> `start
+    | "clean_shutdown" -> `clean_shutdown
+    | "hard_shutdown" -> `hard_shutdown
+    | "shutdown" -> `shutdown
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vm_appliance_operation", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM_appliance : string -> xml -> ref_VM_appliance =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_session : string -> xml -> ref_session =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and dR_task_t : string -> xml -> dR_task_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { dR_task_uuid = (string param)(my_assoc "uuid" all);
+ dR_task_introduced_SRs = (ref_SR_set param)(if (List.mem_assoc "introduced_SRs" all) then (my_assoc "introduced_SRs" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_t : string -> xml -> host_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { host_uuid = (string param)(my_assoc "uuid" all);
+ host_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ host_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ host_memory_overhead = (int64 param)(if (List.mem_assoc "memory_overhead" all) then (my_assoc "memory_overhead" all) else Xml.parse_string ("<value>0</value>"));
+ host_allowed_operations = (host_allowed_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_current_operations = (string_to_host_allowed_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_API_version_major = (int64 param)(my_assoc "API_version_major" all);
+ host_API_version_minor = (int64 param)(my_assoc "API_version_minor" all);
+ host_API_version_vendor = (string param)(my_assoc "API_version_vendor" all);
+ host_API_version_vendor_implementation = (string_to_string_map param)(my_assoc "API_version_vendor_implementation" all);
+ host_enabled = (bool param)(my_assoc "enabled" all);
+ host_software_version = (string_to_string_map param)(my_assoc "software_version" all);
+ host_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ host_capabilities = (string_set param)(my_assoc "capabilities" all);
+ host_cpu_configuration = (string_to_string_map param)(my_assoc "cpu_configuration" all);
+ host_sched_policy = (string param)(my_assoc "sched_policy" all);
+ host_supported_bootloaders = (string_set param)(my_assoc "supported_bootloaders" all);
+ host_resident_VMs = (ref_VM_set param)(if (List.mem_assoc "resident_VMs" all) then (my_assoc "resident_VMs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_logging = (string_to_string_map param)(my_assoc "logging" all);
+ host_PIFs = (ref_PIF_set param)(if (List.mem_assoc "PIFs" all) then (my_assoc "PIFs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_suspend_image_sr = (ref_SR param)(my_assoc "suspend_image_sr" all);
+ host_crash_dump_sr = (ref_SR param)(my_assoc "crash_dump_sr" all);
+ host_crashdumps = (ref_host_crashdump_set param)(if (List.mem_assoc "crashdumps" all) then (my_assoc "crashdumps" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_patches = (ref_host_patch_set param)(if (List.mem_assoc "patches" all) then (my_assoc "patches" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_PBDs = (ref_PBD_set param)(if (List.mem_assoc "PBDs" all) then (my_assoc "PBDs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_host_CPUs = (ref_host_cpu_set param)(if (List.mem_assoc "host_CPUs" all) then (my_assoc "host_CPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_cpu_info = (string_to_string_map param)(if (List.mem_assoc "cpu_info" all) then (my_assoc "cpu_info" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_hostname = (string param)(my_assoc "hostname" all);
+ host_address = (string param)(my_assoc "address" all);
+ host_metrics = (ref_host_metrics param)(my_assoc "metrics" all);
+ host_license_params = (string_to_string_map param)(my_assoc "license_params" all);
+ host_ha_statefiles = (string_set param)(if (List.mem_assoc "ha_statefiles" all) then (my_assoc "ha_statefiles" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_ha_network_peers = (string_set param)(if (List.mem_assoc "ha_network_peers" all) then (my_assoc "ha_network_peers" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_blobs = (string_to_ref_blob_map param)(if (List.mem_assoc "blobs" all) then (my_assoc "blobs" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_external_auth_type = (string param)(if (List.mem_assoc "external_auth_type" all) then (my_assoc "external_auth_type" all) else Xml.parse_string ("<value/>"));
+ host_external_auth_service_name = (string param)(if (List.mem_assoc "external_auth_service_name" all) then (my_assoc "external_auth_service_name" all) else Xml.parse_string ("<value/>"));
+ host_external_auth_configuration = (string_to_string_map param)(if (List.mem_assoc "external_auth_configuration" all) then (my_assoc "external_auth_configuration" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_edition = (string param)(if (List.mem_assoc "edition" all) then (my_assoc "edition" all) else Xml.parse_string ("<value/>"));
+ host_license_server = (string_to_string_map param)(if (List.mem_assoc "license_server" all) then (my_assoc "license_server" all) else Xml.parse_string ("<value><struct><member><name>address</name><value>localhost</value></member><member><name>port</name><value>27000</value></member></struct></value>"));
+ host_bios_strings = (string_to_string_map param)(if (List.mem_assoc "bios_strings" all) then (my_assoc "bios_strings" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_power_on_mode = (string param)(if (List.mem_assoc "power_on_mode" all) then (my_assoc "power_on_mode" all) else Xml.parse_string ("<value/>"));
+ host_power_on_config = (string_to_string_map param)(if (List.mem_assoc "power_on_config" all) then (my_assoc "power_on_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_local_cache_sr = (ref_SR param)(if (List.mem_assoc "local_cache_sr" all) then (my_assoc "local_cache_sr" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ host_chipset_info = (string_to_string_map param)(if (List.mem_assoc "chipset_info" all) then (my_assoc "chipset_info" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_PCIs = (ref_PCI_set param)(if (List.mem_assoc "PCIs" all) then (my_assoc "PCIs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_PGPUs = (ref_PGPU_set param)(if (List.mem_assoc "PGPUs" all) then (my_assoc "PGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ host_ssl_legacy = (bool param)(if (List.mem_assoc "ssl_legacy" all) then (my_assoc "ssl_legacy" all) else Xml.parse_string ("<value><boolean>1</boolean></value>"));
+ host_guest_VCPUs_params = (string_to_string_map param)(if (List.mem_assoc "guest_VCPUs_params" all) then (my_assoc "guest_VCPUs_params" all) else Xml.parse_string ("<value><struct/></value>"));
+ host_display = (host_display param)(if (List.mem_assoc "display" all) then (my_assoc "display" all) else Xml.parse_string ("<value>enabled</value>"));
+ host_virtual_hardware_platform_versions = (int64_set param)(if (List.mem_assoc "virtual_hardware_platform_versions" all) then (my_assoc "virtual_hardware_platform_versions" all) else Xml.parse_string ("<value><array><data><value>0</value></data></array></value>"));
+ host_control_domain = (ref_VM param)(if (List.mem_assoc "control_domain" all) then (my_assoc "control_domain" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ host_patches_requiring_reboot = (ref_pool_patch_set param)(if (List.mem_assoc "patches_requiring_reboot" all) then (my_assoc "patches_requiring_reboot" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_allowed_operations_set : string -> xml -> host_allowed_operations_set =
+    fun param -> (fun xml -> try (set (host_allowed_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_host_allowed_operations_map : string -> xml -> string_to_host_allowed_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((host_allowed_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_allowed_operations : string -> xml -> host_allowed_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "provision" -> `provision
+    | "evacuate" -> `evacuate
+    | "shutdown" -> `shutdown
+    | "reboot" -> `reboot
+    | "power_on" -> `power_on
+    | "vm_start" -> `vm_start
+    | "vm_resume" -> `vm_resume
+    | "vm_migrate" -> `vm_migrate
+    | _ -> log_backtrace(); raise (RunTimeTypeError("host_allowed_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_display_set : string -> xml -> host_display_set =
+    fun param -> (fun xml -> try (set (host_display param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_display : string -> xml -> host_display =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "enabled" -> `enabled
+    | "disable_on_reboot" -> `disable_on_reboot
+    | "disabled" -> `disabled
+    | "enable_on_reboot" -> `enable_on_reboot
+    | _ -> log_backtrace(); raise (RunTimeTypeError("host_display", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and int64_set : string -> xml -> int64_set =
+    fun param -> (fun xml -> try (set (int64 param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool_patch_set : string -> xml -> ref_pool_patch_set =
+    fun param -> (fun xml -> try (set (ref_pool_patch param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VDI_to_string_map : string -> xml -> ref_VDI_to_string_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VDI_set : string -> xml -> ref_VDI_set =
+    fun param -> (fun xml -> try (set (ref_VDI param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_crashdump_t : string -> xml -> host_crashdump_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { host_crashdump_uuid = (string param)(my_assoc "uuid" all);
+ host_crashdump_host = (ref_host param)(my_assoc "host" all);
+ host_crashdump_timestamp = (datetime param)(my_assoc "timestamp" all);
+ host_crashdump_size = (int64 param)(my_assoc "size" all);
+ host_crashdump_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_crashdump : string -> xml -> ref_host_crashdump =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_patch_t : string -> xml -> host_patch_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { host_patch_uuid = (string param)(my_assoc "uuid" all);
+ host_patch_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ host_patch_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ host_patch_version = (string param)(my_assoc "version" all);
+ host_patch_host = (ref_host param)(my_assoc "host" all);
+ host_patch_applied = (bool param)(my_assoc "applied" all);
+ host_patch_timestamp_applied = (datetime param)(my_assoc "timestamp_applied" all);
+ host_patch_size = (int64 param)(my_assoc "size" all);
+ host_patch_pool_patch = (ref_pool_patch param)(if (List.mem_assoc "pool_patch" all) then (my_assoc "pool_patch" all) else Xml.parse_string ("<value/>"));
+ host_patch_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool_patch : string -> xml -> ref_pool_patch =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_patch : string -> xml -> ref_host_patch =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_metrics_t : string -> xml -> host_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { host_metrics_uuid = (string param)(my_assoc "uuid" all);
+ host_metrics_memory_total = (int64 param)(my_assoc "memory_total" all);
+ host_metrics_memory_free = (int64 param)(my_assoc "memory_free" all);
+ host_metrics_live = (bool param)(my_assoc "live" all);
+ host_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ host_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_metrics : string -> xml -> ref_host_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and host_cpu_t : string -> xml -> host_cpu_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { host_cpu_uuid = (string param)(my_assoc "uuid" all);
+ host_cpu_host = (ref_host param)(my_assoc "host" all);
+ host_cpu_number = (int64 param)(my_assoc "number" all);
+ host_cpu_vendor = (string param)(my_assoc "vendor" all);
+ host_cpu_speed = (int64 param)(my_assoc "speed" all);
+ host_cpu_modelname = (string param)(my_assoc "modelname" all);
+ host_cpu_family = (int64 param)(my_assoc "family" all);
+ host_cpu_model = (int64 param)(my_assoc "model" all);
+ host_cpu_stepping = (string param)(my_assoc "stepping" all);
+ host_cpu_flags = (string param)(my_assoc "flags" all);
+ host_cpu_features = (string param)(my_assoc "features" all);
+ host_cpu_utilisation = (float param)(my_assoc "utilisation" all);
+ host_cpu_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host_cpu : string -> xml -> ref_host_cpu =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and network_t : string -> xml -> network_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { network_uuid = (string param)(my_assoc "uuid" all);
+ network_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ network_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ network_allowed_operations = (network_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ network_current_operations = (string_to_network_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ network_VIFs = (ref_VIF_set param)(if (List.mem_assoc "VIFs" all) then (my_assoc "VIFs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ network_PIFs = (ref_PIF_set param)(if (List.mem_assoc "PIFs" all) then (my_assoc "PIFs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ network_MTU = (int64 param)(if (List.mem_assoc "MTU" all) then (my_assoc "MTU" all) else Xml.parse_string ("<value>1500</value>"));
+ network_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ network_bridge = (string param)(my_assoc "bridge" all);
+ network_blobs = (string_to_ref_blob_map param)(if (List.mem_assoc "blobs" all) then (my_assoc "blobs" all) else Xml.parse_string ("<value><struct/></value>"));
+ network_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ network_default_locking_mode = (network_default_locking_mode param)(if (List.mem_assoc "default_locking_mode" all) then (my_assoc "default_locking_mode" all) else Xml.parse_string ("<value>unlocked</value>"));
+ network_assigned_ips = (ref_VIF_to_string_map param)(if (List.mem_assoc "assigned_ips" all) then (my_assoc "assigned_ips" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and network_operations_set : string -> xml -> network_operations_set =
+    fun param -> (fun xml -> try (set (network_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_network_operations_map : string -> xml -> string_to_network_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((network_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and network_operations : string -> xml -> network_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "attaching" -> `attaching
+    | _ -> log_backtrace(); raise (RunTimeTypeError("network_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_to_string_map : string -> xml -> ref_VIF_to_string_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((string param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and network_default_locking_mode_set : string -> xml -> network_default_locking_mode_set =
+    fun param -> (fun xml -> try (set (network_default_locking_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and network_default_locking_mode : string -> xml -> network_default_locking_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "unlocked" -> `unlocked
+    | "disabled" -> `disabled
+    | _ -> log_backtrace(); raise (RunTimeTypeError("network_default_locking_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vIF_t : string -> xml -> vIF_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vIF_uuid = (string param)(my_assoc "uuid" all);
+ vIF_allowed_operations = (vif_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vIF_current_operations = (string_to_vif_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vIF_device = (string param)(my_assoc "device" all);
+ vIF_network = (ref_network param)(my_assoc "network" all);
+ vIF_VM = (ref_VM param)(my_assoc "VM" all);
+ vIF_MAC = (string param)(my_assoc "MAC" all);
+ vIF_MTU = (int64 param)(my_assoc "MTU" all);
+ vIF_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ vIF_currently_attached = (bool param)(my_assoc "currently_attached" all);
+ vIF_status_code = (int64 param)(my_assoc "status_code" all);
+ vIF_status_detail = (string param)(my_assoc "status_detail" all);
+ vIF_runtime_properties = (string_to_string_map param)(my_assoc "runtime_properties" all);
+ vIF_qos_algorithm_type = (string param)(my_assoc "qos_algorithm_type" all);
+ vIF_qos_algorithm_params = (string_to_string_map param)(my_assoc "qos_algorithm_params" all);
+ vIF_qos_supported_algorithms = (string_set param)(my_assoc "qos_supported_algorithms" all);
+ vIF_metrics = (ref_VIF_metrics param)(my_assoc "metrics" all);
+ vIF_MAC_autogenerated = (bool param)(if (List.mem_assoc "MAC_autogenerated" all) then (my_assoc "MAC_autogenerated" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vIF_locking_mode = (vif_locking_mode param)(if (List.mem_assoc "locking_mode" all) then (my_assoc "locking_mode" all) else Xml.parse_string ("<value>network_default</value>"));
+ vIF_ipv4_allowed = (string_set param)(if (List.mem_assoc "ipv4_allowed" all) then (my_assoc "ipv4_allowed" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vIF_ipv6_allowed = (string_set param)(if (List.mem_assoc "ipv6_allowed" all) then (my_assoc "ipv6_allowed" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vIF_ipv4_configuration_mode = (vif_ipv4_configuration_mode param)(if (List.mem_assoc "ipv4_configuration_mode" all) then (my_assoc "ipv4_configuration_mode" all) else Xml.parse_string ("<value>None</value>"));
+ vIF_ipv4_addresses = (string_set param)(if (List.mem_assoc "ipv4_addresses" all) then (my_assoc "ipv4_addresses" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vIF_ipv4_gateway = (string param)(if (List.mem_assoc "ipv4_gateway" all) then (my_assoc "ipv4_gateway" all) else Xml.parse_string ("<value/>"));
+ vIF_ipv6_configuration_mode = (vif_ipv6_configuration_mode param)(if (List.mem_assoc "ipv6_configuration_mode" all) then (my_assoc "ipv6_configuration_mode" all) else Xml.parse_string ("<value>None</value>"));
+ vIF_ipv6_addresses = (string_set param)(if (List.mem_assoc "ipv6_addresses" all) then (my_assoc "ipv6_addresses" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vIF_ipv6_gateway = (string param)(if (List.mem_assoc "ipv6_gateway" all) then (my_assoc "ipv6_gateway" all) else Xml.parse_string ("<value/>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_operations_set : string -> xml -> vif_operations_set =
+    fun param -> (fun xml -> try (set (vif_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_vif_operations_map : string -> xml -> string_to_vif_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((vif_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_operations : string -> xml -> vif_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "attach" -> `attach
+    | "plug" -> `plug
+    | "unplug" -> `unplug
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vif_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_locking_mode_set : string -> xml -> vif_locking_mode_set =
+    fun param -> (fun xml -> try (set (vif_locking_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_locking_mode : string -> xml -> vif_locking_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "network_default" -> `network_default
+    | "locked" -> `locked
+    | "unlocked" -> `unlocked
+    | "disabled" -> `disabled
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vif_locking_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_ipv4_configuration_mode_set : string -> xml -> vif_ipv4_configuration_mode_set =
+    fun param -> (fun xml -> try (set (vif_ipv4_configuration_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_ipv4_configuration_mode : string -> xml -> vif_ipv4_configuration_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "none" -> `None
+    | "static" -> `Static
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vif_ipv4_configuration_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF : string -> xml -> ref_VIF =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_ipv6_configuration_mode_set : string -> xml -> vif_ipv6_configuration_mode_set =
+    fun param -> (fun xml -> try (set (vif_ipv6_configuration_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vif_ipv6_configuration_mode : string -> xml -> vif_ipv6_configuration_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "none" -> `None
+    | "static" -> `Static
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vif_ipv6_configuration_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vIF_metrics_t : string -> xml -> vIF_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vIF_metrics_uuid = (string param)(my_assoc "uuid" all);
+ vIF_metrics_io_read_kbs = (float param)(my_assoc "io_read_kbs" all);
+ vIF_metrics_io_write_kbs = (float param)(my_assoc "io_write_kbs" all);
+ vIF_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ vIF_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VIF_metrics : string -> xml -> ref_VIF_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pIF_t : string -> xml -> pIF_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pIF_uuid = (string param)(my_assoc "uuid" all);
+ pIF_device = (string param)(my_assoc "device" all);
+ pIF_network = (ref_network param)(my_assoc "network" all);
+ pIF_host = (ref_host param)(my_assoc "host" all);
+ pIF_MAC = (string param)(my_assoc "MAC" all);
+ pIF_MTU = (int64 param)(my_assoc "MTU" all);
+ pIF_VLAN = (int64 param)(my_assoc "VLAN" all);
+ pIF_metrics = (ref_PIF_metrics param)(my_assoc "metrics" all);
+ pIF_physical = (bool param)(if (List.mem_assoc "physical" all) then (my_assoc "physical" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pIF_currently_attached = (bool param)(if (List.mem_assoc "currently_attached" all) then (my_assoc "currently_attached" all) else Xml.parse_string ("<value><boolean>1</boolean></value>"));
+ pIF_ip_configuration_mode = (ip_configuration_mode param)(if (List.mem_assoc "ip_configuration_mode" all) then (my_assoc "ip_configuration_mode" all) else Xml.parse_string ("<value>None</value>"));
+ pIF_IP = (string param)(if (List.mem_assoc "IP" all) then (my_assoc "IP" all) else Xml.parse_string ("<value/>"));
+ pIF_netmask = (string param)(if (List.mem_assoc "netmask" all) then (my_assoc "netmask" all) else Xml.parse_string ("<value/>"));
+ pIF_gateway = (string param)(if (List.mem_assoc "gateway" all) then (my_assoc "gateway" all) else Xml.parse_string ("<value/>"));
+ pIF_DNS = (string param)(if (List.mem_assoc "DNS" all) then (my_assoc "DNS" all) else Xml.parse_string ("<value/>"));
+ pIF_bond_slave_of = (ref_Bond param)(if (List.mem_assoc "bond_slave_of" all) then (my_assoc "bond_slave_of" all) else Xml.parse_string ("<value/>"));
+ pIF_bond_master_of = (ref_Bond_set param)(if (List.mem_assoc "bond_master_of" all) then (my_assoc "bond_master_of" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pIF_VLAN_master_of = (ref_VLAN param)(if (List.mem_assoc "VLAN_master_of" all) then (my_assoc "VLAN_master_of" all) else Xml.parse_string ("<value/>"));
+ pIF_VLAN_slave_of = (ref_VLAN_set param)(if (List.mem_assoc "VLAN_slave_of" all) then (my_assoc "VLAN_slave_of" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pIF_management = (bool param)(if (List.mem_assoc "management" all) then (my_assoc "management" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pIF_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pIF_disallow_unplug = (bool param)(if (List.mem_assoc "disallow_unplug" all) then (my_assoc "disallow_unplug" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ pIF_tunnel_access_PIF_of = (ref_tunnel_set param)(if (List.mem_assoc "tunnel_access_PIF_of" all) then (my_assoc "tunnel_access_PIF_of" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pIF_tunnel_transport_PIF_of = (ref_tunnel_set param)(if (List.mem_assoc "tunnel_transport_PIF_of" all) then (my_assoc "tunnel_transport_PIF_of" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pIF_ipv6_configuration_mode = (ipv6_configuration_mode param)(if (List.mem_assoc "ipv6_configuration_mode" all) then (my_assoc "ipv6_configuration_mode" all) else Xml.parse_string ("<value>None</value>"));
+ pIF_IPv6 = (string_set param)(if (List.mem_assoc "IPv6" all) then (my_assoc "IPv6" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pIF_ipv6_gateway = (string param)(if (List.mem_assoc "ipv6_gateway" all) then (my_assoc "ipv6_gateway" all) else Xml.parse_string ("<value/>"));
+ pIF_primary_address_type = (primary_address_type param)(if (List.mem_assoc "primary_address_type" all) then (my_assoc "primary_address_type" all) else Xml.parse_string ("<value>IPv4</value>"));
+ pIF_managed = (bool param)(if (List.mem_assoc "managed" all) then (my_assoc "managed" all) else Xml.parse_string ("<value><boolean>1</boolean></value>"));
+ pIF_properties = (string_to_string_map param)(if (List.mem_assoc "properties" all) then (my_assoc "properties" all) else Xml.parse_string ("<value><struct/></value>"));
+ pIF_capabilities = (string_set param)(if (List.mem_assoc "capabilities" all) then (my_assoc "capabilities" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ip_configuration_mode_set : string -> xml -> ip_configuration_mode_set =
+    fun param -> (fun xml -> try (set (ip_configuration_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ip_configuration_mode : string -> xml -> ip_configuration_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "none" -> `None
+    | "dhcp" -> `DHCP
+    | "static" -> `Static
+    | _ -> log_backtrace(); raise (RunTimeTypeError("ip_configuration_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ipv6_configuration_mode_set : string -> xml -> ipv6_configuration_mode_set =
+    fun param -> (fun xml -> try (set (ipv6_configuration_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ipv6_configuration_mode : string -> xml -> ipv6_configuration_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "none" -> `None
+    | "dhcp" -> `DHCP
+    | "static" -> `Static
+    | "autoconf" -> `Autoconf
+    | _ -> log_backtrace(); raise (RunTimeTypeError("ipv6_configuration_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and primary_address_type_set : string -> xml -> primary_address_type_set =
+    fun param -> (fun xml -> try (set (primary_address_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and primary_address_type : string -> xml -> primary_address_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "ipv4" -> `IPv4
+    | "ipv6" -> `IPv6
+    | _ -> log_backtrace(); raise (RunTimeTypeError("primary_address_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pIF_metrics_t : string -> xml -> pIF_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pIF_metrics_uuid = (string param)(my_assoc "uuid" all);
+ pIF_metrics_io_read_kbs = (float param)(my_assoc "io_read_kbs" all);
+ pIF_metrics_io_write_kbs = (float param)(my_assoc "io_write_kbs" all);
+ pIF_metrics_carrier = (bool param)(my_assoc "carrier" all);
+ pIF_metrics_vendor_id = (string param)(my_assoc "vendor_id" all);
+ pIF_metrics_vendor_name = (string param)(my_assoc "vendor_name" all);
+ pIF_metrics_device_id = (string param)(my_assoc "device_id" all);
+ pIF_metrics_device_name = (string param)(my_assoc "device_name" all);
+ pIF_metrics_speed = (int64 param)(my_assoc "speed" all);
+ pIF_metrics_duplex = (bool param)(my_assoc "duplex" all);
+ pIF_metrics_pci_bus_path = (string param)(my_assoc "pci_bus_path" all);
+ pIF_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ pIF_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF_metrics : string -> xml -> ref_PIF_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and bond_t : string -> xml -> bond_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { bond_uuid = (string param)(my_assoc "uuid" all);
+ bond_master = (ref_PIF param)(if (List.mem_assoc "master" all) then (my_assoc "master" all) else Xml.parse_string ("<value/>"));
+ bond_slaves = (ref_PIF_set param)(if (List.mem_assoc "slaves" all) then (my_assoc "slaves" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ bond_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ bond_primary_slave = (ref_PIF param)(if (List.mem_assoc "primary_slave" all) then (my_assoc "primary_slave" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ bond_mode = (bond_mode param)(if (List.mem_assoc "mode" all) then (my_assoc "mode" all) else Xml.parse_string ("<value>balance-slb</value>"));
+ bond_properties = (string_to_string_map param)(if (List.mem_assoc "properties" all) then (my_assoc "properties" all) else Xml.parse_string ("<value><struct/></value>"));
+ bond_links_up = (int64 param)(if (List.mem_assoc "links_up" all) then (my_assoc "links_up" all) else Xml.parse_string ("<value>0</value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF_set : string -> xml -> ref_PIF_set =
+    fun param -> (fun xml -> try (set (ref_PIF param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and bond_mode_set : string -> xml -> bond_mode_set =
+    fun param -> (fun xml -> try (set (bond_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and bond_mode : string -> xml -> bond_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "balance-slb" -> `balanceslb
+    | "active-backup" -> `activebackup
+    | "lacp" -> `lacp
+    | _ -> log_backtrace(); raise (RunTimeTypeError("bond_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_Bond : string -> xml -> ref_Bond =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vLAN_t : string -> xml -> vLAN_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vLAN_uuid = (string param)(my_assoc "uuid" all);
+ vLAN_tagged_PIF = (ref_PIF param)(if (List.mem_assoc "tagged_PIF" all) then (my_assoc "tagged_PIF" all) else Xml.parse_string ("<value/>"));
+ vLAN_untagged_PIF = (ref_PIF param)(if (List.mem_assoc "untagged_PIF" all) then (my_assoc "untagged_PIF" all) else Xml.parse_string ("<value/>"));
+ vLAN_tag = (int64 param)(if (List.mem_assoc "tag" all) then (my_assoc "tag" all) else Xml.parse_string ("<value>-1</value>"));
+ vLAN_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VLAN : string -> xml -> ref_VLAN =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and sM_t : string -> xml -> sM_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { sM_uuid = (string param)(my_assoc "uuid" all);
+ sM_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ sM_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ sM_type = (string param)(my_assoc "type" all);
+ sM_vendor = (string param)(my_assoc "vendor" all);
+ sM_copyright = (string param)(my_assoc "copyright" all);
+ sM_version = (string param)(my_assoc "version" all);
+ sM_required_api_version = (string param)(my_assoc "required_api_version" all);
+ sM_configuration = (string_to_string_map param)(my_assoc "configuration" all);
+ sM_capabilities = (string_set param)(if (List.mem_assoc "capabilities" all) then (my_assoc "capabilities" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ sM_features = (string_to_int64_map param)(if (List.mem_assoc "features" all) then (my_assoc "features" all) else Xml.parse_string ("<value><struct/></value>"));
+ sM_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ sM_driver_filename = (string param)(if (List.mem_assoc "driver_filename" all) then (my_assoc "driver_filename" all) else Xml.parse_string ("<value/>"));
+ sM_required_cluster_stack = (string_set param)(if (List.mem_assoc "required_cluster_stack" all) then (my_assoc "required_cluster_stack" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_int64_map : string -> xml -> string_to_int64_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((int64 param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SM : string -> xml -> ref_SM =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and sR_t : string -> xml -> sR_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { sR_uuid = (string param)(my_assoc "uuid" all);
+ sR_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ sR_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ sR_allowed_operations = (storage_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ sR_current_operations = (string_to_storage_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ sR_VDIs = (ref_VDI_set param)(if (List.mem_assoc "VDIs" all) then (my_assoc "VDIs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ sR_PBDs = (ref_PBD_set param)(if (List.mem_assoc "PBDs" all) then (my_assoc "PBDs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ sR_virtual_allocation = (int64 param)(my_assoc "virtual_allocation" all);
+ sR_physical_utilisation = (int64 param)(my_assoc "physical_utilisation" all);
+ sR_physical_size = (int64 param)(my_assoc "physical_size" all);
+ sR_type = (string param)(my_assoc "type" all);
+ sR_content_type = (string param)(my_assoc "content_type" all);
+ sR_shared = (bool param)(my_assoc "shared" all);
+ sR_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ sR_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ sR_sm_config = (string_to_string_map param)(if (List.mem_assoc "sm_config" all) then (my_assoc "sm_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ sR_blobs = (string_to_ref_blob_map param)(if (List.mem_assoc "blobs" all) then (my_assoc "blobs" all) else Xml.parse_string ("<value><struct/></value>"));
+ sR_local_cache_enabled = (bool param)(if (List.mem_assoc "local_cache_enabled" all) then (my_assoc "local_cache_enabled" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ sR_introduced_by = (ref_DR_task param)(if (List.mem_assoc "introduced_by" all) then (my_assoc "introduced_by" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ sR_clustered = (bool param)(if (List.mem_assoc "clustered" all) then (my_assoc "clustered" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ sR_is_tools_sr = (bool param)(if (List.mem_assoc "is_tools_sr" all) then (my_assoc "is_tools_sr" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and storage_operations_set : string -> xml -> storage_operations_set =
+    fun param -> (fun xml -> try (set (storage_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_storage_operations_map : string -> xml -> string_to_storage_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((storage_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and storage_operations : string -> xml -> storage_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "scan" -> `scan
+    | "destroy" -> `destroy
+    | "forget" -> `forget
+    | "plug" -> `plug
+    | "unplug" -> `unplug
+    | "update" -> `update
+    | "vdi_create" -> `vdi_create
+    | "vdi_introduce" -> `vdi_introduce
+    | "vdi_destroy" -> `vdi_destroy
+    | "vdi_resize" -> `vdi_resize
+    | "vdi_clone" -> `vdi_clone
+    | "vdi_snapshot" -> `vdi_snapshot
+    | "vdi_mirror" -> `vdi_mirror
+    | "pbd_create" -> `pbd_create
+    | "pbd_destroy" -> `pbd_destroy
+    | _ -> log_backtrace(); raise (RunTimeTypeError("storage_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_ref_blob_map : string -> xml -> string_to_ref_blob_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((ref_blob param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_DR_task : string -> xml -> ref_DR_task =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and lVHD_t : string -> xml -> lVHD_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { lVHD_uuid = (string param)(my_assoc "uuid" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_LVHD : string -> xml -> ref_LVHD =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vDI_t : string -> xml -> vDI_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vDI_uuid = (string param)(my_assoc "uuid" all);
+ vDI_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ vDI_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ vDI_allowed_operations = (vdi_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vDI_current_operations = (string_to_vdi_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vDI_SR = (ref_SR param)(my_assoc "SR" all);
+ vDI_VBDs = (ref_VBD_set param)(if (List.mem_assoc "VBDs" all) then (my_assoc "VBDs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vDI_crash_dumps = (ref_crashdump_set param)(if (List.mem_assoc "crash_dumps" all) then (my_assoc "crash_dumps" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vDI_virtual_size = (int64 param)(my_assoc "virtual_size" all);
+ vDI_physical_utilisation = (int64 param)(my_assoc "physical_utilisation" all);
+ vDI_type = (vdi_type param)(my_assoc "type" all);
+ vDI_sharable = (bool param)(my_assoc "sharable" all);
+ vDI_read_only = (bool param)(my_assoc "read_only" all);
+ vDI_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ vDI_storage_lock = (bool param)(my_assoc "storage_lock" all);
+ vDI_location = (string param)(if (List.mem_assoc "location" all) then (my_assoc "location" all) else Xml.parse_string ("<value/>"));
+ vDI_managed = (bool param)(my_assoc "managed" all);
+ vDI_missing = (bool param)(my_assoc "missing" all);
+ vDI_parent = (ref_VDI param)(my_assoc "parent" all);
+ vDI_xenstore_data = (string_to_string_map param)(if (List.mem_assoc "xenstore_data" all) then (my_assoc "xenstore_data" all) else Xml.parse_string ("<value><struct/></value>"));
+ vDI_sm_config = (string_to_string_map param)(if (List.mem_assoc "sm_config" all) then (my_assoc "sm_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ vDI_is_a_snapshot = (bool param)(if (List.mem_assoc "is_a_snapshot" all) then (my_assoc "is_a_snapshot" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vDI_snapshot_of = (ref_VDI param)(if (List.mem_assoc "snapshot_of" all) then (my_assoc "snapshot_of" all) else Xml.parse_string ("<value/>"));
+ vDI_snapshots = (ref_VDI_set param)(if (List.mem_assoc "snapshots" all) then (my_assoc "snapshots" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vDI_snapshot_time = (datetime param)(if (List.mem_assoc "snapshot_time" all) then (my_assoc "snapshot_time" all) else Xml.parse_string ("<value><dateTime.iso8601>19700101T00:00:00Z</dateTime.iso8601></value>"));
+ vDI_tags = (string_set param)(if (List.mem_assoc "tags" all) then (my_assoc "tags" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vDI_allow_caching = (bool param)(if (List.mem_assoc "allow_caching" all) then (my_assoc "allow_caching" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vDI_on_boot = (on_boot param)(if (List.mem_assoc "on_boot" all) then (my_assoc "on_boot" all) else Xml.parse_string ("<value>persist</value>"));
+ vDI_metadata_of_pool = (ref_pool param)(if (List.mem_assoc "metadata_of_pool" all) then (my_assoc "metadata_of_pool" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ vDI_metadata_latest = (bool param)(if (List.mem_assoc "metadata_latest" all) then (my_assoc "metadata_latest" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vDI_is_tools_iso = (bool param)(if (List.mem_assoc "is_tools_iso" all) then (my_assoc "is_tools_iso" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vdi_operations_set : string -> xml -> vdi_operations_set =
+    fun param -> (fun xml -> try (set (vdi_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_vdi_operations_map : string -> xml -> string_to_vdi_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((vdi_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vdi_operations : string -> xml -> vdi_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "scan" -> `scan
+    | "clone" -> `clone
+    | "copy" -> `copy
+    | "resize" -> `resize
+    | "resize_online" -> `resize_online
+    | "snapshot" -> `snapshot
+    | "mirror" -> `mirror
+    | "destroy" -> `destroy
+    | "forget" -> `forget
+    | "update" -> `update
+    | "force_unlock" -> `force_unlock
+    | "generate_config" -> `generate_config
+    | "blocked" -> `blocked
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vdi_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vdi_type_set : string -> xml -> vdi_type_set =
+    fun param -> (fun xml -> try (set (vdi_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vdi_type : string -> xml -> vdi_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "system" -> `system
+    | "user" -> `user
+    | "ephemeral" -> `ephemeral
+    | "suspend" -> `suspend
+    | "crashdump" -> `crashdump
+    | "ha_statefile" -> `ha_statefile
+    | "metadata" -> `metadata
+    | "redo_log" -> `redo_log
+    | "rrd" -> `rrd
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vdi_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_pool : string -> xml -> ref_pool =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_boot_set : string -> xml -> on_boot_set =
+    fun param -> (fun xml -> try (set (on_boot param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and on_boot : string -> xml -> on_boot =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "reset" -> `reset
+    | "persist" -> `persist
+    | _ -> log_backtrace(); raise (RunTimeTypeError("on_boot", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vBD_t : string -> xml -> vBD_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vBD_uuid = (string param)(my_assoc "uuid" all);
+ vBD_allowed_operations = (vbd_operations_set param)(if (List.mem_assoc "allowed_operations" all) then (my_assoc "allowed_operations" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vBD_current_operations = (string_to_vbd_operations_map param)(if (List.mem_assoc "current_operations" all) then (my_assoc "current_operations" all) else Xml.parse_string ("<value><struct/></value>"));
+ vBD_VM = (ref_VM param)(my_assoc "VM" all);
+ vBD_VDI = (ref_VDI param)(my_assoc "VDI" all);
+ vBD_device = (string param)(my_assoc "device" all);
+ vBD_userdevice = (string param)(my_assoc "userdevice" all);
+ vBD_bootable = (bool param)(my_assoc "bootable" all);
+ vBD_mode = (vbd_mode param)(my_assoc "mode" all);
+ vBD_type = (vbd_type param)(my_assoc "type" all);
+ vBD_unpluggable = (bool param)(if (List.mem_assoc "unpluggable" all) then (my_assoc "unpluggable" all) else Xml.parse_string ("<value><boolean>1</boolean></value>"));
+ vBD_storage_lock = (bool param)(my_assoc "storage_lock" all);
+ vBD_empty = (bool param)(my_assoc "empty" all);
+ vBD_other_config = (string_to_string_map param)(my_assoc "other_config" all);
+ vBD_currently_attached = (bool param)(my_assoc "currently_attached" all);
+ vBD_status_code = (int64 param)(my_assoc "status_code" all);
+ vBD_status_detail = (string param)(my_assoc "status_detail" all);
+ vBD_runtime_properties = (string_to_string_map param)(my_assoc "runtime_properties" all);
+ vBD_qos_algorithm_type = (string param)(my_assoc "qos_algorithm_type" all);
+ vBD_qos_algorithm_params = (string_to_string_map param)(my_assoc "qos_algorithm_params" all);
+ vBD_qos_supported_algorithms = (string_set param)(my_assoc "qos_supported_algorithms" all);
+ vBD_metrics = (ref_VBD_metrics param)(my_assoc "metrics" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_operations_set : string -> xml -> vbd_operations_set =
+    fun param -> (fun xml -> try (set (vbd_operations param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_vbd_operations_map : string -> xml -> string_to_vbd_operations_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((vbd_operations param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_operations : string -> xml -> vbd_operations =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "attach" -> `attach
+    | "eject" -> `eject
+    | "insert" -> `insert
+    | "plug" -> `plug
+    | "unplug" -> `unplug
+    | "unplug_force" -> `unplug_force
+    | "pause" -> `pause
+    | "unpause" -> `unpause
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vbd_operations", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_mode_set : string -> xml -> vbd_mode_set =
+    fun param -> (fun xml -> try (set (vbd_mode param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_mode : string -> xml -> vbd_mode =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "ro" -> `RO
+    | "rw" -> `RW
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vbd_mode", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_type_set : string -> xml -> vbd_type_set =
+    fun param -> (fun xml -> try (set (vbd_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vbd_type : string -> xml -> vbd_type =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "cd" -> `CD
+    | "disk" -> `Disk
+    | "floppy" -> `Floppy
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vbd_type", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD : string -> xml -> ref_VBD =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vBD_metrics_t : string -> xml -> vBD_metrics_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vBD_metrics_uuid = (string param)(my_assoc "uuid" all);
+ vBD_metrics_io_read_kbs = (float param)(my_assoc "io_read_kbs" all);
+ vBD_metrics_io_write_kbs = (float param)(my_assoc "io_write_kbs" all);
+ vBD_metrics_last_updated = (datetime param)(my_assoc "last_updated" all);
+ vBD_metrics_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and float : string -> xml -> float =
+    fun param -> (fun xml -> try (From.double xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VBD_metrics : string -> xml -> ref_VBD_metrics =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pBD_t : string -> xml -> pBD_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pBD_uuid = (string param)(my_assoc "uuid" all);
+ pBD_host = (ref_host param)(my_assoc "host" all);
+ pBD_SR = (ref_SR param)(my_assoc "SR" all);
+ pBD_device_config = (string_to_string_map param)(my_assoc "device_config" all);
+ pBD_currently_attached = (bool param)(my_assoc "currently_attached" all);
+ pBD_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_SR : string -> xml -> ref_SR =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PBD : string -> xml -> ref_PBD =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and crashdump_t : string -> xml -> crashdump_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { crashdump_uuid = (string param)(my_assoc "uuid" all);
+ crashdump_VM = (ref_VM param)(my_assoc "VM" all);
+ crashdump_VDI = (ref_VDI param)(my_assoc "VDI" all);
+ crashdump_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VDI : string -> xml -> ref_VDI =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_crashdump : string -> xml -> ref_crashdump =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vTPM_t : string -> xml -> vTPM_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vTPM_uuid = (string param)(my_assoc "uuid" all);
+ vTPM_VM = (ref_VM param)(my_assoc "VM" all);
+ vTPM_backend = (ref_VM param)(my_assoc "backend" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VTPM : string -> xml -> ref_VTPM =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and console_t : string -> xml -> console_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { console_uuid = (string param)(my_assoc "uuid" all);
+ console_protocol = (console_protocol param)(my_assoc "protocol" all);
+ console_location = (string param)(my_assoc "location" all);
+ console_VM = (ref_VM param)(my_assoc "VM" all);
+ console_other_config = (string_to_string_map param)(my_assoc "other_config" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and console_protocol_set : string -> xml -> console_protocol_set =
+    fun param -> (fun xml -> try (set (console_protocol param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and console_protocol : string -> xml -> console_protocol =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "vt100" -> `vt100
+    | "rfb" -> `rfb
+    | "rdp" -> `rdp
+    | _ -> log_backtrace(); raise (RunTimeTypeError("console_protocol", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_console : string -> xml -> ref_console =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and user_t : string -> xml -> user_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { user_uuid = (string param)(my_assoc "uuid" all);
+ user_short_name = (string param)(my_assoc "short_name" all);
+ user_fullname = (string param)(my_assoc "fullname" all);
+ user_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_user : string -> xml -> ref_user =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and blob_t : string -> xml -> blob_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { blob_uuid = (string param)(my_assoc "uuid" all);
+ blob_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ blob_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ blob_size = (int64 param)(my_assoc "size" all);
+ blob_public = (bool param)(if (List.mem_assoc "public" all) then (my_assoc "public" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ blob_last_updated = (datetime param)(my_assoc "last_updated" all);
+ blob_mime_type = (string param)(my_assoc "mime_type" all) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_blob : string -> xml -> ref_blob =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and cls_set : string -> xml -> cls_set =
+    fun param -> (fun xml -> try (set (cls param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and cls : string -> xml -> cls =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "vm" -> `VM
+    | "host" -> `Host
+    | "sr" -> `SR
+    | "pool" -> `Pool
+    | "vmpp" -> `VMPP
+    | _ -> log_backtrace(); raise (RunTimeTypeError("cls", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and datetime : string -> xml -> datetime =
+    fun param -> (fun xml -> try (From.datetime xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_message : string -> xml -> ref_message =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and secret_t : string -> xml -> secret_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { secret_uuid = (string param)(my_assoc "uuid" all);
+ secret_value = (string param)(my_assoc "value" all);
+ secret_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_secret : string -> xml -> ref_secret =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and tunnel_t : string -> xml -> tunnel_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { tunnel_uuid = (string param)(my_assoc "uuid" all);
+ tunnel_access_PIF = (ref_PIF param)(if (List.mem_assoc "access_PIF" all) then (my_assoc "access_PIF" all) else Xml.parse_string ("<value/>"));
+ tunnel_transport_PIF = (ref_PIF param)(if (List.mem_assoc "transport_PIF" all) then (my_assoc "transport_PIF" all) else Xml.parse_string ("<value/>"));
+ tunnel_status = (string_to_string_map param)(if (List.mem_assoc "status" all) then (my_assoc "status" all) else Xml.parse_string ("<value><struct><member><name>active</name><value>false</value></member></struct></value>"));
+ tunnel_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PIF : string -> xml -> ref_PIF =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_network : string -> xml -> ref_network =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_tunnel : string -> xml -> ref_tunnel =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pCI_t : string -> xml -> pCI_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pCI_uuid = (string param)(my_assoc "uuid" all);
+ pCI_class_name = (string param)(if (List.mem_assoc "class_name" all) then (my_assoc "class_name" all) else Xml.parse_string ("<value/>"));
+ pCI_vendor_name = (string param)(if (List.mem_assoc "vendor_name" all) then (my_assoc "vendor_name" all) else Xml.parse_string ("<value/>"));
+ pCI_device_name = (string param)(if (List.mem_assoc "device_name" all) then (my_assoc "device_name" all) else Xml.parse_string ("<value/>"));
+ pCI_host = (ref_host param)(if (List.mem_assoc "host" all) then (my_assoc "host" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ pCI_pci_id = (string param)(if (List.mem_assoc "pci_id" all) then (my_assoc "pci_id" all) else Xml.parse_string ("<value/>"));
+ pCI_dependencies = (ref_PCI_set param)(if (List.mem_assoc "dependencies" all) then (my_assoc "dependencies" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pCI_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pCI_subsystem_vendor_name = (string param)(if (List.mem_assoc "subsystem_vendor_name" all) then (my_assoc "subsystem_vendor_name" all) else Xml.parse_string ("<value/>"));
+ pCI_subsystem_device_name = (string param)(if (List.mem_assoc "subsystem_device_name" all) then (my_assoc "subsystem_device_name" all) else Xml.parse_string ("<value/>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PCI_set : string -> xml -> ref_PCI_set =
+    fun param -> (fun xml -> try (set (ref_PCI param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pGPU_t : string -> xml -> pGPU_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { pGPU_uuid = (string param)(my_assoc "uuid" all);
+ pGPU_PCI = (ref_PCI param)(if (List.mem_assoc "PCI" all) then (my_assoc "PCI" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ pGPU_GPU_group = (ref_GPU_group param)(if (List.mem_assoc "GPU_group" all) then (my_assoc "GPU_group" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ pGPU_host = (ref_host param)(if (List.mem_assoc "host" all) then (my_assoc "host" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ pGPU_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ pGPU_supported_VGPU_types = (ref_VGPU_type_set param)(if (List.mem_assoc "supported_VGPU_types" all) then (my_assoc "supported_VGPU_types" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pGPU_enabled_VGPU_types = (ref_VGPU_type_set param)(if (List.mem_assoc "enabled_VGPU_types" all) then (my_assoc "enabled_VGPU_types" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pGPU_resident_VGPUs = (ref_VGPU_set param)(if (List.mem_assoc "resident_VGPUs" all) then (my_assoc "resident_VGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ pGPU_supported_VGPU_max_capacities = (ref_VGPU_type_to_int64_map param)(if (List.mem_assoc "supported_VGPU_max_capacities" all) then (my_assoc "supported_VGPU_max_capacities" all) else Xml.parse_string ("<value><struct/></value>"));
+ pGPU_dom0_access = (pgpu_dom0_access param)(if (List.mem_assoc "dom0_access" all) then (my_assoc "dom0_access" all) else Xml.parse_string ("<value>enabled</value>"));
+ pGPU_is_system_display_device = (bool param)(if (List.mem_assoc "is_system_display_device" all) then (my_assoc "is_system_display_device" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PCI : string -> xml -> ref_PCI =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_host : string -> xml -> ref_host =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_type_to_int64_map : string -> xml -> ref_VGPU_type_to_int64_map =
+    fun param -> (fun xml -> try (map (fromstring_reference) ((int64 param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pgpu_dom0_access_set : string -> xml -> pgpu_dom0_access_set =
+    fun param -> (fun xml -> try (set (pgpu_dom0_access param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and pgpu_dom0_access : string -> xml -> pgpu_dom0_access =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "enabled" -> `enabled
+    | "disable_on_reboot" -> `disable_on_reboot
+    | "disabled" -> `disabled
+    | "enable_on_reboot" -> `enable_on_reboot
+    | _ -> log_backtrace(); raise (RunTimeTypeError("pgpu_dom0_access", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and gPU_group_t : string -> xml -> gPU_group_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { gPU_group_uuid = (string param)(my_assoc "uuid" all);
+ gPU_group_name_label = (string param)(if (List.mem_assoc "name_label" all) then (my_assoc "name_label" all) else Xml.parse_string ("<value/>"));
+ gPU_group_name_description = (string param)(if (List.mem_assoc "name_description" all) then (my_assoc "name_description" all) else Xml.parse_string ("<value/>"));
+ gPU_group_PGPUs = (ref_PGPU_set param)(if (List.mem_assoc "PGPUs" all) then (my_assoc "PGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ gPU_group_VGPUs = (ref_VGPU_set param)(if (List.mem_assoc "VGPUs" all) then (my_assoc "VGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ gPU_group_GPU_types = (string_set param)(if (List.mem_assoc "GPU_types" all) then (my_assoc "GPU_types" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ gPU_group_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ gPU_group_allocation_algorithm = (allocation_algorithm param)(if (List.mem_assoc "allocation_algorithm" all) then (my_assoc "allocation_algorithm" all) else Xml.parse_string ("<value>depth_first</value>"));
+ gPU_group_supported_VGPU_types = (ref_VGPU_type_set param)(if (List.mem_assoc "supported_VGPU_types" all) then (my_assoc "supported_VGPU_types" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ gPU_group_enabled_VGPU_types = (ref_VGPU_type_set param)(if (List.mem_assoc "enabled_VGPU_types" all) then (my_assoc "enabled_VGPU_types" all) else Xml.parse_string ("<value><array><data/></array></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_set : string -> xml -> string_set =
+    fun param -> (fun xml -> try (set (string param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and allocation_algorithm_set : string -> xml -> allocation_algorithm_set =
+    fun param -> (fun xml -> try (set (allocation_algorithm param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and allocation_algorithm : string -> xml -> allocation_algorithm =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "breadth_first" -> `breadth_first
+    | "depth_first" -> `depth_first
+    | _ -> log_backtrace(); raise (RunTimeTypeError("allocation_algorithm", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_type_set : string -> xml -> ref_VGPU_type_set =
+    fun param -> (fun xml -> try (set (ref_VGPU_type param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vGPU_t : string -> xml -> vGPU_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vGPU_uuid = (string param)(my_assoc "uuid" all);
+ vGPU_VM = (ref_VM param)(my_assoc "VM" all);
+ vGPU_GPU_group = (ref_GPU_group param)(my_assoc "GPU_group" all);
+ vGPU_device = (string param)(if (List.mem_assoc "device" all) then (my_assoc "device" all) else Xml.parse_string ("<value>0</value>"));
+ vGPU_currently_attached = (bool param)(if (List.mem_assoc "currently_attached" all) then (my_assoc "currently_attached" all) else Xml.parse_string ("<value><boolean>0</boolean></value>"));
+ vGPU_other_config = (string_to_string_map param)(if (List.mem_assoc "other_config" all) then (my_assoc "other_config" all) else Xml.parse_string ("<value><struct/></value>"));
+ vGPU_type = (ref_VGPU_type param)(if (List.mem_assoc "type" all) then (my_assoc "type" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>"));
+ vGPU_resident_on = (ref_PGPU param)(if (List.mem_assoc "resident_on" all) then (my_assoc "resident_on" all) else Xml.parse_string ("<value>OpaqueRef:NULL</value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VM : string -> xml -> ref_VM =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string_to_string_map : string -> xml -> string_to_string_map =
+    fun param -> (fun xml -> try (map (FromString.string) ((string param)) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU : string -> xml -> ref_VGPU =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vGPU_type_t : string -> xml -> vGPU_type_t =
+    fun param -> (fun xml -> try (let all = From.structure xml in { vGPU_type_uuid = (string param)(my_assoc "uuid" all);
+ vGPU_type_vendor_name = (string param)(if (List.mem_assoc "vendor_name" all) then (my_assoc "vendor_name" all) else Xml.parse_string ("<value/>"));
+ vGPU_type_model_name = (string param)(if (List.mem_assoc "model_name" all) then (my_assoc "model_name" all) else Xml.parse_string ("<value/>"));
+ vGPU_type_framebuffer_size = (int64 param)(if (List.mem_assoc "framebuffer_size" all) then (my_assoc "framebuffer_size" all) else Xml.parse_string ("<value>0</value>"));
+ vGPU_type_max_heads = (int64 param)(if (List.mem_assoc "max_heads" all) then (my_assoc "max_heads" all) else Xml.parse_string ("<value>0</value>"));
+ vGPU_type_max_resolution_x = (int64 param)(if (List.mem_assoc "max_resolution_x" all) then (my_assoc "max_resolution_x" all) else Xml.parse_string ("<value>0</value>"));
+ vGPU_type_max_resolution_y = (int64 param)(if (List.mem_assoc "max_resolution_y" all) then (my_assoc "max_resolution_y" all) else Xml.parse_string ("<value>0</value>"));
+ vGPU_type_supported_on_PGPUs = (ref_PGPU_set param)(if (List.mem_assoc "supported_on_PGPUs" all) then (my_assoc "supported_on_PGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vGPU_type_enabled_on_PGPUs = (ref_PGPU_set param)(if (List.mem_assoc "enabled_on_PGPUs" all) then (my_assoc "enabled_on_PGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vGPU_type_VGPUs = (ref_VGPU_set param)(if (List.mem_assoc "VGPUs" all) then (my_assoc "VGPUs" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vGPU_type_supported_on_GPU_groups = (ref_GPU_group_set param)(if (List.mem_assoc "supported_on_GPU_groups" all) then (my_assoc "supported_on_GPU_groups" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vGPU_type_enabled_on_GPU_groups = (ref_GPU_group_set param)(if (List.mem_assoc "enabled_on_GPU_groups" all) then (my_assoc "enabled_on_GPU_groups" all) else Xml.parse_string ("<value><array><data/></array></value>"));
+ vGPU_type_implementation = (vgpu_type_implementation param)(if (List.mem_assoc "implementation" all) then (my_assoc "implementation" all) else Xml.parse_string ("<value>passthrough</value>"));
+ vGPU_type_identifier = (string param)(if (List.mem_assoc "identifier" all) then (my_assoc "identifier" all) else Xml.parse_string ("<value/>"));
+ vGPU_type_experimental = (bool param)(if (List.mem_assoc "experimental" all) then (my_assoc "experimental" all) else Xml.parse_string ("<value><boolean>0</boolean></value>")) }) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and int64 : string -> xml -> int64 =
+    fun param -> (fun xml -> try (Int64.of_string(From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PGPU_set : string -> xml -> ref_PGPU_set =
+    fun param -> (fun xml -> try (set (ref_PGPU param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_PGPU : string -> xml -> ref_PGPU =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_GPU_group_set : string -> xml -> ref_GPU_group_set =
+    fun param -> (fun xml -> try (set (ref_GPU_group param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_GPU_group : string -> xml -> ref_GPU_group =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vgpu_type_implementation_set : string -> xml -> vgpu_type_implementation_set =
+    fun param -> (fun xml -> try (set (vgpu_type_implementation param) xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and vgpu_type_implementation : string -> xml -> vgpu_type_implementation =
+    fun param -> (fun xml -> try (
+    match String.lowercase (From.string xml) with
+      "passthrough" -> `passthrough
+    | "nvidia" -> `nvidia
+    | "gvt_g" -> `gvt_g
+    | _ -> log_backtrace(); raise (RunTimeTypeError("vgpu_type_implementation", xml))) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and ref_VGPU_type : string -> xml -> ref_VGPU_type =
+    fun param -> (fun xml -> try (Ref.of_string (From.string xml)) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and bool : string -> xml -> bool =
+    fun param -> (fun xml -> try (From.boolean xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+  
+  and string : string -> xml -> string =
+    fun param -> (fun xml -> try (From.string xml) with e -> Backtrace.reraise e (Api_errors.Server_error (Api_errors.field_type_error,[param])))
+end
+
+module To = struct
+  open Xml
+  
+  let methodCall = To.methodCall
+  
+  let methodResponse f x = To.methodResponse (f x)
+  
+  let tostring_reference = Ref.string_of
+  
+  let set f l =
+    To.array (List.map f l)
+  
+  let map fk fv m =
+    let elements = List.map (fun (k, v) -> fk k, fv v) m in
+    XMLRPC.To.structure elements
+  
+  let structure = To.structure
+  
+  let rec unused' = ()
+  
+  and ref_session_set : ref_session_set -> xml =
+    fun s -> set ref_session s
+  
+  and ref_auth_set : ref_auth_set -> xml =
+    fun s -> set ref_auth s
+  
+  and ref_auth : ref_auth -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_event_set : ref_event_set -> xml =
+    fun s -> set ref_event s
+  
+  and ref_event : ref_event -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_LVHD_set : ref_LVHD_set -> xml =
+    fun s -> set ref_LVHD s
+  
+  and ref_user_set : ref_user_set -> xml =
+    fun s -> set ref_user s
+  
+  and ref_data_source_set : ref_data_source_set -> xml =
+    fun s -> set ref_data_source s
+  
+  and ref_data_source : ref_data_source -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and event_operation_set : event_operation_set -> xml =
+    fun s -> set event_operation s
+  
+  and event_operation : event_operation -> xml =
+        fun v -> To.string(match v with
+                         `add -> "add"
+                       | `del -> "del"
+                       | `_mod -> "mod")
+  
+  and ref_VGPU_type_to_vGPU_type_t_map : ref_VGPU_type_to_vGPU_type_t_map -> xml =
+    fun m -> map (tostring_reference) (vGPU_type_t) m
+  
+  and ref_VGPU_to_vGPU_t_map : ref_VGPU_to_vGPU_t_map -> xml =
+    fun m -> map (tostring_reference) (vGPU_t) m
+  
+  and ref_GPU_group_to_gPU_group_t_map : ref_GPU_group_to_gPU_group_t_map -> xml =
+    fun m -> map (tostring_reference) (gPU_group_t) m
+  
+  and ref_PGPU_to_pGPU_t_map : ref_PGPU_to_pGPU_t_map -> xml =
+    fun m -> map (tostring_reference) (pGPU_t) m
+  
+  and ref_PCI_to_pCI_t_map : ref_PCI_to_pCI_t_map -> xml =
+    fun m -> map (tostring_reference) (pCI_t) m
+  
+  and ref_tunnel_to_tunnel_t_map : ref_tunnel_to_tunnel_t_map -> xml =
+    fun m -> map (tostring_reference) (tunnel_t) m
+  
+  and ref_secret_to_secret_t_map : ref_secret_to_secret_t_map -> xml =
+    fun m -> map (tostring_reference) (secret_t) m
+  
+  and ref_secret_set : ref_secret_set -> xml =
+    fun s -> set ref_secret s
+  
+  and ref_message_set : ref_message_set -> xml =
+    fun s -> set ref_message s
+  
+  and ref_message_to_message_t_map : ref_message_to_message_t_map -> xml =
+    fun m -> map (tostring_reference) (message_t) m
+  
+  and message_t : message_t -> xml =
+    fun x -> To.structure [ "uuid", string x.message_uuid; "name", string x.message_name; "priority", int64 x.message_priority; "cls", cls x.message_cls; "obj_uuid", string x.message_obj_uuid; "timestamp", datetime x.message_timestamp; "body", string x.message_body ]
+  
+  and ref_blob_to_blob_t_map : ref_blob_to_blob_t_map -> xml =
+    fun m -> map (tostring_reference) (blob_t) m
+  
+  and ref_blob_set : ref_blob_set -> xml =
+    fun s -> set ref_blob s
+  
+  and ref_console_to_console_t_map : ref_console_to_console_t_map -> xml =
+    fun m -> map (tostring_reference) (console_t) m
+  
+  and ref_crashdump_to_crashdump_t_map : ref_crashdump_to_crashdump_t_map -> xml =
+    fun m -> map (tostring_reference) (crashdump_t) m
+  
+  and ref_PBD_to_pBD_t_map : ref_PBD_to_pBD_t_map -> xml =
+    fun m -> map (tostring_reference) (pBD_t) m
+  
+  and ref_VBD_metrics_to_vBD_metrics_t_map : ref_VBD_metrics_to_vBD_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (vBD_metrics_t) m
+  
+  and ref_VBD_metrics_set : ref_VBD_metrics_set -> xml =
+    fun s -> set ref_VBD_metrics s
+  
+  and ref_VBD_to_vBD_t_map : ref_VBD_to_vBD_t_map -> xml =
+    fun m -> map (tostring_reference) (vBD_t) m
+  
+  and ref_VDI_to_vDI_t_map : ref_VDI_to_vDI_t_map -> xml =
+    fun m -> map (tostring_reference) (vDI_t) m
+  
+  and ref_SR_to_sR_t_map : ref_SR_to_sR_t_map -> xml =
+    fun m -> map (tostring_reference) (sR_t) m
+  
+  and ref_SM_to_sM_t_map : ref_SM_to_sM_t_map -> xml =
+    fun m -> map (tostring_reference) (sM_t) m
+  
+  and ref_SM_set : ref_SM_set -> xml =
+    fun s -> set ref_SM s
+  
+  and ref_VLAN_to_vLAN_t_map : ref_VLAN_to_vLAN_t_map -> xml =
+    fun m -> map (tostring_reference) (vLAN_t) m
+  
+  and ref_Bond_to_bond_t_map : ref_Bond_to_bond_t_map -> xml =
+    fun m -> map (tostring_reference) (bond_t) m
+  
+  and ref_PIF_metrics_to_pIF_metrics_t_map : ref_PIF_metrics_to_pIF_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (pIF_metrics_t) m
+  
+  and ref_PIF_metrics_set : ref_PIF_metrics_set -> xml =
+    fun s -> set ref_PIF_metrics s
+  
+  and ref_PIF_to_pIF_t_map : ref_PIF_to_pIF_t_map -> xml =
+    fun m -> map (tostring_reference) (pIF_t) m
+  
+  and ref_tunnel_set : ref_tunnel_set -> xml =
+    fun s -> set ref_tunnel s
+  
+  and ref_VLAN_set : ref_VLAN_set -> xml =
+    fun s -> set ref_VLAN s
+  
+  and ref_Bond_set : ref_Bond_set -> xml =
+    fun s -> set ref_Bond s
+  
+  and ref_VIF_metrics_to_vIF_metrics_t_map : ref_VIF_metrics_to_vIF_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (vIF_metrics_t) m
+  
+  and ref_VIF_metrics_set : ref_VIF_metrics_set -> xml =
+    fun s -> set ref_VIF_metrics s
+  
+  and ref_VIF_to_vIF_t_map : ref_VIF_to_vIF_t_map -> xml =
+    fun m -> map (tostring_reference) (vIF_t) m
+  
+  and ref_network_to_network_t_map : ref_network_to_network_t_map -> xml =
+    fun m -> map (tostring_reference) (network_t) m
+  
+  and ref_network_set : ref_network_set -> xml =
+    fun s -> set ref_network s
+  
+  and ref_host_cpu_to_host_cpu_t_map : ref_host_cpu_to_host_cpu_t_map -> xml =
+    fun m -> map (tostring_reference) (host_cpu_t) m
+  
+  and ref_host_metrics_to_host_metrics_t_map : ref_host_metrics_to_host_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (host_metrics_t) m
+  
+  and ref_host_metrics_set : ref_host_metrics_set -> xml =
+    fun s -> set ref_host_metrics s
+  
+  and ref_host_patch_to_host_patch_t_map : ref_host_patch_to_host_patch_t_map -> xml =
+    fun m -> map (tostring_reference) (host_patch_t) m
+  
+  and ref_host_crashdump_to_host_crashdump_t_map : ref_host_crashdump_to_host_crashdump_t_map -> xml =
+    fun m -> map (tostring_reference) (host_crashdump_t) m
+  
+  and ref_host_to_host_t_map : ref_host_to_host_t_map -> xml =
+    fun m -> map (tostring_reference) (host_t) m
+  
+  and ref_host_cpu_set : ref_host_cpu_set -> xml =
+    fun s -> set ref_host_cpu s
+  
+  and ref_PBD_set : ref_PBD_set -> xml =
+    fun s -> set ref_PBD s
+  
+  and ref_host_crashdump_set : ref_host_crashdump_set -> xml =
+    fun s -> set ref_host_crashdump s
+  
+  and ref_DR_task_to_dR_task_t_map : ref_DR_task_to_dR_task_t_map -> xml =
+    fun m -> map (tostring_reference) (dR_task_t) m
+  
+  and ref_DR_task_set : ref_DR_task_set -> xml =
+    fun s -> set ref_DR_task s
+  
+  and ref_VM_appliance_to_vM_appliance_t_map : ref_VM_appliance_to_vM_appliance_t_map -> xml =
+    fun m -> map (tostring_reference) (vM_appliance_t) m
+  
+  and ref_VM_appliance_set : ref_VM_appliance_set -> xml =
+    fun s -> set ref_VM_appliance s
+  
+  and ref_VMPP_to_vMPP_t_map : ref_VMPP_to_vMPP_t_map -> xml =
+    fun m -> map (tostring_reference) (vMPP_t) m
+  
+  and ref_VMPP_set : ref_VMPP_set -> xml =
+    fun s -> set ref_VMPP s
+  
+  and ref_VM_guest_metrics_to_vM_guest_metrics_t_map : ref_VM_guest_metrics_to_vM_guest_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (vM_guest_metrics_t) m
+  
+  and ref_VM_guest_metrics_set : ref_VM_guest_metrics_set -> xml =
+    fun s -> set ref_VM_guest_metrics s
+  
+  and ref_VM_metrics_to_vM_metrics_t_map : ref_VM_metrics_to_vM_metrics_t_map -> xml =
+    fun m -> map (tostring_reference) (vM_metrics_t) m
+  
+  and ref_VM_metrics_set : ref_VM_metrics_set -> xml =
+    fun s -> set ref_VM_metrics s
+  
+  and ref_VM_to_vM_t_map : ref_VM_to_vM_t_map -> xml =
+    fun m -> map (tostring_reference) (vM_t) m
+  
+  and ref_host_to_string_set_map : ref_host_to_string_set_map -> xml =
+    fun m -> map (tostring_reference) (string_set) m
+  
+  and data_source_t_set : data_source_t_set -> xml =
+    fun s -> set data_source_t s
+  
+  and data_source_t : data_source_t -> xml =
+    fun x -> To.structure [ "name_label", string x.data_source_name_label; "name_description", string x.data_source_name_description; "enabled", bool x.data_source_enabled; "standard", bool x.data_source_standard; "units", string x.data_source_units; "min", float x.data_source_min; "max", float x.data_source_max; "value", float x.data_source_value ]
+  
+  and ref_VGPU_set : ref_VGPU_set -> xml =
+    fun s -> set ref_VGPU s
+  
+  and ref_VTPM_set : ref_VTPM_set -> xml =
+    fun s -> set ref_VTPM s
+  
+  and ref_crashdump_set : ref_crashdump_set -> xml =
+    fun s -> set ref_crashdump s
+  
+  and ref_VBD_set : ref_VBD_set -> xml =
+    fun s -> set ref_VBD s
+  
+  and ref_VIF_set : ref_VIF_set -> xml =
+    fun s -> set ref_VIF s
+  
+  and ref_console_set : ref_console_set -> xml =
+    fun s -> set ref_console s
+  
+  and ref_pool_patch_to_pool_patch_t_map : ref_pool_patch_to_pool_patch_t_map -> xml =
+    fun m -> map (tostring_reference) (pool_patch_t) m
+  
+  and ref_host_patch_set : ref_host_patch_set -> xml =
+    fun s -> set ref_host_patch s
+  
+  and ref_pool_to_pool_t_map : ref_pool_to_pool_t_map -> xml =
+    fun m -> map (tostring_reference) (pool_t) m
+  
+  and ref_pool_set : ref_pool_set -> xml =
+    fun s -> set ref_pool s
+  
+  and ref_VM_to_string_set_map : ref_VM_to_string_set_map -> xml =
+    fun m -> map (tostring_reference) (string_set) m
+  
+  and ref_VM_to_string_to_string_map_map : ref_VM_to_string_to_string_map_map -> xml =
+    fun m -> map (tostring_reference) (string_to_string_map) m
+  
+  and hello_return_set : hello_return_set -> xml =
+    fun s -> set hello_return s
+  
+  and hello_return : hello_return -> xml =
+        fun v -> To.string(match v with
+                         `ok -> "ok"
+                       | `unknown_host -> "unknown_host"
+                       | `cannot_talk_back -> "cannot_talk_back")
+  
+  and event_t_set : event_t_set -> xml =
+    fun s -> set event_t s
+  
+  and event_t : event_t -> xml =
+    fun x -> To.structure [ "id", int64 x.event_id; "timestamp", datetime x.event_timestamp; "class", string x.event_class; "operation", event_operation x.event_operation; "ref", string x.event_ref; "obj_uuid", string x.event_obj_uuid ]
+  
+  and ref_task_to_task_t_map : ref_task_to_task_t_map -> xml =
+    fun m -> map (tostring_reference) (task_t) m
+  
+  and ref_role_to_role_t_map : ref_role_to_role_t_map -> xml =
+    fun m -> map (tostring_reference) (role_t) m
+  
+  and ref_subject_to_subject_t_map : ref_subject_to_subject_t_map -> xml =
+    fun m -> map (tostring_reference) (subject_t) m
+  
+  and ref_subject_set : ref_subject_set -> xml =
+    fun s -> set ref_subject s
+  
+  and ref_task_set : ref_task_set -> xml =
+    fun s -> set ref_task s
+  
+  and session_t : session_t -> xml =
+    fun x -> To.structure [ "uuid", string x.session_uuid; "this_host", ref_host x.session_this_host; "this_user", ref_user x.session_this_user; "last_active", datetime x.session_last_active; "pool", bool x.session_pool; "other_config", string_to_string_map x.session_other_config; "is_local_superuser", bool x.session_is_local_superuser; "subject", ref_subject x.session_subject; "validation_time", datetime x.session_validation_time; "auth_user_sid", string x.session_auth_user_sid; "auth_user_name", string x.session_auth_user_name; "rbac_permissions", string_set x.session_rbac_permissions; "tasks", ref_task_set x.session_tasks; "parent", ref_session x.session_parent; "originator", string x.session_originator ]
+  
+  and subject_t : subject_t -> xml =
+    fun x -> To.structure [ "uuid", string x.subject_uuid; "subject_identifier", string x.subject_subject_identifier; "other_config", string_to_string_map x.subject_other_config; "roles", ref_role_set x.subject_roles ]
+  
+  and ref_subject : ref_subject -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and role_t : role_t -> xml =
+    fun x -> To.structure [ "uuid", string x.role_uuid; "name_label", string x.role_name_label; "name_description", string x.role_name_description; "subroles", ref_role_set x.role_subroles ]
+  
+  and ref_role_set : ref_role_set -> xml =
+    fun s -> set ref_role s
+  
+  and ref_role : ref_role -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and task_t : task_t -> xml =
+    fun x -> To.structure [ "uuid", string x.task_uuid; "name_label", string x.task_name_label; "name_description", string x.task_name_description; "allowed_operations", task_allowed_operations_set x.task_allowed_operations; "current_operations", string_to_task_allowed_operations_map x.task_current_operations; "created", datetime x.task_created; "finished", datetime x.task_finished; "status", task_status_type x.task_status; "resident_on", ref_host x.task_resident_on; "progress", float x.task_progress; "type", string x.task_type; "result", string x.task_result; "error_info", string_set x.task_error_info; "other_config", string_to_string_map x.task_other_config; "subtask_of", ref_task x.task_subtask_of; "subtasks", ref_task_set x.task_subtasks; "backtrace", string x.task_backtrace ]
+  
+  and task_allowed_operations_set : task_allowed_operations_set -> xml =
+    fun s -> set task_allowed_operations s
+  
+  and string_to_task_allowed_operations_map : string_to_task_allowed_operations_map -> xml =
+    fun m -> map (ToString.string) (task_allowed_operations) m
+  
+  and task_allowed_operations : task_allowed_operations -> xml =
+        fun v -> To.string(match v with
+                         `cancel -> "cancel"
+                       | `destroy -> "destroy")
+  
+  and task_status_type_set : task_status_type_set -> xml =
+    fun s -> set task_status_type s
+  
+  and task_status_type : task_status_type -> xml =
+        fun v -> To.string(match v with
+                         `pending -> "pending"
+                       | `success -> "success"
+                       | `failure -> "failure"
+                       | `cancelling -> "cancelling"
+                       | `cancelled -> "cancelled")
+  
+  and ref_task : ref_task -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and pool_t : pool_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pool_uuid; "name_label", string x.pool_name_label; "name_description", string x.pool_name_description; "master", ref_host x.pool_master; "default_SR", ref_SR x.pool_default_SR; "suspend_image_SR", ref_SR x.pool_suspend_image_SR; "crash_dump_SR", ref_SR x.pool_crash_dump_SR; "other_config", string_to_string_map x.pool_other_config; "ha_enabled", bool x.pool_ha_enabled; "ha_configuration", string_to_string_map x.pool_ha_configuration; "ha_statefiles", string_set x.pool_ha_statefiles; "ha_host_failures_to_tolerate", int64 x.pool_ha_host_failures_to_tolerate; "ha_plan_exists_for", int64 x.pool_ha_plan_exists_for; "ha_allow_overcommit", bool x.pool_ha_allow_overcommit; "ha_overcommitted", bool x.pool_ha_overcommitted; "blobs", string_to_ref_blob_map x.pool_blobs; "tags", string_set x.pool_tags; "gui_config", string_to_string_map x.pool_gui_config; "health_check_config", string_to_string_map x.pool_health_check_config; "wlb_url", string x.pool_wlb_url; "wlb_username", string x.pool_wlb_username; "wlb_enabled", bool x.pool_wlb_enabled; "wlb_verify_cert", bool x.pool_wlb_verify_cert; "redo_log_enabled", bool x.pool_redo_log_enabled; "redo_log_vdi", ref_VDI x.pool_redo_log_vdi; "vswitch_controller", string x.pool_vswitch_controller; "restrictions", string_to_string_map x.pool_restrictions; "metadata_VDIs", ref_VDI_set x.pool_metadata_VDIs; "ha_cluster_stack", string x.pool_ha_cluster_stack; "allowed_operations", pool_allowed_operations_set x.pool_allowed_operations; "current_operations", string_to_pool_allowed_operations_map x.pool_current_operations; "guest_agent_config", string_to_string_map x.pool_guest_agent_config; "cpu_info", string_to_string_map x.pool_cpu_info; "policy_no_vendor_device", bool x.pool_policy_no_vendor_device; "live_patching_disabled", bool x.pool_live_patching_disabled ]
+  
+  and pool_allowed_operations_set : pool_allowed_operations_set -> xml =
+    fun s -> set pool_allowed_operations s
+  
+  and string_to_pool_allowed_operations_map : string_to_pool_allowed_operations_map -> xml =
+    fun m -> map (ToString.string) (pool_allowed_operations) m
+  
+  and pool_allowed_operations : pool_allowed_operations -> xml =
+        fun v -> To.string(match v with
+                         `ha_enable -> "ha_enable"
+                       | `ha_disable -> "ha_disable")
+  
+  and ref_SR_set : ref_SR_set -> xml =
+    fun s -> set ref_SR s
+  
+  and ref_VM_to_string_map : ref_VM_to_string_map -> xml =
+    fun m -> map (tostring_reference) (string) m
+  
+  and ref_host_set : ref_host_set -> xml =
+    fun s -> set ref_host s
+  
+  and ref_VM_set : ref_VM_set -> xml =
+    fun s -> set ref_VM s
+  
+  and pool_patch_t : pool_patch_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pool_patch_uuid; "name_label", string x.pool_patch_name_label; "name_description", string x.pool_patch_name_description; "version", string x.pool_patch_version; "size", int64 x.pool_patch_size; "pool_applied", bool x.pool_patch_pool_applied; "host_patches", ref_host_patch_set x.pool_patch_host_patches; "after_apply_guidance", after_apply_guidance_set x.pool_patch_after_apply_guidance; "other_config", string_to_string_map x.pool_patch_other_config ]
+  
+  and after_apply_guidance_set : after_apply_guidance_set -> xml =
+    fun s -> set after_apply_guidance s
+  
+  and after_apply_guidance : after_apply_guidance -> xml =
+        fun v -> To.string(match v with
+                         `restartHVM -> "restartHVM"
+                       | `restartPV -> "restartPV"
+                       | `restartHost -> "restartHost"
+                       | `restartXAPI -> "restartXAPI")
+  
+  and vM_t : vM_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vM_uuid; "allowed_operations", vm_operations_set x.vM_allowed_operations; "current_operations", string_to_vm_operations_map x.vM_current_operations; "power_state", vm_power_state x.vM_power_state; "name_label", string x.vM_name_label; "name_description", string x.vM_name_description; "user_version", int64 x.vM_user_version; "is_a_template", bool x.vM_is_a_template; "suspend_VDI", ref_VDI x.vM_suspend_VDI; "resident_on", ref_host x.vM_resident_on; "affinity", ref_host x.vM_affinity; "memory_overhead", int64 x.vM_memory_overhead; "memory_target", int64 x.vM_memory_target; "memory_static_max", int64 x.vM_memory_static_max; "memory_dynamic_max", int64 x.vM_memory_dynamic_max; "memory_dynamic_min", int64 x.vM_memory_dynamic_min; "memory_static_min", int64 x.vM_memory_static_min; "VCPUs_params", string_to_string_map x.vM_VCPUs_params; "VCPUs_max", int64 x.vM_VCPUs_max; "VCPUs_at_startup", int64 x.vM_VCPUs_at_startup; "actions_after_shutdown", on_normal_exit x.vM_actions_after_shutdown; "actions_after_reboot", on_normal_exit x.vM_actions_after_reboot; "actions_after_crash", on_crash_behaviour x.vM_actions_after_crash; "consoles", ref_console_set x.vM_consoles; "VIFs", ref_VIF_set x.vM_VIFs; "VBDs", ref_VBD_set x.vM_VBDs; "crash_dumps", ref_crashdump_set x.vM_crash_dumps; "VTPMs", ref_VTPM_set x.vM_VTPMs; "PV_bootloader", string x.vM_PV_bootloader; "PV_kernel", string x.vM_PV_kernel; "PV_ramdisk", string x.vM_PV_ramdisk; "PV_args", string x.vM_PV_args; "PV_bootloader_args", string x.vM_PV_bootloader_args; "PV_legacy_args", string x.vM_PV_legacy_args; "HVM_boot_policy", string x.vM_HVM_boot_policy; "HVM_boot_params", string_to_string_map x.vM_HVM_boot_params; "HVM_shadow_multiplier", float x.vM_HVM_shadow_multiplier; "platform", string_to_string_map x.vM_platform; "PCI_bus", string x.vM_PCI_bus; "other_config", string_to_string_map x.vM_other_config; "domid", int64 x.vM_domid; "domarch", string x.vM_domarch; "last_boot_CPU_flags", string_to_string_map x.vM_last_boot_CPU_flags; "is_control_domain", bool x.vM_is_control_domain; "metrics", ref_VM_metrics x.vM_metrics; "guest_metrics", ref_VM_guest_metrics x.vM_guest_metrics; "last_booted_record", string x.vM_last_booted_record; "recommendations", string x.vM_recommendations; "xenstore_data", string_to_string_map x.vM_xenstore_data; "ha_always_run", bool x.vM_ha_always_run; "ha_restart_priority", string x.vM_ha_restart_priority; "is_a_snapshot", bool x.vM_is_a_snapshot; "snapshot_of", ref_VM x.vM_snapshot_of; "snapshots", ref_VM_set x.vM_snapshots; "snapshot_time", datetime x.vM_snapshot_time; "transportable_snapshot_id", string x.vM_transportable_snapshot_id; "blobs", string_to_ref_blob_map x.vM_blobs; "tags", string_set x.vM_tags; "blocked_operations", vm_operations_to_string_map x.vM_blocked_operations; "snapshot_info", string_to_string_map x.vM_snapshot_info; "snapshot_metadata", string x.vM_snapshot_metadata; "parent", ref_VM x.vM_parent; "children", ref_VM_set x.vM_children; "bios_strings", string_to_string_map x.vM_bios_strings; "protection_policy", ref_VMPP x.vM_protection_policy; "is_snapshot_from_vmpp", bool x.vM_is_snapshot_from_vmpp; "appliance", ref_VM_appliance x.vM_appliance; "start_delay", int64 x.vM_start_delay; "shutdown_delay", int64 x.vM_shutdown_delay; "order", int64 x.vM_order; "VGPUs", ref_VGPU_set x.vM_VGPUs; "attached_PCIs", ref_PCI_set x.vM_attached_PCIs; "suspend_SR", ref_SR x.vM_suspend_SR; "version", int64 x.vM_version; "generation_id", string x.vM_generation_id; "hardware_platform_version", int64 x.vM_hardware_platform_version; "has_vendor_device", bool x.vM_has_vendor_device; "requires_reboot", bool x.vM_requires_reboot ]
+  
+  and vm_operations_set : vm_operations_set -> xml =
+    fun s -> set vm_operations s
+  
+  and string_to_vm_operations_map : string_to_vm_operations_map -> xml =
+    fun m -> map (ToString.string) (vm_operations) m
+  
+  and vm_power_state_set : vm_power_state_set -> xml =
+    fun s -> set vm_power_state s
+  
+  and vm_power_state : vm_power_state -> xml =
+        fun v -> To.string(match v with
+                         `Halted -> "Halted"
+                       | `Paused -> "Paused"
+                       | `Running -> "Running"
+                       | `Suspended -> "Suspended")
+  
+  and on_normal_exit_set : on_normal_exit_set -> xml =
+    fun s -> set on_normal_exit s
+  
+  and on_normal_exit : on_normal_exit -> xml =
+        fun v -> To.string(match v with
+                         `destroy -> "destroy"
+                       | `restart -> "restart")
+  
+  and on_crash_behaviour_set : on_crash_behaviour_set -> xml =
+    fun s -> set on_crash_behaviour s
+  
+  and on_crash_behaviour : on_crash_behaviour -> xml =
+        fun v -> To.string(match v with
+                         `destroy -> "destroy"
+                       | `coredump_and_destroy -> "coredump_and_destroy"
+                       | `restart -> "restart"
+                       | `coredump_and_restart -> "coredump_and_restart"
+                       | `preserve -> "preserve"
+                       | `rename_restart -> "rename_restart")
+  
+  and vm_operations_to_string_map : vm_operations_to_string_map -> xml =
+    fun m -> map (   function `snapshot -> "snapshot"
+                       | `clone -> "clone"
+                       | `copy -> "copy"
+                       | `create_template -> "create_template"
+                       | `revert -> "revert"
+                       | `checkpoint -> "checkpoint"
+                       | `snapshot_with_quiesce -> "snapshot_with_quiesce"
+                       | `provision -> "provision"
+                       | `start -> "start"
+                       | `start_on -> "start_on"
+                       | `pause -> "pause"
+                       | `unpause -> "unpause"
+                       | `clean_shutdown -> "clean_shutdown"
+                       | `clean_reboot -> "clean_reboot"
+                       | `hard_shutdown -> "hard_shutdown"
+                       | `power_state_reset -> "power_state_reset"
+                       | `hard_reboot -> "hard_reboot"
+                       | `suspend -> "suspend"
+                       | `csvm -> "csvm"
+                       | `resume -> "resume"
+                       | `resume_on -> "resume_on"
+                       | `pool_migrate -> "pool_migrate"
+                       | `migrate_send -> "migrate_send"
+                       | `get_boot_record -> "get_boot_record"
+                       | `send_sysrq -> "send_sysrq"
+                       | `send_trigger -> "send_trigger"
+                       | `query_services -> "query_services"
+                       | `shutdown -> "shutdown"
+                       | `call_plugin -> "call_plugin"
+                       | `changing_memory_live -> "changing_memory_live"
+                       | `awaiting_memory_live -> "awaiting_memory_live"
+                       | `changing_dynamic_range -> "changing_dynamic_range"
+                       | `changing_static_range -> "changing_static_range"
+                       | `changing_memory_limits -> "changing_memory_limits"
+                       | `changing_shadow_memory -> "changing_shadow_memory"
+                       | `changing_shadow_memory_live -> "changing_shadow_memory_live"
+                       | `changing_VCPUs -> "changing_vcpus"
+                       | `changing_VCPUs_live -> "changing_vcpus_live"
+                       | `assert_operation_valid -> "assert_operation_valid"
+                       | `data_source_op -> "data_source_op"
+                       | `update_allowed_operations -> "update_allowed_operations"
+                       | `make_into_template -> "make_into_template"
+                       | `import -> "import"
+                       | `export -> "export"
+                       | `metadata_export -> "metadata_export"
+                       | `reverting -> "reverting"
+                       | `destroy -> "destroy") (string) m
+  
+  and ref_VDI_to_ref_SR_map : ref_VDI_to_ref_SR_map -> xml =
+    fun m -> map (tostring_reference) (ref_SR) m
+  
+  and ref_VIF_to_ref_network_map : ref_VIF_to_ref_network_map -> xml =
+    fun m -> map (tostring_reference) (ref_network) m
+  
+  and vm_operations : vm_operations -> xml =
+        fun v -> To.string(match v with
+                         `snapshot -> "snapshot"
+                       | `clone -> "clone"
+                       | `copy -> "copy"
+                       | `create_template -> "create_template"
+                       | `revert -> "revert"
+                       | `checkpoint -> "checkpoint"
+                       | `snapshot_with_quiesce -> "snapshot_with_quiesce"
+                       | `provision -> "provision"
+                       | `start -> "start"
+                       | `start_on -> "start_on"
+                       | `pause -> "pause"
+                       | `unpause -> "unpause"
+                       | `clean_shutdown -> "clean_shutdown"
+                       | `clean_reboot -> "clean_reboot"
+                       | `hard_shutdown -> "hard_shutdown"
+                       | `power_state_reset -> "power_state_reset"
+                       | `hard_reboot -> "hard_reboot"
+                       | `suspend -> "suspend"
+                       | `csvm -> "csvm"
+                       | `resume -> "resume"
+                       | `resume_on -> "resume_on"
+                       | `pool_migrate -> "pool_migrate"
+                       | `migrate_send -> "migrate_send"
+                       | `get_boot_record -> "get_boot_record"
+                       | `send_sysrq -> "send_sysrq"
+                       | `send_trigger -> "send_trigger"
+                       | `query_services -> "query_services"
+                       | `shutdown -> "shutdown"
+                       | `call_plugin -> "call_plugin"
+                       | `changing_memory_live -> "changing_memory_live"
+                       | `awaiting_memory_live -> "awaiting_memory_live"
+                       | `changing_dynamic_range -> "changing_dynamic_range"
+                       | `changing_static_range -> "changing_static_range"
+                       | `changing_memory_limits -> "changing_memory_limits"
+                       | `changing_shadow_memory -> "changing_shadow_memory"
+                       | `changing_shadow_memory_live -> "changing_shadow_memory_live"
+                       | `changing_VCPUs -> "changing_VCPUs"
+                       | `changing_VCPUs_live -> "changing_VCPUs_live"
+                       | `assert_operation_valid -> "assert_operation_valid"
+                       | `data_source_op -> "data_source_op"
+                       | `update_allowed_operations -> "update_allowed_operations"
+                       | `make_into_template -> "make_into_template"
+                       | `import -> "import"
+                       | `export -> "export"
+                       | `metadata_export -> "metadata_export"
+                       | `reverting -> "reverting"
+                       | `destroy -> "destroy")
+  
+  and vM_metrics_t : vM_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vM_metrics_uuid; "memory_actual", int64 x.vM_metrics_memory_actual; "VCPUs_number", int64 x.vM_metrics_VCPUs_number; "VCPUs_utilisation", int64_to_float_map x.vM_metrics_VCPUs_utilisation; "VCPUs_CPU", int64_to_int64_map x.vM_metrics_VCPUs_CPU; "VCPUs_params", string_to_string_map x.vM_metrics_VCPUs_params; "VCPUs_flags", int64_to_string_set_map x.vM_metrics_VCPUs_flags; "state", string_set x.vM_metrics_state; "start_time", datetime x.vM_metrics_start_time; "install_time", datetime x.vM_metrics_install_time; "last_updated", datetime x.vM_metrics_last_updated; "other_config", string_to_string_map x.vM_metrics_other_config ]
+  
+  and int64_to_float_map : int64_to_float_map -> xml =
+    fun m -> map (ToString.int64) (float) m
+  
+  and int64_to_int64_map : int64_to_int64_map -> xml =
+    fun m -> map (ToString.int64) (int64) m
+  
+  and int64_to_string_set_map : int64_to_string_set_map -> xml =
+    fun m -> map (ToString.int64) (string_set) m
+  
+  and ref_VM_metrics : ref_VM_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vM_guest_metrics_t : vM_guest_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vM_guest_metrics_uuid; "os_version", string_to_string_map x.vM_guest_metrics_os_version; "PV_drivers_version", string_to_string_map x.vM_guest_metrics_PV_drivers_version; "PV_drivers_up_to_date", bool x.vM_guest_metrics_PV_drivers_up_to_date; "memory", string_to_string_map x.vM_guest_metrics_memory; "disks", string_to_string_map x.vM_guest_metrics_disks; "networks", string_to_string_map x.vM_guest_metrics_networks; "other", string_to_string_map x.vM_guest_metrics_other; "last_updated", datetime x.vM_guest_metrics_last_updated; "other_config", string_to_string_map x.vM_guest_metrics_other_config; "live", bool x.vM_guest_metrics_live; "can_use_hotplug_vbd", tristate_type x.vM_guest_metrics_can_use_hotplug_vbd; "can_use_hotplug_vif", tristate_type x.vM_guest_metrics_can_use_hotplug_vif; "PV_drivers_detected", bool x.vM_guest_metrics_PV_drivers_detected ]
+  
+  and tristate_type_set : tristate_type_set -> xml =
+    fun s -> set tristate_type s
+  
+  and tristate_type : tristate_type -> xml =
+        fun v -> To.string(match v with
+                         `yes -> "yes"
+                       | `no -> "no"
+                       | `unspecified -> "unspecified")
+  
+  and ref_VM_guest_metrics : ref_VM_guest_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vMPP_t : vMPP_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vMPP_uuid; "name_label", string x.vMPP_name_label; "name_description", string x.vMPP_name_description; "is_policy_enabled", bool x.vMPP_is_policy_enabled; "backup_type", vmpp_backup_type x.vMPP_backup_type; "backup_retention_value", int64 x.vMPP_backup_retention_value; "backup_frequency", vmpp_backup_frequency x.vMPP_backup_frequency; "backup_schedule", string_to_string_map x.vMPP_backup_schedule; "is_backup_running", bool x.vMPP_is_backup_running; "backup_last_run_time", datetime x.vMPP_backup_last_run_time; "archive_target_type", vmpp_archive_target_type x.vMPP_archive_target_type; "archive_target_config", string_to_string_map x.vMPP_archive_target_config; "archive_frequency", vmpp_archive_frequency x.vMPP_archive_frequency; "archive_schedule", string_to_string_map x.vMPP_archive_schedule; "is_archive_running", bool x.vMPP_is_archive_running; "archive_last_run_time", datetime x.vMPP_archive_last_run_time; "VMs", ref_VM_set x.vMPP_VMs; "is_alarm_enabled", bool x.vMPP_is_alarm_enabled; "alarm_config", string_to_string_map x.vMPP_alarm_config; "recent_alerts", string_set x.vMPP_recent_alerts ]
+  
+  and vmpp_backup_type_set : vmpp_backup_type_set -> xml =
+    fun s -> set vmpp_backup_type s
+  
+  and vmpp_backup_type : vmpp_backup_type -> xml =
+        fun v -> To.string(match v with
+                         `snapshot -> "snapshot"
+                       | `checkpoint -> "checkpoint")
+  
+  and vmpp_backup_frequency_set : vmpp_backup_frequency_set -> xml =
+    fun s -> set vmpp_backup_frequency s
+  
+  and vmpp_backup_frequency : vmpp_backup_frequency -> xml =
+        fun v -> To.string(match v with
+                         `hourly -> "hourly"
+                       | `daily -> "daily"
+                       | `weekly -> "weekly")
+  
+  and vmpp_archive_frequency_set : vmpp_archive_frequency_set -> xml =
+    fun s -> set vmpp_archive_frequency s
+  
+  and vmpp_archive_frequency : vmpp_archive_frequency -> xml =
+        fun v -> To.string(match v with
+                         `never -> "never"
+                       | `always_after_backup -> "always_after_backup"
+                       | `daily -> "daily"
+                       | `weekly -> "weekly")
+  
+  and vmpp_archive_target_type_set : vmpp_archive_target_type_set -> xml =
+    fun s -> set vmpp_archive_target_type s
+  
+  and vmpp_archive_target_type : vmpp_archive_target_type -> xml =
+        fun v -> To.string(match v with
+                         `none -> "none"
+                       | `cifs -> "cifs"
+                       | `nfs -> "nfs")
+  
+  and ref_VMPP : ref_VMPP -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vM_appliance_t : vM_appliance_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vM_appliance_uuid; "name_label", string x.vM_appliance_name_label; "name_description", string x.vM_appliance_name_description; "allowed_operations", vm_appliance_operation_set x.vM_appliance_allowed_operations; "current_operations", string_to_vm_appliance_operation_map x.vM_appliance_current_operations; "VMs", ref_VM_set x.vM_appliance_VMs ]
+  
+  and vm_appliance_operation_set : vm_appliance_operation_set -> xml =
+    fun s -> set vm_appliance_operation s
+  
+  and string_to_vm_appliance_operation_map : string_to_vm_appliance_operation_map -> xml =
+    fun m -> map (ToString.string) (vm_appliance_operation) m
+  
+  and vm_appliance_operation : vm_appliance_operation -> xml =
+        fun v -> To.string(match v with
+                         `start -> "start"
+                       | `clean_shutdown -> "clean_shutdown"
+                       | `hard_shutdown -> "hard_shutdown"
+                       | `shutdown -> "shutdown")
+  
+  and ref_VM_appliance : ref_VM_appliance -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_session : ref_session -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and dR_task_t : dR_task_t -> xml =
+    fun x -> To.structure [ "uuid", string x.dR_task_uuid; "introduced_SRs", ref_SR_set x.dR_task_introduced_SRs ]
+  
+  and host_t : host_t -> xml =
+    fun x -> To.structure [ "uuid", string x.host_uuid; "name_label", string x.host_name_label; "name_description", string x.host_name_description; "memory_overhead", int64 x.host_memory_overhead; "allowed_operations", host_allowed_operations_set x.host_allowed_operations; "current_operations", string_to_host_allowed_operations_map x.host_current_operations; "API_version_major", int64 x.host_API_version_major; "API_version_minor", int64 x.host_API_version_minor; "API_version_vendor", string x.host_API_version_vendor; "API_version_vendor_implementation", string_to_string_map x.host_API_version_vendor_implementation; "enabled", bool x.host_enabled; "software_version", string_to_string_map x.host_software_version; "other_config", string_to_string_map x.host_other_config; "capabilities", string_set x.host_capabilities; "cpu_configuration", string_to_string_map x.host_cpu_configuration; "sched_policy", string x.host_sched_policy; "supported_bootloaders", string_set x.host_supported_bootloaders; "resident_VMs", ref_VM_set x.host_resident_VMs; "logging", string_to_string_map x.host_logging; "PIFs", ref_PIF_set x.host_PIFs; "suspend_image_sr", ref_SR x.host_suspend_image_sr; "crash_dump_sr", ref_SR x.host_crash_dump_sr; "crashdumps", ref_host_crashdump_set x.host_crashdumps; "patches", ref_host_patch_set x.host_patches; "PBDs", ref_PBD_set x.host_PBDs; "host_CPUs", ref_host_cpu_set x.host_host_CPUs; "cpu_info", string_to_string_map x.host_cpu_info; "hostname", string x.host_hostname; "address", string x.host_address; "metrics", ref_host_metrics x.host_metrics; "license_params", string_to_string_map x.host_license_params; "ha_statefiles", string_set x.host_ha_statefiles; "ha_network_peers", string_set x.host_ha_network_peers; "blobs", string_to_ref_blob_map x.host_blobs; "tags", string_set x.host_tags; "external_auth_type", string x.host_external_auth_type; "external_auth_service_name", string x.host_external_auth_service_name; "external_auth_configuration", string_to_string_map x.host_external_auth_configuration; "edition", string x.host_edition; "license_server", string_to_string_map x.host_license_server; "bios_strings", string_to_string_map x.host_bios_strings; "power_on_mode", string x.host_power_on_mode; "power_on_config", string_to_string_map x.host_power_on_config; "local_cache_sr", ref_SR x.host_local_cache_sr; "chipset_info", string_to_string_map x.host_chipset_info; "PCIs", ref_PCI_set x.host_PCIs; "PGPUs", ref_PGPU_set x.host_PGPUs; "ssl_legacy", bool x.host_ssl_legacy; "guest_VCPUs_params", string_to_string_map x.host_guest_VCPUs_params; "display", host_display x.host_display; "virtual_hardware_platform_versions", int64_set x.host_virtual_hardware_platform_versions; "control_domain", ref_VM x.host_control_domain; "patches_requiring_reboot", ref_pool_patch_set x.host_patches_requiring_reboot ]
+  
+  and host_allowed_operations_set : host_allowed_operations_set -> xml =
+    fun s -> set host_allowed_operations s
+  
+  and string_to_host_allowed_operations_map : string_to_host_allowed_operations_map -> xml =
+    fun m -> map (ToString.string) (host_allowed_operations) m
+  
+  and host_allowed_operations : host_allowed_operations -> xml =
+        fun v -> To.string(match v with
+                         `provision -> "provision"
+                       | `evacuate -> "evacuate"
+                       | `shutdown -> "shutdown"
+                       | `reboot -> "reboot"
+                       | `power_on -> "power_on"
+                       | `vm_start -> "vm_start"
+                       | `vm_resume -> "vm_resume"
+                       | `vm_migrate -> "vm_migrate")
+  
+  and host_display_set : host_display_set -> xml =
+    fun s -> set host_display s
+  
+  and host_display : host_display -> xml =
+        fun v -> To.string(match v with
+                         `enabled -> "enabled"
+                       | `disable_on_reboot -> "disable_on_reboot"
+                       | `disabled -> "disabled"
+                       | `enable_on_reboot -> "enable_on_reboot")
+  
+  and int64_set : int64_set -> xml =
+    fun s -> set int64 s
+  
+  and ref_pool_patch_set : ref_pool_patch_set -> xml =
+    fun s -> set ref_pool_patch s
+  
+  and ref_VDI_to_string_map : ref_VDI_to_string_map -> xml =
+    fun m -> map (tostring_reference) (string) m
+  
+  and ref_VDI_set : ref_VDI_set -> xml =
+    fun s -> set ref_VDI s
+  
+  and host_crashdump_t : host_crashdump_t -> xml =
+    fun x -> To.structure [ "uuid", string x.host_crashdump_uuid; "host", ref_host x.host_crashdump_host; "timestamp", datetime x.host_crashdump_timestamp; "size", int64 x.host_crashdump_size; "other_config", string_to_string_map x.host_crashdump_other_config ]
+  
+  and ref_host_crashdump : ref_host_crashdump -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and host_patch_t : host_patch_t -> xml =
+    fun x -> To.structure [ "uuid", string x.host_patch_uuid; "name_label", string x.host_patch_name_label; "name_description", string x.host_patch_name_description; "version", string x.host_patch_version; "host", ref_host x.host_patch_host; "applied", bool x.host_patch_applied; "timestamp_applied", datetime x.host_patch_timestamp_applied; "size", int64 x.host_patch_size; "pool_patch", ref_pool_patch x.host_patch_pool_patch; "other_config", string_to_string_map x.host_patch_other_config ]
+  
+  and ref_pool_patch : ref_pool_patch -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_host_patch : ref_host_patch -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and host_metrics_t : host_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.host_metrics_uuid; "memory_total", int64 x.host_metrics_memory_total; "memory_free", int64 x.host_metrics_memory_free; "live", bool x.host_metrics_live; "last_updated", datetime x.host_metrics_last_updated; "other_config", string_to_string_map x.host_metrics_other_config ]
+  
+  and ref_host_metrics : ref_host_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and host_cpu_t : host_cpu_t -> xml =
+    fun x -> To.structure [ "uuid", string x.host_cpu_uuid; "host", ref_host x.host_cpu_host; "number", int64 x.host_cpu_number; "vendor", string x.host_cpu_vendor; "speed", int64 x.host_cpu_speed; "modelname", string x.host_cpu_modelname; "family", int64 x.host_cpu_family; "model", int64 x.host_cpu_model; "stepping", string x.host_cpu_stepping; "flags", string x.host_cpu_flags; "features", string x.host_cpu_features; "utilisation", float x.host_cpu_utilisation; "other_config", string_to_string_map x.host_cpu_other_config ]
+  
+  and ref_host_cpu : ref_host_cpu -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and network_t : network_t -> xml =
+    fun x -> To.structure [ "uuid", string x.network_uuid; "name_label", string x.network_name_label; "name_description", string x.network_name_description; "allowed_operations", network_operations_set x.network_allowed_operations; "current_operations", string_to_network_operations_map x.network_current_operations; "VIFs", ref_VIF_set x.network_VIFs; "PIFs", ref_PIF_set x.network_PIFs; "MTU", int64 x.network_MTU; "other_config", string_to_string_map x.network_other_config; "bridge", string x.network_bridge; "blobs", string_to_ref_blob_map x.network_blobs; "tags", string_set x.network_tags; "default_locking_mode", network_default_locking_mode x.network_default_locking_mode; "assigned_ips", ref_VIF_to_string_map x.network_assigned_ips ]
+  
+  and network_operations_set : network_operations_set -> xml =
+    fun s -> set network_operations s
+  
+  and string_to_network_operations_map : string_to_network_operations_map -> xml =
+    fun m -> map (ToString.string) (network_operations) m
+  
+  and network_operations : network_operations -> xml =
+        fun v -> To.string(match v with
+                         `attaching -> "attaching")
+  
+  and ref_VIF_to_string_map : ref_VIF_to_string_map -> xml =
+    fun m -> map (tostring_reference) (string) m
+  
+  and network_default_locking_mode_set : network_default_locking_mode_set -> xml =
+    fun s -> set network_default_locking_mode s
+  
+  and network_default_locking_mode : network_default_locking_mode -> xml =
+        fun v -> To.string(match v with
+                         `unlocked -> "unlocked"
+                       | `disabled -> "disabled")
+  
+  and vIF_t : vIF_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vIF_uuid; "allowed_operations", vif_operations_set x.vIF_allowed_operations; "current_operations", string_to_vif_operations_map x.vIF_current_operations; "device", string x.vIF_device; "network", ref_network x.vIF_network; "VM", ref_VM x.vIF_VM; "MAC", string x.vIF_MAC; "MTU", int64 x.vIF_MTU; "other_config", string_to_string_map x.vIF_other_config; "currently_attached", bool x.vIF_currently_attached; "status_code", int64 x.vIF_status_code; "status_detail", string x.vIF_status_detail; "runtime_properties", string_to_string_map x.vIF_runtime_properties; "qos_algorithm_type", string x.vIF_qos_algorithm_type; "qos_algorithm_params", string_to_string_map x.vIF_qos_algorithm_params; "qos_supported_algorithms", string_set x.vIF_qos_supported_algorithms; "metrics", ref_VIF_metrics x.vIF_metrics; "MAC_autogenerated", bool x.vIF_MAC_autogenerated; "locking_mode", vif_locking_mode x.vIF_locking_mode; "ipv4_allowed", string_set x.vIF_ipv4_allowed; "ipv6_allowed", string_set x.vIF_ipv6_allowed; "ipv4_configuration_mode", vif_ipv4_configuration_mode x.vIF_ipv4_configuration_mode; "ipv4_addresses", string_set x.vIF_ipv4_addresses; "ipv4_gateway", string x.vIF_ipv4_gateway; "ipv6_configuration_mode", vif_ipv6_configuration_mode x.vIF_ipv6_configuration_mode; "ipv6_addresses", string_set x.vIF_ipv6_addresses; "ipv6_gateway", string x.vIF_ipv6_gateway ]
+  
+  and vif_operations_set : vif_operations_set -> xml =
+    fun s -> set vif_operations s
+  
+  and string_to_vif_operations_map : string_to_vif_operations_map -> xml =
+    fun m -> map (ToString.string) (vif_operations) m
+  
+  and vif_operations : vif_operations -> xml =
+        fun v -> To.string(match v with
+                         `attach -> "attach"
+                       | `plug -> "plug"
+                       | `unplug -> "unplug")
+  
+  and vif_locking_mode_set : vif_locking_mode_set -> xml =
+    fun s -> set vif_locking_mode s
+  
+  and vif_locking_mode : vif_locking_mode -> xml =
+        fun v -> To.string(match v with
+                         `network_default -> "network_default"
+                       | `locked -> "locked"
+                       | `unlocked -> "unlocked"
+                       | `disabled -> "disabled")
+  
+  and vif_ipv4_configuration_mode_set : vif_ipv4_configuration_mode_set -> xml =
+    fun s -> set vif_ipv4_configuration_mode s
+  
+  and vif_ipv4_configuration_mode : vif_ipv4_configuration_mode -> xml =
+        fun v -> To.string(match v with
+                         `None -> "None"
+                       | `Static -> "Static")
+  
+  and ref_VIF : ref_VIF -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vif_ipv6_configuration_mode_set : vif_ipv6_configuration_mode_set -> xml =
+    fun s -> set vif_ipv6_configuration_mode s
+  
+  and vif_ipv6_configuration_mode : vif_ipv6_configuration_mode -> xml =
+        fun v -> To.string(match v with
+                         `None -> "None"
+                       | `Static -> "Static")
+  
+  and vIF_metrics_t : vIF_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vIF_metrics_uuid; "io_read_kbs", float x.vIF_metrics_io_read_kbs; "io_write_kbs", float x.vIF_metrics_io_write_kbs; "last_updated", datetime x.vIF_metrics_last_updated; "other_config", string_to_string_map x.vIF_metrics_other_config ]
+  
+  and ref_VIF_metrics : ref_VIF_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and pIF_t : pIF_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pIF_uuid; "device", string x.pIF_device; "network", ref_network x.pIF_network; "host", ref_host x.pIF_host; "MAC", string x.pIF_MAC; "MTU", int64 x.pIF_MTU; "VLAN", int64 x.pIF_VLAN; "metrics", ref_PIF_metrics x.pIF_metrics; "physical", bool x.pIF_physical; "currently_attached", bool x.pIF_currently_attached; "ip_configuration_mode", ip_configuration_mode x.pIF_ip_configuration_mode; "IP", string x.pIF_IP; "netmask", string x.pIF_netmask; "gateway", string x.pIF_gateway; "DNS", string x.pIF_DNS; "bond_slave_of", ref_Bond x.pIF_bond_slave_of; "bond_master_of", ref_Bond_set x.pIF_bond_master_of; "VLAN_master_of", ref_VLAN x.pIF_VLAN_master_of; "VLAN_slave_of", ref_VLAN_set x.pIF_VLAN_slave_of; "management", bool x.pIF_management; "other_config", string_to_string_map x.pIF_other_config; "disallow_unplug", bool x.pIF_disallow_unplug; "tunnel_access_PIF_of", ref_tunnel_set x.pIF_tunnel_access_PIF_of; "tunnel_transport_PIF_of", ref_tunnel_set x.pIF_tunnel_transport_PIF_of; "ipv6_configuration_mode", ipv6_configuration_mode x.pIF_ipv6_configuration_mode; "IPv6", string_set x.pIF_IPv6; "ipv6_gateway", string x.pIF_ipv6_gateway; "primary_address_type", primary_address_type x.pIF_primary_address_type; "managed", bool x.pIF_managed; "properties", string_to_string_map x.pIF_properties; "capabilities", string_set x.pIF_capabilities ]
+  
+  and ip_configuration_mode_set : ip_configuration_mode_set -> xml =
+    fun s -> set ip_configuration_mode s
+  
+  and ip_configuration_mode : ip_configuration_mode -> xml =
+        fun v -> To.string(match v with
+                         `None -> "None"
+                       | `DHCP -> "DHCP"
+                       | `Static -> "Static")
+  
+  and ipv6_configuration_mode_set : ipv6_configuration_mode_set -> xml =
+    fun s -> set ipv6_configuration_mode s
+  
+  and ipv6_configuration_mode : ipv6_configuration_mode -> xml =
+        fun v -> To.string(match v with
+                         `None -> "None"
+                       | `DHCP -> "DHCP"
+                       | `Static -> "Static"
+                       | `Autoconf -> "Autoconf")
+  
+  and primary_address_type_set : primary_address_type_set -> xml =
+    fun s -> set primary_address_type s
+  
+  and primary_address_type : primary_address_type -> xml =
+        fun v -> To.string(match v with
+                         `IPv4 -> "IPv4"
+                       | `IPv6 -> "IPv6")
+  
+  and pIF_metrics_t : pIF_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pIF_metrics_uuid; "io_read_kbs", float x.pIF_metrics_io_read_kbs; "io_write_kbs", float x.pIF_metrics_io_write_kbs; "carrier", bool x.pIF_metrics_carrier; "vendor_id", string x.pIF_metrics_vendor_id; "vendor_name", string x.pIF_metrics_vendor_name; "device_id", string x.pIF_metrics_device_id; "device_name", string x.pIF_metrics_device_name; "speed", int64 x.pIF_metrics_speed; "duplex", bool x.pIF_metrics_duplex; "pci_bus_path", string x.pIF_metrics_pci_bus_path; "last_updated", datetime x.pIF_metrics_last_updated; "other_config", string_to_string_map x.pIF_metrics_other_config ]
+  
+  and ref_PIF_metrics : ref_PIF_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and bond_t : bond_t -> xml =
+    fun x -> To.structure [ "uuid", string x.bond_uuid; "master", ref_PIF x.bond_master; "slaves", ref_PIF_set x.bond_slaves; "other_config", string_to_string_map x.bond_other_config; "primary_slave", ref_PIF x.bond_primary_slave; "mode", bond_mode x.bond_mode; "properties", string_to_string_map x.bond_properties; "links_up", int64 x.bond_links_up ]
+  
+  and ref_PIF_set : ref_PIF_set -> xml =
+    fun s -> set ref_PIF s
+  
+  and bond_mode_set : bond_mode_set -> xml =
+    fun s -> set bond_mode s
+  
+  and bond_mode : bond_mode -> xml =
+        fun v -> To.string(match v with
+                         `balanceslb -> "balance-slb"
+                       | `activebackup -> "active-backup"
+                       | `lacp -> "lacp")
+  
+  and ref_Bond : ref_Bond -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vLAN_t : vLAN_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vLAN_uuid; "tagged_PIF", ref_PIF x.vLAN_tagged_PIF; "untagged_PIF", ref_PIF x.vLAN_untagged_PIF; "tag", int64 x.vLAN_tag; "other_config", string_to_string_map x.vLAN_other_config ]
+  
+  and ref_VLAN : ref_VLAN -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and sM_t : sM_t -> xml =
+    fun x -> To.structure [ "uuid", string x.sM_uuid; "name_label", string x.sM_name_label; "name_description", string x.sM_name_description; "type", string x.sM_type; "vendor", string x.sM_vendor; "copyright", string x.sM_copyright; "version", string x.sM_version; "required_api_version", string x.sM_required_api_version; "configuration", string_to_string_map x.sM_configuration; "capabilities", string_set x.sM_capabilities; "features", string_to_int64_map x.sM_features; "other_config", string_to_string_map x.sM_other_config; "driver_filename", string x.sM_driver_filename; "required_cluster_stack", string_set x.sM_required_cluster_stack ]
+  
+  and string_to_int64_map : string_to_int64_map -> xml =
+    fun m -> map (ToString.string) (int64) m
+  
+  and ref_SM : ref_SM -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and sR_t : sR_t -> xml =
+    fun x -> To.structure [ "uuid", string x.sR_uuid; "name_label", string x.sR_name_label; "name_description", string x.sR_name_description; "allowed_operations", storage_operations_set x.sR_allowed_operations; "current_operations", string_to_storage_operations_map x.sR_current_operations; "VDIs", ref_VDI_set x.sR_VDIs; "PBDs", ref_PBD_set x.sR_PBDs; "virtual_allocation", int64 x.sR_virtual_allocation; "physical_utilisation", int64 x.sR_physical_utilisation; "physical_size", int64 x.sR_physical_size; "type", string x.sR_type; "content_type", string x.sR_content_type; "shared", bool x.sR_shared; "other_config", string_to_string_map x.sR_other_config; "tags", string_set x.sR_tags; "sm_config", string_to_string_map x.sR_sm_config; "blobs", string_to_ref_blob_map x.sR_blobs; "local_cache_enabled", bool x.sR_local_cache_enabled; "introduced_by", ref_DR_task x.sR_introduced_by; "clustered", bool x.sR_clustered; "is_tools_sr", bool x.sR_is_tools_sr ]
+  
+  and storage_operations_set : storage_operations_set -> xml =
+    fun s -> set storage_operations s
+  
+  and string_to_storage_operations_map : string_to_storage_operations_map -> xml =
+    fun m -> map (ToString.string) (storage_operations) m
+  
+  and storage_operations : storage_operations -> xml =
+        fun v -> To.string(match v with
+                         `scan -> "scan"
+                       | `destroy -> "destroy"
+                       | `forget -> "forget"
+                       | `plug -> "plug"
+                       | `unplug -> "unplug"
+                       | `update -> "update"
+                       | `vdi_create -> "vdi_create"
+                       | `vdi_introduce -> "vdi_introduce"
+                       | `vdi_destroy -> "vdi_destroy"
+                       | `vdi_resize -> "vdi_resize"
+                       | `vdi_clone -> "vdi_clone"
+                       | `vdi_snapshot -> "vdi_snapshot"
+                       | `vdi_mirror -> "vdi_mirror"
+                       | `pbd_create -> "pbd_create"
+                       | `pbd_destroy -> "pbd_destroy")
+  
+  and string_to_ref_blob_map : string_to_ref_blob_map -> xml =
+    fun m -> map (ToString.string) (ref_blob) m
+  
+  and ref_DR_task : ref_DR_task -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and lVHD_t : lVHD_t -> xml =
+    fun x -> To.structure [ "uuid", string x.lVHD_uuid ]
+  
+  and ref_LVHD : ref_LVHD -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vDI_t : vDI_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vDI_uuid; "name_label", string x.vDI_name_label; "name_description", string x.vDI_name_description; "allowed_operations", vdi_operations_set x.vDI_allowed_operations; "current_operations", string_to_vdi_operations_map x.vDI_current_operations; "SR", ref_SR x.vDI_SR; "VBDs", ref_VBD_set x.vDI_VBDs; "crash_dumps", ref_crashdump_set x.vDI_crash_dumps; "virtual_size", int64 x.vDI_virtual_size; "physical_utilisation", int64 x.vDI_physical_utilisation; "type", vdi_type x.vDI_type; "sharable", bool x.vDI_sharable; "read_only", bool x.vDI_read_only; "other_config", string_to_string_map x.vDI_other_config; "storage_lock", bool x.vDI_storage_lock; "location", string x.vDI_location; "managed", bool x.vDI_managed; "missing", bool x.vDI_missing; "parent", ref_VDI x.vDI_parent; "xenstore_data", string_to_string_map x.vDI_xenstore_data; "sm_config", string_to_string_map x.vDI_sm_config; "is_a_snapshot", bool x.vDI_is_a_snapshot; "snapshot_of", ref_VDI x.vDI_snapshot_of; "snapshots", ref_VDI_set x.vDI_snapshots; "snapshot_time", datetime x.vDI_snapshot_time; "tags", string_set x.vDI_tags; "allow_caching", bool x.vDI_allow_caching; "on_boot", on_boot x.vDI_on_boot; "metadata_of_pool", ref_pool x.vDI_metadata_of_pool; "metadata_latest", bool x.vDI_metadata_latest; "is_tools_iso", bool x.vDI_is_tools_iso ]
+  
+  and vdi_operations_set : vdi_operations_set -> xml =
+    fun s -> set vdi_operations s
+  
+  and string_to_vdi_operations_map : string_to_vdi_operations_map -> xml =
+    fun m -> map (ToString.string) (vdi_operations) m
+  
+  and vdi_operations : vdi_operations -> xml =
+        fun v -> To.string(match v with
+                         `scan -> "scan"
+                       | `clone -> "clone"
+                       | `copy -> "copy"
+                       | `resize -> "resize"
+                       | `resize_online -> "resize_online"
+                       | `snapshot -> "snapshot"
+                       | `mirror -> "mirror"
+                       | `destroy -> "destroy"
+                       | `forget -> "forget"
+                       | `update -> "update"
+                       | `force_unlock -> "force_unlock"
+                       | `generate_config -> "generate_config"
+                       | `blocked -> "blocked")
+  
+  and vdi_type_set : vdi_type_set -> xml =
+    fun s -> set vdi_type s
+  
+  and vdi_type : vdi_type -> xml =
+        fun v -> To.string(match v with
+                         `system -> "system"
+                       | `user -> "user"
+                       | `ephemeral -> "ephemeral"
+                       | `suspend -> "suspend"
+                       | `crashdump -> "crashdump"
+                       | `ha_statefile -> "ha_statefile"
+                       | `metadata -> "metadata"
+                       | `redo_log -> "redo_log"
+                       | `rrd -> "rrd")
+  
+  and ref_pool : ref_pool -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and on_boot_set : on_boot_set -> xml =
+    fun s -> set on_boot s
+  
+  and on_boot : on_boot -> xml =
+        fun v -> To.string(match v with
+                         `reset -> "reset"
+                       | `persist -> "persist")
+  
+  and vBD_t : vBD_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vBD_uuid; "allowed_operations", vbd_operations_set x.vBD_allowed_operations; "current_operations", string_to_vbd_operations_map x.vBD_current_operations; "VM", ref_VM x.vBD_VM; "VDI", ref_VDI x.vBD_VDI; "device", string x.vBD_device; "userdevice", string x.vBD_userdevice; "bootable", bool x.vBD_bootable; "mode", vbd_mode x.vBD_mode; "type", vbd_type x.vBD_type; "unpluggable", bool x.vBD_unpluggable; "storage_lock", bool x.vBD_storage_lock; "empty", bool x.vBD_empty; "other_config", string_to_string_map x.vBD_other_config; "currently_attached", bool x.vBD_currently_attached; "status_code", int64 x.vBD_status_code; "status_detail", string x.vBD_status_detail; "runtime_properties", string_to_string_map x.vBD_runtime_properties; "qos_algorithm_type", string x.vBD_qos_algorithm_type; "qos_algorithm_params", string_to_string_map x.vBD_qos_algorithm_params; "qos_supported_algorithms", string_set x.vBD_qos_supported_algorithms; "metrics", ref_VBD_metrics x.vBD_metrics ]
+  
+  and vbd_operations_set : vbd_operations_set -> xml =
+    fun s -> set vbd_operations s
+  
+  and string_to_vbd_operations_map : string_to_vbd_operations_map -> xml =
+    fun m -> map (ToString.string) (vbd_operations) m
+  
+  and vbd_operations : vbd_operations -> xml =
+        fun v -> To.string(match v with
+                         `attach -> "attach"
+                       | `eject -> "eject"
+                       | `insert -> "insert"
+                       | `plug -> "plug"
+                       | `unplug -> "unplug"
+                       | `unplug_force -> "unplug_force"
+                       | `pause -> "pause"
+                       | `unpause -> "unpause")
+  
+  and vbd_mode_set : vbd_mode_set -> xml =
+    fun s -> set vbd_mode s
+  
+  and vbd_mode : vbd_mode -> xml =
+        fun v -> To.string(match v with
+                         `RO -> "RO"
+                       | `RW -> "RW")
+  
+  and vbd_type_set : vbd_type_set -> xml =
+    fun s -> set vbd_type s
+  
+  and vbd_type : vbd_type -> xml =
+        fun v -> To.string(match v with
+                         `CD -> "CD"
+                       | `Disk -> "Disk"
+                       | `Floppy -> "Floppy")
+  
+  and ref_VBD : ref_VBD -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vBD_metrics_t : vBD_metrics_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vBD_metrics_uuid; "io_read_kbs", float x.vBD_metrics_io_read_kbs; "io_write_kbs", float x.vBD_metrics_io_write_kbs; "last_updated", datetime x.vBD_metrics_last_updated; "other_config", string_to_string_map x.vBD_metrics_other_config ]
+  
+  and float : float -> xml =
+    To.double
+  
+  and ref_VBD_metrics : ref_VBD_metrics -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and pBD_t : pBD_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pBD_uuid; "host", ref_host x.pBD_host; "SR", ref_SR x.pBD_SR; "device_config", string_to_string_map x.pBD_device_config; "currently_attached", bool x.pBD_currently_attached; "other_config", string_to_string_map x.pBD_other_config ]
+  
+  and ref_SR : ref_SR -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_PBD : ref_PBD -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and crashdump_t : crashdump_t -> xml =
+    fun x -> To.structure [ "uuid", string x.crashdump_uuid; "VM", ref_VM x.crashdump_VM; "VDI", ref_VDI x.crashdump_VDI; "other_config", string_to_string_map x.crashdump_other_config ]
+  
+  and ref_VDI : ref_VDI -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_crashdump : ref_crashdump -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vTPM_t : vTPM_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vTPM_uuid; "VM", ref_VM x.vTPM_VM; "backend", ref_VM x.vTPM_backend ]
+  
+  and ref_VTPM : ref_VTPM -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and console_t : console_t -> xml =
+    fun x -> To.structure [ "uuid", string x.console_uuid; "protocol", console_protocol x.console_protocol; "location", string x.console_location; "VM", ref_VM x.console_VM; "other_config", string_to_string_map x.console_other_config ]
+  
+  and console_protocol_set : console_protocol_set -> xml =
+    fun s -> set console_protocol s
+  
+  and console_protocol : console_protocol -> xml =
+        fun v -> To.string(match v with
+                         `vt100 -> "vt100"
+                       | `rfb -> "rfb"
+                       | `rdp -> "rdp")
+  
+  and ref_console : ref_console -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and user_t : user_t -> xml =
+    fun x -> To.structure [ "uuid", string x.user_uuid; "short_name", string x.user_short_name; "fullname", string x.user_fullname; "other_config", string_to_string_map x.user_other_config ]
+  
+  and ref_user : ref_user -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and blob_t : blob_t -> xml =
+    fun x -> To.structure [ "uuid", string x.blob_uuid; "name_label", string x.blob_name_label; "name_description", string x.blob_name_description; "size", int64 x.blob_size; "public", bool x.blob_public; "last_updated", datetime x.blob_last_updated; "mime_type", string x.blob_mime_type ]
+  
+  and ref_blob : ref_blob -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and cls_set : cls_set -> xml =
+    fun s -> set cls s
+  
+  and cls : cls -> xml =
+        fun v -> To.string(match v with
+                         `VM -> "VM"
+                       | `Host -> "Host"
+                       | `SR -> "SR"
+                       | `Pool -> "Pool"
+                       | `VMPP -> "VMPP")
+  
+  and datetime : datetime -> xml =
+    To.datetime
+  
+  and ref_message : ref_message -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and secret_t : secret_t -> xml =
+    fun x -> To.structure [ "uuid", string x.secret_uuid; "value", string x.secret_value; "other_config", string_to_string_map x.secret_other_config ]
+  
+  and ref_secret : ref_secret -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and tunnel_t : tunnel_t -> xml =
+    fun x -> To.structure [ "uuid", string x.tunnel_uuid; "access_PIF", ref_PIF x.tunnel_access_PIF; "transport_PIF", ref_PIF x.tunnel_transport_PIF; "status", string_to_string_map x.tunnel_status; "other_config", string_to_string_map x.tunnel_other_config ]
+  
+  and ref_PIF : ref_PIF -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_network : ref_network -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_tunnel : ref_tunnel -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and pCI_t : pCI_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pCI_uuid; "class_name", string x.pCI_class_name; "vendor_name", string x.pCI_vendor_name; "device_name", string x.pCI_device_name; "host", ref_host x.pCI_host; "pci_id", string x.pCI_pci_id; "dependencies", ref_PCI_set x.pCI_dependencies; "other_config", string_to_string_map x.pCI_other_config; "subsystem_vendor_name", string x.pCI_subsystem_vendor_name; "subsystem_device_name", string x.pCI_subsystem_device_name ]
+  
+  and ref_PCI_set : ref_PCI_set -> xml =
+    fun s -> set ref_PCI s
+  
+  and pGPU_t : pGPU_t -> xml =
+    fun x -> To.structure [ "uuid", string x.pGPU_uuid; "PCI", ref_PCI x.pGPU_PCI; "GPU_group", ref_GPU_group x.pGPU_GPU_group; "host", ref_host x.pGPU_host; "other_config", string_to_string_map x.pGPU_other_config; "supported_VGPU_types", ref_VGPU_type_set x.pGPU_supported_VGPU_types; "enabled_VGPU_types", ref_VGPU_type_set x.pGPU_enabled_VGPU_types; "resident_VGPUs", ref_VGPU_set x.pGPU_resident_VGPUs; "supported_VGPU_max_capacities", ref_VGPU_type_to_int64_map x.pGPU_supported_VGPU_max_capacities; "dom0_access", pgpu_dom0_access x.pGPU_dom0_access; "is_system_display_device", bool x.pGPU_is_system_display_device ]
+  
+  and ref_PCI : ref_PCI -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_host : ref_host -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_VGPU_type_to_int64_map : ref_VGPU_type_to_int64_map -> xml =
+    fun m -> map (tostring_reference) (int64) m
+  
+  and pgpu_dom0_access_set : pgpu_dom0_access_set -> xml =
+    fun s -> set pgpu_dom0_access s
+  
+  and pgpu_dom0_access : pgpu_dom0_access -> xml =
+        fun v -> To.string(match v with
+                         `enabled -> "enabled"
+                       | `disable_on_reboot -> "disable_on_reboot"
+                       | `disabled -> "disabled"
+                       | `enable_on_reboot -> "enable_on_reboot")
+  
+  and gPU_group_t : gPU_group_t -> xml =
+    fun x -> To.structure [ "uuid", string x.gPU_group_uuid; "name_label", string x.gPU_group_name_label; "name_description", string x.gPU_group_name_description; "PGPUs", ref_PGPU_set x.gPU_group_PGPUs; "VGPUs", ref_VGPU_set x.gPU_group_VGPUs; "GPU_types", string_set x.gPU_group_GPU_types; "other_config", string_to_string_map x.gPU_group_other_config; "allocation_algorithm", allocation_algorithm x.gPU_group_allocation_algorithm; "supported_VGPU_types", ref_VGPU_type_set x.gPU_group_supported_VGPU_types; "enabled_VGPU_types", ref_VGPU_type_set x.gPU_group_enabled_VGPU_types ]
+  
+  and string_set : string_set -> xml =
+    fun s -> set string s
+  
+  and allocation_algorithm_set : allocation_algorithm_set -> xml =
+    fun s -> set allocation_algorithm s
+  
+  and allocation_algorithm : allocation_algorithm -> xml =
+        fun v -> To.string(match v with
+                         `breadth_first -> "breadth_first"
+                       | `depth_first -> "depth_first")
+  
+  and ref_VGPU_type_set : ref_VGPU_type_set -> xml =
+    fun s -> set ref_VGPU_type s
+  
+  and vGPU_t : vGPU_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vGPU_uuid; "VM", ref_VM x.vGPU_VM; "GPU_group", ref_GPU_group x.vGPU_GPU_group; "device", string x.vGPU_device; "currently_attached", bool x.vGPU_currently_attached; "other_config", string_to_string_map x.vGPU_other_config; "type", ref_VGPU_type x.vGPU_type; "resident_on", ref_PGPU x.vGPU_resident_on ]
+  
+  and ref_VM : ref_VM -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and string_to_string_map : string_to_string_map -> xml =
+    fun m -> map (ToString.string) (string) m
+  
+  and ref_VGPU : ref_VGPU -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vGPU_type_t : vGPU_type_t -> xml =
+    fun x -> To.structure [ "uuid", string x.vGPU_type_uuid; "vendor_name", string x.vGPU_type_vendor_name; "model_name", string x.vGPU_type_model_name; "framebuffer_size", int64 x.vGPU_type_framebuffer_size; "max_heads", int64 x.vGPU_type_max_heads; "max_resolution_x", int64 x.vGPU_type_max_resolution_x; "max_resolution_y", int64 x.vGPU_type_max_resolution_y; "supported_on_PGPUs", ref_PGPU_set x.vGPU_type_supported_on_PGPUs; "enabled_on_PGPUs", ref_PGPU_set x.vGPU_type_enabled_on_PGPUs; "VGPUs", ref_VGPU_set x.vGPU_type_VGPUs; "supported_on_GPU_groups", ref_GPU_group_set x.vGPU_type_supported_on_GPU_groups; "enabled_on_GPU_groups", ref_GPU_group_set x.vGPU_type_enabled_on_GPU_groups; "implementation", vgpu_type_implementation x.vGPU_type_implementation; "identifier", string x.vGPU_type_identifier; "experimental", bool x.vGPU_type_experimental ]
+  
+  and int64 : int64 -> xml =
+    fun n -> To.string(Int64.to_string n)
+  
+  and ref_PGPU_set : ref_PGPU_set -> xml =
+    fun s -> set ref_PGPU s
+  
+  and ref_PGPU : ref_PGPU -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and ref_GPU_group_set : ref_GPU_group_set -> xml =
+    fun s -> set ref_GPU_group s
+  
+  and ref_GPU_group : ref_GPU_group -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and vgpu_type_implementation_set : vgpu_type_implementation_set -> xml =
+    fun s -> set vgpu_type_implementation s
+  
+  and vgpu_type_implementation : vgpu_type_implementation -> xml =
+        fun v -> To.string(match v with
+                         `passthrough -> "passthrough"
+                       | `nvidia -> "nvidia"
+                       | `gvt_g -> "gvt_g")
+  
+  and ref_VGPU_type : ref_VGPU_type -> xml =
+    fun r -> To.string (Ref.string_of r)
+  
+  and bool : bool -> xml =
+    To.boolean
+  
+  and string : string -> xml =
+    To.string
+end
 
 end
