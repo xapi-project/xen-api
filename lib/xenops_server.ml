@@ -1141,11 +1141,12 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			end
 		| VM_remove id ->
 			debug "VM.remove %s" id;
-			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
+			let vm_t = VM_DB.read_exn id in
+			let power = (B.VM.get_state vm_t).Vm.power_state in
 			begin match power with
 				| Running | Paused -> raise (Bad_power_state(power, Halted))
 				| Halted | Suspended ->
-					B.VM.remove (VM_DB.read_exn id);
+					B.VM.remove vm_t;
 					List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
 					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
 					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id);
@@ -1170,7 +1171,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			let vm_t = VM_DB.read_exn id in
 			if n <= 0 || n > vm_t.Vm.vcpu_max
 			then raise (Invalid_vcpus vm_t.Vm.vcpu_max);
-			B.VM.set_vcpus t (VM_DB.read_exn id) n
+			B.VM.set_vcpus t vm_t n
 		| VM_set_shadow_multiplier (id, m) ->
 			debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
 			B.VM.set_shadow_multiplier t (VM_DB.read_exn id) m;
@@ -1185,8 +1186,12 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			VM_DB.signal id
 		| VM_unpause id ->
 			debug "VM.unpause %s" id;
-			B.VM.unpause t (VM_DB.read_exn id);
-			VM_DB.signal id
+			let vm_t = VM_DB.read_exn id in
+			let power = (B.VM.get_state vm_t).Vm.power_state in
+			begin match power with
+			| Paused -> B.VM.unpause t vm_t; VM_DB.signal id
+			| _ -> info "VM %s is not paused" id
+			end
 		| VM_request_rdp (id, enabled) ->
 			debug "VM.request_rdp %s %b" id enabled;
 			B.VM.request_rdp (VM_DB.read_exn id) enabled
@@ -1413,8 +1418,11 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 	let one = function
 		| VM_start id ->
 			debug "VM.start %s" id;
-			perform_atomics (atomics_of_operation op) t;
-			VM_DB.signal id
+			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
+			begin match power with
+			| Running -> info "VM %s is already running" id
+			| _ -> perform_atomics (atomics_of_operation op) t; VM_DB.signal id
+			end
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
 			perform_atomics (atomics_of_operation op) t;
