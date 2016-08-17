@@ -84,7 +84,24 @@ module VmExtra = struct
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
 		last_start_time: float;
+		nomigrate: bool;  (* platform:nomigrate   at boot time *)
+		nested_virt: bool (* platform:nested_virt at boot time *)
 	} with rpc
+
+	let default_persistent_t =
+		{ build_info = None
+		; ty = None
+		; last_start_time = 0.0
+		; nomigrate = false
+		; nested_virt = false
+		}
+
+	(* override rpc code generated for persistent_t. It is important that
+	 * this code is before the declaration of type t because otherwise
+	 * the rpc code for type t won't use it. *)
+	let persistent_t_of_rpc rpc =
+		Rpc.struct_extend rpc (rpc_of_persistent_t default_persistent_t)
+		|> persistent_t_of_rpc
 
 	type non_persistent_t = {
 		create_info: Domain.create_info;
@@ -759,6 +776,8 @@ module VM = struct
 			(* Earlier than the PV drivers update time, therefore
 			   any cached PV driver information will be kept. *)
 			last_start_time = 0.;
+			nomigrate = false;
+			nested_virt = false
 		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let mkints n =
@@ -855,7 +874,19 @@ module VM = struct
 							x.VmExtra.persistent, x.VmExtra.non_persistent
 						| None -> begin
 							debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-							let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday ()} in
+							let persistent =
+								{ VmExtra.build_info = None
+								; ty = None
+								; last_start_time = Unix.gettimeofday ()
+								; nomigrate = Platform.is_true
+								  ~key:"nomigrate"
+								  ~platformdata:vm.Xenops_interface.Vm.platformdata
+								  ~default:false
+								; nested_virt=Platform.is_true
+								  ~key:"nested_virt"
+								  ~platformdata:vm.Xenops_interface.Vm.platformdata
+								  ~default:false
+								} in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
 						end in
@@ -1638,6 +1669,14 @@ module VM = struct
 							end;
 							hvm = di.Xenctrl.hvm_guest;
 							shadow_multiplier_target = shadow_multiplier_target;
+							nomigrate = begin match vme with
+								| None   -> false
+								| Some x -> x.VmExtra.persistent.VmExtra.nomigrate
+							end;
+							nested_virt = begin match vme with
+								| None   -> false
+								| Some x -> x.VmExtra.persistent.VmExtra.nested_virt
+							end
 						}
 			)
 

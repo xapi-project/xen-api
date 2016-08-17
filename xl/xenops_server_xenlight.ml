@@ -236,6 +236,8 @@ module VmExtra = struct
 		build_info: Domain.build_info option;
 		ty: Vm.builder_info option;
 		last_start_time: float;
+		nomigrate: bool;  (* platform:nomigrate   at boot time *)
+		nested_virt: bool (* platform:nested_virt at boot time *)
 	} with rpc
 
 	type non_persistent_t = {
@@ -256,6 +258,19 @@ module VmExtra = struct
 		persistent: persistent_t;
 		non_persistent: non_persistent_t;
 	} with rpc
+
+	let default_persistent_t =
+		{ build_info = None
+		; ty = None
+		; last_start_time = 0.0
+		; nomigrate = false
+		; nested_virt = false
+		}
+
+	(* override rpc code generated for persistent_t *)
+	let persistent_t_of_rpc rpc =
+		Rpc.struct_extend rpc (rpc_of_persistent_t default_persistent_t)
+		|> persistent_t_of_rpc
 end
 
 module DB = struct
@@ -1793,6 +1808,8 @@ module VM = struct
 			(* Earlier than the PV drivers update time, therefore
 			   any cached PV driver information will be kept. *)
 			last_start_time = 0.;
+			nomigrate = false;
+			nested_virt = false
 		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	(* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
@@ -2087,7 +2104,19 @@ module VM = struct
 						x.VmExtra.persistent, x.VmExtra.non_persistent
 					| None -> begin
 						debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
-						let persistent = { VmExtra.build_info = None; ty = None; last_start_time = Unix.gettimeofday () } in
+						let persistent =
+							{ VmExtra.build_info = None
+							; ty = None
+							; last_start_time = Unix.gettimeofday ()
+							; nomigrate = Platform.is_true
+								~key:"nomigrate"
+								~platformdata:vm.Xenops_interface.Vm.platformdata
+								~default:false
+							; nested_virt=Platform.is_true
+								~key:"nested_virt"
+								~platformdata:vm.Xenops_interface.Vm.platformdata
+								~default:false
+							} in
 						let non_persistent = generate_non_persistent_state xs vm in
 						persistent, non_persistent
 					end in
@@ -2682,6 +2711,14 @@ module VM = struct
 							end;
 							shadow_multiplier_target = shadow_multiplier_target;
 							hvm;
+							nomigrate = begin match vme with
+								| None   -> false
+								| Some x -> x.VmExtra.persistent.VmExtra.nomigrate
+							end;
+							nested_virt = begin match vme with
+								| None   -> false
+								| Some x -> x.VmExtra.persistent.VmExtra.nested_virt
+							end
 						}
 			)
 

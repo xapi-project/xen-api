@@ -548,6 +548,8 @@ let halted_vm = {
 	last_start_time = 0.;
 	shadow_multiplier_target = 1.;
 	hvm = false;
+	nomigrate=false;
+	nested_virt=false;
 }
 
 let unplugged_pci = {
