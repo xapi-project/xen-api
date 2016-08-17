@@ -8827,28 +8827,6 @@ module PVS_site = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let add_cache_storage = call
-      ~name:"add_cache_storage"
-      ~doc:"Add a cache SR for the proxies on the site"
-      ~params:
-        [ Ref _pvs_site, "self", "this PVS site"
-        ; Ref _sr, "value", "SR to be used"
-        ]
-      ~lifecycle
-      ~allowed_roles:_R_POOL_OP
-      ()
-
-  let remove_cache_storage = call
-      ~name:"remove_cache_storage"
-      ~doc:"Remove a cache SR for the proxies on the site"
-      ~params:
-        [ Ref _pvs_site, "self", "this PVS site"
-        ; Ref _sr, "value", "SR to be removed"
-        ]
-      ~lifecycle
-      ~allowed_roles:_R_POOL_OP
-      ()
-
   let obj =
     let null_str = Some (VString "") in
     let null_set = Some (VSet []) in
@@ -8888,8 +8866,6 @@ module PVS_site = struct
         [ introduce
         ; forget
         ; set_name
-        ; add_cache_storage
-        ; remove_cache_storage
         ]
       ()
 end

@@ -1727,12 +1727,6 @@ let pvs_site_record rpc session_id pvs_site =
                           |> List.map get_uuid_from_ref |> String.concat "; ")
           ~get_set:(fun () ->
               List.map get_uuid_from_ref (x ()).API.pVS_site_cache_storage)
-          ~add_to_set:(fun sr_uuid ->
-              let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
-              Client.PVS_site.add_cache_storage rpc session_id !_ref sr)
-          ~remove_from_set:(fun sr_uuid ->
-              let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
-              Client.PVS_site.remove_cache_storage rpc session_id !_ref sr)
           ()
       ; make_field ~name:"pvs-server-uuids"
           ~get:(fun () -> (x ()).API.pVS_site_servers

@@ -18,9 +18,3 @@ val forget : __context:Context.t -> self:API.ref_PVS_site -> unit
 
 val set_name : __context:Context.t ->
   self:API.ref_PVS_site -> value:string -> unit
-
-val add_cache_storage : __context:Context.t ->
-  self:API.ref_PVS_site -> value:API.ref_SR -> unit
-
-val remove_cache_storage : __context:Context.t ->
-  self:API.ref_PVS_site -> value:API.ref_SR -> unit

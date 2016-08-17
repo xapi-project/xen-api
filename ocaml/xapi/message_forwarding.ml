@@ -3910,14 +3910,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let set_name ~__context ~self ~value =
       info "PVS_site.set_name %s" value;
       Local.PVS_site.set_name ~__context ~self ~value
-
-    let add_cache_storage ~__context ~self ~value =
-      info "PVS_site.add_cache_storage";
-      Local.PVS_site.add_cache_storage ~__context ~self ~value
-
-    let remove_cache_storage ~__context ~self ~value =
-      info "PVS_site.remove_cache_storage";
-      Local.PVS_site.remove_cache_storage ~__context ~self ~value
   end
 
   module PVS_server = struct

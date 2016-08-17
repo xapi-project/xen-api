@@ -59,25 +59,3 @@ let sr_is_in_use ~__context ~self sr =
   |> List.map (fun px -> Db.PVS_proxy.get_cache_SR ~__context ~self:px)
   |> List.mem sr
 
-(** [add_cache_storage] adds an SR for caching *)
-let add_cache_storage ~__context ~self ~value =
-  let str ref = Ref.string_of ref in
-  let cache = Db.PVS_site.get_cache_storage ~__context ~self in
-  if List.mem value cache then
-    api_error E.pvs_site_sr_already_added [str self; str value]
-  else
-    Db.PVS_site.add_cache_storage ~__context ~self ~value
-
-(** [remove_cache_storage] remove an SR unless it is used *)
-let remove_cache_storage ~__context ~self ~value =
-  let cache = Db.PVS_site.get_cache_storage ~__context ~self in
-  let str ref = Ref.string_of ref in
-  if not @@ List.mem value cache then
-    api_error E.sr_not_in_pvs_site [str self; str value]
-  else if sr_is_in_use ~__context ~self value then
-    api_error E.pvs_site_sr_is_in_use [str self; str value]
-  else begin
-    Xapi_pvs_cache.on_sr_remove ~__context ~sr:value;
-    Db.PVS_site.remove_cache_storage ~__context ~self ~value
-  end
-
