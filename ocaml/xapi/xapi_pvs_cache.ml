@@ -52,11 +52,12 @@ module VDI = struct
 end
 
 let check_cache_availability ~__context ~host ~site =
-  match
-    List.filter
-      (fun sr -> Helpers.host_has_pbd_for_sr ~__context ~host ~sr)
-      (Db.PVS_site.get_cache_storage ~__context ~self:site)
-  with
+  let srs = 
+    (Db.PVS_site.get_cache_storage ~__context ~self:site
+     |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) 
+     |> List.filter (fun sr -> Helpers.host_has_pbd_for_sr ~__context ~host ~sr)) in
+
+  match srs with
   | [] -> None
   | srs -> begin
       let sorted_srs =

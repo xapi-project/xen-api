@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 104
+let schema_minor_vsn = 105
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -8849,7 +8849,7 @@ module PVS_site = struct
             "Name of the PVS site. Must match name configured in PVS"
 
         ; field   ~qualifier:DynamicRO ~lifecycle
-            ~ty:(Set (Ref _sr)) "cache_storage" ~default_value:null_set
+            ~ty:(Set (Ref _pvs_cache_storage)) "cache_storage" ~default_value:null_set
             ~ignore_foreign_key:true
             "The SR used by PVS proxy for the cache"
 
@@ -9203,6 +9203,7 @@ let all_relations =
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
     (_pvs_server, "site"), (_pvs_site, "servers");
     (_pvs_proxy,  "site"), (_pvs_site, "proxies");
+    (_pvs_cache_storage,  "site"), (_pvs_site, "cache_storage");
   ]
 
 (** the full api specified here *)
@@ -9289,6 +9290,7 @@ let expose_get_all_messages_for = [
   _pvs_site;
   _pvs_server;
   _pvs_proxy;
+  _pvs_cache_storage;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
