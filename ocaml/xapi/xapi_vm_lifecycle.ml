@@ -38,10 +38,11 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
+
 	| `changing_VCPUs
+	| `changing_static_range
 	| `changing_memory_limits       -> `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
 	| `changing_shadow_memory
-	| `changing_static_range
 	| `make_into_template
 	| `provision
 	| `start
@@ -366,6 +367,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `metadata_export
 			&& op <> `changing_dynamic_range
 			&& op <> `changing_memory_limits
+			&& op <> `changing_static_range
 			&& op <> `start
 			&& op <> `changing_VCPUs
 		then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on a control domain"])

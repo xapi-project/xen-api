@@ -120,9 +120,26 @@ let compute_memory_overhead = compute_memory_overhead
 
 open Xapi_vm_memory_constraints
 
+(* Since dom0 is not started by the toolstack but by Xen at boot time,
+   we have to modify the Xen command line in order to update dom0's
+   memory allocation. *)
+let set_dom0_memory ~__context ~self ~bytes =
+	let arg = Printf.sprintf "dom0_mem=%LdB,max:%LdB" bytes bytes in
+	let args = ["--set-xen"; arg] in
+	try
+		let _ = Helpers.call_script !Xapi_globs.xen_cmdline_script args in
+		Xapi_host_helpers.Host_requires_reboot.set ()
+	with
+	| e ->
+		error "Failed to update dom0 memory: %s" (Printexc.to_string e);
+		raise Api_errors.(Server_error (internal_error, ["Failed to update dom0 memory"]))
+
 let set_memory_static_range ~__context ~self ~min ~max =
-	(* Called on the master only when the VM is offline *)
-	if Db.VM.get_power_state ~__context ~self <> `Halted
+	(* For non-control domains, this function is only called on the master and
+	 * for halted VMs. *)
+	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self in
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	if not is_control_domain && power_state <> `Halted
 	then failwith "assertion_failed: set_memory_static_range should only be \
 		called when the VM is Halted";
 	(* Check the range constraints *)
@@ -135,7 +152,14 @@ let set_memory_static_range ~__context ~self ~min ~max =
 		~__context ~constraints;
 	Db.VM.set_memory_static_min ~__context ~self ~value:min;
 	Db.VM.set_memory_static_max ~__context ~self ~value:max;
-	update_memory_overhead ~__context ~vm:self
+	update_memory_overhead ~__context ~vm:self;
+	if Helpers.is_domain_zero ~__context self then
+		set_dom0_memory ~__context ~self ~bytes:max;
+	(* It is allowed to update the memory settings of a running control domain,
+	 * but it needs to be rebooted for the changes to take effect. We signal
+	 * the client to do so. *)
+	if is_control_domain && power_state = `Running then
+		Db.VM.set_requires_reboot ~__context ~self ~value:true
 
 (* These are always converted into set_memory_dynamic_range *)
 (* by the message forwarding layer:                         *)
@@ -145,19 +169,6 @@ let set_memory_dynamic_max ~__context ~self ~value = assert false
 (* by the message forwarding layer:                        *)
 let set_memory_static_min ~__context ~self ~value = assert false
 let set_memory_static_max ~__context ~self ~value = assert false
-
-(* Since dom0 is not started by the toolstack but by Xen at boot time,
-   we have to modify the Xen command line in order to update dom0's
-   memory allocation. *)
-let set_dom0_memory ~__context ~self ~bytes =
-	let arg = Printf.sprintf "dom0_mem=%LdB,max:%LdB" bytes bytes in
-	let args = ["--set-xen"; arg] in
-	try
-		let _ = Helpers.call_script !Xapi_globs.xen_cmdline_script args in
-		Xapi_host_helpers.Host_requires_reboot.set ()
-	with
-	| _ ->
-		raise Api_errors.(Server_error (internal_error, ["Failed to update control domain memory"]))
 
 let set_memory_limits ~__context ~self
 	~static_min ~static_max ~dynamic_min ~dynamic_max =
