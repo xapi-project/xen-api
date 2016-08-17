@@ -215,6 +215,8 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
     
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd ->
+	let reusable_buffer = String.make (Int64.to_int chunk_size) '\000' in
+
 	let rec stream_from (last_suffix: string) (offset: int64) = 
 	  refresh_session ();
 
@@ -262,7 +264,10 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 		  done
 	      end;
 		
-	    let buffer = String.make (Int64.to_int length) '\000' in
+	    let buffer = if length = chunk_size
+	      then reusable_buffer
+	      else String.make (Int64.to_int length) '\000'
+	    in
 	    Unixext.really_read ifd buffer 0 (Int64.to_int length);
 	    Tar_unix.Archive.multicast_n_string buffer [ ofd ] (Int64.to_int length);
 	    let csum = Sha1.to_hex (Sha1.string buffer) in
