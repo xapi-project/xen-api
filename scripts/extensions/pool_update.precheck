@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+import xmlrpclib
+import sys
+import XenAPI
+import time
+import json
+import urllib2
+import xml.dom.minidom
+import traceback
+import subprocess
+import os
+import re
+import StringIO
+
+UPDATE_DIR = '/var/update/'
+PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+FIST_FILE = '/tmp/fist_allowed_unsigned_updates'
+
+
+class PrecheckFailure(Exception):
+    pass
+
+
+def success_message():
+    rpcparams = {'Status': 'Success', 'Value': None}
+    return xmlrpclib.dumps((rpcparams, ), '', True, allow_none=True)
+
+
+def failure_message(code, params):
+    rpcparams = {
+        'Status': 'Failure', 'ErrorDescription': json.dumps([code] + params)}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+
+def parse_control_package(session, yum_url):
+    control_package = ''
+    if yum_url.startswith(('file://', '/')):
+        # If it's local repo, parse update.xml to fetch the control package name.
+        m = re.search(
+            UPDATE_DIR+r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', yum_url)
+        if not m:
+            raise PrecheckFailure('Incorrect yum repo (%r)' % yum_url)
+        update_xml = os.path.join(m.group(0), 'vdi', 'update.xml')
+        xmldoc = xml.dom.minidom.parse(update_xml)
+    elif yum_url.startswith(('http://', 'https://')):
+        # If it's remote repo, the yum is exposed as HTTP URL.
+        # Fetch update.xml to local and parse to fetch the control package name.
+        update_xml = urllib2.urlopen(yum_url + '/update.xml').read()
+        xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
+    else:
+        raise PrecheckFailure('Incorrect yum repo (%r)' % yum_url)
+    items = xmldoc.getElementsByTagName('update')
+    if not items or not items[0].hasAttribute('control'):
+        raise PrecheckFailure(
+            'Parse Control Package from yum (%r)' % yum_url)
+    return items[0].getAttribute('control')
+
+def execute_precheck(session, control_package):
+
+    FNULL = open(os.devnull, 'w')
+
+    # yum.conf is located at /var/update/<uuid>/yum.conf
+    update_uuid = session.xenapi.pool_update.get_uuid(update)
+    yum_conf = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
+    allow_unsigned = False
+    if os.path.isfile(FIST_FILE):
+        allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
+    nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
+    retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' +
+                              nogpgcheck + control_package, shell=True, stdout=FNULL, stderr=FNULL)
+    if retcode != 0:
+        raise PrecheckFailure(
+            'Execute control_package (%r) failed.' % control_package)
+
+if __name__ == '__main__':
+    txt = sys.stdin.read()
+    params, method = xmlrpclib.loads(txt)
+
+    session = None
+    try:
+        session = XenAPI.xapi_local()
+        session.xenapi.login_with_password('root', '', '', 'Pool_update')
+
+        update = params[1]
+        host = params[2]
+        # attach and get the yum URL
+        yum_url = session.xenapi.pool_update.attach(update, host)
+        control_package = parse_control_package(session, yum_url)
+
+        execute_precheck(session, control_package)
+
+        print(success_message())
+    except Exception as e:
+        print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
+                              ['Precheck failed: %s' % e]))
+    finally:
+        if session is not None:
+            session.xenapi.pool_update.detach(update, host)
+            session.xenapi.session.logout()
