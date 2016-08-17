@@ -38,7 +38,6 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
   (* a VM.import is done on file and not on VMs, so there is not power-state there! *)
   | `import
     -> []
-
   | `changing_VCPUs
   | `changing_static_range
   | `changing_memory_limits       -> `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
