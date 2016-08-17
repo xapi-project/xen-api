@@ -34,6 +34,7 @@ let base_suite =
 			Test_map_check.test;
 			Test_pool_apply_edition.test;
 			Test_pool_license.test;
+			Test_features.test;
 			Test_pool_restore_database.test;
 			Test_platformdata.test;
 			Test_sm_features.test;
