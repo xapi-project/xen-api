@@ -1554,7 +1554,7 @@ let before_clean_shutdown_or_reboot ~__context ~host =
 		then raise (Api_errors.Server_error(Api_errors.ha_lost_statefile, []));
 
 		(* From this point we will fence ourselves if any unexpected error occurs *)
-		try
+		begin try
 			begin
 				try ha_disarm_fencing __context host
 				with Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
@@ -1584,4 +1584,6 @@ let before_clean_shutdown_or_reboot ~__context ~host =
 				Thread.delay 300.;
 				info "Still waiting to reboot after %.2f seconds" (Unix.gettimeofday () -. start)
 			done
+		end;
+		List.iter Static_vdis.detach_only (Static_vdis.list())
 	end

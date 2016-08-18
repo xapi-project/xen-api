@@ -55,6 +55,12 @@ let permanent_vdi_detach_by_uuid ~__context ~uuid =
 	end;
 	ignore(Helpers.call_script !Xapi_globs.static_vdis [ "del"; uuid ])
 
+let detach_only vdi =
+	if vdi.currently_attached then begin
+		info "vdi_detach_by_uuid: vdi-uuid = %s" vdi.uuid;
+		ignore (Helpers.call_script !Xapi_globs.static_vdis ["detach"; vdi.uuid])
+	end
+
 (** Added for CA-48539. Deactivates a vdi. You should probably follow
 	this call with one of the previous vdi_detach functions. *)
 let permanent_vdi_deactivate_by_uuid ~__context ~uuid =
@@ -86,6 +92,6 @@ let gc () =
 let reattempt_on_boot_attach () =
 	let script = "attach-static-vdis" in
 	try
-		ignore(Helpers.call_script "/sbin/service" [ script; "restart" ])
+		ignore(Helpers.call_script "/sbin/service" [ script; "start" ])
 	with e ->
-		warn "Attempt to reattach static VDIs via '%s restart' failed: %s" script (ExnHelper.string_of_exn e)
+		warn "Attempt to reattach static VDIs via '%s start' failed: %s" script (ExnHelper.string_of_exn e)
