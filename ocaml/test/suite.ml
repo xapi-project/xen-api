@@ -14,8 +14,6 @@
 
 open OUnit
 
-let ( |> ) a b = b a
-
 let base_suite =
 	"base_suite" >:::
 		[

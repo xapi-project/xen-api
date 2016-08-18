@@ -14,8 +14,6 @@
 open Client
 open Pervasiveext
 
-let ( |> ) a b = b a
-
 let debug (fmt: ('a , unit, string, unit) format4) =
   (* Convert calendar time, x, to tm in UTC *)
   let of_float x = 
