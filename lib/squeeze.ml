@@ -544,7 +544,7 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> short_string_of_domain domain ^ (new_target_direction domain)) host.domains)) in
     debug "%s" debug_string;
     
-    List.iter (io.declare_domain_stuck) declared_inactive_domids;
+    List.iter (io.declare_domain_stuck ) declared_inactive_domids;
 
 	(* For each domid, decide what maxmem should be *)
 	let maxmems = IntMap.mapi
