@@ -31,7 +31,7 @@ let test_one_sr_no_vdi () =
   let site = make_pvs_site ~__context () in
   let sr = make_sr ~__context () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr () in
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr;
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr ~size:20L in
   assert_equal
     (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr, None))
@@ -42,7 +42,7 @@ let test_one_sr_one_vdi () =
   let site = make_pvs_site ~__context () in
   let sr = make_sr ~__context () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr () in
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr;
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr ~size:20L in
   let vdi = make_vdi ~__context ~_type:`pvs_cache ~sR:sr () in
   assert_equal
     (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
@@ -56,8 +56,8 @@ let test_two_srs_no_vdi () =
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L in
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L in
   assert_equal
     (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
     (Some (sr1, None))
@@ -70,8 +70,8 @@ let test_two_srs_one_vdi () =
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L in
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L in
   let vdi = make_vdi ~__context ~_type:`pvs_cache ~sR:sr2 () in
   assert_equal
     (Xapi_pvs_cache.check_cache_availability ~__context ~host ~site)
@@ -85,8 +85,8 @@ let test_two_srs_two_vdis () =
   let sr2 = make_sr ~__context ~uuid:uuid2 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr1 () in
   let (_: API.ref_PBD) = make_pbd ~__context ~host ~sR:sr2 () in
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr1;
-  Xapi_pvs_site.add_cache_storage ~__context ~self:site ~value:sr2;
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L in
+  let _ = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L in
   let vdi1 = make_vdi ~__context ~_type:`pvs_cache ~sR:sr1 () in
   let (_: API.ref_VDI) = make_vdi ~__context ~_type:`pvs_cache ~sR:sr2 () in
   assert_equal
