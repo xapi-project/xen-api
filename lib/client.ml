@@ -680,13 +680,6 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.VM.set_memory_limits" [ session_id; self; static_min; static_max; dynamic_min; dynamic_max ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let set_memory ~rpc ~session_id ~self ~value =
-        let session_id = rpc_of_ref_session session_id in
-        let self = rpc_of_ref_VM self in
-        let value = rpc_of_int64 value in
-        
-        rpc_wrapper rpc "Async.VM.set_memory" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
       let set_memory_target_live ~rpc ~session_id ~self ~target =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_VM self in
@@ -1372,20 +1365,6 @@ module ClientF = functor(X : IO) ->struct
         let args = rpc_of_string_to_string_map args in
         
         rpc_wrapper rpc "Async.host.call_plugin" [ session_id; host; plugin; fn; args ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
-      let has_extension ~rpc ~session_id ~host ~name =
-        let session_id = rpc_of_ref_session session_id in
-        let host = rpc_of_ref_host host in
-        let name = rpc_of_string name in
-        
-        rpc_wrapper rpc "Async.host.has_extension" [ session_id; host; name ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
-      let call_extension ~rpc ~session_id ~host ~call =
-        let session_id = rpc_of_ref_session session_id in
-        let host = rpc_of_ref_host host in
-        let call = rpc_of_string call in
-        
-        rpc_wrapper rpc "Async.host.call_extension" [ session_id; host; call ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let enable_binary_storage ~rpc ~session_id ~host =
         let session_id = rpc_of_ref_session session_id in
@@ -2121,14 +2100,13 @@ module ClientF = functor(X : IO) ->struct
     end
     module LVHD = struct
       (**  *)
-      let enable_thin_provisioning ~rpc ~session_id ~host ~sR ~initial_allocation ~allocation_quantum =
+      let enable_thin_provisioning ~rpc ~session_id ~sR ~initial_allocation ~allocation_quantum =
         let session_id = rpc_of_ref_session session_id in
-        let host = rpc_of_ref_host host in
         let sR = rpc_of_ref_SR sR in
         let initial_allocation = rpc_of_int64 initial_allocation in
         let allocation_quantum = rpc_of_int64 allocation_quantum in
         
-        rpc_wrapper rpc "Async.LVHD.enable_thin_provisioning" [ session_id; host; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.LVHD.enable_thin_provisioning" [ session_id; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (ref_task_of_rpc  x)
     end
     module VDI = struct
       (**  *)
@@ -3554,12 +3532,6 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.get_policy_no_vendor_device" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
-    let get_live_patching_disabled ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_pool self in
-      
-      rpc_wrapper rpc "pool.get_live_patching_disabled" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
-    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_pool self in
@@ -3709,13 +3681,6 @@ module ClientF = functor(X : IO) ->struct
       let value = rpc_of_bool value in
       
       rpc_wrapper rpc "pool.set_policy_no_vendor_device" [ session_id; self; value ] >>= fun x -> return (ignore x)
-    (**  *)
-    let set_live_patching_disabled ~rpc ~session_id ~self ~value =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_pool self in
-      let value = rpc_of_bool value in
-      
-      rpc_wrapper rpc "pool.set_live_patching_disabled" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let join ~rpc ~session_id ~master_address ~master_username ~master_password =
       let session_id = rpc_of_ref_session session_id in
@@ -4784,12 +4749,6 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VM.get_has_vendor_device" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
-    let get_requires_reboot ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM self in
-      
-      rpc_wrapper rpc "VM.get_requires_reboot" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
-    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VM self in
@@ -5327,13 +5286,6 @@ module ClientF = functor(X : IO) ->struct
       let dynamic_max = rpc_of_int64 dynamic_max in
       
       rpc_wrapper rpc "VM.set_memory_limits" [ session_id; self; static_min; static_max; dynamic_min; dynamic_max ] >>= fun x -> return (ignore x)
-    (**  *)
-    let set_memory ~rpc ~session_id ~self ~value =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_VM self in
-      let value = rpc_of_int64 value in
-      
-      rpc_wrapper rpc "VM.set_memory" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let set_memory_target_live ~rpc ~session_id ~self ~target =
       let session_id = rpc_of_ref_session session_id in
@@ -6931,12 +6883,6 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "host.get_control_domain" [ session_id; self ] >>= fun x -> return (ref_VM_of_rpc  x)
     (**  *)
-    let get_patches_requiring_reboot ~rpc ~session_id ~self =
-      let session_id = rpc_of_ref_session session_id in
-      let self = rpc_of_ref_host self in
-      
-      rpc_wrapper rpc "host.get_patches_requiring_reboot" [ session_id; self ] >>= fun x -> return (ref_pool_patch_set_of_rpc  x)
-    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_host self in
@@ -7491,20 +7437,6 @@ module ClientF = functor(X : IO) ->struct
       let args = rpc_of_string_to_string_map args in
       
       rpc_wrapper rpc "host.call_plugin" [ session_id; host; plugin; fn; args ] >>= fun x -> return (string_of_rpc  x)
-    (**  *)
-    let has_extension ~rpc ~session_id ~host ~name =
-      let session_id = rpc_of_ref_session session_id in
-      let host = rpc_of_ref_host host in
-      let name = rpc_of_string name in
-      
-      rpc_wrapper rpc "host.has_extension" [ session_id; host; name ] >>= fun x -> return (bool_of_rpc  x)
-    (**  *)
-    let call_extension ~rpc ~session_id ~host ~call =
-      let session_id = rpc_of_ref_session session_id in
-      let host = rpc_of_ref_host host in
-      let call = rpc_of_string call in
-      
-      rpc_wrapper rpc "host.call_extension" [ session_id; host; call ] >>= fun x -> return (string_of_rpc  x)
     (**  *)
     let get_servertime ~rpc ~session_id ~host =
       let session_id = rpc_of_ref_session session_id in
@@ -10255,14 +10187,13 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "LVHD.get_uuid" [ session_id; self ] >>= fun x -> return (string_of_rpc  x)
     (**  *)
-    let enable_thin_provisioning ~rpc ~session_id ~host ~sR ~initial_allocation ~allocation_quantum =
+    let enable_thin_provisioning ~rpc ~session_id ~sR ~initial_allocation ~allocation_quantum =
       let session_id = rpc_of_ref_session session_id in
-      let host = rpc_of_ref_host host in
       let sR = rpc_of_ref_SR sR in
       let initial_allocation = rpc_of_int64 initial_allocation in
       let allocation_quantum = rpc_of_int64 allocation_quantum in
       
-      rpc_wrapper rpc "LVHD.enable_thin_provisioning" [ session_id; host; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (string_of_rpc  x)
+      rpc_wrapper rpc "LVHD.enable_thin_provisioning" [ session_id; sR; initial_allocation; allocation_quantum ] >>= fun x -> return (ignore x)
   end
   module VDI = struct
     (**  *)
