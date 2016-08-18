@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let ( |> ) a b = b a
-
 module Database = struct
 
 	let _schema = Datamodel_schema.of_datamodel () ;;
