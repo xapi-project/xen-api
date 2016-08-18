@@ -996,6 +996,41 @@ let pool_patch_record rpc session_id patch =
         make_field ~name:"after-apply-guidance" ~get:(fun () -> String.concat ", " (after_apply_guidance ())) ~get_set:after_apply_guidance ();
       ]}
 
+let pool_update_record rpc session_id update =
+  let _ref = ref update in
+  let empty_record = ToGet (fun () -> Client.Pool_update.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  let get_hosts () =
+    let host_refs = (x ()).API.pool_update_hosts in
+    let host_uuids = List.map (fun x -> Client.Host.get_uuid ~rpc ~session_id ~self:x) host_refs in
+    host_uuids
+  in
+  let after_apply_guidance_to_string = function
+    | `restartHVM -> "restartHVM"
+    | `restartPV -> "restartPV"
+    | `restartHost -> "restartHost"
+    | `restartXAPI -> "restartXAPI"
+  in
+  let after_apply_guidance_to_string_set =
+    List.map after_apply_guidance_to_string
+  in
+  let after_apply_guidance () =
+    after_apply_guidance_to_string_set (x ()).API.pool_update_after_apply_guidance
+  in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.pool_update_uuid) ();
+        make_field ~name:"name-label"          ~get:(fun () -> (x ()).API.pool_update_name_label) ();
+        make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.pool_update_name_description) ();
+        make_field ~name:"installation_size"   ~get:(fun () -> Int64.to_string (x ()).API.pool_update_installation_size) ();
+        make_field ~name:"hosts"               ~get:(fun () -> String.concat ", " (get_hosts ())) ~get_set:get_hosts ();
+        make_field ~name:"after-apply-guidance" ~get:(fun () -> String.concat ", " (after_apply_guidance ())) ~get_set:after_apply_guidance ();
+      ]}
 
 let host_cpu_record rpc session_id host_cpu =
   let _ref = ref host_cpu in
