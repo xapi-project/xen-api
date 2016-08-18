@@ -32,6 +32,7 @@ depends: [
   "opasswd" {>= "0.9.3"}
   "xapi-rrdd-plugin"
   "pci" {>= "0.2.0"}
+  "sha"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]

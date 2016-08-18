@@ -94,11 +94,8 @@ let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
 
   try
-	let csum = Sha1sum.sha1sum
-	  (fun checksumfd ->
-		   Tar_unix.write_block hdr (fun ofd -> Tar_unix.Archive.multicast_n_string buffer 
-									[ ofd; checksumfd ] len) ofd
-	  ) in
+	let csum = Sha1.to_hex (Sha1.string buffer) in
+	Tar_unix.write_block hdr (fun ofd -> Tar_unix.Archive.multicast_n_string buffer [ ofd ] len ) ofd;
 	(* Write the checksum as a separate file *)
 	let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
 	Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
