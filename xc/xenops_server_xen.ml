@@ -2605,16 +2605,26 @@ module VIF = struct
 
 	let set_pvs_proxy task vm vif proxy =
 		let open Device_common in
-		let setup action path =
-			ignore (run !Xc_path.setup_pvs_proxy_rules [action; path])
-		in
 		with_xc_and_xs
 			(fun xc xs ->
 				(* If the device is gone then this is ok *)
 				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
 				let path = Device_common.get_private_data_path_of_device device in
+				let setup action =
+					let devid = string_of_int device.frontend.devid in
+					let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
+					let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
+					let di = Xenctrl.domain_getinfo xc device.frontend.domid in
+					ignore (run !Xc_path.setup_pvs_proxy_rules [action; "vif"; vif_interface_name; path]);
+					if di.Xenctrl.hvm_guest then
+						try
+							ignore (run !Xc_path.setup_pvs_proxy_rules [action; "tap"; tap_interface_name; path])
+						with _ ->
+							(* There won't be a tap device if the VM has PV drivers loaded. *)
+							()
+				in
 				if proxy = None then begin
-					setup "remove" path;
+					setup "remove";
 					Xs.transaction xs (fun t ->
 						let keys = t.Xs.directory path in
 						List.iter (fun key ->
@@ -2626,7 +2636,7 @@ module VIF = struct
 					Xs.transaction xs (fun t ->
 						t.Xs.writev path (xenstore_of_pvs_proxy proxy)
 					);
-					setup "add" path
+					setup "add"
 				end
 			)
 
