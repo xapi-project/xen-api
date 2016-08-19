@@ -38,10 +38,10 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
+	| `changing_VCPUs
 	| `changing_memory_limits       -> `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
 	| `changing_shadow_memory
 	| `changing_static_range
-	| `changing_VCPUs
 	| `make_into_template
 	| `provision
 	| `start
@@ -351,8 +351,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)
 	(* make use of the Helpers.ballooning_enabled_for_vm function.   *)
-	let current_error = check current_error (fun () -> 
-		if vmr.Db_actions.vM_is_control_domain
+	let current_error = check current_error (fun () ->
+		let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid in
+		if Helpers.is_domain_zero ~__context vm_ref
+			&& op = `changing_VCPUs
+		then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on dom0"])
+		else if vmr.Db_actions.vM_is_control_domain
 			&& op <> `data_source_op
 			&& op <> `changing_memory_live
 			&& op <> `awaiting_memory_live
@@ -360,7 +364,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `changing_dynamic_range
 			&& op <> `changing_memory_limits
 			&& op <> `start
-		then Some (Api_errors.operation_not_allowed, ["Operations on control domain are not allowed"])
+			&& op <> `changing_VCPUs
+		then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on a control domain"])
 		else None) in
 
 	(* check for any HVM guest feature needed by the op *)

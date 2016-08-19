@@ -640,9 +640,16 @@ let provision ~__context ~vm =
 			end
 		end)
 
-(** Sets the maximum number of VCPUs for a {b Halted} guest. *)
+(** Sets the maximum number of VCPUs for a {b Halted} guest
+	or a running guest that is a control domain other than dom0 *)
 let set_VCPUs_max ~__context ~self ~value =
-	if Db.VM.get_power_state ~__context ~self <> `Halted
+	if Helpers.is_domain_zero ~__context self then
+		failwith "set_VCPUs_max is not allowed on dom0";
+	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self in
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	(* allowed power states for this operation have already been checked,
+	but let's be defensive *)
+	if (not is_control_domain) && (power_state <> `Halted)
 	then failwith "assertion_failed: set_VCPUs_max should only be \
 		called when the VM is Halted";
 	let vcpus_at_startup = Db.VM.get_VCPUs_at_startup ~__context ~self in
@@ -650,10 +657,16 @@ let set_VCPUs_max ~__context ~self ~value =
 		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
 		(Int64.to_string value);
 	Db.VM.set_VCPUs_max ~__context ~self ~value;
-	update_memory_overhead ~__context ~vm:self
+	update_memory_overhead ~__context ~vm:self;
+	if is_control_domain && power_state = `Running then
+		Db.VM.set_requires_reboot ~__context ~self ~value:true
 
-(** Sets the number of startup VCPUs for a {b Halted} guest. *)
+(** Sets the number of startup VCPUs for a {b Halted} guest
+	including control domains other than dom0. *)
 let set_VCPUs_at_startup ~__context ~self ~value =
+	if Helpers.is_domain_zero ~__context self then
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+				["set_VCPUs_at_startup is not allowed on dom0"]));
 	let vcpus_max = Db.VM.get_VCPUs_max ~__context ~self in
 	if value < 1L || value > vcpus_max then invalid_value
 		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
