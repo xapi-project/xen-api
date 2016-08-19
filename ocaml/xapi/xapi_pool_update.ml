@@ -27,21 +27,20 @@ open D
 (** Updates contain their own metadata in XML format. When the signature has been verified
     the update is executed with argument "info" and it emits XML like the following:
 
-      <info  uuid="foo-bar-baz"
-             version="1.0"
-             name-label="My First Update(TM)"
-             name-description="This is a simple executable update file used for testing"
-             after-apply-guidance="restartHVM restartPV restartHost"
-      />
+      <update
+        name-label="XS70E002" uuid="12acfd0a-0246-4fa7-ba00-2d0e474b3650"
+        key="test@dev.null.com"
+        after-apply-guidance="" guidance-mandatory="false">
+        <name-description>Hotfix description</name-description>
+      </update>
 *)
 type update_info = {
   uuid: string;
   name_label: string;
   name_description: string;
+  key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
-  vdi: API.ref_VDI;
-  hosts: API.ref_host list
 }
 
 (** Mount a filesystem somewhere, with optional type *)
@@ -166,22 +165,88 @@ exception Missing_update_key of string
 exception Bad_update_info
 exception Invalid_update_uuid of string
 
-let check_unsigned_update_fist path =
+let check_unsigned_update_fist uuid =
   match Xapi_fist.allowed_unsigned_updates () with
   | None -> false
   | Some fist ->
-    let sha1 =
-      Sha1sum.sha1sum (fun checksum_fd ->
-          let (_: int64) = Unixext.with_file path [ Unix.O_RDONLY ] 0 (fun fd ->
-              Unixext.copy_file fd checksum_fd
-            ) in
-          ()
-        )
-    in
-    debug "Patch Sha1sum: %s" sha1;
-    let fist_sha1s = String.split_f String.isspace fist in
+    debug "Pool update uuid: %s" uuid;
+    let fist_uuids = String.split_f String.isspace fist in
     debug "FIST allowed_unsigned_updates: %s" fist;
-    List.mem sha1 fist_sha1s
+    List.mem uuid fist_uuids
+
+let guidance_from_string = function
+  | "restartHVM"  -> `restartHVM
+  | "restartPV"   -> `restartPV
+  | "restartHost" -> `restartHost
+  | "restartXAPI" -> `restartXAPI
+  | _ -> raise Bad_update_info
+
+let extract_update_info ~__context ~self ~verify ~destroy =
+  let host = Helpers.get_localhost ~__context in
+  finally
+    (fun () ->
+       let update_path = attach ~__context ~self ~host in
+       let update_path =
+         if String.startswith "file://" update_path then
+           String.sub_to_end update_path (String.length "file://")
+         else
+           update_path
+       in
+       let xml = Xml.parse_file (String.concat "/" [update_path ; "update.xml"]) in
+       match xml with
+       | Xml.Element ("update", attr, children) ->
+         let key = List.assoc "key" attr in
+         let uuid = List.assoc "uuid" attr in
+         let name_label = List.assoc "name-label" attr in
+         let installation_size =
+           try
+             Int64.of_string (List.assoc "installation-size" attr)
+           with
+           | _ -> 0L
+         in
+         let guidance_mandatory =
+           try
+             bool_of_string (List.assoc "guidance-mandatory" attr)
+           with
+           | _ -> true
+         in
+         let guidance =
+           try
+             List.assoc "after-apply-guidance" attr
+           with
+           | _ -> ""
+         in
+         let guidance =
+           match guidance_mandatory, guidance with
+           | false, _ -> []
+           | true, "" -> []
+           | true, _ -> List.map guidance_from_string (String.split ' ' guidance)
+         in
+         let is_name_description_node = function
+           | Xml.Element ("name-description", _, _) -> true
+           | _ -> false
+         in
+         let name_description = match List.find is_name_description_node children with
+           | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
+           | _ -> failwith "Malformed or missing <name-description>"
+         in
+         let update_info = {
+           uuid = uuid;
+           name_label = name_label;
+           name_description = name_description;
+           key = key;
+           installation_size = installation_size;
+           after_apply_guidance = guidance;
+         } in
+         ignore(verify update_info);
+         update_info
+       | _ -> failwith "Malformed or missing <update>"
+    )
+    (fun () ->
+       finally
+         (fun () -> detach ~__context ~self ~host)
+         (fun () -> if destroy then Db.Pool_update.destroy ~__context ~self)
+    )
 
 let assert_space_available ?(multiplier=3L) update_size =
   let open Unixext in
@@ -199,31 +264,6 @@ let assert_space_available ?(multiplier=3L) update_size =
       raise (Api_errors.Server_error (Api_errors.out_of_space, [Xapi_globs.host_update_dir]))
     end
 
-let create_update_record ~__context update_info =
-  let r = Ref.make () in
-  Db.Pool_update.create ~__context
-    ~ref:r
-    ~uuid:update_info.uuid
-    ~name_label:update_info.name_label
-    ~name_description:update_info.name_description
-    ~installation_size:update_info.installation_size
-    ~after_apply_guidance:update_info.after_apply_guidance
-    ~vdi:update_info.vdi;
-  r
-
-let load_update_info_from_xml ~__context filename =
-  try
-    { uuid = "XXXXXXXX-XXXX-4XXX-YXXX-XXXXXXXXXXXX";
-      name_label = "XS70E001";
-      name_description = "First update for XenServer Ely";
-      installation_size = 1L;
-      after_apply_guidance = [`restartXAPI];
-      vdi = List.hd (Db.VDI.get_all ~__context);
-      hosts = [];
-    }
-  with
-  | _ -> raise Bad_update_info
-
 exception Cannot_expose_yum_repo_on_slave
 
 let pool_update_yum_repo_handler (req: Request.t) s _ =
@@ -238,9 +278,63 @@ let pool_update_yum_repo_handler (req: Request.t) s _ =
     )
 
 let introduce ~__context ~vdi =
-  let vdi_name = Db.VDI.get_name_label ~__context ~self:vdi in
-  let update_info = load_update_info_from_xml ~__context vdi_name in
-  create_update_record ~__context update_info
+  let r = Ref.make () in
+  let _ = Db.Pool_update.create ~__context
+      ~ref:r
+      ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
+      ~name_label:"deadbeef"
+      ~name_description:"deadbeef"
+      ~installation_size:0L
+      ~key:""
+      ~after_apply_guidance:[]
+      ~vdi:vdi
+  in
+  let verify update_info =
+    let update_xml_path = String.concat "/" [Xapi_globs.host_update_dir; update_info.uuid; "vdi"; "update.xml"] in
+    let repomd_xml_path = String.concat "/" [Xapi_globs.host_update_dir; update_info.uuid; "vdi"; "repodata"; "repomd.xml"] in
+    begin
+      match check_unsigned_update_fist update_info.uuid with
+      | false ->
+        List.iter (fun filename ->
+            let signature = filename ^ ".asc" in
+            Gpg.with_verified_signature filename signature (fun fingerprint fd ->
+                match fingerprint with
+                | Some f ->
+                  let enc = Base64.encode f in
+                  let acceptable_keys =
+                    match Xapi_fist.allow_test_updates () with
+                    | false -> [ !Xapi_globs.trusted_update_key ]
+                    | true -> [ !Xapi_globs.trusted_update_key; Xapi_globs.test_update_key ]
+                  in
+                  if List.mem enc acceptable_keys then
+                    debug "Fingerprint verified."
+                  else
+                    debug "Got fingerprint: %s" f;
+                  (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
+                  raise Gpg.InvalidSignature
+                | _ ->
+                  debug "No fingerprint!";
+                  raise Gpg.InvalidSignature
+              )
+          ) [update_xml_path; repomd_xml_path];
+        debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
+      | true ->
+        debug "Verify signature bypass for pool update uuid: %s" update_info.uuid
+    end
+  in
+  let update_info = extract_update_info ~__context ~self:r ~verify ~destroy:true in
+  ignore(assert_space_available update_info.installation_size);
+  let r = Ref.make () in
+  Db.Pool_update.create ~__context
+    ~ref:r
+    ~uuid:update_info.uuid
+    ~name_label:update_info.name_label
+    ~name_description:update_info.name_description
+    ~installation_size:update_info.installation_size
+    ~key:update_info.key
+    ~after_apply_guidance:update_info.after_apply_guidance
+    ~vdi:vdi;
+  r
 
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -261,4 +355,4 @@ let pool_clean ~__context ~self =
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.destroy %s" pool_update_name;
-  ()
+  Db.Pool_update.destroy ~__context ~self
