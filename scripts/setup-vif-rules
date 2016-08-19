@@ -140,10 +140,10 @@ def get_vswitch_port(vif_name):
     return stdout.readline().strip()
 
 def clear_vswitch_rules(bridge_name, port):
-    doexec([ofctl, "del-flows", bridge_name, "in_port=%s" % port])
+    doexec([ofctl, "del-flows", bridge_name, "in_port=%s,cookie=1/-1" % port])
 
 def add_flow(bridge_name, args):
-    doexec([ofctl, "add-flow", bridge_name, args])
+    doexec([ofctl, "add-flow", bridge_name, "cookie=1," + args])
 
 def create_vswitch_rules(bridge_name, port, config):
     mac = config["mac"]
