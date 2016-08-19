@@ -163,8 +163,11 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 			not (has_feature ~vmgmr ~feature)
 		in
 		match op with
-			| `clean_shutdown | `clean_reboot
-					when strict && lack_feature "feature-shutdown"
+			| `clean_shutdown
+					when strict && lack_feature "feature-shutdown" && lack_feature "feature-poweroff"
+						-> some_err Api_errors.vm_lacks_feature_shutdown
+			| `clean_reboot
+					when strict && lack_feature "feature-shutdown" && lack_feature "feature-reboot"
 						-> some_err Api_errors.vm_lacks_feature_shutdown
 			| `changing_VCPUs_live
 					when lack_feature "feature-vcpu-hotplug"
