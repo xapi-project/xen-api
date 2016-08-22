@@ -525,6 +525,4 @@ let pvs_site_contains_running_proxies = "PVS_SITE_CONTAINS_RUNNING_PROXIES"
 let pvs_site_contains_servers = "PVS_SITE_CONTAINS_SERVERS"
 let pvs_site_sr_already_added = "PVS_SITE_SR_ALREADY_ADDED"
 let pvs_site_sr_is_in_use = "PVS_SITE_SR_IS_IN_USE"
-let sr_not_in_pvs_site = "SR_NOT_IN_PVS_SITE"
-
 

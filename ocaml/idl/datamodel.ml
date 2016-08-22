@@ -1368,13 +1368,10 @@ let _ =
     ~doc:"Trying to add a cache SR that is already associated with the site"
     ();
 
-  error Api_errors.sr_not_in_pvs_site ["site"; "SR"]
-    ~doc:"The SR is not associated with the site."
-    ();
-
   error Api_errors.pvs_site_sr_is_in_use ["site"; "SR"]
     ~doc:"The SR is in use by the site and cannot be removed."
     ()
+
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
