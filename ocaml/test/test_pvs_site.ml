@@ -80,15 +80,18 @@ let test_add_local_sr () =
   let site      = XF.introduce ~__context ~name in
   let sr1       = make_sr ~__context ~shared:false () in
   let sr2       = make_sr ~__context ~shared:false () in
-  let cache ()  = DF.get_cache_storage ~__context ~self:site in
-  ( XF.add_cache_storage ~__context ~self:site ~value:sr1
-  ; XF.add_cache_storage ~__context ~self:site ~value:sr2
+  let cache ()  = 
+    Db.PVS_site.get_cache_storage ~__context ~self:site
+    |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) in
+
+  ( ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L)
+  ; ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L)
   ; assert_equal true (List.mem sr1 @@ cache ())
   ; assert_equal true (List.mem sr2 @@ cache ())
   ; assert_raises_api_error Api_errors.pvs_site_sr_already_added
-      (fun () -> XF.add_cache_storage ~__context ~self:site ~value:sr1)
+      (fun () -> ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L))
   ; assert_raises_api_error Api_errors.pvs_site_sr_already_added
-      (fun () -> XF.add_cache_storage ~__context ~self:site ~value:sr2)
+      (fun () -> ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L))
   )
 
 let test_add_shared_sr () =
@@ -97,11 +100,14 @@ let test_add_shared_sr () =
   let __context = make_test_database () in
   let site      = XF.introduce ~__context ~name in
   let sr1       = make_sr ~__context ~shared:true () in
-  let cache ()  = DF.get_cache_storage ~__context ~self:site in
-  ( XF.add_cache_storage ~__context ~self:site ~value:sr1
+  let cache ()  = 
+    Db.PVS_site.get_cache_storage ~__context ~self:site
+    |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) in
+
+  ( ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L)
   ; assert_equal true (List.mem sr1 @@ cache ())
   ; assert_raises_api_error Api_errors.pvs_site_sr_already_added
-      (fun () -> XF.add_cache_storage ~__context ~self:site ~value:sr1)
+      (fun () -> ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L))
   )
 
 let test_add_mixed_sr () =
@@ -109,17 +115,19 @@ let test_add_mixed_sr () =
   let module DF = Db.PVS_site  in
   let __context = make_test_database () in
   let site      = XF.introduce ~__context ~name in
-  let cache ()  = DF.get_cache_storage ~__context ~self:site in
+  let cache ()  = 
+    Db.PVS_site.get_cache_storage ~__context ~self:site
+    |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) in
   let sr1       = make_sr ~__context ~shared:true  () in
   let sr2       = make_sr ~__context ~shared:false () in
-  ( XF.add_cache_storage ~__context ~self:site ~value:sr1
-  ; XF.add_cache_storage ~__context ~self:site ~value:sr2
+  ( ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L)
+  ; ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L)
   ; assert_equal true (List.mem sr1 @@ cache ())
   ; assert_equal true (List.mem sr2 @@ cache ())
   ; assert_raises_api_error Api_errors.pvs_site_sr_already_added
-      (fun () -> XF.add_cache_storage ~__context ~self:site ~value:sr1)
+      (fun () -> ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L))
   ; assert_raises_api_error Api_errors.pvs_site_sr_already_added
-      (fun () -> XF.add_cache_storage ~__context ~self:site ~value:sr2)
+      (fun () -> ignore (Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L))
   )
 
 let test_remove_local_sr () =
@@ -127,25 +135,21 @@ let test_remove_local_sr () =
   let module DF = Db.PVS_site  in
   let __context = make_test_database () in
   let site      = XF.introduce ~__context ~name in
+  let cache ()  = 
+    Db.PVS_site.get_cache_storage ~__context ~self:site
+    |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) in
   let sr1       = make_sr ~__context ~shared:false () in
   let sr2       = make_sr ~__context ~shared:false () in
   let sr3       = make_sr ~__context ~shared:false () in
-  let cache ()  = DF.get_cache_storage ~__context ~self:site in
-  ( XF.add_cache_storage ~__context ~self:site ~value:sr1
-  ; XF.add_cache_storage ~__context ~self:site ~value:sr2
-  ; assert_equal true  (List.mem sr1 @@ cache ())
+  ( let pcs1 = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L in
+    let pcs2 = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr2 ~size:20L in
+    assert_equal true  (List.mem sr1 @@ cache ())
   ; assert_equal true  (List.mem sr2 @@ cache ())
   ; assert_equal false (List.mem sr3 @@ cache ())
-  ; assert_raises_api_error Api_errors.sr_not_in_pvs_site
-      (fun () -> XF.remove_cache_storage ~__context ~self:site ~value:sr3)
-  ; XF.remove_cache_storage ~__context ~self:site ~value:sr1
+  ; Xapi_pvs_cache_storage.destroy ~__context ~self:pcs1
   ; assert_equal true (List.mem sr2 @@ cache ())
-  ; XF.remove_cache_storage ~__context ~self:site ~value:sr2
+  ; Xapi_pvs_cache_storage.destroy ~__context ~self:pcs2
   ; assert_equal [] (cache ())
-  ; assert_raises_api_error Api_errors.sr_not_in_pvs_site
-      (fun () -> XF.remove_cache_storage ~__context ~self:site ~value:sr2)
-  ; assert_raises_api_error Api_errors.sr_not_in_pvs_site
-      (fun () -> XF.remove_cache_storage ~__context ~self:site ~value:sr1)
   )
 
 let test_remove_shared_sr () =
@@ -154,16 +158,13 @@ let test_remove_shared_sr () =
   let __context = make_test_database () in
   let site      = XF.introduce ~__context ~name in
   let sr1       = make_sr ~__context ~shared:true () in
-  let sr2       = make_sr ~__context ~shared:true () in
-  let cache ()  = DF.get_cache_storage ~__context ~self:site in
-  ( XF.add_cache_storage ~__context ~self:site ~value:sr1
-  ; assert_equal true (List.mem sr1 @@ cache ())
-  ; assert_raises_api_error Api_errors.sr_not_in_pvs_site
-      (fun () -> XF.remove_cache_storage ~__context ~self:site ~value:sr2)
-  ; XF.remove_cache_storage ~__context ~self:site ~value:sr1
+  let cache ()  = 
+    Db.PVS_site.get_cache_storage ~__context ~self:site
+    |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) in
+  ( let pcs1 = Xapi_pvs_cache_storage.create ~__context ~site:site ~sR:sr1 ~size:20L in
+    assert_equal true (List.mem sr1 @@ cache ())
+  ; Xapi_pvs_cache_storage.destroy ~__context ~self:pcs1
   ; assert_equal [] (cache ())
-  ; assert_raises_api_error Api_errors.sr_not_in_pvs_site
-      (fun () -> XF.remove_cache_storage ~__context ~self:site ~value:sr1)
   )
 
 let test_set_name () =
