@@ -677,6 +677,8 @@ let _ =
 	  ~doc:"You attempted an operation which needs the VM cooperative suspend feature on a VM which lacks it." ();
   error Api_errors.vm_lacks_feature_static_ip_setting [ "vm" ]
 	  ~doc:"You attempted an operation which needs the VM static-ip-setting feature on a VM which lacks it." ();
+  error Api_errors.vm_lacks_feature [ "vm" ]
+	  ~doc:"You attempted an operation on a VM which lacks the feature." ();
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" ();
   error Api_errors.other_operation_in_progress ["class"; "object"]

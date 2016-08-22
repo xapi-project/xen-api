@@ -164,15 +164,18 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 			not (has_feature ~vmgmr ~feature)
 		in
 		match op with
-			| `clean_shutdown | `clean_reboot
-					when strict && lack_feature "feature-shutdown"
-						-> some_err Api_errors.vm_lacks_feature_shutdown
+			| `clean_shutdown
+					when strict && lack_feature "feature-shutdown" && lack_feature "feature-poweroff"
+						-> some_err Api_errors.vm_lacks_feature
+			| `clean_reboot
+					when strict && lack_feature "feature-shutdown" && lack_feature "feature-reboot"
+						-> some_err Api_errors.vm_lacks_feature
 			| `changing_VCPUs_live
 					when lack_feature "feature-vcpu-hotplug"
-						-> some_err Api_errors.vm_lacks_feature_vcpu_hotplug
+						-> some_err Api_errors.vm_lacks_feature
 			| `suspend | `checkpoint | `pool_migrate | `migrate_send
 					when strict && lack_feature "feature-suspend"
-						-> some_err Api_errors.vm_lacks_feature_suspend
+						-> some_err Api_errors.vm_lacks_feature
 			| _ -> None
 	(* N.B. In the pattern matching above, "pat1 | pat2 | pat3" counts as
 	 * one pattern, and the whole thing can be guarded by a "when" clause. *)
