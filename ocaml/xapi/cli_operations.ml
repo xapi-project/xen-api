@@ -1651,7 +1651,11 @@ let vm_create printer rpc session_id params =
 let vm_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let vm = Client.VM.get_by_uuid rpc session_id uuid in
-	Client.VM.destroy rpc session_id vm
+	if (Client.VM.get_is_control_domain rpc session_id vm) then
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+			["You cannot destroy a control domain via the CLI"]))
+	else
+		Client.VM.destroy rpc session_id vm
 
 
 (* Event *)
