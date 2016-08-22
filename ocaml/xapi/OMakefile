@@ -1,6 +1,6 @@
 OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              http-svr netdev tapctl rpclib xenstore-compat	\
-             uuid gzip sha1 xcp.network xcp.rrd xcp.storage	\
+             uuid gzip sha1 sha.sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin pci
 
