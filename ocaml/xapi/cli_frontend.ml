@@ -2683,6 +2683,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.PVS_proxy.destroy;
       flags=[];
     };
+    "pvs-cache-storage-create",
+    {
+      reqd=["pvs-site-uuid"; "sr-uuid"; "size"];
+      optn=[];
+      help="Configure a PVS cache on a given SR";
+      implementation=No_fd Cli_operations.PVS_cache_storage.create;
+      flags=[];
+    };
+    "pvs-cache-storage-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Remove a PVS cache";
+      implementation=No_fd Cli_operations.PVS_cache_storage.destroy;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

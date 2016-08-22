@@ -1808,5 +1808,30 @@ let pvs_proxy_record rpc session_id pvs_site =
       ]
   }
 
-
+let pvs_cache_storage_record rpc session_id pvs_site =
+  let _ref = ref pvs_site in
+  let empty_record =
+    ToGet (fun () -> Client.PVS_cache_storage.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r ; record := empty_record)
+  ; setrefrec = (fun (a,b) -> _ref := a; record := Got b)
+  ; record    = x
+  ; getref    = (fun () -> !_ref)
+  ; fields=
+      [ make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_uuid)
+          ()
+      ; make_field ~name:"pvs-site-uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_site |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"sr-uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_SR |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"size"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_size
+                          |> Int64.to_string)
+          ()
+      ]
+  }
 

@@ -806,6 +806,7 @@ let gen_cmds rpc session_id =
     ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name"; "cache-storage"; "pvs-server-uuids"] rpc session_id)
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "prepopulate"; "cache-sr-uuid"] rpc session_id)
+    ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -4748,4 +4749,22 @@ module PVS_proxy = struct
     let uuid  = List.assoc "uuid" params in
     let ref   = Client.PVS_proxy.get_by_uuid ~rpc ~session_id ~uuid in
     Client.PVS_proxy.destroy rpc session_id ref
+end
+
+module PVS_cache_storage = struct
+  let create printer rpc session_id params =
+    let site_uuid  = List.assoc "pvs-site-uuid" params in
+    let site = Client.PVS_site.get_by_uuid ~rpc ~session_id ~uuid:site_uuid in
+    let sr_uuid  = List.assoc "sr-uuid" params in
+    let sR = Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid in
+    let size = List.assoc "size" params |> Int64.of_string in
+    let ref = Client.PVS_cache_storage.create
+        ~rpc ~session_id ~site ~sR ~size in
+    let uuid = Client.PVS_cache_storage.get_uuid rpc session_id ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy printer rpc session_id params =
+    let uuid  = List.assoc "uuid" params in
+    let ref   = Client.PVS_cache_storage.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.PVS_cache_storage.destroy rpc session_id ref
 end
