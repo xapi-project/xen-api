@@ -100,3 +100,14 @@ Executable "test_rrdd_monitor"
 
 Test "test_rrdd_monitor"
   Command: $test_rrdd_monitor
+
+Executable "rrd-discover"
+  CompiledObject:   best
+  Path:             rrdd
+  MainIs:           rrd_discover.ml
+  Install:          false
+  BuildDepends:
+    profiling,
+    inotify,
+    threads,
+    rrd-transport
