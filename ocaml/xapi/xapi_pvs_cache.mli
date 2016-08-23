@@ -34,7 +34,7 @@ val check_cache_availability :
   __context:Context.t ->
   host:API.ref_host ->
   site:API.ref_PVS_site ->
-  (API.ref_SR * API.ref_VDI option) option
+  (API.ref_SR * int64 * API.ref_VDI option) option
 
 (** Ensure a cache VDI exists in an SR suitable for this host and PVS site.
     If there is no suitable SR, raise [No_cache_sr_available]. *)
