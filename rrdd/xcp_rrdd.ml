@@ -559,7 +559,10 @@ module Discover: DISCOVER = struct
 		|> String.concat ","
 
 	(* [register file] is called when we found a new file in the watched
-	 * directory. We do not verify that this is a proper RRD file. *)
+	 * directory. We do not verify that this is a proper RRD file. 
+	 * [file] is not a complete path but just the basename of the file.
+	 * This corresponds to how the file is used by the Plugin module,
+	 * *)
 	let register file =
 		debug "RRD plugin %s discovered - registering it" file;
 		let info  = Rrd.Five_Seconds in
@@ -577,17 +580,16 @@ module Discover: DISCOVER = struct
 	 * [Inotify.read] blocks until an event becomes available. Hence, this
 	 * code needs to run in its own thread. *)
 	let watch dir =
-		let (//)        = Filename.concat in
 		let fd          = Inotify.create () in
 		let selectors   = [Inotify.S_Create; Inotify.S_Delete] in
 		let rec loop = function
 			| []  -> Inotify.read fd |> loop
 			| (_, [Inotify.Create], _, Some file)::es ->
-				( register (dir//file)
+				( register file (* only basename *)
 				; loop es
 				)
 			| (_, [Inotify.Delete], _, Some file)::es ->
-				( deregister (dir//file)
+				( deregister file (* only basename *)
 				; loop es
 				)
 			| (_, events, _, None)::es ->
@@ -609,7 +611,6 @@ module Discover: DISCOVER = struct
 		debug "RRD plugin - scanning %s" dir;
 		Sys.readdir dir
 		|> Array.to_list
-		|> List.map (Filename.concat dir)
 		|> List.iter register
 
 	let start () =
