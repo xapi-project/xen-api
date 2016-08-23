@@ -24,7 +24,6 @@ Library rrdd_libs
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
   BuildDepends:       
-    bisect_ppx,
     xcp,
     stdext,
     threads
