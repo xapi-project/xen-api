@@ -353,12 +353,18 @@ let clean ~__context ~self ~host =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   let host_name = Db.Host.get_name_label ~__context ~self:host in
   debug "pool_update.clean %s on %s" pool_update_name host_name;
-  ()
+  if Pool_role.is_master () then begin
+    let vdi = Db.Pool_update.get_vdi ~__context ~self in
+    Db.VDI.destroy ~__context ~self:vdi
+  end
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_clean %s" pool_update_name;
-  ()
+  List.iter (fun host ->
+      ignore(Helpers.call_api_functions ~__context
+               (fun rpc session_id -> Client.Pool_update.clean rpc session_id self host))
+    ) (Db.Host.get_all ~__context)
 
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
