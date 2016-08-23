@@ -358,7 +358,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	let current_error = check current_error (fun () ->
 		let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid in
 		if Helpers.is_domain_zero ~__context vm_ref
-			&& op = `changing_VCPUs
+			&& (op = `changing_VCPUs
+			|| op = `destroy)
 		then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on dom0"])
 		else if vmr.Db_actions.vM_is_control_domain
 			&& op <> `data_source_op
@@ -370,6 +371,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 			&& op <> `changing_static_range
 			&& op <> `start
 			&& op <> `changing_VCPUs
+			&& op <> `destroy
 		then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on a control domain"])
 		else None) in
 
