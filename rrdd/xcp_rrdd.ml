@@ -538,6 +538,86 @@ let monitor_loop () =
 	) ()
 (* Monitoring code --- END. *)
 
+(* We watch a directory for RRD files written by plugins. If a new file
+ * appears, we register the plugin. If a file disappears, we un-register
+ * the plugin.
+ *)
+
+module type DISCOVER = sig
+	val start: unit -> Stdext.Threadext.Thread.t
+end
+
+module Discover: DISCOVER = struct
+	let directory = Rrdd_server.Plugin.base_path
+	let v2        = Rrd_protocol_v2.protocol
+
+	let events_as_string
+		: Inotify.event_kind list -> string
+		= fun es ->
+		es
+		|> List.map Inotify.string_of_event_kind
+		|> String.concat ","
+
+	(* [register file] is called when we found a new file in the watched
+	 * directory. We do not verify that this is a proper RRD file. *)
+	let register file =
+		debug "RRD plugin %s discovered - registering it" file;
+		let info  = Rrd.Five_Seconds in
+		let v2    = Rrd_interface.V2 in
+		Rrdd_server.Plugin.Local.register () ~uid:file ~info ~protocol:v2
+		|> ignore (* seconds until next reading phase *)
+
+	(* [deregister file] is called when a file is removed from the watched
+	 * directory *)
+	let deregister file =
+		info "RRD plugin - de-registering %s" file;
+		Rrdd_server.Plugin.Local.deregister () ~uid:file
+
+	(* Here we dispatch over all events that we receive. Note that
+	 * [Inotify.read] blocks until an event becomes available. Hence, this
+	 * code needs to run in its own thread. *)
+	let watch dir =
+		let (//)        = Filename.concat in
+		let fd          = Inotify.create () in
+		let selectors   = [Inotify.S_Create; Inotify.S_Delete] in
+		let rec loop = function
+			| []  -> Inotify.read fd |> loop
+			| (_, [Inotify.Create], _, Some file)::es ->
+				( register (dir//file)
+				; loop es
+				)
+			| (_, [Inotify.Delete], _, Some file)::es ->
+				( deregister (dir//file)
+				; loop es
+				)
+			| (_, events, _, None)::es ->
+				( warn "RRD plugin discovery - ignoring %s" (events_as_string events)
+				; loop es
+				)
+			| (_, events, _, Some file)::es ->
+				( warn "RRD plugin discovery - ignoring  %s: %s"
+					file (events_as_string events)
+				; loop es
+				)
+		in
+			( Inotify.add_watch fd dir selectors |> ignore
+			; loop []
+			)
+
+	(* [scan] scans a directory for plugins and registers them *)
+	let scan dir =
+		debug "RRD plugin - scanning %s" dir;
+		Sys.readdir dir
+		|> Array.to_list
+		|> List.map (Filename.concat dir)
+		|> List.iter register
+
+	let start () =
+		info "RRD plugin - starting discovery thread";
+		scan directory;
+		Thread.create (fun () -> watch directory) ()
+end
+
 let options = [
 	"plugin-default",
 		Arg.Set Rrdd_shared.enable_all_dss,
@@ -616,6 +696,13 @@ let _ =
        	                Debug.with_thread_associated "main" monitor_loop ()
                 with e ->
                         error "monitoring loop thread has failed" in
+
+	let () = 
+		try Discover.start () |> ignore
+		with e -> error 
+			"RRD plugin discovery thread failed: %s"
+			(Printexc.to_string e)
+	in
 
 	while true do
 		Thread.delay 300.

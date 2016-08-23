@@ -61,7 +61,8 @@ Executable "xcp-rrdd"
     io-page.unix,
     xen-gnt.unix,
     oclock,
-    systemd
+    systemd,
+    inotify
 
 Executable "test_rrdd_monitor"
   CompiledObject:     best
