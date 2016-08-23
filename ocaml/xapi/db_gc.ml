@@ -96,6 +96,14 @@ let gc_PVS_servers ~__context =
     (fun x -> valid_ref __context x.pVS_server_site)
     Db.PVS_server.destroy
 
+let gc_PVS_cache_storage ~__context =
+  gc_connector ~__context
+    Db.PVS_cache_storage.get_all
+    Db.PVS_cache_storage.get_record
+    (fun x -> valid_ref __context x.pVS_cache_storage_site)
+    (fun x -> valid_ref __context x.pVS_cache_storage_SR)
+    Db.PVS_cache_storage.destroy
+
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network)
     (fun ~__context ~self ->
@@ -580,6 +588,7 @@ let single_pass () =
               "Consoles", gc_consoles;
               "PVS proxies", gc_PVS_proxies;
               "PVS servers", gc_PVS_servers;
+              "PVS cache storage", gc_PVS_cache_storage;
               (* timeout_alerts; *)
               (* CA-29253: wake up all blocked clients *)
               "Heartbeat", Xapi_event.heartbeat;
