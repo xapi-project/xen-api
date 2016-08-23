@@ -340,7 +340,14 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name;
-  ()
+
+  let applied_hosts = Db.Pool_update.get_hosts ~__context ~self in
+  let candidate_hosts = List.set_difference (Db.Host.get_all ~__context) applied_hosts in
+
+  List.iter (fun host ->
+      ignore(Helpers.call_api_functions ~__context
+               (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host))
+    ) candidate_hosts
 
 let clean ~__context ~self ~host =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
