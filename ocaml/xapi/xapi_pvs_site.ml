@@ -55,9 +55,3 @@ let set_name ~__context ~self ~value =
   else
     Db.PVS_site.set_name ~__context ~self ~value
 
-(** [sr_is_in_use] is true, if the [sr] is currently in use. *)
-let sr_is_in_use ~__context ~self sr =
-  Pvs_proxy_control.get_running_proxies ~__context ~site:self
-  |> List.map (fun px -> Db.PVS_proxy.get_cache_SR ~__context ~self:px)
-  |> List.mem sr
-

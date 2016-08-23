@@ -29,5 +29,18 @@ let create ~__context ~site ~sR ~size =
     Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~site ~sR ~size;
     cache_storage
 
+
+(** [sr_is_in_use] is true, if the [sr] is currently in use. *)
+let sr_is_in_use ~__context site sr =
+  Pvs_proxy_control.get_running_proxies ~__context ~site
+  |> List.map (fun px -> Db.PVS_proxy.get_cache_SR ~__context ~self:px)
+  |> List.mem sr
+
+
 let destroy ~__context ~self =
-  Db.PVS_cache_storage.destroy ~__context ~self
+  let site = Db.PVS_cache_storage.get_site ~__context ~self in
+  let sr = Db.PVS_cache_storage.get_SR ~__context ~self in
+  if sr_is_in_use ~__context site sr then
+    api_error E.pvs_site_sr_is_in_use [str site; str sr]
+  else
+    Db.PVS_cache_storage.destroy ~__context ~self
