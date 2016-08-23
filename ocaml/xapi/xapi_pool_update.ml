@@ -69,19 +69,24 @@ let umount ?(retry=true) dest =
   done;
   if not(!finished) then raise Umount_timeout
 
-let detach ~__context ~self ~host =
-  let uuid = Db.Pool_update.get_uuid ~__context ~self in
-  let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
-  let mount_point = String.concat "/" [mount_point_parent_dir; "vdi"] in
+let vdi_visible ~__context ~self ~host =
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
   let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
+  (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts))
+
+let detach ~__context ~self ~host =
+  let uuid = Db.Pool_update.get_uuid ~__context ~self in
+  let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+  let mount_point = Filename.concat mount_point_parent_dir "vdi" in
+  let vdi = Db.Pool_update.get_vdi ~__context ~self in
   debug "pool_update.detach %s from %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
-  if (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts)) then begin
-    umount mount_point;
+  if vdi_visible ~__context ~self ~host then begin
+    Helpers.log_exn_continue ("detach: unmounting " ^ mount_point)
+      (fun () -> umount mount_point) ();
     Helpers.call_api_functions ~__context
       (fun rpc session_id ->
          let dom0 = Helpers.get_domain_zero ~__context in
@@ -117,30 +122,26 @@ let with_api_errors f x =
 *)
 let create_yum_config ~__context ~self ~url ~location =
   let key = Db.Pool_update.get_key ~__context ~self in
-  let signed = if String.length key = 0 then 0 else 1 in
+  let signed = String.length key <> 0 in
+  let signed_index = if signed then 1 else 0 in
   let name_label = Db.Pool_update.get_name_label ~__context ~self in
   let yum_config = location ^ "/yum.conf" in
   let oc = open_out yum_config in
-  Printf.fprintf oc "[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n" signed signed;
+  Printf.fprintf oc "[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n" signed_index signed_index;
   Printf.fprintf oc "[%s]\nname=%s\nbaseurl=%s\n" name_label name_label url;
-  if signed = 1 then Printf.fprintf oc "gpgkey=file:///etc/pki/rpm-gpg/key";
+  if signed then Printf.fprintf oc "gpgkey=file:///etc/pki/rpm-gpg/key";
   close_out oc
 
 let attach ~__context ~self ~host =
   let uuid = Db.Pool_update.get_uuid ~__context ~self in
   let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
-  let mount_point = String.concat "/" [mount_point_parent_dir; "vdi"] in
+  let mount_point = Filename.concat mount_point_parent_dir "vdi" in
   debug "pool_update.attach %s to %s" (Db.Pool_update.get_name_label ~__context ~self) mount_point;
   if (try Sys.is_directory mount_point with _ -> false) then detach ~__context ~self ~host;
   let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
   debug "pool_update.attach Mountpoint created (output=%s)" output;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  let sr = Db.VDI.get_SR ~__context ~self:vdi in
-  let shared = Db.SR.get_shared ~__context ~self:sr in
-  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
-  let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
-  let url = if (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts)) then begin
+  let url = if vdi_visible ~__context ~self ~host then begin
       let device = Helpers.call_api_functions ~__context
           (fun rpc session_id ->
              let dom0 = Helpers.get_domain_zero ~__context in
