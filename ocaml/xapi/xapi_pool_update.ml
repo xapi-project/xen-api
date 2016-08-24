@@ -87,14 +87,14 @@ let detach ~__context ~self ~host =
   if vdi_visible ~__context ~self ~host then begin
     Helpers.log_exn_continue ("detach: unmounting " ^ mount_point)
       (fun () -> umount mount_point) ();
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
-         let dom0 = Helpers.get_domain_zero ~__context in
-         let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
-         let vbd = List.find (fun self -> Client.VBD.get_VM ~rpc ~session_id ~self = dom0) vbds in
-         Client.VBD.unplug ~rpc ~session_id ~self:vbd;
-         Client.VBD.destroy ~rpc ~session_id ~self:vbd
-      )
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        let dom0 = Helpers.get_domain_zero ~__context in
+        let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
+        List.iter (fun self ->
+            if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then begin
+              Client.VBD.unplug ~rpc ~session_id ~self;
+              Client.VBD.destroy ~rpc ~session_id ~self
+            end) vbds)
   end;
   let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
   debug "pool_update.detach Mountpoint removed (output=%s)" output
@@ -340,14 +340,12 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name;
-
-  let applied_hosts = Db.Pool_update.get_hosts ~__context ~self in
-  let candidate_hosts = List.set_difference (Db.Host.get_all ~__context) applied_hosts in
-
+  Db.Pool_update.get_hosts ~__context ~self |>
+  List.set_difference (Db.Host.get_all ~__context) |>
   List.iter (fun host ->
       ignore(Helpers.call_api_functions ~__context
                (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host))
-    ) candidate_hosts
+    )
 
 let clean ~__context ~self ~host =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -370,3 +368,11 @@ let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.destroy %s" pool_update_name;
   Db.Pool_update.destroy ~__context ~self
+
+let detach_attached_updates __context =
+  let host = Helpers.get_localhost ~__context in
+  Db.Pool_update.get_all ~__context |>
+  List.iter ( fun self ->
+      ignore(Helpers.call_api_functions ~__context
+               (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self ~host))
+    )
