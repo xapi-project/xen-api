@@ -614,9 +614,12 @@ module Discover: DISCOVER = struct
 		|> List.iter register
 
 	let start () =
+		let watch' dir =
+			try watch dir with e ->
+				error "RRD plugin discovery error: %s" (Printexc.to_string e) in
 		info "RRD plugin - starting discovery thread";
 		scan directory;
-		Thread.create (fun () -> watch directory) ()
+		Thread.create watch' directory
 end
 
 let options = [
@@ -682,6 +685,8 @@ let _ =
 		) () in
 	start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
 
+	ignore @@ Discover.start ();
+
 	debug "Starting xenstore-watching thread ..";
         let () =
                 try
@@ -697,13 +702,6 @@ let _ =
        	                Debug.with_thread_associated "main" monitor_loop ()
                 with e ->
                         error "monitoring loop thread has failed" in
-
-	let () = 
-		try Discover.start () |> ignore
-		with e -> error 
-			"RRD plugin discovery thread failed: %s"
-			(Printexc.to_string e)
-	in
 
 	while true do
 		Thread.delay 300.
