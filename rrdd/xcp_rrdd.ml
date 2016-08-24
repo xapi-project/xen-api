@@ -698,16 +698,11 @@ let _ =
                 with e ->
                         error "monitoring loop thread has failed" in
 
-	let () =
-		while true do
-			try Discover.start () |> ignore
-			with e ->
-				( error
-						"RRD plugin discovery thread failed: %s"
-						(Printexc.to_string e)
-				; Thread.delay 10.0 (* wait and restart *)
-				)
-		done
+	let () = 
+		try Discover.start () |> ignore
+		with e -> error 
+			"RRD plugin discovery thread failed: %s"
+			(Printexc.to_string e)
 	in
 
 	while true do
