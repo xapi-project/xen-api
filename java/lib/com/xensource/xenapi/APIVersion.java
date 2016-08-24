@@ -37,7 +37,7 @@ public enum APIVersion
 
     public static APIVersion latest()
     {
-        return API_2_5;
+        return API_2_6;
     }
 
     public static APIVersion fromMajorMinor(long major, long minor)
