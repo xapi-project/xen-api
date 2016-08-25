@@ -4021,6 +4021,7 @@ let pool_update_pool_apply = call
 
 let pool_update_clean = call
     ~name:"clean"
+    ~hide_from_docs:true
     ~doc:"Removes the update's files from the host"
     ~in_oss_since:None
     ~in_product_since:rel_ely
@@ -4048,6 +4049,7 @@ let pool_update_destroy = call
 
 let pool_update_attach = call
     ~name:"attach"
+    ~hide_from_docs:true
     ~doc:"Attach the pool update VDI"
     ~in_oss_since:None
     ~in_product_since:rel_ely
@@ -4059,6 +4061,7 @@ let pool_update_attach = call
 
 let pool_update_detach = call
     ~name:"detach"
+    ~hide_from_docs:true
     ~doc:"Detach the pool update VDI"
     ~in_oss_since:None
     ~in_product_since:rel_ely

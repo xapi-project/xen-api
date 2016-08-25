@@ -4810,16 +4810,6 @@ let update_pool_apply printer rpc session_id params =
   let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
   Client.Pool_update.pool_apply rpc session_id ref
 
-let update_clean printer rpc session_id params =
-  let uuid = List.assoc "uuid" params in
-  ignore(
-    do_host_op rpc session_id (fun _ host ->
-        let host_ref = host.getref () in
-        let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
-        Client.Pool_update.clean rpc session_id ref host_ref
-      ) params ["uuid"]
-  )
-
 let update_pool_clean printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in

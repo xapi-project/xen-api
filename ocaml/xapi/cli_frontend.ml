@@ -941,15 +941,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
-    "update-clean",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Removes the update's files from the server.";
-      implementation=No_fd Cli_operations.update_clean;
-      flags=[Host_selectors];
-    };
-
     "update-pool-clean",
     {
       reqd=["uuid"];
