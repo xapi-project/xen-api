@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6a8937157d81341f64a601d75a86be7f)
+# DO NOT EDIT (digest: f215aeb9d2f9547603c4304cd27da833)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -24,12 +24,14 @@ true: annot, bin_annot
 <lib/*.ml{,i,y}>: pkg_forkexec
 <lib/*.ml{,i,y}>: pkg_rpclib
 <lib/*.ml{,i,y}>: pkg_stdext
+<lib/*.ml{,i,y}>: pkg_systemd
 <lib/*.ml{,i,y}>: pkg_threads
 <lib/*.ml{,i,y}>: pkg_xcp-inventory
 <lib/*.ml{,i,y}>: pkg_xcp.network
 "lib/link_stubs.c": pkg_forkexec
 "lib/link_stubs.c": pkg_rpclib
 "lib/link_stubs.c": pkg_stdext
+"lib/link_stubs.c": pkg_systemd
 "lib/link_stubs.c": pkg_threads
 "lib/link_stubs.c": pkg_xcp-inventory
 "lib/link_stubs.c": pkg_xcp.network
@@ -39,6 +41,7 @@ true: annot, bin_annot
 <networkd/networkd.{native,byte}>: pkg_rpclib
 <networkd/networkd.{native,byte}>: pkg_rpclib.unix
 <networkd/networkd.{native,byte}>: pkg_stdext
+<networkd/networkd.{native,byte}>: pkg_systemd
 <networkd/networkd.{native,byte}>: pkg_threads
 <networkd/networkd.{native,byte}>: pkg_xcp
 <networkd/networkd.{native,byte}>: pkg_xcp-inventory
@@ -51,6 +54,7 @@ true: annot, bin_annot
 <networkd/*.ml{,i,y}>: pkg_rpclib
 <networkd/*.ml{,i,y}>: pkg_rpclib.unix
 <networkd/*.ml{,i,y}>: pkg_stdext
+<networkd/*.ml{,i,y}>: pkg_systemd
 <networkd/*.ml{,i,y}>: pkg_threads
 <networkd/*.ml{,i,y}>: pkg_xcp
 <networkd/*.ml{,i,y}>: pkg_xcp-inventory
@@ -63,6 +67,7 @@ true: annot, bin_annot
 <networkd_db/networkd_db.{native,byte}>: pkg_forkexec
 <networkd_db/networkd_db.{native,byte}>: pkg_rpclib
 <networkd_db/networkd_db.{native,byte}>: pkg_stdext
+<networkd_db/networkd_db.{native,byte}>: pkg_systemd
 <networkd_db/networkd_db.{native,byte}>: pkg_threads
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp-inventory
 <networkd_db/networkd_db.{native,byte}>: pkg_xcp.network
@@ -71,6 +76,7 @@ true: annot, bin_annot
 <networkd_db/*.ml{,i,y}>: pkg_forkexec
 <networkd_db/*.ml{,i,y}>: pkg_rpclib
 <networkd_db/*.ml{,i,y}>: pkg_stdext
+<networkd_db/*.ml{,i,y}>: pkg_systemd
 <networkd_db/*.ml{,i,y}>: pkg_threads
 <networkd_db/*.ml{,i,y}>: pkg_xcp-inventory
 <networkd_db/*.ml{,i,y}>: pkg_xcp.network
@@ -82,6 +88,7 @@ true: annot, bin_annot
 <test/network_test.{native,byte}>: pkg_oUnit
 <test/network_test.{native,byte}>: pkg_rpclib
 <test/network_test.{native,byte}>: pkg_stdext
+<test/network_test.{native,byte}>: pkg_systemd
 <test/network_test.{native,byte}>: pkg_threads
 <test/network_test.{native,byte}>: pkg_xcp-inventory
 <test/network_test.{native,byte}>: pkg_xcp.network
@@ -91,6 +98,7 @@ true: annot, bin_annot
 <test/*.ml{,i,y}>: pkg_oUnit
 <test/*.ml{,i,y}>: pkg_rpclib
 <test/*.ml{,i,y}>: pkg_stdext
+<test/*.ml{,i,y}>: pkg_systemd
 <test/*.ml{,i,y}>: pkg_threads
 <test/*.ml{,i,y}>: pkg_xcp-inventory
 <test/*.ml{,i,y}>: pkg_xcp.network
@@ -101,6 +109,7 @@ true: annot, bin_annot
 <cli/network_cli.{native,byte}>: pkg_forkexec
 <cli/network_cli.{native,byte}>: pkg_rpclib
 <cli/network_cli.{native,byte}>: pkg_stdext
+<cli/network_cli.{native,byte}>: pkg_systemd
 <cli/network_cli.{native,byte}>: pkg_threads
 <cli/network_cli.{native,byte}>: pkg_xcp
 <cli/network_cli.{native,byte}>: pkg_xcp-inventory
@@ -111,6 +120,7 @@ true: annot, bin_annot
 <cli/*.ml{,i,y}>: pkg_forkexec
 <cli/*.ml{,i,y}>: pkg_rpclib
 <cli/*.ml{,i,y}>: pkg_stdext
+<cli/*.ml{,i,y}>: pkg_systemd
 <cli/*.ml{,i,y}>: pkg_threads
 <cli/*.ml{,i,y}>: pkg_xcp
 <cli/*.ml{,i,y}>: pkg_xcp-inventory
