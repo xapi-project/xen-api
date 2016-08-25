@@ -1,6 +1,6 @@
 SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
-.PHONY: noarch-install install sdk-install
+.PHONY: noarch-install install
 
 .SUBDIRS: examples host-backup-restore poweron templates
 
@@ -44,14 +44,20 @@ install:
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
-	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
+	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
+	$(IPROG) init.d-xapi-compat $(DESTDIR)/etc/init.d/xapi
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
-	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
-	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
-	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
-	$(IPROG) init.d-save-boot-info $(DESTDIR)/etc/rc.d/init.d/save-boot-info
-	$(IPROG) init.d-attach-static-vdis $(DESTDIR)/etc/rc.d/init.d/attach-static-vdis
+	$(IPROG) init.d-management-interface $(DESTDIR)$(LIBEXECDIR)/legacy-management-interface
+	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
+	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
+	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
+	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
+	$(IDATA) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
+	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
+	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
+	$(IDATA) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
+	$(IDATA) mpathalert-daemon.service $(DESTDIR)/usr/lib/systemd/system/mpathalert-daemon.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
@@ -96,7 +102,6 @@ install:
 	$(IPROG) probe-device-for-file $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
 	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
@@ -127,13 +132,3 @@ install:
 	$(IDATA) gpg/secring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/pubring.gpg $(DESTDIR)/opt/xensource/gpg/
 	$(IDATA) gpg/trustdb.gpg $(DESTDIR)/opt/xensource/gpg/
-
-sdk-install: install
-	mkdir -p $(SDK)
-	cp motd $(SDK)/motd
-	$(IPROG) init.d-sdkinit $(DESTDIR)/etc/rc.d/init.d/sdkinit
-	mkdir -p $(DESTDIR)$(SITE_DIR)/xen/lowlevel
-	touch $(DESTDIR)$(SITE_DIR)/xen/__init__.py
-	touch $(DESTDIR)$(SITE_DIR)/xen/lowlevel/__init__.py
-	cp xc.py $(DESTDIR)$(SITE_DIR)/xen/lowlevel
-

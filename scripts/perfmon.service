@@ -1,0 +1,11 @@
+[Unit]
+Description=Performance monitoring/alarm generation daemon
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/perfmon
+ExecStart=@BINDIR@/perfmon $PERFMON_FLAGS
+StandardError=null
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

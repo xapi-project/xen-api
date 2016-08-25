@@ -718,7 +718,8 @@ let set_stunnel_legacy_db ~__context () =
   end
 
 let server_init() =
-  let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
+  let print_server_starting_message() = debug "(Re)starting xapi"; debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
+  Unixext.unlink_safe "/etc/xensource/boot_time_info_updated";
 
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
@@ -1033,112 +1034,4 @@ let watchdog f =
 		with e ->
 			Debug.log_backtrace e (Backtrace.get e);
 			exit 2
-	end else begin
-		(* parent process blocks sigint and forward sigterm to child. *)
-		ignore(Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigint]);
-		Sys.catch_break false;
-		
-		(* watchdog logic *)
-		let loginfo fmt = W.info fmt in
-		
-		let restart = ref true
-		and error_msg = ref "" 
-		and exit_code = ref 0
-		and last_badsig = ref (0.) 
-		and pid = ref None
-		and last_badexit = ref (0.) 
-		and no_retry_interval = 60. in
-
-		while !restart do begin
-			loginfo "(Re)starting xapi...";
-			if !pid = None then begin
-				let cmd = Sys.argv.(0) in
-
-				let overriden_args = [ "-onsystemboot"; "-daemon" ] in
-				let overriden_args1 = [ "-daemon" ] in
-				let core_args = 
-					List.rev(fst(List.fold_left (fun (acc, delete_next) x ->
-						let acc = if List.mem x overriden_args || delete_next then acc else x :: acc in
-						let delete_next = List.mem x overriden_args1 in
-						acc, delete_next
-					) ([], false) (List.tl (Array.to_list Sys.argv)))) in
-
-				let args = 
-					"-nowatchdog" :: core_args 
-					@ (if !Xapi_globs.on_system_boot then [ "-onsystemboot" ] else []) in
-				let newpid = Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None None None [] cmd args in
-				(* parent just reset the sighandler *)
-				Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun i -> restart := false; Unix.kill (Forkhelpers.getpid newpid) Sys.sigterm));
-				pid := Some newpid;
-
-				(* CA-22875: make sure we unset on_system_boot so we don't 
-				   execute on-boot stuff more than once eg over a 
-				   'pool-emergency-transition-to-master' or an HA failover *)
-				Xapi_globs.on_system_boot := false;
-
-			end;
-			try
-				(* remove the pid in all case, except stop *)
-				match snd (Forkhelpers.waitpid (Opt.unbox !pid)) with
-					| Unix.WEXITED i when i = Xapi_globs.restart_return_code ->
-						pid := None;
-						loginfo "restarting xapi in different operating mode";
-						()
-					| Unix.WEXITED i when i=0->
-						loginfo "received exit code 0. Not restarting.";
-						pid := None;
-						restart := false;
-						error_msg := "";
-					| Unix.WEXITED i ->
-						loginfo "received exit code %d" i;
-						exit_code := i;
-						pid := None;
-						let ctime = Unix.time () in
-						if ctime < (!last_badexit +. no_retry_interval) then begin
-							restart := false;
-							loginfo "Received 2 bad exits within no-retry-interval. Giving up.";
-						end else begin
-							(* restart := true; -- don't need to do this - it's true already *)
-							loginfo "Received bad exit, retrying";
-							last_badexit := ctime
-						end
-					| Unix.WSIGNALED i ->
-						loginfo "received signal: %s" (Unixext.string_of_signal i);
-						pid := None;
-						(* arbitrary choice of signals, probably need more
-						   though, for real use *)
-						if i = Sys.sigsegv || i = Sys.sigpipe then begin
-							let ctime = Unix.time () in
-							if ctime < (!last_badsig +. no_retry_interval) then begin
-								restart := false;
-								error_msg := sprintf "xapi died with signal %d: not restarting (2 bad signals within no_retry_interval)" i;
-								exit_code := 13
-							end else begin
-								loginfo "xapi died with signal %d: restarting" i;
-								last_badsig := ctime
-							end
-						end else begin
-							restart := false;
-							error_msg := sprintf "xapi died with signal %d: not restarting (watchdog never restarts on this signal)" i;
-							exit_code := 12
-						end
-					| Unix.WSTOPPED i ->
-						loginfo "receive stop code %i" i;
-						Unix.sleep 1;
-						(* well, just resume the stop process. the watchdog
-						   cannot do anything if the process is stop *)
-						Unix.kill (Forkhelpers.getpid (Opt.unbox !pid)) Sys.sigcont;
-			with
-					Unix.Unix_error(Unix.EINTR,_,_) -> ()
-				| e ->
-					loginfo "Watchdog received unexpected exception: %s" (Printexc.to_string e);
-					Thread.delay 30.
-		end;
-		done;
-		if !error_msg <> "" then begin
-			loginfo "xapi watchdog exiting.";
-			loginfo "Fatal: %s" !error_msg;
-			eprintf "%s\n" !error_msg;
-		end;
-		exit !exit_code
-    end
+	end

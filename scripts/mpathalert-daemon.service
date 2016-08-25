@@ -1,0 +1,6 @@
+[Unit]
+Description=MPathAlert Daemon Service
+
+[Service]
+ExecStart=@BINDIR@/mpathalert -delay 120
+StandardError=null

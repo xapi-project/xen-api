@@ -1,0 +1,13 @@
+[Unit]
+Description=Attach statically-configured VDIs to dom0
+Before=xapi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@LIBEXECDIR@/attach-static-vdis start
+ExecStop=@LIBEXECDIR@/attach-static-vdis stop
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

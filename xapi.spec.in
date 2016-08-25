@@ -156,56 +156,33 @@ mkdir $RPM_BUILD_ROOT/etc/xapi.conf.d
 rm -rf $RPM_BUILD_ROOT
 
 %post core
-case $1 in
-  1) # install
-    /sbin/chkconfig --add save-boot-info
-    /sbin/chkconfig --add attach-static-vdis
-    /sbin/chkconfig --add xapi
-    /sbin/chkconfig --add xapi-domains
-    /sbin/chkconfig --add perfmon
-    /sbin/chkconfig --add genptoken
-    ;;
-  2) # upgrade
-    /sbin/chkconfig --del save-boot-info
-    /sbin/chkconfig --del attach-static-vdis
-    /sbin/chkconfig --del xapi
-    /sbin/chkconfig --del xapi-domains
-    /sbin/chkconfig --del perfmon
-    /sbin/chkconfig --del genptoken
-    /sbin/chkconfig --add save-boot-info
-    /sbin/chkconfig --add attach-static-vdis
-    /sbin/chkconfig --add xapi
-    /sbin/chkconfig --add xapi-domains
-    /sbin/chkconfig --add perfmon
-    /sbin/chkconfig --add genptoken
-    ;;
-esac
 %systemd_post cdrommon@.service
+%systemd_post xapi-domains.service
+%systemd_post perfmon.service
+%systemd_post genptoken.service
+%systemd_post xapi.service
+%systemd_post attach-static-vdis.service
+%systemd_post save-boot-info.service
+%systemd_post mpathalert-daemon.service
 
 %preun core
-case $1 in
-  0) # uninstall
-    /sbin/service message-switch stop >/dev/null 2>&1 || :
-    /sbin/service save-boot-info stop >/dev/null 2>&1 || :
-    /sbin/service attach-static-vdis >/dev/null 2>&1 || :
-    /sbin/service xapi >/dev/null 2>&1 || :
-    /sbin/service xapi-domains >/dev/null 2>&1 || :
-    /sbin/service perfmon >/dev/null 2>&1 || :
-    /sbin/service genptoken >/dev/null 2>&1 || :
-    /sbin/chkconfig --del save-boot-info
-    /sbin/chkconfig --del attach-static-vdis
-    /sbin/chkconfig --del xapi
-    /sbin/chkconfig --del xapi-domains
-    /sbin/chkconfig --del perfmon
-    /sbin/chkconfig --del genptoken
-    ;;
-  1) # upgrade
-    ;;
-esac
 %systemd_preun cdrommon@.service
+%systemd_preun xapi-domains.service
+%systemd_preun perfmon.service
+%systemd_preun xapi.service
+%systemd_preun attach-static-vdis.service
+%systemd_preun save-boot-info.service
+%systemd_preun mpathalert-daemon.service
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
+%systemd_postun_with_restart xapi-domains.service
+%systemd_postun_with_restart perfmon.service
+%systemd_postun_with_restart genptoken.service
+%systemd_postun_with_restart xapi.service
+%systemd_postun_with_restart attach-static-vdis.service
+%systemd_postun_with_restart save-boot-info.service
+%systemd_postun_with_restart mpathalert-daemon.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
@@ -215,14 +192,12 @@ esac
 /etc/pam.d/xapi
 /etc/cron.d/xapi-logrotate.cron
 /etc/cron.daily/license-check
-/etc/rc.d/init.d/management-interface
-/etc/rc.d/init.d/perfmon
-/etc/rc.d/init.d/xapi
-/etc/rc.d/init.d/xapi-domains
+@OPTDIR@/libexec/legacy-management-interface
+@OPTDIR@/libexec/xapi-init
+/etc/init.d/xapi
 @OPTDIR@/libexec/xapissl
-/etc/rc.d/init.d/genptoken
-/etc/rc.d/init.d/attach-static-vdis
-/etc/rc.d/init.d/save-boot-info
+@OPTDIR@/libexec/attach-static-vdis
+@OPTDIR@/libexec/save-boot-info
 %config(noreplace) /etc/sysconfig/perfmon
 %config(noreplace) /etc/sysconfig/xapi
 /etc/xapi.conf.d
@@ -353,6 +328,13 @@ esac
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
 %{_unitdir}/cdrommon@.service
+%{_unitdir}/xapi-domains.service
+%{_unitdir}/perfmon.service
+%{_unitdir}/genptoken.service
+%{_unitdir}/xapi.service
+%{_unitdir}/attach-static-vdis.service
+%{_unitdir}/save-boot-info.service
+%{_unitdir}/mpathalert-daemon.service
 
 %files xe
 %defattr(-,root,root,-)

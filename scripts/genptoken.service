@@ -1,0 +1,13 @@
+[Unit]
+Description=Generate a pool secret (ptoken)
+Before=xapi.service
+ConditionPathExists=!@ETCDIR@/ptoken
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@LIBEXECDIR@/genptoken -f -o @ETCDIR@/ptoken
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
