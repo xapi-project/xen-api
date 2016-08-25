@@ -20,7 +20,7 @@ Executable forkexecd
   MainIs:             fe_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       stdext, forkexec, uuidm
+  BuildDepends:       stdext, forkexec, uuidm, systemd
 
 Executable fe_test
   CompiledObject:     best

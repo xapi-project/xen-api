@@ -15,6 +15,7 @@ remove: [make "uninstall" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "ETCDIR=%{prefix}%/
 depends: [
   "ocamlfind" {build}
   "oasis" {build}
+  "systemd" {build}
   "syslog"
   "rpc"
   "fd-send-recv"
