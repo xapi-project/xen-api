@@ -549,7 +549,6 @@ end
 
 module Discover: DISCOVER = struct
 	let directory = Rrdd_server.Plugin.base_path
-	let v2        = Rrd_protocol_v2.protocol
 
 	let events_as_string
 		: Inotify.event_kind list -> string
@@ -564,7 +563,7 @@ module Discover: DISCOVER = struct
 	 * This corresponds to how the file is used by the Plugin module,
 	 * *)
 	let register file =
-		debug "RRD plugin %s discovered - registering it" file;
+		info "RRD plugin %s discovered - registering it" file;
 		let info  = Rrd.Five_Seconds in
 		let v2    = Rrd_interface.V2 in
 		Rrdd_server.Plugin.Local.register () ~uid:file ~info ~protocol:v2
@@ -617,7 +616,7 @@ module Discover: DISCOVER = struct
 		let watch' dir =
 			try watch dir with e ->
 				error "RRD plugin discovery error: %s" (Printexc.to_string e) in
-		info "RRD plugin - starting discovery thread";
+		debug "RRD plugin - starting discovery thread";
 		scan directory;
 		Thread.create watch' directory
 end
