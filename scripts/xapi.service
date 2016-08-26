@@ -1,6 +1,7 @@
 [Unit]
 Description=XenAPI server (XAPI)
 After=syslog.target forkexecd.service xcp-networkd.service message-switch.service v6d.service save-boot-info.service attach-static-vdis.service genptoken.service xcp-rrdd.service xapi-storage-script.service xenopsd-xc.service xenstored.service xcp-networkd.service
+Requires=xcp-rrdd.service
 Conflicts=shutdown.target
 
 [Service]
