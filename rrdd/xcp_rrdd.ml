@@ -580,7 +580,12 @@ module Discover: DISCOVER = struct
 	 * code needs to run in its own thread. *)
 	let watch dir =
 		let fd          = Inotify.create () in
-		let selectors   = [Inotify.S_Create; Inotify.S_Delete] in
+		let selectors   =
+			[ Inotify.S_Create
+			; Inotify.S_Delete
+			; Inotify.S_Moved_to
+			; Inotify.S_Moved_from
+			] in
 		let rec loop = function
 			| []  -> Inotify.read fd |> loop
 			| (_, [Inotify.Create], _, Some file)::es ->
@@ -588,6 +593,14 @@ module Discover: DISCOVER = struct
 				; loop es
 				)
 			| (_, [Inotify.Delete], _, Some file)::es ->
+				( deregister file (* only basename *)
+				; loop es
+				)
+			| (_, [Inotify.Moved_to], _, Some file)::es ->
+				( register file (* only basename *)
+				; loop es
+				)
+			| (_, [Inotify.Moved_from], _, Some file)::es ->
 				( deregister file (* only basename *)
 				; loop es
 				)

@@ -104,7 +104,13 @@ let discover dir =
 let watch dir =
 	let (//)        = Filename.concat in
 	let fd          = Inotify.create () in
-	let selectors   = [Inotify.S_Create; Inotify.S_Delete] in
+	let selectors   =
+		[ Inotify.S_Create
+		; Inotify.S_Delete
+		; Inotify.S_Moved_to
+		; Inotify.S_Moved_from
+		]
+	in
 	let rec loop = function
 		| []  -> Inotify.read fd |> loop
 		| (_, [Inotify.Create], _, Some file)::es ->
@@ -112,6 +118,14 @@ let watch dir =
 			; loop es
 			)
 		| (_, [Inotify.Delete], _, Some file)::es ->
+			( deregister (dir//file)
+			; loop es
+			)
+		| (_, [Inotify.Moved_to], _, Some file)::es ->
+			( register (dir//file)
+			; loop es
+			)
+		| (_, [Inotify.Moved_from], _, Some file)::es ->
 			( deregister (dir//file)
 			; loop es
 			)
