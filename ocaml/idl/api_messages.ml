@@ -92,6 +92,10 @@ let v6_rejected = addMessage "LICENSE_NOT_AVAILABLE" 2L
 let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE" 2L
 let v6_license_server_version_obsolete = addMessage "LICENSE_SERVER_VERSION_OBSOLETE" 2L
 
+(* PVS alerts *)
+let pvs_proxy_no_cache_sr_available = addMessage "PVS_PROXY_NO_CACHE_SR_AVAILABLE" 3L (* No cache storage available for pvs site on the host *)
+let pvs_proxy_setup_failed = addMessage "PVS_PROXY_SETUP_FAILED" 3L (* Setting up pvs proxy rules or pvs proxy daemon initialisation failed internally *)
+
 (* VMPP message types *)
 let vmpp_snapshot_lock_failed = addMessage "VMPP_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot phase is already executing for this protection policy. Please try again later'*)
 let vmpp_snapshot_succeeded = addMessage "VMPP_SNAPSHOT_SUCCEEDED" 5L (*'Successfully performed the snapshot phase of the protection policy'*)

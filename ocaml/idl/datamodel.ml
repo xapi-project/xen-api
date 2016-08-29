@@ -8214,6 +8214,7 @@ let message =
                    "SR", "SR";
                    "Pool","Pool";
                    "VMPP","VMPP";
+                   "PVS_proxy","PVS_proxy";
                  ])
   in
   let create = call

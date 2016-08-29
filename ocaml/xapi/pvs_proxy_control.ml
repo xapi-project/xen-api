@@ -129,8 +129,25 @@ let start_proxy ~__context vif proxy =
   with e ->
     let reason =
       match e with
-      | Xapi_pvs_cache.No_cache_sr_available -> "no PVS cache SR available"
-      | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
+      | Xapi_pvs_cache.No_cache_sr_available ->
+        let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
+        let body = Printf.sprintf "Unable to setup PVS-proxy %s for VIF %s: no cache storage found on PVS-site %s for host %s."
+            proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
+            (Db.PVS_site.get_name ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
+            (Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context)) in
+        let (name, priority) = Api_messages.pvs_proxy_no_cache_sr_available in
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            ignore(Client.Client.Message.create ~rpc ~session_id ~name  ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid  ~body));
+        "no PVS cache SR available"
+      | Network_interface.PVS_proxy_connection_error ->
+        let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
+        let body = Printf.sprintf "Failed to setup PVS-proxy %s for VIF %s on host %s due to an internal error"
+            proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
+            (Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context)) in
+        let (name, priority) = Api_messages.pvs_proxy_setup_failed in
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            ignore(Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body));
+        "unable to connect to PVS proxy daemon"
       | Api_errors.Server_error (code, args) when
           code = Api_errors.license_restriction
           && args = [Features.(name_of_feature PVS_proxy)] ->
