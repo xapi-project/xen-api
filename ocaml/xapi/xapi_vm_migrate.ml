@@ -95,7 +95,21 @@ open Fun
 let assert_sr_support_migration ~__context ~vdi_map ~remote =
   (* Get destination host SM record *)
   let sm_record = XenAPI.SM.get_all_records remote.rpc remote.session in
-  List.iter (fun (vdi, sr) ->
+  let is_sr_matching local_vdi_ref remote_sr_ref =
+    let source_sr_ref = Db.VDI.get_SR ~__context ~self:local_vdi_ref in
+    (* relax_xsm_sr_check is used to enable XSM to out-of-pool SRs with matching UUID *)
+    if !Xapi_globs.relax_xsm_sr_check then
+      begin
+        let source_sr_uuid = Db.SR.get_uuid ~__context ~self:source_sr_ref in
+        let dest_sr_uuid = XenAPI.SR.get_uuid remote.rpc remote.session remote_sr_ref in
+        dest_sr_uuid = source_sr_uuid
+      end
+    else
+      (* Don't fail if source and destination SR for all VDIs are same *)
+      source_sr_ref = remote_sr_ref
+  in
+  List.filter (fun (vdi,sr) -> not (is_sr_matching vdi sr)) vdi_map
+  |> List.iter (fun (vdi, sr) ->
       (* Check VDIs must not be present on SR which doesn't have snapshot capability *)
       let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
       let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
@@ -111,7 +125,7 @@ let assert_sr_support_migration ~__context ~vdi_map ~remote =
       in
       if not (List.exists (fun cp -> cp = Smint.(string_of_capability Vdi_snapshot)) sm_capabilities) then
         raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
-    ) vdi_map
+    )
 
 let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
