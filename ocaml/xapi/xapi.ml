@@ -639,6 +639,7 @@ let common_http_handlers = [
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_jsonrpc_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
+  ("get_pool_update_download", (Http_svr.FdIO Xapi_pool_update.pool_update_download_handler));
 ]
 
 let listen_unix_socket sock_path =

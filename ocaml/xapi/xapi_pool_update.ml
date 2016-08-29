@@ -129,7 +129,7 @@ let create_yum_config ~__context ~self ~url ~location =
   let oc = open_out yum_config in
   Printf.fprintf oc "[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n" signed_index signed_index;
   Printf.fprintf oc "[%s]\nname=%s\nbaseurl=%s\n" name_label name_label url;
-  if signed then Printf.fprintf oc "gpgkey=file:///etc/pki/rpm-gpg/key";
+  if signed then Printf.fprintf oc "gpgkey=file:///etc/pki/rpm-gpg/%s" key;
   close_out oc
 
 let attach ~__context ~self ~host =
@@ -390,4 +390,20 @@ let resync_host ~__context ~host =
     Db.Host.set_updates ~__context ~self:host ~value:updates
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[]
+
+let pool_update_download_handler (req: Request.t) s _ =
+  debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
+  (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
+  let filepath = String.sub_to_end req.Request.uri (String.length Constants.get_pool_update_download_uri)
+                 |> Filename.concat Xapi_globs.host_update_dir
+                 |> Stdext.Unixext.resolve_dot_and_dotdot in
+  debug "pool_update.pool_update_download_handler %s" filepath;
+
+  if not(String.startswith Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
+    debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath Xapi_globs.host_update_dir;
+    Http_svr.response_forbidden ~req s
+  end else begin
+    Http_svr.response_file s filepath;
+    req.Request.close <- true
+  end
 
