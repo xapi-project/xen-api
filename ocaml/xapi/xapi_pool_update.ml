@@ -239,7 +239,7 @@ let extract_update_info ~__context ~self ~verify ~destroy =
            installation_size = installation_size;
            after_apply_guidance = guidance;
          } in
-         ignore(verify update_info);
+         ignore(verify update_info update_path);
          update_info
        | _ -> failwith "Malformed or missing <update>"
     )
@@ -290,9 +290,9 @@ let introduce ~__context ~vdi =
       ~after_apply_guidance:[]
       ~vdi:vdi
   in
-  let verify update_info =
-    let update_xml_path = String.concat "/" [Xapi_globs.host_update_dir; update_info.uuid; "vdi"; "update.xml"] in
-    let repomd_xml_path = String.concat "/" [Xapi_globs.host_update_dir; update_info.uuid; "vdi"; "repodata"; "repomd.xml"] in
+  let verify update_info update_path =
+    let update_xml_path = Filename.concat update_path "update.xml" in
+    let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
     begin
       match check_unsigned_update_fist update_info.uuid with
       | false ->
@@ -310,12 +310,16 @@ let introduce ~__context ~vdi =
                   if List.mem enc acceptable_keys then
                     debug "Fingerprint verified."
                   else
-                    debug "Got fingerprint: %s" f;
-                  (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
-                  raise Gpg.InvalidSignature
+                    begin
+                      debug "Got fingerprint: %s" f;
+                      (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
+                      raise Gpg.InvalidSignature
+                    end
                 | _ ->
-                  debug "No fingerprint!";
-                  raise Gpg.InvalidSignature
+                  begin
+                    debug "No fingerprint!";
+                    raise Gpg.InvalidSignature
+                  end
               )
           ) [update_xml_path; repomd_xml_path];
         debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key

@@ -941,7 +941,7 @@ let citrix_update_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=
 (* Used only for testing hotfixes *)
 let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
 (* Used only for testing updates *)
-let test_update_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
+let test_update_key = "MzhDOTIyNjBCMDY2MDk3REQ5NDQ0MzUwOEFCQTFDMDM5MjhENTNGMw=="
 
 let trusted_patch_key = ref citrix_patch_key
 let trusted_update_key = ref citrix_update_key
