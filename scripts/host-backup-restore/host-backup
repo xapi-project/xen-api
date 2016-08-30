@@ -9,11 +9,21 @@
 # Create a backup of the pool-database.  This is needed because the state in memory
 # is not guarranteed to be flushed to disk.
 
-DATE=$(date +%F--%k-%M-%S)
+DATE=$(date +%F--%H-%M-%S)
 POOL_DB_BACKUP=/var/backup/pool-database-${DATE}
+EXCLUDE_FILE=${POOL_DB_BACKUP}-exclude
 [ -e ${POOL_DB_BACKUP} ] && rm -f ${POOL_DB_BACKUP}
 mkdir -p $(dirname ${POOL_DB_BACKUP})
 xe pool-dump-database file-name=${POOL_DB_BACKUP}
+
+# List of sockets for tar to ignore. This is just to declutter the log output. 
+pushd /
+find -type s > "${EXCLUDE_FILE}"
+popd
+
+# Exclude the backup file itself if its path is provided
+[ -n $1 ] && EXCLUDE_ALSO="--exclude $1"
+
 
 # Exclude everything under /tmp (as it is temporary) and everything under /var/crash
 # (as it might contain large sparse files).  The directories themselves still need to
@@ -23,11 +33,19 @@ tar --exclude 'tmp/*' --exclude 'tmp/.*' --exclude 'var/crash/*' --exclude 'var/
     --exclude 'var/log/audit*' \
     --exclude 'var/xsconfig/*' --exclude 'var/xsconfig/.*' \
     --exclude 'var/xapi/[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*' \
+    --exclude-from ${EXCLUDE_FILE} ${EXCLUDE_ALSO} \
     --sparse --preserve-permissions --to-stdout --gzip --one-file-system -C / -c . 
 
-# Remove the backup of the pool-database.  We only need it to be present in the tar file.
+tar_exit_status=$?
+
+# Remove the backup of the pool-database and the exclude list.
+# We only need it to be present in the tar file.
 # During restore the tar file is extracted over the backup partition which is then made
 # bootable.  Following a reboot the user must manually call "xe pool-restore-database" on 
 # the pool-database backup file.
 
-rm -f ${POOL_DB_BACKUP}
+rm -f ${POOL_DB_BACKUP} ${EXCLUDE_FILE}
+
+# if tar failed we need to know
+exit $tar_exit_status
+
