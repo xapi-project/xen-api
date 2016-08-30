@@ -2648,7 +2648,8 @@ module Actions = struct
 						if value = "4" (* connected *) then begin
 							let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
 							debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-							DB.write vm { VmExtra.persistent; non_persistent }
+							DB.write vm { VmExtra.persistent; non_persistent };
+							Updates.add (Dynamic.Vm vm) internal_updates
 						end
 					with Xs_protocol.Enoent _ ->
 						warn "Watch event on %s fired but couldn't read from it" path;
