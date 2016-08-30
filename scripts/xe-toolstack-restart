@@ -30,22 +30,26 @@ SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator
 
 TO_RESTART=""
 for svc in $SERVICES ; do
-	if [ $svc == mpathalert-daemon -a $POOLCONF == "master" ] ; then		
- 		TO_RESTART="$svc $TO_RESTART"		
- 		continue		
- 	fi	
+	if [ $svc == mpathalert-daemon -a $POOLCONF == "master" ] ; then
+		TO_RESTART="$svc $TO_RESTART"
+		systemctl stop $svc
+		continue
+	fi
 
 	# restart services only if systemd said they were enabled
 	systemctl is-enabled $svc >/dev/null 2>&1
 
 	if [ $? -eq 0 ] ; then
 		TO_RESTART="$svc $TO_RESTART"
+		systemctl stop $svc
 	fi
 done
 
 set -e
 
-systemctl restart $TO_RESTART
+for svc in $TO_RESTART ; do
+	systemctl start $svc
+done
 
 rm -f $LOCKFILE
 echo "done."
