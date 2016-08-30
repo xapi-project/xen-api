@@ -541,6 +541,18 @@ let monitor_loop () =
 (* We watch a directory for RRD files written by plugins. If a new file
  * appears, we register the plugin. If a file disappears, we un-register
  * the plugin.
+ *
+ * The RRD Transport framework makes some assumptions about these files:
+ *
+ * * A file doesn't change its size. This forces plugins to create files
+ *   that are large enough to contain all data sources from the start.
+ *   The underlying reason is that RRD Transport maps files into memory.
+ *
+ * * A file must immediately contain valid content. This prohibits a
+ *   plugin to first create the file and then writing to it only later.
+ *
+ * To help plugins with this, we ignore RRD files with a *.tmp suffix.
+ * This gives a plugin the possibility to use an atomic rename(2) call.
  *)
 
 module type DISCOVER = sig
@@ -550,6 +562,11 @@ end
 module Discover: DISCOVER = struct
 	let directory = Rrdd_server.Plugin.base_path
 
+	(** [is_valid f] is true, if [f] is a filename for an RRD file.
+	 *  Currently we only ignore *.tmp files *)
+	let is_valid file =
+		not @@ Filename.check_suffix file ".tmp"
+
 	let events_as_string
 		: Inotify.event_kind list -> string
 		= fun es ->
@@ -558,7 +575,7 @@ module Discover: DISCOVER = struct
 		|> String.concat ","
 
 	(* [register file] is called when we found a new file in the watched
-	 * directory. We do not verify that this is a proper RRD file. 
+	 * directory. We do not verify that this is a proper RRD file.
 	 * [file] is not a complete path but just the basename of the file.
 	 * This corresponds to how the file is used by the Plugin module,
 	 * *)
@@ -588,28 +605,28 @@ module Discover: DISCOVER = struct
 			] in
 		let rec loop = function
 			| []  -> Inotify.read fd |> loop
-			| (_, [Inotify.Create], _, Some file)::es ->
+			| (_, [Inotify.Create], _, Some file)::es when is_valid file ->
 				( register file (* only basename *)
 				; loop es
 				)
-			| (_, [Inotify.Delete], _, Some file)::es ->
+			| (_, [Inotify.Delete], _, Some file)::es when is_valid file ->
 				( deregister file (* only basename *)
 				; loop es
 				)
-			| (_, [Inotify.Moved_to], _, Some file)::es ->
+			| (_, [Inotify.Moved_to], _, Some file)::es when is_valid file ->
 				( register file (* only basename *)
 				; loop es
 				)
-			| (_, [Inotify.Moved_from], _, Some file)::es ->
+			| (_, [Inotify.Moved_from], _, Some file)::es when is_valid file ->
 				( deregister file (* only basename *)
 				; loop es
 				)
 			| (_, events, _, None)::es ->
-				( warn "RRD plugin discovery - ignoring %s" (events_as_string events)
+				( debug "RRD plugin discovery - ignoring %s" (events_as_string events)
 				; loop es
 				)
 			| (_, events, _, Some file)::es ->
-				( warn "RRD plugin discovery - ignoring  %s: %s"
+				( debug  "RRD plugin discovery - ignoring  %s: %s"
 					file (events_as_string events)
 				; loop es
 				)
@@ -626,12 +643,14 @@ module Discover: DISCOVER = struct
 		|> List.iter register
 
 	let start () =
-		let watch' dir =
-			try watch dir with e ->
-				error "RRD plugin discovery error: %s" (Printexc.to_string e) in
-		debug "RRD plugin - starting discovery thread";
-		scan directory;
-		Thread.create watch' directory
+		Thread.create (fun dir ->
+			debug "RRD plugin - starting discovery thread";
+			while true do
+				try scan dir; watch dir with e -> begin
+					error "RRD plugin discovery error: %s" (Printexc.to_string e);
+					Thread.delay 10.0
+				end
+			done) directory
 end
 
 let options = [
