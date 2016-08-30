@@ -113,10 +113,22 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
     if not (List.for_all (fun op -> List.mem Smint.(string_of_capability op) sm_capabilities) ops) then
       raise (Api_errors.Server_error(Api_errors.sr_does_not_support_migration, [Ref.string_of sr]))
   in
+  let is_sr_matching local_vdi_ref remote_sr_ref =
+    let source_sr_ref = Db.VDI.get_SR ~__context ~self:local_vdi_ref in
+    (* relax_xsm_sr_check is used to enable XSM to out-of-pool SRs with matching UUID *)
+    if !Xapi_globs.relax_xsm_sr_check then
+      begin
+        let source_sr_uuid = Db.SR.get_uuid ~__context ~self:source_sr_ref in
+        let dest_sr_uuid = XenAPI.SR.get_uuid remote.rpc remote.session remote_sr_ref in
+        dest_sr_uuid = source_sr_uuid
+      end
+    else
+      (* Don't fail if source and destination SR for all VDIs are same *)
+      source_sr_ref = remote_sr_ref
+  in
   (* Get destination host SM record *)
   let sm_record = XenAPI.SM.get_all_records remote.rpc remote.session in
-  (* Don't fail if source and destination SR for all VDIs are same *)
-  List.filter (fun (vdi,sr) -> Db.VDI.get_SR ~__context ~self:vdi <> sr) vdi_map
+  List.filter (fun (vdi,sr) -> not (is_sr_matching vdi sr)) vdi_map
   |> List.iter (fun (vdi, sr) ->
       op_supported_on_source_sr vdi ops;
       op_supported_on_dest_sr sr ops sm_record remote;
