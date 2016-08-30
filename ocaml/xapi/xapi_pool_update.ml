@@ -376,3 +376,14 @@ let detach_attached_updates __context =
       ignore(Helpers.call_api_functions ~__context
                (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self ~host))
     )
+
+let resync_host ~__context ~host =
+  let update_applied_dir = "/var/update/applied" in
+  if Sys.file_exists update_applied_dir then begin
+    debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
+    let update_uuids = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
+    let updates = List.map (function update_uuid -> Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
+    Db.Host.set_updates ~__context ~self:host ~value:updates
+  end
+  else Db.Host.set_updates ~__context ~self:host ~value:[]
+

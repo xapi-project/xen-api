@@ -964,6 +964,8 @@ let server_init() =
           (fun () -> event_hook_auth_on_xapi_initialize_async ~__context);
           "Cleanup attached pool_updates when start", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.detach_attached_updates __context));
+          "Resync the applied updates of the host when start", [ Startup.NoExnRaising ],
+          (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.resync_host __context (Helpers.get_localhost ~__context)));
         ];
 
         debug "startup: startup sequence finished");

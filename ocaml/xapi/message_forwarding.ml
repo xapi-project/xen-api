@@ -2686,6 +2686,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Pool_update.detach ~self ~host in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Pool_update.detach rpc session_id self host)
+
+    let resync_host ~__context ~host =
+      info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Pool_update.resync_host ~host in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc -> Client.Pool_update.resync_host rpc session_id host)
   end
 
   module Host_metrics = struct
