@@ -2655,7 +2655,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Pool_update = struct
     let introduce ~__context ~vdi =
       info "Pool_update.introduce: vdi = '%s'" (vdi_uuid ~__context vdi);
-      Local.Pool_update.introduce ~__context ~vdi
+      let local_fn = Local.Pool_update.introduce ~vdi in
+      do_op_on ~local_fn ~__context ~host:(Xapi_pool_update.get_candidate_host ~__context ~vdi)
+        (fun session_id rpc -> Client.Pool_update.introduce rpc session_id vdi)
 
     let pool_apply ~__context ~self =
       info "Pool_update.pool_apply: pool update = '%s'" (pool_update_uuid ~__context self);
@@ -2675,23 +2677,26 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);
       Local.Pool_update.destroy ~__context ~self
 
-    let attach ~__context ~self ~host =
-      info "Pool_update.attach: pool update = '%s' host = '%s'" (pool_update_uuid ~__context self) (host_uuid ~__context host);
-      let local_fn = Local.Pool_update.attach ~self ~host in
-      do_op_on ~local_fn ~__context ~host
-        (fun session_id rpc -> Client.Pool_update.attach rpc session_id self host)
+    let attach ~__context ~self =
+      info "Pool_update.attach: pool update = '%s'" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.attach ~self in
+      let vdi = Db.Pool_update.get_vdi ~__context ~self in
+      do_op_on ~local_fn ~__context ~host:(Xapi_pool_update.get_candidate_host ~__context ~vdi)
+        (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
 
-    let detach ~__context ~self ~host =
-      info "Pool_update.detach: pool update = '%s' host = '%s'" (pool_update_uuid ~__context self) (host_uuid ~__context host);
-      let local_fn = Local.Pool_update.detach ~self ~host in
-      do_op_on ~local_fn ~__context ~host
-        (fun session_id rpc -> Client.Pool_update.detach rpc session_id self host)
+    let detach ~__context ~self =
+      info "Pool_update.detach: pool update = '%s''" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.detach ~self in
+      let vdi = Db.Pool_update.get_vdi ~__context ~self in
+      do_op_on ~local_fn ~__context ~host:(Xapi_pool_update.get_candidate_host ~__context ~vdi)
+        (fun session_id rpc -> Client.Pool_update.detach rpc session_id self)
 
     let resync_host ~__context ~host =
       info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.Pool_update.resync_host ~host in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Pool_update.resync_host rpc session_id host)
+
   end
 
   module Host_metrics = struct
