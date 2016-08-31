@@ -18,7 +18,7 @@ xe pool-dump-database file-name=${POOL_DB_BACKUP}
 
 # List of sockets for tar to ignore. This is just to declutter the log output. 
 pushd /
-find -type s > "${EXCLUDE_FILE}"
+find -type s > "${EXCLUDE_FILE}" 2> /dev/null
 popd
 
 # Exclude the backup file itself if its path is provided
