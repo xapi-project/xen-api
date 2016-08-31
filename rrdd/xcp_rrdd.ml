@@ -640,6 +640,7 @@ module Discover: DISCOVER = struct
 		debug "RRD plugin - scanning %s" dir;
 		Sys.readdir dir
 		|> Array.to_list
+		|> List.filter is_valid
 		|> List.iter register
 
 	let start () =
