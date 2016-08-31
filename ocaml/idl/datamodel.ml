@@ -3997,7 +3997,7 @@ let pool_update_precheck = call
     ~in_product_since:rel_ely
     ~params:[ Ref _pool_update, "self", "The update whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on." ]
     ~allowed_roles:_R_POOL_OP
-    ~forward_to:(HostExtension "Pool_update.precheck")
+    ~forward_to:(HostExtension "pool_update.precheck")
     ()
 
 let pool_update_apply = call
@@ -4007,7 +4007,7 @@ let pool_update_apply = call
     ~in_product_since:rel_ely
     ~params:[ Ref _pool_update, "self", "The update to apply"; Ref _host, "host", "The host to apply the update to." ]
     ~allowed_roles:_R_POOL_OP
-    ~forward_to:(HostExtension "Pool_update.apply")
+    ~forward_to:(HostExtension "pool_update.apply")
     ()
 
 let pool_update_pool_apply = call

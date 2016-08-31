@@ -223,15 +223,16 @@ let operation (obj: obj) (x: message) =
       [
         "let host = ref_host_of_rpc host_rpc in";
         "let call_string = Jsonrpc.string_of_call call in";
-        "let marshaller = "^result_marshaller^" in";
+        "let marshaller = (fun x -> Rpc.String x) in";
         "let local_op = fun ~__context ->(rbac __context (fun()->(Custom.Host.call_extension ~__context:(Context.check_for_foreign_database ~__context) ~host ~call:call_string))) in";
         "let supports_async = true in";
         "let generate_task_for = true in";
         "let forward_op = fun ~local_fn ~__context -> (rbac __context (fun()-> (Forward.Host.call_extension ~__context:(Context.check_for_foreign_database ~__context) ~host ~call:call_string) )) in";
         "let resp = Server_helpers.do_dispatch ~session_id ~forward_op __async supports_async __call local_op marshaller fd http_req __label generate_task_for in";
         "if resp.Rpc.success then";
-        "  let rpc = Jsonrpc.response_of_string (string_of_rpc resp.contents) in";
         "  try";
+        "    " ^ (debug "HostExtension '%s' resp \"%s\"" [ "__call (Jsonrpc.string_of_response resp)" ]);
+        "    let rpc = Jsonrpc.response_of_string (string_of_rpc resp.contents) in";
         "    let _ = "^result_unmarshaller^" rpc.contents in";
         "    rpc";
         "  with";
