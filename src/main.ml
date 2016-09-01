@@ -335,6 +335,18 @@ let cd_eject_cmd =
   Term.(ret (pure Xn.cd_eject $ common_options_t $ vbd)),
   Term.info "cd-eject" ~sdocs:_common_options ~doc ~man  
 
+let stat_vm_cmd =
+  let doc = "Query the runtime status of a running VM." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Query the runtime status of a running VM.";
+  ] @ help in
+  let vm =
+    let doc = "The uuid of the VM to stat." in
+    Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"uuid") in
+  Term.(ret (pure Xn.stat_vm $ common_options_t $ vm)),
+  Term.info "vm-stat" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "interact with the XCP xenopsd VM management service" in 
   let man = help in
@@ -344,7 +356,7 @@ let default_cmd =
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
             import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd;
-            tasks_cmd; task_cancel_cmd; cd_eject_cmd ]
+            tasks_cmd; task_cancel_cmd; cd_eject_cmd; stat_vm_cmd ]
 
 let _ =
   Xcp_client.use_switch := false;
