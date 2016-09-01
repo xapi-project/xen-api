@@ -9,10 +9,23 @@
 # Create a backup of the pool-database.  This is needed because the state in memory
 # is not guarranteed to be flushed to disk.
 
-DATE=$(date +%F--%k-%M-%S)
+DATE=$(date +%F--%H-%M-%S)
 POOL_DB_BACKUP=/var/backup/pool-database-${DATE}
 [ -e ${POOL_DB_BACKUP} ] && rm -f ${POOL_DB_BACKUP}
 mkdir -p $(dirname ${POOL_DB_BACKUP})
+
+function cleanup {
+  # Remove the backup of the pool-database. 
+  # We only need it to be present in the tar file.
+  # During restore the tar file is extracted over the backup partition which 
+  # is then made bootable.  Following a reboot the user must manually call 
+  # "xe pool-restore-database" on the pool-database backup file.
+
+  rm -f ${POOL_DB_BACKUP}
+}
+trap cleanup EXIT
+
+set -e
 xe pool-dump-database file-name=${POOL_DB_BACKUP}
 
 # Exclude everything under /tmp (as it is temporary) and everything under /var/crash
@@ -23,11 +36,6 @@ tar --exclude 'tmp/*' --exclude 'tmp/.*' --exclude 'var/crash/*' --exclude 'var/
     --exclude 'var/log/audit*' \
     --exclude 'var/xsconfig/*' --exclude 'var/xsconfig/.*' \
     --exclude 'var/xapi/[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*' \
+    --warning='no-file-ignored' \
     --sparse --preserve-permissions --to-stdout --gzip --one-file-system -C / -c . 
 
-# Remove the backup of the pool-database.  We only need it to be present in the tar file.
-# During restore the tar file is extracted over the backup partition which is then made
-# bootable.  Following a reboot the user must manually call "xe pool-restore-database" on 
-# the pool-database backup file.
-
-rm -f ${POOL_DB_BACKUP}
