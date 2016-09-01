@@ -15,4 +15,4 @@
 (** Licensing daemon creation module *)
 
 (** Create and start up the licensing daemon *)
-val startup : (unit -> 'a) -> (Rpc.call -> Rpc.response) -> unit
+val startup : (Rpc.call -> Rpc.response) -> unit
