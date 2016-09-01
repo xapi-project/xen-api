@@ -7504,11 +7504,11 @@ let vm_metrics =
 		  "hvm" "hardware virtual machine"
 		  ~persist:false
 		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
-		  ~ty:Bool
+		  ~ty:Bool ~qualifier:DynamicRO
 		  "nested_virt" "VM supports nested virtualisation"
 		  ~persist:false
 		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
-		  ~ty:Bool
+		  ~ty:Bool ~qualifier:DynamicRO
 		  "nomigrate" "VM is immobile and can't migrate between hosts"
 		  ~persist:false
 		]

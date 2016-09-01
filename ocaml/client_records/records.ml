@@ -769,6 +769,12 @@ let vm_record rpc session_id vm =
 			make_field ~name:"console-uuids"
 				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_consoles))
 				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles) ();
+			make_field ~name:"nomigrate"
+				~get:(fun () -> default "false" (may (fun m ->
+					string_of_bool m.API.vM_metrics_nomigrate) (xm ()) )) ();
+			make_field ~name:"nested-virt"
+				~get:(fun () -> default "false" (may (fun m ->
+					string_of_bool m.API.vM_metrics_nested_virt) (xm ()) )) ();
 			make_field ~name:"platform"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
 				~add_to_map:(fun k v -> Client.VM.add_to_platform rpc session_id vm k v)

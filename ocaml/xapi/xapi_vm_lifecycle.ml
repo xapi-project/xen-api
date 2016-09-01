@@ -272,18 +272,16 @@ let check_protection_policy ~vmr ~op ~ref_str =
  * [platform:nomigrate] or [platform:nested-virt].  A VM can always
  * migrate if strict=false.
  *
- * We are aware that the platform record can be manipulated after
- * booting and this can result in the wrong answer. It would be better
- * to check the platform from the last boot time as it is recorded
- * in last-booted record. However, this information is not readily
- * available for xapi.
+ * The values of [platform:nomigrate] and [platform:nested-virt] are
+ * captured by Xeoopsd when a VM starts, reported to Xapi, and kept in
+ * the VM_metrics data model.
+ *
  **)
-let is_mobile strict vm =
-	let not_true platformdata key =
-		not @@ Vm_platform.is_true ~key ~platformdata ~default:false in
-	let platform = vm.Db_actions.vM_platform in
-	(not_true platform "nomigrate" && not_true platform "nested-virt")
-	|| not strict
+let is_mobile ~__context vm strict =
+	let metrics     = Db.VM.get_metrics ~__context ~self:vm in
+	let nomigrate   = Db.VM_metrics.get_nomigrate ~__context ~self:metrics in
+	let nested_virt = Db.VM_metrics.get_nested_virt ~__context ~self:metrics in
+	(not nomigrate && not nested_virt) || not strict
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -348,7 +346,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		| `checkpoint
 		| `pool_migrate
 		| `migrate_send
-			when not (is_mobile strict vmr) -> Some (Api_errors.vm_is_immobile, [ref_str])
+			when not (is_mobile ~__context ref strict) ->
+				Some (Api_errors.vm_is_immobile, [ref_str])
 		| _ -> None
 		) in
 
