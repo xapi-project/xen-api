@@ -124,8 +124,8 @@ let start_proxy ~__context vif proxy =
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
     update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
-    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
-    Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr
+    Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr;
+    true
   with e ->
     let reason =
       match e with
@@ -154,7 +154,8 @@ let start_proxy ~__context vif proxy =
         "PVS proxy not licensed"
       | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
     in
-    warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason
+    warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason;
+    false
 
 let stop_proxy ~__context vif proxy =
   if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
@@ -163,7 +164,6 @@ let stop_proxy ~__context vif proxy =
       let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
       let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
       update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
     with e ->
       let reason =
@@ -183,9 +183,10 @@ let find_proxy_for_vif ~__context ~vif =
   | [] -> None
   | proxy :: _ -> Some proxy
 
+(* Called on VM start *)
 let maybe_start_proxy_for_vif ~__context ~vif =
   Opt.iter
-    (start_proxy ~__context vif)
+    (fun p -> start_proxy ~__context vif p |> ignore)
     (find_proxy_for_vif ~__context ~vif)
 
 let maybe_stop_proxy_for_vif ~__context ~vif =

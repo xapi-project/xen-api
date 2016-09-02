@@ -38,17 +38,18 @@ let create ~__context ~site ~vIF ~prepopulate =
   Db.PVS_proxy.create ~__context
     ~ref:pvs_proxy ~uuid ~site ~vIF ~prepopulate ~currently_attached:false ~cache_SR:Ref.null;
   if Db.VIF.get_currently_attached ~__context ~self:vIF then begin
-    Pvs_proxy_control.start_proxy ~__context vIF pvs_proxy;
-    if Db.PVS_proxy.get_currently_attached ~__context ~self:pvs_proxy then
+    if Pvs_proxy_control.start_proxy ~__context vIF pvs_proxy then
       try
+        (* This will cause Pvs_proxy.currently_attached to become true. *)
         Xapi_xenops.vif_set_pvs_proxy ~__context ~self:vIF true
-      with e ->
-        let body = Printf.sprintf "Failed to setup PVS-proxy %s for VIF %s due to an internal error"
-            uuid (Db.VIF.get_uuid ~__context ~self:vIF) in
-        let (name, priority) = Api_messages.pvs_proxy_setup_failed in
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            ignore(Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`PVS_proxy ~obj_uuid:uuid ~body));
-        error "Unable to setup PVS proxy for vif %s: %s." (Ref.string_of vIF) (ExnHelper.string_of_exn e)
+      with e -> (
+          let body = Printf.sprintf "Failed to setup PVS-proxy %s for VIF %s due to an internal error"
+              uuid (Db.VIF.get_uuid ~__context ~self:vIF) in
+          let (name, priority) = Api_messages.pvs_proxy_setup_failed in
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              ignore(Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`PVS_proxy ~obj_uuid:uuid ~body));
+          error "Unable to setup PVS proxy for vif %s: %s." (Ref.string_of vIF) (ExnHelper.string_of_exn e)
+        )
   end;
   pvs_proxy
 
@@ -64,6 +65,6 @@ let set_prepopulate ~__context ~self ~value =
   Db.PVS_proxy.set_prepopulate ~__context ~self ~value;
   if Db.PVS_proxy.get_currently_attached ~__context ~self then begin
     let vif = Db.PVS_proxy.get_VIF ~__context ~self in
-    Pvs_proxy_control.start_proxy ~__context vif self
+    Pvs_proxy_control.start_proxy ~__context vif self |> ignore
   end
 

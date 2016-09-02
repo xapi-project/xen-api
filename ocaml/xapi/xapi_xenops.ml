@@ -1693,6 +1693,12 @@ let update_vif ~__context id =
                        Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name
                      ) pifs
                end;
+               (match Pvs_proxy_control.find_proxy_for_vif ~__context ~vif with
+                | None -> ()
+                | Some proxy ->
+                  debug "xenopsd event: Updating PVS_proxy for VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.pvs_rules_active;
+                  Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:state.pvs_rules_active
+               );
                debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) (state.plugged || state.active);
                Db.VIF.set_currently_attached ~__context ~self:vif ~value:(state.plugged || state.active)
             ) info;
