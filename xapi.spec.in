@@ -163,7 +163,7 @@ rm -rf $RPM_BUILD_ROOT
 %systemd_post xapi.service
 %systemd_post attach-static-vdis.service
 %systemd_post save-boot-info.service
-%systemd_post mpathalert-daemon.service
+%systemd_post mpathalert.service
 
 %preun core
 %systemd_preun cdrommon@.service
@@ -172,7 +172,7 @@ rm -rf $RPM_BUILD_ROOT
 %systemd_preun xapi.service
 %systemd_preun attach-static-vdis.service
 %systemd_preun save-boot-info.service
-%systemd_preun mpathalert-daemon.service
+%systemd_preun mpathalert.service
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
@@ -182,7 +182,7 @@ rm -rf $RPM_BUILD_ROOT
 %systemd_postun_with_restart xapi.service
 %systemd_postun_with_restart attach-static-vdis.service
 %systemd_postun_with_restart save-boot-info.service
-%systemd_postun_with_restart mpathalert-daemon.service
+%systemd_postun_with_restart mpathalert.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
@@ -334,7 +334,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/xapi.service
 %{_unitdir}/attach-static-vdis.service
 %{_unitdir}/save-boot-info.service
-%{_unitdir}/mpathalert-daemon.service
+%{_unitdir}/mpathalert.service
 
 %files xe
 %defattr(-,root,root,-)

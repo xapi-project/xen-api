@@ -57,7 +57,7 @@ install:
 	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
 	$(IDATA) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
-	$(IDATA) mpathalert-daemon.service $(DESTDIR)/usr/lib/systemd/system/mpathalert-daemon.service
+	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
