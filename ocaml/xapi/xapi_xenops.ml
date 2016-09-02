@@ -1412,6 +1412,17 @@ let update_vm ~__context id =
 											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
 									) state.domids
 							) info in
+					if different (fun x -> x.hvm) then begin
+						Opt.iter
+							(fun (_, state) ->
+								let metrics = Db.VM.get_metrics ~__context ~self in
+								debug "xenopsd event: Updating VM %s hvm <- %s"
+									id (string_of_bool state.Vm.hvm);
+								Db.VM_metrics.set_hvm ~__context ~self:metrics
+										~value:state.Vm.hvm;
+							)
+							info
+					end;
 					if different (fun x -> x.nomigrate) then begin
 						Opt.iter
 							(fun (_, state) ->

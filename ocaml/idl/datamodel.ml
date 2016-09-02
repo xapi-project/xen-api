@@ -7500,7 +7500,7 @@ let vm_metrics =
 		  "other_config" "additional configuration"
 		  ~persist:false
 		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
-		  ~ty:Bool
+		  ~ty:Bool ~qualifier:DynamicRO
 		  "hvm" "hardware virtual machine"
 		  ~persist:false
 		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))

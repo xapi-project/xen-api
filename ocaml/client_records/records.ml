@@ -769,6 +769,9 @@ let vm_record rpc session_id vm =
 			make_field ~name:"console-uuids"
 				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_consoles))
 				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles) ();
+			make_field ~name:"hvm"
+				~get:(fun () -> default "false" (may (fun m ->
+					string_of_bool m.API.vM_metrics_hvm) (xm ()) )) ();
 			make_field ~name:"nomigrate"
 				~get:(fun () -> default "false" (may (fun m ->
 					string_of_bool m.API.vM_metrics_nomigrate) (xm ()) )) ();
