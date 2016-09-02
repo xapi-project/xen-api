@@ -236,16 +236,13 @@ let guidance_from_string = function
   | "restartXAPI" -> `restartXAPI
   | _ -> raise Bad_update_info
 
-let extract_update_info ~__context ~self ~verify ~destroy =
+let extract_update_info ~__context ~vdi ~verify =
+  let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   finally
     (fun () ->
-       let update_path = Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Pool_update.attach ~rpc ~session_id ~self) in
-       let update_path =
-         if String.startswith "file://" update_path then
-           String.sub_to_end update_path (String.length "file://")
-         else
-           update_path
-       in
+       let url = attach_helper ~__context ~uuid:vdi_uuid ~vdi in
+       let update_path = Printf.sprintf "%s/%s/vdi" Xapi_globs.host_update_dir vdi_uuid in
+       debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
        let xml = Xml.parse_file (String.concat "/" [update_path ; "update.xml"]) in
        match xml with
        | Xml.Element ("update", attr, children) ->
@@ -296,11 +293,7 @@ let extract_update_info ~__context ~self ~verify ~destroy =
          update_info
        | _ -> failwith "Malformed or missing <update>"
     )
-    (fun () ->
-       finally
-         (fun () -> (Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self)))
-         (fun () -> if destroy then Db.Pool_update.destroy ~__context ~self)
-    )
+    (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let assert_space_available ?(multiplier=3L) update_size =
   let open Unixext in
@@ -331,56 +324,43 @@ let pool_update_yum_repo_handler (req: Request.t) s _ =
        raise (Api_errors.Server_error (Api_errors.not_implemented, [ "pool_update_yum_repo_handler" ]))
     )
 
+let verify update_info update_path =
+  let update_xml_path = Filename.concat update_path "update.xml" in
+  let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
+  match check_unsigned_update_fist update_info.uuid with
+  | false ->
+    List.iter (fun filename ->
+        let signature = filename ^ ".asc" in
+        Gpg.with_verified_signature filename signature (fun fingerprint fd ->
+            match fingerprint with
+            | Some f ->
+              let enc = Base64.encode f in
+              let acceptable_keys =
+                match Xapi_fist.allow_test_updates () with
+                | false -> [ !Xapi_globs.trusted_update_key ]
+                | true -> [ !Xapi_globs.trusted_update_key; Xapi_globs.test_update_key ]
+              in
+              if List.mem enc acceptable_keys then
+                debug "Fingerprint verified."
+              else
+                begin
+                  debug "Got fingerprint: %s" f;
+                  (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
+                  raise Gpg.InvalidSignature
+                end
+            | _ ->
+              begin
+                debug "No fingerprint!";
+                raise Gpg.InvalidSignature
+              end
+          )
+      ) [update_xml_path; repomd_xml_path];
+    debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
+  | true ->
+    debug "Verify signature bypass for pool update uuid: %s" update_info.uuid
+
 let introduce ~__context ~vdi =
-  let r = Ref.make () in
-  let _ = Db.Pool_update.create ~__context
-      ~ref:r
-      ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
-      ~name_label:"deadbeef"
-      ~name_description:"deadbeef"
-      ~installation_size:0L
-      ~key:""
-      ~after_apply_guidance:[]
-      ~vdi:vdi
-  in
-  let verify update_info update_path =
-    let update_xml_path = Filename.concat update_path "update.xml" in
-    let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
-    begin
-      match check_unsigned_update_fist update_info.uuid with
-      | false ->
-        List.iter (fun filename ->
-            let signature = filename ^ ".asc" in
-            Gpg.with_verified_signature filename signature (fun fingerprint fd ->
-                match fingerprint with
-                | Some f ->
-                  let enc = Base64.encode f in
-                  let acceptable_keys =
-                    match Xapi_fist.allow_test_updates () with
-                    | false -> [ !Xapi_globs.trusted_update_key ]
-                    | true -> [ !Xapi_globs.trusted_update_key; Xapi_globs.test_update_key ]
-                  in
-                  if List.mem enc acceptable_keys then
-                    debug "Fingerprint verified."
-                  else
-                    begin
-                      debug "Got fingerprint: %s" f;
-                      (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
-                      raise Gpg.InvalidSignature
-                    end
-                | _ ->
-                  begin
-                    debug "No fingerprint!";
-                    raise Gpg.InvalidSignature
-                  end
-              )
-          ) [update_xml_path; repomd_xml_path];
-        debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
-      | true ->
-        debug "Verify signature bypass for pool update uuid: %s" update_info.uuid
-    end
-  in
-  let update_info = extract_update_info ~__context ~self:r ~verify ~destroy:true in
+  let update_info = extract_update_info ~__context ~vdi ~verify in
   ignore(assert_space_available update_info.installation_size);
   let r = Ref.make () in
   Db.Pool_update.create ~__context
