@@ -514,6 +514,7 @@ module Vif = struct
 		kthread_pid: int;
 		media_present: bool;
 		device: string option;
+		pvs_rules_active: bool;
 	}
 end
 
