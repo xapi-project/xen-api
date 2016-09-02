@@ -1412,6 +1412,28 @@ let update_vm ~__context id =
 											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
 									) state.domids
 							) info in
+					if different (fun x -> x.nomigrate) then begin
+						Opt.iter
+							(fun (_, state) ->
+								let metrics = Db.VM.get_metrics ~__context ~self in
+								debug "xenopsd event: Updating VM %s nomigrate <- %s"
+									id (string_of_bool state.Vm.nomigrate);
+								Db.VM_metrics.set_nomigrate ~__context ~self:metrics
+										~value:state.Vm.nomigrate;
+							)
+							info
+					end;
+					if different (fun x -> x.nested_virt) then begin
+						Opt.iter
+							(fun (_, state) ->
+								let metrics = Db.VM.get_metrics ~__context ~self in
+								debug "xenopsd event: Updating VM %s nested_virt <- %s"
+									id (string_of_bool state.Vm.nested_virt);
+								Db.VM_metrics.set_nested_virt ~__context ~self:metrics
+										~value:state.Vm.nested_virt;
+							)
+							info
+					end;
 					let update_pv_drivers_detected () =
 						Opt.iter
 							(fun (_, state) ->
@@ -1446,28 +1468,6 @@ let update_vm ~__context id =
 									end;
 								) state.domids;
 						) info;
-					if different (fun x -> x.nomigrate) then begin
-						Opt.iter
-							(fun (_, state) ->
-								let metrics = Db.VM.get_metrics ~__context ~self in
-								debug "xenopsd event: Updating VM %s nomigrate <- %s"
-									id (string_of_bool state.Vm.nomigrate);
-								Db.VM_metrics.set_nomigrate ~__context ~self:metrics
-										~value:state.Vm.nomigrate;
-							)
-							info
-					end;
-					if different (fun x -> x.nested_virt) then begin
-						Opt.iter
-							(fun (_, state) ->
-								let metrics = Db.VM.get_metrics ~__context ~self in
-								debug "xenopsd event: Updating VM %s nested_virt <- %s"
-									id (string_of_bool state.Vm.nested_virt);
-								Db.VM_metrics.set_nested_virt ~__context ~self:metrics
-										~value:state.Vm.nested_virt;
-							)
-							info
-					end;
 					if different (fun x -> x.vcpu_target) then begin
 						Opt.iter
 							(fun (_, state) ->
