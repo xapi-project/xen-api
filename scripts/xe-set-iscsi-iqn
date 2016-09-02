@@ -30,5 +30,4 @@ fi
 
 . @INVENTORY@
 
-${XE} host-param-remove uuid=${INSTALLATION_UUID} param-name=${configmap} param-key=${configkey} || true
-${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}-${configkey}=${iqn}
+${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}:${configkey}=${iqn}
