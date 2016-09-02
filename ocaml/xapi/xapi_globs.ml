@@ -936,15 +936,10 @@ let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
-(* Fingerprint of default update key *)
-let citrix_update_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
 (* Used only for testing hotfixes *)
 let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
-(* Used only for testing updates *)
-let test_update_key = "MzhDOTIyNjBCMDY2MDk3REQ5NDQ0MzUwOEFCQTFDMDM5MjhENTNGMw=="
 
 let trusted_patch_key = ref citrix_patch_key
-let trusted_update_key = ref citrix_update_key
 
 let gen_list_option name desc of_string string_of opt =
   let parse s =

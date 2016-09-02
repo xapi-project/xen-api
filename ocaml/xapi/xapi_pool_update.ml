@@ -334,20 +334,7 @@ let verify update_info update_path =
         Gpg.with_verified_signature filename signature (fun fingerprint fd ->
             match fingerprint with
             | Some f ->
-              let enc = Base64.encode f in
-              let acceptable_keys =
-                match Xapi_fist.allow_test_updates () with
-                | false -> [ !Xapi_globs.trusted_update_key ]
-                | true -> [ !Xapi_globs.trusted_update_key; Xapi_globs.test_update_key ]
-              in
-              if List.mem enc acceptable_keys then
-                debug "Fingerprint verified."
-              else
-                begin
-                  debug "Got fingerprint: %s" f;
-                  (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
-                  raise Gpg.InvalidSignature
-                end
+              debug "Fingerprint '%s' verified." f
             | _ ->
               begin
                 debug "No fingerprint!";
