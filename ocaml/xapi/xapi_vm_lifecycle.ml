@@ -273,7 +273,7 @@ let check_protection_policy ~vmr ~op ~ref_str =
  * migrate if strict=false.
  *
  * The values of [platform:nomigrate] and [platform:nested-virt] are
- * captured by Xeoopsd when a VM starts, reported to Xapi, and kept in
+ * captured by Xenopsd when a VM starts, reported to Xapi, and kept in
  * the VM_metrics data model.
  *
  **)
