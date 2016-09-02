@@ -167,7 +167,8 @@ let stop_proxy ~__context vif proxy =
     try
       let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
       let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
-      let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
+      let host = Helpers.get_localhost ~__context in
+      let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr ~site ~host in
       update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
       Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null

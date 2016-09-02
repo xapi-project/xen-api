@@ -21,19 +21,29 @@ exception No_cache_sr_available
 exception No_cache_vdi_present
 
 module VDI = struct
-  let find_all ~__context ~sr =
+  let find_pcs ~__context ~sr ~site =
     let open Db_filter_types in
-    Db.VDI.get_refs_where ~__context ~expr:(And
-                                              (Eq (Field "SR", Literal (Ref.string_of sr)),
-                                               Eq (Field "type", Literal "pvs_cache")))
+    (* There should be at most one matching PVS_cache_storage object *)
+    Db.PVS_cache_storage.get_refs_where ~__context ~expr:(And
+                                                            (Eq (Field "SR", Literal (Ref.string_of sr)),
+                                                             Eq (Field "site", Literal (Ref.string_of site))))
 
-  let find_one ~__context ~sr =
-    match find_all ~__context ~sr with
-    | [] -> None
-    | vdi :: _ -> Some vdi
+  let find ~__context ~sr ~site ?host () =
+    (* There should be at most one matching PVS_cache_storage object *)
+    match find_pcs ~__context ~sr ~site with 
+    | [] -> []
+    | pcs :: _ ->
+      let map = Db.PVS_cache_storage.get_host_vdis ~__context ~self:pcs in
+      match host with
+      | None -> List.map snd map
+      | Some h ->
+        if List.mem_assoc h map then
+          [List.assoc h map]
+        else
+          []
 
-  let create ~__context ~sr ~size =
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
+  let create ~__context ~sr ~size ~site ~host =
+    let vdi = Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.VDI.create ~rpc ~session_id
           ~name_label:"PVS cache VDI"
           ~name_description:"PVS cache VDI"
@@ -46,6 +56,12 @@ module VDI = struct
           ~xenstore_data:[]
           ~sm_config:[]
           ~tags:[])
+    in
+    match find_pcs ~__context ~sr ~site with
+    | [] -> vdi
+    | pcs :: _ ->
+      Db.PVS_cache_storage.add_to_host_vdis ~__context ~self:pcs ~key:host ~value:vdi;
+      vdi
 end
 
 let check_cache_availability ~__context ~host ~site =
@@ -65,8 +81,9 @@ let check_cache_availability ~__context ~host ~site =
       match
         List.filter_map
           (fun (sr, size) ->
-             VDI.find_one ~__context ~sr
-             |> Opt.map (fun vdi -> sr, size, vdi))
+             match VDI.find ~__context ~sr ~site ~host () with
+             | [] -> None
+             | vdi :: _ -> Some (sr, size, vdi))
           sorted_srs
       with
       | [] -> let sr, size = List.hd sorted_srs in Some (sr, size, None)
@@ -79,16 +96,16 @@ let find_or_create_cache_vdi ~__context ~host ~site =
   Mutex.execute cache_m (fun () ->
       match check_cache_availability ~__context ~host ~site with
       | None -> raise No_cache_sr_available
-      | Some (sr, size, None) -> sr, VDI.create ~__context ~sr ~size
+      | Some (sr, size, None) -> sr, VDI.create ~__context ~sr ~size ~site ~host
       | Some (sr, size, Some vdi) -> sr, vdi)
 
-let find_cache_vdi ~__context ~sr =
-  match VDI.find_one ~__context ~sr with
-  | None -> raise No_cache_vdi_present
-  | Some vdi -> vdi
+let find_cache_vdi ~__context ~sr ~site ~host =
+  match VDI.find ~__context ~sr ~site ~host () with
+  | [] -> raise No_cache_vdi_present
+  | vdi :: _ -> vdi
 
-let on_sr_remove ~__context ~sr =
-  match VDI.find_all ~__context ~sr with
+let on_sr_remove ~__context ~sr ~site =
+  match VDI.find ~__context ~sr ~site () with
   | [] -> ()
   | vdis ->
     Helpers.call_api_functions ~__context

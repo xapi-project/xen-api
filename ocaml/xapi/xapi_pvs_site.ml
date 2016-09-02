@@ -44,7 +44,7 @@ let forget ~__context ~self =
 
   Db.PVS_site.get_cache_storage ~__context ~self
   |> List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs)
-  |> List.iter (fun sr -> Xapi_pvs_cache.on_sr_remove ~__context ~sr);
+  |> List.iter (fun sr -> Xapi_pvs_cache.on_sr_remove ~__context ~sr ~site:self);
 
   Db.PVS_site.destroy ~__context ~self
 

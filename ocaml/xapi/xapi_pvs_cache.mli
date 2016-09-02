@@ -44,7 +44,7 @@ val find_or_create_cache_vdi :
 (** Find a cache VDI on the given SR.
     If there is none, raise [No_cache_vdi_present]. *)
 val find_cache_vdi :
-  __context:Context.t -> sr:API.ref_SR -> API.ref_VDI
+  __context:Context.t -> sr:API.ref_SR -> site:API.ref_PVS_site -> host:API.ref_host -> API.ref_VDI
 
-(** Destroy all PVS cache VDIs in the specified SR. *)
-val on_sr_remove : __context:Context.t -> sr:API.ref_SR -> unit
+(** Destroy all PVS cache VDIs in the specified SR, for the given site. *)
+val on_sr_remove : __context:Context.t -> sr:API.ref_SR -> site:API.ref_PVS_site -> unit
