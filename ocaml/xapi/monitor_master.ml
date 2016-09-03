@@ -43,7 +43,7 @@ let get_pciids vendor device =
   (match d with None -> "" | Some x -> x)
 
 let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
-    ~pcibuspath ~io_write ~io_read pmr =
+    ~pcibuspath pmr =
   (* don't update & and reread pciids if db already contains same value *)
   if pmr.API.pIF_metrics_vendor_id <> vendor
   || pmr.API.pIF_metrics_device_id <> device then (
@@ -61,10 +61,6 @@ let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
     Db.PIF_metrics.set_duplex ~__context ~self ~value:duplex;
   if pmr.API.pIF_metrics_pci_bus_path <> pcibuspath then
     Db.PIF_metrics.set_pci_bus_path ~__context ~self ~value:pcibuspath;
-  if io_write >= 0.0 then
-    Db.PIF_metrics.set_io_write_kbs ~__context ~self ~value:io_write;
-  if io_read >= 0.0 then
-    Db.PIF_metrics.set_io_read_kbs ~__context ~self ~value:io_read;
   Db.PIF_metrics.set_last_updated ~__context ~self
     ~value:(Date.of_float (Unix.gettimeofday ()))
 
@@ -144,6 +140,6 @@ let update_pifs ~__context host pifs =
             in
             let pmr = Db.PIF_metrics.get_record ~__context ~self:metrics in
             set_pif_metrics ~__context ~self:metrics ~vendor ~device ~carrier ~speed:speed ~duplex:duplex
-              ~pcibuspath ~io_write:pif_stats.pif_tx ~io_read:pif_stats.pif_rx pmr;
+              ~pcibuspath pmr;
           with Not_found -> () end
       ) db_pifs

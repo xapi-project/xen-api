@@ -20,10 +20,6 @@ open Xstringext
 
 type pif = {
   pif_name: string;
-  pif_tx: float;
-  pif_rx: float;
-  pif_raw_tx: int64;
-  pif_raw_rx: int64;
   pif_carrier: bool;
   pif_speed: int;
   pif_duplex: Network_interface.duplex;

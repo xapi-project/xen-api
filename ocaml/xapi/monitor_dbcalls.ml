@@ -86,10 +86,6 @@ let get_pif_and_bond_changes () =
           Hashtbl.add bonds_links_up_tmp dev stat.links_up;
         let pif = {
           pif_name = dev;
-          pif_tx = -1.0;
-          pif_rx = -1.0;
-          pif_raw_tx = 0L;
-          pif_raw_rx = 0L;
           pif_carrier = stat.carrier;
           pif_speed = stat.speed;
           pif_duplex = stat.duplex;
