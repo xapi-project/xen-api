@@ -26,6 +26,3 @@ val update_configuration_from_master : unit -> unit
 
 (** A function to write information about PIFs to xapi's database. *)
 val update_pifs : __context:Context.t -> 'a Ref.t -> Monitor_types.pif list -> unit
-
-(** A function to write information about a host to xapi's database. *)
-val update_all : __context:Context.t -> Monitor_types.host_stats -> unit

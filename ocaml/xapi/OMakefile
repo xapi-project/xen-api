@@ -178,7 +178,6 @@ XAPI_MODULES = $(COMMON) \
 	xha_errno \
 	xha_scripts \
 	static_vdis \
-	monitor_transfer \
 	monitor_types \
 	monitor_master \
 	monitor_dbcalls \

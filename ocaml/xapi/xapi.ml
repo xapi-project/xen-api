@@ -125,38 +125,6 @@ let remote_database_access_handler_v2 req bio c =
   wait_until_database_is_ready_for_clients ();
   Db_remote_cache_access_v2.handler req bio c
 
-(** Handler for the legacy remote stats URL *)
-let remote_stats_handler req bio _ =
-  wait_until_database_is_ready_for_clients ();
-  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-
-  (* CA-20487: need to authenticate this URL, but only when we're not in pool rolling-upgrade mode; this
-     URL is depricated and should be removed ASAP.. *)
-  let auth_failed() =
-    raise (Http.Unauthorised "remote stats") in
-  let rolling_upgrade_in_progress =
-    Server_helpers.exec_with_new_task "performance_monitor_auth" ~task_in_database:false
-      (fun __context -> Helpers.rolling_upgrade_in_progress ~__context) in
-  if not rolling_upgrade_in_progress then
-    begin
-      try
-        let pool_secret = List.assoc "pool_secret" req.Http.Request.cookie in
-        if pool_secret <> !Xapi_globs.pool_secret then auth_failed();
-      with _ ->
-        auth_failed()
-    end;
-
-  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
-  let body_xml = Xml.parse_string body in
-  Stats.time_this "remote_stats"
-    (fun () ->
-       let stats = Monitor_transfer.unmarshall body_xml in
-       Server_helpers.exec_with_new_task "performance monitor"
-         (fun __context -> Monitor_master.update_all ~__context stats);
-       let response = Xml.to_string (Db_rpc_common_v1.marshall_unit ()) in
-       Http_svr.response_str req fd response
-    )
-
 let cleanup_handler i =
   debug "Executing cleanup handler";
   (*  Monitor_rrds.cleanup ();*)
@@ -661,7 +629,6 @@ let common_http_handlers = [
   (* ("get_message_rss_feed", Xapi_message.rss_handler); *)
   ("put_messages", (Http_svr.FdIO Xapi_message.handler));
   ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
-  ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
   ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
   ("get_wlb_diagnostics", (Http_svr.BufIO Wlb_reports.diagnostics_handler));
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
