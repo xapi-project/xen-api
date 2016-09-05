@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 100
+let schema_minor_vsn = 101
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -7467,22 +7467,52 @@ let vm_vcpu_metrics =
     field ~qualifier:DynamicRO ~ty:(Map (Int, Set String)) "flags" "CPU flags (blocked,online,running)" ~persist:false;
   ]
 
-let vm_metrics = 
-    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vm_metrics ~descr:"The metrics associated with a VM"
-      ~gen_events:true
-      ~doccomments:[]
-      ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[] ~contents:
-      [ uid _vm_metrics;
-	namespace ~name:"memory" ~contents:vm_memory_metrics ();
-	namespace ~name:"VCPUs" ~contents:vm_vcpu_metrics ();
-	field ~qualifier:DynamicRO ~ty:(Set (String)) "state" "The state of the guest, eg blocked, dying etc" ~persist:false;
-	field ~qualifier:DynamicRO ~ty:DateTime "start_time" "Time at which this VM was last booted";
-	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "install_time" "Time at which the VM was installed";
-	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated" ~persist:false;
-	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~persist:false;
-      ]
-	()
+let vm_metrics =
+	create_obj
+		~in_db:true
+		~in_product_since:rel_rio
+		~in_oss_since:oss_since_303
+		~internal_deprecated_since:None
+		~persist:PersistEverything
+		~gen_constructor_destructor:false
+		~name:_vm_metrics
+		~descr:"The metrics associated with a VM"
+		~gen_events:true
+		~doccomments:[]
+		~messages_default_allowed_roles:_R_VM_ADMIN
+		~messages:[]
+		~contents:
+		[ uid _vm_metrics
+		; namespace ~name:"memory" ~contents:vm_memory_metrics ()
+		; namespace ~name:"VCPUs" ~contents:vm_vcpu_metrics ()
+		; field ~qualifier:DynamicRO ~ty:(Set (String))
+		  "state" "The state of the guest, eg blocked, dying etc"
+		  ~persist:false
+		; field ~qualifier:DynamicRO ~ty:DateTime
+		  "start_time" "Time at which this VM was last booted"
+		; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime
+		  "install_time" "Time at which the VM was installed"
+		; field ~qualifier:DynamicRO ~ty:DateTime
+		  "last_updated" "Time at which this information was last updated"
+		  ~persist:false
+		; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
+		  ~ty:(Map(String, String))
+		  "other_config" "additional configuration"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool ~qualifier:DynamicRO
+		  "hvm" "hardware virtual machine"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool ~qualifier:DynamicRO
+		  "nested_virt" "VM supports nested virtualisation"
+		  ~persist:false
+		; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
+		  ~ty:Bool ~qualifier:DynamicRO
+		  "nomigrate" "VM is immobile and can't migrate between hosts"
+		  ~persist:false
+		]
+		()
 
 let tristate_type = Enum ("tristate_type",
 [
