@@ -108,30 +108,27 @@ let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
 let detach_helper ~__context ~uuid ~vdi =
-  let host = Helpers.get_localhost ~__context in
   Mutex.execute updates_to_attach_count_tbl_mutex
     ( fun () ->
         let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
         debug "pool_update.detach_helper '%s' count=%d" uuid count;
-        if count = 1 then begin
+        if count <= 1 then begin
           let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
           let mount_point = Filename.concat mount_point_parent_dir "vdi" in
 
           debug "pool_update.detach_helper %s from %s" uuid mount_point;
-          if vdi_visible ~__context ~vdi ~host then begin
-            if try Sys.is_directory mount_point with _ -> false then begin
-              Helpers.log_exn_continue ("detach_helper: unmounting " ^ mount_point)
-                (fun () -> umount mount_point) ()
-            end;
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                let dom0 = Helpers.get_domain_zero ~__context in
-                let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
-                List.iter (fun self ->
-                    if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then begin
-                      Client.VBD.unplug ~rpc ~session_id ~self;
-                      Client.VBD.destroy ~rpc ~session_id ~self
-                    end) vbds)
+          if try Sys.is_directory mount_point with _ -> false then begin
+            Helpers.log_exn_continue ("detach_helper: unmounting " ^ mount_point)
+              (fun () -> umount mount_point) ()
           end;
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              let dom0 = Helpers.get_domain_zero ~__context in
+              let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
+              List.iter (fun self ->
+                  if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then begin
+                    Client.VBD.unplug ~rpc ~session_id ~self;
+                    Client.VBD.destroy ~rpc ~session_id ~self
+                  end) vbds);
           if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
             let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
             debug "pool_update.detach_helper Mountpoint removed (output=%s)" output
@@ -141,6 +138,7 @@ let detach_helper ~__context ~uuid ~vdi =
           Hashtbl.replace updates_to_attach_count_tbl uuid (count - 1)
         else if count = 1 then
           Hashtbl.remove updates_to_attach_count_tbl uuid
+
     )
 
 let detach ~__context ~self =
@@ -184,7 +182,7 @@ let attach_helper ~__context ~uuid ~vdi =
         let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
         let mount_point = Filename.concat mount_point_parent_dir "vdi" in
         let host = Helpers.get_localhost ~__context in
-        let ip = try Db.Host.get_address ~__context ~self:host with _ -> "127.0.0.1" in
+        let ip = Db.Host.get_address ~__context ~self:host in
         let url = "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ uuid ^ "/vdi" in
         let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
         if count = 0 then begin
@@ -192,19 +190,17 @@ let attach_helper ~__context ~uuid ~vdi =
           if (try Sys.is_directory mount_point with _ -> false) then detach_helper ~__context ~uuid ~vdi;
           let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
           debug "pool_update.attach_helper Mountpoint created (output=%s)" output;
-          if vdi_visible ~__context ~vdi ~host then begin
-            let device = Helpers.call_api_functions ~__context
-                (fun rpc session_id ->
-                   let dom0 = Helpers.get_domain_zero ~__context in
-                   let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
-                       ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
-                       ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-                       ~other_config:[] in
-                   Client.VBD.plug ~rpc ~session_id ~self:vbd;
-                   "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd)) in
-            with_api_errors (mount device) mount_point;
-            debug "pool_update.attach_helper Mounted %s" mount_point
-          end;
+          let device = Helpers.call_api_functions ~__context
+              (fun rpc session_id ->
+                 let dom0 = Helpers.get_domain_zero ~__context in
+                 let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
+                     ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
+                     ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+                     ~other_config:[] in
+                 Client.VBD.plug ~rpc ~session_id ~self:vbd;
+                 "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd)) in
+          with_api_errors (mount device) mount_point;
+          debug "pool_update.attach_helper Mounted %s" mount_point
         end;
         debug "pool_update.attach_helper refcount='%d'" (count+1);
         Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1);
