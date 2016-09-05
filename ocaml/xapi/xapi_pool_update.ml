@@ -308,17 +308,6 @@ let assert_space_available ?(multiplier=3L) update_size =
 
 exception Cannot_expose_yum_repo_on_slave
 
-let pool_update_yum_repo_handler (req: Request.t) s _ =
-  debug "Update yum repo - Entered...";
-
-  if not (Pool_role.is_master ())
-  then raise Cannot_expose_yum_repo_on_slave;
-
-  Xapi_http.with_context "Update yum repo" req s
-    (fun __context ->
-       raise (Api_errors.Server_error (Api_errors.not_implemented, [ "pool_update_yum_repo_handler" ]))
-    )
-
 let verify update_info update_path =
   let update_xml_path = Filename.concat update_path "update.xml" in
   let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
