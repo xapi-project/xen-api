@@ -1374,6 +1374,10 @@ let _ =
 
   error Api_errors.pvs_proxy_already_present ["proxies"]
     ~doc:"The VIF is already associated with a PVS proxy"
+    ();
+
+  error Api_errors.pvs_server_address_in_use ["address"]
+    ~doc:"The address specified is already in use by an existing PVS_server object"
     ()
 
 let _ =
