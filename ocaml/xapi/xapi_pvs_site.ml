@@ -22,6 +22,7 @@ let api_error msg xs = raise (E.Server_error (msg, xs))
 
 let introduce ~__context ~name =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
+  Helpers.assert_using_vswitch ~__context;
   let pvs_site = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.PVS_site.create ~__context

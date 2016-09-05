@@ -1071,6 +1071,13 @@ let assert_vswitch_controller_not_active ~__context =
   if (controller <> "") && (backend = Network_interface.Openvswitch) then
     raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
 
+let assert_using_vswitch ~__context =
+  let dbg = Context.string_of_task __context in
+  let backend = Net.Bridge.get_kind dbg () in
+  match backend with
+  | Network_interface.Openvswitch -> ()
+  | _ -> raise Api_errors.(Server_error (openvswitch_not_active, []))
+
 let assert_is_valid_ref ~__context ~name ~ref =
   if not (Db.is_valid_ref __context ref)
   then raise Api_errors.(Server_error (invalid_value, [

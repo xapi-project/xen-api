@@ -120,6 +120,7 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
 let start_proxy ~__context vif proxy =
   try
     Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
+    Helpers.assert_using_vswitch ~__context;
     let host = Helpers.get_localhost ~__context in
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
@@ -152,6 +153,9 @@ let start_proxy ~__context vif proxy =
           code = Api_errors.license_restriction
           && args = [Features.(name_of_feature PVS_proxy)] ->
         "PVS proxy not licensed"
+      | Api_errors.Server_error (code, args) when
+          code = Api_errors.openvswitch_not_active ->
+        "Host is not using openvswitch"
       | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
     in
     warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason;

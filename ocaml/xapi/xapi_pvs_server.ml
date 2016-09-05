@@ -21,9 +21,11 @@ module D = Debug.Make(struct let name = "xapi_pvs_server" end)
 
 let introduce ~__context ~addresses ~first_port ~last_port ~site =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
+  Helpers.assert_using_vswitch ~__context;
   List.iter
     (fun address -> Helpers.assert_is_valid_ip `ipv4 "addresses" address)
     addresses;
+
   Helpers.assert_is_valid_tcp_udp_port_range
     ~first_port:(Int64.to_int first_port) ~first_name:"first_port"
     ~last_port:(Int64.to_int last_port) ~last_name:"last_port";
