@@ -23,21 +23,6 @@ open Threadext
 module D = Debug.Make(struct let name = "monitor_dbcalls" end)
 open D
 
-(* Helper map functions. *)
-let transfer_map ~source ~target =
-  Hashtbl.clear target;
-  Hashtbl.iter (fun k v -> Hashtbl.add target k v) source;
-  Hashtbl.clear source
-
-let get_updates ~before ~after ~f =
-  Hashtbl.fold (fun k v acc ->
-      if (try v <> Hashtbl.find before k with Not_found -> true)
-      then (f k v acc)
-      else acc
-    ) after []
-let get_updates_map = get_updates ~f:(fun k v acc -> (k, v)::acc)
-let get_updates_values = get_updates ~f:(fun _ v acc -> v::acc)
-
 let get_host_memory_changes xc =
   let physinfo = Xenctrl.physinfo xc in
   let bytes_of_pages pages =
