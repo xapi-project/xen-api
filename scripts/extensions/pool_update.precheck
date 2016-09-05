@@ -3,15 +3,17 @@
 import xmlrpclib
 import sys
 import XenAPI
-import time
 import json
 import urllib2
 import xml.dom.minidom
 import traceback
 import subprocess
 import os
-import re
+import errno
+import shutil
 import StringIO
+import ConfigParser
+
 
 UPDATE_DIR = '/var/update/'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
@@ -35,17 +37,7 @@ def failure_message(code, params):
 
 def parse_control_package(session, yum_url):
     control_package = ''
-    if yum_url.startswith(('file://', '/')):
-        # If it's local repo, parse update.xml to fetch the control package name.
-        m = re.search(
-            UPDATE_DIR+r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', yum_url)
-        if not m:
-            raise PrecheckFailure('Incorrect yum repo (%r)' % yum_url)
-        update_xml = os.path.join(m.group(0), 'vdi', 'update.xml')
-        xmldoc = xml.dom.minidom.parse(update_xml)
-    elif yum_url.startswith(('http://', 'https://')):
-        # If it's remote repo, the yum is exposed as HTTP URL.
-        # Fetch update.xml to local and parse to fetch the control package name.
+    if yum_url.startswith('http://'):
         update_xml = urllib2.urlopen(yum_url + '/update.xml').read()
         xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
     else:
@@ -56,22 +48,15 @@ def parse_control_package(session, yum_url):
             'Parse Control Package from yum (%r)' % yum_url)
     return items[0].getAttribute('control')
 
-def execute_precheck(session, control_package):
 
+def execute_precheck(session, control_package, yum_conf_file, nogpgcheck):
     FNULL = open(os.devnull, 'w')
-
-    # yum.conf is located at /var/update/<uuid>/yum.conf
-    update_uuid = session.xenapi.pool_update.get_uuid(update)
-    yum_conf = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
-    allow_unsigned = False
-    if os.path.isfile(FIST_FILE):
-        allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
-    nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
-    retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' +
+    retcode = subprocess.call('yum -c ' + yum_conf_file + ' install -y ' +
                               nogpgcheck + control_package, shell=True, stdout=FNULL, stderr=FNULL)
     if retcode != 0:
         raise PrecheckFailure(
             'Execute control_package (%r) failed.' % control_package)
+
 
 if __name__ == '__main__':
     txt = sys.stdin.read()
@@ -84,11 +69,34 @@ if __name__ == '__main__':
 
         update = params[1]
         host = params[2]
-        # attach and get the yum URL
-        yum_url = session.xenapi.pool_update.attach(update, host)
+        update_uuid = session.xenapi.pool_update.get_uuid(update)
+        update_package = session.xenapi.pool_update.get_name_label(update)
+
+        # attach and get the yum configuration
+        # generate the yum configuration file
+        yum_conf = session.xenapi.pool_update.attach(update)
+        yum_conf_file = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
+        try:
+            os.makedirs(os.path.dirname(yum_conf_file))
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                raise
+        with open (yum_conf_file, "w+") as file:
+            file.write("{0}".format(yum_conf))
+
+        config = ConfigParser.ConfigParser()
+        config.read(yum_conf_file)
+        yum_url = config.get(update_package, 'baseurl')
+
         control_package = parse_control_package(session, yum_url)
 
-        execute_precheck(session, control_package)
+        allow_unsigned = False
+        if os.path.isfile(FIST_FILE):
+            allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
+        nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
+        execute_precheck(session, control_package, yum_conf_file, nogpgcheck)
 
         print(success_message())
     except Exception as e:
@@ -96,5 +104,10 @@ if __name__ == '__main__':
                               ['Precheck failed: %s' % e]))
     finally:
         if session is not None:
-            session.xenapi.pool_update.detach(update, host)
+            session.xenapi.pool_update.detach(update)
             session.xenapi.session.logout()
+        try:
+            shutil.rmtree(os.path.dirname(yum_conf_file))
+        except Exception as e:
+            pass
+

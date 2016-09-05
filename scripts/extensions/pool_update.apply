@@ -3,16 +3,14 @@
 import xmlrpclib
 import sys
 import XenAPI
-import time
 import json
-import urllib2
-import xml.dom.minidom
 import traceback
 import subprocess
 import os
-import re
-import StringIO
 import fasteners
+import errno
+import shutil
+
 
 UPDATE_DIR = '/var/update/'
 TMP_DIR = '/tmp/'
@@ -38,24 +36,10 @@ def failure_message(code, params):
     return xmlrpclib.dumps((rpcparams, ), '', True)
 
 
-def execute_apply(session, update_package):
-
+def execute_apply(session, update_package, yum_conf_file, nogpgcheck):
     FNULL = open(os.devnull, 'w')
-
-    # yum.conf is located at /var/update/<uuid>/yum.conf
-    update_uuid = session.xenapi.pool_update.get_uuid(update)
-    yum_conf = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
-
-    allow_unsigned = False
-    if os.path.isfile(FIST_FILE):
-        allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
-    nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
-
-    subprocess.call(
-        'cp ' + yum_conf + ' /tmp/yum.conf', shell=True, stdout=FNULL, stderr=FNULL)
-    retcode = subprocess.call('yum -c ' + yum_conf + ' install -y ' +
+    retcode = subprocess.call('yum -c ' + yum_conf_file + ' install -y ' +
                               nogpgcheck + update_package, shell=True, stdout=FNULL, stderr=FNULL)
-
     if retcode != 0:
         raise ApplyFailure(
             'Failed to install update_package (%r).' % update_package)
@@ -66,20 +50,24 @@ if __name__ == '__main__':
     params, method = xmlrpclib.loads(txt)
 
     session = None
-    session = XenAPI.xapi_local()
-    session.xenapi.login_with_password('root', '', '', 'Pool_update')
-    update = params[1]
-    host = params[2]
-
+    lock_acquired = False
     try:
+        session = XenAPI.xapi_local()
+        session.xenapi.login_with_password('root', '', '', 'Pool_update')
+
+        update = params[1]
+        host = params[2]
         # Check if the update has been applied.
         if update in session.xenapi.host.get_updates(host):
             print(failure_message(
                 PATCH_ALREADY_APPLIED, ['This update has already been applied.']))
             sys.exit(0)
 
-        # To prevent the race condition of invoking apply, set a lock.
         update_uuid = session.xenapi.pool_update.get_uuid(update)
+        update_package = session.xenapi.pool_update.get_name_label(update)
+        yum_conf_file = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
+
+        # To prevent the race condition of invoking apply, set a lock.
         lock_file = os.path.join(TMP_DIR, update_uuid)
         lock = fasteners.InterProcessLock(lock_file)
         lock_acquired = lock.acquire(blocking=False)
@@ -97,23 +85,37 @@ if __name__ == '__main__':
                 failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR, ['%s' % str(e)]))
             sys.exit(0)
 
+        allow_unsigned = False
+        if os.path.isfile(FIST_FILE):
+            allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
+        nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
+
         # Apply the update.
         try:
-            session.xenapi.pool_update.attach(update, host)
-            update_package = session.xenapi.pool_update.get_name_label(update)
-            execute_apply(session, update_package)
+            yum_conf = session.xenapi.pool_update.attach(update)
+            try:
+                os.makedirs(os.path.dirname(yum_conf_file))
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    pass
+                else:
+                    raise
+            with open (yum_conf_file, "w+") as file:
+                file.write("{0}".format(yum_conf))
 
-            # Update database.
-            # The fields are RO, set them to RW will get them udpate-able by any client.
-            # TODO: Get a feasible solution and update accordingly.
-            # session.xenapi.host.get_updates(host):
-            # session.xenapi.pool_update.set_hosts(session.xenapi.pool_update.get_hosts() + host)
+            execute_apply(session, update_package, yum_conf_file, nogpgcheck)
+
+            session.xenapi.pool_update.resync_host(host)
             print(success_message())
         except Exception as e:
             print(failure_message(PATCH_APPLY_FAILED,
-                                  ['Apply failed: %s' % e + traceback.format_exc()]))
+                                  ['Apply failed: %s' % e]))
         finally:
-            session.xenapi.pool_update.detach(update, host)
+            session.xenapi.pool_update.detach(update)
+            try:
+                shutil.rmtree(os.path.dirname(yum_conf_file))
+            except Exception as e:
+                pass
     finally:
         if lock_acquired:
             lock.release()
