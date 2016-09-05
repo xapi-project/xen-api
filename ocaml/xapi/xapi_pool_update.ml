@@ -187,7 +187,6 @@ let attach_helper ~__context ~uuid ~vdi =
         let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
         if count = 0 then begin
           debug "pool_update.attach_helper %s to %s" uuid mount_point;
-          if (try Sys.is_directory mount_point with _ -> false) then detach_helper ~__context ~uuid ~vdi;
           let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
           debug "pool_update.attach_helper Mountpoint created (output=%s)" output;
           let device = Helpers.call_api_functions ~__context
