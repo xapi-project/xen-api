@@ -30,6 +30,10 @@ let vm_memory_tmp    : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 let host_memory_m : Mutex.t = Mutex.create ()
 let host_memory_free_cached : Int64.t ref = ref Int64.zero
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
+(* A cache mapping VM uuids to PVS_proxy status. *)
+let pvs_proxy_cached_m : Mutex.t = Mutex.create ()
+let pvs_proxy_cached : (string, int) Hashtbl.t = Hashtbl.create 100
+let pvs_proxy_tmp    : (string, int) Hashtbl.t = Hashtbl.create 100
 
 (** [clear_cache_for_pif] removes any current cache for PIF with [pif_name],
  * which forces fresh properties for the PIF into xapi's database. *)

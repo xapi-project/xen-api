@@ -2,7 +2,7 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              http-svr netdev tapctl rpclib xenstore-compat	\
              uuid gzip sha1 sha.sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory tar tar.unix oPasswd xcp-inventory \
-             rrdd-plugin pci
+             rrdd-plugin rrd-transport pci
 
 OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
@@ -182,6 +182,7 @@ XAPI_MODULES = $(COMMON) \
 	monitor_master \
 	monitor_dbcalls \
 	monitor_dbcalls_cache \
+	monitor_pvs_proxy \
 	api_server \
 	create_misc \
 	xapi_host \

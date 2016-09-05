@@ -144,6 +144,7 @@ let monitor_dbcall_thread () =
       while true do
         try
           pifs_and_memory_update_fn xc;
+          Monitor_pvs_proxy.update ();
           Thread.delay 5.
         with e ->
           debug "monitor_dbcall_thread would have died from: %s; restarting in 30s."

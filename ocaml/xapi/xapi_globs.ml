@@ -131,7 +131,7 @@ let _dbv = "dbv"
  * older than itself. *)
 let default_platform_version = "0.0.0"
 
-(* Used to differentiate between
+(* Used to differentiate between 
    Rio beta2 (0) [no inline checksums, end-of-tar checksum table],
    Rio GA (1) [inline checksums, end-of-tar checksum table]
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
@@ -587,7 +587,7 @@ let standard_type11_strings =
   ["oem-1", "Xen";
    "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
 
-(** Generic BIOS strings *)
+(** Generic BIOS strings *)	 
 let generic_bios_strings =
   ["bios-vendor", "Xen";
    "bios-version", "";
@@ -628,6 +628,11 @@ let cpu_info_vendor_key = "vendor"
 let cpu_info_features_key = "features"
 let cpu_info_features_pv_key = "features_pv"
 let cpu_info_features_hvm_key = "features_hvm"
+
+(** PVS proxy *)
+
+let pvs_proxy_metrics_path = "/dev/shm/metrics/pvsproxy"
+let pvs_proxy_status_ds_name = "status"
 
 (** Path to trigger file for Network Reset. *)
 let network_reset_trigger = "/tmp/network-reset"
@@ -706,7 +711,7 @@ let fuse_time = ref 10.
 let db_restore_fuse_time = ref 30.
 
 (* If a session has a last_active older than this we delete it *)
-let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
+let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *) 
 
 let pending_task_timeout = ref 86400. (* 24 hrs in seconds *)
 
@@ -903,8 +908,8 @@ let xapi_globs_spec =
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
   ]
 
-let options_of_xapi_globs_spec =
-  List.map (fun (name,ty) ->
+let options_of_xapi_globs_spec = 
+  List.map (fun (name,ty) -> 
       name, (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x),
       (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
       (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
@@ -960,22 +965,22 @@ let other_options = [
   "hotfix-fingerprint", Arg.Set_string trusted_patch_key,
   (fun () -> !trusted_patch_key), "Fingerprint of the key used for signed hotfixes";
 
-  "logconfig", Arg.Set_string log_config_file,
+  "logconfig", Arg.Set_string log_config_file, 
   (fun () -> !log_config_file), "Log config file to use";
 
-  "writereadyfile", Arg.Set_string ready_file,
+  "writereadyfile", Arg.Set_string ready_file, 
   (fun () -> !ready_file), "touch specified file when xapi is ready to accept requests";
 
-  "writeinitcomplete", Arg.Set_string init_complete,
+  "writeinitcomplete", Arg.Set_string init_complete, 
   (fun () -> !init_complete), "touch specified file when xapi init process is complete";
 
-  "nowatchdog", Arg.Set nowatchdog,
+  "nowatchdog", Arg.Set nowatchdog, 
   (fun () -> string_of_bool !nowatchdog), "turn watchdog off, avoiding initial fork";
 
   "log-getter", Arg.Set log_getter,
   (fun () -> string_of_bool !log_getter), "Enable/Disable logging for getters";
 
-  "onsystemboot", Arg.Set on_system_boot,
+  "onsystemboot", Arg.Set on_system_boot, 
   (fun () -> string_of_bool !on_system_boot), "indicates that this server start is the first since the host rebooted";
 
   "relax-xsm-sr-check", Arg.Set relax_xsm_sr_check,
@@ -1029,7 +1034,7 @@ let other_options = [
 
   "kpatch_list", Arg.Set_string kpatch_list,
   (fun () -> !kpatch_list), "Command to query current kernel patch list";
-]
+] 
 
 let all_options = options_of_xapi_globs_spec @ other_options
 
