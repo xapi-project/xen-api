@@ -44,39 +44,33 @@ import com.xensource.xenapi.VDI;
  */
 public class VdiAndSrOps extends TestBase
 {
-    public static void RunTest(ILog logger, TargetServer server) throws Exception
-    {
-        TestBase.logger = logger;
-
-        try
-        {
-            connect(server);
-
-            APIVersion version = connection.getAPIVersion();
-
-            for (boolean nullSmConfig : new boolean[] { true, false })
-            {
-                testSrOp("SR.create", false, nullSmConfig, version);
-                testSrOp("SR.forget", false, nullSmConfig, version);
-                testSrOp("SR.createAsync", false, nullSmConfig, version);
-                testSrOp("SR.forget", false, nullSmConfig, version);
-                testSrOp("SR.forget", false, nullSmConfig, version);
-                testSrOp("SR.introduce", false, nullSmConfig, version);
-                testSrOp("SR.forget", false, nullSmConfig, version);
-                testSrOp("SR.introduceAsync", false, nullSmConfig, version);
-                testSrOp("SR.forget", false, nullSmConfig, version);
-            }
-            testVdiOp("VDI.snapshot", version);
-            testVdiOp("VDI.createClone", version);
-            testVdiOp("VDI.snapshotAsync", version);
-            testVdiOp("VDI.createCloneAsync", version);
-        } finally
-        {
-            disconnect();
-        }
+    public String getTestName() {
+        return "VdiAndSrOps";
     }
 
-    private static void testVdiOp(String op, APIVersion version) throws Exception
+    protected void TestCore() throws Exception
+    {
+        APIVersion version = connection.getAPIVersion();
+
+        for (boolean nullSmConfig : new boolean[] { true, false })
+        {
+            testSrOp("SR.create", false, nullSmConfig, version);
+            testSrOp("SR.forget", false, nullSmConfig, version);
+            testSrOp("SR.createAsync", false, nullSmConfig, version);
+            testSrOp("SR.forget", false, nullSmConfig, version);
+            testSrOp("SR.forget", false, nullSmConfig, version);
+            testSrOp("SR.introduce", false, nullSmConfig, version);
+            testSrOp("SR.forget", false, nullSmConfig, version);
+            testSrOp("SR.introduceAsync", false, nullSmConfig, version);
+            testSrOp("SR.forget", false, nullSmConfig, version);
+        }
+        testVdiOp("VDI.snapshot", version);
+        testVdiOp("VDI.createClone", version);
+        testVdiOp("VDI.snapshotAsync", version);
+        testVdiOp("VDI.createCloneAsync", version);
+    }
+
+    private void testVdiOp(String op, APIVersion version) throws Exception
     {
         log("--attempting " + op + " with null driverParams");
         vdiOpWithNullDriverParams(connection, op);
@@ -85,7 +79,7 @@ public class VdiAndSrOps extends TestBase
         vdiOpWithNonNullDriverParams(connection, op);
     }
 
-    private static void testSrOp(String op, boolean deprecated_response_ok, boolean nullSmConfig, APIVersion version)
+    private void testSrOp(String op, boolean deprecated_response_ok, boolean nullSmConfig, APIVersion version)
             throws Exception
     {
         try
@@ -99,7 +93,7 @@ public class VdiAndSrOps extends TestBase
                 log("--attempting " + op + " with non-null smConfig... ");
                 srOpWithNonNullSmConfig(connection, op);                
             }
-            logln("success");
+            log("success");
         }
         catch (Types.XenAPIException ex)
         {
@@ -109,7 +103,7 @@ public class VdiAndSrOps extends TestBase
             {
                 if (deprecated_response_ok)
                 {
-                    logln(op + " threw MessageDeprecated (but this is OK)");
+                    log(op + " threw MessageDeprecated (but this is OK)");
                 }
                 else
                 {
@@ -119,27 +113,27 @@ public class VdiAndSrOps extends TestBase
         }
     }
 
-    private static void srOpWithNonNullSmConfig(Connection c, String op) throws Exception
+    private void srOpWithNonNullSmConfig(Connection c, String op) throws Exception
     {
         HashMap<String, String> smConfig = new HashMap<String, String>();
         smConfig.put("testKey", "testValue");
         srOpLong(c, smConfig, op);
     }
 
-    private static void srOpWithNullSmConfig(Connection c, String op) throws Exception
+    private void srOpWithNullSmConfig(Connection c, String op) throws Exception
     {
         HashMap<String, String> smConfig = new HashMap<String, String>();
         srOpLong(c, smConfig, op);
     }
 
-    private static void vdiOpWithNonNullDriverParams(Connection c, String op) throws Exception
+    private void vdiOpWithNonNullDriverParams(Connection c, String op) throws Exception
     {
         HashMap<String, String> smConfig = new HashMap<String, String>();
         smConfig.put("testKey", "testValue");
         vdiOpLong(c, smConfig, op);
     }
 
-    private static void vdiOpWithNullDriverParams(Connection c, String op) throws Exception
+    private void vdiOpWithNullDriverParams(Connection c, String op) throws Exception
     {
         HashMap<String, String> smConfig = new HashMap<String, String>();
         vdiOpLong(c, smConfig, op);
@@ -152,7 +146,7 @@ public class VdiAndSrOps extends TestBase
 
     private static final String FAKE_VDI_NAME = "madeupvdi";
 
-    private static void vdiOpLong(Connection c, HashMap<String, String> driverParams, String op) throws Exception
+    private void vdiOpLong(Connection c, HashMap<String, String> driverParams, String op) throws Exception
     {
         try
         {
@@ -175,7 +169,7 @@ public class VdiAndSrOps extends TestBase
             }
         } catch (Types.HandleInvalid ex)
         {
-            logln("Expected error: HANDLE_INVALID. that's ok.");
+            log("Expected error: HANDLE_INVALID. that's ok.");
             /* We're happy with this, since it means that the call made it through to xen
              * and an attempt was made to execute it. */
         }
@@ -187,7 +181,7 @@ public class VdiAndSrOps extends TestBase
     private static final String TEST_SR_CONTENT = "contenttype";
     private static final long TEST_SR_SIZE = 100000L;
 
-    private static void srOpLong(Connection c, HashMap<String, String> smConfig, String op) throws Exception
+    private void srOpLong(Connection c, HashMap<String, String> smConfig, String op) throws Exception
     {
         try
         {
@@ -230,13 +224,13 @@ public class VdiAndSrOps extends TestBase
             }
         } catch (Types.SrUnknownDriver ex)
         {
-            logln("Expected error: SR unknown driver. that's ok");
+            log("Expected error: SR unknown driver. that's ok");
         } catch (Types.XenAPIException ex)
         {
             // Our call parameters are not good and should cause a particular error
             if (errorDescriptionIs(ex.errorDescription, "SR_BACKEND_FAILURE_102"))
             {
-                logln("Expected error: SR backend failure 102. that's ok.");
+                log("Expected error: SR backend failure 102. that's ok.");
                 /* 'The request is missing the server parameter'
                  * 
                  * We're happy with this, since it means that the call made it through to xen
@@ -245,7 +239,7 @@ public class VdiAndSrOps extends TestBase
             } else if (errorDescriptionIs(ex.errorDescription, "SR_BACKEND_FAILURE_101"))
             {
                 /* 'The request is missing the serverpath parameter' */
-                logln("Expected error: SR backend failure 101. that's ok.");
+                log("Expected error: SR backend failure 101. that's ok.");
                 return;
             } else
             {

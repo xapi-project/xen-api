@@ -43,38 +43,30 @@ import com.xensource.xenapi.VM;
  */
 public class CreateVM extends TestBase
 {
-    public static void RunTest(ILog logger, TargetServer server) throws Exception
-    {
-        TestBase.logger = logger;
-        try
-        {
-            connect(server);
-            createVM(new Date().toString() + " (made by CreateVM.java)");
-        } finally
-        {
-            disconnect();
-        }
+    public String getTestName() {
+        return "CreateVM";
     }
 
-    private static void createVM(String newVmName) throws Exception
+    protected void TestCore() throws Exception
     {
         /*First check we can start an HVM on the master*/
         checkMasterHvmCapable();
 
         VM template = getFirstWindowsTemplate();
-        logln("Template found: " + template.getNameLabel(connection));
+        log("Template found: " + template.getNameLabel(connection));
 
         /* Clone the template */
-        VM newVm = template.createClone(connection, newVmName);
-        logln("New clone: " + newVm.getNameLabel(connection));
+        String vmName = new Date().toString() + " (made by CreateVM.java)";
+        VM newVm = template.createClone(connection, vmName);
+        log("New clone: " + newVm.getNameLabel(connection));
 
         /* Find a storage repository */
-        SR defaultSR = getDefaultSR();
-        logln("Default SR: " + defaultSR.getNameLabel(connection));
+        SR theSR = getStorage();
+        log("Found SR: " + theSR.getNameLabel(connection));
 
         /* Find a network */
         Network network = getFirstNetwork();
-        logln("Network chosen: " + network.getNameLabel(connection));
+        log("Network chosen: " + network.getNameLabel(connection));
 
         /*
          * We have our clone and our network, attach them to each other with a
@@ -85,7 +77,7 @@ public class CreateVM extends TestBase
         /* Put the SR uuid into the provision XML */
         Map<String, String> otherConfig = newVm.getOtherConfig(connection);
         String disks = otherConfig.get("disks");
-        disks = disks.replace("sr=\"\"", "sr=\"" + defaultSR.getUuid(connection) + "\"");
+        disks = disks.replace("sr=\"\"", "sr=\"" + theSR.getUuid(connection) + "\"");
         otherConfig.put("disks", disks);
         newVm.setOtherConfig(connection, otherConfig);
 
@@ -94,13 +86,13 @@ public class CreateVM extends TestBase
         /* Now provision the disks */
         log("provisioning... ");
         newVm.provision(connection);
-        logln("provisioned");
+        log("provisioned");
 
         /* Should have done the trick. Let's see if it starts. */
-        logln("Starting new VM.....");
+        log("Starting new VM.....");
         newVm.start(connection, false, false);
 
-        logln("Shutting it down (hard).....");
+        log("Shutting it down (hard).....");
         newVm.hardShutdown(connection);
     }
 
@@ -108,7 +100,7 @@ public class CreateVM extends TestBase
      * Create a VIF by making a VIF.record and then filling in the necessary
      * fields
      */
-    private static VIF makeVIF(VM newVm, Network network, String device) throws Exception
+    private VIF makeVIF(VM newVm, Network network, String device) throws Exception
     {
         VIF.Record newvifrecord = new VIF.Record();
 
@@ -122,7 +114,7 @@ public class CreateVM extends TestBase
         return VIF.create(connection, newvifrecord);
     }
 
-    private static VBD makeCDDrive(VM vm) throws Exception
+    private VBD makeCDDrive(VM vm) throws Exception
     {
         VBD.Record vbdrecord = new VBD.Record();
 

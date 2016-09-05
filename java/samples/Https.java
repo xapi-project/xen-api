@@ -55,9 +55,19 @@ import com.xensource.xenapi.*;
  */
 public class Https extends TestBase
 {
-    protected static void RunTest(ILog logger, TargetServer server) throws Exception
+    public String getTestName() {
+        return "Https";
+    }
+
+    protected void TestCore() throws Exception {
+
+    }
+
+    @Override
+    public void RunTest(FileLogger logger, TargetServer server) throws Exception
     {
-        TestBase.logger = logger;
+        this.logger = logger;
+        Connection conn = null;
 
         try
         {
@@ -74,23 +84,23 @@ public class Https extends TestBase
             HttpsURLConnection.setDefaultHostnameVerifier(hv);
 
             URL url = new URL("https://" + server.Hostname);
-            connection = new Connection(url);
+            conn = new Connection(url);
 
             // Log in
-            Session.loginWithPassword(connection, server.Username, server.Password, "1.3");
+            Session.loginWithPassword(conn, server.Username, server.Password, "1.3");
 
             // Print a record
-            for (Host host : Host.getAllRecords(connection).keySet())
+            for (Host host : Host.getAllRecords(conn).keySet())
             {
-                logln(host.toString());
+                log(host.toString());
                 break;
             }
-        } finally
+        }
+        finally
         {
-            if (connection != null)
-            {
-                Session.logout(connection);
-            }
+            if (conn != null)
+                Session.logout(conn);
+
         }
     }
 }
