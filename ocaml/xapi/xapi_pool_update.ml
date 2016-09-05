@@ -89,21 +89,6 @@ let get_attached_host ~__context ~vdi =
   | host :: [] -> Some host
   | _ -> raise (Api_errors.Server_error (Api_errors.internal_error, ["More than one host pluged"]))
 
-let get_candidate_host ~__context ~vdi =
-  let attached_host = get_attached_host ~__context ~vdi in
-  match attached_host with
-  | Some host -> host
-  | None -> begin
-      let sr = Db.VDI.get_SR ~__context ~self:vdi in
-      let shared = Db.SR.get_shared ~__context ~self:sr in
-      let master = Helpers.get_master ~__context in
-      if shared  && (vdi_visible ~__context ~vdi ~host:master) then master else begin
-        let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-        let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
-        List.hd (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds)
-      end
-    end
-
 let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
@@ -360,19 +345,21 @@ let clean ~__context ~self ~host =
   let host_name = Db.Host.get_name_label ~__context ~self:host in
   debug "pool_update.clean %s on %s" pool_update_name host_name;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  if (get_candidate_host ~__context ~vdi) = host then begin
+  match (get_attached_host ~__context ~vdi) with
+  | Some h when h = host->
     detach ~__context ~self;
     let vdi = Db.Pool_update.get_vdi ~__context ~self in
     Db.VDI.destroy ~__context ~self:vdi
-  end
+  | _ ->()
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_clean %s" pool_update_name;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  let host = get_candidate_host ~__context ~vdi in
-  ignore(Helpers.call_api_functions ~__context
-           (fun rpc session_id -> Client.Pool_update.clean rpc session_id self host))
+  match (get_attached_host ~__context ~vdi) with
+  | Some host ->
+    ignore(Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Pool_update.clean rpc session_id self host))
+  | None ->()
 
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
