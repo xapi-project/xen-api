@@ -27,7 +27,7 @@ let all_ops : API.vif_operations_set = [ `attach; `plug; `unplug ]
 type table = (API.vif_operations, ((string * (string list)) option)) Hashtbl.t
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
-let valid_operations ~__context record _ref' : table =
+let valid_operations ~__context record _ref' : table = 
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vIF_current_operations in
   (* Policy:
@@ -47,10 +47,10 @@ let valid_operations ~__context record _ref' : table =
   (* Any current_operations preclude everything else *)
   if current_ops <> [] then begin
     debug "No operations are valid because current-operations = [ %s ]"
-      (String.concat "; "
+      (String.concat "; " 
          (List.map (fun (task, op) -> task ^ " -> " ^ (vif_operation_to_string op)) current_ops));
     let concurrent_op = snd (List.hd current_ops) in
-    set_errors Api_errors.other_operation_in_progress
+    set_errors Api_errors.other_operation_in_progress 
       [ "VIF"; _ref; vif_operation_to_string concurrent_op ] all_ops;
   end;
 
@@ -60,7 +60,7 @@ let valid_operations ~__context record _ref' : table =
   (match power_state, plugged with
    | `Running, true -> set_errors Api_errors.device_already_attached [ _ref ] [ `plug ]
    | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug ]
-   | _, _ ->
+   | _, _ -> 
      let actual = Record_util.power_to_string power_state in
      let expected = Record_util.power_to_string `Running in
      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug ]);
@@ -98,7 +98,7 @@ let valid_operations ~__context record _ref' : table =
 
   table
 
-let throw_error (table: table) op =
+let throw_error (table: table) op = 
   if not(Hashtbl.mem table op)
   then raise (Api_errors.Server_error(Api_errors.internal_error, [ Printf.sprintf "xapi_vif_helpers.assert_operation_valid unknown operation: %s" (vif_operation_to_string op) ]));
 
@@ -106,12 +106,12 @@ let throw_error (table: table) op =
   | Some (code, params) -> raise (Api_errors.Server_error(code, params))
   | None -> ()
 
-let assert_operation_valid ~__context ~self ~(op:API.vif_operations) =
+let assert_operation_valid ~__context ~self ~(op:API.vif_operations) = 
   let all = Db.VIF.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table op
 
-let assert_attachable ~__context ~self =
+let assert_attachable ~__context ~self = 
   let all = Db.VIF.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table `attach
@@ -123,7 +123,7 @@ let update_allowed_operations ~__context ~self : unit =
   Db.VIF.set_allowed_operations ~__context ~self ~value:keys
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
+let cancel_task ~__context ~self ~task_id = 
   let all = List.map fst (Db.VIF.get_current_operations ~__context ~self) in
   if List.mem task_id all then
     begin
@@ -136,7 +136,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let set = (fun value -> Db.VIF.set_current_operations ~__context ~self ~value) in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
-let clear_current_operations ~__context ~self =
+let clear_current_operations ~__context ~self = 
   if (Db.VIF.get_current_operations ~__context ~self)<>[] then
     begin
       Db.VIF.set_current_operations ~__context ~self ~value:[];
@@ -217,7 +217,7 @@ let create ~__context ~device ~network ~vM
     (fun () ->
        let all = Db.VM.get_VIFs ~__context ~self:vM in
        let all_devices = List.map (fun self -> Db.VIF.get_device ~__context ~self) all in
-       if List.mem device all_devices
+       if List.mem device all_devices 
        then raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
 
        let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -233,24 +233,24 @@ let create ~__context ~device ~network ~vM
            ~runtime_properties:[] ~other_config
            ~metrics ~locking_mode
            ~ipv4_allowed ~ipv6_allowed
-           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
+           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway 
            ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway in ()
     );
   update_allowed_operations ~__context ~self:ref;
-  debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')" (Ref.string_of ref) (Ref.string_of vM) mAC;
+  debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')" (Ref.string_of ref) (Ref.string_of vM) mAC; 
   ref
 
 let destroy  ~__context ~self =
   debug "VIF.destroy";
   let vm = Db.VIF.get_VM ~__context ~self in
 
-  if Helpers.is_running ~__context ~self:vm
+  if Helpers.is_running ~__context ~self:vm 
   && (Db.VIF.get_currently_attached ~__context ~self)
   then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VIF currently attached to a running VM"]));
 
   let metrics = Db.VIF.get_metrics ~__context ~self in
   (* Don't let a failure to destroy the metrics stop us *)
-  Helpers.log_exn_continue "VIF_metrics.destroy"
+  Helpers.log_exn_continue "VIF_metrics.destroy" 
     (fun self -> if Db.is_valid_ref __context self then Db.VIF_metrics.destroy ~__context ~self) metrics;
 
   Db.VIF.destroy ~__context ~self
@@ -258,23 +258,46 @@ let destroy  ~__context ~self =
 (* copy a vif *)
 let copy ~__context ~vm ~preserve_mac_address vif =
   let all = Db.VIF.get_record ~__context ~self:vif in
-  create ~__context
-    ~device:all.API.vIF_device
-    ~network:all.API.vIF_network
-    ~currently_attached:all.API.vIF_currently_attached
-    ~vM:vm
-    ~mAC:(if preserve_mac_address then all.API.vIF_MAC else "") (* leave blank == generate new mac from vm random seed *)
-    ~mTU:all.API.vIF_MTU
-    ~other_config:all.API.vIF_other_config
-    ~qos_algorithm_type:all.API.vIF_qos_algorithm_type
-    ~qos_algorithm_params:all.API.vIF_qos_algorithm_params
-    ~locking_mode:all.API.vIF_locking_mode
-    ~ipv4_allowed:all.API.vIF_ipv4_allowed
-    ~ipv6_allowed:all.API.vIF_ipv6_allowed
-    ~ipv4_configuration_mode:all.API.vIF_ipv4_configuration_mode
-    ~ipv4_addresses:all.API.vIF_ipv4_addresses
-    ~ipv4_gateway:all.API.vIF_ipv4_gateway
-    ~ipv6_configuration_mode:all.API.vIF_ipv6_configuration_mode
-    ~ipv6_addresses:all.API.vIF_ipv6_addresses
-    ~ipv6_gateway:all.API.vIF_ipv6_gateway
-
+  let result = create ~__context
+      ~device:all.API.vIF_device
+      ~network:all.API.vIF_network
+      ~currently_attached:all.API.vIF_currently_attached
+      ~vM:vm
+      ~mAC:(if preserve_mac_address then all.API.vIF_MAC else "") (* leave blank == generate new mac from vm random seed *)
+      ~mTU:all.API.vIF_MTU
+      ~other_config:all.API.vIF_other_config
+      ~qos_algorithm_type:all.API.vIF_qos_algorithm_type
+      ~qos_algorithm_params:all.API.vIF_qos_algorithm_params
+      ~locking_mode:all.API.vIF_locking_mode
+      ~ipv4_allowed:all.API.vIF_ipv4_allowed
+      ~ipv6_allowed:all.API.vIF_ipv6_allowed
+      ~ipv4_configuration_mode:all.API.vIF_ipv4_configuration_mode
+      ~ipv4_addresses:all.API.vIF_ipv4_addresses
+      ~ipv4_gateway:all.API.vIF_ipv4_gateway
+      ~ipv6_configuration_mode:all.API.vIF_ipv6_configuration_mode
+      ~ipv6_addresses:all.API.vIF_ipv6_addresses
+      ~ipv6_gateway:all.API.vIF_ipv6_gateway
+  in
+  let proxies = Db.PVS_proxy.get_records_where
+      ~__context
+      ~expr:Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif))) in
+  List.iter (fun (_,proxy) ->
+      try
+        let site = proxy.API.pVS_proxy_site in
+        let vIF = result in
+        let prepopulate = proxy.API.pVS_proxy_prepopulate in
+        let pvs_proxy = Ref.make () in
+        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        Db.PVS_proxy.create
+          ~__context
+          ~ref:pvs_proxy
+          ~uuid
+          ~site
+          ~vIF
+          ~prepopulate
+          ~currently_attached:false
+          ~cache_SR:Ref.null
+      with e ->
+        warn "Ignoring exception raised while creating PVS_proxy when copying a VIF: %s"
+          (Printexc.to_string e)) proxies;
+  result
