@@ -457,6 +457,13 @@ let allocation_algorithm_of_string a =
   | "breadth-first" -> `breadth_first
   | s -> raise (Record_failure ("Invalid allocation algorithm. Got " ^ s))
 
+let pvs_proxy_status_to_string = function
+  | `stopped -> "stopped"
+  | `initialised -> "initialised"
+  | `caching -> "caching"
+  | `incompatible_write_cache_mode -> "incompatible-write-cache-mode"
+  | `incompatible_protocol_version -> "incompatible-protocol-version"
+
 let bool_of_string s =
   match String.lowercase s with
   |"true"|"yes"->true

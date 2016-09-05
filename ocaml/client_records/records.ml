@@ -1802,6 +1802,10 @@ let pvs_proxy_record rpc session_id pvs_site =
           ~get:(fun () -> (x ()).API.pVS_proxy_currently_attached
                           |> string_of_bool)
           ()
+      ; make_field ~name:"status"
+          ~get:(fun () -> (x ()).API.pVS_proxy_status
+                          |> Record_util.pvs_proxy_status_to_string)
+          ()
       ; make_field ~name:"cache-sr-uuid"
           ~get:(fun () -> (x ()).API.pVS_proxy_cache_SR |> get_uuid_from_ref)
           ()
