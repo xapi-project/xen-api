@@ -77,18 +77,20 @@ let test_gc_proxy () =
   let __context = make_test_database () in
   let site = make_pvs_site ~__context () in
   let vIF = make_vif ~__context ~device:"0" () in
-  let proxy1 = Xapi_pvs_proxy.create ~__context ~site ~vIF ~prepopulate:true in
-  let proxy2 = Xapi_pvs_proxy.create ~__context ~site ~vIF ~prepopulate:true in
+  let proxy = Xapi_pvs_proxy.create ~__context ~site ~vIF ~prepopulate:true in
   ( Db_gc.gc_PVS_proxies ~__context
-  ; assert_equal (Db.PVS_proxy.get_site ~__context ~self:proxy1) site
-  ; assert_equal (Db.PVS_proxy.get_VIF ~__context ~self:proxy1) vIF
-  ; Db.PVS_proxy.set_site ~__context ~self:proxy1 ~value:Ref.null
+  ; assert_equal (Db.PVS_proxy.get_site ~__context ~self:proxy) site
+  ; assert_equal (Db.PVS_proxy.get_VIF ~__context ~self:proxy) vIF
+  ; Db.PVS_proxy.set_site ~__context ~self:proxy ~value:Ref.null
   ; Db_gc.gc_PVS_proxies ~__context (* should collect the proxy *)
-  ; assert_equal false (Db.is_valid_ref __context proxy1)
-  ; Db.PVS_proxy.set_VIF ~__context ~self:proxy2 ~value:Ref.null
+  ; assert_equal false (Db.is_valid_ref __context proxy));
+  let proxy = Xapi_pvs_proxy.create ~__context ~site ~vIF ~prepopulate:true in
+  ( Db_gc.gc_PVS_proxies ~__context
+  ; assert_equal (Db.PVS_proxy.get_site ~__context ~self:proxy) site
+  ; assert_equal (Db.PVS_proxy.get_VIF ~__context ~self:proxy) vIF
+  ; Db.PVS_proxy.set_VIF ~__context ~self:proxy ~value:Ref.null
   ; Db_gc.gc_PVS_proxies ~__context (* should collect the proxy *)
-  ; assert_equal false (Db.is_valid_ref __context proxy2)
-  )
+  ; assert_equal false (Db.is_valid_ref __context proxy))
 
 let test =
   "test_pvs_proxy" >:::

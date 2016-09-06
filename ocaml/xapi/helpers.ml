@@ -1071,12 +1071,16 @@ let assert_vswitch_controller_not_active ~__context =
   if (controller <> "") && (backend = Network_interface.Openvswitch) then
     raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
 
+(* use the database rather than networkd so we can unit test the PVS functions that use this *)
 let assert_using_vswitch ~__context =
-  let dbg = Context.string_of_task __context in
-  let backend = Net.Bridge.get_kind dbg () in
-  match backend with
-  | Network_interface.Openvswitch -> ()
-  | _ -> raise Api_errors.(Server_error (openvswitch_not_active, []))
+  let host = get_localhost ~__context in
+  let sw = Db.Host.get_software_version ~__context ~self:host in
+  let using_vswitch =
+    try
+      List.assoc "network_backend" sw = Network_interface.(string_of_kind Openvswitch)
+    with Not_found -> false
+  in
+  if not using_vswitch then raise Api_errors.(Server_error (openvswitch_not_active, []))
 
 let assert_is_valid_ref ~__context ~name ~ref =
   if not (Db.is_valid_ref __context ref)
