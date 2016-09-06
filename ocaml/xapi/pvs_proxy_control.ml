@@ -125,6 +125,7 @@ let start_proxy ~__context vif proxy =
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
     update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
+    Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`initialised;
     Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr;
     true
   with e ->
@@ -168,6 +169,7 @@ let stop_proxy ~__context vif proxy =
       let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
       let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr in
       update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
+      Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped;
       Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
     with e ->
       let reason =
