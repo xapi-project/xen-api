@@ -349,3 +349,10 @@ let make_pvs_cache_storage ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
   Db.PVS_cache_storage.create ~__context
     ~ref ~uuid ~host ~sR ~site ~size ~vDI;
   ref
+
+let make_pool_update ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+    ?(name_label="") ?(name_description="") ?(installation_size=0L) ?(key="")
+    ?(after_apply_guidance=[]) ?(vdi=Ref.null) () =
+  Db.Pool_update.create ~__context ~ref ~uuid ~name_label ~name_description
+    ~installation_size ~key ~after_apply_guidance ~vdi;
+  ref

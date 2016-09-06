@@ -34,6 +34,7 @@ let base_suite =
     Test_pool_license.test;
     Test_features.test;
     Test_pool_restore_database.test;
+    Test_pool_update.test;
     Test_platformdata.test;
     Test_sm_features.test;
     Test_gpu_group.test;
