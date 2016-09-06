@@ -105,6 +105,8 @@ case $ACTION in
                         # Packets from server->client that need to be proxied.
                         ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
                     done
+                    # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy.
+                    xenstore-write "${PRIVATE_PATH}/pvs-rules-active" ''
                 fi
             done
             unset IFS
@@ -156,6 +158,8 @@ case $ACTION in
                         # Packets from server->client that need to be proxied.
                         ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
                     done
+                    # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
+                    xenstore-rm "${PRIVATE_PATH}/pvs-rules-active"
                 fi
             done
             unset IFS

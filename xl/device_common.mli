@@ -39,6 +39,7 @@ val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val frontend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val kthread_pid_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val vif_pvs_rules_active_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val backend_error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 

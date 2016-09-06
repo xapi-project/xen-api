@@ -161,6 +161,11 @@ let get_private_path_by_uuid uuid =
 let get_private_data_path_of_device (x: device) =
 	sprintf "%s/private/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
+(** Only useful for a VIF device, this is where the "setup-pvs-proxy-rules"
+  * script indicates whether the OVS rules are set up. *)
+let vif_pvs_rules_active_path_of_device ~xs (x: device) =
+	sprintf "%s/pvs-rules-active" (get_private_data_path_of_device x)
+
 let get_private_data_path_of_device_by_uuid uuid kind devid =
 	sprintf "%s/private/%s/%d" (get_private_path_by_uuid uuid) kind devid
 

@@ -567,6 +567,7 @@ let unplugged_vif = {
      Vif.active = false;
      plugged = false;
      kthread_pid = 0;
+     pvs_rules_active = false;
      media_present = false;
      device = None;
 }
