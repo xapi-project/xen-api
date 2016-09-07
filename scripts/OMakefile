@@ -107,6 +107,8 @@ install:
 	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
