@@ -70,25 +70,6 @@ let umount ?(retry=true) dest =
   done;
   if not(!finished) then raise Umount_timeout
 
-let vdi_visible ~__context ~vdi ~host =
-  let sr = Db.VDI.get_SR ~__context ~self:vdi in
-  let shared = Db.SR.get_shared ~__context ~self:sr in
-  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let plugged_pbds = List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd) pbds in
-  let plugged_hosts = List.setify (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds) in
-  (shared = true) || ((List.length pbds = 1) && (List.exists ( fun h -> h = host) plugged_hosts))
-
-let get_attached_host ~__context ~vdi =
-  let vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
-  let hosts = List.setify (List.map (fun vbd ->
-      let vm = Db.VBD.get_VM ~__context ~self:vbd in
-      Db.VM.get_resident_on ~__context ~self:vm
-    ) vbds) in
-  match hosts with
-  | [] -> None
-  | host :: [] -> Some host
-  | _ -> raise (Api_errors.Server_error (Api_errors.internal_error, ["More than one host pluged"]))
-
 let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
@@ -340,26 +321,12 @@ let pool_apply ~__context ~self =
                (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host))
     )
 
-let clean ~__context ~self ~host =
-  let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
-  let host_name = Db.Host.get_name_label ~__context ~self:host in
-  debug "pool_update.clean %s on %s" pool_update_name host_name;
-  let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  match (get_attached_host ~__context ~vdi) with
-  | Some h when h = host->
-    detach ~__context ~self;
-    let vdi = Db.Pool_update.get_vdi ~__context ~self in
-    Db.VDI.destroy ~__context ~self:vdi
-  | _ ->()
-
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_clean %s" pool_update_name;
+  detach ~__context ~self;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  match (get_attached_host ~__context ~vdi) with
-  | Some host ->
-    ignore(Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Pool_update.clean rpc session_id self host))
-  | None ->()
+  Db.VDI.destroy ~__context ~self:vdi
 
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in

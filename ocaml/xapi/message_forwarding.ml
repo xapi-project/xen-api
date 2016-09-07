@@ -3912,15 +3912,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool_update.pool_apply: pool update = '%s'" (pool_update_uuid ~__context self);
       Local.Pool_update.pool_apply ~__context ~self
 
-    let clean ~__context ~self ~host =
-      info "Pool_update.clean: pool update = '%s'" (pool_update_uuid ~__context self);
-      let local_fn = Local.Pool_update.clean ~self ~host in
-      do_op_on ~local_fn ~__context ~host
-        (fun session_id rpc -> Client.Pool_update.clean rpc session_id self host)
-
     let pool_clean ~__context ~self =
       info "Pool_update.pool_clean: pool update = '%s'" (pool_update_uuid ~__context self);
-      Local.Pool_update.pool_clean ~__context ~self
+      let local_fn = Local.Pool_update.pool_clean ~self in
+      VDI.forward_vdi_op ~local_fn ~__context ~self:(Db.Pool_update.get_vdi ~__context ~self)
+        (fun session_id rpc -> Client.Pool_update.pool_clean rpc session_id self)
 
     let destroy ~__context ~self =
       info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);

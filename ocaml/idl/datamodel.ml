@@ -4019,16 +4019,6 @@ let pool_update_pool_apply = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pool_update_clean = call
-    ~name:"clean"
-    ~hide_from_docs:true
-    ~doc:"Removes the update's files from the host"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to clean up"; Ref _host, "host", "The host to clean the update from." ]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
 let pool_update_pool_clean = call
     ~name:"pool_clean"
     ~doc:"Removes the update's files from all hosts in the pool, but does not revert the update"
@@ -4097,7 +4087,6 @@ let pool_update =
       pool_update_precheck;
       pool_update_apply;
       pool_update_pool_apply;
-      pool_update_clean;
       pool_update_pool_clean;
       pool_update_destroy;
       pool_update_attach;
