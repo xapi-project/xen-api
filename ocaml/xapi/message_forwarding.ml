@@ -3955,9 +3955,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module PVS_cache_storage = struct
-    let create ~__context ~site ~sR ~size =
+    let create ~__context ~host ~sR ~site ~size =
       info "PVS_cache_storage.create";
-      Local.PVS_cache_storage.create ~__context ~site ~sR ~size
+      Local.PVS_cache_storage.create ~__context ~host ~sR ~site ~size
 
     let destroy ~__context ~self =
       info "PVS_cache_storage.destroy";

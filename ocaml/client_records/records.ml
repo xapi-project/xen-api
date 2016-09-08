@@ -1731,7 +1731,7 @@ let pvs_site_record rpc session_id pvs_site =
           ~set:(fun x ->
               Client.PVS_site.set_PVS_uuid rpc session_id !_ref x)
           ()
-      ; make_field ~name:"cache-storage"
+      ; make_field ~name:"pvs-cache-storage-uuids"
           ~get:(fun () -> (x ()).API.pVS_site_cache_storage
                           |> List.map get_uuid_from_ref |> String.concat "; ")
           ~get_set:(fun () ->
@@ -1835,15 +1835,20 @@ let pvs_cache_storage_record rpc session_id pvs_site =
       [ make_field ~name:"uuid"
           ~get:(fun () -> (x ()).API.pVS_cache_storage_uuid)
           ()
-      ; make_field ~name:"pvs-site-uuid"
-          ~get:(fun () -> (x ()).API.pVS_cache_storage_site |> get_uuid_from_ref)
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_host |> get_uuid_from_ref)
           ()
       ; make_field ~name:"sr-uuid"
           ~get:(fun () -> (x ()).API.pVS_cache_storage_SR |> get_uuid_from_ref)
           ()
+      ; make_field ~name:"pvs-site-uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_site |> get_uuid_from_ref)
+          ()
       ; make_field ~name:"size"
-          ~get:(fun () -> (x ()).API.pVS_cache_storage_size
-                          |> Int64.to_string)
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_size |> Int64.to_string)
+          ()
+      ; make_field ~name:"vdi-uuid"
+          ~get:(fun () -> (x ()).API.pVS_cache_storage_VDI |> get_uuid_from_ref)
           ()
       ]
   }

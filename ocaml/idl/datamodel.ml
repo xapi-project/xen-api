@@ -9062,16 +9062,24 @@ module PVS_cache_storage = struct
         [ uid     _pvs_cache_storage ~lifecycle
 
         ; field   ~qualifier:StaticRO ~lifecycle
-            ~ty:(Ref _pvs_site) "site" ~default_value:null_ref
-            "PVS site this proxy is part of"
+            ~ty:(Ref _host) "host" ~default_value:null_ref
+            "The host on which this object defines PVS cache storage"
 
         ; field   ~qualifier:StaticRO ~lifecycle
             ~ty:(Ref _sr) "SR" ~default_value:null_ref
             "SR providing storage for the PVS cache"
 
         ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _pvs_site) "site" ~default_value:null_ref
+            "The PVS_site for which this object defines the storage"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
             ~ty:Int "size" ~default_value:(Some (VInt (Int64.of_int (20 * 1024 * 1024 * 1024))))
             "The size of the cache VDI (in bytes)"
+
+        ; field  ~qualifier:DynamicRO ~lifecycle
+            ~ty:(Ref _vdi) "VDI" ~default_value:null_ref
+            "The VDI used for caching"
 
         ; field  ~qualifier:DynamicRO ~lifecycle
             ~ty:(Map (Ref _host, Ref _vdi)) "host_vdis" ~default_value:(Some (VMap []))

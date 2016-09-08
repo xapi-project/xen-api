@@ -17,7 +17,7 @@ module E = Api_errors
 let api_error msg xs = raise (E.Server_error (msg, xs))
 let str ref = Ref.string_of ref
 
-let create ~__context ~site ~sR ~size =
+let create ~__context ~host ~sR ~site ~size =
   let caches = Db.PVS_site.get_cache_storage ~__context ~self:site in
   let srs = List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) caches in
 
@@ -26,7 +26,7 @@ let create ~__context ~site ~sR ~size =
   else begin
     let cache_storage = Ref.make () in
     let uuid = Uuidm.to_string (Uuidm.create `V4) in
-    Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~site ~sR ~host_vdis:[] ~size;
+    Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR ~site ~vDI:Ref.null ~host_vdis:[] ~size;
     cache_storage
   end
 

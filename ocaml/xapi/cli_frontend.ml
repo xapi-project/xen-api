@@ -2685,11 +2685,11 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "pvs-cache-storage-create",
     {
-      reqd=["pvs-site-uuid"; "sr-uuid"; "size"];
+      reqd=["sr-uuid"; "pvs-site-uuid"; "size"];
       optn=[];
-      help="Configure a PVS cache on a given SR";
+      help="Configure a PVS cache on a given SR for a given host";
       implementation=No_fd Cli_operations.PVS_cache_storage.create;
-      flags=[];
+      flags=[Host_selectors];
     };
     "pvs-cache-storage-destroy",
     {
