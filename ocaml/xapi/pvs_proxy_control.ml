@@ -117,21 +117,36 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
       )
       stopping_proxies
 
+
+exception No_cache_sr_available
+
+let find_cache_vdi ~__context ~host ~site =
+  let open Db_filter_types in
+  (* There should be at most one matching PVS_cache_storage object *)
+  let pcs' = Db.PVS_cache_storage.get_refs_where ~__context ~expr:(And
+                                                                     (Eq (Field "host", Literal (Ref.string_of host)),
+                                                                      Eq (Field "site", Literal (Ref.string_of site))))
+  in
+  match pcs' with
+  | [] ->
+    raise No_cache_sr_available
+  | pcs :: _ ->
+    Db.PVS_cache_storage.get_VDI ~__context ~self:pcs
+
 let start_proxy ~__context vif proxy =
   try
     Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
     Helpers.assert_using_vswitch ~__context;
     let host = Helpers.get_localhost ~__context in
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
-    let sr, vdi = Xapi_pvs_cache.find_or_create_cache_vdi ~__context ~host ~site in
+    let vdi = find_cache_vdi ~__context ~host ~site in
     update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`initialised;
-    Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:sr;
     true
   with e ->
     let reason =
       match e with
-      | Xapi_pvs_cache.No_cache_sr_available ->
+      | No_cache_sr_available ->
         let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
         let body = Printf.sprintf "Unable to setup PVS-proxy %s for VIF %s: no cache storage found on PVS-site %s for host %s."
             proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
@@ -166,16 +181,14 @@ let stop_proxy ~__context vif proxy =
   if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
     try
       let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
-      let sr = Db.PVS_proxy.get_cache_SR ~__context ~self:proxy in
       let host = Helpers.get_localhost ~__context in
-      let vdi = Xapi_pvs_cache.find_cache_vdi ~__context ~sr ~site ~host in
+      let vdi = find_cache_vdi ~__context ~host ~site in
       update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped;
-      Db.PVS_proxy.set_cache_SR ~__context ~self:proxy ~value:Ref.null
+      Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
     with e ->
       let reason =
         match e with
-        | Xapi_pvs_cache.No_cache_vdi_present -> "no PVS cache VDI found"
+        | No_cache_sr_available -> "no PVS cache VDI found"
         | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
         | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
       in

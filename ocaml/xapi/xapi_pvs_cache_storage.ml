@@ -17,6 +17,31 @@ module E = Api_errors
 let api_error msg xs = raise (E.Server_error (msg, xs))
 let str ref = Ref.string_of ref
 
+let create_vdi ~__context ~sR ~size =
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.VDI.create ~rpc ~session_id
+        ~name_label:"PVS cache VDI"
+        ~name_description:"PVS cache VDI"
+        ~sR
+        ~virtual_size:size
+        ~_type:`pvs_cache
+        ~sharable:false
+        ~read_only:false
+        ~other_config:[]
+        ~xenstore_data:[]
+        ~sm_config:[]
+        ~tags:[]
+    )
+
+
+let destroy_vdi ~__context ~self =
+  let vdi = Db.PVS_cache_storage.get_VDI ~__context ~self in
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id ->
+       Client.Client.VDI.destroy ~rpc ~session_id ~self:vdi
+    )
+
+
 let create ~__context ~host ~sR ~site ~size =
   let caches = Db.PVS_site.get_cache_storage ~__context ~self:site in
   let srs = List.map (fun pcs -> Db.PVS_cache_storage.get_SR ~__context ~self:pcs) caches in
@@ -26,7 +51,8 @@ let create ~__context ~host ~sR ~site ~size =
   else begin
     let cache_storage = Ref.make () in
     let uuid = Uuidm.to_string (Uuidm.create `V4) in
-    Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR ~site ~vDI:Ref.null ~host_vdis:[] ~size;
+    let vDI = create_vdi ~__context ~sR ~size in
+    Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR ~site ~vDI ~host_vdis:[] ~size;
     cache_storage
   end
 
@@ -38,12 +64,15 @@ let sr_is_in_use ~__context site sr =
   |> List.mem sr
 
 
+let destroy_internal ~__context self =
+  destroy_vdi ~__context ~self;
+  Db.PVS_cache_storage.destroy ~__context ~self
+
+
 let destroy ~__context ~self =
   let site = Db.PVS_cache_storage.get_site ~__context ~self in
   let sr = Db.PVS_cache_storage.get_SR ~__context ~self in
   if sr_is_in_use ~__context site sr then
     api_error E.pvs_site_sr_is_in_use [str site; str sr]
-  else begin
-    Xapi_pvs_cache.on_sr_remove ~__context ~sr ~site;
-    Db.PVS_cache_storage.destroy ~__context ~self
-  end
+  else
+    destroy_internal ~__context self
