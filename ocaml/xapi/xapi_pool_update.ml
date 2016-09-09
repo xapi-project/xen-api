@@ -345,7 +345,10 @@ let resync_host ~__context ~host =
   if Sys.file_exists update_applied_dir then begin
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
     let update_uuids = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
-    let updates = List.map (function update_uuid -> Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
+    let update_refs = List.map (function update_uuid ->
+      try Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid
+      with _ -> Ref.null) update_uuids in
+    let updates = List.filter (function update_ref -> update_ref <> Ref.null) update_refs in
     Db.Host.set_updates ~__context ~self:host ~value:updates
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[]
