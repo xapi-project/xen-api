@@ -803,7 +803,7 @@ let gen_cmds rpc session_id =
     ; Client.DR_task.(mk get_all get_all_records_where get_by_uuid dr_task_record "drtask" [] [] rpc session_id)
     (*; Client.Alert.(mk get_all get_all_records_where get_by_uuid alert_record "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
       		 *)
-    ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name"; "cache-storage"; "pvs-server-uuids"] rpc session_id)
+    ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name-label"; "name-description"; "pvs-uuid"; "cache-storage"; "pvs-server-uuids"] rpc session_id)
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "prepopulate"; "cache-sr-uuid"] rpc session_id)
     ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
@@ -4701,12 +4701,16 @@ let lvhd_enable_thin_provisioning printer rpc session_id params =
 
 module PVS_site = struct
   let introduce printer rpc session_id params =
-    let name  = List.assoc "name" params in
-    let pVS_uuid =
-      try List.assoc "pvs-uuid" params
+    let name_label = List.assoc "name-label" params in
+    let name_description =
+      try List.assoc "name-description" params
       with Not_found -> ""
+    in		let pVS_uuid =
+          try List.assoc "pvs-uuid" params
+          with Not_found -> ""
     in
-    let ref   = Client.PVS_site.introduce ~rpc ~session_id ~name ~pVS_uuid in
+    let ref   = Client.PVS_site.introduce ~rpc ~session_id ~name_label
+        ~name_description ~pVS_uuid in
     let uuid  = Client.PVS_site.get_uuid rpc session_id ref in
     printer (Cli_printer.PList [uuid])
 

@@ -1232,7 +1232,7 @@ module PVS_Proxy : HandlerTools = struct
      	 * precedence *)
   let find_pvs_site __context config rpc session_id name uuid =
     let sites = Db.PVS_site.get_all_records ~__context in
-    let has_name (_, site) = site.API.pVS_site_name = name in
+    let has_name (_, site) = site.API.pVS_site_name_label = name in
     let has_uuid (_, site) = site.API.pVS_site_uuid = uuid in
     let candidates = List.concat
         [ List.filter has_uuid sites
@@ -1253,7 +1253,7 @@ module PVS_Proxy : HandlerTools = struct
       proxy.API.pVS_proxy_site
       |> fun ref -> find_in_export (Ref.string_of ref) state.export
                     |> API.Legacy.From.pVS_site_t "" in
-    let name  = site.API.pVS_site_name in
+    let name  = site.API.pVS_site_name_label in
     let uuid  = site.API.pVS_site_uuid in
     match find_pvs_site __context config rpc session_id name uuid with
     | None -> Drop

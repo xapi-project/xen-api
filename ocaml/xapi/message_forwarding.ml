@@ -3899,17 +3899,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module LVHD = struct end
 
   module PVS_site = struct
-    let introduce ~__context ~name ~pVS_uuid =
-      info "PVS_site.introduce %s" name;
-      Local.PVS_site.introduce ~__context ~name ~pVS_uuid
+    let introduce ~__context ~name_label ~name_description ~pVS_uuid =
+      info "PVS_site.introduce %s" name_label;
+      Local.PVS_site.introduce ~__context ~name_label ~name_description ~pVS_uuid
 
     let forget ~__context ~self =
       info "PVS_site.forget";
       Local.PVS_site.forget ~__context ~self
 
-    let set_name ~__context ~self ~value =
-      info "PVS_site.set_name %s" value;
-      Local.PVS_site.set_name ~__context ~self ~value
+    let set_PVS_uuid ~__context ~self ~value =
+      info "PVS_site.set_PVS_uuid %s" value;
+      Local.PVS_site.set_PVS_uuid ~__context ~self ~value
   end
 
   module PVS_server = struct

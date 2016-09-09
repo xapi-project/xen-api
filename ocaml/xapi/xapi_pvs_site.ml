@@ -20,13 +20,13 @@ module E = Api_errors
 
 let api_error msg xs = raise (E.Server_error (msg, xs))
 
-let introduce ~__context ~name ~pVS_uuid =
+let introduce ~__context ~name_label ~name_description ~pVS_uuid =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   Helpers.assert_using_vswitch ~__context;
   let pvs_site = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.PVS_site.create ~__context
-    ~ref:pvs_site ~uuid ~name ~pVS_uuid ~cache_storage:[];
+    ~ref:pvs_site ~uuid ~name_label ~name_description ~pVS_uuid ~cache_storage:[];
   pvs_site
 
 let forget ~__context ~self =
@@ -48,11 +48,11 @@ let forget ~__context ~self =
 
   Db.PVS_site.destroy ~__context ~self
 
-(** set the name of [self] *)
-let set_name ~__context ~self ~value =
+(** set the PVS UUID of [self] *)
+let set_PVS_uuid ~__context ~self ~value =
   let px = Pvs_proxy_control.get_running_proxies ~__context ~site:self in
   if px <> [] then
     api_error E.pvs_site_contains_running_proxies (List.map Ref.string_of px)
   else
-    Db.PVS_site.set_name ~__context ~self ~value
+    Db.PVS_site.set_PVS_uuid ~__context ~self ~value
 

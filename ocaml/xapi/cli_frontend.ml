@@ -2636,8 +2636,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "pvs-site-introduce",
     {
-      reqd=["name"];
-      optn=["pvs-uuid"];
+      reqd=["name-label"];
+      optn=["name-description"; "pvs-uuid"];
       help="Introduce new PVS site";
       implementation=No_fd Cli_operations.PVS_site.introduce;
       flags=[];

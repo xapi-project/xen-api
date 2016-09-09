@@ -60,7 +60,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
   let vdi = Db.VDI.get_uuid ~__context ~self:vdi in
   PVS_proxy.{
     site_uuid = site_rc.API.pVS_site_uuid;
-    site_name = site_rc.API.pVS_site_name;
+    site_name = site_rc.API.pVS_site_name_label;
     servers;
     clients;
     vdi;
@@ -135,7 +135,7 @@ let start_proxy ~__context vif proxy =
         let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
         let body = Printf.sprintf "Unable to setup PVS-proxy %s for VIF %s: no cache storage found on PVS-site %s for host %s."
             proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
-            (Db.PVS_site.get_name ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
+            (Db.PVS_site.get_name_label ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
             (Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context)) in
         let (name, priority) = Api_messages.pvs_proxy_no_cache_sr_available in
         Helpers.call_api_functions ~__context (fun rpc session_id ->

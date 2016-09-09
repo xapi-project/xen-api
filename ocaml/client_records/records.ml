@@ -1718,12 +1718,18 @@ let pvs_site_record rpc session_id pvs_site =
   ; fields=
       [ make_field ~name:"uuid"
           ~get:(fun () -> (x ()).API.pVS_site_uuid) ()
-      ; make_field ~name:"name"
-          ~get:(fun () -> (x ()).API.pVS_site_name)
-          ~set:(fun name ->
-              Client.PVS_site.set_name rpc session_id !_ref name) ()
+      ; make_field ~name:"name-label"
+          ~get:(fun () -> (x ()).API.pVS_site_name_label)
+          ~set:(fun x ->
+              Client.PVS_site.set_name_label rpc session_id !_ref x) ()
+      ; make_field ~name:"name-description"
+          ~get:(fun () -> (x ()).API.pVS_site_name_description)
+          ~set:(fun x ->
+              Client.PVS_site.set_name_description rpc session_id !_ref x) ()
       ; make_field ~name:"pvs-uuid"
           ~get:(fun () -> (x ()).API.pVS_site_PVS_uuid)
+          ~set:(fun x ->
+              Client.PVS_site.set_PVS_uuid rpc session_id !_ref x)
           ()
       ; make_field ~name:"cache-storage"
           ~get:(fun () -> (x ()).API.pVS_site_cache_storage
