@@ -1364,12 +1364,12 @@ let _ =
     ~doc:"The PVS site contains servers and cannot be forgotten."
     ();
 
-  error Api_errors.pvs_site_sr_already_added ["site"; "SR"]
-    ~doc:"Trying to add a cache SR that is already associated with the site"
+  error Api_errors.pvs_cache_storage_already_present ["site"; "host"]
+    ~doc:"The PVS site already has cache storage configured for the host."
     ();
 
-  error Api_errors.pvs_site_sr_is_in_use ["site"; "SR"]
-    ~doc:"The SR is in use by the site and cannot be removed."
+  error Api_errors.pvs_cache_storage_is_in_use ["PVS_cache_storage"]
+    ~doc:"The PVS cache storage is in use by the site and cannot be removed."
     ();
 
   error Api_errors.pvs_proxy_already_present ["proxies"]
