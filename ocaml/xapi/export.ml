@@ -348,7 +348,6 @@ let make_pvs_proxies table __context self =
     { proxy with
       API.pVS_proxy_site      = lookup' proxy.API.pVS_proxy_site
     ; API.pVS_proxy_VIF       = lookup' proxy.API.pVS_proxy_VIF
-    ; API.pVS_proxy_cache_SR  = Ref.null (* don't export *)
     ; API.pVS_proxy_currently_attached = false (* default on dest *)
     } in
   { cls      = Datamodel._pvs_proxy

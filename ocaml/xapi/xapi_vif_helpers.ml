@@ -297,7 +297,6 @@ let copy ~__context ~vm ~preserve_mac_address vif =
           ~prepopulate
           ~currently_attached:false
           ~status:`stopped
-          ~cache_SR:Ref.null
       with e ->
         warn "Ignoring exception raised while creating PVS_proxy when copying a VIF: %s"
           (Printexc.to_string e)) proxies;

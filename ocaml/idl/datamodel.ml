@@ -9028,10 +9028,6 @@ module PVS_proxy = struct
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:status "status" ~default_value:(Some (VEnum "stopped"))
             "The run-time status of the proxy"
-
-        ; field   ~qualifier:DynamicRO ~lifecycle
-            ~ty:(Ref _sr) "cache_SR" ~default_value:null_ref
-            "SR used by this proxy"
         ]
       ~messages:
         [ create

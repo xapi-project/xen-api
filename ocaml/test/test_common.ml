@@ -293,9 +293,9 @@ let make_pvs_site ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 
 let make_pvs_proxy ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(site=Ref.null) ?(vIF=Ref.null) ?(prepopulate=false)
-    ?(currently_attached=false) ?(status=`stopped) ?(cache_SR=Ref.null) () =
+    ?(currently_attached=false) ?(status=`stopped) () =
   Db.PVS_proxy.create ~__context
-    ~ref ~uuid ~site ~vIF ~prepopulate ~currently_attached ~status ~cache_SR;
+    ~ref ~uuid ~site ~vIF ~prepopulate ~currently_attached ~status;
   ref
 
 let make_pvs_server ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
