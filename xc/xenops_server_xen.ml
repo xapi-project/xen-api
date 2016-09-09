@@ -1226,7 +1226,7 @@ module VM = struct
                 with No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
-	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras =
+	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras force =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
@@ -1269,7 +1269,7 @@ module VM = struct
 								} in
 								((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
 							) in
-			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid in
+			let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force in
 			Int64.(
 				let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 				and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
@@ -1290,12 +1290,12 @@ module VM = struct
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
-	let build_domain vm vbds vifs vgpus extras xc xs task _ di =
+	let build_domain vm vbds vifs vgpus extras force xc xs task _ di =
 		let domid = di.Xenctrl.domid in
                 finally
                     (fun () ->
                             try
-                                    build_domain_exn xc xs domid task vm vbds vifs vgpus extras;
+                              build_domain_exn xc xs domid task vm vbds vifs vgpus extras force;
                             with
                                     | Bootloader.Bad_sexpr x ->
                                             let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
@@ -1322,7 +1322,7 @@ module VM = struct
                                             raise e
                     ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-	let build ?restore_fd task vm vbds vifs vgpus extras = on_domain (build_domain vm vbds vifs vgpus extras) Newest task vm
+	let build ?restore_fd task vm vbds vifs vgpus extras force = on_domain (build_domain vm vbds vifs vgpus extras force) Newest task vm
 
 	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
