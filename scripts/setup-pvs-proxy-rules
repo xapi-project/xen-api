@@ -50,10 +50,11 @@ if [ $? -ne 0 ] || [ -z "$PVS_SERVER_NUM" ]; then
 fi
 
 path="${PRIVATE_PATH}/bridge"
-PVS_BRIDGE=$(xenstore-read "$path")
-if [ $? -ne 0 ] || [ -z "$PVS_BRIDGE" ]; then
+bridge=$(xenstore-read "$path")
+if [ $? -ne 0 ] || [ -z "$bridge" ]; then
     handle_xs_error "$path"
 fi
+PVS_BRIDGE=$(ovs-vsctl br-to-parent "$bridge")
 
 PVS_RULE_PRIO=1000
 
