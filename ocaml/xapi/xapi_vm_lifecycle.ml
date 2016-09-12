@@ -276,12 +276,22 @@ let check_protection_policy ~vmr ~op ~ref_str =
  * captured by Xenopsd when a VM starts, reported to Xapi, and kept in
  * the VM_metrics data model.
  *
+ * If the VM_metrics object does not exist, it implies the VM is not
+ * running - in which case we use the current values from the database.
  **)
 let is_mobile ~__context vm strict =
-	let metrics     = Db.VM.get_metrics ~__context ~self:vm in
-	let nomigrate   = Db.VM_metrics.get_nomigrate ~__context ~self:metrics in
-	let nested_virt = Db.VM_metrics.get_nested_virt ~__context ~self:metrics in
-	(not nomigrate && not nested_virt) || not strict
+	let metrics = Db.VM.get_metrics ~__context ~self:vm in
+	try
+		let nomigrate   = Db.VM_metrics.get_nomigrate ~__context ~self:metrics in
+		let nested_virt = Db.VM_metrics.get_nested_virt ~__context ~self:metrics in
+		(not nomigrate && not nested_virt) || not strict
+	with _ ->
+		(* No VM_metrics *)
+		let not_true platformdata key =
+			not @@ Vm_platform.is_true ~key ~platformdata ~default:false in
+		let platform = Db.VM.get_platform ~__context ~self:vm in
+		(not_true platform "nomigrate" && not_true platform "nested-virt") || not strict
+
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
