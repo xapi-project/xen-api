@@ -1639,10 +1639,21 @@ let update_vif ~__context id =
 							if state.plugged then begin
 								(* sync MTU *)
 								(try
-									let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
-									let dbg = Context.string_of_task __context in
-									let mtu = Net.Interface.get_mtu dbg ~name:device in
-									Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+										(* We need to use the value of domid in VIF.stat because *)
+										(* this function could have been called before the information *)
+										(* in the database is completely updated *)
+										let some_domid = Opt.map (fun x -> (snd x).domid) info
+																		 |> Opt.join in
+										match some_domid with
+											| Some domid -> begin
+													let device = "vif" ^ (string_of_int domid) ^ "." ^ (snd id) in
+													let dbg = Context.string_of_task __context in
+													let mtu = Net.Interface.get_mtu dbg ~name:device in
+													Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+											end
+											| None ->
+													debug "could not determine domid for VIF %s.%s" (fst id) (snd id);
+													raise (Failure "domid not found");
 								with _ ->
 									debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
 
