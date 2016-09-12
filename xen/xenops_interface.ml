@@ -94,7 +94,7 @@ module Network = struct
 		| Local of string (** name of a local switch *)
 		| Remote of string * string (** vm.id * switch *)
 	type ts = t list
-	
+
 	let default_t = Local "xenbr0"
 end
 
@@ -177,7 +177,7 @@ module Vm = struct
 	with sexp
 
 	let default_video_card = Cirrus
- 
+
 	type hvm_info = {
 		hap: bool;
 		shadow_multiplier: float;
@@ -633,7 +633,7 @@ module VM = struct
 	external migrate_receive_memory: debug_info -> Vm.id -> int64 -> string -> Xcp_channel.t -> Task.id option = ""
 
 	external create: debug_info -> Vm.id -> Task.id = ""
-	external build: debug_info -> Vm.id -> Task.id = ""
+	external build: debug_info -> Vm.id -> bool -> Task.id = ""
 	external create_device_model: debug_info -> Vm.id -> bool -> Task.id = ""
 	external destroy: debug_info -> Vm.id -> Task.id = ""
 	external pause: debug_info -> Vm.id -> Task.id = ""
@@ -649,7 +649,7 @@ module VM = struct
 	external list: debug_info -> unit -> (Vm.t * Vm.state) list = ""
 	external delay: debug_info -> Vm.id -> float -> Task.id = ""
 
-	external start: debug_info -> Vm.id -> Task.id = ""
+	external start: debug_info -> Vm.id -> bool -> Task.id = ""
 	external shutdown: debug_info -> Vm.id -> float option -> Task.id = ""
 	external reboot: debug_info -> Vm.id -> float option -> Task.id = ""
 	external suspend: debug_info -> Vm.id -> disk -> Task.id = ""
@@ -713,4 +713,3 @@ module DEBUG = struct
 	external trigger: debug_info -> string -> string list -> unit = ""
 	external shutdown: debug_info -> unit -> unit = ""
 end
-
