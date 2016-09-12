@@ -945,7 +945,7 @@ let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x
 let start' copts paused console x =
 	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.start dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
+	Client.VM.start dbg vm.id false |> wait_for_task dbg |> success_task ignore_task;
 	if not paused
 	then Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task;
 	if console
