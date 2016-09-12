@@ -2339,7 +2339,7 @@ let maybe_cleanup_vm ~__context ~self =
 		Xenopsd_metadata.delete ~__context id;
 	end
 
-let start ~__context ~self paused =
+let start ~__context ~self paused force =
 	let dbg = Context.string_of_task __context in
 	let queue_name = queue_of_vm ~__context ~self in
 	let vm_id = id_of_vm ~__context ~self in
@@ -2364,7 +2364,7 @@ let start ~__context ~self paused =
 			Xapi_network.with_networks_attached_for_vm ~__context ~vm:self (fun () ->
 				info "xenops: VM.start %s" id;
 				if not paused then begin
-					let vm_start = Client.VM.start dbg id in
+					let vm_start = Client.VM.start dbg id force in
 					info "xenops: Queueing VM.unpause %s" id;
 					let vm_unpause = Client.VM.unpause dbg id in
 					begin
@@ -2385,7 +2385,7 @@ let start ~__context ~self paused =
 
 					sync_with_task __context queue_name vm_unpause
 				end else
-					Client.VM.start dbg id |> sync_with_task __context queue_name);
+					Client.VM.start dbg id force |> sync_with_task __context queue_name);
 
 			set_resident_on ~__context ~self;
 			(* set_resident_on syncs both xenopsd and with the xapi event mechanism *)
@@ -2396,12 +2396,12 @@ let start ~__context ~self paused =
 			raise e
 	)
 
-let start ~__context ~self paused =
+let start ~__context ~self paused force =
 	let queue_name = queue_of_vm ~__context ~self in
 	transform_xenops_exn ~__context ~vm:self queue_name
 		(fun () ->
 			try
-				start ~__context ~self paused
+				start ~__context ~self paused force
 			with Bad_power_state(a, b) as e ->
 				Backtrace.is_important e;
 				let power_state = function

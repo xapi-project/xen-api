@@ -73,11 +73,11 @@ val unpause : __context:Context.t -> vm:API.ref_VM -> unit
 val set_xenstore_data : __context:Context.t -> self:API.ref_VM -> value:(string * string) list -> unit
 val start :
   __context:Context.t ->
-  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> start_paused:bool -> force:bool -> unit
 val assert_host_is_localhost : __context:Context.t -> host:API.ref_host -> unit
 val start_on :
   __context:Context.t ->
-  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:bool -> unit
 val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
 val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
 val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit
