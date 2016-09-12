@@ -2090,7 +2090,7 @@ module VM = struct
 	) Newest task vm
 
 	(*let create task memory_upper_bound vm vbds =*)
-	let build ?restore_fd task vm vbds vifs vgpus extras =
+	let build ?restore_fd task vm vbds vifs vgpus extras force =
 		let memory_upper_bound = None in
 		let k = vm.Vm.id in
 
@@ -2611,7 +2611,7 @@ module VM = struct
 					error "VM = %s; read invalid save file signature: \"%s\"" vm.Vm.id read_signature;
 					raise Restore_signature_mismatch
 				end;
-				build ~restore_fd:fd task vm vbds vifs [] extras
+				build ~restore_fd:fd task vm vbds vifs [] extras false
 			)
 		)
 
