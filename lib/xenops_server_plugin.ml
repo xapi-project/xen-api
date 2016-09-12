@@ -68,7 +68,7 @@ module type S = sig
 		val add: Vm.t -> unit
 		val remove: Vm.t -> unit
 		val create: Xenops_task.t -> int64 option -> Vm.t -> unit
-		val build: ?restore_fd:Unix.file_descr -> Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list ->  unit (* XXX cancel *)
+		val build: ?restore_fd:Unix.file_descr -> Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list -> bool ->  unit (* XXX cancel *)
 		val create_device_model: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> bool -> unit
 		val destroy_device_model: Xenops_task.t -> Vm.t -> unit
 		val destroy: Xenops_task.t -> Vm.t -> unit

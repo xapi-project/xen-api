@@ -91,7 +91,7 @@ type atomic =
 	| VM_destroy_device_model of Vm.id
 	| VM_destroy of Vm.id
 	| VM_create of (Vm.id * int64 option)
-	| VM_build of Vm.id
+	| VM_build of (Vm.id * bool)
 	| VM_shutdown_domain of (Vm.id * shutdown_request * float)
 	| VM_s3suspend of Vm.id
 	| VM_s3resume of Vm.id
@@ -105,7 +105,7 @@ with rpc
 let string_of_atomic x = x |> rpc_of_atomic |> Jsonrpc.to_string
 
 type operation =
-	| VM_start of Vm.id
+	| VM_start of (Vm.id * bool) (* VM id * 'force' *)
 	| VM_poweroff of (Vm.id * float option)
 	| VM_shutdown of (Vm.id * float option)
 	| VM_reboot of (Vm.id * float option)
@@ -803,13 +803,13 @@ let simplify f =
 	if B.simplified then [] else f
 
 let rec atomics_of_operation = function
-	| VM_start id ->
+	| VM_start (id,force) ->
 		[
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
 		] @ simplify [
 			VM_create (id, None)
 		] @ [	
-			VM_build id;
+			VM_build (id,force);
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
 		) @ (
@@ -944,7 +944,7 @@ let rec atomics_of_operation = function
 		) @ [
 			VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason);
 			VM_hook_script(id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
-        ] @ (atomics_of_operation (VM_start id)
+		] @ (atomics_of_operation (VM_start (id,false))
 		) @ [
 			VM_unpause id;
 		]
@@ -1220,7 +1220,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 		| VM_create (id, memory_upper_bound) ->
 			debug "VM.create %s memory_upper_bound = %s" id (Opt.default "None" (Opt.map Int64.to_string memory_upper_bound));
 			B.VM.create t memory_upper_bound (VM_DB.read_exn id)
-		| VM_build id ->
+		| VM_build (id,force) ->
 			debug "VM.build %s" id;
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
@@ -1230,7 +1230,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			| pcis  ->
 				 let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
 				 [ "-pci_passthrough"; String.concat "," sbdfs] in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus extras
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus extras force
 		| VM_shutdown_domain (id, reason, timeout) ->
 			let start = Unix.gettimeofday () in
 			let vm = VM_DB.read_exn id in
@@ -1338,7 +1338,7 @@ and trigger_cleanup_after_failure op t = match op with
 	| VBD_check_state _
 	| VIF_check_state _ -> () (* not state changing operations *)
 
-	| VM_start id
+	| VM_start (id, _)
 	| VM_poweroff (id, _)
 	| VM_reboot (id, _)
 	| VM_shutdown (id, _)
@@ -1402,7 +1402,7 @@ and trigger_cleanup_after_failure_atom op t = match op with
 		| VM_destroy_device_model id
 		| VM_destroy id
 		| VM_create (id, _)
-		| VM_build id
+		| VM_build (id, _)
 		| VM_shutdown_domain (id, _, _)
 		| VM_s3suspend id
 		| VM_s3resume id
@@ -1416,8 +1416,8 @@ and trigger_cleanup_after_failure_atom op t = match op with
 and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
-		| VM_start id ->
-			debug "VM.start %s" id;
+		| VM_start (id, force) ->
+			debug "VM.start %s (force=%b)" id force;
 			let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
 			begin match power with
 			| Running -> info "VM %s is already running" id
@@ -2011,7 +2011,7 @@ module VM = struct
 
 	let create _ dbg id = queue_operation dbg id (Atomic(VM_create (id, None)))
 
-	let build _ dbg id = queue_operation dbg id (Atomic(VM_build id))
+	let build _ dbg id force = queue_operation dbg id (Atomic(VM_build (id, force)))
 
 	let create_device_model _ dbg id save_state = queue_operation dbg id (Atomic(VM_create_device_model (id, save_state)))
 
@@ -2035,7 +2035,7 @@ module VM = struct
 
 	let delay _ dbg id t = queue_operation dbg id (Atomic(VM_delay(id, t)))
 
-	let start _ dbg id = queue_operation dbg id (VM_start id)
+	let start _ dbg id force = queue_operation dbg id (VM_start (id,force))
 
 	let shutdown _ dbg id timeout = queue_operation dbg id (VM_poweroff (id, timeout))
 

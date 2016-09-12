@@ -623,7 +623,7 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 
 (** build a linux type of domain *)
 let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-		~vcpus ~extras xenguest_path domid =
+		~vcpus ~extras xenguest_path domid force =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
@@ -652,7 +652,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+	let force_arg = if force then ["--force"] else [] in
 	let line = XenguestHelper.with_connection task xenguest_path domid
 	  ([
 	    "-mode"; "linux_build";
@@ -669,7 +669,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 	    "-console_port"; string_of_int console_port;
 		"-console_domid"; string_of_int console_domid;
 	    "-fork"; "true";
-	  ] @ extras) []
+	  ] @ force_arg @ extras) []
 		XenguestHelper.receive_success in
 
 	let store_mfn, console_mfn, protocol =
@@ -703,7 +703,7 @@ let build_linux (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~stati
 
 (** build hvm type of domain *)
 let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~timeoffset ~video_mib ~extras xenguest_path domid =
+				~kernel ~timeoffset ~video_mib ~extras xenguest_path domid force =
 	let uuid = get_uuid ~xc domid in
 	assert_file_is_readable kernel;
 
@@ -729,7 +729,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	maybe_ca_140252_workaround ~xc ~vcpus domid;
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+	let force_arg = if force then ["--force"] else [] in
 	let line = XenguestHelper.with_connection task xenguest_path domid
 	  ([
 	    "-mode"; "hvm_build";
@@ -742,7 +742,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
 	    "-fork"; "true";
-	  ] @ extras) [] XenguestHelper.receive_success in
+	  ] @ force_arg @ extras) [] XenguestHelper.receive_success in
 
 	(* XXX: domain builder will reduce our shadow allocation under our feet.
 	   Detect this and override. *)
@@ -788,16 +788,16 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 
 	Arch_HVM
 
-let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras info xenguest_path domid =
+let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras info xenguest_path domid force =
 	match info.priv with
 	| BuildHVM hvminfo ->
 		build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib ~extras xenguest_path domid
+		          ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib ~extras xenguest_path domid force
 	| BuildPV pvinfo   ->
 		build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
-		            ~vcpus:info.vcpus ~extras xenguest_path domid
+		            ~vcpus:info.vcpus ~extras xenguest_path domid force
 
 let restore_libxc_record (task: Xenops_task.t) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd =
 	let fd_uuid = Uuid.(to_string (create `V4)) in

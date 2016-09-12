@@ -54,7 +54,7 @@ let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info xengues
         Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
         Domain.vcpus=1;
         Domain.priv=Domain.BuildPV {Domain.cmdline=""; Domain.ramdisk=None};
-    } xenguest stubdom_domid in
+    } xenguest stubdom_domid false in
 
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
@@ -102,4 +102,3 @@ let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info xengues
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
     List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
 	*)
-
