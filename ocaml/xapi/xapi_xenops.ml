@@ -1643,7 +1643,7 @@ let update_vif ~__context id =
 										(* this function could have been called before the information *)
 										(* in the database is completely updated *)
 										let some_domid = Opt.map (fun x -> (snd x).domid) info
-																		 |> Opt.join in
+												|> Opt.join in
 										match some_domid with
 											| Some domid -> begin
 													let device = "vif" ^ (string_of_int domid) ^ "." ^ (snd id) in
