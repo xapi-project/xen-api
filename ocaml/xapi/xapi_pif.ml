@@ -487,15 +487,11 @@ let forget ~__context ~self =
 	let t = make_tables ~__context ~host in
 	forget_internal ~t ~__context ~self
 
-let scan ~__context ~host =
-	let t = make_tables ~__context ~host in
-	let dbg = Context.string_of_task __context in
+let scan_m = Mutex.create ()
 
+let scan ~__context ~host =
+	let dbg = Context.string_of_task __context in
 	refresh_all ~__context ~host;
-	let devices_not_yet_represented_by_pifs =
-		List.set_difference
-			(List.map fst t.device_to_mac_table)
-			(List.map snd t.pif_to_device_table) in
 
 	let non_managed_devices, disallow_unplug_devices =
 		if Sys.file_exists !Xapi_globs.non_managed_pifs then
@@ -519,19 +515,27 @@ let scan ~__context ~host =
 		end
 	in
 
-	(* Create PIF records for the new interfaces *)
-	List.iter
-		(fun device ->
-			let mAC = List.assoc device t.device_to_mac_table in
-			let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
-			let managed = not (List.mem device non_managed_devices) in
-			let disallow_unplug = (List.mem device disallow_unplug_devices) in
-			let (_: API.ref_PIF) =
-				introduce_internal
-					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug () in
-			())
-		(devices_not_yet_represented_by_pifs);
+	Mutex.execute scan_m (fun () ->
+		let t = make_tables ~__context ~host in
+		let devices_not_yet_represented_by_pifs =
+			List.set_difference
+				(List.map fst t.device_to_mac_table)
+				(List.map snd t.pif_to_device_table) in
+
+		(* Create PIF records for the new interfaces *)
+		List.iter
+			(fun device ->
+				let mAC = List.assoc device t.device_to_mac_table in
+				let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
+				let managed = not (List.mem device non_managed_devices) in
+				let disallow_unplug = (List.mem device disallow_unplug_devices) in
+				let (_: API.ref_PIF) =
+					introduce_internal
+						~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
+						~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug () in
+				())
+			(devices_not_yet_represented_by_pifs)
+	);
 
 	(* Make sure the right PIF(s) are marked as management PIFs *)
 	update_management_flags ~__context ~host
