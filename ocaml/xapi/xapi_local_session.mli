@@ -13,7 +13,7 @@
  *)
 (** Represents local sessions, for use in emergency mode *)
 
-type t = { 
+type t = {
   r: API.ref_session;
   pool: bool;
   last_active: Stdext.Date.iso8601 }

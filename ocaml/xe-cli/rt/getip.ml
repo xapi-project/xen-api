@@ -35,21 +35,21 @@ let _ =
   let mac = String.lowercase Sys.argv.(2) in
   let cmd = Printf.sprintf "tcpdump -lne -i %s arp or udp port bootps" iface in
   let ic = Unix.open_process_in cmd in
-  
+
   let rec inner () =
     let line = String.lowercase (input_line ic) in
-    
+
     (* Try first regexp *)
     let ip = getip1 mac line in
-    match ip with 
-	Some x -> x 
-      | None ->
-	  let ip2 = getip2 mac line in
-	  match ip2 with
-	      Some x -> x
-	    | None -> inner ()
-  in 
+    match ip with
+      Some x -> x
+    | None ->
+      let ip2 = getip2 mac line in
+      match ip2 with
+        Some x -> x
+      | None -> inner ()
+  in
   let ip = inner () in
   Printf.printf "%s" ip
 
-	
+

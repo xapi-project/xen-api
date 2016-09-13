@@ -13,32 +13,32 @@
  *)
 (** Module that defines API functions for PIF objects
  * @group Networking
- *)
+*)
 
 (**
-A {i PIF} object in the datamodel represents a network interface and contains relevant information about it.
-{ul
-{- There are three types of PIFs. A PIF can represent...
-	{ol
-	{- A network-interface card. For each physical interface there should be a PIF. Such a PIF has [PIF.physical = true].}
-	{- A bond-master: a higher-level PIF representing the combination of multiple PIFs. Such a PIF has [PIF.bond_master_of] set to the Bond object.}
-	{- A VLAN interface: a higher-level PIF (called the {i untagged} PIF, or {i VLAN master} that tags its outgoing traffic before sending it out to the underlying physical interface (the {i tagged} PIF, or {i VLAN slave}).}
-	}}
-{- PIF objects are typically created automatically on first boot. There is also a [PIF.scan] API call to automatically discover any new network interfaces and create the necessary objects in the database.}
-{- A PIF is always accompanied by a Network object (see below) that associates the interface with a bridge.}
-{- A PIF can be {i plugged} or {i unplugged}, also known as {i attached} or {i unattached} respectively.
-	{ul
-	{- Plugging a PIF is also referred to as {i bringing up} the PIF, while unplugging is {i bringing down} a PIF.}
-	{- After plugging a PIF, any underlying network devices (bridges, bonds, VLANs, physical interfaces) are configured, such that the interface can be used. Unplugging will clean up any underlying network devices {i that are not used anymore}.}
-	{- No PIFs are harmed during unplugging, nor does unplugging have anything to do with pulling out cables.}
-	{- A PIF that is plugged has [PIF.currently_attached] set to [true], a PIF that is unplugged has this field set to [false].}
-	}}
-{- A PIF can be specialised to be...
-	{ul
-	{- the {i management interface}, which is the interface used by xapi for communication between hosts in a pool and XenAPI clients; this PIF has [PIF.management = true]; the inventory file stores the name of the bridge the the management interface is on (this is where the management interface is ultimately defined);}
-	{- dedicated to a specific function, especially for storage traffic (in this case, the [disallow-unplug] field on the PIF is set to [true], and an other-config flag is set); this does not seem to be enforced, but only used by XC.}
-	}}
-}
+   A {i PIF} object in the datamodel represents a network interface and contains relevant information about it.
+   {ul
+   {- There are three types of PIFs. A PIF can represent...
+   	{ol
+   	{- A network-interface card. For each physical interface there should be a PIF. Such a PIF has [PIF.physical = true].}
+   	{- A bond-master: a higher-level PIF representing the combination of multiple PIFs. Such a PIF has [PIF.bond_master_of] set to the Bond object.}
+   	{- A VLAN interface: a higher-level PIF (called the {i untagged} PIF, or {i VLAN master} that tags its outgoing traffic before sending it out to the underlying physical interface (the {i tagged} PIF, or {i VLAN slave}).}
+   	}}
+   {- PIF objects are typically created automatically on first boot. There is also a [PIF.scan] API call to automatically discover any new network interfaces and create the necessary objects in the database.}
+   {- A PIF is always accompanied by a Network object (see below) that associates the interface with a bridge.}
+   {- A PIF can be {i plugged} or {i unplugged}, also known as {i attached} or {i unattached} respectively.
+   	{ul
+   	{- Plugging a PIF is also referred to as {i bringing up} the PIF, while unplugging is {i bringing down} a PIF.}
+   	{- After plugging a PIF, any underlying network devices (bridges, bonds, VLANs, physical interfaces) are configured, such that the interface can be used. Unplugging will clean up any underlying network devices {i that are not used anymore}.}
+   	{- No PIFs are harmed during unplugging, nor does unplugging have anything to do with pulling out cables.}
+   	{- A PIF that is plugged has [PIF.currently_attached] set to [true], a PIF that is unplugged has this field set to [false].}
+   	}}
+   {- A PIF can be specialised to be...
+   	{ul
+   	{- the {i management interface}, which is the interface used by xapi for communication between hosts in a pool and XenAPI clients; this PIF has [PIF.management = true]; the inventory file stores the name of the bridge the the management interface is on (this is where the management interface is ultimately defined);}
+   	{- dedicated to a specific function, especially for storage traffic (in this case, the [disallow-unplug] field on the PIF is set to [true], and an other-config flag is set); this does not seem to be enforced, but only used by XC.}
+   	}}
+   }
 *)
 
 (** {2 API functions} *)
@@ -76,7 +76,7 @@ val db_introduce :
   managed:bool ->
   properties:(string * string) list ->
   [ `PIF ] Ref.t
-  
+
 (** Perform a database delete of the PIF record on the pool master. *)
 val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 
@@ -114,14 +114,14 @@ val reconfigure_ip :
   self:API.ref_PIF ->
   mode:[`DHCP | `None | `Static] ->
   iP:string -> netmask:string -> gateway:string -> dNS:string -> unit
-  
+
 (** Change the IPv6 configuration of a PIF *)
 val reconfigure_ipv6 :
   __context:Context.t ->
   self:API.ref_PIF ->
   mode:[ `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string -> gateway:string -> dNS:string -> unit
-  
+
 (** Change the primary address type between IPv4 and IPv6 *)
 val set_primary_address_type :
   __context:Context.t ->
@@ -155,7 +155,7 @@ val plug : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 
 (** Constructs a bridge name from a device (network interface) name by replacing
  *  [eth] by [xenbr], or prepending [br] if the device name does not start with [eth].
- *)
+*)
 val bridge_naming_convention : string -> string
 
 (** Return the list of bridges in the CURRENT_INTERFACES field in the inventory file. *)
@@ -163,14 +163,14 @@ val read_bridges_from_inventory : unit -> string list
 
 (** If a network for the given bridge already exists, then return a reference to this network,
  *  otherwise create a new network and return its reference.
- *)
+*)
 val find_or_create_network :
   string -> string -> __context:Context.t -> [ `network ] Ref.t
 
 (** Convenient lookup tables for scanning etc *)
 type tables = {
-	device_to_mac_table : (string * string) list;
-	pif_to_device_table : (API.ref_PIF * string) list;
+  device_to_mac_table : (string * string) list;
+  pif_to_device_table : (API.ref_PIF * string) list;
 }
 
 (** Construct and return lookup {!tables} with information about the network interfaces *)
@@ -201,7 +201,7 @@ val pool_introduce :
   vLAN_master_of:[ `VLAN ] Ref.t ->
   management:bool ->
   other_config:(string * string) list ->
-  disallow_unplug:bool -> 
+  disallow_unplug:bool ->
   ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string list ->
   ipv6_gateway:string ->
@@ -231,11 +231,11 @@ val introduce_internal :
   ?disallow_unplug:bool ->
   unit ->
   [ `PIF ] Ref.t
-  
+
 (** Brings down the network interface and removes the PIF object. *)
 val forget_internal :
   t:tables -> __context:Context.t -> self:API.ref_PIF -> unit
-  
+
 (** Look over all this host's PIFs and reset the management flag.
  *  The management interface is ultimately defined by the inventory file,
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
@@ -246,12 +246,12 @@ val update_management_flags :
     start of day code. These are the PIFs on the localhost that are not bond slaves.
     For PIFs that have [disallow_unplug] set to true, and the management interface, will
     actually be brought up ahead of time by the init scripts, so we don't have to plug them in.
-    These are written to the xensource-inventory file when HA is enabled so that HA can bring up 
+    These are written to the xensource-inventory file when HA is enabled so that HA can bring up
     interfaces required by storage NICs etc. (these interface are not filtered out at the moment).
- *)
+*)
 val calculate_pifs_required_at_start_of_day :
   __context:Context.t -> ('b Ref.t * API.pIF_t) list
-  
+
 (** Attempt to bring up (plug) the required PIFs when the host starts up.
  *  Uses {!calculate_pifs_required_at_start_of_day}. *)
 val start_of_day_best_effort_bring_up : unit -> unit
@@ -268,15 +268,15 @@ val assert_no_vlans : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not the management interface. *)
 val assert_not_management_pif :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure the PIF is not the management interface if the host is a pool slave. *)
 val assert_not_slave_management_pif :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure neither HA nor the general redo-log are enabled. *)
 val assert_no_protection_enabled :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure the Network attached to the given PIF has not VIFs on it
  *  belonging to VMs that are protected by HA. *)
 val abort_if_network_attached_to_protected_vms :

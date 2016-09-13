@@ -13,12 +13,12 @@
  *)
 
 type level =
-| Error
-| Warn
-| Debug
-| Info
+  | Error
+  | Warn
+  | Debug
+  | Info
 
 module D=Debug.Make(struct let name="rt" end)
 
 let log (fmt: ('a, unit, string, 'b) format4) =
-	Printf.kprintf (fun s -> D.info "%s" s) fmt
+  Printf.kprintf (fun s -> D.info "%s" s) fmt

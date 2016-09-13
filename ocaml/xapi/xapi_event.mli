@@ -45,10 +45,10 @@ val on_session_deleted: API.ref_session -> unit
 val heartbeat: __context:Context.t -> unit
 
 module Message : sig
-	type t =
-	| Create of (API.ref_message * API.message_t)
-	| Del of API.ref_message
+  type t =
+    | Create of (API.ref_message * API.message_t)
+    | Del of API.ref_message
 
-	val get_since_for_events : (__context:Context.t -> int64 -> (int64 * t list)) ref 
+  val get_since_for_events : (__context:Context.t -> int64 -> (int64 * t list)) ref
 end
 

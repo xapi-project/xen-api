@@ -13,7 +13,7 @@
  *)
 (**
  * @group Virtual-Machine Management
- *)
+*)
 
 open Stdext
 open Pervasiveext
@@ -35,7 +35,7 @@ let is_whitelisted script =
 let assert_script_is_whitelisted script =
   if not (is_whitelisted script) then
     raise (Api_errors.Server_error (Api_errors.permission_denied, [
-      (Printf.sprintf "illegal provision script %s" script)]))
+        (Printf.sprintf "illegal provision script %s" script)]))
 
 (** Execute the post install script of 'vm' having attached all the vbds to the 'install_vm' *)
 let post_install_script rpc session_id __context install_vm vm (script, vbds) =
@@ -47,59 +47,59 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
   match script with
   | None -> () (* nothing to do *)
   | Some script ->
-      assert_script_is_whitelisted script;
-      let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
-      with_vbds rpc session_id __context install_vm vdis `RW
-	(fun install_vm_vbds ->
-	   let devices = List.map 
-	     (fun (install_vm_vbd, vbd) ->
-		let hvm = Client.VM.get_HVM_boot_policy rpc session_id vm <> "" in
-		let device = Vbdops.translate_vbd_device vbd (Client.VBD.get_userdevice rpc session_id vbd) hvm in
-		Device_number.to_linux_device device,
-		"/dev/" ^ (Client.VBD.get_device rpc session_id install_vm_vbd)) (List.combine install_vm_vbds vbds) in
-	   let env = ("vm", Ref.string_of vm) :: devices in
-	   let env = List.map (fun (k, v) -> k ^ "=" ^ v) env in
-	   debug "Executing script %s with env %s" script (String.concat "; " env);
+    assert_script_is_whitelisted script;
+    let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
+    with_vbds rpc session_id __context install_vm vdis `RW
+      (fun install_vm_vbds ->
+         let devices = List.map
+             (fun (install_vm_vbd, vbd) ->
+                let hvm = Client.VM.get_HVM_boot_policy rpc session_id vm <> "" in
+                let device = Vbdops.translate_vbd_device vbd (Client.VBD.get_userdevice rpc session_id vbd) hvm in
+                Device_number.to_linux_device device,
+                "/dev/" ^ (Client.VBD.get_device rpc session_id install_vm_vbd)) (List.combine install_vm_vbds vbds) in
+         let env = ("vm", Ref.string_of vm) :: devices in
+         let env = List.map (fun (k, v) -> k ^ "=" ^ v) env in
+         debug "Executing script %s with env %s" script (String.concat "; " env);
 
-	   match with_logfile_fd "install-log"
-	     (fun log ->
-	       let pid = safe_close_and_exec ~env:(Array.of_list env) None (Some log) (Some log) [] script [] in
-	       let starttime = Unix.time () in
-	       let rec update_progress () =
-		 (* Check for cancelling *)
-		 if TaskHelper.is_cancelling ~__context
-		 then
-		   begin
-		     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
-		     let _ = Forkhelpers.waitpid pid in
-		     TaskHelper.raise_cancelled ~__context
-		   end;
-		 
-		 let (newpid,status) = Forkhelpers.waitpid_nohang pid in
-		 if newpid <> 0 
-		 then 
-		   (match status with 
-		     | Unix.WEXITED 0 -> (newpid,status) 
-		     | (Unix.WEXITED n|Unix.WSIGNALED n|Unix.WSTOPPED n) -> raise (Subprocess_failed n))
-		 else		 
-		   begin
-		     Thread.delay 1.0;
-		     refresh_session ();
-		     let curtime = Unix.time () in
-		     let elapsed = curtime -. starttime in
-		     let f x = 0.1 +. (0.9 -. 0.9 *. exp (-. elapsed /. 60.0)) in
-		     let progress = f elapsed in
-		     TaskHelper.set_progress ~__context progress;
-		     update_progress ()
-		   end
-	       in update_progress ()
-	     ) with
-	       | Success _ -> debug "Install script exited successfully."
-	       | Failure(log, Subprocess_failed n) ->
-		   error "post_install_script failed: message='%s' (assuming this was because the disk was too small)" log;
-		   raise (Api_errors.Server_error (Api_errors.provision_failed_out_of_space, []))
-	       | Failure(log, exn) ->
-		   raise exn
-	)
-       
-	
+         match with_logfile_fd "install-log"
+                 (fun log ->
+                    let pid = safe_close_and_exec ~env:(Array.of_list env) None (Some log) (Some log) [] script [] in
+                    let starttime = Unix.time () in
+                    let rec update_progress () =
+                      (* Check for cancelling *)
+                      if TaskHelper.is_cancelling ~__context
+                      then
+                        begin
+                          Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
+                          let _ = Forkhelpers.waitpid pid in
+                          TaskHelper.raise_cancelled ~__context
+                        end;
+
+                      let (newpid,status) = Forkhelpers.waitpid_nohang pid in
+                      if newpid <> 0
+                      then
+                        (match status with
+                         | Unix.WEXITED 0 -> (newpid,status)
+                         | (Unix.WEXITED n|Unix.WSIGNALED n|Unix.WSTOPPED n) -> raise (Subprocess_failed n))
+                      else
+                        begin
+                          Thread.delay 1.0;
+                          refresh_session ();
+                          let curtime = Unix.time () in
+                          let elapsed = curtime -. starttime in
+                          let f x = 0.1 +. (0.9 -. 0.9 *. exp (-. elapsed /. 60.0)) in
+                          let progress = f elapsed in
+                          TaskHelper.set_progress ~__context progress;
+                          update_progress ()
+                        end
+                    in update_progress ()
+                 ) with
+         | Success _ -> debug "Install script exited successfully."
+         | Failure(log, Subprocess_failed n) ->
+           error "post_install_script failed: message='%s' (assuming this was because the disk was too small)" log;
+           raise (Api_errors.Server_error (Api_errors.provision_failed_out_of_space, []))
+         | Failure(log, exn) ->
+           raise exn
+      )
+
+

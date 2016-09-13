@@ -18,7 +18,7 @@ type field_op = Get | Set | Add | Remove
 (** Operations generated for each object can be any of these *)
 type obj_op = Make | Delete | GetAll
 
-(** Represents an individual operation (on the wire), generating from 
+(** Represents an individual operation (on the wire), generating from
     either a field, an object or a message *)
 type operation =
     Field of field_op * Datamodel_types.obj * Datamodel_types.field
@@ -31,7 +31,7 @@ val obj_of_operation : operation -> Datamodel_types.obj
 (** Returns the XMLRPC wire name of the operation (eg Async.VM.do_clean_shutdown) *)
 val wire_name_of_operation : sync:bool -> operation -> string
 
-(** A 'lowlevel api' consists of an association list of objects and their 
+(** A 'lowlevel api' consists of an association list of objects and their
     generated operations *)
 type t = (Datamodel_types.obj * operation list) list
 

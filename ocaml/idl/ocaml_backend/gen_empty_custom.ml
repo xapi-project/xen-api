@@ -36,12 +36,12 @@ let _task_id = "task_id"
 *)
 
 
-let operation_requires_side_effect ({ msg_tag = tag } as msg) = 
+let operation_requires_side_effect ({ msg_tag = tag } as msg) =
   (match msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
-    with None -> false | Some (mode) -> 
-      if mode=RW then true (*RW=force both setters and getters into custom_actions *)
-      else (*{Static/Dynamic}RO=force only getters into custom_actions *)
-        (match msg with
+   with None -> false | Some (mode) ->
+     if mode=RW then true (*RW=force both setters and getters into custom_actions *)
+     else (*{Static/Dynamic}RO=force only getters into custom_actions *)
+       (match msg with
         | { msg_tag = FromField((Setter|Add|Remove), _) } -> false
         | { msg_tag = FromObject(Make|Delete) } -> false
         | _ -> true)
@@ -71,20 +71,20 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
 
     let result_type =
       match result_type_override with
-	  None ->
-	    begin
-	      match x.msg_custom_marshaller, x.msg_result with
-		| true, _ -> "Rpc.t"
-		| _, Some (ty, _) -> OU.alias_of_ty ty
-		| _, None -> "unit"
-	    end
-	| Some t -> t in
+        None ->
+        begin
+          match x.msg_custom_marshaller, x.msg_result with
+          | true, _ -> "Rpc.t"
+          | _, Some (ty, _) -> OU.alias_of_ty ty
+          | _, None -> "unit"
+        end
+      | Some t -> t in
 
     let body =
       match body_override with
-	  None -> [ "raise (Not_implemented \""^x.msg_name^"\")" ]
-	| Some b -> b in
-	    
+        None -> [ "raise (Not_implemented \""^x.msg_name^"\")" ]
+      | Some b -> b in
+
     O.Let.make
       ~name:x.msg_name
       ~params:(Gen_common.context_arg :: args)
@@ -97,8 +97,8 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
     let messages = List.filter (fun x -> not (DU.has_been_removed x.DT.msg_lifecycle)) obj.messages in
     let fields = List.map (fun x -> O.Module.Let (operation obj x)) messages in
     O.Module.make
-    ~name:(OU.ocaml_of_obj_name obj.DT.name)
-    ~elements:fields ()
+      ~name:(OU.ocaml_of_obj_name obj.DT.name)
+      ~elements:fields ()
   in
 
   O.Module.make
@@ -117,7 +117,7 @@ let gen_signature signature_name result_type_override api : O.Signature.t =
     an implementation of everything. *)
 let gen_release_module api : O.Module.t =
   let obj (obj: obj) = O.Module.make
-    ~name:(OU.ocaml_of_obj_name obj.DT.name) ~elements:[] () in
+      ~name:(OU.ocaml_of_obj_name obj.DT.name) ~elements:[] () in
   O.Module.make
     ~name:release_module_name
     ~elements:(List.map (fun x -> O.Module.Module (obj x)) (Dm_api.objects_of_api api)) ()

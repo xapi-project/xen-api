@@ -28,11 +28,11 @@ let gen_random_string() =
   let rec fillstr l =
     if l=len then () else
       begin
-	String.set string l (ranchar());
-	fillstr (l+1)
+        String.set string l (ranchar());
+        fillstr (l+1)
       end in
-    fillstr 0;
-    string
+  fillstr 0;
+  string
 
 let gen_random_string_option() =
   if (Random.int 2)=0 then
@@ -44,12 +44,12 @@ let gen_random_bool() =
   (Random.int 2)=0
 
 let gen_random_list f =
-    let len = Random.int 50 in
-    let rec makesl x =
-      match x with
-	  0 -> []
-	| n -> (f())::(makesl (n-1)) in
-      makesl len
+  let len = Random.int 50 in
+  let rec makesl x =
+    match x with
+      0 -> []
+    | n -> (f())::(makesl (n-1)) in
+  makesl len
 
 let gen_random_where () =
   {table=gen_random_string();
@@ -60,11 +60,11 @@ let gen_random_where () =
 exception RandomRangeError
 let gen_random_structured_op () =
   match (Random.int 4) with
-      0 -> AddSet
-    | 1 -> RemoveSet
-    | 2 -> AddMap
-    | 3 -> RemoveMap
-    | _ -> raise RandomRangeError (* should never be thrown *)
+    0 -> AddSet
+  | 1 -> RemoveSet
+  | 2 -> AddMap
+  | 3 -> RemoveMap
+  | _ -> raise RandomRangeError (* should never be thrown *)
 
 let gen_random_2string() =
   (gen_random_string(), gen_random_string())
@@ -79,12 +79,12 @@ let gen_random_4string() =
 (* test marshall unmarshall is id *)
 let tm u m x =
   let s = m x in
-    print_string (Xml.to_string_fmt s);
-    print_string "\n\n";
-    (u s)=x
+  print_string (Xml.to_string_fmt s);
+  print_string "\n\n";
+  (u s)=x
 
 let test_gtfr_args() =
-  tm 
+  tm
     unmarshall_get_table_from_ref_args
     marshall_get_table_from_ref_args
     (gen_random_string())
@@ -208,8 +208,8 @@ let test_readrec_response() =
 let test_exp =
   And(Eq(Field "asd", Literal "qwe"),
       Or(Eq(Field "asd", Literal "qwe"),
-	 And(Eq(Field "asd", Literal "qwe"),
-	    Not False)))
+         And(Eq(Field "asd", Literal "qwe"),
+             Not False)))
 
 let test_find_refs_with_filter_args() =
   tm

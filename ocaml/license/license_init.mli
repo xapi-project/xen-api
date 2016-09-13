@@ -13,7 +13,7 @@
  *)
 (** Licensing initialisation
  * @group Licensing
- *)
+*)
 
 module type V6clientS = module type of V6client
 val v6client : (module V6clientS) ref

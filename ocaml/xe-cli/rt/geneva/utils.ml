@@ -28,20 +28,20 @@ let rec optlistToList = function
   | [] -> []
   | None::xs -> optlistToList xs
   | (Some x)::xs -> x::(optlistToList xs)
-			    
+
 
 (* bit o sets *)
 
 let rec remove fromset element = match fromset with
-| [] -> []
-| (x::xs) -> 
-    if x = element then xs 
-    else x::(remove xs element) 
+  | [] -> []
+  | (x::xs) ->
+    if x = element then xs
+    else x::(remove xs element)
 
 (* this looks like a fold *)
 let rec subtract fromset elements = match elements with
-| [] -> fromset
-| (x::xs) -> subtract (remove fromset x) xs
+  | [] -> fromset
+  | (x::xs) -> subtract (remove fromset x) xs
 
 exception Empty_List
 
@@ -54,9 +54,9 @@ let tl = function
   | (_::xs) -> xs
 
 
-let rec member set x = match set with 
-| [] -> false
-| (y::ys) -> if (x = y) then true else (member ys x)
+let rec member set x = match set with
+  | [] -> false
+  | (y::ys) -> if (x = y) then true else (member ys x)
 
 
 let rec length = function
@@ -64,11 +64,11 @@ let rec length = function
   | (_::xs) -> 1 + (length xs)
 
 
-let rec explode s = 
+let rec explode s =
   if (String.length s = 0) then []
   else (String.get s 0)::(explode (String.sub s 1 (String.length s - 1)))
 
-let rec implode chars = 
+let rec implode chars =
   let s = String.create (length chars) in
   let rec setchar n = function
     | [] -> ()
@@ -78,14 +78,14 @@ let rec implode chars =
 
 let split s c =
   let rec search results acc tocome = match tocome with
-  | [] -> results @ [acc]
-  | (x::xs) -> if (c x) then search (results @ [acc]) [] xs
+    | [] -> results @ [acc]
+    | (x::xs) -> if (c x) then search (results @ [acc]) [] xs
       else search results (acc @ [x]) xs
 
   in
   List.map implode (search [] [] (explode s))
 
-let tokenize s = 
+let tokenize s =
   let whitespace = function
     | ' '  -> true
     | '\t' -> true

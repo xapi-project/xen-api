@@ -64,7 +64,7 @@ let make_queued_request task verify_cert host port request handler
     verify_cert = verify_cert;
     host = host;
     port = port;
-	request = request;
+    request = request;
     handler = handler;
     resp = resp;
     resp_mutex = resp_mutex;
@@ -77,7 +77,7 @@ let request_queue : queued_request list ref = ref []
 let request_mutex = Mutex.create()
 let request_cond = Condition.create()
 
-let signal_result' req result () =               
+let signal_result' req result () =
   if !(req.resp) = NoResponse then
     begin
       req.resp := result;
@@ -89,34 +89,34 @@ let signal_result req result =
 
 let watcher_thread = function
   | (__context, timeout, delay, req) ->
-      ignore (Delay.wait delay timeout);
-      Mutex.execute req.resp_mutex
-        (fun () ->
-           if !(req.resp) = NoResponse then
-             begin
-               warn "Remote request timed out";
-				 let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task req.task in
-				 List.iter Locking_helpers.kill_resource resources;
-               signal_result' req (Exception Timed_out) ()
-             end)
+    ignore (Delay.wait delay timeout);
+    Mutex.execute req.resp_mutex
+      (fun () ->
+         if !(req.resp) = NoResponse then
+           begin
+             warn "Remote request timed out";
+             let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task req.task in
+             List.iter Locking_helpers.kill_resource resources;
+             signal_result' req (Exception Timed_out) ()
+           end)
 
 let handle_request req =
   try
-	  let open Xmlrpc_client in
-	  let transport = SSL(SSL.make ~verify_cert:req.verify_cert ~task_id:(Ref.string_of req.task) (), req.host, req.port) in
-	  with_transport transport
-		  (with_http req.request
-			  (fun (response, s) ->
-				  req.handler response s;
-				  signal_result req Success
-			  )
-		  )
+    let open Xmlrpc_client in
+    let transport = SSL(SSL.make ~verify_cert:req.verify_cert ~task_id:(Ref.string_of req.task) (), req.host, req.port) in
+    with_transport transport
+      (with_http req.request
+         (fun (response, s) ->
+            req.handler response s;
+            signal_result req Success
+         )
+      )
   with
-    | exn ->
-        if req.enable_log then
-          warn "Exception handling remote request %s: %s" (Opt.default "" req.request.Http.Request.body)
-            (ExnHelper.string_of_exn exn);
-        signal_result req (Exception exn)
+  | exn ->
+    if req.enable_log then
+      warn "Exception handling remote request %s: %s" (Opt.default "" req.request.Http.Request.body)
+        (ExnHelper.string_of_exn exn);
+    signal_result req (Exception exn)
 
 let handle_requests () =
   while Mutex.execute request_mutex (fun () -> not !shutting_down) do
@@ -128,18 +128,18 @@ let handle_requests () =
                Condition.wait request_cond request_mutex;
              done;
              let q = !request_queue in
-               request_queue := List.tl q;
-               List.hd q)
+             request_queue := List.tl q;
+             List.hd q)
       in
-        handle_request req
+      handle_request req
     with
-      | exn ->
-          error "Exception in handle_requests thread!  %s"
-            (ExnHelper.string_of_exn exn);
-          Thread.delay 30.
+    | exn ->
+      error "Exception in handle_requests thread!  %s"
+        (ExnHelper.string_of_exn exn);
+      Thread.delay 30.
   done
 
-let start_watcher __context timeout delay req = 
+let start_watcher __context timeout delay req =
   ignore (Thread.create watcher_thread (__context, timeout, delay, req))
 
 let queue_request req =
@@ -154,28 +154,28 @@ let perform_request ~__context ~timeout ~verify_cert ~host ~port
   let resp = ref NoResponse in
   let resp_mutex = Mutex.create() in
   let resp_cond = Condition.create() in
-    Mutex.execute resp_mutex
-      (fun () ->
-         let delay = Delay.make () in
-         let req =
-           make_queued_request
-             task verify_cert host port request handler
-             resp resp_mutex resp_cond enable_log
-         in
-         start_watcher __context timeout delay req;
-         queue_request req;
+  Mutex.execute resp_mutex
+    (fun () ->
+       let delay = Delay.make () in
+       let req =
+         make_queued_request
+           task verify_cert host port request handler
+           resp resp_mutex resp_cond enable_log
+       in
+       start_watcher __context timeout delay req;
+       queue_request req;
 
-         Condition.wait resp_cond resp_mutex;
-         Delay.signal delay;
+       Condition.wait resp_cond resp_mutex;
+       Delay.signal delay;
 
-         match !resp with
-           | Success ->
-               ()
-           | Exception exn ->
-               raise exn
-           | NoResponse ->
-               error "No response in perform_request!";
-               raise Internal_error)
+       match !resp with
+       | Success ->
+         ()
+       | Exception exn ->
+         raise exn
+       | NoResponse ->
+         error "No response in perform_request!";
+         raise Internal_error)
 
 let stop_request_thread () =
   Mutex.execute request_mutex
@@ -187,22 +187,22 @@ let read_response result response s =
   try
     result := Unixext.string_of_fd s
   with
-    | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
-        raise Xmlrpc_client.Connection_reset
+  | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
+    raise Xmlrpc_client.Connection_reset
 
 let send_test_post ~__context ~host ~port ~body =
   try
     let result = ref "" in
-	let request = Xapi_http.http_request ~keep_alive:false ~body
-		~headers:["Host", host] Http.Post "/" in
-      perform_request ~__context ~timeout:30.0 ~verify_cert:true
-        ~host ~port:(Int64.to_int port) ~request
-        ~handler:(read_response result) ~enable_log:true;
-      !result
+    let request = Xapi_http.http_request ~keep_alive:false ~body
+        ~headers:["Host", host] Http.Post "/" in
+    perform_request ~__context ~timeout:30.0 ~verify_cert:true
+      ~host ~port:(Int64.to_int port) ~request
+      ~handler:(read_response result) ~enable_log:true;
+    !result
   with
-    | Timed_out ->
-         raise (Api_errors.Server_error
-                  (Api_errors.wlb_timeout, ["30.0"]))
-    | Stunnel.Stunnel_verify_error reason ->
-        raise (Api_errors.Server_error
-                 (Api_errors.ssl_verify_error, [reason]))
+  | Timed_out ->
+    raise (Api_errors.Server_error
+             (Api_errors.wlb_timeout, ["30.0"]))
+  | Stunnel.Stunnel_verify_error reason ->
+    raise (Api_errors.Server_error
+             (Api_errors.ssl_verify_error, [reason]))

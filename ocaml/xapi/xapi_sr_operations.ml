@@ -13,8 +13,8 @@
  *)
 (** Module that defines API functions for SR objects
  * @group XenAPI functions
- *)
- 
+*)
+
 open Printf
 open Stdext
 open Threadext
@@ -35,11 +35,11 @@ open D
 
 open Record_util
 
-let all_ops : API.storage_operations_set = 
+let all_ops : API.storage_operations_set =
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
     `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
-let sm_cap_table = 
+let sm_cap_table =
   [ `vdi_create, Smint.Vdi_create;
     `vdi_destroy, Smint.Vdi_delete;
     `vdi_resize, Smint.Vdi_resize;
@@ -52,25 +52,25 @@ let sm_cap_table =
 type table = (API.storage_operations, ((string * (string list)) option)) Hashtbl.t
 
 let features_of_sr_internal ~__context ~_type =
-	let open Db_filter_types in
-	match Db.SM.get_internal_records_where ~__context ~expr:(Eq (Field "type", Literal _type)) with
-	| [] ->
-		[]
-	| (_, sm) :: _ ->
-		Listext.List.filter_map
-			(fun (name, v) ->
-				try
-					Some (List.assoc name Smint.string_to_capability_table, v)
-				with Not_found ->
-					None
-			) sm.Db_actions.sM_features
+  let open Db_filter_types in
+  match Db.SM.get_internal_records_where ~__context ~expr:(Eq (Field "type", Literal _type)) with
+  | [] ->
+    []
+  | (_, sm) :: _ ->
+    Listext.List.filter_map
+      (fun (name, v) ->
+         try
+           Some (List.assoc name Smint.string_to_capability_table, v)
+         with Not_found ->
+           None
+      ) sm.Db_actions.sM_features
 
 let features_of_sr ~__context record =
-	features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
+  features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
 
 (** Returns a table of operations -> API error options (None if the operation would be ok)
  * If op is specified, the table may omit reporting errors for ops other than that one. *)
-let valid_operations ~__context ?op record _ref' : table = 
+let valid_operations ~__context ?op record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.sR_current_operations in
 
@@ -78,8 +78,8 @@ let valid_operations ~__context ?op record _ref' : table =
   List.iter (fun x -> Hashtbl.replace table x None) all_ops;
   let set_errors (code: string) (params: string list) (ops: API.storage_operations_set) =
     List.iter (fun op ->
-		 if Hashtbl.find table op = None
-		 then Hashtbl.replace table op (Some(code, params))) ops in
+        if Hashtbl.find table op = None
+        then Hashtbl.replace table op (Some(code, params))) ops in
 
   (* Policy:
      Anyone may attach and detach VDIs in parallel but we serialise
@@ -95,13 +95,13 @@ let valid_operations ~__context ?op record _ref' : table =
     let sm_features =
       if record.Db_actions.sR_is_tools_sr
       then List.filter
-                  (fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
-                  sm_features
+          (fun f -> not Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
+          sm_features
       else sm_features in
 
-    let forbidden_by_backend = 
+    let forbidden_by_backend =
       List.filter (fun op -> List.mem_assoc op sm_cap_table
-                                 && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
+                             && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
         all_ops in
     set_errors Api_errors.sr_operation_not_supported [ _ref ] forbidden_by_backend
   in
@@ -136,31 +136,31 @@ let valid_operations ~__context ?op record _ref' : table =
   let check_parallel_ops ~__context record =
     let safe_to_parallelise = [ ] in
     let current_ops = List.setify (List.map snd current_ops) in
-    
+
     (* If there are any current operations, all the non_parallelisable operations
        must definitely be stopped *)
     if current_ops <> []
     then set_errors Api_errors.other_operation_in_progress
-      [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-      (List.set_difference all_ops safe_to_parallelise);
+        [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
+        (List.set_difference all_ops safe_to_parallelise);
 
-    let all_are_parallelisable = List.fold_left (&&) true 
-      (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
-    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise 
+    let all_are_parallelisable = List.fold_left (&&) true
+        (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
+    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise
        parallelisable operations too *)
     if not(all_are_parallelisable)
     then set_errors  Api_errors.other_operation_in_progress
-      [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
-      safe_to_parallelise
+        [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
+        safe_to_parallelise
   in
 
   let check_cluster_stack_compatible ~__context record =
     (* Check whether there are any conflicts with HA that prevent us from
      * plugging a PBD for this SR *)
     (try
-      Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
-    with Api_errors.Server_error (e, args) ->
-      set_errors e args [`plug])
+       Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
+     with Api_errors.Server_error (e, args) ->
+       set_errors e args [`plug])
   in
 
   (* List of (operations * function which checks for errors relevant to those operations) *)
@@ -179,10 +179,10 @@ let valid_operations ~__context ?op record _ref' : table =
     | Some op -> List.filter (fun (ops, _) -> List.mem op ops) relevant_functions
   in
   List.iter (fun (_, f) -> f ~__context record) relevant_functions;
-  
+
   table
 
-let throw_error (table: table) op = 
+let throw_error (table: table) op =
   if not(Hashtbl.mem table op)
   then raise (Api_errors.Server_error(Api_errors.internal_error, [ Printf.sprintf "xapi_sr.assert_operation_valid unknown operation: %s" (sr_operation_to_string op) ]));
 
@@ -190,11 +190,11 @@ let throw_error (table: table) op =
   | Some (code, params) -> raise (Api_errors.Server_error(code, params))
   | None -> ()
 
-let assert_operation_valid ~__context ~self ~(op:API.storage_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.storage_operations) =
   let all = Db.SR.get_record_internal ~__context ~self in
   let table = valid_operations ~__context ~op all self in
   throw_error table op
-    
+
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.SR.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
@@ -202,7 +202,7 @@ let update_allowed_operations ~__context ~self : unit =
   Db.SR.set_allowed_operations ~__context ~self ~value:keys
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id = 
+let cancel_task ~__context ~self ~task_id =
   let all = List.map fst (Db.SR.get_current_operations ~__context ~self) in
   if List.mem task_id all then
     begin
@@ -218,35 +218,35 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let sr_health_check ~__context ~self =
-	if Helpers.i_am_srmaster ~__context ~sr:self then
-		let dbg = Ref.string_of (Context.get_task_id __context) in
-		let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-		if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				let task = Client.Task.create ~rpc ~session_id
-					~label:Xapi_globs.sr_health_check_task_label ~description:(Ref.string_of self) in
-				Xapi_host_helpers.update_allowed_operations_all_hosts ~__context;
-				let _ = Thread.create (fun () ->
-					let rec loop () =
-						Thread.delay 30.;
-						let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
-						if not (Db.Task.get_status ~__context ~self:task = `cancelling) &&
-							info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering
-						then
-							loop ()
-						else begin
-							Db.Task.destroy ~__context ~self:task;
-							Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
-						end
-					in
-					loop ()
-				)
-				in ()
-			)
-		end
+  if Helpers.i_am_srmaster ~__context ~sr:self then
+    let dbg = Ref.string_of (Context.get_task_id __context) in
+    let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+    if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          let task = Client.Task.create ~rpc ~session_id
+              ~label:Xapi_globs.sr_health_check_task_label ~description:(Ref.string_of self) in
+          Xapi_host_helpers.update_allowed_operations_all_hosts ~__context;
+          let _ = Thread.create (fun () ->
+              let rec loop () =
+                Thread.delay 30.;
+                let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+                if not (Db.Task.get_status ~__context ~self:task = `cancelling) &&
+                   info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering
+                then
+                  loop ()
+                else begin
+                  Db.Task.destroy ~__context ~self:task;
+                  Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
+                end
+              in
+              loop ()
+            )
+          in ()
+        )
+    end
 
 let stop_health_check_thread ~__context ~self =
-	if Helpers.i_am_srmaster ~__context ~sr:self then
-		let tasks = Helpers.find_health_check_task ~__context ~sr:self in
-		List.iter (fun task -> Db.Task.set_status ~__context ~self:task ~value:`cancelling) tasks
+  if Helpers.i_am_srmaster ~__context ~sr:self then
+    let tasks = Helpers.find_health_check_task ~__context ~sr:self in
+    List.iter (fun task -> Db.Task.set_status ~__context ~self:task ~value:`cancelling) tasks
 

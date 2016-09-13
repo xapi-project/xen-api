@@ -13,7 +13,7 @@
  *)
 (**
  * @group Storage
- *)
+*)
 
 open Stdext
 
@@ -27,24 +27,24 @@ type vdi = {
 }
 
 (** Returns a list of vdi records, one for each VDI statically configured on this host *)
-let list () = 
+let list () =
   (* Read the filesystem structure directly *)
   let main_dir = !Xapi_globs.static_vdis_dir in
   let all = try Array.to_list (Sys.readdir main_dir) with Sys_error _ -> [] in
   List.map (fun x ->
-	      let path = Filename.concat main_dir x in
-	      let uuid = Unixext.string_of_file (Filename.concat path "vdi-uuid") in
-	      let reason = Unixext.string_of_file (Filename.concat path "reason") in
-	      (* let bool_of_string x = String.lowercase x = "true" in *)
-	      let delete_next_boot = 
-		try ignore(Unix.stat (Filename.concat path "delete-next-boot")); true 
-		with _ -> false in
-	      let currently_attached = 
-		try ignore(Unix.stat (Filename.concat path "disk")); true 
-		with _ -> false in
-	      let path = 
-		try Some (Unix.readlink (Filename.concat path "disk"))
-		with _ -> None in
-	      { uuid = uuid; reason = reason; delete_next_boot = delete_next_boot;
-		currently_attached = currently_attached; path = path }) all
+      let path = Filename.concat main_dir x in
+      let uuid = Unixext.string_of_file (Filename.concat path "vdi-uuid") in
+      let reason = Unixext.string_of_file (Filename.concat path "reason") in
+      (* let bool_of_string x = String.lowercase x = "true" in *)
+      let delete_next_boot =
+        try ignore(Unix.stat (Filename.concat path "delete-next-boot")); true
+        with _ -> false in
+      let currently_attached =
+        try ignore(Unix.stat (Filename.concat path "disk")); true
+        with _ -> false in
+      let path =
+        try Some (Unix.readlink (Filename.concat path "disk"))
+        with _ -> None in
+      { uuid = uuid; reason = reason; delete_next_boot = delete_next_boot;
+        currently_attached = currently_attached; path = path }) all
 

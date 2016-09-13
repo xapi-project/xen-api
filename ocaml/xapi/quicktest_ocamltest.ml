@@ -18,50 +18,50 @@ open Printf
 open Quicktest_common
 
 type test_result = passed * failed
-	and passed = int
-	and failed = int
+and passed = int
+and failed = int
 
 let add_result (passed, failed) (passed', failed') =
-	(passed + passed', failed + failed')
+  (passed + passed', failed + failed')
 
 let run_from_within_quicktest (test : test) =
 
-	let rec run (test : test) (level : int) =
-		match test with
-			| Case (name, description, fn) ->
-				run_case (name, description, fn) level
-			| Suite (name, description, tests) ->
-				run_suite (name, description, tests) level
+  let rec run (test : test) (level : int) =
+    match test with
+    | Case (name, description, fn) ->
+      run_case (name, description, fn) level
+    | Suite (name, description, tests) ->
+      run_suite (name, description, tests) level
 
-	and run_case (name, description, fn) level =
-		let test = make_test (sprintf "Testing '%s'" name) level in
-		start test;
-		try
-			fn ();
-			success test;
-			(1, 0)
-		with failure ->
-			debug test (Backtrace.(to_string_hum (get failure)));
-			failed test (sprintf "Failed with %s" (Printexc.to_string failure));
-			(0, 1)
+  and run_case (name, description, fn) level =
+    let test = make_test (sprintf "Testing '%s'" name) level in
+    start test;
+    try
+      fn ();
+      success test;
+      (1, 0)
+    with failure ->
+      debug test (Backtrace.(to_string_hum (get failure)));
+      failed test (sprintf "Failed with %s" (Printexc.to_string failure));
+      (0, 1)
 
-	and run_suite (name, description, tests) level =
-		let test = make_test (sprintf "Testing '%s'" name) level in
-		start test;
-		print_endline "";
-		let result = List.fold_left (
-			fun accumulating_result test ->
-				add_result accumulating_result (run test (level + 4))
-		) (0, 0) tests in
-		debug test (sprintf "Finished testing '%s'" name);
-		begin match result with
-			| (_, 0) ->
-				success test
-			| (_, failure_count) ->
-				let failure_description = sprintf "Detected %i failure%s"
-					failure_count (if failure_count = 1 then "" else "s") in
-				failed test failure_description
-		end;
-		result
+  and run_suite (name, description, tests) level =
+    let test = make_test (sprintf "Testing '%s'" name) level in
+    start test;
+    print_endline "";
+    let result = List.fold_left (
+        fun accumulating_result test ->
+          add_result accumulating_result (run test (level + 4))
+      ) (0, 0) tests in
+    debug test (sprintf "Finished testing '%s'" name);
+    begin match result with
+      | (_, 0) ->
+        success test
+      | (_, failure_count) ->
+        let failure_description = sprintf "Detected %i failure%s"
+            failure_count (if failure_count = 1 then "" else "s") in
+        failed test failure_description
+    end;
+    result
 
-	in let (_: int*int) = run test 0 in ()
+  in let (_: int*int) = run test 0 in ()

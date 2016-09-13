@@ -17,8 +17,8 @@ open D
 (* High-level functions called when rolling upgrade 'starts' and 'stops' where
    start and stop are defined by the logic in db_gc.ml. *)
 
-let start () = 
+let start () =
   ()
 
-let stop () = 
+let stop () =
   ()

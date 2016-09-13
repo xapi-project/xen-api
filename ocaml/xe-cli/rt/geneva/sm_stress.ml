@@ -29,12 +29,12 @@ let size_inc   = ref 0
 (* Read cmd-line args *)
 let _ =
   Arg.parse [
-(*	      "-host", Arg.Set_string host, "hostname of test XE host"; *)
-	      "-xe", Arg.Set_string xe, "path to XE CLI executable";
-	      "-base_size1", Arg.Set_int base_size1, "base-size1 for disk create";
-	      "-base_size2", Arg.Set_int base_size2, "base-size2 for disk create";
-	      "-size_inc", Arg.Set_int size_inc, "size-increment for disk resizing"
-	    ]
+    (*	      "-host", Arg.Set_string host, "hostname of test XE host"; *)
+    "-xe", Arg.Set_string xe, "path to XE CLI executable";
+    "-base_size1", Arg.Set_int base_size1, "base-size1 for disk create";
+    "-base_size2", Arg.Set_int base_size2, "base-size2 for disk create";
+    "-size_inc", Arg.Set_int size_inc, "size-increment for disk resizing"
+  ]
     (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
     "Regression test for XE CLI"
 
@@ -66,11 +66,11 @@ let _ = uninstall_all_vms cli
 
 (* Install HVM guests *)
 let hvm_guests = [
-		  ("Windows XP Service Pack 2","sr_stress_hvm1");
-		  ("Windows XP Service Pack 2","sr_stress_hvm2");
-		  ("Windows XP Service Pack 2","sr_stress_hvm3");
-		  ("Windows XP Service Pack 2","sr_stress_hvm4")
-		 ]
+  ("Windows XP Service Pack 2","sr_stress_hvm1");
+  ("Windows XP Service Pack 2","sr_stress_hvm2");
+  ("Windows XP Service Pack 2","sr_stress_hvm3");
+  ("Windows XP Service Pack 2","sr_stress_hvm4")
+]
 
 let uuids = List.map (install_guest cli) hvm_guests
 
@@ -99,27 +99,27 @@ let _ = List.iter Thread.join threads
 
 (* Install some PV guests *)
 let pv_guests = [("Debian Sarge 3.1","reg_pv1");
-		 ("Debian Sarge 3.1","reg_pv2");
-		 ("Debian Sarge 3.1","reg_pv3");
-		 ("Debian Sarge 3.1","reg_v4")]
+                 ("Debian Sarge 3.1","reg_pv2");
+                 ("Debian Sarge 3.1","reg_pv3");
+                 ("Debian Sarge 3.1","reg_v4")]
 
 let pv_uuids = List.map (install_guest cli) pv_guests
 
 (* Start them all up sequentially *)
 let sync_startup vmid =
-    let param = [("vm-id",vmid)] in
-      ignore (expect_success (fun ()->cli "vm-start" param));
-      waitstate cli vmid "UP"
+  let param = [("vm-id",vmid)] in
+  ignore (expect_success (fun ()->cli "vm-start" param));
+  waitstate cli vmid "UP"
 let _ = List.iter sync_startup pv_uuids
 
 (* And suspend them all concurrently *)
 let suspend vmid =
   let param = [("vm-id",vmid)] in
-    ignore (expect_success (fun ()->cli "vm-suspend" param))
+  ignore (expect_success (fun ()->cli "vm-suspend" param))
 let _ = List.iter suspend pv_uuids
 
 
-(*    
+(*
 (* And then uninstall everything again *)
       let _ = uninstall_all_vms cli
 *)

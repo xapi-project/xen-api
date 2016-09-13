@@ -35,19 +35,19 @@ class server n np =
     method crash s =
       ignore(GuestOp.crash ());
       self#send s (CmdResult "You might not get this...")
-	
+
     method test s =
       self#send s (CmdResult "Test worked OK!")
 
     method checkcds s devices =
       self#send s (GuestOp.checkcds devices true)
-	
+
     method checkcdsfail s devices =
       self#send s (GuestOp.checkcds devices false)
 
     method checkvif s device =
-      self#send s (GuestOp.checkvifs device)  
-	
+      self#send s (GuestOp.checkvifs device)
+
     method checkdisks s devices =
       self#send s (GuestOp.checkdisks devices)
 
@@ -57,26 +57,26 @@ class server n np =
     method setuptestdisk s device =
       self#send s (GuestOp.setuptestdisk device)
 
-    method process s = 
+    method process s =
       try
-	begin
-	  match self#receive s with
-              Shutdown timeout -> self#shutdown s timeout
-	    | Reboot timeout -> self#reboot s timeout
-	    | Test -> self#test s 
-	    | Crash -> self#crash s
-	    | CheckCD devs -> self#checkcds s devs
-	    | CheckVIF dev -> self#checkvif s dev
-	    | CheckDisks devs -> self#checkdisks s devs
-	    | CheckMountDisks devs -> self#checkmountdisks s devs
-	    | SetupTestDisk dev -> self#setuptestdisk s dev
-	    | CheckCDFail devs -> self#checkcdsfail s devs
-	    | _ -> ()
-	end;
-	Unix.close s
+        begin
+          match self#receive s with
+            Shutdown timeout -> self#shutdown s timeout
+          | Reboot timeout -> self#reboot s timeout
+          | Test -> self#test s
+          | Crash -> self#crash s
+          | CheckCD devs -> self#checkcds s devs
+          | CheckVIF dev -> self#checkvif s dev
+          | CheckDisks devs -> self#checkdisks s devs
+          | CheckMountDisks devs -> self#checkmountdisks s devs
+          | SetupTestDisk dev -> self#setuptestdisk s dev
+          | CheckCDFail devs -> self#checkcdsfail s devs
+          | _ -> ()
+        end;
+        Unix.close s
       with
-	  e -> GuestOp.logerr (Printexc.to_string e)
-	
+        e -> GuestOp.logerr (Printexc.to_string e)
+
   end
 
 let _ =

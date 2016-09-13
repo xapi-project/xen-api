@@ -56,18 +56,18 @@ let _ =
   Unix.chdir "/";
   ignore (Unix.umask 0);
 
-  Stdext.Unixext.close_all_fds_except [ sock ];  
+  Stdext.Unixext.close_all_fds_except [ sock ];
 
   let s, _ = Unix.accept sock in
 
-  let rpc xml = 
-	  let open Xmlrpc_client in
-	  let http = xmlrpc ~version:"1.0" "/" in
-	  match !server with
-		  | "" -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi")) ~http xml
-		  | host -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
+  let rpc xml =
+    let open Xmlrpc_client in
+    let http = xmlrpc ~version:"1.0" "/" in
+    match !server with
+    | "" -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi")) ~http xml
+    | host -> XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
 
-  let find_vm rpc session_id vm = 
+  let find_vm rpc session_id vm =
     try
       Client.VM.get_by_uuid rpc session_id vm
     with _ ->
@@ -80,17 +80,17 @@ let _ =
        let resident_on = Client.VM.get_resident_on rpc session_id vm in
        let address = Client.Host.get_address rpc session_id resident_on in
 
-	   let open Xmlrpc_client in
-	   let http = connect
-		   ~session_id:(Ref.string_of session_id)
-		   (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm)) in
-	   let transport = SSL(SSL.make ~use_fork_exec_helper:false (), address, 443) in
-	   with_transport transport
-		   (with_http http
-			   (fun (response, fd) ->
-				   (* NB this will double-close [fd] *)
-				   Stdext.Unixext.proxy s fd
-			   )
-		   )
+       let open Xmlrpc_client in
+       let http = connect
+           ~session_id:(Ref.string_of session_id)
+           (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm)) in
+       let transport = SSL(SSL.make ~use_fork_exec_helper:false (), address, 443) in
+       with_transport transport
+         (with_http http
+            (fun (response, fd) ->
+               (* NB this will double-close [fd] *)
+               Stdext.Unixext.proxy s fd
+            )
+         )
     ) (fun () -> Client.Session.logout rpc session_id)
 

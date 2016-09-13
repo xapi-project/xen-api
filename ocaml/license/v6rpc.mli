@@ -16,31 +16,31 @@
 
 (** The RPC interface of the licensing daemon *)
 module type V6api =
-	sig
-		(*  dbg_str -> edition -> additional_params -> enabled_features, additional_params *)
-		val apply_edition : string -> string -> (string * string) list ->
-			string * Features.feature list * (string * string) list
-		(* dbg_str -> list of editions *)
-		val get_editions : string -> (string * string * string * int) list
-		(* dbg_str -> result *)
-		val get_version : string -> string
-		(* () -> version *)
-		val reopen_logs : unit -> bool
-	end  
+sig
+  (*  dbg_str -> edition -> additional_params -> enabled_features, additional_params *)
+  val apply_edition : string -> string -> (string * string) list ->
+    string * Features.feature list * (string * string) list
+  (* dbg_str -> list of editions *)
+  val get_editions : string -> (string * string * string * int) list
+  (* dbg_str -> result *)
+  val get_version : string -> string
+  (* () -> version *)
+  val reopen_logs : unit -> bool
+end
 
 (** RPC handler module *)
 module V6process : functor (V : V6api) ->
-	sig
-		(** Process an RPC call *)
-		val process : Rpc.call -> Rpc.response
-	end
+sig
+  (** Process an RPC call *)
+  val process : Rpc.call -> Rpc.response
+end
 
 (** {2 Marshaling functions} *)
 
 (** Definition of [apply_edition] RPC *)
 type apply_edition_in = {
-	edition_in: string; (** The requested edition *)
-	additional_in: (string * string) list; (** Additional parameters *)
+  edition_in: string; (** The requested edition *)
+  additional_in: (string * string) list; (** Additional parameters *)
 }
 
 (** Convert RPC into {!apply_edition_in} structure *)
@@ -51,9 +51,9 @@ val rpc_of_apply_edition_in : apply_edition_in -> Rpc.t
 
 (** Return type of the [apply_edition] RPC *)
 type apply_edition_out = {
-	edition_out: string; (** The edition that was applied *)
-	features_out: Features.feature list; (** The features that are now enabled *)
-	additional_out: (string * string) list; (** Additional parameters *)
+  edition_out: string; (** The edition that was applied *)
+  features_out: Features.feature list; (** The features that are now enabled *)
+  additional_out: (string * string) list; (** Additional parameters *)
 }
 
 (** Convert RPC into {!apply_edition_out} structure *)
@@ -67,12 +67,12 @@ val rpc_of_apply_edition_out : apply_edition_out -> Rpc.t
     - Long name of the edition;
     - Abbreviation of the edition name;
     - Edition order number.
- *)
+*)
 type names = string * string * string * int
 
 (** Return type of the [get_editions] RPC *)
 type get_editions_out = {
-	editions: names list; (** List of all available editions *)
+  editions: names list; (** List of all available editions *)
 }
 
 (** Convert RPC into {!get_editions_out} structure *)

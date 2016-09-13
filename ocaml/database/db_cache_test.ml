@@ -17,7 +17,7 @@ open Stdext.Fun
 
 let create_test_db () =
   let schema = Test_schemas.many_to_many in
-  let db = 
+  let db =
     ((fun x -> x)
      ++ (Db_backend.blow_away_non_persistent_fields schema)
      ++ (Db_upgrade.generic_database_upgrade))
@@ -25,12 +25,12 @@ let create_test_db () =
 
   db
 
-let check_many_to_many () = 
+let check_many_to_many () =
   let db = create_test_db () in
   (* make a foo with bars = [] *)
   (* make a bar with foos = [] *)
   (* add 'bar' to foo.bars *)
-  let db = 
+  let db =
     ((fun x -> x)
      ++ (set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set [])))
      ++ (add_row "foo" "foo:1" (Row.add 0L Db_names.ref (Schema.Value.String "foo:1") (Row.add 0L "bars" (Schema.Value.Set []) Row.empty)))
@@ -59,7 +59,7 @@ let check_many_to_many () =
   (* delete 'bar' *)
   let db = remove_row "bar" "bar:1" db in
   (* check that 'foo.bars' is empty *)
-  let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in		
+  let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in
   let foo_bars = Row.find "bars" foo_1 in
   if foo_bars <> (Schema.Value.Set [])
   then failwith (Printf.sprintf "check_many_to_many: foo(foo:1).foos expected () got %s" (Sexplib.Sexp.to_string (Schema.Value.sexp_of_t foo_bars)));

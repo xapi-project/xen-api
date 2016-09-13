@@ -20,10 +20,10 @@ val __test_set_master_database : Db_cache_types.Database.t -> unit
 val make : unit -> Db_ref.t
 
 val blow_away_non_persistent_fields :
-	Schema.t -> Db_cache_types.Database.t -> Db_cache_types.Database.t
+  Schema.t -> Db_cache_types.Database.t -> Db_cache_types.Database.t
 
 val create_registered_session :
-	(unit -> API.ref_session) -> Db_ref.t -> API.ref_session
+  (unit -> API.ref_session) -> Db_ref.t -> API.ref_session
 
 val unregister_session : API.ref_session -> unit
 

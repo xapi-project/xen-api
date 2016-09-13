@@ -13,7 +13,7 @@
  *)
 (** Controlling the management interface.
  *  @group Networking
- *)
+*)
 
 (** Local IP address of the HIMN (if any) *)
 val himn_addr : string option ref

@@ -24,8 +24,8 @@ val has_pv_drivers: t -> bool
 
 val make_error_opt: t -> API.ref_VM -> (string * string list) option
 (** [make_error_opt x] returns None if has_pv_drivers,
-	and Some(code,params) otherwise. *)
+    	and Some(code,params) otherwise. *)
 
 val is_windows_and_orlando_or_newer: Db_actions.vM_guest_metrics_t -> bool
 (** True if the pv driver version info is a Windows version and has a build
-	number (build number was new in Orlando). *)
+    	number (build number was new in Orlando). *)

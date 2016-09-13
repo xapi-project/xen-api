@@ -13,5 +13,5 @@
  *)
 
 module Tests : functor (Client: Db_interface.DB_ACCESS) -> sig
-	val main: bool -> unit
+  val main: bool -> unit
 end

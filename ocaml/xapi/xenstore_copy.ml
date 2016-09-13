@@ -16,10 +16,10 @@
 open Xenstore_dump
 open Xenstore
 
-let _ = 
+let _ =
 
   let src = ref "" and dest = ref "" in
-  Arg.parse 
+  Arg.parse
     [ "-src", Arg.Set_string src, "source path";
       "-dest", Arg.Set_string dest, "destination path" ]
     (fun x -> Printf.fprintf stderr "Ignoring unknown parameter: %s\n" x)

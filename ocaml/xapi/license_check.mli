@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * Verifying whether the current license is still valid
  * @group Licensing
- *)
+*)
 
 (** The expiry date that is considered to be "never". *)
 val never : float

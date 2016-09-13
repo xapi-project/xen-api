@@ -19,27 +19,27 @@ let get_dbs_and_gen_counts() =
   List.map (fun conn->(Parse_db_conf.generation_read conn, conn)) (Db_conn_store.read_db_connections())
 
 (** Returns true if the supplied connection actually exists, false otherwise.
-	Note that, although the two files should be present (or absent) together,
-	after upgrade we only have a database. In this case the generation
-	defaults back to 0L *)
-let exists connection = 
-	Sys.file_exists connection.Parse_db_conf.path
-    
+    	Note that, although the two files should be present (or absent) together,
+    	after upgrade we only have a database. In this case the generation
+    	defaults back to 0L *)
+let exists connection =
+  Sys.file_exists connection.Parse_db_conf.path
+
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
 let choose connections = match List.filter exists connections with
-| [] -> None
-| (c :: cs) as connections ->
-	List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Parse_db_conf.generation_read c)) connections;
-	let gen, most_recent = List.fold_left (fun (g, c) c' -> 
-		let g' = Parse_db_conf.generation_read c' in 
-		if g' > g then (g', c') else (g, c)) 
-		(Parse_db_conf.generation_read c, c) cs in
-	debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
-	Some most_recent
+  | [] -> None
+  | (c :: cs) as connections ->
+    List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Parse_db_conf.generation_read c)) connections;
+    let gen, most_recent = List.fold_left (fun (g, c) c' ->
+        let g' = Parse_db_conf.generation_read c' in
+        if g' > g then (g', c') else (g, c))
+        (Parse_db_conf.generation_read c, c) cs in
+    debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
+    Some most_recent
 
 let preferred_write_db () =
-  List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)  
+  List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)
 
 (* This is set by signal handlers. It instructs the db thread to call exit after the next flush *)
 let exit_on_next_flush = ref false
@@ -72,39 +72,39 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        (* if we're being told to shutdown by signal handler then flush every connection
-	  - the rationale is that we're not sure which db connections will be available on next restart *)
+          	  - the rationale is that we're not sure which db connections will be available on next restart *)
        if !exit_on_next_flush then
-	 begin
-	   let (_: bool) = Backend_xml.flush_dirty dbconn in
-	   let refcount = dec_and_read_db_flush_thread_refcount() in
-	   (* last flushing thread close the door on the way out.. *)
-	   if refcount = 0 then
-	     begin
-	       debug "refcount is 0; exiting";
-	       pre_exit_hook();
-	       exit 0
-	     end
-	   else
-	     debug "refcount is %d; not exiting" refcount
-	 end;
-       
+         begin
+           let (_: bool) = Backend_xml.flush_dirty dbconn in
+           let refcount = dec_and_read_db_flush_thread_refcount() in
+           (* last flushing thread close the door on the way out.. *)
+           if refcount = 0 then
+             begin
+               debug "refcount is 0; exiting";
+               pre_exit_hook();
+               exit 0
+             end
+           else
+             debug "refcount is %d; not exiting" refcount
+         end;
+
        let was_anything_flushed = Backend_xml.flush_dirty dbconn in
-       
+
        (* exit if we've been told to by caller *)
        begin
-	 match exit_spec with
-	   None -> ()
-	 | (Some ret_code) -> pre_exit_hook(); exit ret_code
+         match exit_spec with
+           None -> ()
+         | (Some ret_code) -> pre_exit_hook(); exit ret_code
        end;
-	   was_anything_flushed
+       was_anything_flushed
     )
 
 let flush dbconn db =
-	debug "About to flush database: %s" dbconn.Parse_db_conf.path;
-	Db_conn_store.with_db_conn_lock dbconn
-		(fun () ->
-			Backend_xml.flush dbconn db
-		)
+  debug "About to flush database: %s" dbconn.Parse_db_conf.path;
+  Db_conn_store.with_db_conn_lock dbconn
+    (fun () ->
+       Backend_xml.flush dbconn db
+    )
 
 
 

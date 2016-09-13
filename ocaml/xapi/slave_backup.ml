@@ -13,7 +13,7 @@
  *)
 (**
  * @group Pool Management
- *)
+*)
 
 (** Immediately fetch a database backup from the master. If a flush_spec is given, with a list of db connections,
     then the backup is flushed to those connections; if no flush spec is given then the backup is flushed to all
@@ -42,25 +42,25 @@ let tick_backup_write_table() =
   with_backup_lock
     (fun () ->
        Hashtbl.iter
-	 (fun dbconn write_entry ->
-	    match dbconn.Parse_db_conf.mode with
-	      Parse_db_conf.Write_limit ->
-		if (int_of_float (Unix.gettimeofday() -. write_entry.period_start_time)) > dbconn.Parse_db_conf.write_limit_period then
-		  Hashtbl.replace backup_write_table dbconn {period_start_time=Unix.gettimeofday(); writes_this_period=0}
-	    | _ -> ()
-	 )
-	 backup_write_table)
+         (fun dbconn write_entry ->
+            match dbconn.Parse_db_conf.mode with
+              Parse_db_conf.Write_limit ->
+              if (int_of_float (Unix.gettimeofday() -. write_entry.period_start_time)) > dbconn.Parse_db_conf.write_limit_period then
+                Hashtbl.replace backup_write_table dbconn {period_start_time=Unix.gettimeofday(); writes_this_period=0}
+            | _ -> ()
+         )
+         backup_write_table)
 
 (* Can we write to specified connection *)
 let can_we_write dbconn =
   with_backup_lock
     (fun () ->
        match dbconn.Parse_db_conf.mode with
-	 Parse_db_conf.No_limit -> true
+         Parse_db_conf.No_limit -> true
        | Parse_db_conf.Write_limit ->
-	   let write_entry = lookup_write_entry dbconn in
-	   (* we can write if we haven't used up all our write-cycles for this period: *)
-	   (write_entry.writes_this_period < dbconn.Parse_db_conf.write_limit_write_cycles)
+         let write_entry = lookup_write_entry dbconn in
+         (* we can write if we haven't used up all our write-cycles for this period: *)
+         (write_entry.writes_this_period < dbconn.Parse_db_conf.write_limit_write_cycles)
     )
 
 (* Update writes_this_period for dbconn *)

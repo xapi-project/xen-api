@@ -14,27 +14,27 @@
 (* Imperative priority queue *)
 
 type 'a event = { ev: 'a;
-		  time: float }
+                  time: float }
 
 type 'a t = {mutable size : int; mutable data : 'a event array }
-	
+
 exception EmptyHeap
 
 let create n =
   if n<=0 then invalid_arg "create" else
-  { size = -n; data=[| |] }
+    { size = -n; data=[| |] }
 
 let is_empty h =
   h.size <= 0
-    
+
 let resize h =
   let n = h.size in
   assert (n>0);
   let n'=2*n in
   let d = h.data in
   let d' = Array.create n' d.(0) in
-    Array.blit d 0 d' 0 n;
-    h.data <- d'
+  Array.blit d 0 d' 0 n;
+  h.data <- d'
 
 let add h x =
   (* first addition: we allocate the array *)
@@ -56,11 +56,11 @@ let add h x =
   in
   moveup n;
   h.size <- n + 1
-      
+
 let maximum h =
   if h.size <= 0 then raise EmptyHeap;
   h.data.(0)
-    
+
 let remove h s =
   if h.size <= 0 then raise EmptyHeap;
   let n = h.size - 1 in
@@ -71,15 +71,15 @@ let remove h s =
   let rec movedown i =
     let j = 2 * i + 1 in
     if j < n then
-      let j = 
-	let j' = j + 1 in 
-	if j' < n && (d.(j').time < d.(j).time) then j' else j 
+      let j =
+        let j' = j + 1 in
+        if j' < n && (d.(j').time < d.(j).time) then j' else j
       in
-      if (d.(j).time < x.time) then begin 
-	d.(i) <- d.(j); 
-	movedown j 
+      if (d.(j).time < x.time) then begin
+        d.(i) <- d.(j);
+        movedown j
       end else
-	d.(i) <- x
+        d.(i) <- x
     else
       d.(i) <- x
   in
@@ -91,20 +91,20 @@ let find h ev =
     else if ev = h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
-  
+
 let find_p h f =
   let rec iter n =
     if n < 0 then -1
     else if f h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
-  
+
 let pop_maximum h = let m = maximum h in remove h 0; m
-  
-let iter f h = 
+
+let iter f h =
   let d = h.data in
   for i = 0 to h.size - 1 do f d.(i) done
-    
+
 let fold f h x0 =
   let n = h.size in
   let d = h.data in
@@ -122,7 +122,7 @@ let _ =
   done;
   for i=0 to 49 do
     let xx=find test i in
-    remove test xx 
+    remove test xx
   done;
 (*  remove test xx;*)
   for i=0 to 49 do

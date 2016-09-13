@@ -13,7 +13,7 @@
  *)
 (**
  * @group Storage
- *)
+*)
 
 val with_block_attached_devices :    Context.t -> (Rpc.call -> Rpc.response) -> API.ref_session -> API.ref_VDI list -> API.vbd_mode -> (string list -> 'a) -> 'a
 val with_block_attached_device  :    Context.t -> (Rpc.call -> Rpc.response) -> API.ref_session -> API.ref_VDI -> API.vbd_mode -> (string -> 'a) -> 'a

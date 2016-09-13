@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = 
-  | Master  
+type t =
+  | Master
   | Slave of string (** IP address *)
   | Broken
 

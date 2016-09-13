@@ -12,13 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 (** Module that defines API functions for PCI objects
- *)
+*)
 
 (** Types of PCI devices. *)
 type base_class =
-	| Storage_controller
-	| Network_controller
-	| Display_controller
+  | Storage_controller
+  | Network_controller
+  | Display_controller
 
 (* Check if an class ID is of a given base class *)
 val is_class_of_kind : base_class -> int -> bool
