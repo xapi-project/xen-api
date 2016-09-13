@@ -181,15 +181,6 @@ exception Missing_update_key of string
 exception Bad_update_info
 exception Invalid_update_uuid of string
 
-let check_unsigned_update_fist uuid =
-  match Xapi_fist.allowed_unsigned_updates () with
-  | None -> false
-  | Some fist ->
-    debug "Pool update uuid: %s" uuid;
-    let fist_uuids = String.split_f String.isspace fist in
-    debug "FIST allowed_unsigned_updates: %s" fist;
-    List.mem uuid fist_uuids
-
 let guidance_from_string = function
   | "restartHVM"  -> `restartHVM
   | "restartPV"   -> `restartPV
@@ -277,24 +268,20 @@ exception Cannot_expose_yum_repo_on_slave
 let verify update_info update_path =
   let update_xml_path = Filename.concat update_path "update.xml" in
   let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
-  match check_unsigned_update_fist update_info.uuid with
-  | false ->
-    List.iter (fun filename ->
-        let signature = filename ^ ".asc" in
-        Gpg.with_verified_signature filename signature (fun fingerprint fd ->
-            match fingerprint with
-            | Some f ->
-              debug "Fingerprint '%s' verified." f
-            | _ ->
-              begin
-                debug "No fingerprint!";
-                raise Gpg.InvalidSignature
-              end
-          )
-      ) [update_xml_path; repomd_xml_path];
-    debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
-  | true ->
-    debug "Verify signature bypass for pool update uuid: %s" update_info.uuid
+  List.iter (fun filename ->
+      let signature = filename ^ ".asc" in
+      Gpg.with_verified_signature filename signature (fun fingerprint fd ->
+          match fingerprint with
+          | Some f ->
+            debug "Fingerprint '%s' verified." f
+          | _ ->
+            begin
+              debug "No fingerprint!";
+              raise Gpg.InvalidSignature
+            end
+        )
+    ) [update_xml_path; repomd_xml_path];
+  debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
 
 let introduce ~__context ~vdi =
   let update_info = extract_update_info ~__context ~vdi ~verify in
