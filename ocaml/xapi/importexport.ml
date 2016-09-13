@@ -19,7 +19,7 @@
 type obj = { cls: string; id: string; snapshot: XMLRPC.xmlrpc }
 
 (** Version information attached to each export and checked on import *)
-type version = 
+type version =
     { hostname: string;
       date: string;
       product_version: string;
@@ -31,7 +31,7 @@ type version =
     }
 
 (** An exported VM has a header record: *)
-type header = 
+type header =
     { version: version;
       objects: obj list }
 
@@ -40,10 +40,10 @@ exception Version_mismatch of string
 module D=Debug.Make(struct let name="importexport" end)
 open D
 
-let find kvpairs where x = 
-    if not(List.mem_assoc x kvpairs) 
+let find kvpairs where x =
+    if not(List.mem_assoc x kvpairs)
     then raise (Failure (Printf.sprintf "Failed to find key '%s' in %s" x where))
-    else List.assoc x kvpairs 
+    else List.assoc x kvpairs
 
 let string_of_obj x = x.cls ^ "  " ^ x.id
 
@@ -56,7 +56,7 @@ let xmlrpc_of_obj x = XMLRPC.To.structure
     _id,       XMLRPC.To.string x.id;
     _snapshot, x.snapshot ]
 
-let obj_of_xmlrpc x = 
+let obj_of_xmlrpc x =
   let kvpairs = XMLRPC.From.structure x in
   let find = find kvpairs "object data" in
   { cls      = XMLRPC.From.string (find _class);
@@ -64,9 +64,9 @@ let obj_of_xmlrpc x =
     snapshot = find _snapshot }
 
 (** Return a version struct corresponding to this host *)
-let this_version __context = 
+let this_version __context =
   let host = Helpers.get_localhost ~__context in
-  let (_: API.host_t) = Db.Host.get_record ~__context ~self:host in  
+  let (_: API.host_t) = Db.Host.get_record ~__context ~self:host in
   { hostname = Version.hostname;
     date = Version.date;
     product_version = Version.product_version ();
@@ -79,9 +79,9 @@ let this_version __context =
 
 (** Raises an exception if a prospective import cannot be handled by this code.
     This will get complicated over time... *)
-let assert_compatable ~__context other_version = 
+let assert_compatable ~__context other_version =
   let this_version = this_version __context in
-  let error() = 
+  let error() =
     error "Import version is incompatible";
     raise (Api_errors.Server_error(Api_errors.import_incompatible_version, [])) in
   (* error if major versions differ; also error if this host has a
@@ -103,7 +103,7 @@ let xmlrpc_of_version x =
     ]
 
 exception Failure of string
-let version_of_xmlrpc x = 
+let version_of_xmlrpc x =
   let kvpairs = XMLRPC.From.structure x in
   let find = find kvpairs "version data" in
   { hostname        = XMLRPC.From.string (find _hostname);
@@ -119,13 +119,13 @@ let version_of_xmlrpc x =
 let _version = "version"
 let _objects = "objects"
 
-let xmlrpc_of_header x = 
+let xmlrpc_of_header x =
   XMLRPC.To.structure
     [ _version, xmlrpc_of_version x.version;
       _objects,   XMLRPC.To.array (List.map xmlrpc_of_obj x.objects);
     ]
 
-let header_of_xmlrpc x = 
+let header_of_xmlrpc x =
   let kvpairs = XMLRPC.From.structure x in
   let find = find kvpairs "contents data" in
   { version = version_of_xmlrpc (find _version);
@@ -137,7 +137,7 @@ let vm_has_field ~(x: obj) ~name =
   List.mem_assoc name structure
 
 (* This function returns true when the VM record was created pre-ballooning. *)
-let vm_exported_pre_dmc (x: obj) = 
+let vm_exported_pre_dmc (x: obj) =
   (* The VM.parent field was added in rel_midnight_ride, at the same time as ballooning.
      XXX: Replace this with something specific to the ballooning feature if possible. *)
   not (vm_has_field ~x ~name:"parent")
@@ -150,10 +150,10 @@ let content_type = Http.Hdr.content_type ^ ": application/octet-stream"
 let xmlrpc_of_checksum_table table = API.Legacy.To.string_to_string_map table
 let checksum_table_of_xmlrpc xml = API.Legacy.From.string_to_string_map "" xml
 
-let compare_checksums a b = 
+let compare_checksums a b =
   let success = ref true in
   List.iter (fun (filename, csum) ->
-	       if List.mem_assoc filename b 
+	       if List.mem_assoc filename b
 	       then (let expected = List.assoc filename b in
 		     if csum <> expected
 		     then begin
@@ -161,42 +161,42 @@ let compare_checksums a b =
 		       success := false
 		     end
 		     else debug "File %s checksum ok (%s = %s)" filename csum expected;
-		    ) 
-	       else begin 
+		    )
+	       else begin
 		 error "Missing checksum for file %s (expected %s)" filename csum;
 		 success := false;
 	       end) a;
   !success
 
-let get_default_sr rpc session_id = 
+let get_default_sr rpc session_id =
   let pool = List.hd (Client.Pool.get_all rpc session_id) in
   let sr = Client.Pool.get_default_SR rpc session_id pool in
-  try ignore(Client.SR.get_uuid rpc session_id sr); sr 
+  try ignore(Client.SR.get_uuid rpc session_id sr); sr
   with _ -> raise (Api_errors.Server_error(Api_errors.default_sr_not_found, [ Ref.string_of sr ]))
 
-(** Check that the SR is visible on the specified host *) 
+(** Check that the SR is visible on the specified host *)
 let check_sr_availability_host ~__context sr host =
-  try 
+  try
     ignore(Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host);
     true
   with _ -> false
-    
+
 let check_sr_availability ~__context sr =
   let localhost = Helpers.get_localhost ~__context in
   check_sr_availability_host ~__context sr localhost
-    
+
 let find_host_for_sr ~__context ?(prefer_slaves=false) sr =
-  let choose_fn ~host = 
+  let choose_fn ~host =
 	  Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
   Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
 
 let check_vm_host_SRs ~__context vm host =
-  try 
+  try
     Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
     Xapi_vm_helpers.assert_host_is_live ~__context ~host;
     true
-  with 
-      _ -> false 
+  with
+      _ -> false
 
 let find_host_for_VM ~__context vm =
   Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) ()
@@ -204,14 +204,14 @@ let find_host_for_VM ~__context vm =
 (* On any import error, we try to cleanup the bits we have created *)
 type cleanup_stack = (Context.t -> (Rpc.call -> Rpc.response) -> API.ref_session -> unit) list
 
-let cleanup (x: cleanup_stack) = 
+let cleanup (x: cleanup_stack) =
   (* Always perform the cleanup with a fresh login + context to prevent problems with
      any user-supplied one being invalidated *)
   Server_helpers.exec_with_new_task "VM.import (cleanup)" ~task_in_database:true
     (fun __context ->
        Helpers.call_api_functions ~__context
 	 (fun rpc session_id ->
-	    List.iter (fun action -> 
+	    List.iter (fun action ->
 			 Helpers.log_exn_continue "executing cleanup action" (action __context rpc) session_id) x
 	 )
     )
@@ -315,7 +315,7 @@ let base_vdi_of_req ~__context (req: Http.Request.t) =
 	let all = req.Http.Request.query @ req.Http.Request.cookie in
 	if List.mem_assoc "base" all then begin
 		let base = List.assoc "base" all in
-		Some (if Db.is_valid_ref __context (Ref.of_string base) 
+		Some (if Db.is_valid_ref __context (Ref.of_string base)
 		then Ref.of_string base
 		else Db.VDI.get_by_uuid ~__context ~uuid:base)
 	end else None

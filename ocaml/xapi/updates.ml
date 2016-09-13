@@ -5,7 +5,7 @@
 module type INTERFACE = sig
 	val service_name : string
 
-	module Dynamic : sig 
+	module Dynamic : sig
 		type id
 		val rpc_of_id : id -> Rpc.t
 		val id_of_rpc : Rpc.t -> id
@@ -179,7 +179,7 @@ module UpdateRecorder = functor(Ord: Map.OrderedType) -> struct
 
 	let get from t =
 		(* [from] is the id of the most recent event already seen *)
-		let get_from_map map = 
+		let get_from_map map =
 			let before, after = M.partition (fun _ time -> time <= from) map in
 			let xs, last = M.fold (fun key v (acc, m) -> (key, v) :: acc, max m v) after ([], from) in
 			let xs = List.sort (fun (_, v1) (_, v2) -> compare v1 v2) xs
@@ -227,17 +227,17 @@ let rpc_of_t t =
 
 let t_of_rpc rpc =
 	let u' = rpcable_t_of_rpc rpc in
-	let map_of u = 
+	let map_of u =
 		let map = U.M.empty in
-		List.fold_left (fun map (x,y) -> U.M.add x y map) map u 
+		List.fold_left (fun map (x,y) -> U.M.add x y map) map u
 	in
 	let map = map_of u'.u' in
 	let barriers = List.map (fun (id,u) -> (id,map_of u)) u'.b in
-	{ u = { U.map = map; next=u'.next; barriers };	  
+	{ u = { U.map = map; next=u'.next; barriers };
 	  c = Condition.create ();
 	  m = Mutex.create ();
 }
-	
+
 let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 	let from = Stdext.Opt.default U.initial from in
 	let cancel = ref false in
@@ -247,19 +247,19 @@ let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
 			(fun () ->
 				cancel := true;
 				Condition.broadcast t.c
-			)  
+			)
 	in
 	let id = Stdext.Opt.map (fun timeout ->
 		Scheduler.one_shot (Scheduler.Delta timeout) dbg cancel_fn
 	) timeout in
-	with_cancel cancel_fn (fun () -> 
+	with_cancel cancel_fn (fun () ->
 		Stdext.Pervasiveext.finally (fun () ->
 			Mutex.execute t.m (fun () ->
 				let is_empty (x,y,_) = x=[] && y=[] in
 
 				let rec wait () =
 					let result = U.get from t.u in
-					if is_empty result && not (!cancel) then 
+					if is_empty result && not (!cancel) then
 					begin Condition.wait t.c t.m; wait () end
 					else result
 				in
@@ -320,7 +320,7 @@ module Dump = struct
 		updates: u list;
 		barriers : (int * (u list)) list;
 	} with rpc
-	let make_list updates = 
+	let make_list updates =
 		U.M.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) updates []
 	let make_raw u =
 		{ updates = make_list u.U.map;

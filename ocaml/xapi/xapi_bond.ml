@@ -205,7 +205,7 @@ let fix_bond ~__context ~bond =
 	List.iter (Xapi_vif.move_internal ~__context ~network) local_vifs;
 
 	begin match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
-		| management_pif :: _ -> 
+		| management_pif :: _ ->
 			(* The bond contains the management interface: move management to the master.
 			 * This interface will be plugged automatically. *)
 			debug "Moving management from slave to master";

@@ -51,7 +51,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
       let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
       with_vbds rpc session_id __context install_vm vdis `RW
 	(fun install_vm_vbds ->
-	   let devices = List.map 
+	   let devices = List.map
 	     (fun (install_vm_vbd, vbd) ->
 		let hvm = Client.VM.get_HVM_boot_policy rpc session_id vm <> "" in
 		let device = Vbdops.translate_vbd_device vbd (Client.VBD.get_userdevice rpc session_id vbd) hvm in
@@ -74,14 +74,14 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 		     let _ = Forkhelpers.waitpid pid in
 		     TaskHelper.raise_cancelled ~__context
 		   end;
-		 
+
 		 let (newpid,status) = Forkhelpers.waitpid_nohang pid in
-		 if newpid <> 0 
-		 then 
-		   (match status with 
-		     | Unix.WEXITED 0 -> (newpid,status) 
+		 if newpid <> 0
+		 then
+		   (match status with
+		     | Unix.WEXITED 0 -> (newpid,status)
 		     | (Unix.WEXITED n|Unix.WSIGNALED n|Unix.WSTOPPED n) -> raise (Subprocess_failed n))
-		 else		 
+		 else
 		   begin
 		     Thread.delay 1.0;
 		     refresh_session ();
@@ -101,5 +101,5 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 	       | Failure(log, exn) ->
 		   raise exn
 	)
-       
-	
+
+

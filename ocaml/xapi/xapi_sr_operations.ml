@@ -14,7 +14,7 @@
 (** Module that defines API functions for SR objects
  * @group XenAPI functions
  *)
- 
+
 open Printf
 open Stdext
 open Threadext
@@ -35,11 +35,11 @@ open D
 
 open Record_util
 
-let all_ops : API.storage_operations_set = 
+let all_ops : API.storage_operations_set =
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
     `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
-let sm_cap_table = 
+let sm_cap_table =
   [ `vdi_create, Smint.Vdi_create;
     `vdi_destroy, Smint.Vdi_delete;
     `vdi_resize, Smint.Vdi_resize;
@@ -70,7 +70,7 @@ let features_of_sr ~__context record =
 
 (** Returns a table of operations -> API error options (None if the operation would be ok)
  * If op is specified, the table may omit reporting errors for ops other than that one. *)
-let valid_operations ~__context ?op record _ref' : table = 
+let valid_operations ~__context ?op record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.sR_current_operations in
 
@@ -99,7 +99,7 @@ let valid_operations ~__context ?op record _ref' : table =
                   sm_features
       else sm_features in
 
-    let forbidden_by_backend = 
+    let forbidden_by_backend =
       List.filter (fun op -> List.mem_assoc op sm_cap_table
                                  && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
         all_ops in
@@ -136,7 +136,7 @@ let valid_operations ~__context ?op record _ref' : table =
   let check_parallel_ops ~__context record =
     let safe_to_parallelise = [ ] in
     let current_ops = List.setify (List.map snd current_ops) in
-    
+
     (* If there are any current operations, all the non_parallelisable operations
        must definitely be stopped *)
     if current_ops <> []
@@ -144,9 +144,9 @@ let valid_operations ~__context ?op record _ref' : table =
       [ "SR"; _ref; sr_operation_to_string (List.hd current_ops) ]
       (List.set_difference all_ops safe_to_parallelise);
 
-    let all_are_parallelisable = List.fold_left (&&) true 
+    let all_are_parallelisable = List.fold_left (&&) true
       (List.map (fun op -> List.mem op safe_to_parallelise) current_ops) in
-    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise 
+    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise
        parallelisable operations too *)
     if not(all_are_parallelisable)
     then set_errors  Api_errors.other_operation_in_progress
@@ -179,10 +179,10 @@ let valid_operations ~__context ?op record _ref' : table =
     | Some op -> List.filter (fun (ops, _) -> List.mem op ops) relevant_functions
   in
   List.iter (fun (_, f) -> f ~__context record) relevant_functions;
-  
+
   table
 
-let throw_error (table: table) op = 
+let throw_error (table: table) op =
   if not(Hashtbl.mem table op)
   then raise (Api_errors.Server_error(Api_errors.internal_error, [ Printf.sprintf "xapi_sr.assert_operation_valid unknown operation: %s" (sr_operation_to_string op) ]));
 
@@ -190,11 +190,11 @@ let throw_error (table: table) op =
   | Some (code, params) -> raise (Api_errors.Server_error(code, params))
   | None -> ()
 
-let assert_operation_valid ~__context ~self ~(op:API.storage_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.storage_operations) =
   let all = Db.SR.get_record_internal ~__context ~self in
   let table = valid_operations ~__context ~op all self in
   throw_error table op
-    
+
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.SR.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
@@ -202,7 +202,7 @@ let update_allowed_operations ~__context ~self : unit =
   Db.SR.set_allowed_operations ~__context ~self ~value:keys
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id = 
+let cancel_task ~__context ~self ~task_id =
   let all = List.map fst (Db.SR.get_current_operations ~__context ~self) in
   if List.mem task_id all then
     begin

@@ -37,7 +37,7 @@ let pkt_send con =
 		workdone := Xb.output con
 	done
 
-let send_packet con tid rid ty data = 
+let send_packet con tid rid ty data =
 	Xb.queue con (Xb.Packet.create tid rid ty data);
 	pkt_send con;
 	()

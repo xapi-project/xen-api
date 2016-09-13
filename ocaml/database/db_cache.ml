@@ -24,7 +24,7 @@ module Local_db : DB_ACCESS = Db_cache_impl
 
 (** Slaves will use this to call the master by XMLRPC *)
 module Remote_db : DB_ACCESS = Db_rpc_client_v1.Make(struct
-	let initialise () = 
+	let initialise () =
 		ignore (Master_connection.start_master_connection_watchdog());
 		ignore (Master_connection.open_secure_connection())
 	let rpc request = Master_connection.execute_remote_fn request Constants.remote_db_access_uri
@@ -36,7 +36,7 @@ let get = function
 
 let apply_delta_to_cache entry db_ref =
 	let module DB = (Local_db : DB_ACCESS) in
-    match entry with 
+    match entry with
 		| Redo_log.CreateRow(tblname, objref, kvs) ->
 			debug "Redoing create_row %s (%s)" tblname objref;
 			DB.create_row db_ref tblname kvs objref

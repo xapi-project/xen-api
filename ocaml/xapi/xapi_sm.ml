@@ -28,7 +28,7 @@ open Fun
    lexicographic ordering. *)
 type version = int list
 let version_of_string = List.map int_of_string ++ (String.split '.')
- 
+
 module D=Debug.Make(struct let name="xapi" end)
 open D
 

@@ -34,30 +34,30 @@ let variety_of_string x = match (String.lowercase x) with
   | x -> raise (Parse_failure (Printf.sprintf "Unknown variety: %s" x))
 let string_of_variety = function
   | `system -> "system" | `ephemeral -> "ephemeral" | `user -> "user" | `suspend -> "suspend" | `crashdump -> "crashdump" | `ha_statefile -> "ha_statefile" | `metadata -> "metadata"
-      
+
 type vdi = { vdi_name: string;
 	     size: int64;
 	     source: string;
 	     ty: string;
 	     variety: variety }
-    
+
 type funct = Root | Unknown
 let funct_of_string x = match (String.lowercase x) with
   | "root" -> Root | _ -> Unknown
 let string_of_funct = function
   | Root -> "root" | _ -> "unknown"
-      
+
 type mode = [ `RO | `RW ]
 let mode_of_string x = match (String.lowercase x) with
   | "rw" | "w" -> `RW | "r" -> `RO | x -> raise (Parse_failure (Printf.sprintf "Unknown mode: %s" x))
 let string_of_mode = function
   | `RW -> "rw" | `RO -> "r"
-      
+
 type vbd = { device: string;
 	     funct: funct;
 	     mode: mode;
 	     vdi: vdi }
-    
+
 type vm = { vm_name: string;
 	    description: string;
 	    memory: int64;
@@ -67,7 +67,7 @@ type vm = { vm_name: string;
 	    distrib: string option;
 	    distrib_version: string option;
 	    vbds: vbd list }
-    
+
 let total_size_of_disks vdis = List.fold_left Int64.add 0L (List.map (fun vdi -> vdi.size) vdis)
 
 (* convert a vms, vdis representation list into xml *)
@@ -151,17 +151,17 @@ let parse_appliance attrs children =
 			let description = child_string(find_element "shortdesc" children) in
 			let memory, vcpus, distrib, distrib_version = match find_element "config" children with
 			  | Xml.Element(_, attrs, _) ->
-			      assoc "mem_set" attrs, assoc "vcpus" attrs, 
+			      assoc "mem_set" attrs, assoc "vcpus" attrs,
 			      (try Some (assoc "distrib" attrs) with _ -> None),
 			      (try Some (assoc "distrib_version" attrs) with _ -> None)
-			  | _ -> raise (Parse_failure "Failed to find element: config") in			
+			  | _ -> raise (Parse_failure "Failed to find element: config") in
 			let default_assoc default key pairs = try List.assoc key pairs with Not_found -> default in
 			(* make HVM the default if nothing is specified *)
 			let is_hvm, cmdline = match find_element "hacks" children with
 			| Xml.Element(_, attrs, _) ->
-				default_assoc "true" "is_hvm" attrs, 
+				default_assoc "true" "is_hvm" attrs,
 				default_assoc "" "kernel_boot_cmdline" attrs
-			| _ -> "true", "" in 
+			| _ -> "true", "" in
 
 			let vbds = find_all "vbd" children in
 
@@ -208,7 +208,7 @@ let of_xml node =
 	| _ -> raise (Parse_failure "expected appliance or vm")
 
 (** Return true if <path> looks like a Zurich/Geneva style XVA *)
-let is_valid path = 
+let is_valid path =
   let stats = Unix.LargeFile.stat path in
   if stats.Unix.LargeFile.st_kind <> Unix.S_DIR then false
   else begin
@@ -225,20 +225,20 @@ let is_valid path =
     end
 
 (** Transmit a Zurich/Geneva style XVA at <path> to the server *)
-let send path fd = 
+let send path fd =
   let is_dir path = let stat = Unix.stat path in stat.Unix.st_kind = Unix.S_DIR in
-  let add path (* actual path *) filename (* for tar header *) = 
+  let add path (* actual path *) filename (* for tar header *) =
     debug "Attempting to add %s (%s)\n" path filename;
     let hdr = Tar_unix.Header.of_file path in
     let hdr = { hdr with Tar_unix.Header.file_name = filename } in
-    debug "file_size = %Ld\n" (hdr.Tar_unix.Header.file_size); 
-    Tar_unix.write_block hdr 
+    debug "file_size = %Ld\n" (hdr.Tar_unix.Header.file_size);
+    Tar_unix.write_block hdr
       (fun ofd ->
 	 let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
 	 Stdext.Pervasiveext.finally (fun () -> Tar_unix.Archive.copy_n ifd ofd hdr.Tar_unix.Header.file_size)
 	   (fun () -> Unix.close ifd)) fd in
 
-  let add_disk path = 
+  let add_disk path =
     let chunks = List.filter (fun x -> String.endswith ".gz" x) (Array.to_list (Sys.readdir path)) in
     let chunks = List.sort compare chunks in
     List.iter (fun chunk -> add (Filename.concat path chunk) (path ^ "/" ^ chunk)) chunks in
@@ -251,4 +251,4 @@ let send path fd =
   List.iter add_disk disks;
 
   Tar_unix.write_end fd
-  
+

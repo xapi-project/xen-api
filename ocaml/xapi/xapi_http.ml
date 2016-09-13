@@ -16,7 +16,7 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let validate_session __context session_id realm = 
+let validate_session __context session_id realm =
   try
     let (_: string) = Db.Session.get_uuid ~__context ~self:session_id in ()
   with _ ->
@@ -25,7 +25,7 @@ let validate_session __context session_id realm =
 
 (* Talk to the master over the network. NB we deliberately use the network rather than
    the unix domain socket because we don't want to accidentally bypass the authentication *)
-let inet_rpc xml = 
+let inet_rpc xml =
 	let version = "1.1" and path = "/" in
 	let http = 80 and https = !Xapi_globs.https_port in
 	(* Bypass SSL for localhost, this works even if the management interface
@@ -112,7 +112,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
     (try Rbac.check_with_new_task session_id http_permission ~fn
        ~args:(rbac_audit_params_of req)
        ~task_desc:rbac_task_desc
-     with 
+     with
 			 | Api_errors.Server_error (err,[perm;msg])
 				 when err = Api_errors.rbac_permission_denied
 				 -> rbac_raise perm msg Http.Forbidden
@@ -156,15 +156,15 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
 	    end
 	| Some (Http.UnknownAuth x) ->
 	    raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
-	| _ -> begin 
+	| _ -> begin
 	    debug "No header credentials during http connection to %s" realm;
 	    raise (Http.Unauthorised realm) end
     end
 
-let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f = 
+let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
   let all = req.Request.cookie @ req.Request.query in
   let task_id =
-    if List.mem_assoc "task_id" all 
+    if List.mem_assoc "task_id" all
     then Some (Ref.of_string (List.assoc "task_id" all))
     else None in
   let subtask_of =
@@ -173,13 +173,13 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
     else None in
   let localhost = Server_helpers.exec_with_new_task "with_context" (fun __context -> Helpers.get_localhost ~__context) in
   try
-    let session_id,must_logout = 
+    let session_id,must_logout =
       if Context.is_unix_socket s
       then Client.Session.slave_login inet_rpc localhost !Xapi_globs.pool_secret, true
-      else 
+      else
       if List.mem_assoc "session_id" all
       then Ref.of_string (List.assoc "session_id" all), false
-      else 
+      else
 	    if List.mem_assoc "pool_secret" all
 	    then Client.Session.slave_login inet_rpc localhost (List.assoc "pool_secret" all), true
 	    else begin
@@ -194,7 +194,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
 	        | Some (Http.UnknownAuth x) ->
 	            raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
 	        | _ -> raise (Http.Unauthorised label)
-	    end 
+	    end
     in
     Stdext.Pervasiveext.finally
       (fun () ->
@@ -204,17 +204,17 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
           f __context
         in
         begin match task_id with
-        | None -> Server_helpers.exec_with_new_task ?subtask_of ~session_id ~task_in_database:(not dummy) ~origin:(Context.Http(req,s)) label login_perform_logout 
+        | None -> Server_helpers.exec_with_new_task ?subtask_of ~session_id ~task_in_database:(not dummy) ~origin:(Context.Http(req,s)) label login_perform_logout
         | Some task_id -> Server_helpers.exec_with_forwarded_task ~session_id ~origin:(Context.Http(req,s)) task_id login_perform_logout
         end
       )
-      (fun () -> 
-        if must_logout 
-        then Helpers.log_exn_continue "Logging out" 
+      (fun () ->
+        if must_logout
+        then Helpers.log_exn_continue "Logging out"
 	        (fun session_id -> Client.Session.logout inet_rpc session_id) session_id
       )
-  with Http.Unauthorised s as e -> 
-    let fail __context = 
+  with Http.Unauthorised s as e ->
+    let fail __context =
       TaskHelper.failed ~__context (Api_errors.Server_error(Api_errors.session_authentication_failed, []))
     in
     debug "No authentication provided to http handler: returning 401 unauthorised";
@@ -232,7 +232,7 @@ let server =
 	let server = Http_svr.Server.empty () in
 	Http_svr.Server.enable_fastpath server;
 	server
-	  
+
 let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 
 let bind inetaddr =
@@ -260,7 +260,7 @@ let bind inetaddr =
 	in
 	match bind' () with
 		| None -> failwith (Printf.sprintf "Failed to bind: %s" description)
-		| Some s -> 
+		| Some s ->
 			info "Successfully bound socket to: %s" description;
 			s
 
@@ -277,8 +277,8 @@ let add_handler (name, handler) =
 	let h = match handler with
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic context ->
-			(try 
-				if check_rbac 
+			(try
+				if check_rbac
 				then (* rbac checks *)
 			   (try
 					assert_credentials_ok name req ~fn:(fun () -> callback req ic context) (Buf_io.fd_of ic)
@@ -296,7 +296,7 @@ let add_handler (name, handler) =
 		)
 	| Http_svr.FdIO callback ->
 		Http_svr.FdIO (fun req ic context ->
-			(try 
+			(try
 				(if check_rbac then assert_credentials_ok name req ic); (* session and rbac checks *)
 				callback req ic context
 			with

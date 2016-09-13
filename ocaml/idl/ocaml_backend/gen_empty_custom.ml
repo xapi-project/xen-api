@@ -36,9 +36,9 @@ let _task_id = "task_id"
 *)
 
 
-let operation_requires_side_effect ({ msg_tag = tag } as msg) = 
+let operation_requires_side_effect ({ msg_tag = tag } as msg) =
   (match msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
-    with None -> false | Some (mode) -> 
+    with None -> false | Some (mode) ->
       if mode=RW then true (*RW=force both setters and getters into custom_actions *)
       else (*{Static/Dynamic}RO=force only getters into custom_actions *)
         (match msg with
@@ -84,7 +84,7 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
       match body_override with
 	  None -> [ "raise (Not_implemented \""^x.msg_name^"\")" ]
 	| Some b -> b in
-	    
+
     O.Let.make
       ~name:x.msg_name
       ~params:(Gen_common.context_arg :: args)

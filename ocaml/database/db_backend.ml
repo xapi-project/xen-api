@@ -41,7 +41,7 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 	let g = Manifest.generation (Database.manifest db) in
 	(* Generate a new row given a table schema *)
 	let row schema row : Row.t * int64 =
-		Row.fold 
+		Row.fold
                         (fun name { Stat.created; modified } v (acc,max_upd) ->
 				try
 					let col = Schema.Table.find name schema in
@@ -59,8 +59,8 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 				let (r,updated) = row schema r in
 				Table.update modified objref Row.empty (fun _ -> r) (Table.add created objref r acc)) tbl Table.empty in
 	Database.update
-		(fun ts -> 
-			TableSet.fold 
+		(fun ts ->
+			TableSet.fold
                                 (fun tblname { Stat.created; modified } tbl acc ->
 					let tbl' = table tblname tbl in
 					TableSet.add modified tblname tbl' acc) ts TableSet.empty)

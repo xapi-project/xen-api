@@ -185,7 +185,7 @@ let string_to_redo_log_entry str =
     let tbl = parse_length_and_string str pos in
     let objref = parse_length_and_string str pos in
     DeleteRow (tbl, objref)
-    
+
   | "WriteFiel" ->
     let tbl = parse_length_and_string str pos in
     let objref = parse_length_and_string str pos in
@@ -312,14 +312,14 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
       read_read_response sock fn_db fn_delta (Generation.add_int gen_count 1) latest_response_time datasockpath
     end
   | "end__" -> R.debug "Reached the end of the read response"; ()
-  | "nack_" -> 
+  | "nack_" ->
     (* Read the error message *)
     let error = read_length_and_string sock latest_response_time in
     R.warn "Read error received: [%s]" error;
     if error = Block_device_io_errors.timeout_error_msg then raise Unixext.Timeout
     else raise (RedoLogFailure error)
   | e -> raise (CommunicationsProblem ("unrecognised read response prefix ["^e^"]"))
-    
+
 let action_empty sock datasockpath =
   R.debug "Performing empty";
   (* Compute desired response time *)
@@ -364,7 +364,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
    * listening on the socket.
    *)
   let datasock = connect datasockpath latest_response_time in
-  
+
   finally
     (fun () ->
       (* Send data straight down the data channel, then close it to send an EOF. *)
@@ -391,7 +391,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
       R.info "Closing data socket";
       Unix.close datasock;
     );
-  
+
   (* Read response *)
   let response_length = 12 in
   R.debug "Reading response...";
@@ -487,7 +487,7 @@ let shutdown log =
               (* Now we can forget about the communication channel to the process *)
               log.sock := None;
           end;
-  
+
           (* Terminate the child process *)
 	    let ipid = Forkhelpers.getpid p in
           R.info "Killing I/O process with pid %d" ipid;
@@ -504,7 +504,7 @@ let shutdown log =
           ) ());
           (* Forget about that process *)
           log.pid := None;
-  
+
           (* Attempt to remove the sockets *)
           List.iter (fun sockpath ->
             R.debug "Removing socket %s" sockpath;
@@ -561,7 +561,7 @@ let startup log =
           end
       end;
       match !(log.pid) with
-      | Some (_, ctrlsockpath, _) -> 
+      | Some (_, ctrlsockpath, _) ->
         begin
           match !(log.sock) with
           | Some _ -> () (* We're already connected *)
@@ -613,7 +613,7 @@ let switch log vdi_reason =
 (* Given a socket, execute a function and catch exceptions. *)
 let perform_action f desc sock log =
   try
-    match !(log.pid) with 
+    match !(log.pid) with
     | None -> ()
     | Some (_, _, datasockpath) ->
       R.debug "About to perform action %s" desc;
@@ -761,19 +761,19 @@ let database_callback event db =
 				None
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
 				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
-				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname 
+				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname
 				then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
 				else None
 			| Db_cache_types.PreDelete (tblname, objref) ->
 				None
 			| Db_cache_types.Delete (tblname, objref, _) ->
-				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname 
+				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
 				then Some (DeleteRow(tblname, objref))
 				else None
 			| Db_cache_types.Create (tblname, objref, kvs) ->
 				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
 				then Some (CreateRow(tblname, objref, (List.map (fun (k, v) -> k, Schema.Value.marshal v) kvs)))
-				else None 
+				else None
 	in
 
 	Opt.iter (fun entry ->

@@ -17,14 +17,14 @@ open Listext
 open Perfdebug
 open Graphutil
 
-let _ = 
+let _ =
   let inputs = ref [] in
   let format = ref `X11 in
   let separate_graphs = ref false in
   let graphic_filename = ref "" in
   Arg.parse [
-    "-format", Arg.Symbol ([ "eps"; "gif"; "x11" ], 
-			   (function 
+    "-format", Arg.Symbol ([ "eps"; "gif"; "x11" ],
+			   (function
 			    | "eps" -> format := `Eps
 			    | "gif" -> format := `Gif
 			    | "x11" -> format := `X11
@@ -42,7 +42,7 @@ let _ =
   let output_files = List.map (fun _ -> Filename.temp_file "cumulative" "dat") inputs in
   let all = List.combine inputs output_files in
 
-  finally 
+  finally
     (fun () ->
        let max_readings = ref 0 in
 
@@ -52,7 +52,7 @@ let _ =
            let num_points = List.length points in
 
            max_readings := max num_points !max_readings;
-  
+
 	   Unixext.with_file output_file [ Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT ] 0o644
              (fun fd ->
                let points_array = Array.of_list (List.rev points) in

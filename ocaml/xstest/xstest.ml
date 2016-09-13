@@ -30,7 +30,7 @@ let do_test xb =
 		printf "%3x %s %d(%d) %s \"%s\".\n%!" !i op tid rid (Xb.Op.to_string ty) (String.escaped data);
 		in
 	let y (tid, ty, data) =
-		let spkt = (tid, !i, ty, data) in 
+		let spkt = (tid, !i, ty, data) in
 		disp "S: " spkt;
 		send_packet xb tid !i ty data;
 		let rpkt = recv_packet xb in

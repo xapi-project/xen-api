@@ -159,7 +159,7 @@ let role_vm_power_admin = "vm-power-admin"
 let role_vm_admin = "vm-admin"
 let role_vm_operator = "vm-operator"
 let role_read_only = "read-only"
-let roles_all = 
+let roles_all =
 	[ (* in decreasing total linear order of privileges *)
 		role_pool_admin;
 		role_pool_operator;
@@ -177,7 +177,7 @@ let role_description = [
 	role_read_only,"The Read-Only role can log in with basic read-only access";
 ]
 (* obtain all roles with at least the specified role privileges *)
-let roles_gte role = 
+let roles_gte role =
 	let rec gte = function []->failwith "invalid role"
 		|x::xs->if x=role then x::[] else x::gte xs in
 	gte roles_all
@@ -355,14 +355,14 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 	in
 	let call_release =
 		{
-			internal = (match get_published lifecycle with 
+			internal = (match get_published lifecycle with
 				| Some published -> get_product_releases published
 				| None -> ["closed"]);
 			opensource = get_oss_releases in_oss_since;
 			internal_deprecated_since = get_deprecated lifecycle;
 		}
 	in
-	{ 
+	{
 		msg_name = name;
 		msg_params =
 			(match versioned_params with
@@ -391,7 +391,7 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?interna
 let errnames_of_call c =
 	List.map (fun e -> e.err_name) c.msg_errors
 
-let assert_operation_valid enum cls self = call 
+let assert_operation_valid enum cls self = call
   ~in_oss_since:None
   ~in_product_since:rel_rio
   ~name:"assert_operation_valid"
@@ -412,8 +412,8 @@ let update_allowed_operations enum cls self = call
 
 (** Compute an enum constant corresponding to an operation, for current_operations,
     allowed_operations.*)
-let operation_enum x = 
-    x.msg_name, Printf.sprintf "refers to the operation \"%s\"" x.msg_name 
+let operation_enum x =
+    x.msg_name, Printf.sprintf "refers to the operation \"%s\"" x.msg_name
 
 let error name params ?(doc="") () =
   Hashtbl.add errors name {
@@ -430,7 +430,7 @@ let message name ?(doc="") () =
 
 let _ =
   (* Internal *)
-  error Api_errors.internal_error ["message"] 
+  error Api_errors.internal_error ["message"]
     ~doc:"The server failed to handle your request, due to an internal error.  The given message may give details useful for debugging the problem." ();
 
   error Api_errors.message_deprecated []
@@ -470,10 +470,10 @@ let _ =
     ~doc:"This license file is no longer accepted. Please upgrade to the new licensing system." ();
   error Api_errors.activation_while_not_free []
     ~doc:"An activation key can only be applied when the edition is set to 'free'." ();
-    
+
   error Api_errors.feature_restricted []
     ~doc:"The use of this feature is restricted." ();
-    
+
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
 
@@ -485,10 +485,10 @@ let _ =
     ~doc:"You tried to add a key-value pair to a map, but that key is already there." ();
   error Api_errors.xmlrpc_unmarshal_failure [ "expected"; "received" ]
     ~doc:"The server failed to unmarshal the XMLRPC message; it was expecting one element and received something else." ();
-  
-  error Api_errors.message_method_unknown ["method"] 
+
+  error Api_errors.message_method_unknown ["method"]
     ~doc:"You tried to call a method that does not exist.  The method name that you used is echoed." ();
-  error Api_errors.message_parameter_count_mismatch ["method"; "expected"; "received"] 
+  error Api_errors.message_parameter_count_mismatch ["method"; "expected"; "received"]
     ~doc:"You tried to call a method with the incorrect number of parameters.  The fully-qualified method name that you used, and the number of received and expected parameters are returned." ();
   error Api_errors.value_not_supported ["field"; "value"; "reason"]
     ~doc:"You attempted to set a value that is not supported by this implementation.  The fully-qualified field name and the value that you tried to set are returned.  Also returned is a developer-only diagnostic reason." ();
@@ -500,7 +500,7 @@ let _ =
     ~doc:"You attempted an operation that was not allowed." ();
   error Api_errors.operation_blocked ["ref"; "code"]
     ~doc:"You attempted an operation that was explicitly blocked (see the blocked_operations field of the given object)." ();
-  error Api_errors.not_implemented ["function"] 
+  error Api_errors.not_implemented ["function"]
     ~doc:"The function is not implemented" ();
   error Api_errors.unimplemented_in_sm_backend ["message"]
 		~doc:"You have attempted a function which is not implemented" ();
@@ -513,9 +513,9 @@ let _ =
     ~doc:"A VDI with the specified location already exists within the SR" ();
 
   (* Session errors *)
-  error Api_errors.session_authentication_failed [] 
+  error Api_errors.session_authentication_failed []
     ~doc:"The credentials given by the user are incorrect, so access has been denied, and you have not been issued a session handle." ();
-  error Api_errors.session_invalid ["handle"] 
+  error Api_errors.session_invalid ["handle"]
     ~doc:"You gave an invalid session reference.  It may have been invalidated by a server restart, or timed out.  You should get a new session handle, using one of the session.login_ calls.  This error does not invalidate the current connection.  The handle parameter echoes the bad value given." ();
   error Api_errors.change_password_rejected [ "msg" ]
     ~doc:"The system rejected the password change request; perhaps the new password was too short?" ();
@@ -596,15 +596,15 @@ let _ =
 
   error Api_errors.vlan_tag_invalid ["VLAN"]
     ~doc:"You tried to create a VLAN, but the tag you gave was invalid -- it must be between 0 and 4094.  The parameter echoes the VLAN tag you gave." ();
-  error Api_errors.network_contains_vif ["vifs"] 
+  error Api_errors.network_contains_vif ["vifs"]
     ~doc:"The network contains active VIFs and cannot be deleted." ();
-  error Api_errors.network_contains_pif ["pifs"] 
+  error Api_errors.network_contains_pif ["pifs"]
     ~doc:"The network contains active PIFs and cannot be deleted." ();
-  error Api_errors.gpu_group_contains_vgpu ["vgpus"] 
+  error Api_errors.gpu_group_contains_vgpu ["vgpus"]
     ~doc:"The GPU group contains active VGPUs and cannot be deleted." ();
-  error Api_errors.gpu_group_contains_pgpu ["pgpus"] 
+  error Api_errors.gpu_group_contains_pgpu ["pgpus"]
     ~doc:"The GPU group contains active PGPUs and cannot be deleted." ();
-  error Api_errors.gpu_group_contains_no_pgpus ["gpu_group"] 
+  error Api_errors.gpu_group_contains_no_pgpus ["gpu_group"]
     ~doc:"The GPU group does not contain any PGPUs." ();
   error Api_errors.device_attach_timeout [ "type"; "ref" ]
     ~doc:"A timeout happened while attempting to attach a device to a VM." ();
@@ -995,11 +995,11 @@ let _ =
     ~doc:"An SR with that uuid already exists." ();
   error Api_errors.sr_no_pbds ["sr"]
     ~doc:"The SR has no attached PBDs" ();
-  error Api_errors.sr_full ["requested";"maximum"] 
+  error Api_errors.sr_full ["requested";"maximum"]
     ~doc:"The SR is full. Requested new size exceeds the maximum size" ();
   error Api_errors.pbd_exists ["sr";"host";"pbd"]
     ~doc:"A PBD already exists connecting the SR to the host" ();
-  error Api_errors.sr_has_pbd ["sr"] 
+  error Api_errors.sr_has_pbd ["sr"]
     ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed or forgotten." ();
   error Api_errors.sr_has_multiple_pbds [ "PBD" ]
     ~doc:"The SR.shared flag cannot be set to false while the SR remains connected to multiple hosts" ();
@@ -1051,7 +1051,7 @@ let _ =
   error Api_errors.sr_not_empty [ ]
     ~doc:"The SR operation cannot be performed because the SR is not empty." ();
   error Api_errors.sr_device_in_use [ ]
-    ~doc:"The SR operation cannot be performed because a device underlying the SR is in use by the host." ();  
+    ~doc:"The SR operation cannot be performed because a device underlying the SR is in use by the host." ();
   error Api_errors.sr_not_sharable [ "sr"; "host" ]
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
   error Api_errors.sr_indestructible ["sr"]
@@ -1063,12 +1063,12 @@ let _ =
 
   error Api_errors.sm_plugin_communication_failure ["sm"]
     ~doc:"The SM plugin did not respond to a query." ();
-    
-  error Api_errors.device_already_attached ["device"] 
+
+  error Api_errors.device_already_attached ["device"]
     ~doc:"The device is already attached to a VM" ();
-  error Api_errors.device_already_detached ["device"] 
+  error Api_errors.device_already_detached ["device"]
     ~doc:"The device is not currently attached" ();
-  error Api_errors.device_already_exists ["device"] 
+  error Api_errors.device_already_exists ["device"]
     ~doc:"A device with the name given already exists on the selected VM" ();
   error Api_errors.invalid_device ["device"]
     ~doc:"The device name is invalid" ();
@@ -1083,7 +1083,7 @@ let _ =
 
   (* Import export errors *)
   error Api_errors.import_incompatible_version [ ]
-    ~doc:"The import failed because this export has been created by a different (incompatible) product version" ();  
+    ~doc:"The import failed because this export has been created by a different (incompatible) product version" ();
   error Api_errors.import_error_generic [ "msg" ]
     ~doc:"The VM could not be imported." ();
   error Api_errors.import_error_premature_eof []
@@ -1101,7 +1101,7 @@ let _ =
 
   (* Restore errors *)
   error Api_errors.restore_incompatible_version [ ]
-    ~doc:"The restore could not be performed because this backup has been created by a different (incompatible) product version" ();  
+    ~doc:"The restore could not be performed because this backup has been created by a different (incompatible) product version" ();
   error Api_errors.restore_target_missing_device [ "device" ]
     ~doc:"The restore could not be performed because a network interface is missing" ();
   error Api_errors.restore_target_mgmt_if_not_in_backup [ ]
@@ -1116,7 +1116,7 @@ let _ =
 
 
 
-  (* Event errors *)  
+  (* Event errors *)
   error Api_errors.events_lost []
     ~doc:"Some events have been lost from the queue and cannot be retrieved." ();
   error Api_errors.event_subscription_parse_failure [ "subscription" ]
@@ -1213,7 +1213,7 @@ let _ =
   error Api_errors.ha_abort_new_master [ "reason" ]
     ~doc:"This host cannot accept the proposed new master setting at this time."
     ();
-  
+
   error Api_errors.ha_no_plan [ ]
     ~doc:"Cannot find a plan for placement of VMs as there are no other hosts available."
     ();
@@ -1252,7 +1252,7 @@ let _ =
   error Api_errors.system_status_retrieval_failed ["reason"]
     ~doc:"Retrieving system status from the host failed.  A diagnostic reason suitable for support organisations is also returned."
     ();
-  
+
   error Api_errors.system_status_must_use_tar_on_oem []
     ~doc:"You must use tar output to retrieve system status from an OEM host." ();
 
@@ -1295,21 +1295,21 @@ let _ =
 
   error Api_errors.ssl_verify_error ["reason"]
     ~doc:"The remote system's SSL certificate failed to verify against our certificate library." ();
-	
-  error Api_errors.cannot_enable_redo_log ["reason"] 
+
+  error Api_errors.cannot_enable_redo_log ["reason"]
 	~doc:"Could not enable redo log." ();
 
-  error Api_errors.redo_log_is_enabled [] 
+  error Api_errors.redo_log_is_enabled []
 	~doc:"The operation could not be performed because a redo log is enabled on the Pool." ();
-	
+
   error Api_errors.vm_bios_strings_already_set []
     ~doc:"The BIOS strings for this VM have already been set and cannot be changed anymore." ();
-	
+
   (* CPU feature masking (a.k.a. Intel FlexMigration or AMD Extended Migration technology) *)
-  
+
   error Api_errors.invalid_feature_string ["details"]
 	~doc:"The given feature string is not valid." ();
-	
+
   error Api_errors.cpu_feature_masking_not_supported ["details"]
 	~doc:"The CPU does not support masking of features." ();
 
@@ -1442,7 +1442,7 @@ let local_logout = call ~flags:[`Session]
   ()
 
 (* Session.Logout *)
-  
+
 let session_logout = call ~flags:[`Session]
   ~in_product_since:rel_rio
   ~name:"logout"
@@ -1495,7 +1495,7 @@ let cancel_result = Enum ("cancel_result",
 			    "Failed", "Not OK" ])
 
 (* ------------------------------------------------------------------------------------------------------------
-   RRD Consolidation function specification 
+   RRD Consolidation function specification
    ------------------------------------------------------------------------------------------------------------ *)
 
 let rrd_cf_type = Enum ("rrd_cf_type",
@@ -1531,7 +1531,7 @@ let vm_get_data_sources = call
   ~result:(Set (Record _data_source), "A set of data sources")
   ~params:[Ref _vm, "self", "The VM to interrogate"]
   ~errs:[]
-  ~flags:[`Session] 
+  ~flags:[`Session]
   ~allowed_roles:_R_READ_ONLY
   ()
 
@@ -1811,7 +1811,7 @@ let vm_retrieve_wlb_recommendations = call
 	~result:(Map (Ref _host, Set(String)), "The potential hosts and their corresponding recommendations or errors")
 	~allowed_roles:_R_READ_ONLY
 	()
-  
+
 
 let vm_maximise_memory = call
   ~in_product_since:rel_miami
@@ -2057,7 +2057,7 @@ let vm_pause = call
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.operation_not_allowed;
          Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
-  ()  
+  ()
 
 (* VM.UnPause *)
 
@@ -2068,7 +2068,7 @@ let vm_unpause = call
   ~params:[Ref _vm, "vm", "The VM to unpause"]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed; Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
-  ()  
+  ()
 
 
 (* VM.CleanShutdown *)
@@ -2152,9 +2152,9 @@ let vm_hardReboot_internal = call
   ~internal_deprecated_since:rel_midnight_ride
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
-  
+
 (* VM.Hibernate *)
-  
+
 let vm_suspend = call
   ~in_product_since:rel_rio
   ~name:"suspend"
@@ -2178,9 +2178,9 @@ let csvm = call
   ~internal_deprecated_since:rel_miami
   ~allowed_roles:_R_VM_ADMIN
   ()
-      
+
 (* VM.UnHibernate *)
-      
+
 let vm_resume = call
   ~name:"resume"
   ~in_product_since:rel_rio
@@ -2208,7 +2208,7 @@ let vm_resume_on = call
   ()
 
 let vm_pool_migrate = call
-  ~in_oss_since:None 
+  ~in_oss_since:None
   ~in_product_since:rel_rio
   ~name:"pool_migrate"
   ~doc:"Migrate a VM to another Host."
@@ -2220,7 +2220,7 @@ let vm_pool_migrate = call
   ()
 
 let vm_pool_migrate_complete = call
-  ~in_oss_since:None 
+  ~in_oss_since:None
   ~in_product_since:rel_tampa
   ~name:"pool_migrate_complete"
   ~doc:"Tell a destination host that migration is complete."
@@ -2357,7 +2357,7 @@ let vm_s3_suspend = call
   ~allowed_roles:_R_VM_OP
   ()
 
-let vm_s3_resume = call 
+let vm_s3_resume = call
   ~name: "s3_resume"
   ~in_product_since:rel_midnight_ride
   ~doc:"Try to resume the VM from ACPI S3 state"
@@ -2365,7 +2365,7 @@ let vm_s3_resume = call
   ~hide_from_docs:true
   ~allowed_roles:_R_VM_OP
   ()
-	   
+
 
 let vm_create_new_blob = call
   ~name: "create_new_blob"
@@ -2436,7 +2436,7 @@ let vm_set_suspend_VDI = call
 	         Ref _vdi, "value", "The suspend VDI uuid"]
 	~allowed_roles:_R_POOL_OP
 	()
-	
+
 let vm_assert_can_be_recovered = call
   ~name:"assert_can_be_recovered"
   ~in_product_since:rel_boston
@@ -2577,7 +2577,7 @@ let host_local_assert_healthy = call ~flags:[`Session]
 
 let host_preconfigure_ha = call
   ~in_product_since:rel_miami
-  ~name:"preconfigure_ha"  
+  ~name:"preconfigure_ha"
   ~doc:"Attach statefiles, generate config files but do not start the xHA daemon."
   ~params:[Ref _host, "host", "The Host to modify";
 	   Set(Ref _vdi), "statefiles", "Set of statefile VDIs to use";
@@ -2587,7 +2587,7 @@ let host_preconfigure_ha = call
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  ()  
+  ()
 
 let host_ha_join_liveset = call
   ~in_product_since:rel_orlando
@@ -2614,7 +2614,7 @@ let host_query_ha = call ~flags:[`Session]
   ~name:"query_ha"
   ~doc:"Return the local HA configuration as seen by this host"
   ~params:[]
-  ~custom_marshaller:true  
+  ~custom_marshaller:true
   ~pool_internal:true
   ~hide_from_docs:true
   ()
@@ -2667,7 +2667,7 @@ let host_abort_new_master = call ~flags:[`Session]
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  ()  
+  ()
 
 let host_commit_new_master = call ~flags:[`Session]
   ~in_product_since:rel_miami
@@ -2966,7 +2966,7 @@ let host_get_data_sources = call
   ~result:(Set (Record _data_source), "A set of data sources")
   ~params:[Ref _host, "host", "The host to interrogate"]
   ~errs:[]
-  ~flags:[`Session] 
+  ~flags:[`Session]
   ~allowed_roles:_R_READ_ONLY
   ()
 
@@ -3005,7 +3005,7 @@ let host_attach_static_vdis = call
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  () 
+  ()
 
 let host_detach_static_vdis = call
   ~name:"detach_static_vdis"
@@ -3148,7 +3148,7 @@ let host_set_localdb_key = call
   ~pool_internal:true
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  () 
+  ()
 
 let host_refresh_pack_info = call
   ~name:"refresh_pack_info"
@@ -3156,7 +3156,7 @@ let host_refresh_pack_info = call
   ~doc:"Refresh the list of installed Supplemental Packs."
   ~params:[Ref _host, "host", "The Host to modify"]
   ~allowed_roles:_R_POOL_OP
-  () 
+  ()
 
 (* ------------------------------------------------------------------------------------------------------------
    VDI Management
@@ -3281,7 +3281,7 @@ let vbd_unplug = call
   ~errs:[Api_errors.device_detach_rejected; Api_errors.device_already_detached]
   ~allowed_roles:_R_VM_ADMIN
   ()
- 
+
 let vbd_unplug_force = call
   ~name:"unplug_force"
   ~in_product_since:rel_rio
@@ -3359,7 +3359,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since ?(internal_only = fal
 	in
 	let release =
 		{
-			internal = (match get_published lifecycle with 
+			internal = (match get_published lifecycle with
 				| Some published -> get_product_releases published
 				| None -> ["closed"]);
 			opensource = get_oss_releases in_oss_since;
@@ -3370,7 +3370,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since ?(internal_only = fal
 		release = release;
 		lifecycle=lifecycle;
 		qualifier=qualifier; ty=ty; internal_only = internal_only; default_value = default_value;
-		field_name=name; 
+		field_name=name;
 		full_name=[ name ];
 		field_description=desc;
 		field_persist=persist;
@@ -3394,14 +3394,14 @@ let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) ?lifecycle refname =
 		"Unique identifier/object reference"
 
 let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) operations_type =
-  [ 
+  [
     field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set operations_type) ~default_value:(Some (VSet [])) "allowed_operations" "list of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client.";
     field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, operations_type)) ~default_value:(Some (VMap [])) "current_operations" "links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task.";
   ]
 
 
 (** Make a Namespace (note effect on enclosing field.full_names) *)
-let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x->x) ?(idempotent=false) ~name ~contents () = 
+let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x->x) ?(idempotent=false) ~name ~contents () =
   let rec prefix = function
     | Namespace(x, xs) -> Namespace(x, List.map prefix xs)
     | Field x -> Field { x with full_name = if idempotent then x.full_name else name :: x.full_name;
@@ -3435,7 +3435,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
 	let get_field_writer_roles = function None->contents_default_writer_roles|r->r in
 	let get_msg_allowed_roles = function None->messages_default_allowed_roles|r->r in
-	let contents = List.map (function 
+	let contents = List.map (function
 		| Namespace(n,cs)->namespace ~get_field_writer_roles ~get_field_reader_roles ~name:n ~contents:cs ~idempotent:true ()
 		| Field f->Field{f with field_setter_roles=get_field_writer_roles f.field_setter_roles;
 			field_getter_roles=get_field_reader_roles f.field_getter_roles}
@@ -3454,10 +3454,10 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
 			in
 			published @ deprecated
 		| Some l -> l
-	in	
+	in
 	let release =
 		{
-			internal = (match get_published lifecycle with 
+			internal = (match get_published lifecycle with
 				| Some published -> get_product_releases published
 				| None -> ["closed"]);
 			opensource = get_oss_releases in_oss_since;
@@ -3494,7 +3494,7 @@ let sr_create_common =
     {param_type=String; param_name="content_type"; param_doc="The type of the new SRs content, if required (e.g. ISOs)"; param_release=rio_release; param_default=None};
   ]
 
-let sr_sm_config = 
+let sr_sm_config =
   {param_type=Map(String,String); param_name="sm_config"; param_doc="Storage backend specific configuration options"; param_release=miami_release; param_default=Some (VMap [])}
 
 
@@ -3532,7 +3532,7 @@ let sr_forget = call
   ~allowed_roles:_R_POOL_OP
   ()
 
-let sr_introduce = 
+let sr_introduce =
   call
   ~name:"introduce"
   ~in_oss_since:None
@@ -3636,7 +3636,7 @@ let sr_get_data_sources = call
   ~result:(Set (Record _data_source), "A set of data sources")
   ~params:[Ref _sr, "sr", "The SR to interrogate"]
   ~errs:[]
-  ~flags:[`Session] 
+  ~flags:[`Session]
   ~allowed_roles:_R_READ_ONLY
   ()
 
@@ -3678,7 +3678,7 @@ let sr_forget_data_source_archives = call
 
 let pbd_plug = call
   ~name:"plug"
-  ~in_oss_since:None 
+  ~in_oss_since:None
   ~in_product_since:rel_rio
   ~doc:"Activate the specified PBD, causing the referenced SR to be attached and scanned"
   ~params:[Ref _pbd, "self", "The PBD to activate"]
@@ -3688,7 +3688,7 @@ let pbd_plug = call
 
 let pbd_unplug = call
   ~name:"unplug"
-  ~in_oss_since:None 
+  ~in_oss_since:None
   ~in_product_since:rel_rio
   ~doc:"Deactivate the specified PBD, causing the referenced SR to be detached and nolonger scanned"
   ~params:[Ref _pbd, "self", "The PBD to deactivate"]
@@ -3696,12 +3696,12 @@ let pbd_unplug = call
   ()
 
 (** Sessions *)
-let session = 
+let session =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session ~descr:"A session" ~gen_events:false
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~messages:[session_login; session_logout; session_chpass;
-	       slave_login; 
+	       slave_login;
 	       slave_local_login; slave_local_login_with_password; session_create_from_db_file; local_logout;
 	       session_get_all_subject_identifiers; session_logout_subject_identifier;
 	      ] ~contents:[
@@ -3722,7 +3722,7 @@ let session =
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_name" "the subject name of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
-		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session"; 
+		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session";
 		  field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
 		]
 	()
@@ -3741,7 +3741,7 @@ let status_type = Enum("task_status_type", [ "pending", "task is in progress";
 
 
 let task_cancel = call
-  
+
   ~name:"cancel"
   ~in_product_since:rel_rio
   ~doc:"Request that a task be cancelled. Note that a task may fail to be cancelled and may complete or fail normally and note that, even when a task does cancel, it might take an arbitrary amount of time."
@@ -3776,9 +3776,9 @@ let extra_permission_task_destroy_any = "task.destroy/any"
 let task_allowed_operations =
   Enum ("task_allowed_operations", List.map operation_enum [ task_cancel; task_destroy ])
 
-let task = 
+let task =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
-    ~doccomments:[] 
+    ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
     ~messages: [ task_create; task_destroy; task_cancel ]
     ~contents: ([
@@ -3803,7 +3803,7 @@ let task =
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
       field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
-    ]) 
+    ])
     ()
 
 (** Many of the objects need to record IO bandwidth *)
@@ -3818,7 +3818,7 @@ let user = (* DEPRECATED in favor of subject *)
       Published, rel_rio, "A user of the system";
       Deprecated, rel_george, "Deprecated in favor of subject";
     ]
-    ~doccomments:[] 
+    ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~messages:[] ~contents:
       [ uid _user;
@@ -3848,14 +3848,14 @@ let host_memory =
 	]
 
 (** Host Metrics Memory *)
-let host_metrics_memory = 
+let host_metrics_memory =
 	let field = field ~ty:Int in
 	[
 		field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~doc_tags:[Memory];
 		field ~qualifier:DynamicRO ~internal_deprecated_since:rel_midnight_ride "free" "Free host memory (bytes)" ~doc_tags:[Memory];
 	]
 
-let api_version = 
+let api_version =
   let field' = field ~qualifier:DynamicRO in
   [
     field' ~ty:Int "major" "major version number";
@@ -3864,9 +3864,9 @@ let api_version =
     field' ~ty:(Map(String,String)) "vendor_implementation" "details of vendor implementation";
   ]
 
-(* Management of host crash dumps. Note that this would be neater if crashes were stored in 
+(* Management of host crash dumps. Note that this would be neater if crashes were stored in
    VDIs like VM crashes, however the nature of a host crash dump is that the dom0 has crashed
-   and has no access to any fancy storage drivers or tools. Plus a host is not guaranteed to 
+   and has no access to any fancy storage drivers or tools. Plus a host is not guaranteed to
    have any SRs at all. *)
 
 let host_crashdump_destroy = call
@@ -3902,16 +3902,16 @@ let host_crashdump =
       field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the crashdump";
       field ~qualifier:StaticRO ~ty:String ~in_oss_since:None ~internal_only:true "filename" "filename of crash dir";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ] 
+    ]
     ()
 
 (* New Miami pool patching mechanism *)
 
 let pool_patch_after_apply_guidance =
-  Enum ("after_apply_guidance", 
+  Enum ("after_apply_guidance",
         [ "restartHVM",  "This patch requires HVM guests to be restarted once applied.";
           "restartPV",   "This patch requires PV guests to be restarted once applied.";
-		  "restartHost", "This patch requires the host to be restarted once applied."; 
+		  "restartHost", "This patch requires the host to be restarted once applied.";
           "restartXAPI", "This patch requires XAPI to be restarted once applied.";
         ])
 
@@ -3920,7 +3920,7 @@ let pool_patch_apply = call
   ~doc:"Apply the selected patch to a host and return its output"
   ~in_oss_since:None
   ~in_product_since:rel_miami
-  ~params:[ Ref _pool_patch, "self", "The patch to apply"; Ref _host, "host", "The host to apply the patch too" ]  
+  ~params:[ Ref _pool_patch, "self", "The patch to apply"; Ref _host, "host", "The host to apply the patch too" ]
   ~result:(String, "the output of the patch application process")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3930,7 +3930,7 @@ let pool_patch_precheck = call
   ~doc:"Execute the precheck stage of the selected patch on a host and return its output"
   ~in_oss_since:None
   ~in_product_since:rel_miami
-  ~params:[ Ref _pool_patch, "self", "The patch whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on" ]  
+  ~params:[ Ref _pool_patch, "self", "The patch whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on" ]
   ~result:(String, "the output of the patch prechecks")
   ~allowed_roles:_R_POOL_OP
   ()
@@ -3976,21 +3976,21 @@ let pool_patch_pool_apply = call
   ~doc:"Apply the selected patch to all hosts in the pool and return a map of host_ref -> patch output"
   ~in_oss_since:None
   ~in_product_since:rel_miami
-  ~params:[ Ref _pool_patch, "self", "The patch to apply"]  
+  ~params:[ Ref _pool_patch, "self", "The patch to apply"]
   ~allowed_roles:_R_POOL_OP
   ()
 
 let pool_patch =
-  create_obj ~in_db:true 
-    ~in_product_since:rel_miami 
-    ~in_oss_since:None 
+  create_obj ~in_db:true
+    ~in_product_since:rel_miami
+    ~in_oss_since:None
     ~internal_deprecated_since:None
 
-    ~persist:PersistEverything 
-    ~gen_constructor_destructor:false 
+    ~persist:PersistEverything
+    ~gen_constructor_destructor:false
     ~gen_events:true
 
-    ~name:_pool_patch 
+    ~name:_pool_patch
     ~descr:"Pool-wide patches"
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
@@ -4005,7 +4005,7 @@ let pool_patch =
       field     ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "host_patches" "This hosts this patch is applied to.";
       field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set pool_patch_after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
       field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ] 
+    ]
 	()
 
 (* Management of host patches. Just like the crash dumps it would be marginally neater if
@@ -4026,14 +4026,14 @@ let host_patch_apply = call
   ~doc:"Apply the selected patch and return its output"
   ~in_oss_since:None
   ~in_product_since:rel_rio
-  ~params:[ Ref _host_patch, "self", "The patch to apply" ]  
+  ~params:[ Ref _host_patch, "self", "The patch to apply" ]
   ~result:(String, "the output of the patch application process")
   ~internal_deprecated_since: rel_miami
   ~allowed_roles:_R_POOL_OP
   ()
 
-let host_patch = 
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_patch ~gen_events:true 
+let host_patch =
+  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_patch ~gen_events:true
     ~descr:"Represents a patch stored on a server"
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
@@ -4338,8 +4338,8 @@ let host_display =
 	])
 
 let host_operations =
-  Enum ("host_allowed_operations", 
-	[ "provision", "Indicates this host is able to provision another VM"; 
+  Enum ("host_allowed_operations",
+	[ "provision", "Indicates this host is able to provision another VM";
 	  "evacuate", "Indicates this host is evacuating";
 	  "shutdown", "Indicates this host is in the process of shutting itself down";
 	  "reboot", "Indicates this host is in the process of rebooting";
@@ -4354,10 +4354,10 @@ let host_enable_external_auth = call ~flags:[`Session]
   ~in_oss_since:None
   ~in_product_since:rel_george
   ~params:[
-    Ref _host, "host", "The host whose external authentication should be enabled"; 
-    Map (String,String), "config", "A list of key-values containing the configuration data" ; 
-    String, "service_name", "The name of the service" ; 
-    String, "auth_type", "The type of authentication (e.g. AD for Active Directory)" 
+    Ref _host, "host", "The host whose external authentication should be enabled";
+    Map (String,String), "config", "A list of key-values containing the configuration data" ;
+    String, "service_name", "The name of the service" ;
+    String, "auth_type", "The type of authentication (e.g. AD for Active Directory)"
     ]
   ~doc:"This call enables external authentication on a host"
   ~allowed_roles:_R_POOL_ADMIN
@@ -4379,7 +4379,7 @@ let host_set_license_params = call
   ~name:"set_license_params"
   ~in_product_since:rel_orlando (* actually update 3 aka floodgate *)
   ~doc:"Set the new license details in the database, trigger a recomputation of the pool SKU"
-  ~params:[ 
+  ~params:[
     Ref _host, "self", "The host";
     Map(String, String), "value", "The license_params"
   ]
@@ -4399,12 +4399,12 @@ let host_apply_edition = call ~flags:[`Session]
   ]
   ~allowed_roles:_R_POOL_OP
   ()
- 
+
 let host_set_power_on_mode = call
   ~name:"set_power_on_mode"
   ~in_product_since:rel_midnight_ride
   ~doc:"Set the power-on-mode, host, user and password "
-  ~params:[ 
+  ~params:[
     Ref _host, "self", "The host";
     String, "power_on_mode", "power-on-mode can be empty,iLO,wake-on-lan, DRAC or other";
     Map(String, String), "power_on_config", "Power on config";
@@ -4427,19 +4427,19 @@ let host_set_cpu_features = call ~flags:[`Session]
   ~name:"set_cpu_features"
   ~in_product_since:rel_midnight_ride
   ~doc:"Set the CPU features to be used after a reboot, if the given features string is valid."
-  ~params:[ 
+  ~params:[
     Ref _host, "host", "The host";
     String, "features", "The features string (32 hexadecimal digits)"
   ]
   ~allowed_roles:_R_POOL_OP
   ~lifecycle:[Published, rel_midnight_ride, ""; Removed, rel_dundee, "Manual CPU feature setting was removed"]
   ()
-  
+
 let host_reset_cpu_features = call ~flags:[`Session]
   ~name:"reset_cpu_features"
   ~in_product_since:rel_midnight_ride
   ~doc:"Remove the feature mask, such that after a reboot all features of the CPU are enabled."
-  ~params:[ 
+  ~params:[
     Ref _host, "host", "The host"
   ]
   ~allowed_roles:_R_POOL_OP
@@ -4453,8 +4453,8 @@ let host_reset_networking = call
 	~params:[Ref _host, "host", "The Host to modify"]
 	~allowed_roles:_R_POOL_OP
 	~hide_from_docs:true
-	() 
-  
+	()
+
 let host_enable_local_storage_caching = call ~flags:[`Session]
 	~name:"enable_local_storage_caching"
 	~in_product_since:rel_cowley
@@ -4588,11 +4588,11 @@ let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_license_add; host_license_remove; host_create; host_destroy; 
+      ~messages: [host_disable; host_enable; host_shutdown; host_reboot; host_dmesg; host_dmesg_clear; host_get_log; host_send_debug_keys; host_bugreport_upload; host_list_methods; host_license_apply; host_license_add; host_license_remove; host_create; host_destroy;
 		  host_power_on;
 		 host_set_license_params;
 		 host_emergency_ha_disable;
-		 host_ha_disarm_fencing; host_preconfigure_ha; host_ha_join_liveset; 
+		 host_ha_disarm_fencing; host_preconfigure_ha; host_ha_join_liveset;
 		 host_ha_disable_failover_decisions;
 		 host_ha_wait_for_shutdown_via_statefile;
 		 host_ha_stop_daemon;
@@ -4712,7 +4712,7 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "Product edition";
 	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
     field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
-	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
 	field ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Map (String, String)) ~default_value:(Some (VMap []))
@@ -4728,7 +4728,7 @@ let host =
  ])
 	()
 
-let host_metrics = 
+let host_metrics =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_metrics ~descr:"The metrics associated with a host" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
@@ -4749,7 +4749,7 @@ let hostcpu =
         Published, rel_rio, "A physical CPU";
         Deprecated, rel_midnight_ride, "Deprecated in favour of the Host.cpu_info field";
       ]
-      ~doccomments:[] 
+      ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[] ~contents:
       [ uid _hostcpu;
@@ -4771,14 +4771,14 @@ let hostcpu =
 (** Disk and network interfaces are associated with QoS parameters: *)
 let qos devtype =
   [ field  "algorithm_type" "QoS algorithm to use";
-    field  ~ty:(Map(String,String)) "algorithm_params" 
+    field  ~ty:(Map(String,String)) "algorithm_params"
       "parameters for chosen QoS algorithm";
     field ~qualifier:DynamicRO  ~ty:(Set String) "supported_algorithms"
       ("supported QoS algorithms for this " ^ devtype);
   ]
 
 let network_operations =
-  Enum ("network_operations", 
+  Enum ("network_operations",
 	[ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
 
 let network_default_locking_mode =
@@ -4793,7 +4793,7 @@ let network_attach = call
   ~doc:"Makes the network immediately available on a particular host"
   ~params:[Ref _network, "network", "network to which this interface should be connected";
 	   Ref _host, "host", "physical machine to which this PIF is connected"]
-  ~in_product_since:rel_miami  
+  ~in_product_since:rel_miami
   ~hide_from_docs:true
   ~allowed_roles:_R_POOL_OP
   ()
@@ -5100,10 +5100,10 @@ let pif_set_property = call
 	~allowed_roles:_R_POOL_OP
 	()
 
-let pif = 
+let pif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
       ~gen_events:true
-      ~doccomments:[] 
+      ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~doc_tags:[Networking]
       ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
@@ -5131,7 +5131,7 @@ let pif =
 	field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "gateway" "IP gateway" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "DNS" "IP address of DNS servers to use" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:(Ref _bond) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_slave_of" "Indicates which bond this interface is part of" ~default_value:(Some (VRef ""));
-	field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";	
+	field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
 	field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
 	field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
 	field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
@@ -5151,7 +5151,7 @@ let pif =
       ]
 	()
 
-let pif_metrics = 
+let pif_metrics =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif_metrics ~descr:"The metrics associated with a physical network interface"
       ~gen_events:true
       ~doccomments:[]
@@ -5227,7 +5227,7 @@ let bond_set_property = call
 	~allowed_roles:_R_POOL_OP
 	()
 
-let bond = 
+let bond =
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
     ~doc_tags:[Networking]
@@ -5263,7 +5263,7 @@ let vlan_destroy = call
   ~allowed_roles:_R_POOL_OP
   ()
 
-let vlan = 
+let vlan =
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux" ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
@@ -5274,10 +5274,10 @@ let vlan =
        field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_miami "tagged_PIF" "interface on which traffic is tagged" ~default_value:(Some (VRef ""));
        field ~qualifier:DynamicRO ~ty:(Ref _pif) ~in_product_since:rel_miami "untagged_PIF" "interface on which traffic is untagged" ~default_value:(Some (VRef ""));
        field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_miami "tag" "VLAN tag in use" ~default_value:(Some (VInt (-1L)));
-       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";	  
+       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
      ])
     ()
-    
+
 let tunnel_create = call
 	~name:"create"
 	~doc:"Create a tunnel"
@@ -5297,7 +5297,7 @@ let tunnel_destroy = call
 	~allowed_roles:_R_POOL_OP
 	()
 
-let tunnel = 
+let tunnel =
 	create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
 	~doccomments:[]
 	~messages_default_allowed_roles:_R_POOL_OP
@@ -5327,7 +5327,7 @@ let pbd =
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ 
+    ~messages:[
       pbd_plug; pbd_unplug;
       pbd_set_device_config
 	      ] ~contents:
@@ -5395,7 +5395,7 @@ let vif_move = call
   ()
 
 let vif_operations =
-  Enum ("vif_operations", 
+  Enum ("vif_operations",
 	[ "attach", "Attempting to attach this VIF to a VM";
 	  "plug", "Attempting to hotplug this VIF";
 	  "unplug", "Attempting to hot unplug this VIF";
@@ -5516,11 +5516,11 @@ let vif_configure_ipv6 = call
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
       ~gen_events:true
-      ~doccomments:[] 
+      ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~doc_tags:[Networking]
       ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_move; vif_set_locking_mode;
-        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed; 
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed;
 	vif_configure_ipv4; vif_configure_ipv6]
       ~contents:
       ([ uid _vif;
@@ -5548,7 +5548,7 @@ let vif =
 	 ])
 	()
 
-let vif_metrics = 
+let vif_metrics =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vif_metrics ~descr:"The metrics associated with a virtual network device"
       ~gen_events:true
       ~doccomments:[]
@@ -5563,7 +5563,7 @@ let vif_metrics =
 	()
 
 let data_source =
-  create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs" 
+  create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs"
     ~gen_events:false
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
@@ -5575,11 +5575,11 @@ let data_source =
       field ~qualifier:DynamicRO ~ty:Float "min" "the minimum value of the data source";
       field ~qualifier:DynamicRO ~ty:Float "max" "the maximum value of the data source";
       field ~qualifier:DynamicRO ~ty:Float "value" "current value of the data source" ]
-      
+
     ()
 
 let storage_operations =
-  Enum ("storage_operations", 
+  Enum ("storage_operations",
 	[ "scan", "Scanning backends for new or deleted VDIs";
 	  "destroy", "Destroying the SR";
 	  "forget", "Forgetting about SR";
@@ -5589,8 +5589,8 @@ let storage_operations =
 	  "vdi_create", "Creating a new VDI";
 	  "vdi_introduce", "Introducing a new VDI";
 	  "vdi_destroy", "Destroying a VDI";
-	  "vdi_resize", "Resizing a VDI"; 
-	  "vdi_clone", "Cloneing a VDI"; 
+	  "vdi_resize", "Resizing a VDI";
+	  "vdi_clone", "Cloneing a VDI";
 	  "vdi_snapshot", "Snapshotting a VDI";
 	  "vdi_mirror", "Mirroring a VDI";
 	  "pbd_create", "Creating a PBD for this SR";
@@ -5676,7 +5676,7 @@ let sr_disable_database_replication = call
 let storage_repository =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
       ~gen_events:true
-      ~doccomments:[] 
+      ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[ sr_create; sr_introduce; sr_make; sr_destroy; sr_forget;
 		  sr_update;
@@ -5691,7 +5691,7 @@ let storage_repository =
 		  sr_get_data_sources;
 		  sr_record_data_source;
 		  sr_query_data_source;
-		  sr_forget_data_source_archives; 
+		  sr_forget_data_source_archives;
 
 		]
       ~contents:
@@ -5726,9 +5726,9 @@ let sm_get_driver_filename = call
    ~params:[Ref _sm, "self", "The SM to query" ]
    ~result:(String, "The SM's driver_filename field")
    ~doc:"Gets the SM's driver_filename field"
-   ()  
+   ()
 
-let storage_plugin = 
+let storage_plugin =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sm ~descr:"A storage manager plugin"
     ~gen_events:true
     ~doccomments:[]
@@ -5765,14 +5765,14 @@ let lvhd_enable_thin_provisioning = call
    ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
    ~forward_to:(HostExtension "LVHD.enable_thin_provisioning")
    ~result:(String, "Message from LVHD.enable_thin_provisioning extension")
-   ()  
+   ()
 
-let lvhd = 
+let lvhd =
   create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages:[ 
+    ~messages:[
       lvhd_enable_thin_provisioning;
     ]
     ~contents: [
@@ -5797,8 +5797,8 @@ let filesystem =
 
 
 (** Each disk is associated with a vdi_type: (a 'style' of disk?) *)
-let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on upgrade"; 
-				   "user",      "a disk that is always preserved on upgrade"; 
+let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on upgrade";
+				   "user",      "a disk that is always preserved on upgrade";
 				   "ephemeral", "a disk that may be reformatted on upgrade";
 				   "suspend",   "a disk that stores a suspend image";
 				   "crashdump", "a disk that stores VM crashdump information";
@@ -5897,7 +5897,7 @@ let vdi_update = call
   ()
 
 let vdi_operations =
-  Enum ("vdi_operations", 
+  Enum ("vdi_operations",
 	[ "scan", "Scanning backends for new or deleted VDIs";
 	  "clone", "Cloning the VDI";
 	  "copy", "Copying the VDI";
@@ -5922,7 +5922,7 @@ let vdi_set_missing = call
    ~doc:"Sets the VDI's missing field"
   ~flags:[`Session]
   ~allowed_roles:_R_VM_ADMIN
-   ()  
+   ()
 
 let vdi_set_read_only = call
    ~name:"set_read_only"
@@ -5956,7 +5956,7 @@ let vdi_set_managed = call
    ~doc:"Sets the VDI's managed field"
   ~allowed_roles:_R_VM_ADMIN
    ()
- 
+
 let vdi_set_virtual_size = call
    ~name:"set_virtual_size"
    ~in_oss_since:None
@@ -6121,7 +6121,7 @@ let vdi =
       ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[vdi_snapshot; vdi_clone; vdi_resize; 
+      ~messages:[vdi_snapshot; vdi_clone; vdi_resize;
 		 vdi_resize_online;
 		 vdi_introduce; vdi_pool_introduce;
 		 vdi_db_introduce; vdi_db_forget;
@@ -6188,12 +6188,12 @@ let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed"
 				   "RW", "read-write access will be allowed" ])
 
 let vbd_type = Enum ("vbd_type",
-		     [ "CD", "VBD will appear to guest as CD"; 
+		     [ "CD", "VBD will appear to guest as CD";
 		       "Disk", "VBD will appear to guest as disk";
                        "Floppy", "VBD will appear as a floppy"])
 
 let vbd_operations =
-  Enum ("vbd_operations", 
+  Enum ("vbd_operations",
 	[ "attach", "Attempting to attach this VBD to a VM";
 	  "eject", "Attempting to eject the media from this VBD";
 	  "insert", "Attempting to insert new media into this VBD";
@@ -6216,7 +6216,7 @@ let vbd =
       ~contents:
     ([ uid _vbd;
      ] @ (allowed_and_current_operations vbd_operations) @ [
-       field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine"; 
+       field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
        field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
 
        field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
@@ -6236,7 +6236,7 @@ let vbd =
        [ field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics) "metrics" "metrics associated with this VBD"; ])
 	()
 
-let vbd_metrics = 
+let vbd_metrics =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vbd_metrics ~descr:"The metrics associated with a virtual block device"
       ~gen_events:true
       ~doccomments:[]
@@ -6262,14 +6262,14 @@ let crashdump_destroy = call
 let crashdump =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
     ~gen_events:true
-    ~doccomments:[] 
+    ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
     ~messages: [crashdump_destroy]
     ~contents:
     ([ uid _crashdump;
        field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
        field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
-       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";      
+       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
      ])
 	()
 
@@ -6373,7 +6373,7 @@ let pool_recover_slaves = call
   ~doc:"Instruct a pool master, M, to try and contact its slaves and, if slaves are in emergency mode, reset their master address to M."
   ~allowed_roles:_R_POOL_OP
   ()
-  
+
 let pool_eject = call
   ~name:"eject"
   ~in_oss_since:None
@@ -6569,10 +6569,10 @@ let pool_enable_external_auth = call ~flags:[`Session]
   ~in_oss_since:None
   ~in_product_since:rel_george
   ~params:[
-    Ref _pool, "pool", "The pool whose external authentication should be enabled"; 
-    Map (String,String), "config", "A list of key-values containing the configuration data" ; 
-    String, "service_name", "The name of the service" ; 
-    String, "auth_type", "The type of authentication (e.g. AD for Active Directory)" 
+    Ref _pool, "pool", "The pool whose external authentication should be enabled";
+    Map (String,String), "config", "A list of key-values containing the configuration data" ;
+    String, "service_name", "The name of the service" ;
+    String, "auth_type", "The type of authentication (e.g. AD for Active Directory)"
     ]
   ~doc:"This call enables external authentication on all the hosts of the pool"
   ~allowed_roles:_R_POOL_ADMIN
@@ -6595,7 +6595,7 @@ let pool_detect_nonhomogeneous_external_auth = call ~flags:[`Session]
   ~in_oss_since:None
   ~in_product_since:rel_george
   ~params:[
-    Ref _pool, "pool", "The pool where to detect non-homogeneous external authentication configuration"; 
+    Ref _pool, "pool", "The pool where to detect non-homogeneous external authentication configuration";
     ]
   ~doc:"This call asynchronously detects if the external authentication configuration in any slave is different from that in the master and raises appropriate alerts"
   ~allowed_roles:_R_POOL_OP
@@ -6628,7 +6628,7 @@ let pool_send_wlb_configuration = call
   ~params:[Map(String, String), "config", "The configuration to use in optimizing this pool"]
   ~allowed_roles:_R_POOL_OP
    ()
- 
+
 let pool_retrieve_wlb_configuration = call
   ~name:"retrieve_wlb_configuration"
   ~in_product_since:rel_george
@@ -6637,7 +6637,7 @@ let pool_retrieve_wlb_configuration = call
   ~result:(Map(String,String), "The configuration used in optimizing this pool")
   ~allowed_roles:_R_READ_ONLY
    ()
-   
+
 let pool_retrieve_wlb_recommendations = call
   ~name:"retrieve_wlb_recommendations"
   ~in_product_since:rel_george
@@ -6646,7 +6646,7 @@ let pool_retrieve_wlb_recommendations = call
   ~result:(Map(Ref _vm,Set(String)), "The list of vm migration recommendations")
   ~allowed_roles:_R_READ_ONLY
    ()
-   
+
 let pool_send_test_post = call
   ~name:"send_test_post"
   ~in_product_since:rel_george
@@ -6655,7 +6655,7 @@ let pool_send_test_post = call
   ~result:(String, "The response")
   ~allowed_roles:_R_POOL_ADMIN
    ()
-   
+
 let pool_certificate_install = call
   ~in_oss_since:None
   ~in_product_since:rel_george
@@ -6719,7 +6719,7 @@ let pool_certificate_sync = call
   ~doc:"Sync SSL certificates from master to slaves."
   ~allowed_roles:_R_POOL_OP
   ()
-  
+
 let pool_enable_redo_log = call
   ~in_oss_since:None
   ~in_product_since:rel_midnight_ride
@@ -6728,7 +6728,7 @@ let pool_enable_redo_log = call
   ~doc:"Enable the redo log on the given SR and start using it, unless HA is enabled."
   ~allowed_roles:_R_POOL_OP
   ()
-  
+
 let pool_disable_redo_log = call
   ~in_oss_since:None
   ~in_product_since:rel_midnight_ride
@@ -6772,7 +6772,7 @@ let pool_test_archive_target = call ~flags:[`Session]
   ~result:(String, "An XMLRPC result")
   ()
 
-let pool_enable_local_storage_caching = call 
+let pool_enable_local_storage_caching = call
 	~name:"enable_local_storage_caching"
 	~in_oss_since:None
 	~in_product_since:rel_cowley
@@ -6781,7 +6781,7 @@ let pool_enable_local_storage_caching = call
 	~allowed_roles:_R_POOL_OP
 	()
 
-let pool_disable_local_storage_caching = call 
+let pool_disable_local_storage_caching = call
 	~name:"disable_local_storage_caching"
 	~in_oss_since:None
 	~in_product_since:rel_cowley
@@ -6987,7 +6987,7 @@ let auth_get_subject_identifier = call ~flags:[`Session]
   ~in_product_since:rel_george
   ~params:[
     (*Ref _auth, "auth", "???";*)
-    String, "subject_name", "The human-readable subject_name, such as a username or a groupname" ; 
+    String, "subject_name", "The human-readable subject_name, such as a username or a groupname" ;
     ]
   ~result:(String, "the subject_identifier obtained from the external directory service")
   ~doc:"This call queries the external directory service to obtain the subject_identifier as a string from the human-readable subject_name"
@@ -7036,7 +7036,7 @@ let subject_add_to_roles = call ~flags:[`Session]
   ~in_product_since:rel_midnight_ride
   ~params:[
     Ref _subject, "self", "The subject who we want to add the role to";
-    Ref _role, "role", "The unique role reference" ; 
+    Ref _role, "role", "The unique role reference" ;
     ]
   ~doc:"This call adds a new role to a subject"
   ~allowed_roles:_R_POOL_ADMIN
@@ -7047,7 +7047,7 @@ let subject_remove_from_roles = call ~flags:[`Session]
   ~in_product_since:rel_midnight_ride
   ~params:[
     Ref _subject, "self", "The subject from whom we want to remove the role";
-    Ref _role, "role", "The unique role reference in the subject's roles field" ; 
+    Ref _role, "role", "The unique role reference in the subject's roles field" ;
     ]
   ~doc:"This call removes a role from a subject"
   ~allowed_roles:_R_POOL_ADMIN
@@ -7078,7 +7078,7 @@ let subject =
       field ~in_product_since:rel_george ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "subject_identifier" "the subject identifier, unique in the external directory service";
       field ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~qualifier:StaticRO ~ty:(Map(String, String)) "other_config" "additional configuration";
       (* DynamicRO fields do not show up in the constructor, as it should be because a subject must be created without receiving any roles as a parameter *)
-      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [ 
+      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [
         (VRef ("OpaqueRef:"^Constants.rbac_pool_admin_uuid))])) (* pool-admin, according to rbac_static.ml, used during upgrade from pre-rbac xapis *)
         ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
       ]
@@ -7163,12 +7163,12 @@ let role =
 let vtpm =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vtpm ~descr:"A virtual TPM device"
       ~gen_events:false
-      ~doccomments:[] 
+      ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[]
       ~contents:
       [ uid _vtpm;
-	field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine"; 
+	field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
 	field ~qualifier:StaticRO ~ty:(Ref _vm) "backend" "the domain where the backend is located" ]
 	()
 
@@ -7180,7 +7180,7 @@ let console_protocol = Enum("console_protocol", [
 			    ])
 
 (** A virtual console device *)
-let console = 
+let console =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_console ~descr:"A console"
       ~gen_events:true
       ~doccomments:[]
@@ -7217,12 +7217,12 @@ let hvm =
 (** Action to take on guest reboot/power off/sleep etc *)
 (*
 let power_behaviour =
-  Enum ("power_behaviour", [ "destroy", "destroy the VM state"; 
-			     "restart", "automatically restart the VM"; 
-			     "preserve", "leave VM running"; 
+  Enum ("power_behaviour", [ "destroy", "destroy the VM state";
+			     "restart", "automatically restart the VM";
+			     "preserve", "leave VM running";
 			     "rename_restart", "leave VM running and restart a new one" ])
 *)
-let on_crash_behaviour = 
+let on_crash_behaviour =
   Enum ("on_crash_behaviour", [ "destroy", "destroy the VM state";
 				"coredump_and_destroy", "record a coredump and then destroy the VM state";
 				"restart", "restart the VM";
@@ -7230,7 +7230,7 @@ let on_crash_behaviour =
 				"preserve", "leave the crashed VM paused";
 				"rename_restart", "rename the crashed VM and start a new copy" ])
 
-let on_normal_exit_behaviour = 
+let on_normal_exit_behaviour =
   Enum ("on_normal_exit", [ "destroy", "destroy the VM state";
 			    "restart", "restart the VM" ])
 
@@ -7382,13 +7382,13 @@ let vm =
 	namespace ~name:"memory" ~contents:guest_memory ();
 	namespace ~name:"VCPUs" ~contents:vcpus ();
 	namespace ~name:"actions" ~contents:actions ();
-	
+
 	field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _console)) "consoles" "virtual console devices";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~doc_tags:[Networking] "VIFs" "virtual network interfaces";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "virtual block devices";
 	field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps" "crash dumps associated with this VM";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs";
-	
+
 	namespace ~name:"PV" ~contents:pv ();
 	namespace ~name:"HVM" ~contents:hvm ();
 	field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
@@ -7420,7 +7420,7 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this VM";
 	field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~qualifier:RW ~ty:(Map(vm_operations, String)) "blocked_operations" "List of operations which have been explicitly blocked and an error code";
-	
+
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap []))    ~ty:(Map (String, String)) "snapshot_info"     "Human-readable information concerning this snapshot";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String                 "snapshot_metadata" "Encoded information about the VM's metadata this is a snapshot of";
 
@@ -7453,7 +7453,7 @@ let vm =
 	])
 	()
 
-let vm_memory_metrics = 
+let vm_memory_metrics =
   [
     field ~qualifier:DynamicRO ~ty:Int "actual" "Guest's actual memory (bytes)" ~persist:false
   ]
@@ -7531,7 +7531,7 @@ let vm_guest_metrics =
     ~messages:[] ~contents:
     [ uid _vm_guest_metrics;
       field ~qualifier:DynamicRO ~ty:(Map(String, String)) "os_version" "version of the OS";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version" 
+      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version"
 	"version of the PV drivers";
       field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
         ~lifecycle:[
@@ -8040,7 +8040,7 @@ let event_operation = Enum ("event_operation",
                               "mod", "An object has been modified"])
 let event =
   let register = call
-    ~name:"register" 
+    ~name:"register"
     ~in_product_since:rel_rio
     ~params:[Set String, "classes", "register for events for the indicated classes"]
     ~doc:"Registers this session with the event system.  Specifying * as the desired class will register for all classes."
@@ -8064,7 +8064,7 @@ let event =
     ~allowed_roles:_R_ALL
       () in
   let from = call
-    ~name:"from" 
+    ~name:"from"
 	~params:[Set String, "classes", "register for events for the indicated classes";
 			 String, "token", "A token representing the point from which to generate database events. The empty string represents the beginning.";
 			 Float, "timeout", "Return after this many seconds if no events match";
@@ -8125,7 +8125,7 @@ let event =
 
 (** Blobs - binary blobs of data *)
 
-let blob = 
+let blob =
   let create = call
     ~name:"create"
     ~in_product_since:rel_orlando
@@ -8187,7 +8187,7 @@ let message =
     ~allowed_roles:_R_POOL_OP
     ()
   in
-  let get_all = call 
+  let get_all = call
     ~name:"get_all"
     ~in_product_since:rel_orlando
     ~params:[]
@@ -8234,7 +8234,7 @@ let message =
     ~allowed_roles:_R_READ_ONLY
     ()
   in
-  let get_all_records = call 
+  let get_all_records = call
     ~name:"get_all_records"
     ~in_product_since:rel_orlando
     ~params:[]
@@ -8243,7 +8243,7 @@ let message =
     ~allowed_roles:_R_READ_ONLY
     ()
   in
-  let get_all_records_where = call 
+  let get_all_records_where = call
     ~name:"get_all_records_where"
     ~in_product_since:rel_orlando
     ~params:[String, "expr", "The expression to match (not currently used)"]
@@ -8264,7 +8264,7 @@ let message =
       field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
       field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
     ()
-    
+
 let secret =
 	let introduce = call
 		~name:"introduce"
@@ -8781,7 +8781,7 @@ let all_system =
 		vtpm;
 		console;
 		(* filesystem; *)
-		user; 
+		user;
 		data_source;
 		blob;
 		message;
@@ -8809,7 +8809,7 @@ let all_relations =
     (* subtasks hierarchy *)
     (_task, "subtask_of"), (_task, "subtasks");
     (_task, "session"), (_session, "tasks");
-    
+
     (_pif, "bond_slave_of"), (_bond, "slaves");
     (_bond, "master"), (_pif, "bond_master_of");
     (_vlan, "tagged_PIF"), (_pif, "VLAN_slave_of");
@@ -8819,7 +8819,7 @@ let all_relations =
     (_pbd, "host"), (_host, "PBDs");
     (_pbd, "SR"), (_sr, "PBDs");
 
-    (_vbd, "VDI"), (_vdi, "VBDs"); 
+    (_vbd, "VDI"), (_vdi, "VBDs");
     (_crashdump, "VDI"), (_vdi, "crash_dumps");
 (*  (_vdi, "parent"), (_vdi, "children"); *)
 
@@ -8878,7 +8878,7 @@ let all_api = Dm_api.make (all_system, all_relations)
 (** These are the "emergency" calls that can be performed when a host is in "emergency mode" *)
 let emergency_calls =
   [ (pool,pool_slave_reset_master);
-    (pool,pool_transition_to_master); 
+    (pool,pool_transition_to_master);
     (pool,pool_ping_slave);
     (session,slave_local_login);
     (session,slave_local_login_with_password);
@@ -8898,8 +8898,8 @@ let emergency_calls =
   ]
 
 (** Whitelist of calls that will not get forwarded from the slave to master via the unix domain socket *)
-let whitelist = [ (session,session_login); 
-		  (session,slave_login); 
+let whitelist = [ (session,session_login);
+		  (session,slave_login);
 		] @ emergency_calls
 
 (* perform consistency checks on api at initialisation time *)
@@ -8994,9 +8994,9 @@ let http_actions = [
   ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
   ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
   ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
-  ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP, 
+  ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP,
     [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
-  ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP, 
+  ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP,
     [("host_console_ws", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("get_root", (Get, "/", false, [], _R_READ_ONLY, []));
   ("post_cli", (Post, Constants.cli_uri, false, [], _R_READ_ONLY, []));
@@ -9006,7 +9006,7 @@ let http_actions = [
   ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [], _R_POOL_OP, []));
   ("get_pool_patch_download", (Get, Constants.pool_patch_download_uri, true, [String_query_arg "uuid"], _R_POOL_OP, []));
   ("put_oem_patch_stream", (Put, Constants.oem_patch_stream_uri, true, [], _R_POOL_OP, []));
-  ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"], _R_VM_OP, 
+  ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"], _R_VM_OP,
     [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can snapshot host/Dom0 console *)
   ("get_pool_xml_db_sync", (Get, Constants.pool_xml_db_sync, true, [], _R_POOL_ADMIN, []));
   ("put_pool_xml_db_sync", (Put, Constants.pool_xml_db_sync, false, [], _R_POOL_ADMIN, []));
@@ -9055,7 +9055,7 @@ let public_http_actions_with_no_rbac_check =
 		             (* also, without this line, quicktest_http.ml fails on non_resource_cmd and bad_resource_cmd with a 401 instead of 404 *)
 		"get_blob"; (* Public blobs don't need authentication *)
 		"post_root_options"; (* Preflight-requests are not RBAC checked *)
-		"post_json_options"; 
+		"post_json_options";
 		"post_jsonrpc";
 		"post_jsonrpc_options";
 	]

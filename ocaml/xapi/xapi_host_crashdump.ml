@@ -55,7 +55,7 @@ let resynchronise ~__context ~host =
 		(fun self ->
 			Db.Host_crashdump.get_filename ~__context ~self) all_refs in
 
-	let real_filenames = 
+	let real_filenames =
 		List.filter (fun filename ->
 			let stat = Unix.stat (Filename.concat crash_dir filename) in
 			stat.Unix.st_kind = Unix.S_DIR (*only directories are marked as crashdumps*)

@@ -20,7 +20,7 @@ open Perfdebug
 
 let xenrtfname = ref "perftest-xenrt.log"
 
-let marshall_xenrt pool metadata results = 
+let marshall_xenrt pool metadata results =
   let oc = open_out !xenrtfname in
   Printf.fprintf oc "<testrun>\n";
   Printf.fprintf oc "%s\n" (Scenario.xml_of_scenario pool);
@@ -29,7 +29,7 @@ let marshall_xenrt pool metadata results =
   Printf.fprintf oc " </meta>\n <tests>\n";
   List.iter (fun r ->
     Printf.fprintf oc "  <test name=\"%s\" subtest=\"%s\">%f</test>\n" r.resultname r.subtest r.xenrtresult) results;
-  Printf.fprintf oc " </tests>\n</testrun>";  
+  Printf.fprintf oc " </tests>\n</testrun>";
   close_out oc
 
 let rawfname = ref ""

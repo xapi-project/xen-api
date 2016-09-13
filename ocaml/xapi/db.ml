@@ -14,7 +14,7 @@
 (**
  * @group Database Operations
  *)
- 
+
 include Db_actions.DB_Action
 let is_valid_ref __context r =
 	let t = Context.database_of __context in

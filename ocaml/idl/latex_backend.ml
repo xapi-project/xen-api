@@ -20,7 +20,7 @@ open Dm_api
 
 open Stdext.Xstringext
 
-let rec formatted_wrap formatter s = 
+let rec formatted_wrap formatter s =
   let split_in_2 c s =
     match String.split ~limit:2 c s with
         h :: t -> (h, if t = [] then "" else List.hd t)
@@ -117,13 +117,13 @@ let desc_of_ty_opt = function
 (** Add namespaces (separated by _) to each field name *)
 let flatten stuff =
   let rec f ns = function
-    | Field fr -> Field { fr with field_name = ns ^ fr.field_name} 
+    | Field fr -> Field { fr with field_name = ns ^ fr.field_name}
     | Namespace(ns', contents) -> Namespace("", List.map (f (ns ^ ns' ^ "_")) contents)
   in
     f "" stuff
 
 let string_of_qualifier = function
-  | StaticRO   -> "$\\mathit{RO}_\\mathit{ins}$" 
+  | StaticRO   -> "$\\mathit{RO}_\\mathit{ins}$"
   | DynamicRO  -> "$\\mathit{RO}_\\mathit{run}$"
   | RW         -> "$\\mathit{RW}$"
 
@@ -137,19 +137,19 @@ let of_enum_alias name options = [
 				   "\\begin{longtable}{|ll|}";
 				   "\\hline";
 				   "{\\tt enum " ^ (escape name) ^ "} & \\\\";
-				   "\\hline" ] @ 
+				   "\\hline" ] @
   (List.map (fun (option, description) ->
 	       hgap ^ "{\\tt " ^ (escape option) ^ "} & " ^ (escape description) ^ " \\\\") options) @
 				   [
 				     "\\hline";
 				     "\\end{longtable}"
 				   ]
-				   
 
-let of_content x closed = 
+
+let of_content x closed =
   let rec f prefix = function
-    | Field{release=release; qualifier=qualifier; field_name=name; ty=ty; field_description=description} -> 
-	[ sprintf "%s%s & %s {\\tt %s} & %s & %s \\\\" 
+    | Field{release=release; qualifier=qualifier; field_name=name; ty=ty; field_description=description} ->
+	[ sprintf "%s%s & %s {\\tt %s} & %s & %s \\\\"
 	    (if closed then
                string_of_open_product release
              else
@@ -158,9 +158,9 @@ let of_content x closed =
             prefix (escape name) (of_ty ty) (escape description) ]
     | Namespace(_, fields) -> List.concat (List.map (f prefix) fields)
   in f "" x
-    
+
 (*
-  let header = [ "\\documentclass[8pt]{article}"; 
+  let header = [ "\\documentclass[8pt]{article}";
   "\\usepackage{geometry}";
   "\\usepackage{layout}";
   "\\geometry{";
@@ -178,7 +178,7 @@ let of_content x closed =
   let footer = [ "\\end{document}" ]
 *)
 
-    
+
 (* Output API parameter table entry *)
 let mk_latex_param p =
   String.concat " "
@@ -190,7 +190,7 @@ let mk_latex_error err =
   sprintf "{\\tt %s}" (escape err.err_name)
 
 let space = "\\vspace{0.3cm}"
-  
+
 (* Make a latex section for an API-specified message *)
 let latex_section_of_message closed section_prefix x =
   String.concat "\n"
@@ -203,14 +203,14 @@ let latex_section_of_message closed section_prefix x =
        wrap (full_stop (escape x.msg_doc));
        " \\noindent {\\bf Signature:} ";
 
-       let section_contents = 
+       let section_contents =
 	   (String.concat " "
 	      [if is_prim_opt_type x.msg_result then of_ty_opt_verbatim x.msg_result
 	      else "("^(of_ty_opt_verbatim x.msg_result)^")";
 	      x.msg_name;
 	      String.concat ""
 		[
-		  "(";	 
+		  "(";
 		  String.concat ", "
 		    ((if x.msg_session then ["session_id s"] else []) @
 		       (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params));
@@ -227,13 +227,13 @@ let latex_section_of_message closed section_prefix x =
             section_contents;
 	    "\\end{verbatim}\n\n"])
      ] @
-       
+
        (if x.msg_params=[] then []
 	else
 	    [
 	      "\\noindent{\\bf Arguments:}\n\n ";
 	      space;
-	      
+
 	      "\\begin{tabular}{|c|c|p{7cm}|}\n \\hline";
 	      "{\\bf type} & {\\bf name} & {\\bf description} \\\\ \\hline";
 	      String.concat "\n" ((List.map mk_latex_param) x.msg_params);
@@ -242,7 +242,7 @@ let latex_section_of_message closed section_prefix x =
 
        [
 	 space;
-	 "\n \\noindent {\\bf Return Type:} ";      
+	 "\n \\noindent {\\bf Return Type:} ";
 	 "{\\tt ";
 	 of_ty_opt x.msg_result; "}\n\n";
 	 escape (desc_of_ty_opt x.msg_result);
@@ -258,7 +258,7 @@ let latex_section_of_message closed section_prefix x =
                                              x.msg_errors)));
               "\\vspace{0.6cm}"
 	    ]))
-    
+
 (* Make a load of sections for a list of functions, fb.
    if section_prefix="" then we make subsections for each function.
    if section_prefix="sub" then we make subsubsections for each function. *)
@@ -294,7 +294,7 @@ let class_header x closed =
     ]
 
 
-let class_footer =    
+let class_footer =
   [
     "\\hline";
     "\\end{longtable}"
@@ -310,10 +310,10 @@ let field_table_of_obj newpage x closed =
       (if x.contents=[] then
 	   ["{\\bf Class "^(escape x.name)^" has no fields.}"]
        else
-           (class_header x closed) @ field_tex @ class_footer)  
-    
+           (class_header x closed) @ field_tex @ class_footer)
+
 let of_obj x closed =
-  [ 
+  [
     "\\newpage";
     "\\section{Class: "^(escape x.name)^"}" ]
   @ (field_table_of_obj false x closed)
@@ -350,7 +350,7 @@ let error_doc { err_name=name; err_params=params; err_doc=doc } =
 \\begin{center}\\rule{10em}{0.1pt}\\end{center}
 " (escape name) (wrap (escape doc)) (error_signature name params)
 
-let include_file ?(escaped=false) ?(blanklines=false) filename = 
+let include_file ?(escaped=false) ?(blanklines=false) filename =
   let ic = open_in filename in
     try
       while true do
@@ -487,20 +487,20 @@ let all api closed =
     print_endline "\\hline";
     List.iter (function (((a, a_field), (b, b_field)) as rel) ->
 		 let c = Relations.classify api rel in
-		   printf "%s.%s & %s.%s & %s\\\\\n" 
-		     (escape a) (escape a_field) 
+		   printf "%s.%s & %s.%s & %s\\\\\n"
+		     (escape a) (escape a_field)
 		     (escape b) (escape b_field)
 		     (Relations.string_of_classification c)
 	      ) relations;
     print_endline "\\hline";
     print_endline "\\end{tabular}\\end{center}";
-    
+
     print_endline "";
 
     print_endline "The following represents bound fields (as specified above) diagramatically, using crows-foot notation to specify one-to-one, one-to-many or many-to-many
                    relationships:";
     print_endline "";
-    print_endline "\\begin{center}\\resizebox{0.8\\textwidth}{!}{"; 
+    print_endline "\\begin{center}\\resizebox{0.8\\textwidth}{!}{";
     print_endline (sprintf "\\includegraphics{%s}" graphfilename);
     print_endline "}\\end{center}";
 
@@ -511,7 +511,7 @@ let all api closed =
     print_endline "\\begin{center}\\begin{tabular}{|ll|}";
     print_endline "\\hline";
     print_endline "Type & Description \\\\";
-    print_endline "\\hline";    
+    print_endline "\\hline";
     print_endline "string & text strings \\\\";
     print_endline "int    & 64-bit integers \\\\";
     print_endline "float & IEEE double-precision floating-point numbers \\\\";
@@ -525,7 +525,7 @@ let all api closed =
     print_endline "\\begin{center}\\begin{tabular}{|ll|}";
     print_endline "\\hline";
     print_endline "Type & Description \\\\";
-    print_endline "\\hline";    
+    print_endline "\\hline";
     print_endline "$c$ ref & reference to an object of class $c$ \\\\";
     print_endline "$t$ set & a set of elements of type $t$ \\\\";
     print_endline "($a \\rightarrow b$) map & a table mapping values of type $a$ to values of type $b$ \\\\";
@@ -534,7 +534,7 @@ let all api closed =
     print_endline "\\subsection{Enumeration types}";
     print_endline "The following enumeration types are used:";
     print_endline "";
-    List.iter (function Enum (name, options) -> 
+    List.iter (function Enum (name, options) ->
 		 List.iter print_endline (of_enum_alias name options);
 		 print_string vgap
 		 | _ -> () ) (Types.of_objects system);

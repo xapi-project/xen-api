@@ -25,9 +25,9 @@ module D = Debug.Make(struct let name = "master_connection" end)
 open D
 
 let my_connection : Stunnel.t option ref = ref None
-  
+
 exception Cannot_connect_to_master
-  
+
 (* kill the stunnel underlying the connection.. When the master dies
    then read/writes to the connection block for ages waiting for the
    TCP timeout. By killing the stunnel, we can get these calls to
@@ -68,7 +68,7 @@ let force_connection_reset () =
 let last_master_connection_call : float option ref = ref None
   (* the master_connection_watchdog uses this time to determine whether the master connection
      should be reset *)
-  
+
 (* Set and unset the timestamp global. (No locking required since we are operating under
    mutual exclusion provided by the database lock here anyway) *)
 let with_timestamp f =
@@ -76,7 +76,7 @@ let with_timestamp f =
   Stdext.Pervasiveext.finally
     f
     (fun ()->last_master_connection_call := None)
-    
+
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
    master goes away unexpectedly... *)
@@ -147,7 +147,7 @@ let restart_on_connection_timeout = ref true
 
 exception Content_length_required
 
-let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interface.response = 
+let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interface.response =
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
   let result = ref (Db_interface.String "") in
@@ -155,9 +155,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
   let backoff_delay = ref 2.0 in (* initial delay = 2s *)
   let update_backoff_delay () =
     backoff_delay := !backoff_delay *. 2.0;
-    if !backoff_delay < 2.0 then backoff_delay := 2.0 
+    if !backoff_delay < 2.0 then backoff_delay := 2.0
     else if !backoff_delay > 256.0 then backoff_delay := 256.0
-  in  
+  in
   while (not !write_ok)
   do
     begin
@@ -168,7 +168,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 	then raise Http_svr.Client_requested_size_over_limit;
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
 	let open Xmlrpc_client in
-	let request = xmlrpc 
+	let request = xmlrpc
 		~version:"1.1" ~frame:true ~keep_alive:true
 		~length:(Int64.of_int length)
 		~cookie:["pool_secret", !Xapi_globs.pool_secret] ~body:req path in
@@ -230,7 +230,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
 	    else
 	      debug "Connection to master died: time taken so far in this call '%f'; will %s"
 		time_sofar (if !connection_timeout < 0.
-			    then "never timeout" 
+			    then "never timeout"
 			    else Printf.sprintf "timeout after '%f'" !connection_timeout);
 	    if time_sofar > !connection_timeout && !connection_timeout >= 0. then
 	      begin
@@ -255,7 +255,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
     end
   done;
   !result
-    
+
 let execute_remote_fn string path =
   let host = Pool_role.get_master_address () in
   Db_lock.with_lock

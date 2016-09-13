@@ -19,14 +19,14 @@ open D
 
 module Rrdd = Rrd_client.Client
 
-let time f = 
+let time f =
   let start = Unix.gettimeofday () in
   (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));
   Unix.gettimeofday () -. start
 
 (* give xapi time to reply to API messages by means of a 10 second fuse! *)
 let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
-  debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally"; 
+  debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally";
 	let delay_so_far =
 		time (fun _ -> log_and_ignore_exn Xapi_stats.stop) +.
 		time (fun _ -> log_and_ignore_exn Rrdd.backup_rrds)

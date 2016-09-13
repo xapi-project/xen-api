@@ -119,7 +119,7 @@ let suspend vmid =
 let _ = List.iter suspend pv_uuids
 
 
-(*    
+(*
 (* And then uninstall everything again *)
       let _ = uninstall_all_vms cli
 *)

@@ -41,7 +41,7 @@ let _master = "master"
 
 type remote = {
   rpc : Rpc.call -> Rpc.response;
-  session : API.ref_session;  
+  session : API.ref_session;
   sm_url : string;
   xenops_url : string;
   master_url : string;
@@ -53,7 +53,7 @@ type remote = {
 let get_ip_from_url url =
   match Http.Url.of_string url with
   | Http.Url.Http { Http.Url.host = host }, _ -> host
-  | _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url) 
+  | _, _ -> failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url)
 
 let remote_of_dest dest =
   let master_url = List.assoc _master dest in
@@ -82,8 +82,8 @@ let with_migrate f =
   Mutex.execute nmutex (fun () ->
       if !number = 3 then raise (Api_errors.Server_error (Api_errors.too_many_storage_migrates,["3"]));
       incr number);
-  finally f (fun () -> 
-      Mutex.execute nmutex (fun () ->			
+  finally f (fun () ->
+      Mutex.execute nmutex (fun () ->
           decr number))
 
 module XenAPI = Client
@@ -154,7 +154,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
     (* CA-86347 Handle the excn if the VM happens to reboot during migration.
        		 * Such a reboot causes Xenops_interface.Cancelled the first try, then
        		 * Xenops_interface.Internal_error("End_of_file") the second, then success. *)
-    with 
+    with
     (* User cancelled migration *)
     | Xenops_interface.Cancelled _ as e when TaskHelper.is_cancelling ~__context ->
       debug "xenops: Migration cancelled by user.";
@@ -168,7 +168,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
       migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
     (* Something else went wrong *)
-    | e -> 
+    | e ->
       debug "xenops: not retrying migration: caught %s from %s in attempt %d of %d."
         (Printexc.to_string e) !progress try_no max;
       raise e
@@ -687,16 +687,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let open Xapi_xenops in
 
   let remote = remote_of_dest dest in
-  
+
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
 
-  (* The first thing to do is to create mirrors of all the disks on the remote. 
+  (* The first thing to do is to create mirrors of all the disks on the remote.
      We look through the VM's VBDs and all of those of the snapshots. We then
      compile a list of all of the associated VDIs, whether we mirror them or not
-     (mirroring means we believe the VDI to be active and new writes should be 
-     mirrored to the destination - otherwise we just copy it) 
+     (mirroring means we believe the VDI to be active and new writes should be
+     mirrored to the destination - otherwise we just copy it)
 
      We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
      suspend-image VDIs. *)
@@ -931,7 +931,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       (* Signal the remote pool that we're done *)
     end;
 
-    Helpers.call_api_functions ~__context (fun rpc session_id -> 
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
         if not is_intra_pool && not copy then begin
           info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
           Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
@@ -994,7 +994,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       debug "This is a cross-pool migration";
       `cross_pool
   in
-  
+
   (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
   let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
   assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
@@ -1091,7 +1091,7 @@ let handler req fd _ =
       let localhost = Helpers.get_localhost ~__context in
 
       (* NB this parameter will be present except when we're doing a rolling upgrade. *)
-      let memory_required_kib = 
+      let memory_required_kib =
         if List.mem_assoc _memory_required_kib req.Http.Request.query then
           Int64.of_string (List.assoc _memory_required_kib req.Http.Request.query)
         else

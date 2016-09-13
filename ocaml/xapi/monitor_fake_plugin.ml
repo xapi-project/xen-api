@@ -5,17 +5,17 @@ exception UnknownRpc
 
 let add_fake_ds fname ds_name ds_type value =
 	let value = float_of_string value in
-	let ty = match ds_type with 
+	let ty = match ds_type with
 		| "absolute" -> Rrd.Absolute
 		| "gauge" -> Rrd.Gauge
 		| "derive" -> Rrd.Derive
 		| _ -> failwith "Unknown ds type"
 	in
 	Unixext.mkdir_rec fake_dir 0o755;
-	let orig_dss = 
+	let orig_dss =
 		try
 			fake_ds_list_of_rpc (Jsonrpc.of_string (Unixext.string_of_file fname))
-		with _ -> [] 
+		with _ -> []
 	in
 	let new_ds = { f_name=ds_name; f_ty=ty; f_val=value } in
 	let new_dss = new_ds::(List.filter (fun ds -> ds.f_name <> ds_name) orig_dss) in
@@ -30,7 +30,7 @@ let add_fake_ds_host =
 	add_fake_ds fname
 
 let _ =
-	try 
+	try
 		let oc = open_out "/tmp/foo" in
 		Printf.fprintf oc "%s" Sys.argv.(1);
 		let call = Xmlrpc.call_of_string Sys.argv.(1) in
@@ -40,14 +40,14 @@ let _ =
 		let args = match (List.hd (List.tl call.Rpc.params)) with
 			| Rpc.Dict args ->
 				args
-			| _ -> 
+			| _ ->
 				failwith "Can't parse args"
 		in
 		let oc = open_out "/tmp/foo3" in
 		List.iter (fun (a,b) -> Printf.fprintf oc "%s: %s" a (Rpc.string_of_rpc b)) args;
-		let contents = 
+		let contents =
 			match call.Rpc.name with
-				| "add_fake_ds" -> 					
+				| "add_fake_ds" ->
 					let uuid = Rpc.string_of_rpc (List.assoc "uuid" args) in
 					let ds_name = Rpc.string_of_rpc (List.assoc "ds_name" args) in
 					let ds_type = Rpc.string_of_rpc (List.assoc "ds_type" args) in
@@ -60,7 +60,7 @@ let _ =
 					let value = Rpc.string_of_rpc (List.assoc "value" args) in
 					add_fake_ds_host ds_name ds_type value;
 					Rpc.rpc_of_string "OK"
-				| _ -> 
+				| _ ->
 					raise UnknownRpc
 		in
 		Printf.printf "%s" (Xmlrpc.string_of_response {Rpc.success=true; contents=contents});

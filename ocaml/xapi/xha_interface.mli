@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group High Availability (HA)
  *)
- 
+
 module DaemonConfiguration : sig
 
 	module Host : sig
@@ -100,7 +100,7 @@ module LiveSetInformation : sig
 
 
 	end
-	  
+
 	module HostRawData : sig
 		type t = {
 			id: [`host] Uuid.t;

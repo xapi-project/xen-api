@@ -51,7 +51,7 @@ val create :
   other_config:(string * string) list ->
   qos_algorithm_type:string ->
   qos_algorithm_params:(string * string) list ->
-  locking_mode:API.vif_locking_mode -> 
+  locking_mode:API.vif_locking_mode ->
   ipv4_allowed:string list ->
   ipv6_allowed:string list -> API.ref_VIF
 
@@ -79,7 +79,7 @@ val move :
  *  Implemented by {!Xapi_vif_helpers.assert_operation_valid} *)
 val assert_operation_valid :
   __context:Context.t -> self:[ `VIF ] Ref.t -> op:API.vif_operations -> unit
-  
+
 (** Update the [PIF.allowed_operations] field.
  *  Implemented by {!Xapi_vif_helpers.update_allowed_operations} *)
 val update_allowed_operations :

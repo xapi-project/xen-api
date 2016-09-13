@@ -47,7 +47,7 @@ module V6process = functor(V: V6api) -> struct
 	let process call =
 		let response =
 			try match call.Rpc.name with
-			| "apply_edition" -> 
+			| "apply_edition" ->
 				let dbg_rpc, arg_rpc = match call.Rpc.params with
 					| [a;b] -> (a,b)
 					| _ ->
@@ -58,7 +58,7 @@ module V6process = functor(V: V6api) -> struct
 				let edition, features, additional_params =
 					V.apply_edition dbg arg.edition_in arg.additional_in in
 				let response = rpc_of_apply_edition_out
-					{edition_out = edition; features_out = features; additional_out = additional_params} in 
+					{edition_out = edition; features_out = features; additional_out = additional_params} in
 				Rpc.success response
 			| "get_editions" ->
 				let dbg_rpc = match call.Rpc.params with
@@ -82,7 +82,7 @@ module V6process = functor(V: V6api) -> struct
 				let response = Rpc.rpc_of_bool (V.reopen_logs ()) in
 				Rpc.success response
 			| x -> failwith ("unknown RPC: " ^ x)
-			with 
+			with
 			| V6errors.Error e as exn ->
 				error "%s" (V6errors.to_string exn);
 				Debug.log_backtrace exn (Backtrace.get exn);

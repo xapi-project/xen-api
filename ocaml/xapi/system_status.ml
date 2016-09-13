@@ -34,30 +34,30 @@ let get_capabilities () =
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
   let s_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  
-  let params = 
+
+  let params =
     [sprintf "--entries=%s" entries;
      "--silent";
      "--yestoall";
      sprintf "--output=%s" output;
      "--outfd="^s_uuid]
   in
-  let cmd = 
+  let cmd =
     sprintf "%s %s" xen_bugtool (String.concat " " params)
   in
   debug "running %s" cmd;
   try
-    let headers = 
+    let headers =
       Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
         [ "Server: "^Xapi_globs.xapi_user_agent;
           Http.Hdr.content_type ^": " ^ content_type;
-          "Content-Disposition: attachment; filename=\"system_status.tgz\""] 
+          "Content-Disposition: attachment; filename=\"system_status.tgz\""]
     in
     Http_svr.headers s headers;
-    
+
     let result =  with_logfile_fd "get-system-status"
       (fun log_fd ->
-	let pid = 
+	let pid =
           safe_close_and_exec None (Some log_fd) (Some log_fd) [(s_uuid,s)] xen_bugtool params
 	in
 	waitpid_fail_if_bad_exit pid
@@ -65,7 +65,7 @@ let send_via_fd __context s entries output =
     in
     match result with
       | Success _ -> debug "xen-bugtool exited successfully"
-	  
+
       | Failure (log, exn) ->
 	  debug "xen-bugtool failed with output: %s" log;
 	  raise exn
@@ -74,9 +74,9 @@ let send_via_fd __context s entries output =
     error "%s" msg;
     raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
 
-      
-(* This fn outputs xen-bugtool into a file and then write the 
-   file out to the socket, to deal with zipped bugtool outputs 
+
+(* This fn outputs xen-bugtool into a file and then write the
+   file out to the socket, to deal with zipped bugtool outputs
    It will not work on embedded edition *)
 let send_via_cp __context s entries output =
   let cmd = sprintf "%s --entries=%s --silent --yestoall --output=%s"
@@ -95,7 +95,7 @@ let send_via_cp __context s entries output =
       let msg = "xen-bugtool failed: " ^ (ExnHelper.string_of_exn e) in
         error "%s" msg;
         raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
-                
+
 let handler (req: Request.t) s _ =
   debug "In system status http handler...";
   req.Request.close <- true;

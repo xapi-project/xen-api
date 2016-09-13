@@ -65,7 +65,7 @@ let headers host path content_length = [
   Printf.sprintf "Host: %s" host;
   "Content-Type: text/xml";
   Printf.sprintf "Content-length: %d" content_length;
-] 
+]
 
 
 let do_http_rpc host port path body f =

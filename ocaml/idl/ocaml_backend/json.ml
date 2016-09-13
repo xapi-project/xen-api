@@ -19,9 +19,9 @@ open Stdext.Xstringext
 let escape_string s =
   String.escaped ~rules:[('\n',"\\n");('"',"\\\"");('\\',"\\\\")] s
 
-let rec xmlrpc_to_json xml = 
-  let float_to_string f = 
-    match classify_float f with 
+let rec xmlrpc_to_json xml =
+  let float_to_string f =
+    match classify_float f with
       | FP_normal | FP_subnormal -> Printf.sprintf "%0.0f" f
       | FP_nan -> "NaN"
       | FP_infinite -> if f>0.0 then "Infinity" else "-Infinity"
@@ -48,15 +48,15 @@ let rec xmlrpc_to_json xml =
 	let elts = List.map map_func list in
 	"{"^(String.concat "," elts)^"}"
     | Element("array",_,[Element("data",_,values)]) ->
-	let values = List.map (function 
-		|Element("value",_,[v]) -> xmlrpc_to_json v 
+	let values = List.map (function
+		|Element("value",_,[v]) -> xmlrpc_to_json v
 		| Element("value",_,[]) -> "\"\""
 		| _ -> failwith "Bad XMLRPC"
 	) values in
 	"["^(String.concat "," values)^"]"
     | Element(n,_,_) -> (Printf.fprintf stderr "%s" ("Bad XMLRPC (expecting something, got "^n^")"); "<bad2 (got "^n^">")
-	  
-	      
-	
-	
-  
+
+
+
+
+

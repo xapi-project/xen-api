@@ -14,7 +14,7 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
 (** An extension of Vm_memory_constraints that provides additional database and API operations. *)
 module type T = sig
 
@@ -42,7 +42,7 @@ module type T = sig
 	(** Reads memory constraints effective for the given running VM, from the database. *)
 	val get_live : __context:Context.t -> vm_ref:[`VM] Ref.t -> t
 
-	(** Writes memory constraints for the given VM, to the database. *) 
+	(** Writes memory constraints for the given VM, to the database. *)
 	val set : __context:Context.t -> vm_ref:[`VM] Ref.t -> constraints:t -> unit
 
 end
@@ -72,7 +72,7 @@ module Vm_memory_constraints : T = struct
 			else assert_valid_and_pinned_at_static_max)
 		~constraints
 
-	let extract ~vm_record = 
+	let extract ~vm_record =
 	{
 		static_min  = vm_record.API.vM_memory_static_min;
 		dynamic_min = vm_record.API.vM_memory_dynamic_min;

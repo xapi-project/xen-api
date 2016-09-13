@@ -77,7 +77,7 @@ let request_queue : queued_request list ref = ref []
 let request_mutex = Mutex.create()
 let request_cond = Condition.create()
 
-let signal_result' req result () =               
+let signal_result' req result () =
   if !(req.resp) = NoResponse then
     begin
       req.resp := result;
@@ -139,7 +139,7 @@ let handle_requests () =
           Thread.delay 30.
   done
 
-let start_watcher __context timeout delay req = 
+let start_watcher __context timeout delay req =
   ignore (Thread.create watcher_thread (__context, timeout, delay, req))
 
 let queue_request req =

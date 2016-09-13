@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* 
+(*
  * HTTP handler for serving files in the rt subdir
  *)
 
@@ -67,14 +67,14 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
     (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
     let file_path = Stdext.Unixext.resolve_dot_and_dotdot file_path in
 
-    if not(String.startswith dir file_path) then begin 
+    if not(String.startswith dir file_path) then begin
       debug "Rejecting request for file: %s (outside of directory %s)" file_path dir;
 		Http_svr.response_forbidden ~req s
     end else begin
       let stat = Unix.stat file_path in
       (* if a directory, automatically add index.html *)
       let file_path = if stat.Unix.st_kind = Unix.S_DIR then file_path ^ "/index.html" else file_path in
-      
+
       let mime_content_type =
         let open Stdext.Opt in
           let ext = map String.lowercase (get_extension file_path) in

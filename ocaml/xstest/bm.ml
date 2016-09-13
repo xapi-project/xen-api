@@ -57,7 +57,7 @@ let maybe_yield () =
 
 let bench_transaction ?(single_read_path=false) ~test_name ~times tests =
 	let doit ~read_path ~write_path name xsh =
-		try 
+		try
 			let i = ref 0 in
 			Xs.transaction xsh (fun t ->
 				incr i;
@@ -92,7 +92,7 @@ let bench_transaction ?(single_read_path=false) ~test_name ~times tests =
 
 	let generate offset i =
 		Array.init i (fun i ->
-			let i1 = i + 1 in 
+			let i1 = i + 1 in
 			let write_path = sprintf "/benchs/%d" (offset + i1) in
 			let read_path = if single_read_path then "/benchs/0" else write_path in
 			let name = sprintf "%d" i1 in
@@ -104,7 +104,7 @@ let bench_transaction ?(single_read_path=false) ~test_name ~times tests =
 		| n::t -> Bench.multifork (Printf.sprintf "%s%i" test_name n) (generate last_n n); aux n t
 		| [] -> ()
 	in
-	
+
 	aux 0 tests
 
 let bench_slowfast () =
@@ -168,7 +168,7 @@ type transaction_test = { times: int; name: string; tests: int list }
 let t1 = { times=1000; name="t"; tests=[2;4;8;16;32] }
 let t2 = { times=50; name="twr"; tests=[128] }
 
-let classic () = 
+let classic () =
 	single := true;
 	single_wr := true;
 	transaction := true

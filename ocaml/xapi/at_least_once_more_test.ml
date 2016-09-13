@@ -35,20 +35,20 @@ let keep_changing_inputs_m = Mutex.create ()
 
 let ( +* ) = Int64.add
 let num_invocations = make 0L
-let update_total () = 
+let update_total () =
   set num_invocations (get num_invocations +* 1L);
   let inputs' = List.map get inputs in
   set total (List.fold_left Int64.add 0L inputs')
 
 let need_to_recompute_total = At_least_once_more.make "recompute total" update_total
 
-let background_thread_changing_input input = 
+let background_thread_changing_input input =
   while (Mutex.execute keep_changing_inputs_m (fun () -> !keep_changing_inputs)) do
     set input (get input +* 1L);
     At_least_once_more.again need_to_recompute_total;
   done
-		       
-let _ = 
+
+let _ =
   (* Start background threads *)
   let threads = List.map (Thread.create background_thread_changing_input) inputs in
   (* Wait for a while *)

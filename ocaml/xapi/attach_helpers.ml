@@ -19,9 +19,9 @@ open D
 
 let timeout = 300. (* 5 minutes, should never take this long *)
 
-(** Attempt an unplug, and if it fails because the device is in use, wait for it to 
+(** Attempt an unplug, and if it fails because the device is in use, wait for it to
     detach by polling the currently-attached field. *)
-let safe_unplug rpc session_id self = 
+let safe_unplug rpc session_id self =
   try
     Client.VBD.unplug rpc session_id self
   with
@@ -52,7 +52,7 @@ let has_vbd_leaked __context vbd =
 	then (info "Ignoring orphaned disk attached to control domain (device = %s)" device; false)
 	else begin
 		let has_valid_task = has_task && (
-			let task_id = Ref.of_string (List.assoc Xapi_globs.vbd_task_key other_config) in			
+			let task_id = Ref.of_string (List.assoc Xapi_globs.vbd_task_key other_config) in
 			(* check if the task record still exists and is pending *)
 			try
 				let status = Db.Task.get_status ~__context ~self:task_id in
@@ -71,15 +71,15 @@ let has_vbd_leaked __context vbd =
 	end
 
 (** Execute a function with a list of VBDs after attaching a bunch of VDIs to an vm *)
-let with_vbds rpc session_id __context vm vdis mode f = 
+let with_vbds rpc session_id __context vm vdis mode f =
   let task_id = Context.get_task_id __context in
   let vbds = ref [] in
   finally
     (fun () ->
        List.iter (fun vdi ->
-		    let vbd = Client.VBD.create ~rpc ~session_id ~vM:vm ~empty:false ~vDI:vdi 
+		    let vbd = Client.VBD.create ~rpc ~session_id ~vM:vm ~empty:false ~vDI:vdi
 		      ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true
-		      ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+		      ~qos_algorithm_type:"" ~qos_algorithm_params:[]
 		      ~other_config:[ Xapi_globs.vbd_task_key, Ref.string_of task_id ] in
 		    (* sanity-check *)
 		    if has_vbd_leaked __context vbd
@@ -87,7 +87,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
 
 		    let vbd_uuid = Client.VBD.get_uuid ~rpc ~session_id ~self:vbd in
 		    let uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
-		    debug "created VBD (uuid %s); attempting to hotplug to VM (uuid: %s)" vbd_uuid uuid; 
+		    debug "created VBD (uuid %s); attempting to hotplug to VM (uuid: %s)" vbd_uuid uuid;
 		    vbds := vbd :: !vbds;
 		    Client.VBD.plug rpc session_id vbd
 		 ) vdis;
@@ -96,7 +96,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
     (fun () ->
       (* Use a new session here to cover the case where the session has become invalid *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-	List.iter (Helpers.log_exn_continue "unplugging disk from VM" 
+	List.iter (Helpers.log_exn_continue "unplugging disk from VM"
 		      (fun self -> safe_unplug rpc session_id self)) !vbds;
-	List.iter (Helpers.log_exn_continue "destroying VBD on VM" 
+	List.iter (Helpers.log_exn_continue "destroying VBD on VM"
 		      (fun self -> Client.VBD.destroy rpc session_id self)) !vbds))

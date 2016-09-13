@@ -15,18 +15,18 @@
 
 open Binpack
 
-let time f = 
+let time f =
   let start = Unix.gettimeofday () in
   let result = f () in
   let time = Unix.gettimeofday () -. start in
   Printf.printf "result: %Ld time taken: %.2f\n" result time
-  
+
 (* Return a table of hosts or VMs *)
 let make_thing base extra n = List.map (fun x -> x, Int64.add base (Random.int64 extra)) (mkints n)
-  
+
 let choose_one list = List.nth list (Random.int (List.length list))
-  
-let make_config host_num host_base host_extra vm_num vm_base vm_extra num_failures = 
+
+let make_config host_num host_base host_extra vm_num vm_base vm_extra num_failures =
   let hosts = make_thing host_base host_extra host_num in
   let vms = make_thing vm_base vm_extra vm_num in
   let placement = List.map (fun (vm, _) -> vm, fst (choose_one hosts)) vms in
@@ -38,7 +38,7 @@ let make_config host_num host_base host_extra vm_num vm_base vm_extra num_failur
    1. no host is overcommitted (free memory after new VMs are subtracted >= 0)
    2. every VM running on the dead hosts is mentioned in the plan *)
 (* Return true if the hosts have enough free memory to run the VMs in the plan *)
-let check_plan config dead_hosts plan = 
+let check_plan config dead_hosts plan =
   let memory_remaining = account config.hosts config.vms plan in
   (*    List.iter (fun mem -> Printf.printf "%Ld\n" mem) free; *)
   (* No host should be overcommitted: *)
@@ -46,14 +46,14 @@ let check_plan config dead_hosts plan =
   (* All failed VMs should be restarted: *)
   let failed_vms = get_failed_vms config dead_hosts in
   if List.length failed_vms > (List.length plan) then failwith "bad plan"
-    
+
 (* Convince ourselves that a plan is always possible (call if plan_always_possible returns true)
    by searching for a counterexample.
    Returns true -- definitely OK (exhaustive search failed to find any bad plans)
    Returns false -- maybe OK (too many for exhaustive search, didn't find any bad plans)
    Throws (Failure "bad plan") -- definitely bad
  *)
-let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heuristic) config = 
+let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heuristic) config =
   (* If a small number of combinations then try each one. Otherwise try a bunch at random *)
   let limit = 10000L in
   let num_hosts = List.length config.hosts in
@@ -61,12 +61,12 @@ let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heur
   let combinations_to_try, exhaustive =
     if total_combinations < limit
     then choose (List.map fst config.hosts) config.num_failures, true
-    else List.map (fun _ -> 
+    else List.map (fun _ ->
 		     let num_failures = Random.int config.num_failures in
 		       (* choose 'num_failures' elements at random *)
-		     let alive, dead = List.fold_left 
+		     let alive, dead = List.fold_left
 		       (fun (remaining, sofar) _ ->
-			  if List.length sofar = num_failures 
+			  if List.length sofar = num_failures
 			  then (remaining, sofar)
 			  else begin
 			    let host = choose_one remaining in
@@ -79,7 +79,7 @@ let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heur
     (fun dead_hosts ->
        let failed_vms = get_failed_vms config dead_hosts in
        let config = { config with hosts = List.filter (fun (x, _) -> not(List.mem x dead_hosts)) config.hosts } in
-(*       
+(*
        Printf.printf "Config = %s\n" (string_of_configuration string_of_int string_of_int config);
        Printf.printf "  Dead hosts = [ %s ]; failed VMs = [ %s ]\n" (String.concat ";" (List.map string_of_int dead_hosts)) (String.concat ";" (List.map string_of_int failed_vms));
 *)
@@ -92,9 +92,9 @@ let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heur
   exhaustive
 
 (* Negative tests -- make sure the planner fails in obviously impossible situations *)
-let try_impossible_cases () = 
+let try_impossible_cases () =
   Printf.printf "Trying impossible cases\n";
-  
+
   (* Make sure an obviously bad plan is detected by the 'check_plan' fn *)
   Printf.printf "Making sure an obviously bad plan is detected by the 'check_plan' fn: ";
   let hosts      = [ 0, 1L; 1, 1L ]   (* two hosts, 1 unit free each *)
@@ -121,15 +121,15 @@ let try_impossible_cases () =
 	       Printf.printf "Trying heuristic: %s\n" h.name;
 	       Printf.printf "* checking plan_always_possible = false\n";
 	       if h.plan_always_possible config then failwith "plan_always_possible shouldn't return true";
-	       try 
+	       try
 		 Printf.printf "* checking 'check_plan_always_possible' agrees\n";
 		 if prove_plan_is_possible_via_counterexample_search h config
 		 then failwith "prove_plan_is_possible_via_counterexample_search performed exhaustive search and found no counterexample"
 		 else Printf.printf "WARNING: failed to find a counterexample; not sure if plan is ok or not\n"
 	       with Failure "bad plan" -> Printf.printf "Found a counterexample: no plan is possible\n") all_heuristics
-    
+
 (* Positive test -- make sure the planner succeeds in easy cases *)
-let try_possible_cases () = 
+let try_possible_cases () =
   Printf.printf "Trying possible cases\n";
   let c = make_config 10 500L 1000L 5 256L 1L 3 in
   let h = choose_heuristic c in
@@ -139,10 +139,10 @@ let try_possible_cases () =
   if prove_plan_is_possible_via_counterexample_search h c
   then Printf.printf "Proved that plan is always possible\n"
   else Printf.printf "Failed to prove that plan is always possible -- might be ok still\n"
-    
+
 let int_of_heuristic h = if h.name = approximate_bin_pack.name then 0 else 1
 
-let check_planning_performance filename n' r' i = 
+let check_planning_performance filename n' r' i =
   let file = open_out filename in
   (*    Printf.printf "Checking performance of planner\n"; *)
   let successes = Array.make (n' * r') 0 in
@@ -180,8 +180,8 @@ let check_planning_performance filename n' r' i =
     done
   done;
   close_out file
-    
-let _ = 
+
+let _ =
   let graph = ref "" in
   let graph_n = ref 64 and graph_r = ref 64 and graph_i = ref 1 in
 
@@ -191,7 +191,7 @@ let _ =
 	      "-graph_i", Arg.Set_int graph_i, "Set the number of iterations to run the performance tests over" ]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s" x)
     "Run unit and optional performance tests on the binpacker";
-  
+
 
   try_impossible_cases ();
   try_possible_cases ();

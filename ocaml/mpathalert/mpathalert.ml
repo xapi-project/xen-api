@@ -25,7 +25,7 @@ let delay = ref 120.
 let lock = Mutex.create ()
 let with_global_lock (f:unit -> unit) = Mutex.execute lock f
 
-let time_of_float x = 
+let time_of_float x =
 	let time = Unix.gmtime x in
 	Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
 		(time.Unix.tm_year+1900)
@@ -35,16 +35,16 @@ let time_of_float x =
 		time.Unix.tm_min
 		time.Unix.tm_sec
 
-let stdout_m = Mutex.create () 
+let stdout_m = Mutex.create ()
 let debug (fmt: ('a , unit, string, unit) format4) =
-	if !print_debug then 
+	if !print_debug then
 		Threadext.Mutex.execute stdout_m
 			(fun () ->
 				Printf.kprintf
 					(fun s -> Printf.printf "%s [%d] %s\n" (time_of_float (Unix.gettimeofday ())) (Thread.id (Thread.self ())) s; flush stdout) fmt)
 	else
 		Printf.kprintf (fun s -> ()) fmt
-	
+
 type t = {
 	host: [`host] Uuid.t;
 	host_name: string;
@@ -59,7 +59,7 @@ let to_string alert =
 		Printf.sprintf "[%s] host=%s; host-name=\"%s\"; pbd=%s; scsi_id=%s; current=%d; max=%d"
 			(time_of_float alert.timestamp) (String.escaped (Uuid.to_string alert.host))
 			alert.host_name (Uuid.to_string alert.pbd) alert.scsi_id alert.current alert.max
-	else	
+	else
 		Printf.sprintf "[%s] host=%s; host-name=\"%s\"; root=true; current=%d; max=%d"
 			(time_of_float alert.timestamp) (String.escaped (Uuid.to_string alert.host))
 			alert.host_name alert.current alert.max
@@ -67,7 +67,7 @@ let to_string alert =
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
 	let session =
-		let rec aux () = 
+		let rec aux () =
 			try Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" ~originator:"mpathalert"
 			with _ -> Thread.delay !delay; aux () in
 		aux () in
@@ -103,7 +103,7 @@ let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
 
 	let diff = List.set_difference (keep_mpath pbd_rec.API.pBD_other_config) snapshot in
 	List.map aux diff
-	
+
 (* create a list of alerts from a host event *)
 let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
 	let aux (key, value) =
@@ -149,13 +149,13 @@ let listener rpc session queue =
 	List.iter (fun (pbd_ref, pbd_rec) -> update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)) pbds;
 	let hosts = Client.Host.get_all_records rpc session in
 	List.iter (fun (host_ref, host_rec) -> update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)) hosts;
-	
+
 	(* proceed events *)
 	let proceed event =
 		match Event_helper.record_of_event event with
 		| Event_helper.PBD (pbd_ref, pbd_rec_opt) ->
 			begin match event.op, pbd_rec_opt with
-			| `add, Some pbd_rec -> 
+			| `add, Some pbd_rec ->
 				debug "Processing an ADD event";
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
 			| `del, _ ->
@@ -167,10 +167,10 @@ let listener rpc session queue =
 				List.iter (fun alert -> with_global_lock (fun () -> Queue.push alert queue)) alerts;
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
 			| _ -> () (* this should never happens *)
-			end			
+			end
 		| Event_helper.Host (host_ref, host_rec_opt) ->
 			begin match event.op, host_rec_opt with
-			| `add, Some host_rec -> 
+			| `add, Some host_rec ->
 				debug "Processing an ADD event";
 				update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
 			| `del, _ ->
@@ -203,7 +203,7 @@ let state_of_the_world rpc session =
 
 let sender rpc session (delay, msg, queue) =
 	debug "Start sender with delay=%.0f seconds" delay;
-	let pool_uuid = 
+	let pool_uuid =
 		let _, pool_rec = List.hd (Client.Pool.get_all_records rpc session) in
 		pool_rec.API.pool_uuid in
 
@@ -273,7 +273,7 @@ let sender rpc session (delay, msg, queue) =
 			remember_broken_history state_of_the_world;
 			Buffer.clear msg;
 		end;
-		
+
 		Thread.delay delay;
 	done
 
@@ -291,7 +291,7 @@ let _ =
 
 	if !daemonize then
 		Unixext.daemonize ();
-		
+
 	Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 	Unixext.pidfile_write !pidfile;
 

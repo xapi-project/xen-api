@@ -34,7 +34,7 @@ let make_db_api = Dm_api.filter (fun _ -> true) (fun _ -> true)
   (fun ({ msg_tag = tag }) -> match tag with
    | FromField(_, _) -> true
    | Custom -> false
-   | FromObject(GetAll) -> false (* rely on the Private(GetDBAll) function for now *)  
+   | FromObject(GetAll) -> false (* rely on the Private(GetDBAll) function for now *)
    | FromObject(_) -> true
   )
 
@@ -178,7 +178,7 @@ let read_set_ref obj other full_name =
 let get_record (obj: obj) aux_fn_name =
   let body =
     [
-      Printf.sprintf "let (__regular_fields, __set_refs) = DB.read_record __t \"%s\" %s in" 
+      Printf.sprintf "let (__regular_fields, __set_refs) = DB.read_record __t \"%s\" %s in"
 	(Escaping.escape_obj obj.DT.name) Client._self;
       aux_fn_name^" ~__regular_fields ~__set_refs";
     ] in
@@ -186,14 +186,14 @@ let get_record (obj: obj) aux_fn_name =
 
 (* Return a thunk which calls get_record on this class, for the event mechanism *)
 let snapshot obj_name self =
-	Printf.sprintf "(fun () -> API.%s.rpc_of_t (get_record ~__context ~self:%s))" (OU.ocaml_of_module_name obj_name) self 
+	Printf.sprintf "(fun () -> API.%s.rpc_of_t (get_record ~__context ~self:%s))" (OU.ocaml_of_module_name obj_name) self
 
 (* Return a thunk which calls get_record on some other class, for the event mechanism *)
-let external_snapshot obj_name self = 
+let external_snapshot obj_name self =
   Printf.sprintf "find_get_record \"%s\" ~__context ~self:%s" obj_name self
 
-let ocaml_of_tbl_fields xs = 
-  let of_field (tbl, fld, fn) = 
+let ocaml_of_tbl_fields xs =
+  let of_field (tbl, fld, fn) =
     Printf.sprintf "\"%s\", %s, %s" tbl fld fn in
   "[" ^ (String.concat "; " (List.map of_field xs)) ^ "]"
 
@@ -205,8 +205,8 @@ let make_shallow_copy api (obj: obj) (src: string) (dst: string) (all_fields: fi
   let fields = List.filter (fun x -> x.full_name <> [ "uuid" ]) fields in
   let sql_fields = List.map (fun f -> Escaping.escape_id f.full_name) fields in
   let to_notify = follow_references obj api in
-  let to_notify' = List.map 
-    (fun (tbl, fld) -> 
+  let to_notify' = List.map
+    (fun (tbl, fld) ->
        tbl, "\"" ^ (Escaping.escape_id fld.full_name) ^ "\"", "(fun () -> failwith \"shallow copy\")") to_notify in
     Printf.sprintf "sql_copy %s ~new_objref:%s \"%s\" %s [%s]"
       (ocaml_of_tbl_fields to_notify')
@@ -215,7 +215,7 @@ let make_shallow_copy api (obj: obj) (src: string) (dst: string) (all_fields: fi
       (String.concat "; " (List.map (fun f -> "\"" ^ f ^ "\"") sql_fields))
 *)
 
-let open_db_module = 
+let open_db_module =
 	"let __t = Context.database_of __context in\n" ^
 		"let module DB = (val (Db_cache.get __t) : Db_interface.DB_ACCESS) in\n"
 
@@ -225,7 +225,7 @@ let db_action api : O.Module.t =
   let expr = "expr" in
   let expr_arg = O.Named(expr, "Db_filter_types.expr") in
 
-  let get_refs_where (obj: obj) = 
+  let get_refs_where (obj: obj) =
     let tbl = Escaping.escape_obj obj.DT.name in
     O.Let.make
       ~name: "get_refs_where"
@@ -235,7 +235,7 @@ let db_action api : O.Module.t =
 	       "List.map Ref.of_string refs " ] () in
 
     let get_record_aux_fn_body ?(m="API.") (obj: obj) (all_fields: field list) =
-	
+
       let of_field = function
 	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name; DT.field_ignore_foreign_key = false } ->
 	    Printf.sprintf "List.map %s.%s (List.assoc \"%s\" __set_refs)"
@@ -267,8 +267,8 @@ let db_action api : O.Module.t =
 		     O.Named("__set_refs", "(string * (string list)) list") ]
 	  ~ty: "'a"
 	  ~body: [ get_record_aux_fn_body ~m:"" obj record_fields ] () in
-      
-    let get_records_where (obj: obj) name conversion_fn = 
+
+    let get_records_where (obj: obj) name conversion_fn =
 	O.Let.make
 	  ~name: name
 	  ~params: [ Gen_common.context_arg; expr_arg ]
@@ -277,16 +277,16 @@ let db_action api : O.Module.t =
 		Printf.sprintf "let records = DB.read_records_where __t \"%s\" %s in"
 		     (Escaping.escape_obj obj.DT.name) expr;
 		   Printf.sprintf "List.map (fun (ref,(__regular_fields,__set_refs)) -> Ref.of_string ref, %s __regular_fields __set_refs) records" conversion_fn] () in
-      
+
     let register_get_record obj = O.Let.make
       ~name:"_"
       ~params:[]
       ~ty:"unit"
       ~body:[
 	      Printf.sprintf "Hashtbl.add Eventgen.get_record_table \"%s\"" obj.DT.name;
-	      Printf.sprintf "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t (%s.get_record ~__context ~self:(Ref.of_string self))))" 
+	      Printf.sprintf "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t (%s.get_record ~__context ~self:(Ref.of_string self))))"
 		(OU.ocaml_of_record_name obj.DT.name)
-		(OU.ocaml_of_obj_name obj.DT.name) 
+		(OU.ocaml_of_obj_name obj.DT.name)
 	    ]
       () in
 
@@ -351,7 +351,7 @@ let db_action api : O.Module.t =
 				 Printf.sprintf "(\"%s\", %s)" sql o) kvs in
 	  Printf.sprintf "DB.create_row __t \"%s\" [ %s ] ref"
 	    (Escaping.escape_obj obj.DT.name)
-	    (String.concat "; " kvs') 
+	    (String.concat "; " kvs')
       | FromObject(GetByUuid) ->
 	  begin match x.msg_params, x.msg_result with
 	  | [ {param_type=ty; param_name=name} ], Some (result_ty, _) ->
@@ -386,7 +386,7 @@ let db_action api : O.Module.t =
 	  | _ -> failwith "GetAll call needs a result type"
 	  end
       | FromObject(GetAllRecords) ->
-	  String.concat "\n" 
+	  String.concat "\n"
 	    [ "let expr' = Db_filter_types.True in";
 	      "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'" ]
       | FromObject(GetAllRecordsWhere) ->
@@ -410,7 +410,7 @@ let db_action api : O.Module.t =
       ~body: (List.map to_string args @ [ open_db_module; body ]) () in
 
   let obj (obj: obj) =
-    let others = 
+    let others =
       [ get_record_aux_fn obj;
 	get_record_internal_aux_fn obj;
 	get_refs_where obj;
@@ -426,7 +426,7 @@ let db_action api : O.Module.t =
       ~letrec:true
       () in
 
-  let obj_init (obj: obj) = 
+  let obj_init (obj: obj) =
     O.Module.make
       ~name:(OU.ocaml_of_obj_name obj.DT.name ^ "_init")
       ~elements:(if obj.DT.in_database then [O.Module.Let (register_get_record obj)] else [])
@@ -437,7 +437,7 @@ let db_action api : O.Module.t =
 
   O.Module.make
     ~name:_db_action
-    ~preamble:[ 
+    ~preamble:[
                 "open Db_cache_types";
 		"module D=Debug.Make(struct let name=\"db\" end)";
 		"open D";

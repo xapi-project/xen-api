@@ -94,7 +94,7 @@ let vm_compute_used_memory ~__context policy vm_ref =
 		~policy: policy
 		~memory_dynamic_min: vm_main_record.API.vM_memory_dynamic_min
 		(* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
-		~memory_dynamic_max: vm_main_record.API.vM_memory_dynamic_max 
+		~memory_dynamic_max: vm_main_record.API.vM_memory_dynamic_max
 		~memory_static_max:  vm_boot_record.API.vM_memory_static_max in
 	memory_required +++ vm_main_record.API.vM_memory_overhead
 
@@ -206,7 +206,7 @@ let host_compute_free_memory_with_maximum_compression
 		resources ready for us, then we need to make sure we don't count these
 		reserved resources twice.
 	*)
-	let summary = { summary with scheduled = 
+	let summary = { summary with scheduled =
 		match ignore_scheduled_vm with
 		| None -> summary.scheduled (* no change *)
 		| Some ignore_me ->
@@ -221,7 +221,7 @@ let host_compute_free_memory_with_maximum_compression
 			summary.host_maximum_guest_memory_bytes
 			(mib summary.host_maximum_guest_memory_bytes);
 		List.iter
-			(fun v -> 
+			(fun v ->
 				let reqd = vm_compute_used_memory ~__context Static_max v in
 				debug "Memory_check: VM %s (%s): memory %Ld (%Ld MiB)"
 					(Db.VM.get_uuid ~__context ~self:v)

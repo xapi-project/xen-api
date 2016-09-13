@@ -17,7 +17,7 @@
 
 val get_static_device : string -> string option
 (** Finds an attached metadata VDI with a given reason *)
-val minimum_vdi_size : int64 
+val minimum_vdi_size : int64
 (** Minimum size for redo log VDI *)
 val redo_log_sm_config : (string * string) list
 (** SM config for redo log VDI *)

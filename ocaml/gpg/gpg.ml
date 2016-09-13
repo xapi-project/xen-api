@@ -40,22 +40,22 @@ let parse_gpg_status status_data =
 	_::_::fingerprint::_ -> Some fingerprint
       | _ -> None
   else
-    None	
+    None
 
 let simple_checksum file = Digest.to_hex (Digest.file file)
 
 let common ty filename signature size f =
   let tmp_file, tmp_oc = Filename.open_temp_file ~mode:[Open_binary] "gpg" "" in
   let result_in = Unix.descr_of_out_channel tmp_oc in
-  let result_out = Unix.openfile tmp_file [Unix.O_RDONLY] 0o0 in 
-  Unix.unlink tmp_file; 
+  let result_out = Unix.openfile tmp_file [Unix.O_RDONLY] 0o0 in
+  Unix.unlink tmp_file;
   (* no need to close the 'tmp_oc' -> closing the fd is enough *)
   let status_out, status_in = Unix.pipe() in
   let status_in_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   (* from the parent's PoV *)
   let fds_to_close = ref [ result_out; result_in; status_out; status_in ] in
-  let close' fd = 
-    if List.mem fd !fds_to_close 
+  let close' fd =
+    if List.mem fd !fds_to_close
     then (Unix.close fd; fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close) in
 
   let gpg_pub_keyring = Filename.concat !Xapi_globs.gpg_homedir "pubring.gpg" in
@@ -84,7 +84,7 @@ let common ty filename signature size f =
 	    (* Capture stderr output for logging *)
 	    match Forkhelpers.with_logfile_fd "gpg"
 	      (fun log_fd ->
-		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)] 
+		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)]
 		   gpg_binary_path gpg_args in
 		 (* parent *)
 		 List.iter close' [ result_in; status_in ];

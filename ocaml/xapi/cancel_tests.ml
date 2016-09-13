@@ -16,7 +16,7 @@ open Pervasiveext
 
 let debug (fmt: ('a , unit, string, unit) format4) =
   (* Convert calendar time, x, to tm in UTC *)
-  let of_float x = 
+  let of_float x =
     let time = Unix.gmtime x in
     Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
       (time.Unix.tm_year+1900)
@@ -26,14 +26,14 @@ let debug (fmt: ('a , unit, string, unit) format4) =
       time.Unix.tm_min
       time.Unix.tm_sec in
 
-  Printf.kprintf (fun s -> Printf.printf "%s [%d] %s\n" (of_float (Unix.gettimeofday ())) (Thread.id (Thread.self ())) s; flush stdout) fmt 
+  Printf.kprintf (fun s -> Printf.printf "%s [%d] %s\n" (of_float (Unix.gettimeofday ())) (Thread.id (Thread.self ())) s; flush stdout) fmt
 let host = ref "127.0.0.1"
 let port = ref 80
 let username = ref "root"
 let password = ref ""
 let vm = ref ""
 
-let make_rpc ?dbg () xml = 
+let make_rpc ?dbg () xml =
 	let open Xmlrpc_client in
 	let http = {
 		(xmlrpc ~version:"1.0" "/") with
@@ -103,7 +103,7 @@ let find_or_create_vif { session_id = session_id; vm = vm; net = net } =
 		let vif, _ = List.find (fun (_, r) -> r.API.vIF_device = vif_idx) (List.combine vifs vif_records) in
 		vif
 	with Not_found ->
-		Client.VIF.create ~rpc ~session_id ~vM:vm ~network:net ~mAC:"" ~device:vif_idx ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] 
+		Client.VIF.create ~rpc ~session_id ~vM:vm ~network:net ~mAC:"" ~device:vif_idx ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
 
 let find_or_create_vbd { session_id = session_id; vm = vm; vdi = vdi } =
 	let rpc = make_rpc () in

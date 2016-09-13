@@ -167,7 +167,7 @@ module Debug_print_impl = struct
 		let get_by_name context ~dbg ~sr ~name = assert false
 		let similar_content context ~dbg ~sr ~vdi = assert false
 
-		
+
 	end
 
 	let get_by_name context ~dbg ~name = assert false
@@ -185,7 +185,7 @@ module Debug_print_impl = struct
 			let receive_cancel context ~dbg ~id = assert false
 		end
 	end
-		
+
 	module SR = struct
 		include Storage_skeleton.SR
 		let list context ~dbg = assert false
@@ -193,7 +193,7 @@ module Debug_print_impl = struct
 		let create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size = assert false
 		let attach context ~dbg ~sr ~device_config =
 			info "SR.attach sr:%s" sr
-		let fail_if_anything_leaked () = 
+		let fail_if_anything_leaked () =
 			Mutex.execute VDI.m
 				(fun () ->
 					Hashtbl.iter
@@ -244,7 +244,7 @@ module Server=Server(Storage_impl.Wrapper(Debug_print_impl))
 
 let path = "/tmp/storage"
 
-let rpc_unix call = 
+let rpc_unix call =
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(Unix path) ~http:(xmlrpc ~version:"1.0" "/") call
 let rpc_inprocess call = Server.process (Some "") call
@@ -265,20 +265,20 @@ let expect expected f x =
 		inc_errors ();
 	end
 
-let backend_error f = 
+let backend_error f =
 	try ignore(f ()); false with
 		| (Backend_error(code, params)) when code = "SR_BACKEND_FAILURE_test" -> true
-		| e -> 
+		| e ->
 			debug "backend_error: Expecting SR_BACKEND_FAILURE_test, got '%s'" (Printexc.to_string e);
 			false
-			
-let too_small_backend_error f = 
-	try ignore(f ()); false with 
+
+let too_small_backend_error f =
+	try ignore(f ()); false with
 		| (Backend_error(code, params)) when code = "SR_BACKEND_FAILURE" && (List.hd params = "Disk too small") -> true
 		| _ -> false
 
-let internal_error f = 
-	try ignore(f ()); false with 
+let internal_error f =
+	try ignore(f ()); false with
 		| (Internal_error "Storage_impl_test.Api_error(\"SR_BACKEND_FAILURE_test\", _)") -> true
 		| _ -> false
 
@@ -386,7 +386,7 @@ let test_sr sr =
 		(Client.SR.detach ~dbg ~sr)
 
 (* Check the DP.stat_vdi function works *)
-let test_stat sr vdi = 
+let test_stat sr vdi =
 	expect "()" (fun x -> x = ())
 		(Client.SR.attach ~dbg ~sr ~device_config:[]);
 	let dp1 = datapath_of_id "dp1" (* will be r/w *)
@@ -406,7 +406,7 @@ let test_stat sr vdi =
 	expect "Attached(RW)" (function x -> x.superstate = Vdi_automaton.Attached Vdi_automaton.RW)
 		(Client.DP.stat_vdi ~dbg ~sr ~vdi ());
 	expect "Illegal transition" (fun () ->
-		try 
+		try
 			Client.VDI.detach ~dbg ~dp:dp1 ~sr ~vdi;
 			false
 		with
@@ -492,7 +492,7 @@ let create_vdi_test sr =
 			let vdi_info = { vdi_info with sm_config = ["toosmall", ""] } in
 			Client.VDI.create ~dbg ~sr ~vdi_info);
     let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
-    expect "attach_info" (fun _ -> true) 
+    expect "attach_info" (fun _ -> true)
 		(Client.VDI.attach ~dbg ~dp ~sr ~vdi:vdi.vdi ~read_write:false);
     debug "Detaching and cleaning up";
     expect "()" (fun x -> x = ())

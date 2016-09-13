@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group Command-Line Interface (CLI)
  *)
- 
+
 open Cli_util
 open Cli_protocol
 
@@ -25,7 +25,7 @@ type printval =
     | PTable of record list
     | PList of string list
     | PStderr of string
-	
+
 type print_fn = printval -> unit
 
 let pad_string s len =
@@ -46,7 +46,7 @@ let rec multi_line_record r =
 	(String.concat "\n" (List.map (fun (f,v)->f^": "^v) r))^"\n"
 
 (* Used to escape commas in --minimal mode *)
-let escape_commas x = 
+let escape_commas x =
     (* Escaping rules: *)
     let rules = [ ',', "\\,"; (* , -> \, *)
 		  '\\', "\\\\" (* \ -> \\ *)

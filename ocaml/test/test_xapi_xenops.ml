@@ -35,7 +35,7 @@ let test_nested_virt_licensing () =
   (* Nested_virt is restricted in the default test database *)
 
   (* List of plaform keys and whether they should be restricted when 'Nested_virt' is restricted.
-     true -> definitely should be restricted 
+     true -> definitely should be restricted
      false -> definitely should be unrestricted
   *)
 

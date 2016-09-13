@@ -20,7 +20,7 @@ let raise_removed () =
 let protect_now ~__context ~vmpp =
 	raise_removed ()
 
-let archive_now ~__context ~snapshot = 
+let archive_now ~__context ~snapshot =
 	raise_removed ()
 
 let add_to_recent_alerts ~__context ~vmpp ~value =
@@ -96,12 +96,12 @@ let set_backup_retention_value ~__context ~self ~value =
 	raise_removed ()
 
 let create ~__context ~name_label ~name_description ~is_policy_enabled
-  ~backup_type ~backup_retention_value ~backup_frequency ~backup_schedule 
+  ~backup_type ~backup_retention_value ~backup_frequency ~backup_schedule
   ~archive_target_type ~archive_target_config ~archive_frequency ~archive_schedule
   ~is_alarm_enabled ~alarm_config
 : API.ref_VMPP =
 	raise_removed ()
 
-let destroy ~__context ~self = 
+let destroy ~__context ~self =
 	raise_removed ()
 

@@ -68,7 +68,7 @@ let reconfigure_stunnel ~__context =
 
 let stop () =
 	debug "Shutting down the old management interface (if any)";
-	List.iter (fun i -> Http_svr.stop i) !management_interface_server;	
+	List.iter (fun i -> Http_svr.stop i) !management_interface_server;
 	management_interface_server := [];
 	listening_all := false;
 	listening_localhost := false;

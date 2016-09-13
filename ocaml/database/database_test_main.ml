@@ -16,7 +16,7 @@ open Database_test
 
 let path = ref "./database"
 
-let rpc_common url content_type request = 
+let rpc_common url content_type request =
 	let version = "1.1" in
 	let content_length = String.length request in
 	let request = Http.Request.make ~version ~content_type:"text/json"
@@ -46,9 +46,9 @@ end)
 module T = Tests(Client_v2)
 
 
-let _ = 
+let _ =
 	Printexc.record_backtrace true;
-	Arg.parse [ 
+	Arg.parse [
 		"--connect-to", Arg.Set_string path, Printf.sprintf "connect to server on path (default %s)" !path;
 		] (fun x -> Printf.fprintf stderr "Ignoring unknown parameter: %s\n%!" x)
 		"query a database server";

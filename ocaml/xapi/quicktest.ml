@@ -23,10 +23,10 @@ open Quicktest_common
 let username = ref ""
 let password = ref ""
 
-let export_filename = "/tmp/quicktest-export" 
+let export_filename = "/tmp/quicktest-export"
 
 (* CA-11402 *)
-let event_next_unblocking_test () = 
+let event_next_unblocking_test () =
   let test = make_test "Event.next unblocking test" 0 in
   start test;
   (* Need to create a temporary session ID *)
@@ -35,15 +35,15 @@ let event_next_unblocking_test () =
   let m = Mutex.create () in
   let unblocked = ref false in
   let (_: Thread.t) = Thread.create
-    (fun () -> 
-       begin 
-	 try ignore(Client.Event.next !rpc session_id) 
-	 with e -> 
-	   debug test (Printf.sprintf "background thread caught: %s (an exception is expected)" (Printexc.to_string e)) 
+    (fun () ->
+       begin
+	 try ignore(Client.Event.next !rpc session_id)
+	 with e ->
+	   debug test (Printf.sprintf "background thread caught: %s (an exception is expected)" (Printexc.to_string e))
        end;
        Mutex.execute m (fun () -> unblocked := true)
     ) () in
-  (* Background thread is started but it cannot simultaneously block and signal us to 
+  (* Background thread is started but it cannot simultaneously block and signal us to
      logout so a little pause in here is probably the best we can do *)
   Thread.delay 2.;
   (* Logout which should cause the background thread to unblock *)
@@ -216,10 +216,10 @@ let event_message_test session_id =
 	in
 	debug test (Printf.sprintf "Got some events: %d %s" (List.length events.events) (String.concat "," (List.map (fun ev -> ev.reference) events.events)));
 	let token = events.token in
-	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = `add) events.events 
+	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = `add) events.events
 	then success test
 	else failed test "Failed to receive an event with the message";
-	
+
 	let test = make_test "Message deletion event test" 1 in
 	start test;
 	debug test "Destroying message";
@@ -229,7 +229,7 @@ let event_message_test session_id =
 	if List.exists (fun ev -> ev.reference = (Ref.string_of message) && ev.op = `del) events.events
 	then success test
 	else failed test "Failed to receive a delete event";
-	
+
 	let test = make_test "Message deletion from cache test" 1 in
 	start test;
 	let events = Client.Event.from !rpc session_id [ "message" ] "" 1.0 |> event_from_of_rpc in
@@ -254,12 +254,12 @@ let event_message_test session_id =
 	debug test (Printf.sprintf "message3=%s" (Ref.string_of message3));
 	List.iter (fun ev -> debug test (Printf.sprintf "events1: ev.ref=%s" ev.reference)) events.events;
 	List.iter (fun ev -> debug test (Printf.sprintf "events2: ev.ref=%s" ev.reference)) events2.events;
-	let ok1 = 
+	let ok1 =
 		List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = `add) events.events &&
 			List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = `add) events.events in
-	let ok2 = 
+	let ok2 =
 		List.exists (fun ev -> ev.reference = (Ref.string_of message3) && ev.op = `add) events2.events in
-	let ok3 = 
+	let ok3 =
 		not (List.exists (fun ev -> ev.reference = (Ref.string_of message1) && ev.op = `add) events2.events) &&
 			not (List.exists (fun ev -> ev.reference = (Ref.string_of message2) && ev.op = `add) events2.events)
 	in
@@ -288,12 +288,12 @@ let event_inject_test session_id =
   ignore(Client.Event.inject ~rpc:!rpc ~session_id ~_class:"pool" ~_ref:(Ref.string_of pool));
   Thread.join x;
   let endtime = Unix.gettimeofday () in
-  if endtime -. starttime > 4.5 
+  if endtime -. starttime > 4.5
   then failed test "Failed to see injected event"
   else success test
 
 
-let all_srs_with_vdi_create session_id = 
+let all_srs_with_vdi_create session_id =
   Quicktest_storage.list_srs session_id
   (* Filter out those which support the vdi_create capability *)
   |> List.filter (fun sr -> List.mem Quicktest_storage.vdi_create (Quicktest_storage.sm_caps_of_sr session_id sr))
@@ -303,7 +303,7 @@ let all_srs_with_vdi_create session_id =
   |> List.filter (fun sr -> Client.SR.get_content_type !rpc session_id sr <> "iso")
 
 (** Create a small VM with a selection of CDs, empty drives, "iso" Disks etc *)
-let setup_export_test_vm session_id = 
+let setup_export_test_vm session_id =
   let test = make_test "Setting up test VM" 1 in
   start test;
   let t = find_template session_id other in
@@ -345,7 +345,7 @@ let setup_export_test_vm session_id =
   ignore(Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"2" ~bootable:false
     ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
   ignore(Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:"3" ~bootable:false
-    ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""] 
+    ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""]
     ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
   success test;
   vm
@@ -355,7 +355,7 @@ let all_non_iso_srs_with_vdi_create session_id =
     (fun sr -> "iso" <> Client.SR.get_content_type !rpc session_id sr)
     (all_srs_with_vdi_create session_id)
 
-let import_export_test session_id = 
+let import_export_test session_id =
   let test = make_test "VM import/export test" 0 in
   start test;
   let vm = setup_export_test_vm session_id in
@@ -369,24 +369,24 @@ let import_export_test session_id =
        debug test (Printf.sprintf "Attempting import to SR: %s" (Quicktest_storage.name_of_sr session_id sr));
        let vm' = List.hd (vm_import ~sr test session_id export_filename) in
        let vbds = Client.VM.get_VBDs !rpc session_id vm' in
-       
+
        if List.length vbds <> (List.length by_device) then failed test "Wrong number of VBDs after import";
-       List.iter (fun vbd -> 
+       List.iter (fun vbd ->
 		    let all = Client.VBD.get_record !rpc session_id vbd in
 		    let orig_vbd = List.assoc all.API.vBD_userdevice by_device in
 		    let orig_vbd = Client.VBD.get_record !rpc session_id orig_vbd in
-		    
+
 		    (* type, empty should match *)
-		    if all.API.vBD_type <> orig_vbd.API.vBD_type 
+		    if all.API.vBD_type <> orig_vbd.API.vBD_type
 		    then failed test (Printf.sprintf "Device %s varies in type" all.API.vBD_userdevice);
 		    if all.API.vBD_empty <> orig_vbd.API.vBD_empty
 		    then failed test (Printf.sprintf "Device %s varies in emptiness" all.API.vBD_userdevice);
 		    match all.API.vBD_userdevice with
-		    | "0" | "1" | "2" -> 
+		    | "0" | "1" | "2" ->
 			(* VDI should be the same *)
 			if all.API.vBD_VDI <> orig_vbd.API.vBD_VDI
 			then failed test (Printf.sprintf "Device %s varies in VDIness (original = %s; new = %s)" all.API.vBD_userdevice (Client.VDI.get_uuid !rpc session_id orig_vbd.API.vBD_VDI) (Client.VDI.get_uuid !rpc session_id all.API.vBD_VDI));
-		    | "3" -> 
+		    | "3" ->
 			(* VDI should be different *)
 			if all.API.vBD_VDI = orig_vbd.API.vBD_VDI
 			then failed test (Printf.sprintf "Device %s should not vary in VDIness" all.API.vBD_userdevice)
@@ -398,18 +398,18 @@ let import_export_test session_id =
   success test
 
 (* Expect that two VMs have identical looking VIFs, mapped to the same Networks *)
-let compare_vifs session_id test one two = 
+let compare_vifs session_id test one two =
   let one_vifs = Client.VM.get_VIFs !rpc session_id one in
   let two_vifs = Client.VM.get_VIFs !rpc session_id two in
   if List.length one_vifs <> (List.length two_vifs) then begin
-    failed test (Printf.sprintf "Original VM had %d VIFs; clone has %d VIFs" 
+    failed test (Printf.sprintf "Original VM had %d VIFs; clone has %d VIFs"
 		   (List.length one_vifs) (List.length two_vifs));
     failwith "powercycle_test"
   end;
   let one_vifs = List.filter (fun vif -> Client.VIF.get_currently_attached !rpc session_id vif) one_vifs in
   let two_vifs = List.filter (fun vif -> Client.VIF.get_currently_attached !rpc session_id vif) two_vifs in
   if List.length one_vifs <> (List.length two_vifs) then begin
-    failed test (Printf.sprintf "Original VM had %d currently_attached VIFs; clone has %d currently_attached VIFs" 
+    failed test (Printf.sprintf "Original VM had %d currently_attached VIFs; clone has %d currently_attached VIFs"
 		   (List.length one_vifs) (List.length two_vifs));
     failwith "powercycle_test"
   end;
@@ -430,18 +430,18 @@ let compare_vifs session_id test one two =
 	       end) one_vifs
 
 (* Expect that two VMs have identical looking VBDs, mapped to the same VDIs *)
-let compare_vbds session_id test one two = 
+let compare_vbds session_id test one two =
   let one_vbds = Client.VM.get_VBDs !rpc session_id one in
   let two_vbds = Client.VM.get_VBDs !rpc session_id two in
   if List.length one_vbds <> (List.length two_vbds) then begin
-    failed test (Printf.sprintf "Original VM had %d VBDs; clone has %d VBDs" 
+    failed test (Printf.sprintf "Original VM had %d VBDs; clone has %d VBDs"
 		   (List.length one_vbds) (List.length two_vbds));
     failwith "powercycle_test"
   end;
   let one_vbds = List.filter (fun vbd -> Client.VBD.get_currently_attached !rpc session_id vbd) one_vbds in
   let two_vbds = List.filter (fun vbd -> Client.VBD.get_currently_attached !rpc session_id vbd) two_vbds in
   if List.length one_vbds <> (List.length two_vbds) then begin
-    failed test (Printf.sprintf "Original VM had %d currently_attached VBDs; clone has %d currently_attached VBDs" 
+    failed test (Printf.sprintf "Original VM had %d currently_attached VBDs; clone has %d currently_attached VBDs"
 		   (List.length one_vbds) (List.length two_vbds));
     failwith "powercycle_test"
   end;
@@ -461,7 +461,7 @@ let compare_vbds session_id test one two =
 		 failwith "powercycle_test"
 	       end) one_vbds
 
-let compare_vms session_id test one two = 
+let compare_vms session_id test one two =
   let one_r = Client.VM.get_record !rpc session_id one
   and two_r = Client.VM.get_record !rpc session_id two in
 
@@ -527,7 +527,7 @@ let verify_network_connectivity session_id test vm =
        let device = Printf.sprintf "vif%Ld.%s" (Client.VM.get_domid !rpc session_id vm) (Client.VIF.get_device !rpc session_id vif) in
        let devices = Netdev.network.Netdev.intf_list bridge in
        let other_config = Client.VIF.get_other_config !rpc session_id vif in
-       if not(List.mem device devices) 
+       if not(List.mem device devices)
        then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
        else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
 
@@ -537,7 +537,7 @@ let verify_network_connectivity session_id test vm =
        then begin
          let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
          let promisc' = read_sys sysfs_promisc = "1" in
-         if promisc <> promisc' 
+         if promisc <> promisc'
          then failed test (Printf.sprintf "VIF.other_config says promiscuous mode is %b while dom0 /sys says %b" promisc promisc')
          else debug test (Printf.sprintf "VIF.other_config and dom0 /sys agree that promiscuous mode is %b" promisc);
        end else
@@ -548,12 +548,12 @@ let verify_network_connectivity session_id test vm =
        let mtu' = if List.mem_assoc "mtu" other_config
          then Int64.of_string(List.assoc "mtu" other_config) else mtu in
        let mtu'' = Int64.of_string (read_sys (Printf.sprintf "/sys/class/net/%s/mtu" device)) in
-       if mtu' <> mtu'' 
+       if mtu' <> mtu''
        then failed test (Printf.sprintf "VIF.MTU is %Ld but /sys says %Ld" mtu' mtu'')
        else debug test (Printf.sprintf "VIF.MTU is %Ld and /sys says %Ld" mtu' mtu'');
     ) vifs
 
-let rec wait_for_task_complete session_id task = 
+let rec wait_for_task_complete session_id task =
   Thread.delay 1.;
   match Client.Task.get_status !rpc session_id task with
   | `pending | `cancelling -> wait_for_task_complete session_id task
@@ -572,9 +572,9 @@ let test_vhd_locking_hook session_id vm =
 	let new_vdi = Client.VDI.create !rpc session_id "lvhd_testvdi"
 		"description" sr 4194304L `user false false [] [] [] [] in
 	let new_vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:new_vdi ~userdevice:"9" ~bootable:false
-		~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""] 
+		~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""]
 		~qos_algorithm_type:"" ~qos_algorithm_params:[] in
-	
+
 	(* In a background thread plug/unplug the new VBD to cause some transient locking failures *)
 	let start = Unix.gettimeofday () in
 	debug test "Starting up conflicting thread in the background";
@@ -600,16 +600,16 @@ let test_vhd_locking_hook session_id vm =
 	debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
 	success test
 
-let powercycle_test session_id vm = 
+let powercycle_test session_id vm =
 	let test = make_test "Powercycling VM" 1 in
 	start test;
 	(* avoid the race whereby reboot requests are ignored if too early *)
-	let delay () = 
+	let delay () =
 		debug test "Pausing for 10s";
 		Thread.delay 10. in
 	debug test (Printf.sprintf "Trying to enable VM.clone for suspended VMs pool-wide");
 	let pool = get_pool session_id in
-	let enabled_csvm = 
+	let enabled_csvm =
 		try Client.Pool.add_to_other_config !rpc session_id pool "allow_clone_suspended_vm" "true"; true
 		with _ -> false in
 	finally
@@ -685,7 +685,7 @@ let powercycle_test session_id vm =
 			verify_network_connectivity session_id test vm'';
 			debug test "Shutting down imported VMs";
 			List.iter (fun vm -> if Client.VM.get_power_state !rpc session_id vm <> `Halted then Client.VM.hard_shutdown !rpc session_id vm) vms;
-			
+
 			(* Keep the imported VM and chuck away the clone *)
 			(* NB cannot do this earlier because the suspend VDI would be destroyed
 			   and prevent the other VM being resumed *)
@@ -703,7 +703,7 @@ let powercycle_test session_id vm =
 
 (* Make a VDI, find a host to put it on, create a VBD to dom0 on that host,
  * Attach, Unattach, destroy VBD, destroy VDI *)
-    
+
 let vdi_test session_id =
   let test = make_test "VDI.create/copy/destroy test" 0 in
   start test;
@@ -734,7 +734,7 @@ let vdi_test session_id =
   debug test (Printf.sprintf "Destroying copied VDI%!");
   Client.VDI.destroy !rpc session_id newvdi2;
   success test
-    
+
 (* Test a couple of async calls - VDIs are good for this, again! *)
 let async_test session_id =
   let test = make_test "Async.VDI.copy" 0 in
@@ -762,8 +762,8 @@ let async_test session_id =
       | `cancelling -> "cancelling"
       | `cancelled -> "cancelled")
     (Client.Task.get_result !rpc session_id task));
-  if status=`failure then 
-    begin 
+  if status=`failure then
+    begin
       failed test (Printf.sprintf "Failure of VDI copy! error_info: %s%!" (String.concat "," (Client.Task.get_error_info !rpc session_id task)));
       failwith "Async VDI copy failed"
     end;
@@ -779,10 +779,10 @@ let async_test session_id =
 	success test
     | _ -> failwith "Expecting 1 new disk!"
 
-let make_vif ~session_id ~vM ~network ~device = 
-  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+let make_vif ~session_id ~vM ~network ~device =
+  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
 
-let with_vm s f = 
+let with_vm s f =
   try
     let (_: API.ref_VM) = find_template s vm_template in
     let test = make_test "Setting up test VM" 0 in
@@ -795,7 +795,7 @@ let with_vm s f =
     (* SKIP *)
     ()
 
-let vm_powercycle_test s vm = 
+let vm_powercycle_test s vm =
   let test = make_test "VM powercycle test" 1 in
   start test;
   (* Try to add some VIFs *)
@@ -848,8 +848,8 @@ let _ =
 		"Perform some quick functional tests. The default is to test localhost over a Unix socket. For remote server supply <hostname> <username> and <password> arguments.";
 	if !host = "" then host := "localhost";
 	if !username = "" then username := "root";
-	
-	let maybe_run_test name f = 
+
+	let maybe_run_test name f =
 		assert (List.mem name all_tests);
 		if List.mem name !tests_to_run then f () in
 

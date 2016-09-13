@@ -39,7 +39,7 @@ let _ =
     "Subscribe to an event stream and print the results";
 
   Printf.printf "Connecting to Host: %s; Port: %d; Username: %s" !host !port !username;
-  
+
   (* Interesting event stuff starts here: *)
   let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2"  ~originator:"event_listen"  in
   Client.Event.register ~rpc ~session_id ~classes:["*"];

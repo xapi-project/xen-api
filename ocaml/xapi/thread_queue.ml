@@ -33,21 +33,21 @@ type 'a t = {
 	name: string;
 }
 
-(** Given an optional maximum queue length and a function for processing elements (which will be called in a 
+(** Given an optional maximum queue length and a function for processing elements (which will be called in a
     single background thread), return a function which pushes items onto the queue. *)
-let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t = 
+let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t =
   let q = Queue.create () in
   let c = Condition.create () in
   let m = Mutex.create () in
 
-  let string_of_queue q = 
+  let string_of_queue q =
     let items = List.rev (Queue.fold (fun acc (description, _) -> description::acc) [] q) in
     Printf.sprintf "[ %s ](%d)" (String.concat "; " items) (List.length items) in
 
   (** The background thread *)
   let t = ref None in
-    
-  let thread_body () = 
+
+  let thread_body () =
     Mutex.execute m
       (fun () ->
 	 while true do
@@ -59,28 +59,28 @@ let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t =
 
 	   Mutex.unlock m;
 	   (* Process the items dropping any exceptions (process function should do whatever logging it wants) *)
-	   finally 
-	     (fun () -> 
-		Queue.iter 
-		  (fun (description, x) -> 
+	   finally
+	     (fun () ->
+		Queue.iter
+		  (fun (description, x) ->
 		     debug "pop(%s) = %s" name description;
-		     try process_fn x with _ -> ()) 
+		     try process_fn x with _ -> ())
 		   local_q
 	     )
 	     (fun () -> Mutex.lock m);
 	   debug "%s: completed processing %d items: queue = %s" name (Queue.length local_q) (string_of_queue q);
 	 done
       ) in
-      
+
   (* Called with lock already held *)
-  let maybe_start_thread () = 
+  let maybe_start_thread () =
     match !t with
     | Some _ -> ()
     | None -> t := Some (Thread.create thread_body ()) in
-	
-  let push description x = 
+
+  let push description x =
     Mutex.execute m
-      (fun () -> 
+      (fun () ->
 	 let q_length = Queue.length q in
 	 match max_q_length with
 	 | Some max when q_length > max ->

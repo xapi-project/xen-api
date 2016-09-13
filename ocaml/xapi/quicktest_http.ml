@@ -24,7 +24,7 @@ open Ocamltest
 module Uds = struct (* {{{1 *)
 
 	module D = Debug.Make(struct let name = "quicktest_http:Uds" end)
-	open D 
+	open D
 
 	exception Parse_error of string
 
@@ -72,13 +72,13 @@ module Secret_Auth_fails = struct (* {{{1 *)
 			else SSL(SSL.make ~use_fork_exec_helper:false (), !host, 443) in
 		with_transport transport (with_http request f)
 
-	let invalid_pool_secret = 
+	let invalid_pool_secret =
 		Http.Request.make ~version:"1.0" ~cookie:["pool_secret", "whatever"]
 			~user_agent:"quicktest"
 			Http.Get "/sync_config_files"
 
-	let invalid_basicauth = 
-		Http.Request.make ~version:"1.0" 
+	let invalid_basicauth =
+		Http.Request.make ~version:"1.0"
 			~user_agent:"quicktest"
 			~headers:["Authorization", "Basic cm9vdDpiYXI="] (* root:bar *)
 			Http.Get "/rss"

@@ -37,7 +37,7 @@ type call = {
   host_ref: API.ref_host;
   session_ref: API.ref_session option;
   device_config: (string * string) list;
-  
+
   (* SR probe takes sm config at the SR level *)
   sr_sm_config: (string * string) list option;
 
@@ -80,12 +80,12 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
             raise (Storage_interface.Backend_error(Api_errors.operation_not_allowed,
               [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
       ) sr_ref;
-       let vdi_location = 
-	 if vdi_location <> None 
+       let vdi_location =
+	 if vdi_location <> None
 	 then vdi_location
 	 else may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref in
        let vdi_uuid = may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref in
-	   let vdi_on_boot = may (fun self -> 
+	   let vdi_on_boot = may (fun self ->
 		   match Db.VDI.get_on_boot ~__context ~self with `persist -> "persist" | `reset -> "reset") vdi_ref in
 	   let vdi_allow_caching = may (fun self -> string_of_bool (Db.VDI.get_allow_caching ~__context ~self)) vdi_ref in
 	   let local_cache_sr = try Some (Db.SR.get_uuid ~__context ~self:(Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost __context))) with _ -> None in
@@ -112,10 +112,10 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
        })
 
 let xmlrpc_of_call (call: call) =
-  let kvpairs kvpairs = 
-    XMLRPC.To.structure 
+  let kvpairs kvpairs =
+    XMLRPC.To.structure
       (List.map (fun (k, v) -> k, XMLRPC.To.string v) kvpairs) in
-  
+
   let common = [ "host_ref", XMLRPC.To.string (Ref.string_of call.host_ref);
 		 "command", XMLRPC.To.string (call.cmd);
 		 "args", XMLRPC.To.array (List.map XMLRPC.To.string call.args);
@@ -157,7 +157,7 @@ let with_session sr f =
     let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[] in
     (* Give this session access to this particular SR *)
     maybe (fun sr ->
-	     Db.Session.add_to_other_config ~__context ~self:session 
+	     Db.Session.add_to_other_config ~__context ~self:session
 	       ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)) sr;
     session
   in
@@ -168,12 +168,12 @@ let with_session sr f =
   Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
 let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
-  let do_call call = 
+  let do_call call =
     let xml = xmlrpc_of_call call in
 
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
 
-    let (xml,stderr) = Stats.time_this name (fun () -> 
+    let (xml,stderr) = Stats.time_this name (fun () ->
 		let exe = cmd_name driver in
 		begin try
 			(* Logging call.cmd is safe, but call.args could contain a password. *)
@@ -200,9 +200,9 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
     | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
     | XMLRPC.Fault(39l, _) ->
 	raise (Storage_interface.Backend_error (Api_errors.sr_not_empty, []))
-    | XMLRPC.Fault(24l, _) -> 
+    | XMLRPC.Fault(24l, _) ->
 	raise (Storage_interface.Backend_error (Api_errors.vdi_in_use, []))
-    | XMLRPC.Fault(16l, _) -> 
+    | XMLRPC.Fault(16l, _) ->
 	raise (Storage_interface.Backend_error (Api_errors.sr_device_in_use, []))
     | XMLRPC.Fault(144l, _) ->
 	(* Any call which returns this 'VDIMissing' error really ought to have
@@ -210,11 +210,11 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 	let sr = default "" (may Ref.string_of call.sr_ref)
 	and vdi = default "" (may Ref.string_of call.vdi_ref) in
 	raise (Storage_interface.Backend_error (Api_errors.vdi_missing, [ sr; vdi ]))
-	  
+
     | XMLRPC.Fault(code, reason) ->
 	let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
 	raise (Storage_interface.Backend_error(xenapi_code, [ ""; reason; stderr ]))
-	  
+
     | XMLRPC.Success [ result ] -> result
 	| _ ->
 		raise (Storage_interface.Backend_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
@@ -225,15 +225,15 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 
 
 (********************************************************************)
-(** Some functions to cope with the XML that the SM backends return *)    
+(** Some functions to cope with the XML that the SM backends return *)
 
-let xmlrpc_parse_failure (xml: string) (reason: string) = 
+let xmlrpc_parse_failure (xml: string) (reason: string) =
   raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure,
-				  [ ""; "XML parse failure: " ^xml; reason ])) 
+				  [ ""; "XML parse failure: " ^xml; reason ]))
 
-let rethrow_parse_failures xml f = 
+let rethrow_parse_failures xml f =
   try f ()
-  with 
+  with
   | Backend_missing_field s ->
       xmlrpc_parse_failure xml (Printf.sprintf "<struct> missing field: %s" s)
   | XMLRPC.RunTimeTypeError(s, x) ->
@@ -241,12 +241,12 @@ let rethrow_parse_failures xml f =
   | e ->
       xmlrpc_parse_failure xml (Printexc.to_string e)
 
-let safe_assoc key pairs = 
-  try List.assoc key pairs 
+let safe_assoc key pairs =
+  try List.assoc key pairs
   with Not_found -> raise (Backend_missing_field key)
 
 (* Used for both sr_scan, vdi_create and vdi_resize *)
-let parse_vdi_info (vdi_info_struct: Xml.xml) = 
+let parse_vdi_info (vdi_info_struct: Xml.xml) =
   rethrow_parse_failures (Xml.to_string_fmt vdi_info_struct)
     (fun () ->
        let pairs = List.map (fun (key, v) -> key, XMLRPC.From.string v)
@@ -264,7 +264,7 @@ let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
-let parse_attach_result (xml : Xml.xml) = 
+let parse_attach_result (xml : Xml.xml) =
 	rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
 		let info = XMLRPC.From.structure xml in
 		let params = XMLRPC.From.string (safe_assoc "params" info) in
@@ -294,10 +294,10 @@ let parse_attach_result (xml : Xml.xml) =
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
 
-let parse_sr_get_driver_info driver (xml: Xml.xml) = 
+let parse_sr_get_driver_info driver (xml: Xml.xml) =
   let info = XMLRPC.From.structure xml in
   (* Parse the standard strings *)
-  let name = XMLRPC.From.string (safe_assoc "name" info) 
+  let name = XMLRPC.From.string (safe_assoc "name" info)
   and description = XMLRPC.From.string (safe_assoc "description" info)
   and vendor = XMLRPC.From.string (safe_assoc "vendor" info)
   and copyright = XMLRPC.From.string (safe_assoc "copyright" info)
@@ -305,17 +305,17 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
   and required_api_version = XMLRPC.From.string (safe_assoc "required_api_version" info) in
 
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
-  
+
   let features = Smint.parse_capability_int64_features strings in
   let text_features = List.map Smint.string_of_feature features in
-  
+
   (* Parse the driver options *)
-  let configuration = 
-    List.map (fun kvpairs -> 
+  let configuration =
+    List.map (fun kvpairs ->
 		XMLRPC.From.string (safe_assoc "key" kvpairs),
 		XMLRPC.From.string (safe_assoc "description" kvpairs))
       (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info)) in
-  
+
   { sr_driver_filename = driver;
     sr_driver_name = name;
     sr_driver_description = description;
@@ -329,10 +329,10 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_required_cluster_stack = [];
   }
 
-let sr_get_driver_info driver = 
+let sr_get_driver_info driver =
   let call = make_call (None,[]) "sr_get_driver_info" [] in
   parse_sr_get_driver_info driver (exec_xmlrpc ~needs_session:false driver call)
-    
+
 (* Call the supplied function (passing driver name and driver_info) for every
  * backend and daemon found. *)
 let get_supported add_fn =
@@ -351,7 +351,7 @@ let get_supported add_fn =
         end
       ) in
 
-  List.iter 
+  List.iter
     (fun (f, dir) ->
 		 if Sys.file_exists dir then begin
 		   debug "Scanning directory %s for SM plugins" dir;
@@ -359,7 +359,7 @@ let get_supported add_fn =
 		   with e ->
 			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e);
 		 end else error "Not scanning %s for SM backends: directory does not exist" dir
-    ) 
+    )
     [ check_driver, !Xapi_globs.sm_dir ]
 
 (*********************************************************************)

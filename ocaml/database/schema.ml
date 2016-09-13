@@ -85,7 +85,7 @@ module Table = struct
 	let find name t = List.find (fun col -> col.Column.name = name) t.columns
 end
 
-type relationship = 
+type relationship =
 	| OneToMany of string * string * string * string
 	with sexp
 
@@ -131,7 +131,7 @@ type t = {
 
 let database x = x.database
 
-let table tblname x = 
+let table tblname x =
 	try
 		Database.find tblname (database x)
 	with Not_found as e ->
@@ -146,26 +146,26 @@ let empty = {
 	many_to_many = ForeignMap.empty;
 }
 
-let is_table_persistent schema tblname = 
+let is_table_persistent schema tblname =
 	(table tblname schema).Table.persistent
 
-let is_field_persistent schema tblname fldname = 
+let is_field_persistent schema tblname fldname =
 	let tbl = table tblname schema in
 	let col = Table.find fldname tbl in
 	tbl.Table.persistent && col.Column.persistent
 
-let table_names schema = 
+let table_names schema =
 	List.map (fun t -> t.Table.name) (database schema).Database.tables
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
-let one_to_many tblname schema = 
+let one_to_many tblname schema =
 	(* If there is no entry in the map it means that the table has no one-to-many relationships *)
 	try
 		ForeignMap.find tblname schema.one_to_many
 	with Not_found -> []
 
-let many_to_many tblname schema = 
+let many_to_many tblname schema =
 	(* If there is no entry in the map it means that the table has no many-to-many relationships *)
 	try
 		ForeignMap.find tblname schema.many_to_many

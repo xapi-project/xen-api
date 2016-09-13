@@ -18,7 +18,7 @@ open Xapi_vif_helpers
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let assert_operation_valid ~__context ~self ~(op:API.vif_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.vif_operations) =
   assert_operation_valid ~__context ~self ~op
 
 let update_allowed_operations ~__context ~self : unit =

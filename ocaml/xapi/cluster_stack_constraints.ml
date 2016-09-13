@@ -75,7 +75,7 @@ let assert_cluster_stack_compatible ~__context sr =
 			let constraints = Db.SM.get_required_cluster_stack ~__context ~self:sm in
 			(match constraints with
 			| [] -> ()  (* No constraints *)
-			| alternatives -> 
+			| alternatives ->
 				if List.exists (fun x -> x = current_stack) alternatives then
 					()  (* Constraints satisfied *)
 				else

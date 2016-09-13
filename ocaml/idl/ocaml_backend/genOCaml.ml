@@ -66,9 +66,9 @@ let ty_to_xmlrpc api ty =
     | String -> "To.string"
     | Record x ->
 	let fields = DU.fields_of_obj (Dm_api.get_obj_by_name api ~objname:x) in
-	let kvs = List.map 
-	  (fun fld -> 
-	     alias_of_ty fld.ty ^ " x." ^ 
+	let kvs = List.map
+	  (fun fld ->
+	     alias_of_ty fld.ty ^ " x." ^
 	       (OU.ocaml_of_record_field (x::fld.full_name)),
 	     String.concat "_" fld.full_name) fields in
 	let kvs = List.map (fun (record, v) -> "\"" ^ v ^ "\", " ^ record) kvs in
@@ -136,7 +136,7 @@ let ty_of_xmlrpc api ty =
     | String -> wrap "xml" "From.string xml"
     | Record x ->
 	let fields = DU.fields_of_obj (Dm_api.get_obj_by_name api ~objname:x) in
-	let fields = 
+	let fields =
 	  List.map (fun fld ->
 		      (OU.ocaml_of_record_field (x::fld.full_name)) ^ " = " ^
 			(alias_of_ty_param fld.ty) ^
@@ -181,6 +181,6 @@ let gen_of_xmlrpc api tys = block
 *)
     ];
     ["let structure = From.structure"];
-    ["let rec unused' = ()"]] @ 
+    ["let rec unused' = ()"]] @
      (List.map (ty_of_xmlrpc api) tys))
   ["end"]

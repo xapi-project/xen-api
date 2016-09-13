@@ -8,7 +8,7 @@ module Updates = Updates.Updates(Storage_interface)
 
 let updates = Updates.empty ()
 let tasks = Storage_task.empty ()
-	
+
 let signal task =
 	let open Storage_task in
 	Stdext.Threadext.Mutex.execute tasks.m
@@ -18,4 +18,4 @@ let signal task =
 				Updates.add (Dynamic.Task task) updates;
 			end else debug "TASK.signal %s (object deleted)" task
 		)
-		
+

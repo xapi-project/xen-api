@@ -21,7 +21,7 @@ open Listext
 module D = Debug.Make(struct let name = "locking_helpers" end)
 open D
 
-type resource = 
+type resource =
 	| Lock of string
 	| Process of string * int
 
@@ -52,7 +52,7 @@ module Thread_state = struct
     let m = Mutex.create ()
 	module IntMap = Map.Make(struct type t = int let compare = compare end)
 	let thread_states = ref IntMap.empty
-		
+
 	let get_acquired_resources_by_task task =
 		let snapshot = Mutex.execute m (fun () -> !thread_states) in
 		let all, _ = IntMap.partition (fun _ ts -> ts.task = task) snapshot in
@@ -67,27 +67,27 @@ module Thread_state = struct
     let update f =
         let id = me () in
 		let snapshot = Mutex.execute m (fun () -> !thread_states) in
-		let ts = 
-			if IntMap.mem id snapshot 
+		let ts =
+			if IntMap.mem id snapshot
 			then f (IntMap.find id snapshot)
-			else f empty in		
+			else f empty in
 		Mutex.execute m
 			(fun () ->
 				thread_states := if ts = empty then IntMap.remove id !thread_states else IntMap.add id ts !thread_states
 			)
-		
+
     let with_named_thread name task f =
 		update (fun ts -> { ts with name = name; task = task });
         finally f
             (fun () -> update (fun ts -> { ts with name = ""; task = Ref.null }))
-			
+
 	let now () = Unix.gettimeofday ()
     let waiting_for resource =
         update (fun ts -> { ts with waiting_for = Some (resource, now()) })
 
     let acquired resource =
         update (fun ts -> { ts with waiting_for = None; acquired_resources = (resource, now()) :: ts.acquired_resources })
-			
+
     let released resource =
         update (fun ts -> { ts with acquired_resources = List.filter (fun (r,_) -> r <> resource) ts.acquired_resources })
 
@@ -99,9 +99,9 @@ module Thread_state = struct
 			[ ts.name ]::[ Ref.really_pretty_and_small ts.task ]::(List.map (fun (r, t) -> [ string_of_resource r; Printf.sprintf "%.0f" (t' -. t) ]) ts.acquired_resources)
 		) snapshot in
 		let resources_of_ts ts =
-			List.map fst ts.acquired_resources @ 
+			List.map fst ts.acquired_resources @
 				(Opt.default [] (Opt.map (fun (r, _) -> [ r ]) ts.waiting_for)) in
-		let all_resources = 
+		let all_resources =
 			List.setify
 				(IntMap.fold (fun _ ts acc -> resources_of_ts ts @ acc ) snapshot [] ) in
 
@@ -116,7 +116,7 @@ module Thread_state = struct
 			IntMap.fold (fun id ts acc ->
 				List.map (fun (r, _) -> id, List.assoc r resources_to_ids) ts.acquired_resources @ acc
 			) snapshot [] in
-		let threads_to_resources = 
+		let threads_to_resources =
 			IntMap.fold (fun id ts acc ->
 				match ts.waiting_for with
 					| None -> acc
@@ -157,7 +157,7 @@ module Named_mutex = struct
 		Mutex.execute x.m
 			(fun () ->
 				Thread_state.acquired r;
-				finally 
+				finally
 					f
 					(fun () -> Thread_state.released r)
 			)
@@ -181,7 +181,7 @@ let locks : (API.ref_VM, token) Hashtbl.t = Hashtbl.create 10
 exception Lock_not_held (** Raised by assert_locked if we screw up the use of 'with_lock' *)
 
 let assert_locked (target: API.ref_VM) (token: token) =
-  let held = 
+  let held =
     Mutex.execute mutex
       (fun () -> Hashtbl.fold (fun target' token' acc -> acc || ((target = target') && (token = token'))) locks false) in
   if not held then begin
@@ -215,7 +215,7 @@ let acquire_lock (target: API.ref_VM)  =
 exception Internal_error_vm_not_locked
 exception Internal_error_token_mismatch
 
-let release_lock (target: API.ref_VM) (token: token) = 
+let release_lock (target: API.ref_VM) (token: token) =
   Mutex.execute mutex
     (fun () ->
        if not(Hashtbl.mem locks target) then begin
@@ -232,4 +232,4 @@ let release_lock (target: API.ref_VM) (token: token) =
     );
   Thread_state.released (lock_of_vm target);
   debug "Released lock on VM %s with token %Ld" (Ref.string_of target) token
-      
+

@@ -22,7 +22,7 @@ module Utility = struct
 
 	let test_drop_valid = make_test_case "drop_valid"
 		"Tests the drop function with valid arguments."
-		(fun () -> 
+		(fun () ->
 			List.iter
 				(fun (n, xs, xs') -> assert_equal (drop n xs) xs')
 				[
@@ -59,7 +59,7 @@ module Utility = struct
 
 	let test_take_valid = make_test_case "take_valid"
 		"Tests the take function with valid arguments."
-		(fun () -> 
+		(fun () ->
 			List.iter
 				(fun (n, xs, xs') -> assert_equal (take n xs) xs')
 				[

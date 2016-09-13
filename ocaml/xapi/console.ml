@@ -61,7 +61,7 @@ let address_of_console __context console : address option =
 	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_address x)) address_option));
 	address_option
 
-let real_proxy __context _ _ vnc_port s = 
+let real_proxy __context _ _ vnc_port s =
 	try
 		Http_svr.headers s (Http.http_200_ok ());
 		let vnc_sock = match vnc_port with
@@ -75,12 +75,12 @@ let real_proxy __context _ _ vnc_port s =
 		debug "Proxy exited"
 	with
 		exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
-		
-let fake_proxy __context _ _ console s = 
+
+let fake_proxy __context _ _ console s =
   Rfb_randomtest.server s
 
 let check_wsproxy () =
-	try 
+	try
 		let pid = int_of_string (Unixext.string_of_file "/var/run/wsproxy.pid") in
 		Unix.kill pid 0;
 		true
@@ -101,32 +101,32 @@ let ws_proxy __context req protocol address s =
     failwith "ws_proxy: not implemented" in
 
   ensure_proxy_running ();
-  let protocol = match protocol with 
+  let protocol = match protocol with
     | `rfb -> "rfb"
     | `vt100 -> "vt100"
     | `rdp -> "rdp"
   in
 
-  let real_path = Filename.concat "/var/lib/xcp" "wsproxy" in    
-  let sock = 
+  let real_path = Filename.concat "/var/lib/xcp" "wsproxy" in
+  let sock =
     try
       Some (Fecomms.open_unix_domain_sock_client real_path)
-    with e -> 
+    with e ->
       debug "Error connecting to wsproxy (%s)" (Printexc.to_string e);
-      Http_svr.headers s (Http.http_501_method_not_implemented ());      
-      None 
+      Http_svr.headers s (Http.http_501_method_not_implemented ());
+      None
   in
 
   (* Ensure we always close the socket *)
-  Pervasiveext.finally (fun () -> 
-    let upgrade_successful = Opt.map (fun sock -> 
-      try 
+  Pervasiveext.finally (fun () ->
+    let upgrade_successful = Opt.map (fun sock ->
+      try
 	let result = (sock,Some (Ws_helpers.upgrade req s)) in
-	result	  
+	result
       with _ ->
 	(sock,None)) sock
     in
-    
+
     Opt.iter (function
       | (sock,Some ty) -> begin
 	let wsprotocol = match ty with
@@ -141,10 +141,10 @@ let ws_proxy __context req protocol address s =
       end) upgrade_successful)
     (fun () ->
       Opt.iter (fun sock -> Unix.close sock) sock)
-			
-  
 
-let default_console_of_vm ~__context ~self = 
+
+
+let default_console_of_vm ~__context ~self =
   try
     let consoles = Db.VM.get_consoles ~__context ~self in
     let protocols = List.map (fun self -> Db.Console.get_protocol ~__context ~self) consoles in
@@ -153,15 +153,15 @@ let default_console_of_vm ~__context ~self =
     error "Failed to find default VNC console for VM";
     raise Failure
 
-let console_of_request __context req = 
+let console_of_request __context req =
   (* First check the request looks valid *)
   if not(List.mem_assoc "ref" req.Http.Request.query) && not(List.mem_assoc "uuid" req.Http.Request.query) then begin
     error "HTTP request for console forwarding lacked 'ref' or 'uuid' parameter";
     raise Failure
   end;
-  let _ref = 
-    if List.mem_assoc "uuid" req.Http.Request.query 
-    then 
+  let _ref =
+    if List.mem_assoc "uuid" req.Http.Request.query
+    then
       let uuid = List.assoc "uuid" req.Http.Request.query in
       (try Ref.string_of(Db.VM.get_by_uuid ~__context ~uuid)
        with _ -> Ref.string_of(Db.Console.get_by_uuid ~__context ~uuid))
@@ -171,8 +171,8 @@ let console_of_request __context req =
      default VNC console or it may be a console ref in which case we
      go for that. *)
   let db = Context.database_of __context in
-  let is_vm, is_console = 
-	  let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in	  
+  let is_vm, is_console =
+	  let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in
 	  match DB.get_table_from_ref db _ref with
 	| Some c when c = Db_names.vm -> true, false
 	| Some c when c = Db_names.console -> false, true
@@ -180,8 +180,8 @@ let console_of_request __context req =
 		  error "%s is neither a VM ref or a console ref" _ref;
 		  raise Failure in
 
-  if is_vm then default_console_of_vm ~__context ~self:(Ref.of_string _ref) else (Ref.of_string _ref) 
-    
+  if is_vm then default_console_of_vm ~__context ~self:(Ref.of_string _ref) else (Ref.of_string _ref)
+
 
 let rbac_check_for_control_domain __context (req:Request.t) console_id permission =
 	let is_control_domain =
@@ -194,7 +194,7 @@ let rbac_check_for_control_domain __context (req:Request.t) console_id permissio
 		Rbac.check_with_new_task ~extra_dmsg session_id permission ~fn:Rbac.nofn
 			~args:(Xapi_http.rbac_audit_params_of req)
 
-let check_vm_is_running_here __context console = 
+let check_vm_is_running_here __context console =
   let vm = Db.Console.get_VM ~__context ~self:console in
   if Db.VM.get_power_state ~__context ~self:vm <> `Running then begin
 	error "VM %s (Console %s) has power_state <> Running" (Ref.string_of vm) (Ref.string_of console);

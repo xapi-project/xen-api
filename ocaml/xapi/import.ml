@@ -354,7 +354,7 @@ module VM : HandlerTools = struct
 		match precheck_result with
 		| Skip -> ()
 		| Fail e -> raise e
-		| Default_template template -> 
+		| Default_template template ->
 			state.table <- (x.cls, x.id, Ref.string_of template) :: state.table;
 			state.created_vms <- (x.cls, x.id, Ref.string_of template) :: state.created_vms
 		| Clean_import _ | Replace _  ->
@@ -782,7 +782,7 @@ module Net : HandlerTools = struct
 	type precheck_t =
 		| Found_net of API.ref_network
 		| Create of API.network_t
-	
+
 	let precheck __context config rpc session_id state x =
 		let net_record = API.Legacy.From.network_t "" x.snapshot in
 		let possibilities = Client.Network.get_by_name_label rpc session_id net_record.API.network_name_label in
@@ -1505,7 +1505,7 @@ let metadata_handler (req: Request.t) s _ =
 
 let stream_import __context rpc session_id s content_length refresh_session config =
 	let sr = match config.import_type with
-	| Full_import sr -> sr 
+	| Full_import sr -> sr
 	| _ -> failwith "Internal error: stream_import called without correct import_type"
 	in
 	with_open_archive s ?length:content_length

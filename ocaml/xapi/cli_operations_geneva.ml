@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group Command-Line Interface (CLI)
  *)
- 
+
 (* Backwards compatible CLI operations *)
 
 (* These are mostly list functions - operations that do things *)
@@ -29,7 +29,7 @@ open Xstringext
 open Pervasiveext
 open Unixext
 open Client
-open Records 
+open Records
 
 module D=Debug.Make(struct let name="cli" end)
 open D
@@ -40,8 +40,8 @@ let failwith str = raise (Cli_util.Cli_failure str)
 let powerstate vm_r =
   let co = vm_r.API.vM_current_operations in
   let s = vm_r.API.vM_power_state in
-  let op_to_string (_,s) = 
-    match s with 
+  let op_to_string (_,s) =
+    match s with
       | `clone -> "CLONING"
       | `start -> "STARTING"
       | `clean_shutdown -> "SHUTTING_DOWN"
@@ -66,25 +66,25 @@ let powerstate vm_r =
 let get_vm_records rpc session_id =
   let vms = Client.VM.get_all_records_where rpc session_id "true" in
   let vmrs = List.map snd vms in
-  List.filter (fun vm_r -> not vm_r.API.vM_is_a_template) vmrs 
+  List.filter (fun vm_r -> not vm_r.API.vM_is_a_template) vmrs
 
 let get_template_records rpc session_id =
   let vms = Client.VM.get_all_records_where rpc session_id "true" in
   let vmrs = List.map snd vms in
-  List.filter (fun vm_r -> vm_r.API.vM_is_a_template) vmrs 
+  List.filter (fun vm_r -> vm_r.API.vM_is_a_template) vmrs
 
 let get_patch_by_name_or_id rpc session_id params =
   let patches = Client.Host_patch.get_all_records_where rpc session_id "true"in
   let filter_fun =
-    if List.mem_assoc "patch-name" params 
-    then 
+    if List.mem_assoc "patch-name" params
+    then
       let name = List.assoc "patch-name" params in
       function (_, x) -> (x.API.host_patch_name_label = name)
     else
-      if List.mem_assoc "patch-id" params 
+      if List.mem_assoc "patch-id" params
       then
 	let id = List.assoc "patch-id" params in
-	function (_, x) -> (x.API.host_patch_uuid = id) 
+	function (_, x) -> (x.API.host_patch_uuid = id)
     else raise (Failure "Either a patch-name or a patch-id must be specified")
   in
   let patches = List.filter filter_fun patches in
@@ -116,7 +116,7 @@ let host_template_list printer rpc session_id params =
 let host_sr_list printer rpc session_id params =
   let srs = Client.SR.get_all rpc session_id in
   let srs = List.map (fun sr -> (sr,Client.SR.get_record rpc session_id sr)) srs in
-  let recs = 
+  let recs =
     List.map
       (fun (_,sr) ->
 	["NAME",sr.API.sR_name_label;
@@ -125,7 +125,7 @@ let host_sr_list printer rpc session_id params =
 	 "devices","<unknown>"]) srs
   in
   printer (Cli_printer.PTable recs)
-    
+
 let host_param_list printer rpc session_id params =
   let host = Cli_operations.get_host_from_session rpc session_id in
   let host_r = Client.Host.get_record rpc session_id host in
@@ -141,7 +141,7 @@ let host_param_list printer rpc session_id params =
       "Threads per core","<unknown>"]] in
   printer (Cli_printer.PTable recs)
 
-let host_password_set _ rpc session_id params = 
+let host_password_set _ rpc session_id params =
   let old_pwd = List.assoc "password" params
   and new_pwd = List.assoc "new-password" params in
   Client.Session.change_password rpc session_id old_pwd new_pwd
@@ -182,36 +182,36 @@ let host_cd_list printer rpc session_id params =
 	[("CD",vdi_rec.API.vDI_name_label);
 	 ("Description",vdi_rec.API.vDI_name_description);
 	 ("Location","<unknown>")]) cd_vdis in
-  printer (Cli_printer.PTable records)  
+  printer (Cli_printer.PTable records)
 
-let host_patch_list printer rpc session_id params = 
+let host_patch_list printer rpc session_id params =
   let patches = Client.Host_patch.get_all_records_where rpc session_id "true" in
   let records = List.map
     (fun (patch, patch_rec) ->
        [("PATCH", patch_rec.API.host_patch_name_label);
 	("uuid", patch_rec.API.host_patch_uuid);
-	("applied on", if patch_rec.API.host_patch_applied 
+	("applied on", if patch_rec.API.host_patch_applied
 	 then Date.to_string patch_rec.API.host_patch_timestamp_applied
 	 else "never")]) patches in
   printer (Cli_printer.PTable records)
 
-let host_patch_remove printer rpc session_id params = 
+let host_patch_remove printer rpc session_id params =
   let p = get_patch_by_name_or_id rpc session_id params in
   Client.Host_patch.destroy rpc session_id (fst p)
 
-let host_patch_upload fd printer rpc session_id params = 
+let host_patch_upload fd printer rpc session_id params =
   let name = List.assoc "patch-file" params in
   Cli_operations.patch_upload fd printer rpc session_id [ "file-name", name ]
 
-let host_patch_apply printer rpc session_id params = 
+let host_patch_apply printer rpc session_id params =
   let p = get_patch_by_name_or_id rpc session_id params in
   Cli_operations.patch_apply printer rpc session_id [ "uuid", (snd p).API.host_patch_uuid ]
 
 let get_disks rpc session_id vm =
   let vbds = Client.VM.get_VBDs rpc session_id vm in
   List.map (fun vbd -> (Client.VBD.get_record rpc session_id vbd,
-		       Client.VDI.get_record rpc session_id (Client.VBD.get_VDI rpc session_id vbd))) vbds 
-    
+		       Client.VDI.get_record rpc session_id (Client.VBD.get_VDI rpc session_id vbd))) vbds
+
 let vm_disk_list printer rpc session_id params =
   let op vm =
     let vm = vm.getref () in
@@ -264,16 +264,16 @@ let vm_cd_list printer rpc session_id params =
 let get_vm_params rpc session_id vm =
   let vm_record = Records.vm_record rpc session_id vm in
   let power_state = powerstate (Client.VM.get_record rpc session_id vm) in
-  let vcpus = 
+  let vcpus =
     if power_state="running" || power_state="suspended" then
       Records.safe_get_field (Records.field_lookup vm_record.Records.fields "VCPUs-number")
     else
       Records.safe_get_field (Records.field_lookup vm_record.Records.fields "VCPUs-max")
   in
-  (* memory_set refers to the balloon target, memory_max is the boot-time max *)  
+  (* memory_set refers to the balloon target, memory_max is the boot-time max *)
   let memory_set = Records.safe_get_field (Records.field_lookup vm_record.Records.fields "memory-dynamic-max") in
-  let vcpu_params = 
-    try 
+  let vcpu_params =
+    try
       match (Records.field_lookup vm_record.Records.fields "VCPUs-params").Records.get_map with Some f -> f () | None -> []
     with _ -> []
   in
@@ -301,11 +301,11 @@ let vm_param_list printer rpc session_id params =
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
 let vm_param_get printer rpc session_id params =
-  let op vm = 
+  let op vm =
     let vm=vm.getref () in
     let allparams = get_vm_params rpc session_id vm in
     let param_name=List.assoc "param-name" params in
-    let result = 
+    let result =
       try
 	List.filter (fun (k,v) -> k=param_name) allparams
       with
@@ -321,10 +321,10 @@ let vm_param_set printer rpc session_id params =
     let param = List.assoc "param-name" params in
     let value = List.assoc "param-value" params in
     match param with
-      | "name" -> Client.VM.set_name_label rpc session_id vm value 
+      | "name" -> Client.VM.set_name_label rpc session_id vm value
       | "description" -> Client.VM.set_name_description rpc session_id vm value
-      | "vcpus" -> Client.VM.set_VCPUs_at_startup rpc session_id vm (Int64.of_string value) 
-      | "memory_set" -> 
+      | "vcpus" -> Client.VM.set_VCPUs_at_startup rpc session_id vm (Int64.of_string value)
+      | "memory_set" ->
 	  if Client.VM.get_power_state rpc session_id vm <> `Halted
 	  then failwith "Cannot modify memory_set when VM is running";
 	  let bytes = Int64.shift_left (Int64.of_string value) 20 in
@@ -333,7 +333,7 @@ let vm_param_set printer rpc session_id params =
       | "auto_poweron" -> ()
       | "boot_params" -> Client.VM.set_PV_args rpc session_id vm value
       | "on_crash" -> Client.VM.set_actions_after_crash rpc session_id vm (Record_util.string_to_on_crash_behaviour value)
-      | "sched_credit_weight" -> 
+      | "sched_credit_weight" ->
 	  (try Client.VM.remove_from_VCPUs_params rpc session_id vm "weight" with _ -> ());
 	  Client.VM.add_to_VCPUs_params rpc session_id vm "weight" value
       | "sched_credit_cap" ->
@@ -342,25 +342,25 @@ let vm_param_set printer rpc session_id params =
       | _ -> failwith "Unknown parameter"
   in
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
-  
+
 let vm_install fd printer rpc session_id params =
   let template_name = List.assoc "template-name" params in
   let name = List.assoc "name" params in
   let description = try List.assoc "description" params with _ -> "" in
   let vcpus = try Some (Int64.of_string (List.assoc "vcpus" params)) with _ -> None in
-  let memory_set = 
-    try Some (Int64.shift_left (Int64.of_string (List.assoc "memory_set" params)) 20) 
+  let memory_set =
+    try Some (Int64.shift_left (Int64.of_string (List.assoc "memory_set" params)) 20)
     with _ -> None in
   let boot_params = try Some (List.assoc "boot_params" params) with _ -> None in
   let _ (* auto_poweron *) = try Some (bool_of_string (List.assoc "auto_poweron" params)) with _ -> None in
   let templates = get_template_records rpc session_id in
   let template = List.filter (fun t -> t.API.vM_name_label = template_name) templates in
-  match template with 
+  match template with
       [t] ->
 	marshal fd (Command (Print "Initiating install..."));
 	let new_vm = Client.VM.clone rpc session_id (Client.VM.get_by_uuid rpc session_id (t.API.vM_uuid)) name in
 	let uuid = Client.VM.get_uuid rpc session_id new_vm in
-	
+
 	(* Add VIFs to any network that has 'auto_add_to_VM' set to true *)
 	let nets = Client.Network.get_all rpc session_id in
 	let filtered_nets = List.filter (fun net -> try bool_of_string (List.assoc "auto_add_to_VM" (Client.Network.get_other_config rpc session_id net)) with _ -> false) nets in
@@ -371,7 +371,7 @@ let vm_install fd printer rpc session_id params =
 	  marshal fd (Command (Print ("Adding VIF, device "^(string_of_int !device)^" to network '"^(Client.Network.get_name_label rpc session_id net)^"' mac="^mac)));
 	  ignore(Client.VIF.create rpc session_id (string_of_int !device) net new_vm mac 1500L [] "" [] `network_default [] [] );
 	  device := !device + 1
-	in 
+	in
 	List.iter add_vif filtered_nets;
 
 	ignore(may (fun vcpus -> Client.VM.set_VCPUs_max rpc session_id new_vm vcpus) vcpus);
@@ -383,7 +383,7 @@ let vm_install fd printer rpc session_id params =
 	ignore(Client.VM.set_name_description rpc session_id new_vm description);
 
 	let sr_uuid = match get_default_sr_uuid rpc session_id with
-	  | Some sr_uuid -> sr_uuid 
+	  | Some sr_uuid -> sr_uuid
 	  | None -> failwith "Failed to find a Pool default_SR and no override was provided" in
 	rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
 
@@ -396,7 +396,7 @@ let vm_install fd printer rpc session_id params =
 	marshal fd (Command (Print ("New VM uuid: "^uuid)));
 	let record_matches record =
 	  (List.assoc "uuid" record) () = uuid &&
-	  (List.assoc "PV-bootloader" record) () <> "installer" 
+	  (List.assoc "PV-bootloader" record) () <> "installer"
 	in
 	Cli_operations.event_wait_gen rpc session_id "vm" record_matches;
 	marshal fd (Command (Print ("[DONE]")))
@@ -407,10 +407,10 @@ let host_bridge_list vbridge printer rpc session_id params =
   let filterfn = if vbridge then not else fun b -> b in
   let networks = Client.Network.get_all rpc session_id in
   let pbridges = List.filter (fun net -> filterfn (List.length (Client.Network.get_PIFs rpc session_id net) > 0)) networks in
-  let bridge_to_printer_record pbridge =    
+  let bridge_to_printer_record pbridge =
     let pifs = Client.Network.get_PIFs rpc session_id pbridge in
     let other_config = Client.Network.get_other_config rpc session_id pbridge in
-    let name = try List.assoc "geneva-name" other_config with _ -> Client.Network.get_bridge rpc session_id pbridge in 
+    let name = try List.assoc "geneva-name" other_config with _ -> Client.Network.get_bridge rpc session_id pbridge in
     [((if vbridge then "Virtual bridge" else "Physical bridge"),name);
      ("Description",Client.Network.get_name_description rpc session_id pbridge)] @
       (if not vbridge then [("NIC",if vbridge then "" else Client.PIF.get_device rpc session_id (List.hd pifs))] else []) @
@@ -429,7 +429,7 @@ let host_vbridge_add printer rpc session_id params =
 let host_vbridge_remove printer rpc session_id params =
   let name = List.assoc "vbridge-name" params in
   let networks = Client.Network.get_all rpc session_id in
-  let net = List.filter (fun net -> 
+  let net = List.filter (fun net ->
     let other_config = Client.Network.get_other_config rpc session_id net in
     if List.mem_assoc "geneva-name" other_config then
       List.assoc "geneva-name" other_config = name
@@ -458,22 +458,22 @@ let vm_vif_add printer rpc session_id params =
     let vif_name = List.assoc "vif-name" params in
     let bridge = List.assoc "bridge-name" params in
     let mac = List.assoc "mac" params in
-    
+
     (* the name encodes the device - VIFs should be called 'ethX' or nicX in geneva/zurich *)
     let device =
-      if String.startswith "eth" vif_name 
+      if String.startswith "eth" vif_name
       then String.sub vif_name 3 (String.length vif_name - 3)
       else if String.startswith "nic" vif_name
       then String.sub vif_name 3 (String.length vif_name - 3)
       else failwith "VIF names must be of the form ethX or nicX"
     in
-	
+
     (* find the bridge *)
     let networks = Client.Network.get_all rpc session_id in
     let filter net =
       let other_config = Client.Network.get_other_config rpc session_id net in
       try
-	List.assoc "geneva-name" other_config = bridge 
+	List.assoc "geneva-name" other_config = bridge
       with
 	  _ -> Client.Network.get_bridge rpc session_id net = bridge
     in
@@ -486,9 +486,9 @@ let vm_vif_add printer rpc session_id params =
 	    if List.mem_assoc "rate" params then
 	      (Client.VIF.set_qos_algorithm_type rpc session_id vif "ratelimit";
 	       Client.VIF.add_to_qos_algorithm_params rpc session_id vif "kbs" (List.assoc "rate" params))
-	  end    
-  in	  
-  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])  
+	  end
+  in
+  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
 let vm_vif_list printer rpc session_id params =
   let op vm =
@@ -500,26 +500,26 @@ let vm_vif_list printer rpc session_id params =
       let name = (if is_hvm then "nic" else "eth")^(Client.VIF.get_device rpc session_id vif) in
       let mac = Client.VIF.get_MAC rpc session_id vif in
       let bridge_other_config = Client.Network.get_other_config rpc session_id (Client.VIF.get_network rpc session_id vif) in
-      let bridge = 
+      let bridge =
 	try List.assoc "geneva-name" bridge_other_config
-	with _ -> Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id vif) 
+	with _ -> Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id vif)
       in
       let ip =
-	try 
+	try
 	  let networks = Client.VM_guest_metrics.get_networks rpc session_id (Client.VM.get_guest_metrics rpc session_id vm) in
 	  List.assoc ((Client.VIF.get_device rpc session_id vif)^"/ip") networks
 	with
 	    _ -> "not available [guest must be on with XenSource tools installed]"
-      in	    
+      in
       [("name",name);
        ("mac",mac);
        ("ip",ip);
        ("vbridge",bridge);
        ("rate","<unknown>")]
-    in 
+    in
     printer (Cli_printer.PTable (List.map vif_to_record vifs))
   in
-  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])  
+  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
 let vm_vif_remove printer rpc session_id params =
   let op vm =
@@ -528,7 +528,7 @@ let vm_vif_remove printer rpc session_id params =
     let vifs = List.filter (fun vif -> Client.VIF.get_VM rpc session_id vif = vm) vifs in
     let vif_name = List.assoc "vif-name" params in
     let device =
-      if String.startswith "eth" vif_name 
+      if String.startswith "eth" vif_name
       then String.sub vif_name 3 (String.length vif_name - 3)
       else if String.startswith "nic" vif_name
       then String.sub vif_name 3 (String.length vif_name - 3)
@@ -538,12 +538,12 @@ let vm_vif_remove printer rpc session_id params =
     match vif with
 	v::vs -> Client.VIF.destroy rpc session_id v
       | _ -> failwith "Cannot find VIF"
-  in  
-  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])  
+  in
+  ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
 (*
 
-  let recs = 
+  let recs =
     List.map (fun (_,v) ->
       (["NAME",v.API.vM_name_label;
 	"uuid",v.API.vM_uuid;
@@ -557,10 +557,10 @@ let vm_vif_remove printer rpc session_id params =
      ("description" , vm_record.API.vM_name_description );
      ("vcpus", Int64.to_string (vm_record.API.vM_VCPUs_number ));
      ("memory_set", Int64.to_string (Int64.shift_right (vm_record.API.vM_memory_dynamic_max ) 20));
-     ("auto_power_on", string_of_bool (vm_record.API.vM_auto_power_on))]] 
+     ("auto_power_on", string_of_bool (vm_record.API.vM_auto_power_on))]]
 *)
 
-    
+
 (* Cmdtable *)
 
 let cmdtable_data : (string*cmd_spec) list =
@@ -572,7 +572,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };     
+    };
     "host-shutdown",
     {
       reqd=[];
@@ -596,7 +596,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_password_set;
       flags=[];
-    };    
+    };
     "host-license-add",
     {
       reqd=[];
@@ -604,7 +604,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-license-list",
     {
       reqd=[];
@@ -612,7 +612,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-pif-list",
     {
       reqd=[];
@@ -620,7 +620,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: List the PIFs on the host";
       implementation=No_fd host_pif_list;
       flags=[];
-    };    
+    };
     "host-cpu-list",
     {
       reqd=[];
@@ -628,7 +628,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_cpu_list;
       flags=[];
-    };    
+    };
     "host-vbridge-list",
     {
       reqd=[];
@@ -636,7 +636,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd (host_bridge_list true);
       flags=[];
-    };    
+    };
     "host-pbridge-list",
     {
       reqd=[];
@@ -644,7 +644,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd (host_bridge_list false);
       flags=[];
-    };    
+    };
     "host-cd-list",
     {
       reqd=[];
@@ -652,7 +652,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_cd_list;
       flags=[];
-    };    
+    };
     "host-vbridge-add",
     {
       reqd=["vbridge-name";"auto-vm-add"];
@@ -660,7 +660,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_vbridge_add;
       flags=[];
-    };    
+    };
     "host-vbridge-remove",
     {
       reqd=["vbridge-name"];
@@ -668,7 +668,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_vbridge_remove;
       flags=[];
-    };    
+    };
     "host-sr-set",
     {
       reqd=[];
@@ -676,7 +676,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-loglevel-set",
     {
       reqd=[];
@@ -684,7 +684,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-logs-download",
     {
       reqd=[];
@@ -692,7 +692,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-patch-list",
     {
       reqd=[];
@@ -700,7 +700,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_patch_list;
       flags=[];
-    };    
+    };
 
     "host-patch-remove",
     {
@@ -709,7 +709,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_patch_remove;
       flags=[];
-    };    
+    };
     "host-patch-upload",
     {
       reqd=["patch-file"];
@@ -717,7 +717,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=With_fd host_patch_upload;
       flags=[];
-    };    
+    };
     "host-patch-apply",
     {
       reqd=[];
@@ -725,7 +725,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd host_patch_apply;
       flags=[];
-    };    
+    };
     "host-backup",
     {
       reqd=[];
@@ -733,7 +733,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-restore",
     {
       reqd=[];
@@ -741,7 +741,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-crash-list",
     {
       reqd=[];
@@ -749,7 +749,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-crash-del",
     {
       reqd=[];
@@ -757,7 +757,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-crash-upload",
     {
       reqd=[];
@@ -765,7 +765,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-bugreport-upload",
     {
       reqd=[];
@@ -773,7 +773,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "host-license-add",
     {
       reqd=["license-file"];
@@ -781,9 +781,9 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=With_fd Cli_operations.host_license_add;
       flags=[];
-    };    
+    };
     "host-vm-list",
-    { 
+    {
       reqd=[];
       optn=[];
       help="COMPAT MODE: List the hosts on the server";
@@ -791,7 +791,7 @@ let cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
     "host-template-list",
-    { 
+    {
       reqd=[];
       optn=[];
       help="COMPAT MODE: List the templates on the server";
@@ -821,7 +821,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=With_fd vm_install;
       flags=[];
-    };    
+    };
     "vm-uninstall",
     {
       reqd=[];
@@ -829,7 +829,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=With_fd Cli_operations.vm_uninstall;
       flags=[];
-    };    
+    };
     "vm-clone",
     {
       reqd=[];
@@ -837,7 +837,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_clone;
       flags=[];
-    };    
+    };
     "vm-shutdown",
     {
       reqd=[];
@@ -845,7 +845,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_shutdown;
       flags=[];
-    };    
+    };
     "vm-start",
     {
       reqd=[];
@@ -853,7 +853,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_start;
       flags=[];
-    };    
+    };
     "vm-suspend",
     {
       reqd=[];
@@ -861,7 +861,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_suspend;
       flags=[];
-    };    
+    };
     "vm-resume",
     {
       reqd=[];
@@ -869,7 +869,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_resume;
       flags=[];
-    };    
+    };
     "vm-reboot",
     {
       reqd=[];
@@ -877,7 +877,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_reboot;
       flags=[];
-    };    
+    };
     "vm-disk-list",
     {
       reqd=[];
@@ -885,7 +885,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_disk_list;
       flags=[];
-    };    
+    };
     "vm-disk-add",
     {
       reqd=["disk-name";"disk-size"];
@@ -893,7 +893,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_disk_add;
       flags=[];
-    };    
+    };
     "vm-disk-remove",
     {
       reqd=[];
@@ -901,7 +901,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_disk_remove;
       flags=[];
-    };    
+    };
     "vm-disk-resize",
     {
       reqd=[];
@@ -909,7 +909,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_disk_resize;
       flags=[];
-    };    
+    };
     "vm-disk-setqos",
     {
       reqd=[];
@@ -917,7 +917,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_disk_setqos;
       flags=[];
-    };    
+    };
     "vm-cd-list",
     {
       reqd=[];
@@ -925,7 +925,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_cd_list;
       flags=[];
-    };    
+    };
     "vm-cd-add",
     {
       reqd=[];
@@ -933,7 +933,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_cd_add;
       flags=[];
-    };    
+    };
     "vm-cd-remove",
     {
       reqd=[];
@@ -941,7 +941,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd Cli_operations.vm_cd_remove;
       flags=[];
-    };    
+    };
     "vm-cd-change",
     {
       reqd=[];
@@ -949,7 +949,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "vm-vif-list",
     {
       reqd=[];
@@ -957,7 +957,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_vif_list;
       flags=[];
-    };    
+    };
     "vm-vif-add",
     {
       reqd=["vif-name";"mac";"bridge-name"];
@@ -965,7 +965,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_vif_add;
       flags=[];
-    };    
+    };
     "vm-vif-remove",
     {
       reqd=["vif-name"];
@@ -973,7 +973,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_vif_remove;
       flags=[];
-    };    
+    };
     "vm-param-list",
     {
       reqd=[];
@@ -981,7 +981,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_param_list;
       flags=[];
-    };    
+    };
     "vm-param-get",
     {
       reqd=["param-name"];
@@ -989,7 +989,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_param_get;
       flags=[];
-    };    
+    };
     "vm-param-set",
     {
       reqd=[];
@@ -997,7 +997,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd vm_param_set;
       flags=[];
-    };    
+    };
     "vm-export",
     {
       reqd=[];
@@ -1005,7 +1005,7 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };    
+    };
     "vm-import",
     {
       reqd=[];
@@ -1013,8 +1013,8 @@ let cmdtable_data : (string*cmd_spec) list =
       help="COMPAT MODE: ";
       implementation=No_fd not_implemented;
       flags=[];
-    };          
+    };
   ]
-    
+
 
 

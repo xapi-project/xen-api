@@ -25,7 +25,7 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
-let assert_managed ~__context ~vdi = 
+let assert_managed ~__context ~vdi =
   if not (Db.VDI.get_managed ~__context ~self:vdi)
   then raise (Api_errors.Server_error(Api_errors.vdi_not_managed, [ Ref.string_of vdi ]))
 

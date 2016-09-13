@@ -54,7 +54,7 @@ let run_vhd_tool progress_cb args s s' path =
         let (_, status) = waitpid pid in
         if status <> Unix.WEXITED 0 then begin
           error "vhd-tool failed, returning VDI_IO_ERROR";
-          raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"])) 
+          raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
         end
       ) with
     | Success(out, _) -> debug "%s" out
@@ -90,7 +90,7 @@ let startswith prefix x =
 (** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
-        try 
+        try
                 let open Xenstore in
                 (* If we're looking at a xen frontend device, see if the backend
                    is in the same domain. If so check if it looks like a .vhd *)
@@ -100,7 +100,7 @@ let find_backend_device path =
                 match List.rev (String.split '/' link) with
                 | id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
                         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
-                        with_xs (fun xs -> 
+                        with_xs (fun xs ->
                                 let self = xs.Xs.read "domid" in
                                 let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
                                 let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
@@ -117,7 +117,7 @@ let find_backend_device path =
     the script must be run in the same domain as blkback. *)
 let vhd_of_device path =
         let tapdisk_of_path path =
-                try 
+                try
                         match Tapctl.of_device (Tapctl.create ()) path with
                         | _, _, (Some ("vhd", vhd)) -> Some vhd
                         | _, _, _ -> raise Not_found
@@ -127,7 +127,7 @@ let vhd_of_device path =
                 | Tapctl.Not_a_device ->
                         debug "%s is not a device" path;
                         None
-                | _ -> 
+                | _ ->
                         debug "Device %s has an unknown driver" path;
                         None in
         find_backend_device path |> Stdext.Opt.default path |> tapdisk_of_path

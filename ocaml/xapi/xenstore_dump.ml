@@ -30,11 +30,11 @@ let dump ~xs (path: string) : Xml.xml =
     let children = List.map (fun x -> ls_R (Filename.concat prefix x) (Filename.concat path x)) files in
     let relative_paths = List.map (Filename.concat prefix) files in
     let absolute_paths = List.map (Filename.concat path) files in
-    let kvpairs = List.map 
+    let kvpairs = List.map
       (fun (relative, absolute) -> relative, handle_enoent xs.Xs.read absolute)
       (List.combine relative_paths absolute_paths) in
 
-    List.concat (kvpairs :: children) 
+    List.concat (kvpairs :: children)
   in
   let all = ls_R "" path in
   let list = List.map (fun (k, v) -> Xml.Element("n", [ "path", k; "value", v ], [])) all in
@@ -43,7 +43,7 @@ let dump ~xs (path: string) : Xml.xml =
 let restore ~xs (path: string) (dump: Xml.xml) = match dump with
   | Xml.Element("xenstore-dump", [ "version", _ ], nodes) ->
       let node = function
-	| Xml.Element("n", attr, _) -> 
+	| Xml.Element("n", attr, _) ->
 	    if not(List.mem_assoc "path" attr)
 	    then failwith "expected path attribute";
 	    if not(List.mem_assoc "value" attr)

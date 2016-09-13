@@ -49,6 +49,6 @@ module Message : sig
 	| Create of (API.ref_message * API.message_t)
 	| Del of API.ref_message
 
-	val get_since_for_events : (__context:Context.t -> int64 -> (int64 * t list)) ref 
+	val get_since_for_events : (__context:Context.t -> int64 -> (int64 * t list)) ref
 end
 

@@ -162,7 +162,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 					|> List.map Ref.string_of)))
 
 (* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
-(* allow directly booting guests from the subfolder /boot/guest/ *) 
+(* allow directly booting guests from the subfolder /boot/guest/ *)
 let allowed_dom0_directory_for_boot_files = "/boot/guest/"
 let is_boot_file_whitelisted filename =
 	let safe_str str = not (String.has_substr str "..") in
@@ -295,7 +295,7 @@ module MD = struct
 					| "low"     -> Low
 					| "lowest"  -> Lowest
 					| s         ->
-						try Other (int_of_string s) 
+						try Other (int_of_string s)
 						with _ ->
 							warn "Unknown VBD QoS scheduler class (try 'high' 'low' 'normal')";
 							Normal
@@ -620,7 +620,7 @@ module MD = struct
 			(* vcpu <-> pcpu affinity settings are stored here.
 			   Format is either:
 			   1,2,3         ::  all vCPUs receive this mask
-			   1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs 
+			   1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs
 			                     receive first mask *)
 			let affinity =
 				try
@@ -631,15 +631,15 @@ module MD = struct
 			let localhost = Helpers.get_localhost ~__context in
 			let host_guest_VCPUs_params = Db.Host.get_guest_VCPUs_params ~__context ~self:localhost in
 			let host_cpu_mask =
-				try 
+				try
 					List.map int_of_string (String.split ',' (List.assoc "mask" host_guest_VCPUs_params))
 				with _ -> [] in
-			let affinity = 
-				match affinity,host_cpu_mask with 
+			let affinity =
+				match affinity,host_cpu_mask with
 					| [],[] -> []
 					| [],h -> [h]
 					| v,[] -> v
-					| affinity,mask -> 
+					| affinity,mask ->
 						List.map
 							(fun vcpu_affinity ->
 								List.filter (fun x -> List.mem x mask) vcpu_affinity) affinity in
@@ -649,8 +649,8 @@ module MD = struct
 					try
 						let weight = List.assoc "weight" vm.API.vM_VCPUs_params in
 						int_of_string weight
-					with 
-					| Not_found -> default 
+					with
+					| Not_found -> default
 					| e ->  error "%s" (Printexc.to_string e);
 						debug "Could not parse weight value. Setting it to default value %d." default; default in
 				let cap =
@@ -730,7 +730,7 @@ module MD = struct
 			pci_msitranslate = pci_msitranslate;
 			pci_power_mgmt = false;
 			has_vendor_device = vm.API.vM_has_vendor_device
-		}		
+		}
 
 
 end
@@ -751,7 +751,7 @@ module Guest_agent_features = struct
 		let enabled = "1"
 		let disabled = "0"
 	end
-	
+
 	let auto_update_parameters_of_config config =
 		let auto_update_enabled =
 			match
@@ -913,7 +913,7 @@ module Xenops_cache = struct
 		pcis = [];
 		vgpus = [];
 	}
-			
+
 	let cache = Hashtbl.create 10 (* indexed by Vm.id *)
 
 	let _register_nolock id =
@@ -1051,7 +1051,7 @@ module Xenopsd_metadata = struct
 			Xenops_cache._unregister_nolock id;
 			Xapi_cache._unregister_nolock id
 
-		with 
+		with
 			| Bad_power_state(_, _) ->
 				(* This can fail during a localhost live migrate; but this is safe to ignore *)
 				debug "We have not removed metadata from xenopsd because VM %s is still running" id
@@ -1373,13 +1373,13 @@ let update_vm ~__context id =
 					let check_guest_agent () =
 						Opt.iter
 							(fun (_, state) ->
-								Opt.iter (fun oldstate -> 
+								Opt.iter (fun oldstate ->
 									let old_ga = oldstate.guest_agent in
 									let new_ga = state.guest_agent in
-									
+
 									(* Remove memory keys *)
 									let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
-									let remove_ignored ga = 
+									let remove_ignored ga =
 										List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
 									let old_ga = remove_ignored old_ga in
 									let new_ga = remove_ignored new_ga in
@@ -1562,7 +1562,7 @@ let update_vbd ~__context (id: (string * string)) =
 							| (Device_number.Xen,_,_) -> Some (device_number |> Device_number.to_disk_number |> string_of_int)
 							| _ -> None in
 					debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
-					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device || 
+					let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device ||
 																(Opt.is_some disk_number && vbdr.API.vBD_userdevice = Opt.unbox disk_number)) vbdrs in
 					debug "VBD %s.%s matched device %s" (fst id) (snd id) vbd_r.API.vBD_userdevice;
 					Opt.iter
@@ -1819,17 +1819,17 @@ let rec events_watch ~__context queue_name from =
 	let barriers, events, next = Client.UPDATES.get dbg from None in
 	let done_events = ref [] in
 	let already_done x = List.mem x !done_events in
-	let add_event x = done_events := (x :: !done_events) in		
-	let do_updates l = 
-		let open Dynamic in	
+	let add_event x = done_events := (x :: !done_events) in
+	let do_updates l =
+		let open Dynamic in
 		List.iter
 			(fun ev ->
 				debug "Processing event: %s" (ev |> Dynamic.rpc_of_id |> Jsonrpc.to_string);
-				if (already_done ev) then 
+				if (already_done ev) then
 					debug "Skipping (already processed this round)"
 				else begin
 					add_event ev;
-					match ev with 
+					match ev with
 						| Vm id ->
 							if Events_from_xenopsd.are_suppressed id
 							then debug "ignoring xenops event on VM %s" id
@@ -1868,9 +1868,9 @@ let rec events_watch ~__context queue_name from =
 						| Task id ->
 							debug "xenops event on Task %s" id;
 							update_task ~__context queue_name id
-				end) l			
+				end) l
 	in
-	List.iter (fun (id,b_events) -> 
+	List.iter (fun (id,b_events) ->
 		debug "Processing barrier %d" id;
 		do_updates b_events;
 		Events_from_xenopsd.wakeup queue_name dbg id) barriers;
@@ -2068,7 +2068,7 @@ let events_from_xapi () =
 								Events_from_xapi.broadcast !token;
 							done
 						)
-				with 
+				with
 					| Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
 						debug "Woken event thread: updating list of event subscriptions"
 					| e ->
@@ -2149,8 +2149,8 @@ let transform_xenops_exn ~__context ~vm queue_name f =
 		| Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
 		| Cancelled id ->
 			let task =
-				try 
-					TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id)) 
+				try
+					TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id))
 				with _ ->
 					debug "xenopsd task id %s is not associated with a XenAPI task" id;
 					Ref.null in
@@ -2180,7 +2180,7 @@ let set_resident_on ~__context ~self =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
 	debug "Signalling xenapi event thread to re-register, and xenopsd events to sync";
-	refresh_vm ~__context ~self; 
+	refresh_vm ~__context ~self;
 	!trigger_xenapi_reregister ();
 	(* Any future XenAPI updates will trigger events, but we might have missed one so: *)
 	Xenopsd_metadata.update ~__context ~self
@@ -2810,6 +2810,6 @@ let task_cancel ~__context ~self =
 		info "xenops: TASK.cancel %s" id;
 		Client.TASK.cancel dbg id |> ignore; (* it might actually have completed, we don't care *)
 		true
-	with 
+	with
 		| Not_found -> false
 		| Not_a_xenops_task -> false

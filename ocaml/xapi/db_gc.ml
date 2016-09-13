@@ -14,7 +14,7 @@
 (**
  * @group Database Operations
  *)
- 
+
 open API
 open Stdext
 open Fun
@@ -41,7 +41,7 @@ let valid_ref x = Db.is_valid_ref x
 
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_record =
 	let db = Context.database_of __context in
-	let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in	  
+	let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in
   let all_refs = get_all ~__context in
   let do_gc ref =
     let print_valid b = if b then "valid" else "INVALID" in
@@ -51,7 +51,7 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
 
       if not (ref_1_valid && ref_2_valid) then
 	begin
-	  let table,reference,valid1,valid2 = 
+	  let table,reference,valid1,valid2 =
 	    (match DB.get_table_from_ref db (Ref.string_of ref) with
 		 None -> "UNKNOWN CLASS"
 	       | Some c -> c),
@@ -78,7 +78,7 @@ let gc_VGPU_types ~__context =
 		List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
 
 let gc_PIFs ~__context =
-  gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network) 
+  gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network)
     (fun ~__context ~self ->
        (* We need to destroy the PIF, it's metrics and any VLAN/bond records that this PIF was a master of. *)
        (* bonds/tunnels_to_gc is actually a list which is either empty (not part of a bond/tunnel)
@@ -96,7 +96,7 @@ let gc_PIFs ~__context =
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
        Db.PIF.destroy ~__context ~self)
 let gc_VBDs ~__context =
-  gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty) 
+  gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty)
     (fun ~__context ~self ->
       (* When GCing VBDs that are CDs, set them to empty rather than destroy them entirely *)
       if (valid_ref __context (Db.VBD.get_VM ~__context ~self)) && (Db.VBD.get_type ~__context ~self = `CD) then
@@ -168,12 +168,12 @@ let gc_host_metrics ~__context =
 	let metrics = List.map (fun host-> Db.Host.get_metrics ~__context ~self:host) in
 	let host_metrics = metrics (Db.Host.get_all ~__context) in
 		List.iter
-			(fun hmetric-> 
+			(fun hmetric->
 				if not (List.mem hmetric host_metrics) then
 					Db.Host_metrics.destroy ~__context ~self:hmetric) all_host_metrics
 
 (* If the SR record is missing, delete the VDI record *)
-let gc_VDIs ~__context = 
+let gc_VDIs ~__context =
   let all_srs = Db.SR.get_all ~__context in
   List.iter (fun vdi ->
 	       let sr = Db.VDI.get_SR ~__context ~self:vdi in
@@ -193,7 +193,7 @@ let gc_consoles ~__context =
 
 let already_sent_clock_skew_warnings = Hashtbl.create 10
 
-let detect_clock_skew ~__context host skew = 
+let detect_clock_skew ~__context host skew =
   (* Send one message if we exceed the max_clock_skew *)
   if skew > Xapi_globs.max_clock_skew && not(Hashtbl.mem already_sent_clock_skew_warnings host) then begin
     error "Sending clock_skew_detected message since the skew with host %s (%s) is greater than the limit (%.2f > %.2f)"
@@ -209,7 +209,7 @@ let detect_clock_skew ~__context host skew =
   (* If we are under half the max skew then re-arm the message sender *)
   if skew < Xapi_globs.max_clock_skew /. 2. then Hashtbl.remove already_sent_clock_skew_warnings host
 
-		 
+
 (* Master compares the database with the in-memory host heartbeat table and sets the live flag accordingly.
    Called with the use_host_heartbeat_for_liveness_m and use_host_heartbeat_for_liveness is true (ie non-HA mode) *)
 let check_host_liveness ~__context =
@@ -221,18 +221,18 @@ let check_host_liveness ~__context =
   let localhost = try Helpers.get_localhost ~__context with _ -> Ref.null in
 
   (* Look for "true->false" transition on Host_metrics.live *)
-  let check_host host = 
+  let check_host host =
     if host <> localhost then begin
-      try      
+      try
 	let hmetric = Db.Host.get_metrics ~__context ~self:host in
 	let live = Db.Host_metrics.get_live ~__context ~self:hmetric in
 	(* See if the host is using the new HB mechanism, if so we'll use that *)
-	let new_heartbeat_time = 
+	let new_heartbeat_time =
 	    try
 	      Mutex.execute host_table_m (fun () -> Hashtbl.find host_heartbeat_table host)
 	    with _ -> 0.0 (* never *)
 	in
-	let old_heartbeat_time = 
+	let old_heartbeat_time =
 		if rum && (Version.platform_version () <> (Helpers.version_string_of ~__context (Helpers.LocalObject host))) then
 			(debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
 				Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
@@ -241,10 +241,10 @@ let check_host_liveness ~__context =
 	let host_time = max old_heartbeat_time new_heartbeat_time in
 
 	let now = Unix.gettimeofday () in
-	(* we can now compare 'host_time' with 'now' *) 
+	(* we can now compare 'host_time' with 'now' *)
 
 	if now -. host_time < !Xapi_globs.host_assumed_dead_interval then begin
-	  (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii) 
+	  (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
 	     avoid toggling the host back to live if it has been marked as shutting_down. *)
 	  Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
 	    (fun () ->
@@ -274,10 +274,10 @@ let check_host_liveness ~__context =
 
 let timeout_sessions_common ~__context sessions limit session_group =
   let unused_sessions = List.filter
-    (fun (x, _) -> 
-	  let rec is_session_unused s = 
+    (fun (x, _) ->
+	  let rec is_session_unused s =
         if (s=Ref.null) then true (* top of session tree *)
-        else 
+        else
         try (* if no session s, assume default value true=unused *)
           let tasks = (Db.Session.get_tasks ~__context ~self:s) in
           let parent = (Db.Session.get_parent ~__context ~self:s) in
@@ -285,7 +285,7 @@ let timeout_sessions_common ~__context sessions limit session_group =
             (fun t -> TaskHelper.status_is_completed
               (* task might not exist anymore, assume completed in this case *)
               (try Db.Task.get_status ~__context ~self:t with _->`success)
-            ) 
+            )
             tasks
           )
           && (is_session_unused parent)
@@ -300,20 +300,20 @@ let timeout_sessions_common ~__context sessions limit session_group =
   let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
-  let lucky, unlucky = 
+  let lucky, unlucky =
     if List.length young <= limit
     then young, [] (* keep them all *)
-    else 
+    else
       (* Need to reverse sort by last active and drop the oldest *)
       List.chop limit (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
-  let cancel doc sessions = 
+  let cancel doc sessions =
     List.iter
       (fun (s, active, uuid) ->
 	 debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s" (Ref.string_of s) uuid (Context.trackid_of_session (Some s)) (Date.to_string (Date.of_float active)) doc;
 	 Xapi_session.destroy_db_session ~__context ~self:s
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
-  if unlucky <> [] 
+  if unlucky <> []
   then debug "Number of disposable sessions in group '%s' in database (%d/%d) exceeds limit (%d): will delete the oldest" session_group (List.length disposable_sessions) (List.length sessions) limit;
   cancel (Printf.sprintf "Timed out session in group '%s' because of its age" session_group) old;
   cancel (Printf.sprintf "Timed out session in group '%s' because max number of sessions was exceeded" session_group) unlucky
@@ -346,7 +346,7 @@ let timeout_sessions ~__context =
 		debug "session_log: active_sessions=%d (%d pool, %d anon, %d named - %d groups)"
 			(List.length all_sessions) (List.length pool_sessions) (List.length anon_sessions) (List.length named_sessions) nbindings
 	end;
- 
+
 	begin
 		Hashtbl.iter
 			(fun key ss -> match key with
@@ -370,7 +370,7 @@ let timeout_tasks ~__context =
 			all_tasks in
 
 	(* Any task that was incomplete at the point someone called Task.destroy
-	   will have `destroy in its current_operations. If they're now complete, 
+	   will have `destroy in its current_operations. If they're now complete,
 	   we can Kill these immediately *)
 	let completed_destroyable, completed_gcable =
 	  List.partition
@@ -413,23 +413,23 @@ let timeout_tasks ~__context =
 	let young = pending_old_run @ pending_young @ completed_young in
 
   (* If there are still too many young tasks then we'll try to delete some completed ones *)
-  let lucky, unlucky = 
+  let lucky, unlucky =
     if List.length young <= Xapi_globs.max_tasks
     then young, [] (* keep them all *)
-    else 
+    else
       (* Compute how many we'd like to delete *)
       let overflow = List.length young - Xapi_globs.max_tasks in
       (* We only consider deleting completed tasks *)
-      let completed, pending = List.partition 
+      let completed, pending = List.partition
 	(fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status) young in
       (* Sort the completed tasks so we delete oldest tasks in preference *)
       let completed =
 	List.sort (fun (_,t1) (_,t2) -> compare (Date.to_float t1.Db_actions.task_finished) (Date.to_float t2.Db_actions.task_finished)) completed in
       (* From the completes set, choose up to 'overflow' *)
-      let unlucky, lucky = 
+      let unlucky, lucky =
 	if List.length completed > overflow
 	then List.chop overflow completed
-	else completed, [] in (* not enough to delete, oh well *) 
+	else completed, [] in (* not enough to delete, oh well *)
       (* Keep all pending and any which were not chosen from the completed set *)
       pending @ lucky, unlucky in
   (* Cancel the 'old' and 'unlucky' *)
@@ -507,7 +507,7 @@ let tickle_heartbeat ~__context host stuff =
 		Mutex.execute use_host_heartbeat_for_liveness_m
 			(fun () -> !use_host_heartbeat_for_liveness) in
 
-	Mutex.execute host_table_m 
+	Mutex.execute host_table_m
 		(fun () ->
 			(* When a host is going down it will send a negative heartbeat *)
 			if List.mem_assoc _shutting_down stuff then begin

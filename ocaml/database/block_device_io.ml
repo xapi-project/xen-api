@@ -13,7 +13,7 @@
  *)
 (*
  * Code to store a database and deltas in a block device and retrieve it again later.
- * 
+ *
  * This module can be compiled and executed in a stand-alone fashion from the command-line.
  * The filename of the block device and the filename of a file to use as a Unix domain socket are provided as command-line parameters.
  * The process must have read- and write-permission to the block device.
@@ -35,7 +35,7 @@
 (*
  * On-disk structure
  * -----------------
- * 
+ *
  * The database is double-buffered, so that in case of corruption or write errors, there will always be an intact version of the data preserved.
  * There is a "validity byte" indicating which buffer is currently being written to.
  * Each buffer starts with a database record followed by zero or more deltas.
@@ -65,7 +65,7 @@
 (*
  * Communications protocol
  * -----------------------
- * 
+ *
  * The control socket is used for another process to send commands and receive responses.
  * The response time for command is guaranteed to be no greater than a particular maximum delay (not accounting for network delay between the processes).
  * If the command could not complete in the available time, the response indicates that it failed.
@@ -186,7 +186,7 @@ let open_block_device block_dev target_response_time =
     R.warn "Magic string not matched. Initialising redo log...";
     initialise_redo_log block_dev_fd target_response_time
   end;
-  block_dev_fd 
+  block_dev_fd
 
 (* Within the given block device, seek to the position of the validity byte. *)
 let seek_to_validity_byte block_dev_fd =
@@ -357,7 +357,7 @@ let transfer_database_to_sock sock db_fn target_response_time =
       (* Read the data and send it down the socket *)
       db_fn (fun chunk len -> Unixext.time_limited_write data_client len chunk target_response_time)
     )
-    (fun () -> 
+    (fun () ->
       (* Close the socket *)
       Unix.close data_client
     )
@@ -375,7 +375,7 @@ let send_response client str =
   else R.debug "Sent response [%s] to client" str
 
 (* Write a string containing a text string message. *)
-let send_failure client prefix error = 
+let send_failure client prefix error =
   let len = String.length error in
   let str = Printf.sprintf "%s|%016d|%s" prefix len error in
   Unixext.really_write_string client str;
@@ -662,7 +662,7 @@ let datasock = ref ""
 let dump = ref false
 let empty = ref false
 
-let _ = 
+let _ =
   (* Initialise debug logging *)
   initialise_logging();
 
@@ -701,14 +701,14 @@ let _ =
       (* Read the validity byte *)
       let validity = read_validity_byte block_dev_fd target_response_time in
       Printf.printf "*** Validity byte: [%s]\n" validity;
-  
+
       let halves = [First; Second] in
       List.iter (fun half ->
         Printf.printf "*** [Half %s] Entering half.\n" (half_to_string half);
 
         (* Seek to the start of the chosen half *)
         ignore_int (Unixext.seek_to block_dev_fd (start_of_half half));
-    
+
         begin
           try
             (* Attempt to read a database record *)
@@ -717,7 +717,7 @@ let _ =
             db_fn (fun chunk len -> print_string chunk);
             Printf.printf "\n";
             Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker;
-          
+
             (* Attempt to read the deltas *)
             while true do
               let length, delta, generation_count, marker' = read_delta block_dev_fd target_response_time in
@@ -757,7 +757,7 @@ let _ =
   if !ctrlsock <> "" && !datasock <> "" then begin
     let connect_success_mesg = "connect|ack_" in
     let connect_failure_mesg = "connect|nack" in
-  
+
     let s = listen_on !ctrlsock in
 
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
@@ -768,7 +768,7 @@ let _ =
       R.debug "Awaiting incoming connections on %s..." !ctrlsock;
       let client = accept_conn s target_startup_response_time in
       R.debug "Accepted a connection";
-      
+
       try
         (* Open the block device *)
         let block_dev_fd = open_block_device !block_dev target_startup_response_time in
@@ -778,7 +778,7 @@ let _ =
           (fun () ->
             (* If no exception was thrown, respond to the client saying that all was okay *)
             send_response client connect_success_mesg;
-            
+
             (* Now read and act upon a sequence of commands, until we receive EOF *)
             let stop = ref false in
             while not !stop do
@@ -786,7 +786,7 @@ let _ =
               try
                 let str = String.make command_size '\000' in
                 Unixext.really_read client str 0 command_size;
-                
+
                 (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
                 let (action_fn, block_time) = match str with
                   | "writedelta" -> action_writedelta, !Xapi_globs.redo_log_max_block_time_writedelta

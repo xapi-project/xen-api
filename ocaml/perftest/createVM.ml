@@ -57,7 +57,7 @@ let make_iscsi session_id pool network =
 		let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
 		Client.VM.start_on rpc session_id newvm (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false;
 		Some newvm
-	with e -> 
+	with e ->
 		debug "Caught exception with iscsi VM: %s" (Printexc.to_string e);
 		None
 
@@ -73,7 +73,7 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
 			Client.VM.remove_from_other_config ~rpc ~session_id ~self:clone ~key:"disks";
 			for userdevice = 0 to vm.vbds - 1 do
 				Printf.printf " - creating VDI %d for VM %d on SR %d of %d\n%!" userdevice j i (Array.length storages);
-				let newdisk = Client.VDI.create ~rpc ~session_id ~name_label:"Guest disk" ~name_description:"" ~sR:storages.(i) 
+				let newdisk = Client.VDI.create ~rpc ~session_id ~name_label:"Guest disk" ~name_description:"" ~sR:storages.(i)
 					~virtual_size:4194304L ~_type:`user ~sharable:false ~read_only:false ~xenstore_data:[] ~other_config:[]
 					~sm_config:[] ~tags:[] in
 				ignore(Client.VBD.create ~rpc ~session_id ~vM:clone ~vDI:newdisk ~userdevice:(string_of_int userdevice) ~bootable:false
@@ -81,7 +81,7 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
 			done;
 			Client.VM.provision ~rpc ~session_id ~vm:clone;
 			for device = 0 to (min vm.vifs (Array.length networks)) - 1 do
-				ignore(Client.VIF.create ~rpc ~session_id ~device:(string_of_int device) ~network:networks.(device) ~vM:clone ~mAC:"" 
+				ignore(Client.VIF.create ~rpc ~session_id ~device:(string_of_int device) ~network:networks.(device) ~vM:clone ~mAC:""
 					~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[])
 			done;
 			Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone ~value:16777216L;

@@ -14,7 +14,7 @@
 open Datamodel_types
 
 (** The api is made up of objects (which contain fields and additional RPCs), and
-    relationships, which specify which fields are bound together -- i.e. refer to the 
+    relationships, which specify which fields are bound together -- i.e. refer to the
     same underlying data *)
 type api = (obj list) * (relation list)
 
@@ -22,20 +22,20 @@ type api = (obj list) * (relation list)
 let objects_of_api (objs, _) = objs
 let relations_of_api (_, rels) = rels
 
-let print_api_stats (system, relations) = 
-  Printf.printf "%d objects and %d relations\n" 
+let print_api_stats (system, relations) =
+  Printf.printf "%d objects and %d relations\n"
     (List.length system) (List.length relations);
-  Printf.printf "objects = [ %s ]\n" 
+  Printf.printf "objects = [ %s ]\n"
     (String.concat "; " (List.map (fun x -> x.name) system))
 
-let get_obj_by_name (system, relations) ~objname:name = 
+let get_obj_by_name (system, relations) ~objname:name =
   match List.filter (fun obj -> obj.name = name) system with
   | [ obj ] -> obj
-  | _::_ -> 
+  | _::_ ->
       failwith (Printf.sprintf "Multiple instances of name [%s] found in system" name)
   | [] -> failwith (Printf.sprintf "Object with name [%s] not found in system" name)
 
-let obj_exists api name = 
+let obj_exists api name =
   try
     let (_: obj) = get_obj_by_name api ~objname:name in
     true
@@ -46,18 +46,18 @@ let get_field_by_name api ~objname:objname ~fieldname:name =
   let obj = get_obj_by_name api ~objname in
   let rec contents = function
   | Field field :: rest when field.field_name = name -> Some field
-  | Namespace(_, sub) :: rest -> 
+  | Namespace(_, sub) :: rest ->
       let result = contents sub in
       if result = None then contents rest else result
   | _ :: rest -> contents rest
   | [] -> None in
   match (contents obj.contents) with
   | Some x -> x
-  | _ -> 
+  | _ ->
       failwith (Printf.sprintf "field not found (field %s in object %s)" name obj.name)
 
-let field_exists api ~objname ~fieldname = 
-  try 
+let field_exists api ~objname ~fieldname =
+  try
     let (_: field) = get_field_by_name api ~objname ~fieldname in
     true
   with e -> false
@@ -79,19 +79,19 @@ let filter_field (pred: field -> bool) (system: obj list) =
     | Namespace(_, []) -> [ ] (* no children so removed *)
     | Namespace(name, contents) -> [ Namespace(name, concat_map remove_leaf contents) ] in
   let rec fixpoint f x = let result = f x in if result = x then x else fixpoint f result in
-  let obj x = { x with contents = 
+  let obj x = { x with contents =
       let contents = concat_map content x.contents in
       fixpoint (concat_map remove_leaf) contents } in
-  List.map obj system 
+  List.map obj system
 
 (** Takes a predicate and a list of objects, returning the objects with only the messages
     for which (predicate message) returned true. *)
-let filter_messages (pred: message -> bool) (system: obj list) = 
+let filter_messages (pred: message -> bool) (system: obj list) =
   let obj x = { x with messages = List.filter pred x.messages } in
-  List.map obj system 
+  List.map obj system
 
 (** Transforms all the fields in an API *)
-let map_field (f: field -> field) (system: obj list) = 
+let map_field (f: field -> field) (system: obj list) =
   let rec content = function
     | Field x -> Field (f x)
     | Namespace(name, contents) -> Namespace(name, List.map content contents) in
@@ -101,18 +101,18 @@ let map_field (f: field -> field) (system: obj list) =
 let filter_relations ((system,relations) as api)=
   List.filter (function ((a_obj, a_name), (b_obj, b_name)) ->
 		 (obj_exists api a_obj) &&
-		   (obj_exists api b_obj) && 
+		   (obj_exists api b_obj) &&
 		   (field_exists api ~objname:a_obj ~fieldname:a_name) &&
 		   (field_exists api ~objname:b_obj ~fieldname:b_name)) relations
 
-let rebuild system relations = 
+let rebuild system relations =
   (* remove all relations which refer to non-existent objects or fields *)
   let relations = filter_relations (system, relations) in
   let api = system, relations in
   api
 
-let filter (obj: obj -> bool) (field: field -> bool) (message: message -> bool) 
-    ((system, relations) : api) : api = 
+let filter (obj: obj -> bool) (field: field -> bool) (message: message -> bool)
+    ((system, relations) : api) : api =
   let system = List.filter obj system in
   let system = filter_field field system in
   let system = filter_messages message system in
@@ -121,11 +121,11 @@ let filter (obj: obj -> bool) (field: field -> bool) (message: message -> bool)
   rebuild system relations
 
 let map (field: field -> field) (message: message -> message)
-    ((system, relations) : api) : api = 
+    ((system, relations) : api) : api =
   let system = map_field field system in
   let system = List.map (fun obj -> { obj with messages = List.map message obj.messages }) system in
   rebuild system relations
-    
+
 
 
 (*
@@ -137,8 +137,8 @@ let make api = (api:api)
 let check api emergency_calls =
   let truefn _ = true in
   let api' = filter truefn truefn truefn api in
-  if api <> api' 
-  then begin 
+  if api <> api'
+  then begin
     print_endline "original:";
     print_api_stats api;
     print_endline "filtered:";
@@ -150,14 +150,14 @@ let check api emergency_calls =
   List.iter (fun ((a_obj, _), (b_obj, _)) ->
 	       ignore (get_obj_by_name api ~objname:a_obj);
 	       ignore (get_obj_by_name api ~objname:b_obj)) relations;
-	       
+
   (* Sanity check 2: all fields mentioned in the relations should exist *)
   List.iter (fun ((a_obj, a_name), (b_obj, b_name)) ->
 	       ignore (get_field_by_name api ~objname:a_obj ~fieldname:a_name);
 	       ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name) ) relations;
 
   (* Sanity check 3: no side-effects for Ref fields *)
- 
+
   let (_: obj list) = map_field (function { ty = Ref _; field_has_effect = true } ->
 				   failwith "Can't have a Ref field with a side-effect: it makes the destructors too complicated"
 				 | x -> x) system in
@@ -171,7 +171,7 @@ let check api emergency_calls =
 			  [] -> acc
 		  | (Field f)::fs -> flatten_fields fs (f::acc)
 		  | (Namespace (_,internal_fs))::fs -> flatten_fields fs (flatten_fields internal_fs acc) in
-  let _ = 
+  let _ =
 	  let field objname = function
 		  { ty = Set(Ref y); qualifier = q; field_ignore_foreign_key = false } as x ->
 			  let relations = relations @ (List.map (fun (x, y) -> y, x) relations) in
@@ -196,7 +196,7 @@ let check api emergency_calls =
 		  | _ -> () in
 	  let obj o = List.iter (field o.name) (flatten_fields o.contents []) in
 	  List.iter obj (objects_of_api api) in
-		  
+
 
   (* Sanity check 4: all fields not in rel_rio and not dynamic_RO must have default values *)
   let (_: obj list) = map_field (function { qualifier=q; release={internal=ir}; default_value=None } as x ->
@@ -241,13 +241,13 @@ let check api emergency_calls =
 	  let param_in_product_since = in_since p.param_release.internal in
 	  if release_lt param_in_product_since max_release_sofar then false
 	  else check_vsns param_in_product_since (* <-- new max *) rest in
-    check_vsns rel_rio ps      
+    check_vsns rel_rio ps
   in
   let _ = List.iter
     (fun obj ->
        List.iter
 	 (fun msg ->
-	    if msg.msg_tag=Custom && 
+	    if msg.msg_tag=Custom &&
 	      not (are_in_vsn_order msg.msg_params) then failwith (Printf.sprintf "Msg %s.%s does not have parameters in version order"
 								     obj.name msg.msg_name)
 	 )

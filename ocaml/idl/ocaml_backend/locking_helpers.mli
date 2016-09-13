@@ -13,7 +13,7 @@
  *)
 
 (** Represents a type of resource a thread has either allocated or is waiting for. *)
-type resource = 
+type resource =
 	| Lock of string (** e.g. a per-VM lock or a queue *)
 	| Process of string * int (** e.g. an stunnel process with the given pid *)
 

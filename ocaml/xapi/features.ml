@@ -107,7 +107,7 @@ let name_of_feature f =
 let string_of_feature f =
 	let str, o, _ = List.assoc f keys_of_features in
 	str, o
-	
+
 let feature_of_string str =
 	let f, (_, o, _) = List.find (fun (_, (k, _, _)) -> str = k) keys_of_features in
 	f, o
@@ -115,7 +115,7 @@ let feature_of_string str =
 let tag_of_feature f =
 	let _, _, tag = List.assoc f keys_of_features in
 	tag
-	
+
 let all_features =
 	List.map (fun (f, _) -> f) keys_of_features
 
@@ -129,7 +129,7 @@ let to_compact_string (s: feature list) =
 	in
 	let tags = List.map get_tag all_features in
 	String.concat " " tags
-	
+
 let to_assoc_list (s: feature list) =
 	let get_map f =
 		let str, o = string_of_feature f in

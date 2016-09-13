@@ -20,7 +20,7 @@ open Datamodel_types
 
 (** Return all references contained within a getrecord response of
     type cls *)
-let refs_of_record cls record = 
+let refs_of_record cls record =
   let obj = Dm_api.get_obj_by_name Datamodel.all_api ~objname:cls in
   let fields = Datamodel_utils.fields_of_obj obj in
   let rec refs_of ty xml = match ty with
@@ -28,27 +28,27 @@ let refs_of_record cls record =
     | Set t -> List.concat (API.Legacy.From.set (refs_of t) xml)
     | Map(k, v) ->
 	let pairs = API.Legacy.From.map (fun x -> x) (refs_of v) xml in
-	let vs = List.concat (List.map snd pairs) in 
+	let vs = List.concat (List.map snd pairs) in
 	begin match k with
-	  | Ref _ -> List.map fst pairs @ vs 
+	  | Ref _ -> List.map fst pairs @ vs
 	  | _ -> vs
 	end
     | _ -> [] in
   let pairs = XMLRPC.From.structure record in
-  let refs_of_field fld = 
+  let refs_of_field fld =
     let field_name = String.concat "_" fld.full_name in
     if not(List.mem_assoc field_name pairs)
     then [] (* internal? *)
     else refs_of fld.ty (List.assoc field_name pairs) in
   List.concat (List.map refs_of_field fields)
 
-let name_label_of_record cls record = 
+let name_label_of_record cls record =
     let pairs = XMLRPC.From.structure record in
     if List.mem_assoc "name_label" pairs
     then XMLRPC.From.string (List.assoc "name_label" pairs)
-    else "unknown " ^ cls 
+    else "unknown " ^ cls
 
-let all_classes = List.map (fun x -> x.name) 
+let all_classes = List.map (fun x -> x.name)
   (Dm_api.objects_of_api Datamodel.all_api)
 
 open XMLRPC
@@ -60,7 +60,7 @@ let do_rpc rpc name args =
   | Success [x] -> x
   | _           -> assert false
 
-let get_all rpc session_id cls = 
+let get_all rpc session_id cls =
   let name = Printf.sprintf "%s.get_all_records_where" cls in
   let args = [ To.string (Ref.string_of session_id); To.string "true" ] in
   API.Legacy.From.map (fun x -> x) (fun x -> x) (do_rpc rpc name args)
@@ -74,12 +74,12 @@ module NodeSet = Set.Make(
     let compare a b = compare a.id b.id
   end)
 module EdgeSet = Set.Make(
-  struct 
+  struct
     type t = edge
     let compare x y = if x.a = y.a then compare x.b y.b else compare x.a y.a
   end)
 
-let node_of_id nodes id = 
+let node_of_id nodes id =
   let one = NodeSet.filter (fun x -> x.id = id) nodes in
   NodeSet.choose one
 
@@ -91,20 +91,20 @@ let colour_of_cls = function
   | "VDI" -> "orange"
   | _ -> "white"
 
-let output_dot nodes edges oc = 
+let output_dot nodes edges oc =
   let labels = NodeSet.fold (fun x acc -> x :: acc) nodes [] in
-  let edges = EdgeSet.fold (fun x acc -> 
+  let edges = EdgeSet.fold (fun x acc ->
 			      try
 				ignore(node_of_id nodes x.a);
 				ignore(node_of_id nodes x.b);
 				x :: acc
 			      with Not_found -> acc
 			   ) edges [] in
-  let output = 
+  let output =
     [ "digraph g{"; ] @
-      (List.map (fun x -> Printf.sprintf "node [label=\"%s\" style=filled fillcolor=%s]; \"%s\";" x.label (colour_of_cls x.cls) x.id) labels) 
+      (List.map (fun x -> Printf.sprintf "node [label=\"%s\" style=filled fillcolor=%s]; \"%s\";" x.label (colour_of_cls x.cls) x.id) labels)
     @
-      (List.map (fun x -> Printf.sprintf "\"%s\" -> \"%s\";" x.a x.b) edges) 
+      (List.map (fun x -> Printf.sprintf "\"%s\" -> \"%s\";" x.a x.b) edges)
     @ [
 	"}";
       ] in
@@ -124,11 +124,11 @@ let all = ref false
 let singleton = ref false
 
 (* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
-let rpc xml = 
+let rpc xml =
 	let open Xmlrpc_client in
 	XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
-		
-let newrpc xml = 
+
+let newrpc xml =
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
@@ -154,23 +154,23 @@ let _ =
 
   let classes = List.filter (fun x -> !all || (List.mem x !wanted)) classes in
 
-  List.iter 
+  List.iter
     (fun cls ->
        let all = get_all rpc session_id cls in
-       List.iter (fun (x, xr) -> 
+       List.iter (fun (x, xr) ->
 		    let node = { id = x; cls = cls; label = name_label_of_record cls xr } in
 		    nodes := NodeSet.add node !nodes;
 		    let links = refs_of_record cls xr in
 		    List.iter (fun y -> edges := EdgeSet.add { a = x; b = y } !edges) links
 		 ) all) classes;
   (* Filter all singleton nodes *)
-  let is_connected edges nodes node = 
+  let is_connected edges nodes node =
     let node_exists nodes id = try ignore(node_of_id nodes id); true with _ -> false in
-    EdgeSet.fold (fun edge acc -> 
+    EdgeSet.fold (fun edge acc ->
 		    (edge.a = node.id && node_exists nodes edge.b)
 		    ||
 		    (edge.b = node.id && node_exists nodes edge.a)
-		    || 
+		    ||
 		    acc) edges false in
   let nodes = NodeSet.filter (fun x -> !singleton || is_connected !edges !nodes x) !nodes in
   output_dot nodes !edges stdout

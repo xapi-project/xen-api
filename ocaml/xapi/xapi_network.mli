@@ -37,9 +37,9 @@ Note: It is currently assumed that all PIFs that are associated with a certain N
 val check_himn : __context:Context.t -> unit
 
 (** Instantiate the bridge associated to this network on the localhost, and bring
-   up the PIFs on the localhost that are on this network, provided it wouldn't 
+   up the PIFs on the localhost that are on this network, provided it wouldn't
    destroy existing Networks (e.g. slaves of a bond) in use by something (VIF or management interface).
-   Note special-case handling of new management interfaces: we skip the 
+   Note special-case handling of new management interfaces: we skip the
    check for the existing management interface (essential otherwise switching
    from a bond slave to a bond master would fail) and we make sure to call
    {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure

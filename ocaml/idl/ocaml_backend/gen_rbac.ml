@@ -24,7 +24,7 @@ module Client = Gen_client
 open DT
 
 
-let rec role_idx = function 
+let rec role_idx = function
 	| (_,[])->(-1)
 	|(e1,e2::xs)-> if e1=e2 then 0 else 1+(role_idx (e1,xs))
 
@@ -40,9 +40,9 @@ let writer_csv static_roles_permissions static_permissions_roles =
 	^List.fold_left
 		(fun acc (permission,roles) ->
 			(Printf.sprintf ",%s," permission)
-			^(List.fold_left 
-				(fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc) 
-				"" 
+			^(List.fold_left
+				(fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc)
+				""
 				(List.rev Datamodel.roles_all) (* Xs are ordered by roles in roles_all *)
 			)
 			^"\n"
@@ -54,10 +54,10 @@ let writer_csv static_roles_permissions static_permissions_roles =
 let hash2uuid str =
 	let h = Digest.string str in
 	let hex = Digest.to_hex h in
-	let int_array hex = 
+	let int_array hex =
 		let l = ref [] in
-		Scanf.sscanf 
-			hex 
+		Scanf.sscanf
+			hex
 			"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
 			(fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
 			l := [a0;a1;a2;a3;a4;a5;a6;a7;a8;a9;a10;a11;a12;a13;a14;a15;]);
@@ -91,7 +91,7 @@ let writer_permission name nperms =
 		(String.lowercase name) (* lowercase here asked by GUI team *)
 	in
 	permission_index := !permission_index+1;
-	let permission_number = (Printf.sprintf "%i/%i" !permission_index nperms) in 
+	let permission_number = (Printf.sprintf "%i/%i" !permission_index nperms) in
 	(Printf.sprintf "let %s = \n  { (* %s *)\n" (permission_name name) permission_number)
 	(*^(Printf.sprintf "  role_ref = \"%s\";\n" permission_ref)*)
 	^(Printf.sprintf "  role_uuid = \"%s\";\n" permission_uuid)
@@ -106,10 +106,10 @@ let permissions_label role = (Printf.sprintf "permissions_of_%s" (role_label rol
 
 let role_index = ref 0
 let writer_role name nroles =
-	let role_uuid = 
+	let role_uuid =
 	  if name = Datamodel.role_pool_admin
 	  (* pool-admin role has a fixed uuid because it's the default role in Datamodel subject's roles field *)
-	  then Constants.rbac_pool_admin_uuid 
+	  then Constants.rbac_pool_admin_uuid
 	  (* all the other roles use a hash as uuid *)
 	  else role_uuid name
 	in
@@ -121,7 +121,7 @@ let writer_role name nroles =
 	let role_number = (Printf.sprintf "%i/%i" !role_index nroles) in
 	let role_description =
 		try List.assoc role_name_label Datamodel.role_description
-		with Not_found -> 
+		with Not_found ->
 			failwith (Printf.sprintf
 				"Check Datamodel.role_description: there's no role description for role %s"
 				role_name_label
@@ -156,7 +156,7 @@ let writer_stdout static_roles_permissions static_permissions_roles =
 		static_permissions_roles
 	)
 	(* 2. static_roles<->permissions *)
-	^(List.fold_left 
+	^(List.fold_left
 		(fun acc (_role,perms) ->
 			(* role's list of permissions *)
 			let permissions_label = permissions_label _role in
@@ -208,11 +208,11 @@ let writer_stdout static_roles_permissions static_permissions_roles =
 let rec concat = function
 	| (xperm,rs,[]) ->
 		let (r1,r2)=(List.partition (fun (r,_)->r=internal_role_local_root) rs) in
-		let r,perms = match r1 with []->(internal_role_local_root,[])|r1::_->r1 in 
+		let r,perms = match r1 with []->(internal_role_local_root,[])|r1::_->r1 in
 		((r,xperm::perms)::r2)
 	| (xperm,rs,xr::extra_rs) ->
 		let (r1,r2)=(List.partition (fun (r,_)->r=xr) rs) in
-		let r,perms = match r1 with []->(xr,[])|r1::_->r1 in 
+		let r,perms = match r1 with []->(xr,[])|r1::_->r1 in
 		concat (xperm,((r,xperm::perms)::r2),extra_rs)
 
 let get_key_permission_name permission key_name =
@@ -228,7 +228,7 @@ let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 				(* a message should have at least one role *)
 				failwith (Printf.sprintf "No roles for message %s" wire_name);
 			)
-		| Some(allowed_roles) -> 
+		| Some(allowed_roles) ->
 				let with_msg_roles_permissions =
 					(concat (wire_name,roles_permissions,allowed_roles))
 				in
@@ -247,7 +247,7 @@ let get_http_permissions_roles =
 		(fun acc (http_permission,(_,_,_,_,some_roles,sub_actions))-> acc @
 			let roles = Stdext.Pervasiveext.default [] some_roles in
 			(Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
-			:: 
+			::
 			(List.map (* sub_actions for this http_permission *)
 				(fun (sub_action,some_roles)->
 					let roles = Stdext.Pervasiveext.default [] some_roles in
@@ -261,10 +261,10 @@ let get_http_permissions_roles =
 		Datamodel.http_actions
 
 let get_extra_permissions_roles =
-		List.map 
-			(fun (p,rs)->(p,Stdext.Pervasiveext.default [] rs)) 
+		List.map
+			(fun (p,rs)->(p,Stdext.Pervasiveext.default [] rs))
 			Datamodel.extra_permissions
-		
+
 (* Returns a (permission, static_role list) list generated from datamodel.ml *)
 let gen_roles_of_permissions roles_permissions =
 (*
@@ -298,19 +298,19 @@ let gen_permissions_of_static_roles highapi =
 
 	let rec get_roles_permissions_of_objs = function
 		| (acc,[]) -> acc
-		| (acc,obj::objs) -> 
+		| (acc,obj::objs) ->
 		begin
 			let rec get_roles_permissions_of_obj_msgs = function
 				| (acc,[]) -> acc
-				| (acc,msg::msgs) -> 
-					get_roles_permissions_of_obj_msgs 
+				| (acc,msg::msgs) ->
+					get_roles_permissions_of_obj_msgs
 						((add_permission_to_roles acc obj msg),msgs)
 				in
-				get_roles_permissions_of_objs 
+				get_roles_permissions_of_objs
 					((get_roles_permissions_of_obj_msgs (acc,obj.messages)),objs)
 		end
 	in
-	let api_roles_permissions = 
+	let api_roles_permissions =
 		(get_roles_permissions_of_objs ([],all_objs)) (*api*)
 	in
 	let roles_permissions = (*api+http+extra*)
@@ -321,12 +321,12 @@ let gen_permissions_of_static_roles highapi =
 				[get_http_permissions_roles;get_extra_permissions_roles]
 			)
 	in
-	
+
 	let _permissions_roles = gen_roles_of_permissions roles_permissions in
 	let _,permissions_roles = (* ignore the _local_root_ permission *)
 		List.partition (fun (r,_)->r=internal_role_local_root) _permissions_roles
 	in
-	
+
 	if !Gen_server.enable_debugging
 		then begin (* for rbac_static.csv *)
 			writer_csv roles_permissions permissions_roles

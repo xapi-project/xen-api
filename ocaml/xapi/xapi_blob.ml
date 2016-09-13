@@ -29,7 +29,7 @@ let destroy ~__context ~self =
   List.iter (fun (vm,vmr) ->
     let blobs = vmr.API.vM_blobs in
     List.iter (fun (r,b) -> if b=self then Db.VM.remove_from_blobs ~__context ~self:vm ~key:r) blobs) vms;
-  
+
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
   Stdext.Unixext.unlink_safe path;
@@ -39,7 +39,7 @@ let destroy ~__context ~self =
    map of remote blob uuids to local blob refs. *)
 let send_blobs ~__context ~remote_address ~session_id uuid_map =
 	let put_blob = function (new_ref, old_uuid) ->
-	  try 
+	  try
 	    let query = [ "session_id", Ref.string_of session_id
 		        ; "ref", Ref.string_of new_ref ] in
 	    let subtask_of = Context.string_of_task __context in
@@ -47,7 +47,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
 	    let size = (Unix.LargeFile.stat path).Unix.LargeFile.st_size in
 	    let request = Xapi_http.http_request ~query ~subtask_of ~length:size
 	      Http.Put Constants.blob_uri in
-	    
+
 	    let open Xmlrpc_client in
 	    let transport = SSL(SSL.make (), remote_address,
 			        !Xapi_globs.https_port) in
@@ -57,9 +57,9 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
 		ignore (Stdext.Pervasiveext.finally
 			  (fun () -> Stdext.Unixext.copy_file blob_fd put_fd)
 			  (fun () -> Unix.close blob_fd)) ))
-	  with e -> 
+	  with e ->
 	    debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e);
-	    ()	    
+	    ()
 	in
 	List.iter put_blob uuid_map
 
@@ -99,17 +99,17 @@ let handler (req: Http.Request.t) s _ =
     Http_svr.headers s headers;
     error "HTTP request for binary blob lacked 'ref' or 'uuid' parameter"
   end else
-	  try 
-		  let self,public = 
-			  Server_helpers.exec_with_new_task "with_context" (fun __context -> 
-				  let self = try 
-					  Ref.of_string (List.assoc "ref" query) 
+	  try
+		  let self,public =
+			  Server_helpers.exec_with_new_task "with_context" (fun __context ->
+				  let self = try
+					  Ref.of_string (List.assoc "ref" query)
 				  with _ ->
 					  try Db.Blob.get_by_uuid ~__context ~uuid:(List.assoc "uuid" query) with _ -> raise Unknown_blob
 				  in
 				  debug "blob handler: self=%s" (Ref.string_of self);
 				  let public =
-					  try 
+					  try
 						  Db.Blob.get_public ~__context ~self
 					  with e ->
 						  debug "In exception handler: %s" (Printexc.to_string e);
@@ -118,15 +118,15 @@ let handler (req: Http.Request.t) s _ =
 				  debug "public=%b" public;
 				  self,public)
 		  in
-		  let inner_fn __context = 
-			  let blob_uuid = 
-				  try Db.Blob.get_uuid ~__context ~self 
+		  let inner_fn __context =
+			  let blob_uuid =
+				  try Db.Blob.get_uuid ~__context ~self
 				  with _ -> raise Unknown_blob
 			  in
 			  let blob_path = Xapi_globs.xapi_blob_location in
 			  (try let (_: Unix.stats) = Unix.stat blob_path in () with _ -> raise No_storage);
 			  let path = Xapi_globs.xapi_blob_location ^ "/" ^ blob_uuid in
-			  
+
 			  match req.Http.Request.m with
 				  | Http.Get ->
 					  begin
@@ -134,11 +134,11 @@ let handler (req: Http.Request.t) s _ =
 							  (* The following might raise an exception, in which case, 404 *)
 							  let ifd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
 							  let size = (Unix.LargeFile.stat path).Unix.LargeFile.st_size in
-							  Http_svr.headers s ((Http.http_200_ok_with_content 
-								  size ~version:"1.1" ~keep_alive:false ()) 
+							  Http_svr.headers s ((Http.http_200_ok_with_content
+								  size ~version:"1.1" ~keep_alive:false ())
 							  @ [Http.Hdr.content_type ^": "^(Db.Blob.get_mime_type ~__context ~self)]);
-							  ignore(Stdext.Pervasiveext.finally 
-								  (fun () -> Stdext.Unixext.copy_file ifd s) 
+							  ignore(Stdext.Pervasiveext.finally
+								  (fun () -> Stdext.Unixext.copy_file ifd s)
 								  (fun () -> Unix.close ifd))
 						  with _ ->
 							  Http_svr.headers s (Http.http_404_missing ())
@@ -146,25 +146,25 @@ let handler (req: Http.Request.t) s _ =
 				  | Http.Put ->
 					  let ofd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_SYNC; Unix.O_CREAT] 0o600 in
 					  let limit = match req.Http.Request.content_length with Some x -> x | None -> failwith "Need content length" in
-					  let size = 
+					  let size =
 						  Stdext.Pervasiveext.finally
-							  (fun () -> 
+							  (fun () ->
 								  Http_svr.headers s (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]);
 								  Stdext.Unixext.copy_file ~limit s ofd)
-							  (fun () -> 
+							  (fun () ->
 								  Unix.close ofd)
 					  in
 					  Db.Blob.set_size ~__context ~self ~value:size;
 					  Db.Blob.set_last_updated ~__context ~self ~value:(Stdext.Date.of_float (Unix.gettimeofday ()))
 				  | _ -> failwith "Unsupported method for BLOB"
-					  
+
 		  in
 
-		  if public && req.Http.Request.m = Http.Get 
+		  if public && req.Http.Request.m = Http.Get
 		  then Server_helpers.exec_with_new_task "get_blob" inner_fn
 		  else Xapi_http.with_context ~dummy:true "Blob handler" req s inner_fn
 	  with
-		  | Unknown_blob -> 
+		  | Unknown_blob ->
 			  Http_svr.response_missing s "Unknown reference\n"
 		  | No_storage ->
 			  Http_svr.response_missing s "Local storage missing\n"

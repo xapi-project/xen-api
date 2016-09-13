@@ -28,7 +28,7 @@ module type INTERFACE = sig
 	exception Does_not_exist of stringpair
 	exception Cancelled of string
 
-	module Task : sig 
+	module Task : sig
 		type id = string
 
 		type async_result
@@ -40,7 +40,7 @@ module type INTERFACE = sig
 			duration : float;
 			result : async_result option
 		}
-				
+
 		type state =
 			| Pending of float
 			| Completed of completion_t
@@ -59,11 +59,11 @@ module type INTERFACE = sig
 	val exn_of_exnty : Exception.exnty -> exn
 
 	exception Internal_error of string
-		
+
 end
 
 
-module Task = functor (Interface : INTERFACE) -> struct		
+module Task = functor (Interface : INTERFACE) -> struct
 
 module D = Debug.Make(struct let name = Interface.service_name end)
 open D

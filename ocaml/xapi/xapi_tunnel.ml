@@ -11,12 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make(struct let name="xapi" end) 
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Db_filter_types
 
-let choose_tunnel_device_name ~__context ~host = 
+let choose_tunnel_device_name ~__context ~host =
 	(* list all the tunnel access PIFs on this host *)
 	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
 		Eq (Field "host", Literal (Ref.string_of host)),
@@ -39,8 +39,8 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 	let metrics = Db.PIF.get_metrics ~__context ~self:transport_PIF in
 	Db.PIF.create ~__context ~ref:access_PIF ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
 		~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
-		~physical:false ~currently_attached:false 
-		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null 
+		~physical:false ~currently_attached:false
+		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 		~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
 	        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[];
 	Db.Tunnel.create ~__context ~ref:tunnel ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -66,7 +66,7 @@ let create ~__context ~transport_PIF ~network =
 	let tunnel, access_PIF = create_internal ~__context ~transport_PIF ~network ~host in
 	Xapi_pif.plug ~__context ~self:access_PIF;
 	tunnel
-	
+
 let destroy ~__context ~self =
 	let pif = Db.Tunnel.get_access_PIF ~__context ~self in
 	Xapi_pif.unplug ~__context ~self:pif;

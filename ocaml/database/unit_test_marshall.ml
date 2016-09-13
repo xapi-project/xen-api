@@ -84,7 +84,7 @@ let tm u m x =
     (u s)=x
 
 let test_gtfr_args() =
-  tm 
+  tm
     unmarshall_get_table_from_ref_args
     marshall_get_table_from_ref_args
     (gen_random_string())

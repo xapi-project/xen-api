@@ -116,14 +116,14 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 		  [`migrate_send],          `start;
 		  [`migrate_send],          `start_on;
 		] in
-	let state_machine () = 
+	let state_machine () =
 		let current_state = List.map snd current_ops in
 		match op with
 			| `hard_shutdown
 				-> not (List.mem op current_state)
 			| `hard_reboot -> not (List.exists
 				(fun o -> List.mem o [`hard_shutdown; `hard_reboot]) current_state)
-			| _ -> List.exists (fun (state, transition) -> 
+			| _ -> List.exists (fun (state, transition) ->
 				state = current_state && transition = op) allowed_operations
 	in
 	let aux ops =
@@ -184,7 +184,7 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
 (* templates support clone operations, destroy and cross-pool migrate (if not default),
    export, provision, and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
-	let default_template = 
+	let default_template =
 		bool_of_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config in
 	let allowed_operations = [
 		`changing_dynamic_range;
@@ -218,7 +218,7 @@ let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
 	Some (Api_errors.vm_bad_power_state, [ref_str; expected; actual])
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
-	let current_ops_str = 
+	let current_ops_str =
 		match current_ops with
 		| [] -> failwith "No concurrent operation to report"
 		| [_,cop] -> Record_util.vm_operation_to_string cop
@@ -311,40 +311,40 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	let check c f = match c with | Some e -> Some e | None -> f () in
 
 	let current_error = check current_error (fun () ->
-		Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v]) 
+		Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v])
 			(assoc_opt op vmr.Db_actions.vM_blocked_operations)) in
 
 	(* Always check the power state constraint of the operation first *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if not (is_allowed_sequentially ~__context ~vmr ~power_state ~op)
 		then report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str
 		else None) in
 
 	(* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if List.length current_ops <> 0 && not (is_allowed_concurrently ~op ~current_ops)
-		then report_concurrent_operations_error ~current_ops ~ref_str 
+		then report_concurrent_operations_error ~current_ops ~ref_str
 		else None) in
 
 	(* if the VM is a template, check the template behavior exceptions. *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if is_template && not is_snapshot
 		then check_template ~vmr ~op ~ref_str
 		else None) in
 
 	(* if the VM is a snapshot, check the snapshot behavior exceptions. *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if is_snapshot
 		then check_snapshot ~vmr ~op ~ref_str
 		else None) in
 
 	(* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if op = `provision && (not is_template)
 		then Some (Api_errors.only_provision_template, [])
 		else None) in
 
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if op = `revert && (not is_snapshot)
 		then Some (Api_errors.only_revert_snapshot, [])
 		else None) in
@@ -390,11 +390,11 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 	) in
 
 	(* check if the dynamic changeable operations are still valid *)
-	let current_error = check current_error (fun () -> 
-		if op = `snapshot_with_quiesce && 
+	let current_error = check current_error (fun () ->
+		if op = `snapshot_with_quiesce &&
 			(Pervasiveext.maybe_with_default true
-				(fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in 
-				not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other)) 
+				(fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in
+				not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other))
 				vmgmr)
 		then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
 		else None) in
@@ -404,12 +404,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
 		then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
 			if List.exists fst vdis_reset_and_caching
-			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[]) 
+			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[])
 			else None
 		else if op = `pool_migrate then
 			(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
 			if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
-			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[]) 
+			then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[])
 			else None
 		else None) in
 
@@ -454,12 +454,12 @@ let get_info ~__context ~self =
 	let all = Db.VM.get_record_internal ~__context ~self in
 	let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
 	let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
-	let vdis_reset_and_caching = List.filter_map (fun vbd -> 
-		try 
+	let vdis_reset_and_caching = List.filter_map (fun vbd ->
+		try
 			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
 			Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
-		with _ -> None) all.Db_actions.vM_VBDs in	
+		with _ -> None) all.Db_actions.vM_VBDs in
 	all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
 
 let get_operation_error ~__context ~self ~op ~strict =
@@ -478,7 +478,7 @@ let update_allowed_operations ~__context ~self =
 		| None -> op :: accu
 		| _    -> accu
 	in
-	let allowed = 
+	let allowed =
 		List.fold_left check []
 			[`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
@@ -504,19 +504,19 @@ let update_allowed_operations ~__context ~self =
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
 	if state = `Halted then begin
 		(* mark all devices as disconnected *)
-		List.iter 
+		List.iter
 			(fun vbd ->
 				 Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
 				 Db.VBD.set_reserved ~__context ~self:vbd ~value:false;
 				 Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd)
 			(Db.VM.get_VBDs ~__context ~self);
-		List.iter 
+		List.iter
 			(fun vif ->
 				 Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
 				 Db.VIF.set_reserved ~__context ~self:vif ~value:false;
 				 Xapi_vif_helpers.clear_current_operations ~__context ~self:vif)
 			(Db.VM.get_VIFs ~__context ~self);
-		List.iter 
+		List.iter
 			(fun vgpu ->
 				Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
 				Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
@@ -567,7 +567,7 @@ let force_state_reset ~__context ~self ~value:state =
 	force_state_reset_keep_current_operations ~__context ~self ~value:state
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id = 
+let cancel_task ~__context ~self ~task_id =
 	let all = List.map fst (Db.VM.get_current_operations ~__context ~self) in
 	if List.mem task_id all
 	then begin

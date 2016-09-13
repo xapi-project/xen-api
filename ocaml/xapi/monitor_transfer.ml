@@ -14,7 +14,7 @@
 (**
  * @group Performance Monitoring
  *)
- 
+
 open Monitor_types
 
 let marshall_vifs l =
@@ -192,7 +192,7 @@ let marshall_host_stats hs =
       marshall_memory hs.mem;
       marshall_uuids hs.registered
     ]
-    
+
 let unmarshall_host_stats xml =
   match (XMLRPC.From.array (fun x->x) xml) with
       [href; i64_1; i64_2; vifs; pifs; vbds; pcpus; vcpus; mem; uuids] ->
@@ -227,7 +227,7 @@ let unmarshall_host_stats xml =
 		end
 		| _ -> failwith (Printf.sprintf "unmarshall_host_stats unexpected XML: %s" (Xml.to_string xml))
 
-let marshall hs = 
+let marshall hs =
   marshall_host_stats hs
 
 let unmarshall xml =

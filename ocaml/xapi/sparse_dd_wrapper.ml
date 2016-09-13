@@ -92,7 +92,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 				Chunk.fold
 					(fun () chunk ->
 						debug "sparse_dd: %s" chunk.Chunk.data;
-						try 
+						try
 							Scanf.sscanf chunk.Chunk.data "Progress: %d"
 								(fun progress ->
 									progress_cb (Continuing (float_of_int progress /. 100.))
@@ -113,8 +113,8 @@ let dd_internal progress_cb base prezeroed infile outfile size =
 		| Forkhelpers.Success _ -> progress_cb (Finished None)
 		| Forkhelpers.Failure (log, exn) ->
 			error "Failure from sparse_dd: %s raising %s" log (Printexc.to_string exn);
-			raise (Api_errors.Server_error ((Api_errors.vdi_copy_failed , [Printexc.to_string exn])));		
-		with e -> 
+			raise (Api_errors.Server_error ((Api_errors.vdi_copy_failed , [Printexc.to_string exn])));
+		with e ->
 			progress_cb (Finished (Some e));
 			raise e
 	)
@@ -134,7 +134,7 @@ let start ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 	let cancelled = ref false in
 	let exn = ref None in
 	let thread_progress_cb = function
-		| Started pid' -> 
+		| Started pid' ->
 			pid := Some pid';
 			Mutex.execute m (fun () -> Condition.broadcast c)
 		| Continuing progress -> progress_cb progress
@@ -150,7 +150,7 @@ let start ?(progress_cb=(fun _ -> ())) ?base prezeroed infile outfile size =
 			Condition.wait c m
 		done);
 	match (!pid,!exn) with
-		| Some pid, None -> 
+		| Some pid, None ->
 			{m; c; pid; finished; cancelled; exn}
 		| _, Some e ->
 			raise e
@@ -163,14 +163,14 @@ let wait t =
 			Condition.wait t.c t.m
 		done);
 	if !(t.cancelled) then raise Cancelled;
-	match !(t.exn) with 
+	match !(t.exn) with
 		| Some exn -> raise exn
 		| None -> ()
 
 let cancel t =
 	t.cancelled := true;
 	let pid = Forkhelpers.getpid t.pid in
-	try Unix.kill pid Sys.sigkill with _ -> () 
+	try Unix.kill pid Sys.sigkill with _ -> ()
 
 (* This function will kill all sparse_dd pids that have been started by xapi *)
 (* Only to be used on xapi restart *)
@@ -178,8 +178,8 @@ let killall () =
 	let pids = State.list () in
 	List.iter (fun pid ->
 		try
-			Pervasiveext.finally 
-				(fun () -> 
+			Pervasiveext.finally
+				(fun () ->
 					let exe = Unix.readlink (Printf.sprintf "/proc/%d/exe" pid) in
 					debug "checking pid %d exe=%s globs=%s" pid exe !Xapi_globs.sparse_dd;
 					if Filename.basename exe = Filename.basename !Xapi_globs.sparse_dd

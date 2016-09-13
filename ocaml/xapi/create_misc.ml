@@ -52,7 +52,7 @@ type host_info = {
  *  hp_1_1                                  | CHECKED
  *  hp_2_1                                  | APPLIED
  *  hp_3_2                                  | APPLIED *)
-let make_xen_livepatch_list () = 
+let make_xen_livepatch_list () =
 	let lines = try Xstringext.String.split '\n' (Helpers.get_process_output !Xapi_globs.xen_livepatch_list) with _ -> [] in
 	let patches = List.fold_left(
 		fun acc l ->
@@ -69,8 +69,8 @@ let make_xen_livepatch_list () =
  *  kpatch_hp_2_1
 
  *  Installed patch modules: *)
-let make_kpatch_list () = 
-	let start_line = "Loaded patch modules:" in 
+let make_kpatch_list () =
+	let start_line = "Loaded patch modules:" in
 	let end_line = "Installed patch modules:" in
 	let lines = try Xstringext.String.split '\n' (Helpers.get_process_output !Xapi_globs.kpatch_list) with _ -> []in
 	let rec loop acc started = function
@@ -294,7 +294,7 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref 
 	Db.Console.create ~__context ~ref: console_ref
 		~uuid: (Uuid.to_string (Uuid.make_uuid ()))
 		~protocol: dom0_console_protocol
-		~location 
+		~location
 		~vM: domain_zero_ref
 		~other_config:[]
 		~port
@@ -414,15 +414,15 @@ let make_packs_info () =
 			try
 				let xml = Xml.parse_file (!Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY") in
 				match xml with
-				| Xml.Element (name, attr, children) -> 
+				| Xml.Element (name, attr, children) ->
 					let originator = List.assoc "originator" attr in
 					let name = List.assoc "name" attr in
 					let version = List.assoc "version" attr in
-					let build = 
+					let build =
 						if List.mem_assoc "build" attr then Some (List.assoc "build" attr)
 						else None
 					in
-					let homogeneous = 
+					let homogeneous =
 						if List.mem_assoc "enforce-homogeneity" attr &&
 							(List.assoc "enforce-homogeneity" attr) = "true" then true
 						else false
@@ -541,9 +541,9 @@ let create_host_cpu ~__context =
 				ignore (XenAPI.Message.create rpc session_id name priority `Host obj_uuid body)
 			)
 	end;
-	
+
 	(* Recreate all Host_cpu objects *)
-	
+
 	(* Not all /proc/cpuinfo files contain MHz information. *)
 	let speed = try Int64.of_float (float_of_string stat.cpu_info.speed) with _ -> 0L in
 	let model = try Int64.of_string stat.cpu_info.model with _ -> 0L in
@@ -568,8 +568,8 @@ let create_pool_cpuinfo ~__context =
 	let open Map_check in
 	let open Cpuid_helpers in
 
-	let all_host_cpus = List.map 
-		(fun (_, s) -> s.API.host_cpu_info) 
+	let all_host_cpus = List.map
+		(fun (_, s) -> s.API.host_cpu_info)
 		(Db.Host.get_all_records ~__context) in
 
 	let merge pool host =
@@ -580,10 +580,10 @@ let create_pool_cpuinfo ~__context =
 			|> setf socket_count ((getf socket_count host) + (getf socket_count pool))
 			|> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
 			|> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
-		with Not_found -> 
+		with Not_found ->
 			(* If the host doesn't have all the keys we expect, assume that we
 			   are in the middle of an RPU and it has not yet been upgraded, so
-			   it should be ignored when calculating the pool level *) 
+			   it should be ignored when calculating the pool level *)
 			pool
 	in
 
@@ -616,7 +616,7 @@ let create_pool_cpuinfo ~__context =
 				ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
 			)
 	end
-		
+
 
 let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
@@ -645,8 +645,8 @@ let create_chipset_info ~__context =
 
 let create_patches_requiring_reboot_info ~__context ~host =
   let patch_uuids = try Stdext.Listext.List.setify (Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs) with _ -> [] in
-  let patches = List.fold_left (fun acc uuid -> 
-  	try 
+  let patches = List.fold_left (fun acc uuid ->
+  	try
   		(Db.Pool_patch.get_by_uuid ~__context ~uuid) :: acc
   	with _ -> warn "Invalid Pool_patch UUID [%s]" uuid; acc
   ) [] patch_uuids in

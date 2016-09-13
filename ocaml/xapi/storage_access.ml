@@ -267,7 +267,7 @@ module SMAPIv1 = struct
 
 		let reset context ~dbg ~sr = assert false
 
-		let destroy context ~dbg ~sr = 
+		let destroy context ~dbg ~sr =
 			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string dbg)
 				(fun __context ->
 					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
@@ -452,14 +452,14 @@ module SMAPIv1 = struct
 		let activate context ~dbg ~dp ~sr ~vdi =
 			try
 				let read_write = Mutex.execute vdi_read_write_m
-					(fun () -> 
+					(fun () ->
 						if not (Hashtbl.mem vdi_read_write (sr, vdi)) then error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW" sr vdi;
 						Hashtbl.find vdi_read_write (sr, vdi)) in
 				for_vdi ~dbg ~sr ~vdi "VDI.activate"
 					(fun device_config _type sr self ->
 						Server_helpers.exec_with_new_task "VDI.activate" ~subtask_of:(Ref.of_string dbg)
 							(fun __context ->
-								(if read_write 
+								(if read_write
 								then Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id"));
 						(* If the backend doesn't advertise the capability then do nothing *)
 						if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
@@ -559,9 +559,9 @@ module SMAPIv1 = struct
 						(* PR-1255: modify clone, snapshot to take the same parameters as create? *)
 						let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
 						let clonee, _ = find_vdi ~__context sr vdi_info.vdi in
-						let content_id = 
-							try 
-								List.assoc "content_id" 
+						let content_id =
+							try
+								List.assoc "content_id"
 									(Db.VDI.get_other_config ~__context ~self:clonee)
 							with _ ->
 								Uuid.string_of_uuid (Uuid.make_uuid ())
@@ -588,7 +588,7 @@ module SMAPIv1 = struct
 						debug "vdi = %s" (string_of_vdi_info vdi);
 						vdi
 					)
-            with 
+            with
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| Smint.Not_implemented_in_backend ->
@@ -605,7 +605,7 @@ module SMAPIv1 = struct
                         let self, _ = find_vdi ~__context sr vdi in
                         Db.VDI.set_name_label ~__context ~self ~value:new_name_label
                     )
- 
+
 	let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
                 Server_helpers.exec_with_new_task "VDI.set_name_description" ~subtask_of:(Ref.of_string dbg)
                     (fun __context ->
@@ -639,7 +639,7 @@ module SMAPIv1 = struct
                     );
                 Mutex.execute vdi_read_write_m
                     (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
-            with 
+            with
 				| Api_errors.Server_error(code, params) ->
 					raise (Backend_error(code, params))
 				| No_VDI ->
@@ -1064,7 +1064,7 @@ let wait_for_task dbg id =
 		| Dynamic.Task id' ->
 			id = id' && (task_ended dbg id)
 		| _ ->
-			false in 
+			false in
 	event_wait dbg finished;
 	id
 
@@ -1088,7 +1088,7 @@ let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.a
 let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
 let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
 
-let register_mirror __context vdi = 
+let register_mirror __context vdi =
 	let task = Context.get_task_id __context in
 	debug "Registering mirror of vdi %s with task %s" vdi (Ref.string_of task);
 	Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl vdi task); vdi
@@ -1119,11 +1119,11 @@ let update_task ~__context id =
 		error "storage event: Caught %s while updating task" (Printexc.to_string e)
 
 let update_mirror ~__context id =
-	try 
-		let dbg = Context.string_of_task __context in 
+	try
+		let dbg = Context.string_of_task __context in
 		let m = Client.DATA.MIRROR.stat dbg id in
-		if m.Mirror.failed 
-		then 
+		if m.Mirror.failed
+		then
 			debug "Mirror %s has failed" id;
 			let task = get_mirror_task m.Mirror.source_vdi in
 			debug "Mirror associated with task: %s" (Ref.string_of task);
@@ -1132,13 +1132,13 @@ let update_mirror ~__context id =
 			Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.source_vdi;
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
-	with 
-		| Not_found -> 
+	with
+		| Not_found ->
 			debug "Couldn't find mirror id: %s" id
 		| Does_not_exist _ -> ()
-		| e -> 
+		| e ->
 			error "storage event: Caught %s while updating mirror" (Printexc.to_string e)
-				
+
 let rec events_watch ~__context from =
 	let dbg = Context.string_of_task __context in
 	let events, next = Client.UPDATES.get dbg from None in
@@ -1148,7 +1148,7 @@ let rec events_watch ~__context from =
 			| Task id ->
 				debug "sm event on Task %s" id;
 				update_task ~__context id
-			| Vdi vdi -> 
+			| Vdi vdi ->
 				debug "sm event on VDI %s: ignoring" vdi
 			| Dp dp ->
 				debug "sm event on DP %s: ignoring" dp
@@ -1159,7 +1159,7 @@ let rec events_watch ~__context from =
 	events_watch ~__context next
 
 let events_from_sm () =
-	ignore(Thread.create (fun () -> 
+	ignore(Thread.create (fun () ->
 		Server_helpers.exec_with_new_task "sm_events"
 			(fun __context ->
 				while true do
@@ -1216,10 +1216,10 @@ let is_attached ~__context ~vbd ~domid  =
 			let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 			let open Vdi_automaton in
 			let module C = Storage_interface.Client(struct let rpc = rpc end) in
-			try 
+			try
 				let x = C.DP.stat_vdi ~dbg ~sr ~vdi () in
 				x.superstate <> Detached
-			with 
+			with
 				| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
 		)
 
@@ -1343,7 +1343,7 @@ let refresh_local_vdi_activations ~__context =
 	(* If this VDI is currently locked to this host, remove the lock.
 	   If this VDI is currently locked to a non-existent host (note host references
 	   change across pool join), remove the lock. *)
-	let unlock_vdi (vdi_ref, vdi_rec) = 
+	let unlock_vdi (vdi_ref, vdi_rec) =
 		(* VDI is already unlocked is the common case: avoid eggregious logspam *)
 		let hosts = hosts_of vdi_rec in
 		let i_locked_it = List.mem localhost hosts in
@@ -1359,7 +1359,7 @@ let refresh_local_vdi_activations ~__context =
 		end in
 	let open Vdi_automaton in
 	(* Lock this VDI to this host *)
-	let lock_vdi (vdi_ref, vdi_rec) ro_rw = 
+	let lock_vdi (vdi_ref, vdi_rec) ro_rw =
 		info "Locking VDI %s" (Ref.string_of vdi_ref);
 		if not(List.mem_assoc (key localhost) vdi_rec.API.vDI_sm_config) then begin
 			try
@@ -1367,7 +1367,7 @@ let refresh_local_vdi_activations ~__context =
 			with e ->
 				error "Failed to lock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
 		end in
-	let remember key ro_rw = 
+	let remember key ro_rw =
 		(* The module above contains a hashtable of R/O vs R/W-ness *)
 		Mutex.execute SMAPIv1.VDI.vdi_read_write_m
 			(fun () -> Hashtbl.replace SMAPIv1.VDI.vdi_read_write key (ro_rw = RW)) in
@@ -1375,7 +1375,7 @@ let refresh_local_vdi_activations ~__context =
 	let dbg = Ref.string_of (Context.get_task_id __context) in
 	let srs = Client.SR.list dbg in
 	let sr_uuids = List.map (fun sr -> (sr, Db.SR.get_uuid ~__context ~self:sr)) (Db.SR.get_all ~__context) in
-	List.iter 
+	List.iter
 		(fun (vdi_ref, vdi_rec) ->
 			let sr = List.assoc vdi_rec.API.vDI_SR sr_uuids in
 			let vdi = vdi_rec.API.vDI_location in
@@ -1383,20 +1383,20 @@ let refresh_local_vdi_activations ~__context =
 			then
 				try
 					let x = Client.DP.stat_vdi ~dbg ~sr ~vdi () in
-					match x.superstate with 
+					match x.superstate with
 						| Activated RO ->
 							lock_vdi (vdi_ref, vdi_rec) RO;
 							remember (sr, vdi) RO
-						| Activated RW -> 
+						| Activated RW ->
 							lock_vdi (vdi_ref, vdi_rec) RW;
 							remember (sr, vdi) RW
-						| Attached RO -> 
+						| Attached RO ->
 							unlock_vdi (vdi_ref, vdi_rec);
 							remember (sr, vdi) RO
-						| Attached RW -> 
+						| Attached RW ->
 							unlock_vdi (vdi_ref, vdi_rec);
 							remember (sr, vdi) RW
-						| Detached -> 
+						| Detached ->
 							unlock_vdi (vdi_ref, vdi_rec)
 				with
 					| e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e)
@@ -1407,7 +1407,7 @@ let refresh_local_vdi_activations ~__context =
    to upgrade RO -> RW or downgrade RW -> RO on the fly.
    One possible fix is to always attach RW and enforce read/only-ness at the VBD-level.
    However we would need to fix the LVHD "attach provisioning mode". *)
-let vbd_attach_order ~__context vbds = 
+let vbd_attach_order ~__context vbds =
 	(* return RW devices first since the storage layer can't upgrade a
 	   'RO attach' into a 'RW attach' *)
 	let rw, ro = List.partition (fun self -> Db.VBD.get_mode ~__context ~self = `RW) vbds in
@@ -1450,7 +1450,7 @@ let destroy_sr ~__context ~sr ~and_vdis =
 						Client.SR.detach dbg sr_uuid;
 						raise exn
 				)
-				(fun () -> 
+				(fun () ->
 					(* All PBDs are clearly currently_attached = false now *)
 					Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false);
 			unbind ~__context ~pbd
@@ -1463,6 +1463,6 @@ let task_cancel ~__context ~self =
 		info "storage_access: TASK.cancel %s" id;
 		Client.TASK.cancel dbg id |> ignore;
 		true
-	with 
+	with
 		| Not_found -> false
 		| Not_an_sm_task -> false

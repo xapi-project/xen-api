@@ -1490,7 +1490,7 @@ let sr_probe printer rpc session_id params =
 			if x.uris <> []
 			then printer (Cli_printer.PMsg "The following URIs may contain SRs:");
 			printer (Cli_printer.PList x.uris)
-	with _ ->	
+	with _ ->
 		printer (Cli_printer.PList [txt])
 
 let sr_destroy printer rpc session_id params =
@@ -2740,9 +2740,9 @@ let vm_migrate printer rpc session_id params =
 								failwith (Printf.sprintf "Failed to find network: %s" x)
 						end else begin
 							let pifs = host_record.API.host_PIFs in
-							let management_pifs = List.filter (fun pif -> 
+							let management_pifs = List.filter (fun pif ->
 								Client.PIF.get_management remote_rpc remote_session pif) pifs in
-							if List.length management_pifs = 0 then 
+							if List.length management_pifs = 0 then
 								failwith (Printf.sprintf "Could not find management PIF on host %s" (host_record.API.host_uuid));
 							let pif = List.hd management_pifs in
 							let net = Client.PIF.get_network remote_rpc remote_session pif in
@@ -2786,7 +2786,7 @@ let vm_migrate printer rpc session_id params =
                                                           overrides @ filtered_orig_list
                                         in
 
-					let params = List.filter (fun (s,_) -> if String.length s < 5 then true 
+					let params = List.filter (fun (s,_) -> if String.length s < 5 then true
 						else let start = String.sub s 0 4 in start <> "vif:" && start <> "vdi:") params in
 					printer (Cli_printer.PMsg (Printf.sprintf "Will migrate to remote host: %s, using remote network: %s. Here is the VDI mapping:" host_record.API.host_name_label network_record.API.network_name_label));
 					List.iter (fun (vdi,sr) ->
@@ -4192,7 +4192,7 @@ let host_get_system_status fd printer rpc session_id params =
 			let uuid = safe_get_field (field_lookup host.fields "uuid") in
 			let someone = try SpecificHost (Client.Host.get_by_uuid rpc session_id uuid) with _ -> Master in
 			let prefix = uri_of_someone rpc session_id someone in
-			
+
 			let url =
 				Printf.sprintf "%s%s?session_id=%s&entries=%s&output=%s&task_id=%s"
 					prefix Constants.system_status_uri

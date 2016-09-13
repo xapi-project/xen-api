@@ -25,7 +25,7 @@ module CreateToolsSR = Generic.Make(Generic.EncapsulateState(struct
 		let string_of_output_t = Test_printers.(list (tuple3 string string (assoc_list string string)))
 	end
 	module State = Test_state.XapiDb
-	
+
 	let name = "Tools"
 	let description = "Tools ISOs"
 	let other_config = [
@@ -57,7 +57,7 @@ module CreateToolsSR = Generic.Make(Generic.EncapsulateState(struct
 				:: acc
 			else
 				acc
-		) [] (Db.SR.get_all ~__context)	
+		) [] (Db.SR.get_all ~__context)
 
 	(* And other_config key/value pair we use to prove that and existing Tools SR is
 	 * reused rather than destroyed and recreated. *)
@@ -69,20 +69,20 @@ module CreateToolsSR = Generic.Make(Generic.EncapsulateState(struct
 		(* No Tools SR yet *)
 		[],
 		[name, description, other_config];
-		
+
 		(* An existing Tools SR *)
 		[
 			"Toolz", "Toolz ISOs", [extra_oc], true;
 		],
 		[name, description, extra_oc :: other_config];
-		
+
 		(* Two existing Tools SRs (bad state!) *)
 		[
 			"Toolz", "Toolz ISOs", [extra_oc], true;
 			"Toolz2", "Toolz ISOs2", [extra_oc], true;
 		],
 		[name, description, extra_oc :: other_config];
-		
+
 		(* An existing Tools SR with an old tag *)
 		[
 			"Toolz", "Toolz ISOs", [Xapi_globs.tools_sr_tag, "true"; extra_oc], false;

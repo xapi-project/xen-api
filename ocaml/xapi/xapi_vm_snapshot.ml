@@ -28,7 +28,7 @@ let snapshot ~__context ~vm ~new_name =
 	debug "Snapshot: begin";
 	TaskHelper.set_cancellable ~__context;
 	let res = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name in
-	debug "Snapshot: end"; 
+	debug "Snapshot: end";
 	res
 
 (*************************************************************************************************)
@@ -120,7 +120,7 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 		then raise (Api_errors.Server_error (error_str, [ Ref.string_of vm; error_code () ]))
 		else raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm; error_str ]))
 
-	| e -> 
+	| e ->
 		failwith (Printf.sprintf "wait_for_snapshot: unexpected result (%s)" e)
 
 (* We fail if the guest does not support quiesce mode. Normally, that should be detected *)
@@ -137,7 +137,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 				xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid);
 				xs.Xenstore.Xs.write (snapshot_path ~xs ~domid "action") "create-snapshot";
 
-				try 
+				try
 					debug "Snapshot_with_quiesce: waiting for the VSS agent to proceed";
 					let value = Watch.key_to_disappear (snapshot_path ~xs ~domid "action") in
 					Watch.wait_for ~xs ~timeout:(60.) value;
@@ -151,7 +151,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 					error "VSS plugin does not respond";
 					raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
 
-			(fun () -> 
+			(fun () ->
 				 xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid))
 
 		end else begin
@@ -240,15 +240,15 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
 	let db = Context.database_of __context in
 	let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in
 	List.iter
-		(fun (key,value) -> 
-			let value = 
+		(fun (key,value) ->
+			let value =
 				if List.mem_assoc key default_values
 				then List.assoc key default_values
 				else value in
 			 if not (List.mem key do_not_copy)
 			 then DB.write_field db Db_names.vm (Ref.string_of dst) key value)
 		metadata
-		
+
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
 	if Db.is_valid_ref __context vbd then begin
 		Client.VBD.destroy rpc session_id vbd
@@ -270,7 +270,7 @@ let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
 		if not (Db.SR.get_content_type ~__context ~self:sr = "iso") then
 			Client.VDI.destroy rpc session_id vdi
 	end
-	
+
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
 let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
@@ -409,7 +409,7 @@ let do_not_copy = [
 	"power_state";
 ]
 
-let default_values = [ 
+let default_values = [
 	Db_names.ha_always_run, "false";
 ]
 
@@ -430,7 +430,7 @@ let revert_vm_fields ~__context ~snapshot ~vm =
 	debug "Reverting the fields of %s to the ones of %s (%s)" (Ref.string_of vm) (Ref.string_of snapshot) (if post_MNR then "post-MNR" else "pre-MNR");
 	let snap_metadata =
 		if post_MNR
-		then Helpers.vm_string_to_assoc snap_metadata 
+		then Helpers.vm_string_to_assoc snap_metadata
 		else Helpers.vm_string_to_assoc (Helpers.vm_to_string __context snapshot) in
 	let do_not_copy =
 		if post_MNR
@@ -470,17 +470,17 @@ let revert ~__context ~snapshot ~vm =
 
 let	create_vm_from_snapshot ~__context ~snapshot =
 	let old_vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
-	try 
-		let snapshots = 
-			Db.VM.get_records_where __context 
+	try
+		let snapshots =
+			Db.VM.get_records_where __context
 				(Db_filter_types.Eq (Db_filter_types.Field "snapshot_of", Db_filter_types.Literal (Ref.string_of old_vm))) in
-	
+
 		let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
 		let snap_metadata =  Helpers.vm_string_to_assoc snap_metadata in
 		let vm_uuid = List.assoc Db_names.uuid snap_metadata in
 		let snap_record = Db.VM.get_record ~__context ~self:snapshot in
 
-		Helpers.call_api_functions ~__context 
+		Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
 				 let new_vm = Xapi_vm_helpers.create_from_record_without_checking_licence_feature_for_vendor_device
 					 ~__context rpc session_id snap_record in
@@ -497,4 +497,4 @@ let	create_vm_from_snapshot ~__context ~snapshot =
 	with e ->
 		error "create_vm_from_snapshot failed: %s" (Printexc.to_string e);
 		raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of old_vm]))
-		
+

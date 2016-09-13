@@ -1,4 +1,4 @@
-let schema = 
+let schema =
 	let _ref = {
 		Schema.Column.name = Db_names.ref;
 		persistent = true;
@@ -82,12 +82,12 @@ let schema =
 		columns = [ _ref; uuid; vm ];
 		persistent = true;
 	} in
-	let database = { 
+	let database = {
 		Schema.Database.tables = [ vm_table; vbd_table ];
 	} in
 	let one_to_many = Schema.ForeignMap.add "VBD" [ "VM", "VM", "VBDs" ] (Schema.ForeignMap.empty) in
 	{
-		
+
 		Schema.major_vsn = 1;
 		minor_vsn = 1;
 		database = database;
@@ -108,14 +108,14 @@ let many_to_many =
 	let foo_column = { bar_column with Schema.Column.name = "foos" } in
 	let foo_table = { Schema.Table.name = "foo"; columns = [ bar_column ]; persistent = true } in
 	let bar_table = { Schema.Table.name = "bar"; columns = [ foo_column ]; persistent = true } in
-	
+
 	let database = { Schema.Database.tables = [ foo_table; bar_table ] } in
-	let many_to_many = 
+	let many_to_many =
 		Schema.ForeignMap.add "foo" [ "bars", "bar", "foos" ]
 			(Schema.ForeignMap.add "bar" [ "foos", "foo", "bars" ]
 				 Schema.ForeignMap.empty) in
 	let schema = { Schema.empty with
 					   Schema.database = database;
-					   many_to_many = many_to_many 
+					   many_to_many = many_to_many
 				 } in
 	schema

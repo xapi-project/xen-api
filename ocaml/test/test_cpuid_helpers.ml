@@ -98,7 +98,7 @@ module ParseFailure = Generic.Make (struct
 
 	exception NoExceptionRaised
 	let transform = fun x ->
-		try 
+		try
 			ignore (Cpuid_helpers.features_of_string x);
 			raise NoExceptionRaised
 		with e -> e
@@ -210,12 +210,12 @@ module Comparisons = Generic.Make (struct
 		let string_of_output_t = Test_printers.(pair bool bool)
 	end
 
-	let transform = fun (a, b) -> 
+	let transform = fun (a, b) ->
 		Cpuid_helpers.(is_subset a b, is_strict_subset a b)
 
 	let tests = [
 		(* Some of this behaviour is counterintuitive because
-                   feature flags are automatically zero-extended when 
+                   feature flags are automatically zero-extended when
                    compared *)
 		([| |], [| |]),            (true, false);
 		([| 1L; 2L; 3L |], [| |]), (true, true);
@@ -256,22 +256,22 @@ module Accessors = Generic.Make (struct
 		let string_of_output_t = Test_printers.(tuple5 string int int (array int64) (array int64))
 	end
 
-	let transform = fun record -> 
+	let transform = fun record ->
 		let open Map_check in
-			getf vendor record, 
-			getf socket_count record, 
+			getf vendor record,
+			getf socket_count record,
 			getf cpu_count record,
-			getf features_pv record, 
+			getf features_pv record,
 			getf features_hvm record
 
 	let tests = [
 		["vendor", "Intel"; "socket_count", "1"; "cpu_count", "1";
 		 "features_pv", "00000001-00000002-00000003";
-		 "features_hvm", "0000000a-0000000b-0000000c"], 
+		 "features_hvm", "0000000a-0000000b-0000000c"],
 		 ("Intel", 1, 1, [| 1L; 2L; 3L |], [| 0xaL; 0xbL; 0xcL |]);
 		["vendor", "Amd"; "socket_count", "6"; "cpu_count", "24";
 		 "features_pv", "00000001";
-		 "features_hvm", ""], 
+		 "features_hvm", ""],
 		 ("Amd", 6, 24, [| 1L |], [| |]);
 	]
 end)
@@ -284,7 +284,7 @@ module Setters = Generic.Make (struct
 		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
 
-	let transform = fun (name, sockets, cpus, pv, hvm)  -> 
+	let transform = fun (name, sockets, cpus, pv, hvm)  ->
 		let open Map_check in
 			[]
 			|> setf vendor name
@@ -296,13 +296,13 @@ module Setters = Generic.Make (struct
 
 	let tests = [
 		("Intel", 1, 1, [| 1L; 2L; 3L |], [| 0xaL; 0xbL; 0xcL |]),
-		List.sort compare ["vendor", "Intel"; 
+		List.sort compare ["vendor", "Intel";
                  "socket_count", "1"; "cpu_count", "1";
 		 "features_pv", "00000001-00000002-00000003";
 		 "features_hvm", "0000000a-0000000b-0000000c"];
 
 		("Amd", 6, 24, [| 1L |], [| |]),
-		List.sort compare ["vendor", "Amd"; 
+		List.sort compare ["vendor", "Amd";
                  "socket_count", "6"; "cpu_count", "24";
 		 "features_pv", "00000001";
 		 "features_hvm", ""]
@@ -318,9 +318,9 @@ module Modifiers = Generic.Make (struct
 		let string_of_output_t = Test_printers.(assoc_list string string)
 	end
 
-	let transform = fun record -> 
+	let transform = fun record ->
 		let open Map_check in
-			record 
+			record
 			|> setf vendor (getf vendor record)
 			|> setf socket_count (getf socket_count record)
 			|> setf cpu_count (getf cpu_count record)
@@ -332,12 +332,12 @@ module Modifiers = Generic.Make (struct
 		["cpu_count", "1";
 		 "features_hvm", "0000000a-0000000b-0000000c";
 		 "features_pv", "00000001-00000002-00000003";
-		 "socket_count", "1"; 
+		 "socket_count", "1";
 		 "vendor", "Intel"],
 		["cpu_count", "1";
 		 "features_hvm", "0000000a-0000000b-0000000c";
 		 "features_pv", "00000001-00000002-00000003";
-		 "socket_count", "1"; 
+		 "socket_count", "1";
 		 "vendor", "Intel"];
 	]
 end)
@@ -369,7 +369,7 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 
 		let vms = List.map
 			(fun (name_label, hVM_boot_policy) ->
-				Test_common.make_vm ~__context ~name_label 
+				Test_common.make_vm ~__context ~name_label
 					~hVM_boot_policy ())
 			cases in
 		List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
@@ -378,10 +378,10 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 		let get_flags (label, _) =
 			let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
 			let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
-			try List.assoc Xapi_globs.cpu_info_features_key flags 
+			try List.assoc Xapi_globs.cpu_info_features_key flags
 			with Not_found -> ""
 		in List.map get_flags vms
-		
+
 
 	(* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
 	let tests = [
@@ -397,7 +397,7 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 		type input_t = string * string * (string * string) list
 		type output_t = (exn, unit) Either.t
 
-		let string_of_input_t = 
+		let string_of_input_t =
 			Test_printers.(tuple3 string string (assoc_list string string))
 		let string_of_output_t = Test_printers.(either exn unit)
 	end
@@ -424,12 +424,12 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 		let host = List.hd @@ Db.Host.get_all ~__context in
 		let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
 		try Either.Right (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
-		with 
+		with
 		(* Filter out opaquerefs which make matching this exception difficult *)
-		| Api_errors.Server_error (vm_incompatible_with_this_host, data) -> 
+		| Api_errors.Server_error (vm_incompatible_with_this_host, data) ->
 			Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
 		| e -> Either.Left e
-		
+
 	let tests = [
 		(* HVM *)
 		("a", "BIOS order",
@@ -440,15 +440,15 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 		("a", "BIOS order",
 		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
 		              cpu_info_features_key, "cafecafe-cafecafe"])),
-		Either.Left Api_errors.(Server_error 
-			(vm_incompatible_with_this_host, 
+		Either.Left Api_errors.(Server_error
+			(vm_incompatible_with_this_host,
                          ["VM last booted on a CPU with features this host's CPU does not have."]));
 
 		("a", "BIOS order",
 		 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
 		              cpu_info_features_key, features_hvm])),
-		Either.Left Api_errors.(Server_error 
-			(vm_incompatible_with_this_host, 
+		Either.Left Api_errors.(Server_error
+			(vm_incompatible_with_this_host,
                          ["VM last booted on a host which had a CPU from a different vendor."]));
 
 		(* PV *)
@@ -460,15 +460,15 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 		("a", "",
 		 Xapi_globs.([cpu_info_vendor_key, "Abacus";
 		              cpu_info_features_key, "cafecafe-cafecafe"])),
-		Either.Left Api_errors.(Server_error 
-			(vm_incompatible_with_this_host, 
+		Either.Left Api_errors.(Server_error
+			(vm_incompatible_with_this_host,
                          ["VM last booted on a CPU with features this host's CPU does not have."]));
 
 		("a", "",
 		 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
 		              cpu_info_features_key, features_pv])),
-		Either.Left Api_errors.(Server_error 
-			(vm_incompatible_with_this_host, 
+		Either.Left Api_errors.(Server_error
+			(vm_incompatible_with_this_host,
                          ["VM last booted on a host which had a CPU from a different vendor."]));
 
 
@@ -488,11 +488,11 @@ let test =
 				ParseFailure.tests;
 			"test_extend" >:::
 				Extend.tests;
-			"test_zero_extend" >::: 
+			"test_zero_extend" >:::
 				ZeroExtend.tests;
 			"test_intersect" >:::
 				Intersect.tests;
-			"test_comparisons" >::: 
+			"test_comparisons" >:::
 				Comparisons.tests;
 			"test_accessors" >:::
 				Accessors.tests;

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* 
+(*
  * Helpers for upgrading from a normal XML database to a protected XML database, where multiple spaces, '\t', '\n', '\r' and '\'
  * are protected inside attributes.
  *)
@@ -19,7 +19,7 @@
 (* We assume here that the upgrade done by host-installer creates a XML file where only double quotes are used around attributes. *)
 (* This is normally done internally by the miami version of xapi-db-process, so it should be OK. *)
 let perform_inside_quotes_fn f inside_quotes = function
-	| ('"', _)              -> inside_quotes := not (!inside_quotes); 
+	| ('"', _)              -> inside_quotes := not (!inside_quotes);
 	                           Xml_spaces.No_change
 	| c when !inside_quotes -> f c
 	| _                     -> Xml_spaces.No_change
@@ -27,17 +27,17 @@ let perform_inside_quotes_fn f inside_quotes = function
 let (_:unit) =
 	(* By default, we upgrade the database, ie. we protect multiple spaces and so on.                    *)
 	(* However, in case something went wrong, we can downgrade the database using '--downgrade' argument *)
-	let fn_to_apply = 
+	let fn_to_apply =
 		let inside_quotes = ref false in
 		if Array.length Sys.argv = 2 && Sys.argv.(1) = "--downgrade"
 		then begin
 			Printf.printf "Warning: unprotecting characters of the XML database\n%!";
 			perform_inside_quotes_fn Xml_spaces.unprotect_fn inside_quotes;
-		end else 
+		end else
 			perform_inside_quotes_fn Xml_spaces.protect_fn inside_quotes
 	in
 	let paths = Parse_db_conf.parse_db_conf !Xapi_globs.db_conf_path in
-	List.iter 
+	List.iter
 		(fun dbconn ->
 			let path = dbconn.Parse_db_conf.path in
 			(* first, fit the database into memory *)

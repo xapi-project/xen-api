@@ -24,9 +24,9 @@ type file_evt = { ty : Inotify.type_event;
 type file_events = file_evt list
 type stat = { dir : string;
 	      events : (string, file_events) Hashtbl.t }
-	      
 
-let hashtbl = Hashtbl.create 128 
+
+let hashtbl = Hashtbl.create 128
 
 
 let unlink_safe file =
@@ -35,7 +35,7 @@ let unlink_safe file =
 let safe_move src dst =
   unlink_safe dst;
   Unix.rename src dst
-	      
+
 let _ =
 	if Array.length Sys.argv < 2 then (
 		eprintf "usage: %s <file containing paths to watch>\n" Sys.argv.(0);
@@ -46,7 +46,7 @@ let _ =
 
 	let ic = open_in Sys.argv.(1) in
 	let rec read dirs =
-	  try 
+	  try
 	    let dir = input_line ic in
 	    read (dir::dirs)
 	  with
@@ -63,19 +63,19 @@ let _ =
 		let wd,mask,cookie,fname = ev in
 		let mystat = Hashtbl.find hashtbl wd in
 		let newevt = {ty = List.hd mask; time=time } in
-		match fname with 
+		match fname with
 		    Some fname ->
-		      let fname = 
+		      let fname =
 			try
 			  let len = String.index fname '\000' in
 			  String.sub fname 0 len
-			with 
+			with
 			    _ -> fname
 		      in
 		      if Hashtbl.mem mystat.events fname
 		      then
 			let fileevents = Hashtbl.find mystat.events fname in
-			Hashtbl.replace mystat.events fname (newevt::fileevents)		    
+			Hashtbl.replace mystat.events fname (newevt::fileevents)
 		      else
 			Hashtbl.replace mystat.events fname [newevt]
 		  | None -> ()
@@ -89,7 +89,7 @@ let _ =
 	in
 	let dump_data () =
 	  let oc = open_out "/var/log/file_write.log.tmp" in
-	  let dump_dir wd st = 
+	  let dump_dir wd st =
 	    if Hashtbl.length st.events > 0 then
 	      begin
 		Printf.fprintf oc "directory: %s\n" st.dir;
@@ -100,9 +100,9 @@ let _ =
 	  Hashtbl.iter dump_dir hashtbl;
 	  close_out oc;
 	  safe_move "/var/log/file_write.log.tmp" "/var/log/file_write.log"
-	    
+
 	in
-	    
+
 	let stdin = Unix.descr_of_in_channel stdin in
 	let nb = ref 0 in
 	while true
@@ -118,6 +118,6 @@ let _ =
 	dump_data ();
 
 	Unix.close fd
-	
 
-	  
+
+

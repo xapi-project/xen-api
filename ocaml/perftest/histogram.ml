@@ -16,7 +16,7 @@ open Perfdebug
 open Statistics
 open Graphutil
 
-let _ = 
+let _ =
   let sigma = ref 0.1 in
   let inputs = ref [] in
   let format = ref `X11 in
@@ -27,8 +27,8 @@ let _ =
   let min_percentile = ref 1. in
   let max_percentile = ref 95. in
   Arg.parse [
-    "-format", Arg.Symbol ([ "eps"; "gif"; "x11" ], 
-			   (function 
+    "-format", Arg.Symbol ([ "eps"; "gif"; "x11" ],
+			   (function
 			    | "eps" -> format := `Eps
 			    | "gif" -> format := `Gif
 			    | "x11" -> format := `X11
@@ -52,10 +52,10 @@ let _ =
   let output_files = List.map (fun _ -> Filename.temp_file "histogram" "dat") inputs in
   let all = List.combine inputs output_files in
 
-  Stdext.Pervasiveext.finally 
+  Stdext.Pervasiveext.finally
     (fun () ->
        (* Write some summary statistics on stderr *)
-       List.iter 
+       List.iter
 	 (fun (info, points) ->
 	    debug ~out:stderr "%s has lognormal mean %f +/- %f" (short_info_to_string info) (LogNormal.mean points) (LogNormal.sigma points);
 	 ) inputs;
@@ -65,11 +65,11 @@ let _ =
 
        (* To make sure that each added gaussian really adds 1 unit of area, we extend the bins
 	  3 sigmas to the left and right *)
-       let min_point = List.map (fun (r,n) -> r, n -. 3. *. sigma) min_point 
+       let min_point = List.map (fun (r,n) -> r, n -. 3. *. sigma) min_point
        and max_point = List.map (fun (r,n) -> r, n +. 3. *. sigma) max_point in
 
        (* Attempt to zoom the graph in on the 10% to 90% region *)
-       let xrange_min = ref max_point 
+       let xrange_min = ref max_point
        and xrange_max = ref min_point in
 
        List.iter
@@ -78,14 +78,14 @@ let _ =
 	    let x = Hist.make (List.assoc result min_point) (List.assoc result max_point) 1000 in
 
 	    (* -- Apply the Weierstrass transform -- *)
-	    
+
 	    (* NB Each call to Hist.convolve (i.e. each VM timing measured) increases the total area under the curve by 1.
 	       By dividing through by 'n' (where 'n' is the total number of VMs i.e. points) we make the total area under
 	       the curve equal 1 so we can consider the result as a probability density function. In particular this means
 	       we can directly compare curves for 10, 100, 1000 measurements without worrying about scale factors and
 	       also trade speed for estimation accuracy. *)
 	    let num_points = float_of_int (List.length points) in
-  
+
 	    List.iter (fun y -> Hist.convolve x (fun z -> (gaussian y sigma z) /. num_points)) points;
 	    (* Sanity-check: area under histogram should be almost 1.0 *)
 	    let total_area = Hist.fold x (fun bin_start bin_end height acc -> (bin_end -. bin_start) *. height +. acc) 0. in
@@ -110,7 +110,7 @@ let _ =
 	 ) all;
 
        let ls = List.map (fun ((info,floats), output) -> { Gnuplot.filename = output; title = short_info_to_title info; graphname = get_result info; field = 2; yaxis=1; scale=1.; style="linespoints" }) all in
-       let ylabel = 
+       let ylabel =
 	 if !integrate
 	 then "Cumulative probability"
 	 else "Estimate of the probability density function" in

@@ -23,16 +23,16 @@ val set_emergency_mode_error : string -> string list -> unit
     by the CLI, indicating stuff like: failure to get a management IP address, the master doesn't
     recognise us etc. *)
 
-val local_assert_healthy : __context:'a -> unit 
+val local_assert_healthy : __context:'a -> unit
 
 val set_power_on_mode :
   __context:Context.t ->
   self:[ `host ] Ref.t -> power_on_mode: string -> power_on_config:(string * string) list -> unit
-  
+
 val bugreport_upload :
   __context:'a ->
   host:'b -> url:string -> options:(string * string) list -> unit
-  
+
 val signal_networking_change : __context:Context.t -> unit
 val signal_cdrom_event : __context:Context.t -> string -> unit
 val notify : __context:Context.t -> ty:string -> params:string -> unit
@@ -62,7 +62,7 @@ val send_debug_keys : __context:Context.t -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
 val is_slave : __context:'a -> host:'b -> bool
 
-(** Contact the host and return whether it is a slave or not. 
+(** Contact the host and return whether it is a slave or not.
     If the host is dead then one of the xmlrpcclient exceptions will be thrown *)
 val ask_host_if_it_is_a_slave :
   __context:Context.t -> host:API.ref_host -> bool
@@ -225,11 +225,11 @@ val detach_static_vdis :
 (** {2 Local Database} *)
 
 (** Set a key in the Local DB of the host. *)
-val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit 
+val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit
 
 
 (** {2 Secrets} *)
-  
+
 val update_pool_secret :
   __context:'a -> host:'b -> pool_secret:string -> unit
 
@@ -267,7 +267,7 @@ val apply_edition_internal : __context:Context.t -> host:API.ref_host ->
 	edition:string -> additional:(string * string) list -> unit
 
 (** {2 CPU Feature Masking} *)
- 
+
 (** Control the local caching behaviour of the host *)
 val enable_local_storage_caching : __context:Context.t -> host:API.ref_host -> sr:API.ref_SR -> unit
 val disable_local_storage_caching : __context:Context.t -> host:API.ref_host -> unit

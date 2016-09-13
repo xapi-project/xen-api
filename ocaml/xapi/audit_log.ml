@@ -24,7 +24,7 @@ let audit_log_whitelist_prefix = "/var/log/audit.log"
 let line_timestamp_length = 21 (* the timestamp length at the debug line *)
 
 (* location of [ at the beginning of the line timestamp *)
-let timestamp_index line = 
+let timestamp_index line =
 	try ((String.index line '[') + 1) with Not_found -> 0
 
 let went_through ?filter line =
@@ -123,7 +123,7 @@ let log_timestamp_of_iso8601 iso8601_timestamp =
 
 (*
  Assume that RBAC access for the session_id already verified by xapi_http.ml
- 
+
  GET /audit_log?session_id=<session>&task_id=<task>&
                 [since=<timestamp in ISO 8601 / log.gettimestring() format>]
 

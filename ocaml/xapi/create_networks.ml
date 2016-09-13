@@ -17,7 +17,7 @@ open D
 
 let internal_management_network_name = "Host internal management network"
 let internal_management_network_desc = "Network on which guests will be assigned a private link-local IP address which can be used to talk XenAPI"
-let internal_management_network_oc = 
+let internal_management_network_oc =
 	[
 		Xapi_globs.is_guest_installer_network, "true"; (* for backward compat *)
 		Xapi_globs.is_host_internal_management_network, "true";
@@ -43,7 +43,7 @@ let create_guest_installer_network ~__context =
 		Db.Network.set_bridge ~__context ~self:h' ~value:internal_management_bridge;
 		debug "Created new host internal management network: %s" (Ref.string_of h')
 
-let create_networks_localhost () = 
+let create_networks_localhost () =
   Server_helpers.exec_with_new_task "creating networks"
     (fun __context->
        create_guest_installer_network ~__context)

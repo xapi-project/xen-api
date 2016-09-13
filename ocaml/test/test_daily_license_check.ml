@@ -35,40 +35,40 @@ module Tests = Generic.Make (struct
 	let tests = [
 		(["expiry", "20170101T00:00:00Z"], []),
 		Good;
-		
+
 		(["expiry", "20160701T04:01:00Z"], []),
 		Good;
-		
+
 		(["expiry", "20160701T04:00:00Z"], []),
 		Expiring [];
-		
+
 		(["expiry", "20160616T00:00:00Z"], []),
 		Expiring [];
-		
+
 		(["expiry", "20160601T04:00:01Z"], []),
 		Expiring [];
-		
+
 		(["expiry", "20160601T04:00:00Z"], []),
 		Expired [];
-		
+
 		(["expiry", "20160101T00:00:00Z"], []),
 		Expired [];
-		
+
 		(["expiry", "20160615T00:00:00Z"],
 			["host0", ["expiry", "20160615T00:00:00Z"];
 			 "host1", ["expiry", "20160615T00:00:00Z"]]),
 		Expiring ["host1"; "host0"];
-		
+
 		(["expiry", "20160615T00:00:00Z"],
 			["host0", ["expiry", "20160615T00:00:00Z"];
 			 "host1", ["expiry", "20160715T00:00:00Z"]]),
 		Expiring ["host0"];
-		
+
 		(["expiry", "20160101T00:00:00Z"],
 			["host0", ["expiry", "20160601T00:00:00Z"];
 			 "host1", ["expiry", "20150601T00:00:00Z"]]),
 		Expired ["host1"; "host0"];
-		
+
 		(["expiry", "20160101T00:00:00Z"],
 			["host0", ["expiry", "20170601T00:00:00Z"];
 			 "host1", ["expiry", "20150601T00:00:00Z"]]),

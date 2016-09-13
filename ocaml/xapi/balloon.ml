@@ -35,14 +35,14 @@ let parse_proc_xen_balloon () =
 		_requested_target;
 		_low_mem_balloon;
 		_high_mem_balloon] in
-	List.map (fun key -> 
+	List.map (fun key ->
 			  let s = (Unixext.string_of_file (sysfs_stem ^ key)) in
 			  let stripped = Xstringext.String.strip Xstringext.String.isspace s in
-			  (key, Some (Int64.of_string stripped))) keys 
-			
+			  (key, Some (Int64.of_string stripped))) keys
+
 
 let _proc_meminfo = "/proc/meminfo"
- 
+
 let parse_meminfo () =
 	let ic = open_in _proc_meminfo in
 	finally
@@ -57,7 +57,7 @@ let parse_meminfo () =
 							table := (key, Int64.(mul (of_string value) 1024L)) :: !table
 						| _ -> ()
 					done
-				with End_of_file -> ()	
+				with End_of_file -> ()
 			end;
 			!table
 		) (fun () -> close_in ic)

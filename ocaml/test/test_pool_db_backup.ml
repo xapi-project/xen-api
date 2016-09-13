@@ -15,7 +15,7 @@
 open OUnit
 open Test_common
 
-let test_prepare_restore () = 
+let test_prepare_restore () =
 	let make_context mac1 mac2 host_uuid dom0_uuid =
 		let __context = make_test_database () in
 		let master = List.hd (Db.Host.get_all ~__context) in
@@ -36,7 +36,7 @@ let test_prepare_restore () =
 	let all_hosts = Db.Host.get_all ~__context:new_context in
 	(* new_context should have exactly 1 host: the master *)
 	assert_equal ~msg:"test_prepare_restore: should only be 1 host" (List.length all_hosts) 1;
-	let master = List.hd all_hosts in	
+	let master = List.hd all_hosts in
 	(* new_context master host should have PIF with MAC "a" *)
 	let pif = List.hd (Db.Host.get_PIFs ~__context:new_context ~self:master) in
 	let mac = Db.PIF.get_MAC ~__context:new_context ~self:pif in

@@ -22,25 +22,25 @@ open Dm_api
 
   (** Create an XML DTD *)
 
-let rec split_cols n x = 
+let rec split_cols n x =
   if String.length x < n then [ x ]
   else String.sub x 0 n :: (split_cols n (String.sub x n (String.length x - n - 1)))
-    
+
 type attribute = Attribute of string * string list * string option
-  
+
 type dtd_element =
     PCData
     | Element of string * dtd_element list * attribute list
-	
-	
+
+
 let name_of_dtd_element = function
   | PCData -> "(#PCDATA)"
   | Element(name, _, _)  -> name
-      
+
 let is_element = function
   | Element(_, _, _)  -> true
   | _ -> false
-      
+
 
 let string_of_attribute = function
     Attribute(n, options, default) ->
@@ -61,18 +61,18 @@ let string_of_attribute = function
               "#IMPLIED"
       in
         sprintf "%s %s %s" n opt_string def_string
-	  
-	  
+
+
 let strings_of_attributes parent atts =
   if List.length atts > 0 then
     let prefix = sprintf "<!ATTLIST %s " parent in
     let body = List.map string_of_attribute atts in
-      
+
       prefix :: body @ [">"]
   else
     []
-      
-      
+
+
 let rec strings_of_dtd_element known_els = function
   | PCData -> ["(#PCDATA)"]
   | Element(name, els, attributes)  ->
@@ -98,7 +98,7 @@ let rec strings_of_dtd_element known_els = function
                                (fun x -> empty ^ name_of_dtd_element x)
                                (List.tl els))))) ^
                    ")") in
-	      
+
               Hashtbl.remove known_els name;
               (sprintf "%s%s>" prefix body) ::
                 ((strings_of_attributes name attributes) @
@@ -106,7 +106,7 @@ let rec strings_of_dtd_element known_els = function
                                    (List.filter is_element els))))
       else
         []
-	  
+
 let element known_els name children atts =
   let existing_children =
     if Hashtbl.mem known_els name then
@@ -115,14 +115,14 @@ let element known_els name children atts =
         | _ -> assert(false)
     else
       [], [] in
-    
+
   let el = Element (name,
-                    (List.setify children @ fst existing_children), 
+                    (List.setify children @ fst existing_children),
                     (List.setify atts @ snd existing_children)) in
     Hashtbl.replace known_els name el;
     el
-      
-      
+
+
 let add_attribute known_els el_name att_name options default =
   ignore (element known_els el_name []
             [Attribute(att_name, options, default)])
@@ -140,34 +140,34 @@ let rec dtd_element_of_contents known_els parent_name accu = function
     | Bool ->
         add_attribute known_els parent_name name [] None;
         accu
-          
+
     | Set _ ->
         element known_els name [] [] :: accu
-	  
+
     | Ref n ->
         add_attribute known_els parent_name name [] (Some "");
         accu
-	  
+
     | Enum(_, vals) ->
         add_attribute known_els parent_name name
           (List.map fst vals) None;
         accu
-	  
+
     | String ->
         element known_els name [PCData] [] :: accu
     | _ ->
         failwith (sprintf "unimplemented DTD of field %s" name)
 
-	
-let dtd_element_of_obj known_els x = 
+
+let dtd_element_of_obj known_els x =
   element known_els x.name
     (List.fold_left (dtd_element_of_contents known_els x.name) []
                      x.contents) []
-    
-    
-let of_objs api = 
+
+
+let of_objs api =
   let xs = objects_of_api api in
   let known_els = Hashtbl.create 10 in
   let elements = List.map (dtd_element_of_obj known_els) xs in
-  
+
   List.concat (List.map (strings_of_dtd_element known_els) elements)

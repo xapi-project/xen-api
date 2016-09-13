@@ -33,26 +33,26 @@ module OfAssocList = Generic.Make(struct
 	let tests = [
 		[],
 		[Xen_motion; AD];
-		
+
 		["restrict_xen_motion", "true";
 		 "restrict_ad", "true"],
 		[];
-		
+
 		["restrict_xen_motion", "true"],
 		[AD];
-		
+
 		["restrict_xen_motion", "false"],
 		[Xen_motion; AD];
-		
+
 		["restrict_xen_motion", "false";
 		 "restrict_dmc", "false"],
 		[DMC; Xen_motion; AD];
-		
+
 		["restrict_xen_motion", "false";
 		 "restrict_ad", "true";
 		 "restrict_dmc", "false"],
 		[DMC; Xen_motion];
-		
+
 		["enable_xha", "true";
 		 "restrict_xen_motion", "true"],
 		[HA; AD];

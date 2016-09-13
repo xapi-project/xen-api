@@ -403,7 +403,7 @@ let suspend ~__context ~vm =
 	let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
 	log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
 
-let resume ~__context ~vm ~start_paused ~force = 
+let resume ~__context ~vm ~start_paused ~force =
 	if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
 	then begin
 		Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
@@ -415,7 +415,7 @@ let resume ~__context ~vm ~start_paused ~force =
 
 	(* Update CPU feature set, which will be passed to xenopsd *)
 	Cpuid_helpers.update_cpu_flags ~__context ~vm ~host;
-	
+
 	Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
@@ -783,13 +783,13 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 	Xapi_xenops.set_shadow_multiplier ~__context ~self multiplier;
 	update_memory_overhead ~__context ~vm:self
 
-let set_memory_dynamic_range ~__context ~self ~min ~max = 
+let set_memory_dynamic_range ~__context ~self ~min ~max =
 	(* NB called in either `Halted or `Running states *)
 	let power_state = Db.VM.get_power_state ~__context ~self in
 	(* Check the range constraints *)
-	let constraints = 
-		if power_state = `Running 
-		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
+	let constraints =
+		if power_state = `Running
+		then Vm_memory_constraints.get_live ~__context ~vm_ref:self
 		else Vm_memory_constraints.get ~__context ~vm_ref:self in
 	let constraints = { constraints with Vm_memory_constraints.
 		dynamic_min = min;
@@ -809,7 +809,7 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 
 let request_rdp ~__context ~vm ~enabled =
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
-	let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
+	let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
 	let is_feature_ts2_on =
 		match vm_gmr with
 			| None -> false
@@ -1139,7 +1139,7 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
 				| e when Cohttp.Code.is_redirection (Cohttp.Code.code_of_status e) ->
 					begin match Cohttp.Header.get (Cohttp.Response.headers r) "Location" with
 						| Some l -> raise (Retry l)
-						| None -> raise (Api_errors.Server_error(Api_errors.import_error_generic, ["Redirect with no new location"])) 
+						| None -> raise (Api_errors.Server_error(Api_errors.import_error_generic, ["Redirect with no new location"]))
     end
 				| e ->
 					raise (Api_errors.Server_error(Api_errors.import_error_generic, [Cohttp.Code.string_of_status e]))

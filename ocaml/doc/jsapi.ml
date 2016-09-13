@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
+
 open Datamodel_types
 
 type change_t = lifecycle_change * string * string
@@ -30,15 +30,15 @@ let _ =
 	let names = List.map create_json objs in
 	let class_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") names) in
 	Stdext.Unixext.write_string_to_file "api/index.json" ("classes = [" ^ class_list ^ "]");
-	
+
 	let changes_in_release rel =
 		let search_obj obj =
 			let changes = List.filter (fun (transition, release, doc) -> release = rel) obj.obj_lifecycle in
-			let obj_changes : changes_t = 
+			let obj_changes : changes_t =
 				List.map (fun (transition, release, doc) ->
 					(transition, obj.name, if doc = "" && transition = Published then obj.description else doc)
 				) changes in
-			
+
 			let changes_for_msg m =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) m.msg_lifecycle in
 				List.map (fun (transition, release, doc) ->
@@ -47,7 +47,7 @@ let _ =
 			in
 			let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
 			let msg_changes : changes_t = List.fold_left (fun l m -> l @ (changes_for_msg m)) [] msgs in
-			
+
 			let changes_for_field f =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) f.lifecycle in
 				let field_name = String.concat "_" f.full_name in
@@ -64,7 +64,7 @@ let _ =
 			let fields = flatten_contents obj.contents in
 			let fields = List.filter (fun f -> not f.internal_only) fields in
 			let field_changes : changes_t = List.fold_left (fun l f -> l @ (changes_for_field f)) [] fields in
-			
+
 			"{'cls': '" ^ obj.name ^ "', 'obj_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t obj_changes) ^ ", 'field_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t field_changes) ^ ", 'msg_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t msg_changes) ^ "}"
 		in
 		let release_info = String.concat ", " (List.map search_obj objs) in

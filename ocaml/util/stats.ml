@@ -14,27 +14,27 @@
 (** Time activities, monitor the mean and standard deviation. Try to help understand how
     long key operations take under load. *)
 open Stdext
-    
+
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
   type t = { sigma_x: float;
 	     sigma_xx: float;
 	     n: int }
-      
+
   let empty = { sigma_x = 0.; sigma_xx = 0.; n = 0 }
-    
-  let sample (p: t) (x: float) : t = 
+
+  let sample (p: t) (x: float) : t =
     { sigma_x = p.sigma_x +. x;
       sigma_xx = p.sigma_xx +. x *. x;
       n = p.n + 1 }
-      
+
   exception Unknown
-    
+
   let mean (p: t) : float = p.sigma_x /. (float_of_int p.n)
-  let sd (p: t) : float = 
-    if p.n = 0 
+  let sd (p: t) : float =
+    if p.n = 0
     then raise Unknown
-    else 
+    else
       let n = float_of_int p.n in
       sqrt (n *. p.sigma_xx -. p.sigma_x *. p.sigma_x) /. n
 end
@@ -44,7 +44,7 @@ end
    number should never be proportional to the number of VMs, VIFs etc!
 
    Since these are used for timing data, which is better approximated by a
-   lognormal distribution than a normal one, we take care to apply the 
+   lognormal distribution than a normal one, we take care to apply the
    lognormal transformations here.
  *)
 
@@ -56,28 +56,28 @@ open Pervasiveext
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 let timings_m = Mutex.create ()
 
-let mean (p: Normal_population.t) = 
+let mean (p: Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
   exp (mu +. sigma *. sigma /. 2.)
 
-let sd (p: Normal_population.t) = 
+let sd (p: Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
   let v = (exp(sigma *. sigma) -. 1.) *. (exp (2. *. mu +. sigma *. sigma)) in
   sqrt v
 
-let string_of (p: Normal_population.t) = 
+let string_of (p: Normal_population.t) =
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
 
-let sample (name: string) (x: float) : unit = 
+let sample (name: string) (x: float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
   Mutex.execute timings_m
     (fun () ->
-       let p = 
-	 if Hashtbl.mem timings name 
-	 then Hashtbl.find timings name 
+       let p =
+	 if Hashtbl.mem timings name
+	 then Hashtbl.find timings name
 	 else Normal_population.empty in
        let p' = Normal_population.sample p x' in
        Hashtbl.replace timings name p';
@@ -90,7 +90,7 @@ let sample (name: string) (x: float) : unit =
 *)
 
 (** Helper function to time a specific thing *)
-let time_this (name: string) f = 
+let time_this (name: string) f =
   let start_time = Unix.gettimeofday () in
   finally f
     (fun () ->
@@ -100,8 +100,8 @@ let time_this (name: string) f =
        with e ->
 	 warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
     )
-       
-let summarise () = 
+
+let summarise () =
   Mutex.execute timings_m
     (fun () ->
        Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
@@ -123,11 +123,11 @@ let dbstats_threads : (int, (string * dbcallty) list) Hashtbl.t = Hashtbl.create
 
 let log_stats = ref false
 
-let log_db_call task_opt dbcall ty = 
+let log_db_call task_opt dbcall ty =
   if not !log_stats then () else
     Mutex.execute dbstats_m (fun () ->
-      let hashtbl = match ty with 
-	| Read -> dbstats_read_dbcalls 
+      let hashtbl = match ty with
+	| Read -> dbstats_read_dbcalls
 	| Write -> dbstats_write_dbcalls
 	| Create -> dbstats_create_dbcalls
 	| Drop -> dbstats_drop_dbcalls
@@ -135,14 +135,14 @@ let log_db_call task_opt dbcall ty =
       Hashtbl.replace hashtbl dbcall (1 + (try Hashtbl.find hashtbl dbcall with _ -> 0));
       let threadid = Thread.id (Thread.self ()) in
       Hashtbl.replace dbstats_threads threadid ((dbcall,ty)::(try Hashtbl.find dbstats_threads threadid with _ -> []));
-      match task_opt with 
+      match task_opt with
 	|	Some task ->
 		  Hashtbl.replace dbstats_task task ((dbcall,ty)::(try Hashtbl.find dbstats_task task with _ -> []))
 	| None -> ()
 
-	    
+
     )
-      
+
 let summarise_db_calls () =
   let string_of_ty = function | Read -> "read" | Write -> "write" | Create -> "create" | Drop -> "drop" in
   let summarise_table hashtbl =
@@ -162,7 +162,7 @@ let summarise_db_calls () =
 
 
 
-    
-      
+
+
 
 

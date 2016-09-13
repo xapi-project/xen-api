@@ -31,7 +31,7 @@ let minimally_compliant_miami_database =
 	"<database><manifest><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
 
 (** Write the database dump out to a file/socket *)
-let write_database (s: Unix.file_descr) ~__context = 
+let write_database (s: Unix.file_descr) ~__context =
 	if (Helpers.rolling_upgrade_in_progress ~__context) then
 		(* CA-18377: If we're in the middle of a rolling upgrade from Miami *)
 		(* to Orlando, then only send a minimally-compliant Miami database. *)
@@ -47,11 +47,11 @@ let version_check db =
 	if major <> Datamodel.schema_major_vsn || minor <> Datamodel.schema_minor_vsn then begin
 		error "Pool backup file was created with incompatible product version";
 		raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
-    end 
+    end
 
 (** Makes a new database suitable for xapi by rewriting some configuration from the current
 	database. *)
-let prepare_database_for_restore ~old_context ~new_context = 
+let prepare_database_for_restore ~old_context ~new_context =
 
 	(* To prevent duplicate installation_uuids or duplicate IP address confusing the
        "no other masters" check we remove all hosts from the backup except the master. *)
@@ -60,7 +60,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 	let master = Helpers.get_master ~__context:new_context in
 
 	(* Remove all slaves from the database *)
-	List.iter (fun self -> 
+	List.iter (fun self ->
 		if self <> master then begin
 			List.iter (fun self -> Db.PIF.destroy ~__context:new_context ~self)
 				(Db.Host.get_PIFs ~__context:new_context ~self);
@@ -76,37 +76,37 @@ let prepare_database_for_restore ~old_context ~new_context =
 	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	let dom0 = Db.Host.get_control_domain ~__context:new_context ~self:master in
 	Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid;
-	
+
 	(* Rewrite this host's PIFs' MAC addresses based on device name. *)
-	
-	(* First inspect the current machine's configuration and build up a table of 
+
+	(* First inspect the current machine's configuration and build up a table of
        device name -> PIF reference. *)
 	let all_pifs = Db.Host.get_PIFs ~__context:old_context ~self:(Helpers.get_localhost ~__context:old_context) in
-    
-	let device_to_ref = 
+
+	let device_to_ref =
 		let physical = List.filter (fun self -> Db.PIF.get_physical ~__context:old_context ~self) all_pifs in
 		List.map (fun self -> Db.PIF.get_device ~__context:old_context ~self, self) physical in
-  
+
 	(* Since it's difficult for us to change the @INVENTORY@ and the ifcfg-
        files, we /preserve/ the current management PIF across the restore. NB this interface
        might be a bond or a vlan. *)
-	let mgmt_dev = 
+	let mgmt_dev =
 		match List.filter (fun self -> Db.PIF.get_management ~__context:old_context ~self) all_pifs with
 			| [ dev ] -> Some (Db.PIF.get_device ~__context:old_context ~self:dev)
 			| _ -> None (* no management interface configured *) in
-	
+
 	(* The PIFs of the master host in the backup need their MAC addresses adjusting
        to match the current machine. For safety the new machine needs to have at least
        the same number and same device names as the backup being restored. (Note that
        any excess interfaces will be forgotten and need to be manually reintroduced)
-       
+
        Additionally we require the currently configured management interface device name
        is found in the backup so we can re-use the existing ifcfg- files in /etc/.
        We need this because the interface-reconfigure --force-up relies on the existing
        config files. Ideally a master startup (such as that in the restore db code) would
        actively regenerate the config files but this is too invasive a change for CA-15164.
-       
-       PIFs whose device name are not recognised or those belonging to (now dead) 
+
+       PIFs whose device name are not recognised or those belonging to (now dead)
        slaves are forgotten. *)
 
 	let found_mgmt_if = ref false in
@@ -124,7 +124,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 
 			(* We only need to rewrite the MAC addresses of physical PIFs *)
 			if physical then begin
-				(* If this is a physical PIF but we can't find the device name 
+				(* If this is a physical PIF but we can't find the device name
 				   on the restore target, bail out. *)
 				if not(List.mem_assoc device device_to_ref)
 				then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
@@ -143,7 +143,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 
 
 (** Restore all of our state from an XML backup. This includes the pool config, token etc *)
-let restore_from_xml __context dry_run (xml_filename: string) = 
+let restore_from_xml __context dry_run (xml_filename: string) =
 	debug "attempting to restore database from %s" xml_filename;
 	let db = Db_upgrade.generic_database_upgrade (Db_xml.From.file (Datamodel_schema.of_datamodel ()) xml_filename) in
 	version_check db;
@@ -153,9 +153,9 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 
 	prepare_database_for_restore ~old_context:__context ~new_context;
 	(* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
-	if not(dry_run) 
+	if not(dry_run)
 	then Db_xml.To.file Xapi_globs.db_temporary_restore_path (Db_ref.get_database (Context.database_of new_context))
-  
+
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req: Http.Request.t) s _ =
   debug "received request to write out db as xml";
@@ -183,7 +183,7 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
       let () = Pervasiveext.finally
 	(fun ()->ignore (Unixext.copy_file s xml_file_fd))
 	(fun ()->Unix.close xml_file_fd) in
-      
+
       let dry_run = List.mem_assoc "dry_run" req.Http.Request.query && (List.assoc "dry_run" req.Http.Request.query = "true") in
       if dry_run
       then debug "performing dry-run database restore"
@@ -194,13 +194,13 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
       if not(dry_run) then begin
 	(* We will restart as a master *)
 	Pool_role.set_role Pool_role.Master;
-	
+
 	(* now restart *)
 	debug "xapi has received new database via xml; will reboot and use that db...";
 	info "Rebooting to use restored database after delay of: %f" !Xapi_globs.db_restore_fuse_time;
 	Xapi_fuse.light_fuse_and_reboot ~fuse_length:!Xapi_globs.db_restore_fuse_time ();
       end
-    ) 
+    )
 
 let http_fetch_db ~master_address ~pool_secret =
 	let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]

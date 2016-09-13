@@ -18,24 +18,24 @@ open D
 open Db_cache_types
 open Db_backend
 
-let unmarshall schema dbconn = 
+let unmarshall schema dbconn =
   let filename = dbconn.Parse_db_conf.path in
   if not dbconn.Parse_db_conf.compress
   then Db_xml.From.file schema filename
-  else 
+  else
     let compressed = Unix.openfile filename [ Unix.O_RDONLY ] 0o0 in
     Stdext.Pervasiveext.finally
-      (fun () -> 
+      (fun () ->
 	 let result = ref None in
-	 Gzip.decompress_passive compressed 
-	   (fun uncompressed -> 
+	 Gzip.decompress_passive compressed
+	   (fun uncompressed ->
 	      result := Some (Db_xml.From.channel schema (Unix.in_channel_of_descr uncompressed))
 	   );
 	 match !result with
 	 | None -> failwith "unmarshal failure"
 	 | Some x -> x
       )
-      (fun () -> Unix.close compressed)    
+      (fun () -> Unix.close compressed)
 
 (* Given table name, read all rows from db and store in cache *)
 let populate schema dbconn =
@@ -43,7 +43,7 @@ let populate schema dbconn =
   let db = unmarshall schema dbconn in
   let major, minor = Manifest.schema (Database.manifest db) in
   debug "database unmarshalled, schema version = %d.%d" major minor;
-  (* version_check manifest; *) 
+  (* version_check manifest; *)
   db
 
 (* atomically flush entire db cache to disk. If we are given a cache then flush that, otherwise flush the
@@ -58,12 +58,12 @@ let flush dbconn db =
 			(fun fd ->
 				if not dbconn.Parse_db_conf.compress
 				then Db_xml.To.fd fd db
-				else 
+				else
 					Gzip.compress fd
 						(fun uncompressed -> Db_xml.To.fd uncompressed db)
 			) in
 
-	let do_flush_gen db filename = 
+	let do_flush_gen db filename =
 		let generation = Manifest.generation (Database.manifest db) in
 		Stdext.Unixext.write_string_to_file filename (Generation.to_string generation) in
 
@@ -87,4 +87,4 @@ let flush_dirty dbconn =
 	end else false
 
 
-    
+

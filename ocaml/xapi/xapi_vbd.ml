@@ -22,13 +22,13 @@ open Vbdops
 open Threadext
 open D
 
-let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) =
   assert_operation_valid ~__context ~self ~op
 
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations ~__context ~self
 
-let assert_attachable ~__context ~self : unit = 
+let assert_attachable ~__context ~self : unit =
   assert_attachable ~__context ~self
 
 

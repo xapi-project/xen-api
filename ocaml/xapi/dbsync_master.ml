@@ -14,7 +14,7 @@
 (**
  * @group Main Loop and Start-up
  *)
- 
+
 module D=Debug.Make(struct let name="dbsync" end)
 open D
 
@@ -28,7 +28,7 @@ let create_pool_record ~__context =
 	let pools = Db.Pool.get_all ~__context in
 	if pools=[] then
 		Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.make_uuid()))
-			~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
+			~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context)
 			~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null
 			~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
 			~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] ~health_check_config:[]
@@ -54,7 +54,7 @@ let set_master_ip ~__context =
 
 (* NB the master doesn't use the heartbeat mechanism to track its own liveness so we
    must make sure that live starts out as true because it will never be updated. *)
-let set_master_live ~__context = 
+let set_master_live ~__context =
   let host = Helpers.get_localhost ~__context in
   let metrics = Db.Host.get_metrics ~__context ~self:host in
   debug "Setting Host_metrics.live to true for localhost";
@@ -96,8 +96,8 @@ let reset_vms_running_on_missing_hosts ~__context =
 let release_locks ~__context =
   (* non-running VMs should have their VBD.current_operations cleared: *)
   let vms = List.filter (fun self -> Db.VM.get_power_state ~__context ~self = `Halted) (Db.VM.get_all ~__context) in
-  List.iter (fun vm -> 
-	       List.iter (fun self -> 
+  List.iter (fun vm ->
+	       List.iter (fun self ->
 			    Xapi_vbd_helpers.clear_current_operations ~__context ~self)
 		 (Db.VM.get_VBDs ~__context ~self:vm)) vms;
   (* Resets the current operations of all Halted VMs *)

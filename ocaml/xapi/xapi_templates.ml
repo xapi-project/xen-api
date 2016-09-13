@@ -54,7 +54,7 @@ let disk_of_xml = function
   | Element("disk", params, []) ->
       begin
 	try
-	  let device = List.assoc "device" params 
+	  let device = List.assoc "device" params
 	  and size = List.assoc "size" params
 	  and sr = List.assoc "sr" params
 	  and bootable = List.assoc "bootable" params
@@ -78,7 +78,7 @@ let post_install_key = "postinstall"
 open Client
 
 (** From a VM reference, return an 'install' record option. *)
-let get_template_record rpc session_id vm = 
+let get_template_record rpc session_id vm =
   let other_config = Client.VM.get_other_config rpc session_id vm in
   let disks = if List.mem_assoc disks_key other_config
     then disks_of_xml (Xml.parse_string (List.assoc disks_key other_config)) else [] in
@@ -86,22 +86,22 @@ let get_template_record rpc session_id vm =
     then Some (List.assoc post_install_key other_config) else None in
   if disks = [] && script = None
   then None
-  else Some { disks = disks; post_install_script = script } 
+  else Some { disks = disks; post_install_script = script }
 
 (** A special bootloader which takes care of the initial boot -- fakeserver only *)
 let bootloader = "installer"
 
 (** Returns true if the given VM is actually a template and must be pre-installed *)
-let needs_to_be_installed rpc session_id vm = 
+let needs_to_be_installed rpc session_id vm =
   get_template_record rpc session_id vm <> None
 
 (** For a VM and a disk record, create a VDI, VBD and return the VBD.
     Pass in the logging functions to avoid having to link this module against the log
     library. Hopefully we can link this code directly into the in-guest installer. *)
-let create_disk rpc session_id vm sm_config disk = 
-  let sr = 
+let create_disk rpc session_id vm sm_config disk =
+  let sr =
     try
-      Client.SR.get_by_uuid rpc session_id disk.sr 
+      Client.SR.get_by_uuid rpc session_id disk.sr
     with _ ->
       D.error "Unable to find SR (uuid: %s) to provision the disk" disk.sr;
       raise (Api_errors.Server_error (Api_errors.uuid_invalid, ["sr"; disk.sr ]))
@@ -109,7 +109,7 @@ let create_disk rpc session_id vm sm_config disk =
   debug "Provisioning VDI for new VM";
   let vdi = Client.VDI.create ~rpc ~session_id
     ~name_label:"" ~name_description:"Created by template provisioner"
-    ~sR:sr ~virtual_size:disk.size 
+    ~sR:sr ~virtual_size:disk.size
     ~_type:disk._type ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
   let vbd_ref = Client.VBD.create ~rpc ~session_id
     ~vM:vm ~vDI:vdi ~userdevice:disk.device ~bootable:disk.bootable ~mode:`RW ~_type:`Disk
@@ -122,7 +122,7 @@ let create_disk rpc session_id vm sm_config disk =
 
 (** For a given VM, if it needs to be installed, create each disk and return
     the optional post-install script and a list of created VBDs *)
-let pre_install rpc session_id vm = 
+let pre_install rpc session_id vm =
   debug "Performing pre_install actions (ie creating disks)";
   (* driver params for each call - vmhint and epochhint for netapp *)
   let vmuuid = Client.VM.get_uuid rpc session_id vm in
@@ -137,8 +137,8 @@ let pre_install rpc session_id vm =
 
 (** For a given VM, perform post-install tidy-up (ie remove keys from other_config which would
     cause the template to be installed twice) *)
-let post_install rpc session_id vm = 
+let post_install rpc session_id vm =
   debug "Performing post_install actions (ie removing template information from VM)";
   (try Client.VM.remove_from_other_config rpc session_id vm disks_key with _ -> ());
   (try Client.VM.remove_from_other_config rpc session_id vm post_install_key with _ -> ())
-    
+

@@ -258,14 +258,14 @@ let releases objs =
 	let changes_in_release rel =
 		let search_obj obj =
 			let changes = List.filter (fun (transition, release, doc) -> release = rel) obj.obj_lifecycle in
-			let obj_changes = 
+			let obj_changes =
 				List.map (fun (transition, release, doc) ->
 					transition,
 					obj.name,
 					(if doc = "" && transition = Published then obj.description else doc),
 					"class"
 				) changes in
-			
+
 			let changes_for_msg m =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) m.msg_lifecycle in
 				List.map (fun (transition, release, doc) ->
@@ -278,7 +278,7 @@ let releases objs =
 			(* Don't include implicit messages *)
 			let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
 			let msg_changes = List.fold_left (fun l m -> l @ (changes_for_msg m)) [] msgs in
-			
+
 			let changes_for_field f =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) f.lifecycle in
 				let field_name = String.concat "_" f.full_name in

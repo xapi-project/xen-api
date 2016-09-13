@@ -57,13 +57,13 @@ let refresh_internal ~__context ~self =
 			(Db.PIF.set_MAC)
 			(fun () -> Net.Interface.get_mac dbg ~name:device)
 			(id);
-	
+
 	maybe_update_database "MTU"
 		(Db.PIF.get_MTU)
 		(Db.PIF.set_MTU)
 		(Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg ~name:bridge))
 		(Int64.to_string);
-	
+
 	maybe_update_database "capabilities"
 		(Db.PIF.get_capabilities)
 		(Db.PIF.set_capabilities)
@@ -334,7 +334,7 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics 
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics
 		~managed ?(disallow_unplug=false) () =
 	let bridge = bridge_naming_convention device in
 
@@ -573,7 +573,7 @@ let destroy ~__context ~self =
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 	assert_pif_is_managed ~__context ~self;
 	assert_no_protection_enabled ~__context ~self;
-		
+
 	if gateway <> "" then
 		Helpers.assert_is_valid_ip `ipv6 "gateway" gateway;
 

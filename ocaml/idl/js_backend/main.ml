@@ -23,8 +23,8 @@ let rec ty_to_js ty =
     | Float -> "{ty:\"float\"}"
     | Bool -> "{ty:\"bool\"}"
     | DateTime -> "{ty:\"datetime\"}"
-    | Enum (name,values) -> 
-	Printf.sprintf "{ty:\"enum\",name:\"%s\",values:[%s]}" name 
+    | Enum (name,values) ->
+	Printf.sprintf "{ty:\"enum\",name:\"%s\",values:[%s]}" name
 	  (String.concat "," (List.map (fun (v,d) -> "\""^v^"\"") values))
     | Set (ty) -> Printf.sprintf "{ty:\"set\",contents:%s}" (ty_to_js ty)
     | Map (ty1,ty2) -> Printf.sprintf "{ty:\"map\",keys:%s,values:%s}"
@@ -35,27 +35,27 @@ let rec ty_to_js ty =
 let _ =
   let api = Datamodel_utils.add_implicit_messages (Datamodel.all_api) in
   let objs = objects_of_api api in
-  let msgs = List.flatten (List.map (fun obj -> 
+  let msgs = List.flatten (List.map (fun obj ->
     let jsstruct = List.map (fun msg ->
       (
 	(Datamodel_utils.wire_name ~sync:true obj msg),
 	(let params = List.map (fun param -> (param.param_name,ty_to_js param.param_type,param.param_doc)) msg.msg_params in
-	 if msg.msg_session 
+	 if msg.msg_session
 	 then ("session_id","{ty:\"ref\",class:\"session\"}","The session reference")::params
 	 else params),
 	msg.msg_doc
       )) obj.messages
     in
     let js = List.map (fun (msgname,params,doc) ->
-      Printf.sprintf "\"%s\":{params:[%s],doc:\"%s\"}" msgname 
-	(String.concat "," 
-	    (List.map (fun (name,ty,doc) -> 
+      Printf.sprintf "\"%s\":{params:[%s],doc:\"%s\"}" msgname
+	(String.concat ","
+	    (List.map (fun (name,ty,doc) ->
 	      Printf.sprintf "{name:\"%s\",ty:%s,doc:\"%s\"}" name ty doc) params))
 	doc
     ) jsstruct in
-    js    
+    js
   ) objs) in
   Printf.printf "var messages={%s};" (String.concat ",\n" msgs)
 
-    
-  
+
+

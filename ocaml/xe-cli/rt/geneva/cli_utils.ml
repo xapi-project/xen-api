@@ -81,7 +81,7 @@ let cli_offhost_with_pwspec cmd params pwspec =
 let cli_onhost cmd params =
   cli_with_pwspec false cmd params (Password "ignore")
 
-    
+
 let cli_offhost_with_pwd pwd cmd params =
   cli_offhost_with_pwspec cmd params (Password pwd)
 
@@ -106,11 +106,11 @@ let is_success rc s =
 	  report_failure ("Expected rc==0; actual rc=="^(string_of_int i)
 			  ^". cmd returned: "^(String.concat "" s))
     | _ -> ()
-	
+
 let expect_success f =
   let (s,rc) = f() in
     is_success rc s; s
-      
+
 let getval v line =
   let tks = tokenize line in
   let vs  = tokenize v in
@@ -122,7 +122,7 @@ let getval v line =
 	  else None
       | ([],_) -> None in
     domatch tks vs
-	  
+
 let rec mapopt f l =
   match l with
       [] -> []
@@ -203,7 +203,7 @@ let read_end_from_output line_start lines =
 	      (CLIOutputFormatError "can't find required parameter")
     end
 
-(* Wait for specified vm to get into specified state *)      
+(* Wait for specified vm to get into specified state *)
 let waitstate cli vmid state =
   print_line ("Waiting for vm "^vmid^" to get into state "^state);
   poll (fun ()->(getstate cli vmid)=state)
@@ -378,7 +378,7 @@ let state_test cli vmid =
     begin
       move_state "vm-start" "UP";
       move_state "vm-suspend" "SUSPENDED";
-      move_state "vm-resume" "UP"; 
+      move_state "vm-resume" "UP";
       wait_print 5; (* there is a window where a VM doesn't see the shutdown signal *)
       move_state "vm-shutdown" "DOWN";
       move_state "vm-start" "UP";
@@ -408,7 +408,7 @@ let loglevel_test cli =
     (fun x->
        ignore (expect_success
 		 (fun ()->cli "host-loglevel-set" [("log-level",x)])))
-    ["1";"2";"3";"4";"2"]    
+    ["1";"2";"3";"4";"2"]
 
 (* Read specified param from specified vm, returning it as string *)
 let getparam cli vmid param_name =
@@ -486,7 +486,7 @@ let verify_remove_cd cli vmid cdname cdlocation =
 let cd_attach_remove cli vmid cdname cdlocation =
   verify_attach_cd cli vmid cdname cdlocation;
   verify_remove_cd cli vmid cdname cdlocation
-      
+
 let apply_license_to_server cli =
   expect_success (fun()->cli "host-license-add"
 		    [("license-file",license_file)])

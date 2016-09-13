@@ -14,7 +14,7 @@
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
-	| Disk_op_clone 
+	| Disk_op_clone
 	| Disk_op_copy of API.ref_SR option
 	| Disk_op_snapshot
 	| Disk_op_checkpoint

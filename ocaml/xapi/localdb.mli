@@ -21,7 +21,7 @@ exception Missing_key of string
 (** Retrieves a value *)
 val get: string -> string
 
-(** [get_with_default key default] returns the value associated with [key], 
+(** [get_with_default key default] returns the value associated with [key],
 	or [default] if the key is missing. *)
 val get_with_default: string -> string -> string
 

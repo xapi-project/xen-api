@@ -64,7 +64,7 @@ let read_from_redo_log log staging_path db_ref =
       match !latest_generation with
       | None -> raise NoGeneration (* we should have already read in a database with a generation count *)
       | Some g ->
-        if gen_count > g 
+        if gen_count > g
         then latest_generation := Some gen_count
         else raise DeltaTooOld (* the delta should be at least as new as the database to which it applies *)
     in
@@ -72,12 +72,12 @@ let read_from_redo_log log staging_path db_ref =
     R.debug "Reading from redo log";
     Redo_log.apply read_db read_delta log;
 
-    (* 3. Write the database and generation to a file 
-     * Note: if there were no deltas applied then this is semantically 
-     *   equivalent to copying the temp_file used above in read_db rather than 
-     *   deleting it. 
-     * Note: we don't do this using the DB lock since this is only executed at 
-     *   startup, before the database engine has been started, so there's no 
+    (* 3. Write the database and generation to a file
+     * Note: if there were no deltas applied then this is semantically
+     *   equivalent to copying the temp_file used above in read_db rather than
+     *   deleting it.
+     * Note: we don't do this using the DB lock since this is only executed at
+     *   startup, before the database engine has been started, so there's no
      *   danger of conflicting writes. *)
     R.debug "Staging redo log to file %s" staging_path;
     (* Remove any existing file *)

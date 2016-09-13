@@ -11,11 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type message = 
+type message =
     (* Guest to Dom0 messages *)
-  | CmdResult of string  
+  | CmdResult of string
 
-    (* Dom0 to guest messages *) 
+    (* Dom0 to guest messages *)
   | CheckCD of string list  (* Check we've got connected cds *)
   | CheckVIF of string (* Check one device exists *)
   | CheckDisks of string list

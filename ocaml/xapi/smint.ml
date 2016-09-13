@@ -14,7 +14,7 @@
 (**
  * @group Storage
  *)
- 
+
 module D=Debug.Make(struct let name="smint" end)
 open D
 
@@ -23,21 +23,21 @@ type vdi_info = {
 	vdi_info_location: string;
 }
 
-let make_vdi_info ~location ?uuid () = 
+let make_vdi_info ~location ?uuid () =
   { vdi_info_uuid = uuid;
     vdi_info_location = location;
   }
 
 (** Very primitive first attempt at a set of backend features *)
 type capability =
-    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
+    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update
 	| Sr_supports_local_caching
 	| Sr_stats
     | Sr_metadata
     | Sr_trim
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach | Vdi_mirror
     | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
-    | Vdi_update | Vdi_introduce 
+    | Vdi_update | Vdi_introduce
     | Vdi_resize_online
     | Vdi_generate_config
     | Vdi_attach_offline
@@ -66,7 +66,7 @@ let string_to_capability_table = [
 	"VDI_CREATE",     Vdi_create;
 	"VDI_DELETE",     Vdi_delete;
 	"VDI_ATTACH",     Vdi_attach;
-	"VDI_DETACH",     Vdi_detach; 
+	"VDI_DETACH",     Vdi_detach;
 	"VDI_MIRROR",     Vdi_mirror;
 	"VDI_RESIZE",     Vdi_resize;
 	"VDI_RESIZE_ONLINE",Vdi_resize_online;

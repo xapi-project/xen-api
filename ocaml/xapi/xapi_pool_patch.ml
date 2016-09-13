@@ -36,8 +36,8 @@ open D
              after-apply-guidance="restartHVM restartPV restartHost"
       />
 *)
-type patch_info = { uuid: string; name_label: string; 
-                    name_description: string; version: string; 
+type patch_info = { uuid: string; name_label: string;
+                    name_description: string; version: string;
                     after_apply_guidance: API.after_apply_guidance list }
 
 exception Missing_patch_key of string
@@ -72,16 +72,16 @@ let extract_patch path =
     Unixext.with_file run_path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o755
       (fun fd ->
 	Gpg.with_signed_cleartext path
-	  (fun fingerprint fd' -> 
-	    (match fingerprint with 
+	  (fun fingerprint fd' ->
+	    (match fingerprint with
 	      | Some f ->
 		  let enc = Base64.encode f in
-		  let acceptable_keys = 
+		  let acceptable_keys =
 			  if Xapi_fist.allow_test_patches () then
 				  [ !Xapi_globs.trusted_patch_key; Xapi_globs.test_patch_key ] else [ !Xapi_globs.trusted_patch_key ]
 		  in
 		  if not (List.mem enc acceptable_keys)
-		  then 
+		  then
 		    (
                       debug "Got fingerprint: %s" f;
 		      (*debug "Encoded: %s" (Base64.encode f); -- don't advertise the fact that we've got an encoded string in here! *)
@@ -147,13 +147,13 @@ let precheck_patch_uuid uuid =
 
 let patch_info_of_xml = function
   | Element("info", attr, _) ->
-      let find x = 
-	    if List.mem_assoc x attr 
-	    then List.assoc x attr 
+      let find x =
+	    if List.mem_assoc x attr
+	    then List.assoc x attr
 	    else raise (Missing_patch_key x) in
-      let label = find "name-label" 
-      and descr = find "name-description" 
-      and version = find "version" 
+      let label = find "name-label"
+      and descr = find "name-description"
+      and version = find "version"
       and uuid = precheck_patch_uuid (find "uuid")
       and guidance = find "after-apply-guidance"
       in
@@ -164,11 +164,11 @@ let patch_info_of_xml = function
         else
           []
       in
-      { uuid = uuid; name_label = label; name_description = descr; 
+      { uuid = uuid; name_label = label; name_description = descr;
         version = version; after_apply_guidance = guidance }
   | _ -> raise Bad_patch_info
 
-let patch_info_of_string s = 
+let patch_info_of_string s =
   let xml = Xml.parse_string s in
     debug "xml: %s" (Xml.to_string xml);
     patch_info_of_xml xml
@@ -190,17 +190,17 @@ let get_patch_info path =
           | Subprocess_failed 2 ->
               debug "probably bad line endings...";
               raise (Api_errors.Server_error(Api_errors.invalid_patch_with_log, ["Bad line endings?"]))
-          | _ -> raise exn      
+          | _ -> raise exn
       end
 
 let read_in_and_check_patch length s path =
-  try    
+  try
     debug "Will stream patch to file: %s" path;
-    
+
     (* Stream the contents to path *)
     begin
       match length with
-        | None  -> 
+        | None  ->
             Unixext.with_file path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o440
 	      (fun fd -> let (_: int64) = Unixext.copy_file s fd in ())
         | Some i ->
@@ -209,7 +209,7 @@ let read_in_and_check_patch length s path =
     end;
 
     debug "Streaming complete; executing gpg";
-    
+
     let run_path = extract_patch path in
     Unixext.unlink_safe run_path
   with
@@ -223,19 +223,19 @@ let read_in_and_check_patch length s path =
 
 let create_patch_record ~__context ?path patch_info =
   let r = Ref.make () in
-  let path, size = 
+  let path, size =
     match path with
       | None -> "", Int64.zero
       | Some path ->
           let stat = Unix.stat path in
             path, Int64.of_int stat.Unix.st_size
  in
-  Db.Pool_patch.create ~__context ~ref:r 
+  Db.Pool_patch.create ~__context ~ref:r
     ~uuid:patch_info.uuid
-	~name_label:patch_info.name_label 
+	~name_label:patch_info.name_label
     ~name_description:patch_info.name_description
 	~version:patch_info.version
-    ~filename:path 
+    ~filename:path
     ~size
     ~pool_applied:false
     ~after_apply_guidance:patch_info.after_apply_guidance
@@ -268,19 +268,19 @@ let pool_patch_upload_handler (req: Request.t) s _ =
 
   if not (Pool_role.is_master ())
   then raise CannotUploadPatchToSlave;
-  
+
   Xapi_http.with_context "Uploading host patch" req s
     (fun __context ->
       if on_oem ~__context
       then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-upload"]));
-      
+
       debug "Patch Upload Handler - Authenticated...";
 
       let _ = Unixext.mkdir_safe patch_dir 0o755 in
       let new_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.make_uuid ())) in
       let task_id = Context.get_task_id __context in
       begin
-       
+
         debug "Patch Upload Handler - Sending headers...";
 
         Http_svr.headers s (Http.http_200_ok ());
@@ -290,12 +290,12 @@ let pool_patch_upload_handler (req: Request.t) s _ =
          | Some size -> assert_space_available size);
 
         read_in_and_check_patch req.Request.content_length s new_path;
-	
+
         try
           let r = create_patch_record ~__context ~path:new_path (get_patch_info new_path) in
-          Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of r)   
+          Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of r)
         with Db_exn.Uniqueness_constraint_violation (_, _, uuid) ->
-          (* patch already uploaded.  if the patch file has been cleaned, then put this one in its place. 
+          (* patch already uploaded.  if the patch file has been cleaned, then put this one in its place.
              otherwise, error *)
           debug "duplicate patch with uuid %s found." uuid;
           let patch_ref = Db.Pool_patch.get_by_uuid ~__context ~uuid in
@@ -305,7 +305,7 @@ let pool_patch_upload_handler (req: Request.t) s _ =
           then
             begin
               Unixext.unlink_safe new_path;
-              raise (Api_errors.Server_error(Api_errors.patch_already_exists, [uuid])) 
+              raise (Api_errors.Server_error(Api_errors.patch_already_exists, [uuid]))
             end
           else
             begin
@@ -313,9 +313,9 @@ let pool_patch_upload_handler (req: Request.t) s _ =
               let size = Int64.of_int stat.Unix.st_size in
                 Db.Pool_patch.set_filename ~__context ~self:patch_ref ~value:new_path;
                 Db.Pool_patch.set_size ~__context ~self:patch_ref ~value:size;
-                Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of patch_ref)   
+                Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of patch_ref)
             end
-      end            
+      end
     )
 
 let bin_sync = "/bin/sync"
@@ -325,19 +325,19 @@ let sync () =
     with_logfile_fd "sync"
       (fun log_fd ->
          let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] bin_sync [] in
-         waitpid_fail_if_bad_exit pid) 
-  in 
+         waitpid_fail_if_bad_exit pid)
+  in
     match output with
       | Failure(log, exn) ->
           debug "error from sync application: %s" log;
-          raise exn    
+          raise exn
       | Success(output, _) -> ()
 
 let patch_header_length = 8
 
 let pool_patch_download_handler (req: Request.t) s _ =
   Xapi_http.with_context "Downloading pool patch" req s
-    (fun __context ->     
+    (fun __context ->
       if not(List.mem_assoc "uuid" req.Request.query) then begin
         Http_svr.headers s (Http.http_400_badrequest ());
         error "HTTP request for pool patch lacked 'uuid' parameter"
@@ -346,15 +346,15 @@ let pool_patch_download_handler (req: Request.t) s _ =
         (* ensure its a valid uuid *)
         let r = Db.Pool_patch.get_by_uuid ~__context ~uuid in
         let path = Db.Pool_patch.get_filename ~__context ~self:r in
-  
+
         if not (Sys.file_exists path)
         then raise (Api_errors.Server_error (Api_errors.cannot_find_patch, []));
-  
+
         Http_svr.response_file s path;
       end;
       req.Request.close <- true
     )
-      
+
 let get_patch_to_local ~__context ~self =
   if not (Pool_role.is_master ()) then
     begin
@@ -424,7 +424,7 @@ let get_patch_applied_to ~__context ~patch ~host =
 
 let patch_applied_dir = "/var/patch/applied"
 
-let write_patch_applied ~__context ~self = 
+let write_patch_applied ~__context ~self =
   (* This will write a small file containing xml to /var/patch/applied/ detailing what patches have been applied*)
   (* This allows the agent to remember what patches have been applied across pool-ejects *)
   let path = Db.Pool_patch.get_filename ~__context ~self in
@@ -439,7 +439,7 @@ let write_patch_applied ~__context ~self =
           end
       | Failure(log, exn) ->
           debug "error from patch application: %s" log;
-          raise exn      
+          raise exn
 
 
 let write_patch_applied_db ~__context ?date ?(applied=true) ~self ~host () =
@@ -482,17 +482,17 @@ let update_db ~__context =
   (* Used from dbsync_slave - DO NOT THROW ANY EXCEPTIONS *)
   try
     (* First look in the patch applied dir for the definitive list of locally-applied patches *)
-    let local_patch_details = 
+    let local_patch_details =
       (* Full paths of the /var/patch/applied files *)
       let stampfiles = List.map (Filename.concat patch_applied_dir) (try Array.to_list (Sys.readdir patch_applied_dir) with _ -> []) in
-      let parse x = 
+      let parse x =
 	try [ patch_info_of_string (Unixext.string_of_file x), (Unix.stat x).Unix.st_mtime ]
 	with e -> warn "Error parsing patch stampfile %s: %s" x (ExnHelper.string_of_exn e); [] in
       List.concat (List.map parse stampfiles) in
 
     (* Make sure all the patches in the filesystem have global Pool_patch records *)
-    let pool_patches_in_fs = List.map 
-      (fun (details , _)-> 
+    let pool_patches_in_fs = List.map
+      (fun (details , _)->
 	 try Db.Pool_patch.get_by_uuid ~__context ~uuid:details.uuid
 	 with _ ->
 	   debug "Patch uuid %s does not exist in Pool_patch table; creating" details.uuid;
@@ -513,7 +513,7 @@ let update_db ~__context =
     List.iter
       (fun pp ->
 	 let msg = Printf.sprintf "Adding new Host_patch record for patch %s" (Ref.string_of pp) in
-	 Helpers.log_exn_continue msg 
+	 Helpers.log_exn_continue msg
 	   (fun () ->
 	      debug "%s" msg;
 	      let date = List.assoc pp pool_patch_to_mtime in
@@ -526,7 +526,7 @@ let update_db ~__context =
 	   (fun () ->
 	      debug "%s" msg;
 	      Db.Host_patch.destroy ~__context ~self:(List.assoc pp pool_patch_to_host_patch)) ()) old_pool_patches
-  with 
+  with
     | End_of_file ->
         ()
     | e ->
@@ -591,14 +591,14 @@ let parse_patch_precheck_xml patch xml =
       raise (Api_errors.Server_error (Api_errors.patch_precheck_failed_out_of_space, [Ref.string_of patch; found; required]))
   | _ ->
       raise (Bad_precheck_xml "Unknown error code or malformed xml")
-  
+
 (* calls the parse function, which throws the correct error based on the XML the patch precheck put on stdout *)
 let throw_patch_precheck_error patch s =
   try
     let xml = Xml.parse_string s in
       debug "precheck xml: %s" (Xml.to_string xml);
       parse_patch_precheck_xml patch xml
-  with 
+  with
   | Xml.Error error ->
     let msg = Printf.sprintf "error parsing patch precheck xml: %s" (Xml.error error) in
       debug "%s" msg;
@@ -628,17 +628,17 @@ let precheck ~__context ~self ~host =
   (* get the patch from the master (no-op if we're the master) *)
   get_patch_to_local ~__context ~self;
 
-  finally 
+  finally
 	  (fun () -> run_precheck ~__context ~self ~host)
 	  (fun () ->
 		   (* This prevents leaking space on the slave if the patch is repeatedly uploaded, prechecked and then destroyed *)
-		   if not (Pool_role.is_master ()) then begin		   
+		   if not (Pool_role.is_master ()) then begin
 			 let path = Db.Pool_patch.get_filename ~__context ~self in
-			 Unixext.unlink_safe path;		   
+			 Unixext.unlink_safe path;
 		   end
 	  )
 
-let apply ~__context ~self ~host = 
+let apply ~__context ~self ~host =
   (* 0th, check we're not on oem *)
   if on_oem ~__context
   then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-apply"]));
@@ -652,11 +652,11 @@ let apply ~__context ~self ~host =
 
   (* 2nd, get the patch from the master (no-op if we're the master) *)
   get_patch_to_local ~__context ~self;
-  
+
   let path = Db.Pool_patch.get_filename ~__context ~self in
     (* 3rd, run prechecks *)
     let (_: string) = run_precheck ~__context ~self ~host in
- 
+
     (* 4th, apply the patch *)
     begin
       write_patch_applied_db ~__context ~applied:false ~self ~host ();
@@ -694,55 +694,55 @@ let apply ~__context ~self ~host =
 
 let pool_apply ~__context ~self =
   let hosts =
-    List.filter 
+    List.filter
       (fun x ->
          not (is_oem ~__context ~host:x)
          && match get_patch_applied_to ~__context ~patch:self ~host:x with
            | None -> true
            | Some (_, applied) -> not applied &&  patch_apply_in_progress ~__context ~patch:self ~host:x)
-      (Db.Host.get_all ~__context) 
+      (Db.Host.get_all ~__context)
   in
-  let (_: string list) = 
-    List.map 
+  let (_: string list) =
+    List.map
       (fun host ->
          Helpers.call_api_functions ~__context
            (fun rpc session_id -> Client.Client.Pool_patch.apply ~rpc ~session_id ~self ~host)
       )
-      hosts 
+      hosts
   in
   let _ = Db.Pool_patch.set_pool_applied ~__context ~self ~value:true in
     ()
-  
-let clean ~__context ~self = 
+
+let clean ~__context ~self =
   let path = Db.Pool_patch.get_filename ~__context ~self in
 	Unixext.unlink_safe path
 
-let clean_on_host ~__context ~self ~host = 
+let clean_on_host ~__context ~self ~host =
 	debug "pool_patch.clean_on_host";
 	clean ~__context ~self
 
-let pool_clean ~__context ~self = 
+let pool_clean ~__context ~self =
 	debug "pool_patch.pool_clean";
 	let hosts = Db.Host.get_all ~__context in
-	List.iter 
+	List.iter
 		(fun host ->
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
 		)
-		hosts; 
+		hosts;
 	Db.Pool_patch.set_filename ~__context ~self ~value:""
 
-let destroy ~__context ~self = 
+let destroy ~__context ~self =
   let hosts = Db.Host.get_all ~__context in
   let applied = List.exists (fun host -> get_patch_applied_to ~__context ~patch:self ~host <> None ) hosts in
 
   if applied
   then raise (Api_errors.Server_error(Api_errors.patch_is_applied, []));
 
-	List.iter 
+	List.iter
 		(fun host ->
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> Client.Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
 		)
-		hosts; 
+		hosts;
 	Db.Pool_patch.destroy ~__context ~self

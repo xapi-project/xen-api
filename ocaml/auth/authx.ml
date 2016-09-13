@@ -14,14 +14,14 @@
 (**
  * @group Access Control
  *)
- 
+
 module D = Debug.Make(struct let name="extauth_plugin_PAM_NSS" end)
 open D
 
 module AuthX : Auth_signature.AUTH_MODULE =
 struct
 
-(* 
+(*
  * External Authentication Plugin component
  * using Unix PAM/NSS as a backend
  * v1 22Oct08 marcusg@eu.citrix.com
@@ -39,7 +39,7 @@ struct
 let with_cmd cmd params_list fn =
 	let debug_cmd = (cmd^" "^(List.fold_right (fun p pp->"\""^p^"\" "^pp) params_list "")) in
 	debug "Executing cmd [%s]" debug_cmd;
-	let output_str, _ = 
+	let output_str, _ =
 		try
 			Forkhelpers.execute_command_get_output cmd params_list
 		with e -> begin
@@ -60,7 +60,7 @@ let getent_common nss_database fn =
 				(match lines with
 					| [] -> raise Not_found
 					| line::lines ->
-						let recs = Stdext.Xstringext.String.split ':' line in 
+						let recs = Stdext.Xstringext.String.split ':' line in
 						let username = List.nth recs 0 in
 						let uid = List.nth recs 2 in
 						(match fn username uid recs with
@@ -70,7 +70,7 @@ let getent_common nss_database fn =
 				)
 			in
 			get_next_line lines
-		with  e -> 
+		with  e ->
 			begin
 					 debug "error looking up nss_database=%s: %s"
 						 nss_database (Printexc.to_string e);
@@ -84,30 +84,30 @@ let getent_common nss_database fn =
 (* 'group', for the list of groups *)
 (* Returns the id corresponding to the subject_name *)
 (* Raises Not_found if subject_name not in NSS database *)
-let getent_idbyname nss_database subject_name = 
+let getent_idbyname nss_database subject_name =
 	getent_common nss_database
 		(fun username uid recs -> if username = subject_name then Some uid else None)
 
-let getent_namebyid nss_database subject_id = 
+let getent_namebyid nss_database subject_id =
 	getent_common nss_database
 		(fun username uid recs -> if uid = subject_id then Some username else None)
 
-let getent_idbyid nss_database subject_id = 
+let getent_idbyid nss_database subject_id =
 	getent_common nss_database
 		(fun username uid recs -> if uid = subject_id then Some uid else None)
 
-let getent_allbyid nss_database subject_id = 
+let getent_allbyid nss_database subject_id =
 	getent_common nss_database
 		(fun username uid recs -> if uid = subject_id then Some recs else None)
 
 (* subject_id get_subject_identifier(string subject_name)
 
-	Takes a subject_name (as may be entered into the XenCenter UI when defining subjects -- 
-	see Access Control wiki page); and resolves it to a subject_id against the external 
-	auth/directory service. 
+	Takes a subject_name (as may be entered into the XenCenter UI when defining subjects --
+	see Access Control wiki page); and resolves it to a subject_id against the external
+	auth/directory service.
 	Raises Not_found if authentication is not succesful.
 *)
-let get_subject_identifier subject_name = 
+let get_subject_identifier subject_name =
 
 	try
 		(* looks up list of users*)
@@ -119,26 +119,26 @@ let get_subject_identifier subject_name =
 
 (* subject_id Authenticate_username_password(string username, string password)
 
-	Takes a username and password, and tries to authenticate against an already configured 
-	auth service (see XenAPI requirements Wiki page for details of how auth service configuration 
-	takes place and the appropriate values are stored within the XenServer Metadata). 
-	If authentication is successful then a subject_id is returned representing the account 
-	corresponding to the supplied credentials (where the subject_id is in a namespace managed by 
-	the auth module/service itself -- e.g. maybe a SID or something in the AD case). 
+	Takes a username and password, and tries to authenticate against an already configured
+	auth service (see XenAPI requirements Wiki page for details of how auth service configuration
+	takes place and the appropriate values are stored within the XenServer Metadata).
+	If authentication is successful then a subject_id is returned representing the account
+	corresponding to the supplied credentials (where the subject_id is in a namespace managed by
+	the auth module/service itself -- e.g. maybe a SID or something in the AD case).
 	Raises auth_failure if authentication is not successful
 *)
 
 (* call already existing pam.ml *)
-let authenticate_username_password username password = 
+let authenticate_username_password username password =
 
 	(* first, we try to authenticated against our user database using PAM *)
 	try
 		Pam.authenticate username password;
-		
+
 		(* no exception raised, then authentication succeeded, *)
 		(* now we return the authenticated user's id *)
 		get_subject_identifier username
-		
+
 	with (Failure msg) ->
 		(*debug "Failed to authenticate user %s: %s" uname msg;*)
 		raise (Auth_signature.Auth_failure msg)
@@ -149,26 +149,26 @@ let authenticate_username_password username password =
 *)
 	(* not implemented now, not needed for our tests, only for a *)
 	(* future single sign-on feature *)
-let authenticate_ticket tgt = 
+let authenticate_ticket tgt =
 	failwith "authx authenticate_ticket not implemented"
 
 (* ((string*string) list) query_subject_information(string subject_identifier)
 
-	Takes a subject_identifier and returns the user record from the directory service as 
-	key/value pairs. In the returned string*string map, there _must_ be a key called 
-	subject_name that refers to the name of the account (e.g. the user or group name as may 
-	be displayed in XenCenter). There is no other requirements to include fields from the user 
-	record -- initially I'd imagine that we wouldn't bother adding anything else here, but 
-	it's a string*string list anyway for possible future expansion. 
+	Takes a subject_identifier and returns the user record from the directory service as
+	key/value pairs. In the returned string*string map, there _must_ be a key called
+	subject_name that refers to the name of the account (e.g. the user or group name as may
+	be displayed in XenCenter). There is no other requirements to include fields from the user
+	record -- initially I'd imagine that we wouldn't bother adding anything else here, but
+	it's a string*string list anyway for possible future expansion.
 	Raises Not_found if subject_id cannot be resolved by external auth service
 *)
-let query_subject_information subject_identifier = 
+let query_subject_information subject_identifier =
 
 	(* we are expecting an id such as u0, g0, u123 etc *)
 	if String.length subject_identifier < 2 then raise Not_found;
 
 	match (String.get subject_identifier 0) with
-	| 'u' -> begin	
+	| 'u' -> begin
 		(* 1. first look up the list of users *)
 
 		(* here we remove the prefix u or g *)
@@ -177,9 +177,9 @@ let query_subject_information subject_identifier =
 		let infolist = getent_allbyid "passwd" subject_identifier in
 		let passwd = List.nth infolist 1 in
 		let account_disabled =
-			if (String.length passwd < 1) 
+			if (String.length passwd < 1)
 			then true (* no password *)
-			else	
+			else
 				passwd.[0] = '*'  (* disabled account *)|| passwd.[0] = '!'  (* disabled password *)
 		in
 		[	("subject-name", List.nth infolist 0);
@@ -187,9 +187,9 @@ let query_subject_information subject_identifier =
 			("subject-uid", "u"^(List.nth infolist 2));
 			("subject-gid", "g"^(List.nth infolist 3));
 			("subject-gecos", List.nth infolist 4);
-			("subject-displayname", 
+			("subject-displayname",
 				let n = (List.nth infolist 4) in
-				if n <> "" 
+				if n <> ""
 				then n (* gecos *)
 				else List.nth infolist 0 (* name *)
 			);
@@ -230,14 +230,14 @@ let query_subject_information subject_identifier =
 
 (* (string list) query_group_membership(string subject_identifier)
 
-	Takes a subject_identifier and returns its group membership (i.e. a list of subject 
-	identifiers of the groups that the subject passed in belongs to). The set of groups returned 
-	_must_ be transitively closed wrt the is_member_of relation if the external directory service 
+	Takes a subject_identifier and returns its group membership (i.e. a list of subject
+	identifiers of the groups that the subject passed in belongs to). The set of groups returned
+	_must_ be transitively closed wrt the is_member_of relation if the external directory service
 	supports nested groups (as AD does for example)
 *)
 	(* in unix, groups cannot contain groups, so we just verify the groups a user *)
-	(* belongs to and, if that fails, if some group has the required identifier *) 
-let query_group_membership subject_identifier = 
+	(* belongs to and, if that fails, if some group has the required identifier *)
+let query_group_membership subject_identifier =
 
 	(* 1. first we try to see if our subject identifier is a user id...*)
 	let sanitized_subject_id = String.escaped subject_identifier in
@@ -261,7 +261,7 @@ let query_group_membership subject_identifier =
 			match lines with
 			| [] -> raise Not_found
 			| gidline::_ ->
-				let gids = Stdext.Xstringext.String.split ' ' gidline in 
+				let gids = Stdext.Xstringext.String.split ' ' gidline in
 				debug "Resolved %i group ids for subject %s (%s): %s"
 					(List.length gids)
 					subject_name
@@ -285,16 +285,16 @@ let query_group_membership subject_identifier =
 
 (* unit on_enable(((string*string) list) config_params)
 
-	Called internally by xapi _on each host_ when a client enables an external auth service for the 
-	pool via the XenAPI [see AD integration wiki page]. The config_params here are the ones passed 
+	Called internally by xapi _on each host_ when a client enables an external auth service for the
+	pool via the XenAPI [see AD integration wiki page]. The config_params here are the ones passed
 	by the client as part of the corresponding XenAPI call.
 	On receiving this hook, the auth module should:
-	(i) do whatever it needs to do (if anything) to register with the external auth/directory 
+	(i) do whatever it needs to do (if anything) to register with the external auth/directory
 		service [using the config params supplied to get access]
-	(ii) Write the config_params that it needs to store persistently in the XenServer metadata 
-		into the Pool.external_auth_configuration field. [Note - the rationale for making the plugin 
-		write the config params it needs long-term into the XenServer metadata itself is so it can 
-		explicitly filter any one-time credentials [like AD username/password for example] that it 
+	(ii) Write the config_params that it needs to store persistently in the XenServer metadata
+		into the Pool.external_auth_configuration field. [Note - the rationale for making the plugin
+		write the config params it needs long-term into the XenServer metadata itself is so it can
+		explicitly filter any one-time credentials [like AD username/password for example] that it
 		does not need long-term.]
 *)
 let on_enable config_params =
@@ -303,9 +303,9 @@ let on_enable config_params =
 
 (* unit on_disable()
 
-	Called internally by xapi _on each host_ when a client disables an auth service via the XenAPI. 
-	The hook will be called _before_ the Pool configuration fields relating to the external-auth 
-	service are cleared (i.e. so you can access the config params you need from the pool metadata 
+	Called internally by xapi _on each host_ when a client disables an auth service via the XenAPI.
+	The hook will be called _before_ the Pool configuration fields relating to the external-auth
+	service are cleared (i.e. so you can access the config params you need from the pool metadata
 	within the body of the on_disable method)
 *)
 let on_disable config_params =
@@ -314,7 +314,7 @@ let on_disable config_params =
 
 (* unit on_xapi_initialize(bool system_boot)
 
-	Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is 
+	Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
 	starting for the first time after a host boot
 *)
 let on_xapi_initialize system_boot =
@@ -326,7 +326,7 @@ let on_xapi_initialize system_boot =
 	Called internally when xapi is doing a clean exit.
 *)
 let on_xapi_exit () =
-	(* nothing to do here in this unix plugin *) 
+	(* nothing to do here in this unix plugin *)
 	()
 
 (* Implement the single value required for the module signature *)

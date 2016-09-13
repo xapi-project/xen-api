@@ -28,7 +28,7 @@ let default_vm num =
 	  has_affinity = true
 	}
 
-let string_of_vm (x: vm) = 
+let string_of_vm (x: vm) =
 	let vbds = Printf.sprintf "%s VBDs" (if x.vbds = 0 then "no" else string_of_int x.vbds) in
 	let vifs = Printf.sprintf "%s VIFs" (if x.vifs = 0 then "no" else string_of_int x.vifs) in
 	Printf.sprintf "%d VMs per host (tag %s) with %s, %s and affinity%s set" x.num x.tag vbds vifs (if x.has_affinity then "" else " not")
@@ -48,12 +48,12 @@ type pool =
           use_shared_storage: bool;
 	}
 
-let default = 
+let default =
 	{ id="default";
 	  sdk=true;
 	  hosts=1;
 	  interfaces_per_host=6;
-	  vms = 
+	  vms =
 		[ (default_vm 20);
 		  { (default_vm 20) with vifs = 0; tag = "novifs" };
 		  { (default_vm 20) with vbds = 0; tag = "novbds" };
@@ -78,7 +78,7 @@ let pools =
 	  { default with id="pool1"; hosts=4 };
 	  { default with id="pool2"; hosts=16};
 	  { default with id="pool3"; hosts=48};
-	  { default with 
+	  { default with
 			id="real1";
 			hosts=1;
 			sdk=false;
@@ -101,7 +101,7 @@ let get_all () = List.map (fun p -> p.id) pools
 let get name = List.find (fun p -> p.id=name) pools
 
 let xml_of_scenario s =
-  String.concat "\n" 
+  String.concat "\n"
     (["<scenario>";
      (Printf.sprintf " <id>%s</id>" s.id);
      (Printf.sprintf " <key>%s</key>" s.key);
@@ -109,17 +109,17 @@ let xml_of_scenario s =
      (Printf.sprintf " <hosts>%d</hosts>" s.hosts);
      (Printf.sprintf " <interfaces_per_host>%d</interfaces_per_host>" s.interfaces_per_host);
      (Printf.sprintf " <vms>")]
-      @ 
+      @
      (List.map (fun vm -> Printf.sprintf "  <vm vbds=\"%d\" vifs=\"%d\" tag=\"%s\" num=\"%d\" has_affinity=\"%b\" />" vm.vbds vm.vifs vm.tag vm.num vm.has_affinity) s.vms)
-      @ 
+      @
      [" </vms>";
       Printf.sprintf " <bonds>%d</bonds>" s.bonds;
       Printf.sprintf " <ipbase>%d</ipbase>" s.ipbase;
       "</scenario>"
      ])
-    
+
 
 let oc_key = "perftestsetup"
 let sr_disk_size = Int64.mul 1048576L 2093049L (* limit of 1 vhd ~2 terabytes (megs, gigs, t.. what?) *)
 let sr_disk_device = "xvde"
-	
+

@@ -15,13 +15,13 @@
  * @group XenAPI functions
  *)
 
- 
+
 (** Message store *)
 
-(* We use a filesystem based 'database': 
+(* We use a filesystem based 'database':
  *  Base directory: /var/lib/xcp/blobs/messages
  *  All messages go in there, filename=timestamp
- *  
+ *
  *  Symlinks are created to the messages for fast indexing:
  *  /var/lib/xcp/blobs/messages/VM/<uuid>/<timestamp> -> message
  *  /var/lib/xcp/blobs/messages/uuid/<message uuid> -> message
@@ -29,10 +29,10 @@
  *)
 
 open Stdext
-open Listext   
+open Listext
 open Xstringext
 open Threadext
- 
+
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
@@ -46,17 +46,17 @@ let in_memory_cache_length = ref 0
 let in_memory_cache_length_max = 512
 let in_memory_cache_length_default = 256
 
-let class_to_string cls = 
-  match cls with 
-    | `VM -> "VM" 
-    | `Host -> "Host" 
-    | `SR -> "SR" 
+let class_to_string cls =
+  match cls with
+    | `VM -> "VM"
+    | `Host -> "Host"
+    | `SR -> "SR"
     | `Pool -> "Pool"
-    | `VMPP -> "VMPP" 
+    | `VMPP -> "VMPP"
     | _ -> "unknown"
 
-let string_to_class str = 
-  match str with 
+let string_to_class str =
+  match str with
     | "VM" -> `VM
     | "Host" -> `Host
     | "SR" -> `SR
@@ -67,14 +67,14 @@ let string_to_class str =
 (* We use the timestamp to name the file. For consistency, use this function *)
 let timestamp_to_string f =
   Printf.sprintf "%0.5f" f
-  
+
 (************* Marshalling/unmarshalling functions ************)
 
 let to_xml output _ref gen message =
-  let tag n next () = 
-    Xmlm.output output (`El_start (("",n),[])); 
-    List.iter (fun x -> x ()) next; 
-    Xmlm.output output `El_end 
+  let tag n next () =
+    Xmlm.output output (`El_start (("",n),[]));
+    List.iter (fun x -> x ()) next;
+    Xmlm.output output `El_end
   in
   let data dat () = Xmlm.output output (`Data dat) in
 
@@ -92,9 +92,9 @@ let to_xml output _ref gen message =
   ] in
 
   let message_subtags = match gen with
-	  | Some g -> 
+	  | Some g ->
 		  (tag "generation" [data (Int64.to_string g) ])::message_subtags
-	  | None -> 
+	  | None ->
 		  message_subtags
   in
 
@@ -198,10 +198,10 @@ let symlinks _ref gen message basefilename =
 		 (uuid_symlink (), Some message.API.message_uuid);
 		 (ref_symlink (), Some (Ref.string_of _ref))] in
 	let symlinks =
-		match gen with 
-			| Some gen -> 
+		match gen with
+			| Some gen ->
 				(gen_symlink (), Some (Int64.to_string gen)) :: symlinks
-			| None -> 
+			| None ->
 				symlinks
 	in
 	List.map (fun (dir,fnameopt) ->
@@ -521,7 +521,7 @@ let get_real_inner dir filter name_filter =
 			if filter msg then Some (gen,_ref,msg) else None
 		with _ -> None) messages
 	in
-	List.sort (fun (t1,r1,m1) (t2,r2,m2) -> 
+	List.sort (fun (t1,r1,m1) (t2,r2,m2) ->
 		let r = compare t2 t1 in
 	    if r <> 0 then r else compare (Date.to_float m2.API.message_timestamp) (Date.to_float m1.API.message_timestamp)) messages
   with _ -> [] (* Message directory missing *)

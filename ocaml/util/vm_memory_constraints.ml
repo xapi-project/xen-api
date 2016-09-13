@@ -113,7 +113,7 @@ module Vm_memory_constraints : T = struct
 			if value > maximum then maximum else value in
 		(* Fail if either maximum is less than its corresponding minimum. *)
 		if c.static_max < c.static_min then None else
-		if c.dynamic_max < c.dynamic_min then None else 
+		if c.dynamic_max < c.dynamic_min then None else
 		(* Ensure dynamic constraints are within static constraints. *)
 		let dynamic_min = constrain c.dynamic_min c.static_min c.static_max in
 		let dynamic_max = constrain c.dynamic_max c.static_min c.static_max in
@@ -141,7 +141,7 @@ module Vm_memory_constraints : T = struct
 		&& constraints.static_min <= constraints.dynamic_min
 		&& are_pinned_at_static_max constraints
 
-	let reset_to_safe_defaults ~constraints = 
+	let reset_to_safe_defaults ~constraints =
 		let max = constraints.static_max in
 		let min = constraints.static_min in
 		{

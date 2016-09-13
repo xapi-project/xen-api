@@ -239,7 +239,7 @@ let pbis_common_with_cache ?stdin_string:(stdin_string="") (pbis_cmd:string) (pb
     let expired = 120.0 in
     let now = Unix.time () in
     let cache_key = (stdin_string, pbis_cmd, pbis_args) in
-    let f = fun () -> 
+    let f = fun () ->
         cache_of_pbis_common := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !cache_of_pbis_common;
         try
             let _, result = List.assoc cache_key !cache_of_pbis_common in

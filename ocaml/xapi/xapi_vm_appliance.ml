@@ -111,7 +111,7 @@ let hard_shutdown ~__context ~self =
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:false
 
-let shutdown ~__context ~self = 
+let shutdown ~__context ~self =
 	let operation = {
 		name = "VM_appliance.shutdown";
 		vm_operation = (fun vm rpc session_id -> Client.Async.VM.shutdown ~rpc ~session_id ~vm);
@@ -125,7 +125,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	List.iter
 		(fun vm -> Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
 		vms
-	
+
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
 	let vms = Db.VM_appliance.get_VMs ~__context ~self in
 	let sr_list = List.map

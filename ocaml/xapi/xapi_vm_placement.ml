@@ -14,7 +14,7 @@
 (**
  * @group Virtual-Machine Management
  *)
- 
+
 open Db_filter_types
 open Vm_placement
 

@@ -75,15 +75,15 @@ let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 
 	(* Perform the SR reachability check using a fresh context/task because
 	   we don't want to complete the task in the forwarding case *)
-	Server_helpers.exec_with_new_task "VDI.import" 
-	(fun __context -> 
-		Helpers.call_api_functions ~__context 
+	Server_helpers.exec_with_new_task "VDI.import"
+	(fun __context ->
+		Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			let sr = Db.VDI.get_SR ~__context ~self:vdi in
 			debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
 			if (Importexport.check_sr_availability ~__context sr)
 			then localhost_handler rpc session_id vdi req s
-			else 
+			else
 				let host = Importexport.find_host_for_sr ~__context sr in
 				let address = Db.Host.get_address ~__context ~self:host in
 				return_302_redirect req s address
@@ -96,7 +96,7 @@ let handler (req: Request.t) (s: Unix.file_descr) _ =
 
 	(* Using a fresh context/task because we don't want to complete the
 	   task in the forwarding case *)
-	Server_helpers.exec_with_new_task "VDI.import" 
+	Server_helpers.exec_with_new_task "VDI.import"
 	(fun __context ->
 		import (vdi_of_req ~__context req) req s ()
 	)

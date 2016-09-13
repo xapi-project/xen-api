@@ -295,7 +295,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						| Vdi_automaton.Attach ro_rw ->
 							let read_write = (ro_rw = Vdi_automaton.RW) in
 							let x = Impl.VDI.attach context ~dbg ~dp ~sr ~vdi ~read_write in
-							{ vdi_t with Vdi.attach_info = Some x }	
+							{ vdi_t with Vdi.attach_info = Some x }
 						| Vdi_automaton.Activate ->
 							Impl.VDI.activate context ~dbg ~dp ~sr ~vdi; vdi_t
 						| Vdi_automaton.Deactivate ->
@@ -326,7 +326,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
 				let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-				let vdi_t' = 
+				let vdi_t' =
 					try
 						(* Compute the overall state ('superstate') of the VDI *)
 						let superstate = Vdi.superstate vdi_t in
@@ -371,27 +371,27 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			match Host.find sr !Host.host with
 			| None -> raise (Sr_not_attached sr)
 			| Some sr_t ->
-				Opt.iter (fun vdi_t -> 
+				Opt.iter (fun vdi_t ->
 					let current_state = Vdi.get_dp_state dp vdi_t in
 					let desired_state = Vdi_automaton.Detached in
 					let ops = List.map fst (Vdi_automaton.(-) current_state desired_state) in
-					begin 
+					begin
 						try
 							ignore(List.fold_left (fun _ op ->
 								perform_nolock context ~dbg ~dp ~sr ~vdi op
 							) vdi_t ops)
-						with e -> 
-							if not allow_leak 
+						with e ->
+							if not allow_leak
 							then (ignore(Vdi.add_leaked dp vdi_t); raise e)
 							else begin
 								(* allow_leak means we can forget this dp *)
 								info "setting dp:%s state to %s, even though operation failed because allow_leak set" dp (Vdi_automaton.string_of_state desired_state);
 								let vdi_t = Vdi.set_dp_state dp desired_state vdi_t in
-								
+
 								if Vdi.superstate vdi_t = Vdi_automaton.Detached
 								then Sr.remove vdi sr_t
 								else Sr.replace vdi vdi_t sr_t;
-								
+
 								Everything.to_file !host_state_path (Everything.make ());
 							end
 					end) (Sr.find vdi sr_t)
@@ -408,7 +408,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				end in
 			let failures = List.fold_left (fun acc dp ->
 				info "Attempting to destroy datapath dp:%s sr:%s vdi:%s" dp sr vdi;
-				try 
+				try
 					destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak:false;
 					acc
 				with e -> e :: acc
@@ -434,7 +434,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							let state = perform_nolock context ~dbg ~dp ~sr ~vdi
 								(Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
-							Opt.unbox state.Vdi.attach_info							
+							Opt.unbox state.Vdi.attach_info
 						))
 
 		let activate context ~dbg ~dp ~sr ~vdi =
@@ -509,7 +509,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                 (fun () ->
                     Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
                 )
- 
+
         let destroy context ~dbg ~sr ~vdi =
             info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg sr vdi;
             with_vdi sr vdi
@@ -582,11 +582,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			let start context ~dbg ~sr ~vdi ~dp ~url ~dest =
 				info "DATA.MIRROR.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg sr vdi url dest;
 				Impl.DATA.MIRROR.start context ~dbg ~sr ~vdi ~dp ~url ~dest
-					
+
 			let stop context ~dbg ~id =
 				info "DATA.MIRROR.stop dbg:%s id:%s" dbg id;
 				Impl.DATA.MIRROR.stop context ~dbg ~id
-					
+
 			let list context ~dbg =
 				info "DATA.MIRROR.active dbg:%s" dbg;
 				Impl.DATA.MIRROR.list context ~dbg
@@ -594,22 +594,22 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			let stat context ~dbg ~id =
 				info "DATA.MIRROR.stat dbg:%s id:%s" dbg id;
 				Impl.DATA.MIRROR.stat context ~dbg ~id
-					
+
 			let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
-				info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" 
+				info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]"
 					dbg sr id (String.concat "," similar);
 				Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
-					
+
 			let receive_finalize context ~dbg ~id =
 				info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id;
 				Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
-					
+
 			let receive_cancel context ~dbg ~id =
 				info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id;
 				Impl.DATA.MIRROR.receive_cancel context ~dbg ~id
 
 		end
-				
+
 	end
 
 	module DP = struct
@@ -666,7 +666,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			match dp_state,vdi_state.Vdi.attach_info with
 				| Vdi_automaton.Activated _, Some attach_info ->
 					attach_info
-				| _ -> 
+				| _ ->
 					raise (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
 
 
@@ -798,9 +798,9 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					VDI.locks_remove sr
 				)
 
-		let destroy context ~dbg ~sr = 
+		let destroy context ~dbg ~sr =
 			info "SR.destroy dbg:%s sr:%s" dbg sr;
-			detach_destroy_common context ~dbg ~sr Impl.SR.destroy			
+			detach_destroy_common context ~dbg ~sr Impl.SR.destroy
 
 		let update_snapshot_info_src context ~dbg ~sr ~vdi ~url
 				~dest ~dest_vdi ~snapshot_pairs=
@@ -853,7 +853,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					find_locked tasks task |> t
 				)
 		let stat _ ~dbg ~task = stat' task
-		let destroy' ~task = 
+		let destroy' ~task =
 			destroy tasks task;
 			Updates.remove (Dynamic.Task task) updates
 		let destroy _ ~dbg ~task = destroy' ~task

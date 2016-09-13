@@ -18,7 +18,7 @@ open D
 let safe_wrapper n f x =
   try
     f x
-  with e -> 
+  with e ->
     debug "Caught exception while cancelling tasks (%s): %s" n (ExnHelper.string_of_exn e);
     Debug.log_backtrace e (Backtrace.get e)
 
@@ -103,7 +103,7 @@ let cancel_tasks_on_host ~__context ~host_opt =
        let tasks = Db.Task.get_all ~__context in
        let this_host_tasks, should_update_all_allowed_operations =
 	 match host_opt with
-	   None -> 
+	   None ->
 	     debug "cancel_tasks_on_host: master will cancel all tasks";
 	     tasks, true
 	 | (Some host) ->
@@ -140,9 +140,9 @@ let cancel_tasks_on_host ~__context ~host_opt =
        let hosts = default (Db.Host.get_all ~__context) (may (fun x -> [x]) host_opt) in
        List.iter (safe_wrapper "host_helpers - cancel tasks" (fun self -> Xapi_host_helpers.cancel_tasks ~__context ~self ~all_tasks_in_db:tasks ~task_ids)) hosts;
        List.iter (safe_wrapper "host_helpers - allowed ops" (fun self -> Xapi_host_helpers.update_allowed_operations ~__context ~self)) hosts;
-       
+
        List.iter (safe_wrapper "destroy_tasks" (fun task -> TaskHelper.destroy ~__context task)) incomplete_tasks;
-       
+
        if should_update_all_allowed_operations
        then update_all_allowed_operations ~__context
     )

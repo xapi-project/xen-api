@@ -43,7 +43,7 @@ open Db_actions
 open Db_filter_types
 
 
-let is_http action = 
+let is_http action =
 	Stdext.Xstringext.String.startswith Datamodel.rbac_http_permission_prefix action
 
 let call_type_of ~action =
@@ -60,10 +60,10 @@ let get_subject_common ~__context ~session_id ~fnname
 		then (fn_if_local_session ())
 		else
 		if (DB_Action.Session.get_is_local_superuser ~__context ~self:session_id)
-		then (fn_if_local_superuser ()) 
+		then (fn_if_local_superuser ())
 		else (fn_if_subject ())
 	with
-		| e -> begin 
+		| e -> begin
 				D.debug "error %s for %s:%s"
 					fnname (trackid session_id) (ExnHelper.string_of_exn e);
 				"" (* default value returned after an internal error *)
@@ -122,7 +122,7 @@ let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
 			(SExpr.String name)::
 			(SExpr.String name_of_ref)::
 			(SExpr.String uuid_of_ref)::
-			(SExpr.String ref_value):: 
+			(SExpr.String ref_value)::
 			[]
 		)
 
@@ -137,11 +137,11 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list=
 						SExpr.String ""::SExpr.String ref_value::[]) ->
 					get_sexpr_arg
 						name
-						(match (get_obj_name_of_ref ref_value) with 
+						(match (get_obj_name_of_ref ref_value) with
 							 | None -> "" (* ref_value is not a ref! *)
 							 | Some obj_name -> obj_name (* the missing name *)
 						)
-						(match (get_obj_uuid_of_ref ref_value) with 
+						(match (get_obj_uuid_of_ref ref_value) with
 							 | None -> "" (* ref_value is not a ref! *)
 							 | Some obj_uuid -> obj_uuid (* the missing uuid *)
 						)
@@ -168,9 +168,9 @@ let populate_audit_record_with_obj_names_of_refs line =
 				let (args:SExpr.t) = List.hd (List.rev els) in
 				(match List.partition (fun (e:SExpr.t) ->e<>args) els with
 					|prefix, ((SExpr.Node arg_list)::[]) ->
-						(* paste together the prefix of original audit record *) 
+						(* paste together the prefix of original audit record *)
 						before_sexpr_str^" "^
-						(SExpr.string_of 
+						(SExpr.string_of
 						(SExpr.Node (
 							prefix@
 							((SExpr.Node (get_obj_names_of_refs arg_list))::
@@ -182,7 +182,7 @@ let populate_audit_record_with_obj_names_of_refs line =
 			end
 		|_->line
 	with e ->
-		D.debug "error populating audit record arg names: %s" 
+		D.debug "error populating audit record arg names: %s"
 			(ExnHelper.string_of_exn e)
 		;
 		line
@@ -252,7 +252,7 @@ let get_subject_other_config_subject_name __context self =
 			(DB_Action.Subject.get_other_config ~__context ~self:(Ref.of_string self))
 	with e ->
 		D.debug "couldn't get Subject.other_config.subject-name for ref %s: %s" self (ExnHelper.string_of_exn e);
-		"" 
+		""
 
 let get_role_name_label __context self =
 	try
@@ -263,7 +263,7 @@ let get_role_name_label __context self =
 		p.role_name_label
 	with e ->
 		D.debug "couldn't get Role.name_label for ref %s: %s" self (ExnHelper.string_of_exn e);
-		"" 
+		""
 
 let action_param_ref_getter_fn =
 	[ (* manual override on ref getters *)
@@ -273,8 +273,8 @@ let action_param_ref_getter_fn =
 	]
 
 (* get a namevalue directly from db, instead from db_cache *)
-let get_db_namevalue __context name action _ref = 
-	if List.mem_assoc action action_param_ref_getter_fn 
+let get_db_namevalue __context name action _ref =
+	if List.mem_assoc action action_param_ref_getter_fn
 	then (
 		let params=List.assoc action action_param_ref_getter_fn in
 		if List.mem_assoc name params then (
@@ -308,14 +308,14 @@ let rec sexpr_args_of __context name rpc_value action =
 	( match rpc_value with
 		| Rpc.String value ->
 			Some (get_sexpr_arg
-				name 
+				name
 				(if is_selected_action_param action_params_zip
 				  then (zip value)
 				  else value
 				)
 				"" ""
 			)
-		| Rpc.Dict _ -> 
+		| Rpc.Dict _ ->
 			Some (SExpr.Node
 					  (
 						  (SExpr.String name)
@@ -325,7 +325,7 @@ let rec sexpr_args_of __context name rpc_value action =
 						  ::[]
 					  )
 			)
-		| _-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)			
+		| _-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)
 			(*None*)
 			Some (get_sexpr_arg name (Rpc.to_string rpc_value) "" "")
 	)
@@ -353,7 +353,7 @@ and
 (*let rec*) sexpr_of_parameters __context action args : SExpr.t list =
 	match args with
 	| None -> []
-	| Some (str_names,rpc_values) -> 
+	| Some (str_names,rpc_values) ->
 	begin
 	if (List.length str_names) <> (List.length rpc_values)
 	then
@@ -364,12 +364,12 @@ and
 	else
 	List.fold_right2
 		(fun str_name rpc_value (params:SExpr.t list) ->
-			if str_name = "session_id" 
+			if str_name = "session_id"
 			then params (* ignore session_id param *)
-			else 
+			else
 			(* if it is a constructor structure, need to rewrap params *)
 			if str_name = "__structure"
-			then match rpc_value with 
+			then match rpc_value with
 				| Rpc.Dict d ->
 					let names = List.map fst d in
 					let values = List.map snd d in
@@ -379,7 +379,7 @@ and
 					(match (sexpr_args_of __context str_name rpc_value action)
 					 with None->params|Some p->p::params
 					)
-			else 
+			else
 			(* the expected list of xml arguments *)
 			begin
 				(match (sexpr_args_of __context str_name rpc_value action)
@@ -399,7 +399,7 @@ let has_to_audit action =
 	(!Xapi_globs.log_getter || (has_side_effect action))
 	&&
 	not ( (* these actions are ignored *)
-		List.mem action 
+		List.mem action
 			[ (* list of _actions_ filtered out from the audit log *)
 				"session.local_logout"; (* session logout have their own *)
 				"session.logout"; (* rbac_audit calls, because after logout *)
@@ -413,8 +413,8 @@ let has_to_audit action =
 	)
 
 let wrap fn =
-	try fn () 
-	with e -> (* never bubble up the error here *) 
+	try fn ()
+	with e -> (* never bubble up the error here *)
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e)
 
 (* Extra info required for the WLB audit report. *)
@@ -443,7 +443,7 @@ let add_dummy_args __context action args =
 	end
 
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?sexpr_of_args action permission =
-  let result_error = 
+  let result_error =
 		if result_error = "" then result_error else ":"^result_error
 	in
 	(*let (params:SExpr.t list) = (string_of_parameters action args) in*)
@@ -451,7 +451,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?se
 		SExpr.String (trackid session_id)::
     SExpr.String (get_subject_identifier __context session_id)::
     SExpr.String (get_subject_name __context session_id)::
-		SExpr.String (allowed_denied)::		
+		SExpr.String (allowed_denied)::
 		SExpr.String (ok_error ^ result_error)::
     SExpr.String (call_type_of action)::
 		(*SExpr.String (Helper_hostname.get_hostname ())::*)
@@ -469,9 +469,9 @@ let append_line = Audit.audit
 let fn_append_to_master_audit_log = ref None
 
 let audit_line_of __context session_id allowed_denied ok_error result_error action permission ?args ?sexpr_of_args () =
-	let _line = 
-		(SExpr.string_of 
-			 (sexpr_of __context session_id allowed_denied 
+	let _line =
+		(SExpr.string_of
+			 (sexpr_of __context session_id allowed_denied
 					ok_error result_error ?args ?sexpr_of_args action permission
 			 )
 		)
@@ -481,8 +481,8 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 
 	let audit_line = append_line "%s" line in
 	(*D.debug "line=%s, audit_line=%s" line audit_line;*)
-	match !fn_append_to_master_audit_log with 
-		| None -> () 
+	match !fn_append_to_master_audit_log with
+		| None -> ()
 		| Some fn -> fn __context action audit_line
 
 let allowed_pre_fn ~__context ~action ?args () =
@@ -492,27 +492,27 @@ let allowed_pre_fn ~__context ~action ?args () =
 			&& (Stdext.Xstringext.String.has_substr action ".destroy")
 		then let args' = add_dummy_args __context action args in Some(sexpr_of_parameters __context action args')
 		else None
-	with e -> 
+	with e ->
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e);
 		None
 
 let allowed_post_fn_ok ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?result () =
 	wrap (fun () ->
-		if has_to_audit action then 
+		if has_to_audit action then
 			audit_line_of __context session_id "ALLOWED" "OK" "" action permission ?sexpr_of_args ?args ()
 	)
 
 let allowed_post_fn_error ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?error () =
 	wrap (fun () ->
 		if has_to_audit action then
-			let error_str = 
+			let error_str =
 				match error with
 				| None -> ""
 				| Some error -> (ExnHelper.string_of_exn error)
 			in
 			audit_line_of __context session_id "ALLOWED" "ERROR" error_str action permission ?sexpr_of_args  ?args ()
 	)
-	
+
 let denied ~__context ~session_id ~action ~permission ?args () =
 	wrap (fun () ->
 		if has_to_audit action then
@@ -528,7 +528,7 @@ let session_create_or_destroy ~create ~__context ~session_id ~uname =
 	if (not s_is_intrapool) && (not s_is_lsu) then (
 		let action = (if create then "session.create" else "session.destroy") in
 		let originator = session_rec.API.session_originator in
-		let sexpr_of_args = 
+		let sexpr_of_args =
 			(get_sexpr_arg "originator" originator "" "")::
 			[]
 		in

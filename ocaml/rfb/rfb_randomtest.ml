@@ -16,7 +16,7 @@ open Rfb
 let w = 640
 let h = 480
 
-let server (s: Unix.file_descr) = 
+let server (s: Unix.file_descr) =
   handshake w h s;
 
   let started = ref false in
@@ -52,5 +52,5 @@ let server (s: Unix.file_descr) =
 	  end
     | _ -> ()
   done
-  
+
 

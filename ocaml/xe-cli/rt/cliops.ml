@@ -45,12 +45,12 @@ let expect_failure f =
 let random_mac () =
         let macs = [0x00; 0x16; 0x3e] @ (List.map Random.int [0x80; 0x100; 0x100]) in
         String.concat ":" (List.map (Printf.sprintf "%02x") macs)
-    
+
 (* Mapping of vmid to ip *)
 let ipmap = ref ( [] : (string * string) list)
-let iface = ref "eth0"    
+let iface = ref "eth0"
 let use_gt = ref true
-    
+
 (* Operations using other programs *)
 let get_client_domid vmid =
   try
@@ -70,9 +70,9 @@ let get_domid_state domid =
     let domain = List.filter (fun (d,_,_) -> d=domid) dominfo in
     let (_,_,state) = List.hd domain in
     state
-  with 
+  with
     _ -> "gone"
-	
+
 (* Guest operations *)
 let run_ga_command ip command =
   expect_success_retry (fun () -> run_command (Printf.sprintf "%s %s %s" !Commands.guest_agent_client ip command))
@@ -86,15 +86,15 @@ let read_xs_file path =
     let (lines,rc) = run_command ("xenstore-read "^path) in
     lines
   with _ -> ["error"]
-  
+
 (* Specific XE things *)
 let get_version (cli : Util.t_cli) =
-  let host = List.hd (expect_success (fun () -> cli "pool-list" ["params","master";"minimal","true"])) in  
+  let host = List.hd (expect_success (fun () -> cli "pool-list" ["params","master";"minimal","true"])) in
   let lines = expect_success (fun()->cli "host-param-get" ["param-name","software-version"; "uuid",host]) in
   List.hd lines
 
 let get_short_version (cli : Util.t_cli) =
-  let host = List.hd (expect_success (fun () -> cli "pool-list" ["params","master";"minimal","true"])) in  
+  let host = List.hd (expect_success (fun () -> cli "pool-list" ["params","master";"minimal","true"])) in
   let lines = expect_success (fun()->cli "host-param-get" ["param-name","software-version"; "param-key","build_number"; "uuid",host]) in
   List.hd lines
 
@@ -107,56 +107,56 @@ let get_xapi_log (cli : Util.t_cli) =
   try
     let ic = open_in "/tmp/xapi.log" in
     let rec r lines =
-      let nextline = 
+      let nextline =
         try Some (input_line ic) with _ -> None
       in match nextline with Some x -> r (x::lines) | None -> List.rev lines
     in r []
   with _ -> []
-			     
+
 let get_vms cli =
-  let lines = expect_success (fun()->cli "vm-list" 
+  let lines = expect_success (fun()->cli "vm-list"
     ["params","name-label";
      "minimal","true"]) in
   String.split ',' (List.hd lines)
 
 let get_networks cli =
-  let lines = expect_success (fun()->cli "network-list" 
+  let lines = expect_success (fun()->cli "network-list"
     ["params","uuid";
      "minimal","true"]) in
   String.split ',' (List.hd lines)
 
 let get_state cli vmid =
-  let lines = expect_success (fun()->cli "vm-param-get" 
+  let lines = expect_success (fun()->cli "vm-param-get"
     ["uuid",vmid; "param-name","power-state"]) in
   List.hd lines
 
 let get_uuid cli name =
-  let lines = expect_success (fun () -> cli "vm-list" 
+  let lines = expect_success (fun () -> cli "vm-list"
     ["name-label",name; "params","uuid"; "minimal","true"]) in
   List.hd lines
 
 let get_all_uuids cli =
-  let lines = expect_success (fun () -> cli "vm-list" 
+  let lines = expect_success (fun () -> cli "vm-list"
     ["params","uuid"; "minimal","true"]) in
   String.split ',' (List.hd lines)
 
 let get_vm_names cli =
-  let lines = expect_success (fun () -> cli "vm-list" 
+  let lines = expect_success (fun () -> cli "vm-list"
     ["params","name-label"; "minimal","true"]) in
   String.split ',' (List.hd lines)
 
 let get_disks cli vmid =
-  let lines = expect_success (fun () -> cli "vbd-list" 
+  let lines = expect_success (fun () -> cli "vbd-list"
     [("vm-uuid",vmid); "params","device"; "minimal","true"]) in
   String.split ',' (List.hd lines)
 
 let get_nics cli vmid =
-  let lines = expect_success (fun () -> cli "vif-list" 
+  let lines = expect_success (fun () -> cli "vif-list"
     [("vm-uuid",vmid); "params","uuid"; "minimal","true"]) in
   String.split ',' (List.hd lines)
-  
+
 let get_pifs cli =
-  let lines = expect_success (fun () -> cli "pif-list" 
+  let lines = expect_success (fun () -> cli "pif-list"
     ["params","uuid";"minimal","true"]) in
   String.split ',' (List.hd lines)
 
@@ -181,7 +181,7 @@ let export cli vmid filename =
 let clone cli vmid newname =
   let params = [("vm",vmid); ("new-name-label", newname)] in
   expect_success (fun () -> cli "vm-clone" params)
- 
+
 let uninstall cli vmid =
   expect_success (fun () -> cli "vm-uninstall" [("vm",vmid); ("force","true")])
 
@@ -189,7 +189,7 @@ let uninstall_all_vms cli =
   let uuids = get_all_uuids cli in
   List.iter (fun u -> ignore (shutdown cli true u)) uuids;
   List.iter (fun u -> ignore (uninstall cli u)) uuids
-    
+
 let install_guest cli (template,name) =
   let params = [("template-name",template);
 		("name",name)] in
@@ -248,7 +248,7 @@ let make_bootable cli vmid =
 	["uuid",uuid; "bootable","true"]))
   in
   List.iter dodisk disks_to_try
-    
+
 let get_attached_cds cli vmid =
   let lines = expect_success (fun () -> cli "vbd-list" [
     "vm-uuid",vmid;"type","CD";"minimal","true"]) in
@@ -279,7 +279,7 @@ let check_disk_ok cli vmid device =
   let allowed_vbds = String.split ';' (List.hd lines) in
   let allowed_vbds = List.map (Parsers.zap_whitespace) allowed_vbds in
   List.mem device allowed_vbds
-        
+
 let check_disk cli vmid device =
   let lines = expect_success (fun () -> cli "vbd-list" [("vm-uuid",vmid);("userdevice",device); "minimal","true"]) in
   let lines2 = List.filter (fun x -> String.length x > 2) lines in
@@ -312,15 +312,15 @@ let destroy_disk cli (vdiuuid,vbduuid) =
   let params = [("uuid",vdiuuid)] in
   ignore(expect_success (fun () -> cli "vdi-destroy" params))
 
-let add_network cli netname = 
+let add_network cli netname =
   let params = [ ("name-label", netname) ] in
   List.hd (expect_success (fun () -> cli "network-create" params))
-    
-let remove_network cli netname = 
+
+let remove_network cli netname =
   let params = [ ("uuid", netname) ] in
   expect_success (fun () -> cli "network-destroy" params)
-    
-let add_nic cli vmid (nicname,mac,network) = 
+
+let add_nic cli vmid (nicname,mac,network) =
   let params = [("vm-uuid",vmid);
 		("device",nicname);
 		("mac",mac);
@@ -337,13 +337,13 @@ let remove_nic cli uuid =
   let params = [("uuid",uuid)] in
   expect_success (fun () -> cli "vif-destroy" params)
 
-let create_vlan cli (pif_uuid : string) (tag: string) (network_uuid: string) : string = 
+let create_vlan cli (pif_uuid : string) (tag: string) (network_uuid: string) : string =
   let params = [("pif-uuid", pif_uuid);
 		("vlan", tag);
 		("network-uuid", network_uuid) ] in
   List.hd (expect_success (fun () -> cli "vlan-create" params))
 
-let remove_pif cli uuid = 
+let remove_pif cli uuid =
   let params = [("uuid", uuid)] in
   expect_success (fun () -> cli "vlan-destroy" params)
 
@@ -355,7 +355,7 @@ let get_nic_params cli uuid =
   let mac = get_nic_param cli uuid "MAC" in
   let network = get_nic_param cli uuid "network-uuid" in
   (device,mac,network)
-		
+
 let set_param cli vmid param_name value =
   let params = [("uuid",vmid);
 		(param_name,value)] in
@@ -397,7 +397,7 @@ let change_vm_state_fail cli vmid st =
       expect_failure (fun () -> cli "vm-suspend" params)
   | Reboot ->
       expect_failure (fun () -> cli "vm-reboot" params)
-  | Resume -> 
+  | Resume ->
       expect_failure (fun () -> cli "vm-resume" params))
 
 let get_pic cli vmid =
@@ -418,13 +418,13 @@ let can_clean_shutdown cli vmid =
 
 (* ping the guest agent *)
 exception GAFailed
-    
+
 let rec ping ip attempts =
   begin
     if attempts > 500 then raise GAFailed;
     try
       ignore(run_ga_command ip "test");
-    with _ -> 
+    with _ ->
       Unix.sleep 1;
       ping ip (attempts+1)
   end
@@ -437,7 +437,7 @@ let wait_for_up cli vmid =
     let mac = get_nic_param cli nic "MAC" in
     let iface = !iface in (* for now *)
     let command = (Printf.sprintf "xgetip %s %s" iface mac) in
-    let lines = 
+    let lines =
       match run_command_with_timeout command 120.0 with
 	  Some (lines,rc) -> lines
 	| None ->
@@ -445,7 +445,7 @@ let wait_for_up cli vmid =
 	    raise (CliOpFailed ["Timeout!"]) in
     let ip = List.hd lines in
     ipmap := (vmid,ip)::!ipmap;
-    ping ip 0   
+    ping ip 0
   with
       CliOpFailed ls ->
 	get_pic cli vmid;
@@ -454,10 +454,10 @@ let wait_for_up cli vmid =
     | GAFailed ->
 	get_pic cli vmid;
 	log Log.Warn "wait_for_up: Guest agent failed to start";
-    | e -> 
+    | e ->
 	get_pic cli vmid;
 	log Log.Warn "wait_for_up: Failed to get IP address - got exception %s" (Printexc.to_string e)
-				
+
 (** Wait for a shutdown operation to complete. Returns true if xapi believes the domain shut down or false if it didn't *)
 let shutdown_wait cli vmid =
   try
@@ -471,7 +471,7 @@ let shutdown_wait cli vmid =
       _ -> false
 
 (** Wait for a reboot operation to complete. Returns true if xapi believes the domain rebooted or false if it didn't *)
-let reboot_wait cli vmid = 
+let reboot_wait cli vmid =
   try
     let start_time = get_param cli vmid "start-time" in
     event_wait cli vmid "vm" ["start-time", "/=" ^ start_time] 120.0;
@@ -483,7 +483,7 @@ let reboot_wait cli vmid =
   with
       _ -> false
 
-type run_command_output = string list * Unix.process_status	
+type run_command_output = string list * Unix.process_status
 
 (** Shutdown hard *)
 let shutdown_phase3 cli vmid =
@@ -508,7 +508,7 @@ let shutdown_phase2 cli vmid =
     if can_clean_shutdown cli vmid then
       begin
 	ignore(expect_success (fun () -> cli "vm-shutdown" params));
-	if shutdown_wait cli vmid 
+	if shutdown_wait cli vmid
 	then ()
 	else next ()
       end
@@ -524,14 +524,14 @@ let shutdown_phase2 cli vmid =
   | e ->
       log Log.Warn "shutdown_phase2: Exception caught: %s" (Printexc.to_string e);
       next ()
-	
+
 (** Use the guest agent to shutdown the domain *)
 let shutdown_phase1 cli vmid =
   let next () = shutdown_phase2 cli vmid in
   if not !use_gt then next () else
   try
-    if List.mem_assoc vmid !ipmap 
-    then 
+    if List.mem_assoc vmid !ipmap
+    then
       begin
 	ignore(run_ga_command (List.assoc vmid !ipmap) "shutdown 10");
 	if shutdown_wait cli vmid
@@ -542,8 +542,8 @@ let shutdown_phase1 cli vmid =
       begin
 	log Log.Warn "shutdown_phase1: Use of guest agent requested, but IP address for VM is not known";
 	next ()
-      end	
-  with 
+      end
+  with
     (OpFailed x) as e ->
       let (_: run_command_output) = run_command !Commands.list_domains in
       raise e
@@ -568,26 +568,26 @@ let reboot_phase2 cli vmid =
   | e ->
       log Log.Error "reboot_phase2: Reboot failed: exception caught: %s" (Printexc.to_string e);
       raise (OpFailed "Failed to reboot")
-	 
+
 (** Reboot via the guest agent *)
 let reboot_phase1 cli vmid =
   let next () = reboot_phase2 cli vmid in
   if not !use_gt then next () else
   try
-    if List.mem_assoc vmid !ipmap 
-    then 
+    if List.mem_assoc vmid !ipmap
+    then
       begin
 	ignore(run_ga_command (List.assoc vmid !ipmap) "reboot 10");
 	(* Guest powerstate nolonger glitches to Halted in the middle of a reboot *)
 	let (_: bool) = reboot_wait cli vmid in
 	wait_for_up cli vmid;
-      end	
+      end
     else
       begin
 	log Log.Warn "reboot_phase1: Use of guest agent requested, but no IP address for VM available!";
 	next ()
       end
-  with 
+  with
     | (OpFailed x) as e -> (* next might have raise this, in which case, pass it through *)
 	let (_: run_command_output) = run_command !Commands.list_domains in
 	raise e
@@ -603,7 +603,7 @@ let change_vm_state cli vmid st =
   let domid = get_client_domid vmid in
   ignore begin
     match st with
-      Start -> 
+      Start ->
 	begin
 	  try
 	    let (_: string list) = expect_success (fun () -> cli "vm-start" params) in
@@ -611,16 +611,16 @@ let change_vm_state cli vmid st =
 	    log Log.Info "New domid: %d" domid;
 	    log Log.Info "Waiting for VM to start...";
 	    wait_for_up cli vmid;
-	  with 
+	  with
 	    CliOpFailed ls ->
 	      log Log.Error "change_vm_state: VM start failed: cli reported:";
 	      List.iter (fun l -> log Log.Error "%s" l) ls;
 	      raise (OpFailed "Failed to start VM")
 	end
-    | Shutdown -> 
+    | Shutdown ->
 	shutdown_phase1 cli vmid;
 	(try ipmap := List.remove_assoc vmid !ipmap with _ -> ())
-    | Suspend -> 
+    | Suspend ->
 	begin
 	  try
 	    ignore (expect_success (fun () -> cli "vm-suspend" params))
@@ -631,10 +631,10 @@ let change_vm_state cli vmid st =
 	      let (_: run_command_output) = run_command !Commands.list_domains in
 	      raise (OpFailed "Failed to suspend VM")
 	end
-    | Reboot -> 
+    | Reboot ->
 	(* All waiting for up etc moved to this func to allow it to try other methods if the first failed *)
 	reboot_phase1 cli vmid;
-    | Resume -> 
+    | Resume ->
 	begin
 	  try
 	    ignore (expect_success (fun () -> cli "vm-resume" params));
@@ -644,9 +644,9 @@ let change_vm_state cli vmid st =
 		log Log.Error "change_vm_state: VM resume failed: cli reported:";
 		List.iter (fun l -> log Log.Error "%s" l) ls;
 		raise (OpFailed "Failed to resume VM")
-	    | GAFailed -> 
+	    | GAFailed ->
 		log Log.Error "change_vm_state: VM resume failed: failed to contact guest agent";
-		raise (OpFailed "Failed to resume VM")		  
+		raise (OpFailed "Failed to resume VM")
 	end;
   end;
   log Log.Info "new state: %s " (get_state cli vmid);
@@ -666,12 +666,12 @@ let rec ensure_vm_down cli vmid count =
     "halted" -> ()
   | "paused" ->
       log Log.Warn "Host is currently paused! Unpausing and attempting shutdown";
-      (try 
+      (try
 	ignore (expect_success (fun () -> cli "vm-unpause" params));
 	change_vm_state cli vmid Shutdown;
       with _ -> ());
       ensure_vm_down cli vmid (count+1)
-  | "running" -> 
+  | "running" ->
       log Log.Warn "Host is currently running! Shutting down";
       (try
 	change_vm_state cli vmid Shutdown;

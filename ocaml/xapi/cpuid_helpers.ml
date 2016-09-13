@@ -28,7 +28,7 @@ let string_of_features features =
 exception InvalidFeatureString of string
 let features_of_string str =
 	let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
-	try Stringext.split ~on:'-' str 
+	try Stringext.split ~on:'-' str
 		|> Array.of_list
 		|> Array.map (scanf "%08Lx%!")
 	with _ -> raise (InvalidFeatureString str)
@@ -44,7 +44,7 @@ let extend arr0 arr1 =
 (** If arr is shorter than len elements, extend with zeros up to len elements.
  *  Otherwise, truncate arr to len elements. *)
 let zero_extend arr len =
-	let zero_arr = Array.make len 0L in 
+	let zero_arr = Array.make len 0L in
 	extend arr zero_arr
 
 (** Calculate the intersection of two feature sets.
@@ -59,9 +59,9 @@ let intersect left right =
 	| _, _ ->
 		let len_left = Array.length left in
 		let len_right = Array.length right in
-		
+
 		let out = Array.make (max len_left len_right) 0L in
-		
+
 		for i = 0 to (min len_left len_right) - 1 do
 			out.(i) <- Int64.logand left.(i) right.(i)
 		done;
@@ -71,7 +71,7 @@ let intersect left right =
 let is_subset left right =
 	intersect left right = left
 
-(** is_strict_subset left right returns true if left is a strict subset of right 
+(** is_strict_subset left right returns true if left is a strict subset of right
     (left is a subset of right, but left and right are not equal) *)
 let is_strict_subset left right =
 	(is_subset left right) && (left <> right)
@@ -140,7 +140,7 @@ let reset_cpu_flags ~__context ~vm =
 		get_flags_for_vm ~__context vm pool_cpu_info
 	in
 	set_flags ~__context vm pool_vendor pool_features
-		
+
 (* Update last_boot_CPU_flags with the vendor and feature set.
  * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
 let update_cpu_flags ~__context ~vm ~host =

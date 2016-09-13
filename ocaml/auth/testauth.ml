@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let usage() = 
+let usage() =
   print_endline "Usage:";
   Printf.printf "%s auth <username> <password>\n" Sys.argv.(0);
   Printf.printf "%s chpasswd <username> <new password>\n" Sys.argv.(0);

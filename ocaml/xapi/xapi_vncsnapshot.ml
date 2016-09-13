@@ -33,8 +33,8 @@ let vncsnapshot_handler (req: Request.t) s _ =
 	 Stdext.Pervasiveext.finally
 	   (fun () ->
 	      let vnc_port = Int64.to_int (Db.Console.get_port ~__context ~self:console) in
-	      
-	    let pid = safe_close_and_exec None None None [] vncsnapshot 
+
+	    let pid = safe_close_and_exec None None None [] vncsnapshot
 	      [ "-quiet"; "-allowblank" ; "-encodings"; "\"raw\"";
 		Printf.sprintf "%s:%d" "127.0.0.1" (vnc_port-5900); tmp ] in
 	    waitpid_fail_if_bad_exit pid;

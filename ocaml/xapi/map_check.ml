@@ -40,7 +40,7 @@ let validate_kvpair field_name requirements (key, value) =
 
 (** Combinators for validated map access *)
 type 'a pickler = (string -> 'a) * ('a -> string)
-let pickler : (string -> 'a) -> ('a -> string) -> 'a pickler = 
+let pickler : (string -> 'a) -> ('a -> string) -> 'a pickler =
 	fun of_string to_string -> (of_string, to_string)
 
 let string  : string pickler = (fun x -> x), (fun x -> x)
@@ -51,7 +51,7 @@ let cons x xs = x :: xs
 type assoc_list = (string * string) list
 type 'a field = (assoc_list -> 'a) * ('a -> assoc_list -> assoc_list)
 
-let field : string -> 'a pickler -> 'a field = 
+let field : string -> 'a pickler -> 'a field =
 	fun name (of_string, to_string) ->
         	(fun assoc_list -> assoc_list
                 	|> List.assoc name
@@ -70,6 +70,6 @@ let getf : ?default:'a -> 'a field -> assoc_list -> 'a =
 				raise e
 			| Some d -> d
 
-let setf : 'a field -> 'a -> assoc_list -> assoc_list = 
+let setf : 'a field -> 'a -> assoc_list -> assoc_list =
 	fun (_, to_string) value record -> to_string value record
 

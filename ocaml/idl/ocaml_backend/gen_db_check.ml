@@ -27,7 +27,7 @@ let _db_action = Gen_db_actions._db_action
 
 (** True if a field is actually in this table, false if stored elsewhere
     (ie Set(Ref _) are stored in foreign tables *)
-let field_in_this_table = Gen_db_actions.field_in_this_table 
+let field_in_this_table = Gen_db_actions.field_in_this_table
 
 (*  Escaping.escape_id f.full_name *)
 
@@ -35,16 +35,16 @@ let _db_exists = "Db_exists"
 
 let self obj = O.Named(Client._self, OU.alias_of_ty (Ref obj.name))
 
-let record_exists api : O.Module.t = 
-  let ref_exists (obj: obj) = 
-    let body = 
+let record_exists api : O.Module.t =
+  let ref_exists (obj: obj) =
+    let body =
       if obj.DT.in_database then begin
 	Printf.sprintf
-	  "try ignore(%s.%s.get_record_internal ~%s ~%s); true with _ -> false" 
+	  "try ignore(%s.%s.get_record_internal ~%s ~%s); true with _ -> false"
 	  Gen_db_actions._db_action
-	  (OU.ocaml_of_obj_name obj.name) 
+	  (OU.ocaml_of_obj_name obj.name)
 	  Gen_common.context
-	  Client._self 
+	  Client._self
       end else begin
 	"false"
       end
@@ -64,28 +64,28 @@ let _db_check = "Db_check"
 
 let db_check api : O.Module.t =
 
-  let check_refs (obj: obj) = 
+  let check_refs (obj: obj) =
     (* List all the fields of the object which are references AND stored in
        this table *)
     let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
     let fields = List.filter (function { DT.ty = Ref _ } -> true | _ -> false ) fields in
-    let getrecord = 
+    let getrecord =
       Printf.sprintf "let _r = %s.%s.get_record_internal ~%s ~%s in"
 	Gen_db_actions._db_action
-	(OU.ocaml_of_obj_name obj.name) 
+	(OU.ocaml_of_obj_name obj.name)
 	Gen_common.context
 	Client._self in
     let check = function
 		| { ty = Ref x; full_name = full_name } ->
-      Printf.sprintf "(fun () -> %s._%s ~%s ~%s:_r.%s)" 
+      Printf.sprintf "(fun () -> %s._%s ~%s ~%s:_r.%s)"
       _db_exists
-      (OU.ocaml_of_obj_name x) 
+      (OU.ocaml_of_obj_name x)
       Gen_common.context
       Client._self
       (OU.ocaml_of_record_field (obj.DT.name :: full_name))
 		  | _ -> assert false
  in
-    let wrapper f = 
+    let wrapper f =
       Printf.sprintf "(runcheck \"%s\" %s \"%s\" %s)"
 	obj.name Client._self (String.concat "/" f.full_name) (check f) in
     let body = if fields = [] then ["true"] else [getrecord; String.concat " &&\n     " (List.map wrapper fields)] in
@@ -96,14 +96,14 @@ let db_check api : O.Module.t =
       ~ty: "'a"
       ~body () in
 
-  let all_records (obj: obj) = 
+  let all_records (obj: obj) =
     let obj_name = OU.ocaml_of_obj_name obj.name in
-    let fold = 
-      if obj.DT.in_database then 
-	Printf.sprintf 
-	  "List.fold_left (&&) true (List.map (fun self -> _%s ~%s ~self) (%s.%s.get_all ~%s))" 
-	  obj_name Gen_common.context _db_action obj_name Gen_common.context 
-      else 
+    let fold =
+      if obj.DT.in_database then
+	Printf.sprintf
+	  "List.fold_left (&&) true (List.map (fun self -> _%s ~%s ~self) (%s.%s.get_all ~%s))"
+	  obj_name Gen_common.context _db_action obj_name Gen_common.context
+      else
 	"true"
     in
     O.Let.make
@@ -112,11 +112,11 @@ let db_check api : O.Module.t =
       ~ty: "bool"
       ~body: [ fold ] () in
 
-  let all (objs: obj list) = 
-    let one obj = 
+  let all (objs: obj list) =
+    let one obj =
       let obj_name = OU.ocaml_of_obj_name obj.name in
       Printf.sprintf "(all_%s ~%s)" obj_name Gen_common.context in
-    O.Module.Let (O.Let.make 
+    O.Module.Let (O.Let.make
       ~name:"all"
       ~params: [ Gen_common.context_arg ]
       ~ty: "bool"

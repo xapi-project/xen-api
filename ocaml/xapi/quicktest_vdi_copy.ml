@@ -67,7 +67,7 @@ let start session_id sr =
     Client.VDI.create ~rpc:!rpc ~session_id ~name_label:"quicktest original"
     ~name_description:"Used by the VDI.copy test"
     ~sR:sr ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
-    ~_type:`user ~sharable:false ~read_only:false 
+    ~_type:`user ~sharable:false ~read_only:false
     ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
 
   debug t "Created a 4MiB test disk";
@@ -145,7 +145,7 @@ let start session_id sr =
           let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i b.[i] 'a' in
           failed t msg;
           failwith msg
-        end; 
+        end;
       done;
       debug t "1MiB - 1 sector is full of 'a's";
     );

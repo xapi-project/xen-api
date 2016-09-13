@@ -29,7 +29,7 @@ let assert_no_srmaster_key dev_cfg =
 
 let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other_config =
 	let pbds = Db.SR.get_PBDs ~__context ~self:sR in
-	if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds 
+	if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds
 	then raise (Api_errors.Server_error (Api_errors.pbd_exists,
 		[ Ref.string_of sR
 		; Ref.string_of host
@@ -54,18 +54,18 @@ let create_thishost ~__context ~sR ~device_config ~currently_attached =
 let get_active_vdis_by_pbd ~__context ~self =
   let sr = Db.PBD.get_SR ~__context ~self in
   let host = Db.PBD.get_host ~__context ~self in
-  let vms = Db.VM.get_records_where ~__context 
+  let vms = Db.VM.get_records_where ~__context
     ~expr:(Eq(Field "resident_on", Literal (Ref.string_of host))) in
   let vbds = List.flatten (List.map (fun (vm,vmr) -> vmr.API.vM_VBDs) vms) in
   let vbds_r = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in
   let active_vbds = List.filter
-    (fun r -> 
+    (fun r ->
        (r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) && not(r.Db_actions.vBD_empty)) vbds_r in
-  
+
   let vdis = List.map (fun r -> r.Db_actions.vBD_VDI) active_vbds in
   let vdis_in_sr = List.filter (fun vdi -> sr=Db.VDI.get_SR ~__context ~self:vdi) vdis in
   vdis_in_sr
-  
+
 (* CA-16480: abort if unplugging this PBD would cause a protected VM to become non-agile *)
 let abort_if_storage_attached_to_protected_vms ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -159,7 +159,7 @@ let unplug ~__context ~self =
 
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
 			let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
-			if List.length non_metadata_vdis > 0 
+			if List.length non_metadata_vdis > 0
 			then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of non_metadata_vdis));
 
 			if Helpers.i_am_srmaster ~__context ~sr then begin
@@ -200,7 +200,7 @@ let destroy ~__context ~self =
 	Db.PBD.destroy ~__context ~self;
 	Xapi_secret.clean_out_passwds ~__context device_cfg
 
-let set_device_config ~__context ~self ~value = 
+let set_device_config ~__context ~self ~value =
   (* Only allowed from the SM plugin *)
   assert_no_srmaster_key value;
   Db.PBD.set_device_config ~__context ~self ~value

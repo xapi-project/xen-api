@@ -30,7 +30,7 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
 		supported_VGPU_types
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config
-		~supported_VGPU_types ~size ~dom0_access 
+		~supported_VGPU_types ~size ~dom0_access
 		~is_system_display_device =
 	let pgpu = Ref.make () in
 	let uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -290,7 +290,7 @@ let update_dom0_access ~__context ~self ~action =
 
 	let pci = Db.PGPU.get_PCI ~__context ~self in
 	begin
-		match db_new with 
+		match db_new with
 		| `enabled
 		| `enable_on_reboot -> Pciops.unhide_pci ~__context pci
 		| `disabled

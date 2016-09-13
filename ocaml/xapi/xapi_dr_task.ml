@@ -34,8 +34,8 @@ type sr_probe_sr = {
 }
 
 (* Attempt to parse a key/value pair from XML. *)
-let parse_kv = function 
-	| Xml.Element(key, _, [ Xml.PCData v ]) -> 
+let parse_kv = function
+	| Xml.Element(key, _, [ Xml.PCData v ]) ->
 		key, String.strip String.isspace v (* remove whitespace at both ends *)
 	| Xml.Element(key, _, []) ->
 		key, ""
@@ -43,7 +43,7 @@ let parse_kv = function
 		failwith "Malformed key/value pair"
 
 (* Parse a list of SRs from an iscsi/hba SR probe response with sm-config:metadata=true *)
-let parse_sr_probe xml = 
+let parse_sr_probe xml =
 	match Xml.parse_string xml with
 	| Xml.Element("SRlist", _, children) ->
 		let parse_sr = function

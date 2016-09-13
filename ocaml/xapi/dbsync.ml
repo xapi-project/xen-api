@@ -14,7 +14,7 @@
 (**
  * @group Main Loop and Start-up
  *)
- 
+
 open Printf
 
 module D=Debug.Make(struct let name="dbsync" end)
@@ -23,7 +23,7 @@ open D
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 
-let resync_dom0_config_files() =         
+let resync_dom0_config_files() =
   try
     debug "resyncing dom0 config files if necessary";
     Config_file_sync.fetch_config_files_on_slave_startup ()
@@ -33,7 +33,7 @@ let resync_dom0_config_files() =
     in Miami resulted in these not being created by default. We recreate them here for compatability.
     Note that from MidnightRide onwards the metrics will always exist and we can delete this code. *)
 let create_host_metrics ~__context =
-  List.iter 
+  List.iter
     (fun self ->
        let m = Db.Host.get_metrics ~__context ~self in
        if not(Db.is_valid_ref __context m) then begin
@@ -49,10 +49,10 @@ let create_host_metrics ~__context =
 let update_env () =
   Server_helpers.exec_with_new_task "dbsync (update_env)" ~task_in_database:true
     (fun __context ->
-      let other_config = 
+      let other_config =
 	match Db.Pool.get_all ~__context with
 	| [ pool ] ->
-	  Db.Pool.get_other_config ~__context ~self:pool 
+	  Db.Pool.get_other_config ~__context ~self:pool
 	| [] ->
           (* Happens before the pool object has been created *)
           []

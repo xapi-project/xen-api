@@ -29,7 +29,7 @@ let fatal_error s =
   print_string s;
   print_string "\n";
   exit 1
-  
+
 type operation = Write_database | Read_gencount | Read_hostiqn | Write_hostiqn
 		 | Am_i_in_the_database | Unknown of string
 let parse_operation s =
@@ -42,7 +42,7 @@ let parse_operation s =
   | s                      -> (Unknown s)
 
 let initialise_db_connections() =
-  let dbs = Parse_db_conf.parse_db_conf 
+  let dbs = Parse_db_conf.parse_db_conf
     (if !config="" then !Xapi_globs.db_conf_path else !config) in
   Db_conn_store.initialise_db_connections dbs;
   dbs
@@ -57,7 +57,7 @@ let write_out_databases() =
 
 (* should never be thrown due to checking argument at start *)
 exception UnknownFormat
-  
+
 let write_out_database filename =
   print_string ("Dumping database to: "^filename^"\n");
   Db_cache_impl.sync
@@ -92,7 +92,7 @@ let do_write_database() =
     else
       write_out_database !filename
   end
-    
+
 let find_my_host_row() =
   Xapi_inventory.read_inventory ();
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
@@ -132,7 +132,7 @@ let do_write_hostiqn() =
 		  Db_ref.update_database (Db_backend.make ()) (set_field Db_names.host r Db_names.other_config other_config);
 		  write_out_databases()
 
-let do_am_i_in_the_database () = 
+let do_am_i_in_the_database () =
 	read_in_database();
     Printf.printf "%b" (find_my_host_row () <> None)
 

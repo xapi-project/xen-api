@@ -27,18 +27,18 @@ let filter_newline s =
 
 let _cached_hostname = ref ""
 let _cached_hostname_m = Mutex.create ()
-let get_hostname () = 
+let get_hostname () =
   Mutex.execute _cached_hostname_m
     (fun () ->
        if !_cached_hostname = ""
        then
-     _cached_hostname := 
+     _cached_hostname :=
        (try filter_newline (get_process_output "/bin/hostname")
         with _ -> "unknown");
        !_cached_hostname
     )
 
 (* Fetch the hostname again in case it has changed beneath us *)
-let reget_hostname () = 
+let reget_hostname () =
   Mutex.execute _cached_hostname_m (fun () -> _cached_hostname := "");
   get_hostname ()

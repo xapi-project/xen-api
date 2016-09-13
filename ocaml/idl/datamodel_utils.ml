@@ -34,7 +34,7 @@ module Types = struct
     | Set ty -> fold_left f accu ty
     | Map(key, value) -> fold_left f (fold_left f accu key) value
     | _ -> accu
-	
+
   let rec fold_right f ty accu =
     let accu = f ty accu in
     match ty with
@@ -55,10 +55,10 @@ module Types = struct
     | x -> [ x ]
 
   (** All types in a list of objects (automatically decomposes) *)
-  let of_objects system = 
+  let of_objects system =
     let fields = List.concat (List.map (fun x -> x.contents) system) in
     let field_types = List.concat (List.map of_content fields) in
-    
+
     let messages = List.concat (List.map (fun x -> x.messages) system) in
     let return_types =
       let aux accu msg = match msg.msg_result with
@@ -84,12 +84,12 @@ module Relations = struct
       This is only used for computing the class relationships diagram. *)
   let rec of_types a inb = match inb with
     | Set x -> if of_types a x = `None then `None else `Many
-    | Map(x, y) -> if of_types a x = `None && of_types a y = `None 
+    | Map(x, y) -> if of_types a x = `None && of_types a y = `None
       then `None else `Many
     | x -> if a = x then `One else `None
 
-  let classify api ((a, a_field_name), (b, b_field_name)) = 
-    let a_field = get_field_by_name api ~objname:a ~fieldname:a_field_name 
+  let classify api ((a, a_field_name), (b, b_field_name)) =
+    let a_field = get_field_by_name api ~objname:a ~fieldname:a_field_name
     and b_field = get_field_by_name api ~objname:b ~fieldname:b_field_name in
     of_types (Ref b) a_field.ty, of_types (Ref a) b_field.ty
 
@@ -100,9 +100,9 @@ module Relations = struct
     | `Many, `Many -> "many-to-many"
     | _, _ -> "unknown type"
 
-  let other_end_of api ((a, b) as one_end) = 
+  let other_end_of api ((a, b) as one_end) =
     let rels = relations_of_api api in
-    match (List.concat (List.map (function 
+    match (List.concat (List.map (function
 				  | (x, other_end) when x = one_end -> [ other_end ]
 				  | (other_end, x) when x = one_end -> [ other_end ]
 				  | _ -> []) rels)) with
@@ -110,38 +110,38 @@ module Relations = struct
     | [] -> failwith (Printf.sprintf "Couldn't find other end of relation (%s,%s)" a b)
     | _ -> failwith ("Found multiple other ends of relation?!")
 
-  let is_in_relation api x = 
+  let is_in_relation api x =
 	  let rels = relations_of_api api in
 	  List.mem_assoc x rels || (List.mem_assoc x (List.map (fun (k, v) -> v, k) rels))
-  
+
 end
 
 (** Compute a flat list of fields from a datamodel object *)
-let fields_of_obj (x: obj) : field list = 
+let fields_of_obj (x: obj) : field list =
   let rec of_contents = function
     | Namespace(_, xs) -> List.concat (List.map of_contents xs)
     | Field x -> [ x ] in
   List.concat (List.map of_contents x.contents)
 
 (* True if an object has a label (and therefore should have a get_by_name_label message *)
-let obj_has_get_by_name_label x = 
+let obj_has_get_by_name_label x =
   let all_fields = fields_of_obj x in
-  List.filter (fun fld -> fld.full_name = [ "name"; "label" ]) all_fields <> [] 
+  List.filter (fun fld -> fld.full_name = [ "name"; "label" ]) all_fields <> []
 
 (* True if an object has tags (and therefore should have a get_tags message *)
-let obj_has_get_tags x = 
+let obj_has_get_tags x =
   let all_fields = fields_of_obj x in
-  List.filter (fun fld -> fld.full_name = [ "tags" ]) all_fields <> [] 
+  List.filter (fun fld -> fld.full_name = [ "tags" ]) all_fields <> []
 
 (** XXX: unfortunately we don't mark which parameters of a message refer to the self;
     return the first parameter of the correct type *)
-let find_self_parameter (msg: message) = 
+let find_self_parameter (msg: message) =
   match List.filter (fun p -> p.param_type = Ref msg.msg_obj_name) msg.msg_params with
   | {param_name=x} :: _ -> x
   | _ -> failwith (Printf.sprintf "Failed to determine self parameter for message %s" msg.msg_name)
 
 let plural name =
-  if String.endswith "metrics" name then 
+  if String.endswith "metrics" name then
     name ^ " instances"
   else
     name ^ "s"
@@ -203,13 +203,13 @@ let get_lifecycle (x : obj) (meth : string) : lifecycle_transition list =
  *)
 let named_self = ref false
 
-let self_of_obj x = 
+let self_of_obj x =
   let self_name = if !named_self then x.name else _self in
   {param_type=Ref x.name; param_name=self_name; param_doc="reference to the object";
    param_release=x.obj_release; param_default=None}
 
 (** Compute the list of messages corresponding to a single field *)
-let new_messages_of_field x order fld = 
+let new_messages_of_field x order fld =
   let self = self_of_obj x in
   let prefix prefix = prefix ^ (String.concat "_" fld.full_name) in
   let common = { msg_name = ""; msg_params = []; msg_result = None;
@@ -261,12 +261,12 @@ let new_messages_of_field x order fld =
   let is_many_to_many =
 	  let api = Datamodel.all_api in
 	  let this = x.name, fld.field_name in
-	  Relations.is_in_relation api this && 
+	  Relations.is_in_relation api this &&
 		  (Relations.classify api (this,(Relations.other_end_of api this)) = (`Many, `Many)) in
 
   match (fld.ty, fld.field_ignore_foreign_key, is_many_to_many) with
   | Set(Ref _), false, false -> if order = 0 then [getter] else []
-  | Set(t), _, _ -> 
+  | Set(t), _, _ ->
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -290,7 +290,7 @@ let new_messages_of_field x order fld =
 	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
-  | Map(k, v), _, _ -> 
+  | Map(k, v), _, _ ->
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -319,15 +319,15 @@ let new_messages_of_field x order fld =
       ]
   | t, _, _ -> [
       if order = 0 then getter else setter
-    ] 
+    ]
 
-let all_new_messages_of_field obj fld = 
+let all_new_messages_of_field obj fld =
   new_messages_of_field obj 0 fld @ (new_messages_of_field obj 1 fld)
 
 (** Compute a list of all messages associated with an object including the
     implicit ones.
     NB this list requires filtering before being used for (eg) a client *)
-let messages_of_obj (x: obj) document_order : message list = 
+let messages_of_obj (x: obj) document_order : message list =
   let all_fields = fields_of_obj x in
   let self = self_of_obj x in
   (* Generate appropriate get/set/add/remove messages for each field.
@@ -335,7 +335,7 @@ let messages_of_obj (x: obj) document_order : message list =
      needs to be filtered before getting to the client *)
 
   (* Dummy message *)
-  let common = { msg_secret=false; msg_name=""; msg_params=[]; msg_result=None; msg_errors = []; msg_doc=""; 
+  let common = { msg_secret=false; msg_name=""; msg_params=[]; msg_result=None; msg_errors = []; msg_doc="";
 		 msg_async=false; msg_custom_marshaller = false; msg_db_only = false;
 		 msg_no_current_operations = false;
 		 msg_hide_from_docs = false; msg_pool_internal = false;
@@ -398,7 +398,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		       msg_session = true;
 		       msg_has_effect = false;
 		       msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
-		       msg_tag = FromObject GetByLabel } in	       
+		       msg_tag = FromObject GetByLabel } in
   (* Get Record *)
   let get_record = let name = "get_record" in { common with
              msg_name = name;
@@ -449,7 +449,7 @@ let messages_of_obj (x: obj) document_order : message list =
   } in
 
   (* And the 'get_all_records_where' semi-public function *)
-  let get_all_records_where = { get_all_public with 
+  let get_all_records_where = { get_all_public with
 				  msg_name = "get_all_records_where";
 				  msg_tag = FromObject GetAllRecordsWhere;
 				  msg_params = [ {param_type=String; param_name="expr"; param_doc="expression representing records to fetch";
@@ -462,7 +462,7 @@ let messages_of_obj (x: obj) document_order : message list =
 			      } in
 
   (* And the 'get_all_records' public function *)
-  let get_all_records = let name = "get_all_records" in { get_all_public with 
+  let get_all_records = let name = "get_all_records" in { get_all_public with
 			    msg_name = name;
 			    msg_tag = FromObject GetAllRecords;
 			    msg_params = [ ];
@@ -501,16 +501,16 @@ let messages_of_obj (x: obj) document_order : message list =
 	messages @
 	get_all_public
 
-let add_implicit_messages ?(document_order = false) (api: api) = 
+let add_implicit_messages ?(document_order = false) (api: api) =
   let objs = objects_of_api api
   and rels = relations_of_api api in
-  let objs = List.map (fun obj -> 
+  let objs = List.map (fun obj ->
 			 (* list of all messages, existing plus implicit *)
 			 let messages = messages_of_obj obj document_order in
 			 let obj' = { obj with messages = messages } in
 			 obj') objs in
   Dm_api.make (objs, rels)
-    
+
 (* Message filter which selects only those message visible to the client *)
 let on_client_side (x: message) : bool = match x with
     (* Anything that's msg_db_only is not on client-side *)
@@ -520,7 +520,7 @@ let on_client_side (x: message) : bool = match x with
   | { msg_tag = FromField((Setter|Add|Remove), { qualifier = RW }) } -> true
   | { msg_tag = FromField((Setter|Add|Remove), _) } -> false
     (* If an object is tagged with custom ctor/dtor, omit the default one *)
-  | { msg_tag = FromObject(Make|Delete) } -> 
+  | { msg_tag = FromObject(Make|Delete) } ->
       let obj = Dm_api.get_obj_by_name Datamodel.all_api ~objname:x.msg_obj_name in
       obj.gen_constructor_destructor
   | { msg_obj_name = "event" } ->

@@ -34,9 +34,9 @@ module Ip = struct
 
 	exception Invalid_ip of t
 
-	let check ((a, b, c, d) as ip) = 
+	let check ((a, b, c, d) as ip) =
 		if a >= 256 || b >= 256 || c >= 256 || d >=256 then raise (Invalid_ip ip) else ip
-			
+
 	let string_of (a, b, c, d) = Printf.sprintf "%d.%d.%d.%d" a b c d
 	let of_string s = Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d -> check (a,b,c,d))
 
@@ -51,7 +51,7 @@ module Ip = struct
 	(** [gt a b] returns true iff [a] is later than [b] in the sequence *)
 	let gt (a, b, c, d) (a', b', c', d') =
 		(a > a') || ((a = a') && (b > b')) || ((a = a') && (b = b') && (c > c')) || ((a = a') && (b = b') && (c = c') && (d > d'))
-	
+
 	(** [first a b f] returns [Some x] where [x] is the first address in the sequence from
 		[a] to [b] where [f x] is true if it exists, and [None] otherwise. *)
 	let rec first a b f =
@@ -61,7 +61,7 @@ module Ip = struct
 			else first (succ a) b f
 end
 
-type static_lease = { 
+type static_lease = {
 	mac : string;
 	ip : Ip.t;
 	vif : string; (* API.ref_VIF *)
@@ -71,7 +71,7 @@ type static_lease = {
 type static_leases = static_lease list with rpc
 
 (** List of static leases. Protected by mutex below. *)
-let assigned = ref [] 
+let assigned = ref []
 
 (** Updates the assigned_ips field of networks in xapi's database *)
 let update_db_nolock ~__context =

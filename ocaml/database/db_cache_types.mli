@@ -114,7 +114,7 @@ module Manifest :
   end
 
 (** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
-type update = 
+type update =
 	| RefreshRow of string (* tblname *) * string (* objref *)
 	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* oldval *) * Schema.Value.t (* newval *)
 	| PreDelete of string (* tblname *) * string (* objref *)
@@ -164,7 +164,7 @@ type where_record = {
 val where_record_of_rpc: Rpc.t -> where_record
 val rpc_of_where_record: where_record -> Rpc.t
 
-type structured_op_t = 
+type structured_op_t =
 	| AddSet
 	| RemoveSet
 	| AddMap

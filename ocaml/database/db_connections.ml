@@ -22,24 +22,24 @@ let get_dbs_and_gen_counts() =
 	Note that, although the two files should be present (or absent) together,
 	after upgrade we only have a database. In this case the generation
 	defaults back to 0L *)
-let exists connection = 
+let exists connection =
 	Sys.file_exists connection.Parse_db_conf.path
-    
+
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
 let choose connections = match List.filter exists connections with
 | [] -> None
 | (c :: cs) as connections ->
 	List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Parse_db_conf.generation_read c)) connections;
-	let gen, most_recent = List.fold_left (fun (g, c) c' -> 
-		let g' = Parse_db_conf.generation_read c' in 
-		if g' > g then (g', c') else (g, c)) 
+	let gen, most_recent = List.fold_left (fun (g, c) c' ->
+		let g' = Parse_db_conf.generation_read c' in
+		if g' > g then (g', c') else (g, c))
 		(Parse_db_conf.generation_read c, c) cs in
 	debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
 	Some most_recent
 
 let preferred_write_db () =
-  List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)  
+  List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)
 
 (* This is set by signal handlers. It instructs the db thread to call exit after the next flush *)
 let exit_on_next_flush = ref false
@@ -87,9 +87,9 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 	   else
 	     debug "refcount is %d; not exiting" refcount
 	 end;
-       
+
        let was_anything_flushed = Backend_xml.flush_dirty dbconn in
-       
+
        (* exit if we've been told to by caller *)
        begin
 	 match exit_spec with

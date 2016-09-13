@@ -44,7 +44,7 @@ let forward args s session =
 	if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
-	let body = 
+	let body =
 		let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
 		String.concat "\r\n" args in
 	let user_agent = Printf.sprintf "xapi/%s" Xapi_globs.api_version_string in
@@ -65,10 +65,10 @@ let check_required_keys cmd keylist =
   let (_: (string * string) list) = get_params cmd in
 	List.map (get_reqd_param cmd) keylist
 
-let with_session ~local rpc u p session f =  
-  let session, logout = 
-    match local, session with 
-      | false, None -> 
+let with_session ~local rpc u p session f =
+  let session, logout =
+    match local, session with
+      | false, None ->
 	  Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Xapi_globs.api_version_string ~originator:"cli", true
       | true, None ->
 	  Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u ~pwd:p, true
@@ -79,7 +79,7 @@ let with_session ~local rpc u p session f =
       then Client.Client.Session.local_logout ~rpc ~session_id:session
       else Client.Client.Session.logout ~rpc ~session_id:session
     end in
-  finally 
+  finally
     (fun () -> f session)
     (fun () -> do_logout ())
 
@@ -92,7 +92,7 @@ let do_rpcs req s username password minimal cmd session args =
       error "Rethrowing Not_found as Unknown_command %s" cmdname;
       Backtrace.reraise e (Unknown_command cmdname) in
   (* Forward if we're not the master, and if the cspec doesn't contain the key 'neverforward' *)
-  let do_forward =  
+  let do_forward =
     (not (Pool_role.is_master ())) && (not (List.mem Neverforward cspec.flags))
   in
   let _ = check_required_keys cmd cspec.reqd in
@@ -110,7 +110,7 @@ let do_rpcs req s username password minimal cmd session args =
 	begin
 	  match cspec.implementation with
 	  | No_fd f ->
-		with_session ~local:false rpc username password session 
+		with_session ~local:false rpc username password session
 		  (fun session->f printer rpc session (get_params cmd); flush_and_marshall())
 	  | No_fd_local_session f ->
 	      with_session ~local:true rpc username password session
@@ -221,7 +221,7 @@ let exception_handler s e =
   match e with
     | Cli_operations.ExitWithError n ->
 	marshal s (Command (Exit n))
-    | Unknown_command str -> 
+    | Unknown_command str ->
 	param_error "Unknown command" str s
     | Cli_frontend.ParseError str ->
 	param_error "Syntax error" str s
@@ -232,7 +232,7 @@ let exception_handler s e =
     | Cli_util.Cli_failure str ->
 	other_error ("Error: "^str) s
     | Api_errors.Server_error(code, params) ->
-	if code=Api_errors.session_authentication_failed 
+	if code=Api_errors.session_authentication_failed
 	then
 	  let uname = List.hd params in
 	  if uname="" (* default when not specified *)
@@ -254,7 +254,7 @@ let exception_handler s e =
 	Cli_util.server_error Api_errors.internal_error [ ExnHelper.string_of_exn exc ] s
 
 let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
-  let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in 
+  let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in
   let s = Buf_io.fd_of bio in
   (* Tell the client the server version *)
   marshal_protocol s;

@@ -67,7 +67,7 @@ let rec make_vdis_and_vbds __context vmref i =
 			let snapshot_time = Stdext.Date.never in
 			let snapshot_of = Ref.null in
 			let sharable = false in
-			let vdi = Xapi_vdi.pool_introduce 
+			let vdi = Xapi_vdi.pool_introduce
 ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of in
 
       let _ =

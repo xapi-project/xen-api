@@ -21,7 +21,7 @@
 
 (* Withlock takes dbcache_mutex, and ref-counts to allow the same thread to re-enter without blocking as many times
    as it wants. *)
-let dbcache_mutex = Mutex.create() 
+let dbcache_mutex = Mutex.create()
 let time = ref 0.0
 let n = ref 0
 let maxtime = ref (neg_infinity)

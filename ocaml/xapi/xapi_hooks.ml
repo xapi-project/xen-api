@@ -41,7 +41,7 @@ let exitcode_log_and_continue = 1
 
 let list_individual_hooks ~script_name =
   let script_dir = Filename.concat !Xapi_globs.xapi_hooks_root script_name in
-  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false) 
+  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false)
   then
     let scripts = Sys.readdir script_dir in
     Array.stable_sort compare scripts;
@@ -67,18 +67,18 @@ let execute_hook ~__context ~script_name ~args ~reason =
 		     ))
       scripts
 
-let execute_vm_hook ~__context ~reason ~vm = 
+let execute_vm_hook ~__context ~reason ~vm =
   let vmuuid = Db.VM.get_uuid ~__context ~self:vm in
   execute_hook ~__context ~args:[ "-vmuuid"; vmuuid ] ~reason
 
-let execute_host_hook ~__context ~reason ~host = 
+let execute_host_hook ~__context ~reason ~host =
   let uuid = Db.Host.get_uuid ~__context ~self:host in
   execute_hook ~__context ~args:[ "-hostuuid"; uuid ] ~reason
 
 let execute_pool_hook ~__context ~reason =
   execute_hook ~__context ~args:[] ~reason
 
-let host_pre_declare_dead ~__context ~host ~reason = 
+let host_pre_declare_dead ~__context ~host ~reason =
   execute_host_hook ~__context ~script_name:scriptname__host_pre_declare_dead ~reason ~host
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
@@ -96,15 +96,15 @@ let internal_host_dead_hook __context host =
 			List.iter Locking_helpers.kill_resource resources
 		) forwarded_tasks
 
-let host_post_declare_dead ~__context ~host ~reason = 
+let host_post_declare_dead ~__context ~host ~reason =
   (* Cancel outstanding tasks first-- should release necessary locks *)
   internal_host_dead_hook __context host;
   execute_host_hook ~__context ~script_name:scriptname__host_post_declare_dead ~reason ~host
 
-let pool_ha_overcommitted_hook ~__context = 
+let pool_ha_overcommitted_hook ~__context =
   execute_pool_hook ~__context ~script_name:scriptname__pool_ha_overcommitted ~reason:reason__none
 
-let pool_pre_ha_vm_restart_hook ~__context = 
+let pool_pre_ha_vm_restart_hook ~__context =
   execute_pool_hook ~__context ~script_name:scriptname__pool_pre_ha_vm_restart ~reason:reason__none
 
 let pool_join_hook ~__context =

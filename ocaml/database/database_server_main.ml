@@ -1,6 +1,6 @@
 open Threadext
 
-type mode = 
+type mode =
 	| Slave of string (* master IP *)
 	| Master of string (* database filename *)
 
@@ -11,7 +11,7 @@ let m = Mutex.create ()
 let c = Condition.create ()
 
 (** Handler for the remote database access URL *)
-let remote_database_access_handler_v1 req bio = 
+let remote_database_access_handler_v1 req bio =
 	try
 		Db_remote_cache_access_v1.handler req bio
 	with e ->
@@ -21,7 +21,7 @@ let remote_database_access_handler_v1 req bio =
 		raise e
 
 (** Handler for the remote database access URL *)
-let remote_database_access_handler_v2 req bio = 
+let remote_database_access_handler_v2 req bio =
 	try
 		Db_remote_cache_access_v2.handler req bio
 	with e ->
@@ -34,12 +34,12 @@ module Local_tests = Database_test.Tests(Db_cache_impl)
 
 let schema = Test_schemas.schema
 
-let _ = 
+let _ =
 	let listen_path = ref "./database" in
 	let self_test = ref false in
 	Printexc.record_backtrace true;
 
-	Arg.parse [ 
+	Arg.parse [
 		"--slave-of", Arg.String (fun master -> mode := Some(Slave master)), "run as a slave of a remote db";
 		"--master", Arg.String (fun db -> mode := Some(Master db)), "run as a master from the given db filename";
 		"--listen-on", Arg.Set_string listen_path, Printf.sprintf "listen for requests on path (default %s)" !listen_path;
@@ -56,7 +56,7 @@ let _ =
 					Printf.printf "Database path: %s\n%!" db_filename;
 					let db = Parse_db_conf.make db_filename in
 					Db_conn_store.initialise_db_connections [ db ];
-					let t = Db_backend.make () in					
+					let t = Db_backend.make () in
 					Db_cache_impl.make t [ db ] schema;
 					Db_cache_impl.sync [ db ] (Db_ref.get_database t);
 
@@ -82,4 +82,4 @@ let _ =
 						);
 					Http_svr.stop socket
 			end
-	
+

@@ -23,7 +23,7 @@ open Db_actions
 (* A note on roles: *)
 (* Here, roles and permissons are treated as a recursive type, where the   *)
 (* permissions are the leaves and roles are intermediate nodes of the tree *)
-(* For each permission there is one and only one XAPI/HTTP call *) 
+(* For each permission there is one and only one XAPI/HTTP call *)
 
 let get_all_static_roles =
 	Rbac_static.all_static_permissions @ Rbac_static.all_static_roles
@@ -36,13 +36,13 @@ let static_role_by_ref_tbl = Hashtbl.create (List.length get_all_static_roles)
 let static_role_by_uuid_tbl = Hashtbl.create (List.length get_all_static_roles)
 let static_role_by_name_label_tbl = Hashtbl.create (List.length get_all_static_roles)
 let _ =
-	List.iter (* initialize static_role_by_ref_tbl *) 
+	List.iter (* initialize static_role_by_ref_tbl *)
 		(fun r->Hashtbl.add static_role_by_ref_tbl (ref_of_role r) r)
 		get_all_static_roles;
-	List.iter (* initialize static_role_by_uuid_tbl *) 
+	List.iter (* initialize static_role_by_uuid_tbl *)
 		(fun r->Hashtbl.add static_role_by_uuid_tbl (r.role_uuid) r)
 		get_all_static_roles;
-	List.iter (* initialize static_role_by_name_tbl *) 
+	List.iter (* initialize static_role_by_name_tbl *)
 		(fun r->Hashtbl.add static_role_by_name_label_tbl (r.role_name_label) r)
 		get_all_static_roles
 
@@ -51,7 +51,7 @@ let find_role_by_uuid uuid = Hashtbl.find static_role_by_uuid_tbl uuid
 let find_role_by_name_label name_label = Hashtbl.find static_role_by_name_label_tbl name_label
 
 (*    val get_all : __context:Context.t -> ref_role_set*)
-let get_all ~__context = 
+let get_all ~__context =
 	List.map (fun r -> ref_of_role r) get_all_static_roles
 	(*@ (* concatenate with Db table *)
 	Db.Role.get_all ~__context*)
@@ -61,7 +61,7 @@ let is_valid_role ~__context ~role =
 
 let get_common ~__context ~self ~static_fn ~db_fn =
 	try (* first look up across the static roles *)
-		let static_record = find_role_by_ref self in 
+		let static_record = find_role_by_ref self in
 		static_fn static_record
 	with Not_found -> (* then look up across the roles in the Db *)
 		db_fn ~__context ~self
@@ -84,7 +84,7 @@ let get_record ~__context ~self =
 
 (*    val get_all_records_where : __context:Context.t -> expr:string -> ref_role_to_role_t_map*)
 let expr_no_permissions = "subroles<>[]"
-let expr_only_permissions = "subroles=[]" 
+let expr_only_permissions = "subroles=[]"
 let get_all_records_where ~__context ~expr =
 	if expr = expr_no_permissions then (* composite role, ie. not a permission *)
 			List.map
@@ -95,7 +95,7 @@ let get_all_records_where ~__context ~expr =
 				(fun r -> ((ref_of_role r),(get_api_record ~static_record:r)))
 				Rbac_static.all_static_permissions
 	else (* anything in this table, ie. roles+permissions *)
-			List.map 
+			List.map
 				(fun r -> ((ref_of_role r),(get_api_record ~static_record:r)))
 				get_all_static_roles
 			(*@ (* concatenate with Db table *)
@@ -177,9 +177,9 @@ let get_permissions_common ~__context ~role ~ret_value_fn =
 		then (* base case = leaf node = permission is role itself *)
 			[ret_value_fn role]
 		else (* step = go recursively down composite roles *)
-		(List.fold_left 
-			(fun accu role -> 
-				List.rev_append 
+		(List.fold_left
+			(fun accu role ->
+				List.rev_append
 					(rec_get_permissions_of_role ~__context ~role)
 					accu
 			)
@@ -213,9 +213,9 @@ let get_by_permission ~__context ~permission =
 		~cmp_fn:(fun perm -> permission = perm)
 
 let get_by_permission_name_label ~__context ~label =
-	let permission = 
+	let permission =
 		let ps = get_by_name_label ~__context ~label in
-		if List.length ps > 0 
+		if List.length ps > 0
 		then List.hd ps (* names are unique, there's either 0 or 1*)
 		else Ref.null (* name not found *)
 	in
@@ -233,10 +233,10 @@ let get_by_permission_name_label ~__context ~label =
 let create ~__context ~name_label ~name_description ~subroles =
 	(* disabled in RBAC 1.0 *)
 	(*
-	let ref=Ref.make() in 
+	let ref=Ref.make() in
 	let uuid=Uuid.to_string (Uuid.make_uuid()) in
 	(* TODO: verify the uniqueness of id *)
-	if id = "no" 
+	if id = "no"
 	then raise (Api_errors.Server_error (Api_errors.role_not_found, []))
 	else
 	Db.Role.create ~__context ~ref ~uuid ~id ~name ~description ~permissions ~is_basic ~is_complete;

@@ -42,11 +42,11 @@ let supress_printing_for_these_messages : (string,unit) Hashtbl.t =
   let tbl = Hashtbl.create 20 in
   List.iter (fun k -> Hashtbl.replace tbl k ()) ["host.tickle_heartbeat"; "session.login_with_password"; "session.logout"; "session.local_logout"; "session.slave_local_login"; "session.slave_local_login_with_password"];
   tbl
-    
-let is_async x = 
+
+let is_async x =
   String.length x > async_length && (String.sub x 0 async_length = async_wire_name)
 
-let remove_async_prefix x = 
+let remove_async_prefix x =
   String.sub x async_length (String.length x - async_length)
 
 let unknown_rpc_failure func =
@@ -64,8 +64,8 @@ let exec ?marshaller ?f_forward ~__context f =
 	  2. If we are the master, locks are only necessary for the potentially-forwarded
 	  (ie side-effecting) operations and not things like the database layer *)
   try
-    let result = 
-      if not(Pool_role.is_master ()) 
+    let result =
+      if not(Pool_role.is_master ())
 	    then f ~__context (* slaves process everything locally *)
 	    else match f_forward with
 	      | None ->
@@ -74,36 +74,36 @@ let exec ?marshaller ?f_forward ~__context f =
 	      | Some forward ->
 	          (* use the forwarding layer (NB this might make a local call ultimately) *)
 	          forward ~local_fn:f ~__context
-    in 
+    in
       begin match marshaller with
         | None    -> TaskHelper.complete ~__context None
         | Some fn -> TaskHelper.complete ~__context (Some (fn result))
       end;
-      result 
-  with 
-    | Api_errors.Server_error (a,b) as e when a = Api_errors.task_cancelled -> 
+      result
+  with
+    | Api_errors.Server_error (a,b) as e when a = Api_errors.task_cancelled ->
         Backtrace.is_important e;
         TaskHelper.cancel ~__context;
         raise e
-    | e -> 
+    | e ->
         Backtrace.is_important e;
         TaskHelper.failed ~__context e;
         raise e
 
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
-(*  FIXME: This function should not be used for external call : we should add a proper .mli file to hide it. *) 
+(*  FIXME: This function should not be used for external call : we should add a proper .mli file to hide it. *)
 let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) f =
 	Locking_helpers.Thread_state.with_named_thread (Context.get_task_name __context) (Context.get_task_id __context)
 		(fun () ->
 			Debug.with_thread_associated (Context.string_of_task __context)
-				(fun () -> 
-					finally 
+				(fun () ->
+					finally
 						(fun () ->
 							(* CP-982: promote tracking debug line to info status *)
 							if called_async then info "spawning a new thread to handle the current task%s" (Context.trackid ~with_brackets:true ~prefix:" " __context);
 							exec ?marshaller ?f_forward ~__context f)
-						(fun () -> 
-							if not called_async 
+						(fun () ->
+							if not called_async
 							then Context.destroy __context
 								(* else debug "nothing more to process for this thread" *)
 						)
@@ -119,30 +119,30 @@ let dispatch_exn_wrapper f =
 let do_dispatch ?session_id ?forward_op ?self called_async supports_async called_fn_name op_fn
     marshaller_fn fd http_req label generate_task_for =
 
-  if (called_async && (not supports_async)) 
+  if (called_async && (not supports_async))
   then API.response_of_fault ("No async mode for this operation (rpc: "^called_fn_name^")")
-  else  
+  else
     let __context = Context.of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req ~fd in
     if called_async
 	    then begin
 	      (* Fork thread in which to execute async call *)
-	      ignore (Thread.create 
+	      ignore (Thread.create
 		       (fun () ->
-              exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn) 
+              exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn)
            ());
 	      (* Return task id immediately *)
 	      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
       end else
-        let result = 
+        let result =
           exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn
         in
           Rpc.success (marshaller_fn result)
 
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
-  exec_with_context 
-    ~__context:(Context.make ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name) 
+  exec_with_context
+    ~__context:(Context.make ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name)
     (fun ~__context -> f __context)
-  
+
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
   exec_with_context
     ~__context:(Context.from_forwarded_task ?http_other_config ?session_id ?origin task_id)

@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 type indexrec = {
-	name_label: string option; 
-	uuid: string; 
+	name_label: string option;
+	uuid: string;
 	_ref: string
 }
 val string_of : indexrec -> string

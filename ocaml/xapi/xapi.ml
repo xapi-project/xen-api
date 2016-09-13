@@ -36,7 +36,7 @@ module W=Debug.Make(struct let name="watchdog" end)
     instead we rely on the init.d scripts to start other services. *)
 let startup_check () =
   Sanitycheck.check_for_bad_link ()
-    
+
 (* Parse db conf file from disk and use this to initialise database connections. This is done on
    both master and slave. On masters the parsed data is used to flush databases to and to populate
    cache; on the slave the parsed data is used to determine where to put backups.
@@ -78,7 +78,7 @@ let populate_db backend =
 		Unixext.unlink_safe (Xapi_globs.db_temporary_restore_path ^ ".generation")
 	end
 
-(** Starts the main database engine: this should be done only on the master node. 
+(** Starts the main database engine: this should be done only on the master node.
     The db connections must have been parsed from db.conf file and initialised before this fn is called.
     Also this function depends on being able to call API functions through the external interface.
 *)
@@ -110,9 +110,9 @@ let start_database_engine () =
     )
 
 (* Block premature incoming client requests until the database engine is ready *)
-let wait_until_database_is_ready_for_clients () = 
-  Mutex.execute database_ready_for_clients_m 
-    (fun () -> 
+let wait_until_database_is_ready_for_clients () =
+  Mutex.execute database_ready_for_clients_m
+    (fun () ->
        while not !database_ready_for_clients do Condition.wait database_ready_for_clients_c database_ready_for_clients_m done)
 
 (** Handler for the remote database access URL *)
@@ -133,7 +133,7 @@ let remote_stats_handler req bio _ =
   (* CA-20487: need to authenticate this URL, but only when we're not in pool rolling-upgrade mode; this
      URL is depricated and should be removed ASAP.. *)
   let auth_failed() =
-    raise (Http.Unauthorised "remote stats") in      
+    raise (Http.Unauthorised "remote stats") in
   let rolling_upgrade_in_progress =
     Server_helpers.exec_with_new_task "performance_monitor_auth" ~task_in_database:false
       (fun __context -> Helpers.rolling_upgrade_in_progress ~__context) in
@@ -147,7 +147,7 @@ let remote_stats_handler req bio _ =
     end;
 
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
-  let body_xml = Xml.parse_string body in  
+  let body_xml = Xml.parse_string body in
   Stats.time_this "remote_stats"
     (fun () ->
        let stats = Monitor_transfer.unmarshall body_xml in
@@ -201,7 +201,7 @@ let register_callback_fns() =
 let noevents = ref false
 let debug_dummy_data = ref false
 
-let show_version () = 
+let show_version () =
   List.iter (fun (x, y) -> printf "%s=%s\n" x y)
     [ "git_id", Version.git_id;
       "hostname", Version.hostname;
@@ -221,7 +221,7 @@ let init_args() =
     Xapi_globs.xenopsd_queues := [ "xenopsd" ]
   end
 
-			  
+
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
@@ -279,7 +279,7 @@ let on_master_restart ~__context =
   try
     let host = Helpers.get_localhost ~__context in
     let metrics = Db.Host.get_metrics ~__context ~self:host in
-    let shutting_down = 
+    let shutting_down =
       Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
 	(fun () -> List.exists (fun x -> x=host) !Xapi_globs.hosts_which_are_shutting_down) in
     if not shutting_down
@@ -352,9 +352,9 @@ let wait_for_management_ip_address ~__context =
 type hello_error =
   | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
   | Temporary (* some glitch or other *)
-      
+
 (** Attempt a Pool.hello, return None if ok or Some hello_error otherwise *)
-let attempt_pool_hello my_ip = 
+let attempt_pool_hello my_ip =
   let localhost_uuid = Helpers.get_localhost_uuid () in
   try
     Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
@@ -368,10 +368,10 @@ let attempt_pool_hello my_ip =
 	     debug "Master claims he has no record of us being a slave";
 	     Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
 	     Some Permanent
-	 | `ok -> 
+	 | `ok ->
 	     None
       )
-  with 
+  with
   | Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
       debug "Master did not recognise our pool secret: we must be pointing at the wrong master.";
       Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
@@ -384,21 +384,21 @@ let attempt_pool_hello my_ip =
       debug "Caught exception: %s during Pool.hello" (ExnHelper.string_of_exn exn);
       Xapi_host.set_emergency_mode_error Api_errors.internal_error [ ExnHelper.string_of_exn exn ];
       Some Temporary
-	
+
 (** Bring up the HA system if configured *)
-let start_ha () = 
+let start_ha () =
   try
     Xapi_ha.on_server_restart ()
   with e ->
     (* Critical that we don't continue as a master and use shared resources *)
     debug "Caught exception starting HA system: %s" (ExnHelper.string_of_exn e)
-	
+
 (** Enable and load the redo log if we are the master, the local-DB flag is set
  * and HA is disabled *)
 let start_redo_log () =
   try
     if Pool_role.is_master () &&
-		bool_of_string (Localdb.get_with_default Constants.redo_log_enabled "false") && 
+		bool_of_string (Localdb.get_with_default Constants.redo_log_enabled "false") &&
 	  not (bool_of_string (Localdb.get Constants.ha_armed)) then
     begin
       debug "Redo log was enabled when shutting down, so restarting it";
@@ -407,7 +407,7 @@ let start_redo_log () =
       debug "Attempting to extract a database from a metadata VDI";
       (* read from redo log and store results in a staging file for use in the
        * next step; best effort only: does not raise any exceptions *)
-      let db_ref = Db_backend.make () in 
+      let db_ref = Db_backend.make () in
       Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_db db_ref
     end
   with e ->
@@ -459,7 +459,7 @@ let server_run_in_emergency_mode () =
   info "Cannot contact master: running in slave emergency mode";
   Xapi_globs.slave_emergency_mode := true;
   (* signal the init script that it should succeed even though we're bust *)
-  Helpers.touch_file !Xapi_globs.ready_file; 
+  Helpers.touch_file !Xapi_globs.ready_file;
 
   let emergency_reboot_delay = !Xapi_globs.emergency_reboot_delay_base +. Random.float !Xapi_globs.emergency_reboot_delay_extra in
   info "Will restart management software in %.1f seconds" emergency_reboot_delay;
@@ -572,16 +572,16 @@ let check_network_reset () =
 				let netmask = if List.mem_assoc "NETMASK" args then List.assoc "NETMASK" args else "" in
 				let gateway = if List.mem_assoc "GATEWAY" args then List.assoc "GATEWAY" args else "" in
 				let dNS = if List.mem_assoc "DNS" args then List.assoc "DNS" args else "" in
-				
+
 				(* Erase networking database objects for this host *)
 				Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
 						Client.Client.Host.reset_networking rpc session_id host
 					);
-				
+
 				(* Introduce PIFs for remaining interfaces *)
 				Xapi_pif.scan ~__context ~host;
-				
+
 				(* Introduce and configure the management PIF *)
 				let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
 					Eq (Field "host", Literal (Ref.string_of host)),
@@ -596,10 +596,10 @@ let check_network_reset () =
 		(* Remove trigger file *)
 		Unix.unlink("/tmp/network-reset")
 	with _ -> () (* TODO: catch specific exception for missing fields in reset_file and inform user *)
-	
+
 
 (** Make sure our license is set correctly *)
-let handle_licensing () = 
+let handle_licensing () =
 	Server_helpers.exec_with_new_task "Licensing host"
 		(fun __context ->
 			let host = Helpers.get_localhost ~__context in
@@ -755,7 +755,7 @@ let server_init() =
   in
   let event_hook_auth_on_xapi_initialize_async ~__context = (* CP-695 *)
     (* this function should be called asynchronously because it can take a long time to complete *)
-    (* 1. we should already have synchronously called hook_script_before_xapi_initialize *) 
+    (* 1. we should already have synchronously called hook_script_before_xapi_initialize *)
     let host = Helpers.get_localhost ~__context in
     let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
     (* only tries to initialize external authentication if there's some external auth_type defined *)
@@ -777,7 +777,7 @@ let server_init() =
                 "host_external_auth_type="^auth_type^
                 ", host_external_auth_service_name="^service_name^
                 ", error="^ (match !last_error with None -> "timeout" | Some e ->
-                (match e with 
+                (match e with
                   | Auth_signature.Auth_service_error (errtag,errmsg) -> errmsg (* this is the expected error msg *)
                   | e ->  (ExnHelper.string_of_exn e) (* unknown error msg *)
                 ))
@@ -849,7 +849,7 @@ let server_init() =
      NOTE: We have to start up the database engine before attempting to bring up network etc. because
      the database engine start may attempt a schema upgrade + restart xapi. The last thing we want
      is to have xapi half way through setting up networking, get restarted after a db schema upgrade and
-     then try and bring up networking again (now racing with itself since dhclient will already be 
+     then try and bring up networking again (now racing with itself since dhclient will already be
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
@@ -921,7 +921,7 @@ let server_init() =
         Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end);
 
-    Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context -> 
+    Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context ->
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
@@ -965,12 +965,12 @@ let server_init() =
 			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
 			"Stats reporting thread", [], Xapi_stats.start;
     ];
-						    
+
     if !debug_dummy_data then (
       Startup.run ~__context [ "populating db with dummy data", [ Startup.OnlyMaster; Startup.NoExnRaising ],
                       (fun () -> Debug_populate.do_populate ~vms:1000 ~vdis_per_vm:3 ~networks:10 ~srs:10 ~tasks:1000) ]
     );
-						    
+
     let wait_management_interface () =
       let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
       if management_if <> "" then (
@@ -987,7 +987,7 @@ let server_init() =
          (fun () -> Pool_db_backup.fetch_database_backup ~master_address:(Pool_role.get_master_address())
 	                                                 ~pool_secret:!Xapi_globs.pool_secret ~force:None);
       "wait management interface to come up", [ Startup.NoExnRaising ], wait_management_interface;
-      "considering sending a master transition alert", [ Startup.NoExnRaising; Startup.OnlyMaster ], 
+      "considering sending a master transition alert", [ Startup.NoExnRaising; Startup.OnlyMaster ],
           Xapi_pool_transition.consider_sending_alert __context;
       "Cancelling in-progress storage migrations", [], (fun () -> Storage_migrate.killall ~dbg:"xapi init");
       (* Start the external authentification plugin *)

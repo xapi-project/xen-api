@@ -38,7 +38,7 @@ module Token = struct
 
 	let of_string token =
 		match String.split ',' token with
-			| [from;from_t] -> 
+			| [from;from_t] ->
 				(Int64.of_string from, Int64.of_string from_t)
 			| [""] -> (0L, 0L)
 			| _ ->
@@ -51,7 +51,7 @@ module Token = struct
 end
 
 module Subscription = struct
-	type t = 
+	type t =
 	| Class of string
 	| Object of string * string
 	| All
@@ -61,15 +61,15 @@ module Subscription = struct
 	| [ cls; id ] -> Object(String.lowercase cls, id)
 	| _ ->
 		raise (Api_errors.Server_error(Api_errors.event_subscription_parse_failure, [ x ]))
-	let to_string subs = 
+	let to_string subs =
 	  let to_string x =
 	    match x with
 	    | Class y -> Printf.sprintf "class(%s)" y
 	    | Object (cls,id) -> Printf.sprintf "object(%s,%s)" cls id
 	    | All -> "all"
-	  in 
+	  in
 	  Printf.sprintf "[%s]" (String.concat "," (List.map to_string subs))
-	      
+
 	let any = List.fold_left (fun acc x -> acc || x) false
 
 	(** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
@@ -105,7 +105,7 @@ module Next = struct
 	let queue = ref []
 
 	(** Monotonically increasing event ID. One higher than the highest event ID in the queue *)
-	let id = ref 0L 
+	let id = ref 0L
 
 	(** When we GC events we track how many we've deleted so we can send an error to the client *)
 	let highest_forgotten_id = ref (-1L)
@@ -125,7 +125,7 @@ module Next = struct
 	let m = Mutex.create ()
 	let c = Condition.create ()
 
-	let event_size ev = 
+	let event_size ev =
 	  let rpc = rpc_of_event ev in
 	  let string = Jsonrpc.to_string rpc in
 	  String.length string
@@ -149,7 +149,7 @@ module Next = struct
 			end else begin
 				(* debug "Dropping event %s" (string_of_event ev) *)
 			end;
-		
+
 			(* GC the events in the queue *)
 			let total_size = List.fold_left (fun acc (sz,_) -> acc + sz) 0 !queue in
 
@@ -175,24 +175,24 @@ module Next = struct
 			(* Remember the highest ID of the list of events to drop *)
 			if to_drop <> [] then
 			highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id;
-			(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
+			(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)"
 			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
 		)
 
 	let assert_subscribed session =
 		Mutex.execute m
 		(fun () ->
-			if not(Hashtbl.mem subscriptions session) 
+			if not(Hashtbl.mem subscriptions session)
 			then raise (Api_errors.Server_error(Api_errors.session_not_registered, [ Context.trackid_of_session (Some session) ])))
 
 	(* Fetch the single subscription_record associated with a session or create
 	   one if one doesn't exist already *)
-	let get_subscription session = 
+	let get_subscription session =
 		Mutex.execute m
 		(fun () ->
 			if Hashtbl.mem subscriptions session then begin
 				Hashtbl.find subscriptions session
-			end else begin 
+			end else begin
 				let subscription = { last_id = !id; subs = []; m = Mutex.create(); session = session; session_invalid = false; timeout=0.0; } in
 				Hashtbl.replace subscriptions session subscription;
 				subscription
@@ -200,14 +200,14 @@ module Next = struct
 
 	let on_session_deleted session_id =
 		Mutex.execute m
-		(fun () -> 
+		(fun () ->
 
 			let mark_invalid sub =
 				(* Mark the subscription as invalid and wake everyone up *)
 				Mutex.execute sub.m (fun () -> sub.session_invalid <- true);
 				Condition.broadcast c in
 
-			if Hashtbl.mem subscriptions session_id then begin 
+			if Hashtbl.mem subscriptions session_id then begin
 				let sub = Hashtbl.find subscriptions session_id in
 				mark_invalid sub;
 				Hashtbl.remove subscriptions session_id;
@@ -216,9 +216,9 @@ module Next = struct
 
 	let session_is_invalid sub = Mutex.execute sub.m (fun () -> sub.session_invalid)
 
-	(* Blocks the caller until the current ID has changed OR the session has been 
+	(* Blocks the caller until the current ID has changed OR the session has been
 	    invalidated. *)
-	let wait subscription from_id = 
+	let wait subscription from_id =
 		let result = ref 0L in
 		Mutex.execute m
 		(fun () ->
@@ -230,7 +230,7 @@ module Next = struct
 		else !result
 
 	(* Thrown if the user requests events which we don't have because we've thrown
-	   then away. This should only happen if more than max_stored_events are produced 
+	   then away. This should only happen if more than max_stored_events are produced
 	   between successive calls to Event.next (). The client should refresh all its state
 	   manually before calling Event.next () again.
 	*)
@@ -330,7 +330,7 @@ module From = struct
 	(* Is called by the session timeout code *)
 	let on_session_deleted session_id =
 		Mutex.execute m
-		(fun () -> 
+		(fun () ->
 			let mark_invalid sub =
 				(* Mark the subscription as invalid and wake everyone up *)
 				Mutex.execute sub.m (fun () -> sub.session_invalid <- true);
@@ -348,7 +348,7 @@ module From = struct
 		let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
 		Mutex.execute m
 		(fun () ->
-			while from_id = call.cur_id && not (session_is_invalid call) && Unix.gettimeofday () < deadline do 
+			while from_id = call.cur_id && not (session_is_invalid call) && Unix.gettimeofday () < deadline do
 				Xapi_periodic_scheduler.add_to_queue timeoutname Xapi_periodic_scheduler.OneShot (deadline -. Unix.gettimeofday () +. 0.5) (fun () -> Condition.broadcast c);
 				Condition.wait c m;
 				Xapi_periodic_scheduler.remove_from_queue timeoutname
@@ -369,7 +369,7 @@ let register ~__context ~classes =
 	Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs)
 
 (** Unregister interest in events generated on objects of class <class_name> *)
-let unregister ~__context ~classes = 
+let unregister ~__context ~classes =
 	let session = Context.get_session_id __context in
 	let open Next in
 	let subs = List.map Subscription.of_string classes in
@@ -385,10 +385,10 @@ let rec next ~__context =
 
 	let subscription = get_subscription session in
 
-	(* Return a <from_id, end_id> exclusive range that is guaranteed to be specific to this 
+	(* Return a <from_id, end_id> exclusive range that is guaranteed to be specific to this
 	   thread. Concurrent calls will grab wholly disjoint ranges. Note the range might be
 	   empty. *)
-	let grab_range () = 
+	let grab_range () =
 		(* Briefly hold both the general and the specific mutex *)
 	  	Mutex.execute m
 		  (fun () -> Mutex.execute subscription.m
@@ -398,7 +398,7 @@ let rec next ~__context =
 			subscription.last_id <- !id ;
 			last_id, !id)) in
 	(* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
-	let rec grab_nonempty_range () = 
+	let rec grab_nonempty_range () =
 		let last_id, end_id = grab_range () in
 		if last_id = end_id then begin
 			let (_: int64) = wait subscription end_id in
@@ -412,10 +412,10 @@ let rec next ~__context =
 	let subs = Mutex.execute subscription.m (fun () -> subscription.subs) in
 	let relevant = List.filter (fun ev -> Subscription.event_matches subs ev) events in
 	(* debug "number of relevant events = %d" (List.length relevant); *)
-	if relevant = [] then next ~__context 
+	if relevant = [] then next ~__context
 	else rpc_of_events relevant
 
-let from_inner __context session subs from from_t deadline = 
+let from_inner __context session subs from from_t deadline =
 	let open From in
 
 	(* The database tables involved in our subscription *)
@@ -491,7 +491,7 @@ let from_inner __context session subs from from_t deadline =
 	) [] deletes in
 	let events = List.fold_left (fun acc (table, objref, mtime) ->
 		let serialiser = Eventgen.find_get_record table in
-		try 
+		try
 			let xml = serialiser ~__context ~self:objref () in
 			let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
 			if Subscription.event_matches subs ev then ev::acc else acc
@@ -499,14 +499,14 @@ let from_inner __context session subs from from_t deadline =
 	) events mods in
 	let events = List.fold_left (fun acc (table, objref, ctime) ->
 		let serialiser = Eventgen.find_get_record table in
-		try 
+		try
 			let xml = serialiser ~__context ~self:objref () in
 			let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
 			if Subscription.event_matches subs ev then ev::acc else acc
 		with _ -> acc
 	) events creates in
 	let events = List.fold_left (fun acc mev ->
-		let event = match mev with 
+		let event = match mev with
 		| Message.Create (_ref,message) -> event_of `add ?snapshot:(Some (API.rpc_of_message_t message)) ("message", Ref.string_of _ref, 0L)
 		| Message.Del _ref -> event_of `del ("message",Ref.string_of _ref, 0L) in
 		event::acc) events messages in
@@ -526,7 +526,7 @@ let from_inner __context session subs from from_t deadline =
 
 let from ~__context ~classes ~token ~timeout =
 	let session = Context.get_session_id __context in
-	let from, from_t = 
+	let from, from_t =
 		try
 			Token.of_string token
 		with e ->
@@ -582,7 +582,7 @@ let event_add ?snapshot ty op reference  =
 let register_hooks () = Db_action_helper.events_register event_add
 
 (* Called whenever a session is being destroyed i.e. by Session.logout and db_gc *)
-let on_session_deleted session_id = 
+let on_session_deleted session_id =
 	(* Unregister this session if is associated with in imported DB. *)
 	(* FIXME: this doesn't logically belong in the event code *)
 	Db_backend.unregister_session session_id;
@@ -595,7 +595,7 @@ let on_session_deleted session_id =
     2. allow the server to detect when a client has failed *)
 let heartbeat ~__context =
 	try
-		Db_lock.with_lock 
+		Db_lock.with_lock
 		(fun () ->
 			(* We must hold the database lock since we are sending an update for a real object
 			   and we don't want to accidentally transmit an older snapshot. *)

@@ -52,4 +52,4 @@ let call_extension rpc =
 	| e ->
 		error "Unexpected exception calling extension %s: %s" rpc.Rpc.name (Printexc.to_string e);
 		Debug.log_backtrace e (Backtrace.get e);
-		API.response_of_failure Api_errors.internal_error [ rpc.Rpc.name; Printexc.to_string e ]	
+		API.response_of_failure Api_errors.internal_error [ rpc.Rpc.name; Printexc.to_string e ]

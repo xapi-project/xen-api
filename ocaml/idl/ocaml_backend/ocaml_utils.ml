@@ -33,7 +33,7 @@ let constructor_of string =
     | _ -> "" in
   let string = if List.mem string keywords then "_" ^ string else string in
   let list = match String.explode string with
-      '0'..'9' :: _ as list -> "`_" :: List.map remove_non_alphanum list    
+      '0'..'9' :: _ as list -> "`_" :: List.map remove_non_alphanum list
     | list -> "`" :: List.map remove_non_alphanum list in
   String.concat "" list
 
@@ -46,7 +46,7 @@ let ocaml_of_record_name_rpc x =
 	escape x
 
 (* generates: _VM_foo *)
-let ocaml_of_record_field_rpc x = 
+let ocaml_of_record_field_rpc x =
 	escape (String.concat "_" x)
 
 (* generates: vM_foo *)
@@ -92,8 +92,8 @@ let rec ocaml_of_ty = function
   | Record x -> failwith "ocaml_of_ty got a record"
 
 (** Take an object name and return the corresponding ocaml name *)
-let ocaml_of_obj_name x = 
-  if x = "" 
+let ocaml_of_obj_name x =
+  if x = ""
   then failwith "Empty object name"
   else (match x.[0] with
 	| 'A'..'Z' | 'a'..'z' -> String.capitalize x

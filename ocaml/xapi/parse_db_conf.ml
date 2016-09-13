@@ -112,7 +112,7 @@ let parse_db_conf s =
       let key_values = ref [] in
       while (!lines<>[] && (List.hd !lines)<>"") do
 	let line = List.hd !lines in
-	key_values := (match (String.split ':' line) with 
+	key_values := (match (String.split ':' line) with
 			k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs))
 		| _ -> failwith (Printf.sprintf "Failed to parse: %s" line)
 	)::!key_values;

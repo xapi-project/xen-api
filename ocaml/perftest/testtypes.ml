@@ -14,7 +14,7 @@
 
 (* Test results *)
 
-type resultdata = 
+type resultdata =
     | StartTest of float list
     | SizeTest of float
     | ShutdownTest of float list

@@ -50,7 +50,7 @@ let clean_out_passwds ~__context strmap =
 let duplicate_passwds ~__context strmap =
 	let check_key k = String.endswith "password_secret" k in
 	let possibly_duplicate (k, v) = if check_key k
-		then 
+		then
 			let sr = Db.Secret.get_by_uuid ~__context ~uuid:v in
 			let v = Db.Secret.get_value ~__context ~self:sr in
 			let new_sr = create ~__context ~value:v ~other_config:[] in

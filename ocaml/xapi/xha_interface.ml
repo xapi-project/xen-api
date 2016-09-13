@@ -50,7 +50,7 @@ let first_xml_element_with_name elements name =
 let hash_table_entry_of_leaf_xml_element = function
 	| Xml.Element (name, _, Xml.PCData (value) :: values) ->
 		Some (
-			String.strip String.isspace name, 
+			String.strip String.isspace name,
 			String.strip String.isspace value
 		)
 	| Xml.Element (name, _, []) -> Some (String.strip String.isspace name, "")
@@ -94,7 +94,7 @@ module DaemonConfiguration = struct
 
 		(** Converts the given HA daemon host configuration *)
 		(** into an XML element tree.                       *)
-		let to_xml_element host = 
+		let to_xml_element host =
 			Xml.Element (
 				"host", [], [
 					(xml_leaf_element "HostID"    host.uuid   );
@@ -153,8 +153,8 @@ module DaemonConfiguration = struct
 			let common_hosts = List.map
 				(fun (_, host) -> Host.of_host_t host)
 				records in
-			let local_host_uuid = 
-				Db.Host.get_uuid 
+			let local_host_uuid =
+				Db.Host.get_uuid
 				~__context ~self:!Xapi_globs.localhost_ref in
 			{
 				common_hosts                = common_hosts;
@@ -179,8 +179,8 @@ module DaemonConfiguration = struct
 				xapi_licensecheck_timeout   = xapi_licensecheck_timeout;
 			}
 
-	let int_parameter (name, param) = 
-		Opt.default [] (Opt.map (fun x -> [ xml_leaf_element name (string_of_int x) ]) param) 
+	let int_parameter (name, param) =
+		Opt.default [] (Opt.map (fun x -> [ xml_leaf_element name (string_of_int x) ]) param)
 
 	(** Converts the given HA daemon configuration *)
 	(** into an XML element tree.                  *)
@@ -281,12 +281,12 @@ module LiveSetInformation = struct
 			| Xml.Element ("host", _, children) ->
 				begin
 					let table = hash_table_of_leaf_xml_element_list children in
-					let find x = 
-						try Hashtbl.find table x 
+					let find x =
+						try Hashtbl.find table x
 						with Not_found ->
 							invalid_arg (Printf.sprintf "Missig entry '%s' within 'host' element" x) in
-					let bool s = 
-						try bool_of_string (String.lowercase s) 
+					let bool s =
+						try bool_of_string (String.lowercase s)
 						with Invalid_argument _ ->
 							invalid_arg (Printf.sprintf "Invalid boolean value '%s' within 'host' element" s) in
 
@@ -300,7 +300,7 @@ module LiveSetInformation = struct
 						excluded             = bool (find "excluded"           )
 					})
 				end
-			| _ -> 
+			| _ ->
 				None
 
 	end
@@ -317,13 +317,13 @@ module LiveSetInformation = struct
 		}
 		let of_xml_element = function
 			| Xml.Element("host_raw_data", _, children) ->
-				let table = hash_table_of_leaf_xml_element_list children in			    
-				let find x = 
-					try Hashtbl.find table x 
+				let table = hash_table_of_leaf_xml_element_list children in
+				let find x =
+					try Hashtbl.find table x
 					with Not_found ->
 						invalid_arg (Printf.sprintf "Missing entry '%s' within 'host_raw_data' element" x) in
-				let int s = 
-					try int_of_string (String.lowercase s) 
+				let int s =
+					try int_of_string (String.lowercase s)
 					with Invalid_argument _ ->
 						invalid_arg (Printf.sprintf "Invalid integer value '%s' within 'host_raw_data' element" s) in
 				let uuid = Uuid.of_string in
@@ -331,12 +331,12 @@ module LiveSetInformation = struct
 				Some ({
 					id = uuid (find "HostID");
 					time_since_last_update_on_statefile     = int (find "time_since_last_update_on_statefile"    );
-					time_since_last_heartbeat               = int (find "time_since_last_heartbeat"              );	
-					time_since_xapi_restart_first_attempted = int (find "time_since_xapi_restart_first_attempted");	
+					time_since_last_heartbeat               = int (find "time_since_last_heartbeat"              );
+					time_since_xapi_restart_first_attempted = int (find "time_since_xapi_restart_first_attempted");
 					heartbeat_active_list_on_heartbeat      = set uuid (find "heartbeat_active_list_on_heartbeat");
 					heartbeat_active_list_on_statefile      = set uuid (find "heartbeat_active_list_on_statefile");
 				      })
-			| _ -> None 
+			| _ -> None
 
 	end
 
@@ -352,10 +352,10 @@ module LiveSetInformation = struct
 	  		| Xml.Element("warning_on_local_host", _, children) ->
 				begin
 					let table = hash_table_of_leaf_xml_element_list children in
-					let find x = 
-						try Hashtbl.find table x 
+					let find x =
+						try Hashtbl.find table x
 						with Not_found ->
-							invalid_arg (Printf.sprintf "Missing entry '%s' within 'warning_on_local_host' element" x) in		  
+							invalid_arg (Printf.sprintf "Missing entry '%s' within 'warning_on_local_host' element" x) in
 					let bool x = find x = "TRUE" in
 					Some({
 						statefile_lost                        = bool "statefile_lost";
@@ -386,12 +386,12 @@ module LiveSetInformation = struct
 			| Xml.Element("raw_status_on_local_host", _, children) ->
 				begin
 					let table = hash_table_of_leaf_xml_element_list children in
-					let find x = 
-						try Hashtbl.find table x 
+					let find x =
+						try Hashtbl.find table x
 						with Not_found ->
 							invalid_arg (Printf.sprintf "Missing entry '%s' within 'raw_status_on_local_host' element" x) in
-					let int s = 
-						try int_of_string (String.lowercase s) 
+					let int s =
+						try int_of_string (String.lowercase s)
 						with Invalid_argument _ ->
 							invalid_arg (Printf.sprintf "Invalid integer value '%s' within 'raw_status_on_local_host' element" s) in
 					let host_raw_data = Hashtblext.of_list (
@@ -411,7 +411,7 @@ module LiveSetInformation = struct
 						xapi_healthcheck_min     = int (find "Xapi_healthcheck_latency_min");
 						xapi_healthcheck_max     = int (find "Xapi_healthcheck_latency_max");
 						host_raw_data            = host_raw_data;
-					})				  
+					})
 				end
 			| _ ->
 				None
@@ -479,9 +479,9 @@ module LiveSetInformation = struct
 		of_xml_element (Xml.parse_string string)
 
 	(** See interface. *)
-	let to_summary_string t = 
+	let to_summary_string t =
 		let status = Status.to_string t.status in
-		let host h = Printf.sprintf "%s [%s%s%s%s%s%s]" 
+		let host h = Printf.sprintf "%s [%s%s%s%s%s%s]"
 			(Uuid.string_of_uuid h.Host.id)
 			(if h.Host.id = t.local_host_id then "*" else " ")
 			(if h.Host.liveness             then "L" else " ")
@@ -542,7 +542,7 @@ module DaemonConfigurationTest = struct
 	end
 
 	let ($) a b = b a
-	
+
 	let _ =
 		{
 			common_hosts               = HostTest.mock_hosts                   ;
@@ -591,7 +591,7 @@ module LiveSetInformationTest = struct
 		"}"
 
 	let ($) f a = a f
-	
+
 	let _ =
 		if Array.length Sys.argv != 2 then
 			print_endline "usage: xha_interface <path-to-xml-file>"

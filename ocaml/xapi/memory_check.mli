@@ -14,7 +14,7 @@
 (**
  * @group Memory Management
  *)
- 
+
 (**
 	The Pool master's view of the total memory and memory consumers on a host.
 	This doesn't take into account dynamic changes i.e. those caused by
@@ -94,4 +94,4 @@ val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
 	int64
 
 val vm_compute_memory_overhead : API.vM_t -> int64
-	
+

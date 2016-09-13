@@ -11,11 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group Command-Line Interface (CLI)
  *)
 open Sexplib.Std
- 
+
 module D = Debug.Make(struct let name = "cli" end)
 open D
 
@@ -32,9 +32,9 @@ let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s w
 exception Cli_failure of string
 
 (** call [callback task_record] on every update to the task, until it completes or fails *)
-let track callback rpc (session_id:API.ref_session) task = 
+let track callback rpc (session_id:API.ref_session) task =
   let classes = [ "task" ] in
-  finally 
+  finally
     (fun () ->
        let finished = ref false in
        while not(!finished) do
@@ -145,7 +145,7 @@ let track_http_operation ?use_existing_task ?(progress_bar=false) fd rpc session
 
 
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR *)
-let rewrite_provisioning_xml rpc session_id new_vm sr_uuid = 
+let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
   let rewrite_xml xml newsrname =
     let rewrite_disk = function
       | Xml.Element("disk",params,[]) ->
@@ -165,7 +165,7 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
       Client.VM.add_to_other_config rpc session_id new_vm "disks" (Xml.to_string newdisks)
     end
 
-let get_default_sr_uuid rpc session_id = 
+let get_default_sr_uuid rpc session_id =
   let pool = List.hd (Client.Pool.get_all rpc session_id) in
   let sr = Client.Pool.get_default_SR rpc session_id pool in
   (try Some (Client.SR.get_uuid rpc session_id sr) (* throws an exception if not found *)
@@ -184,9 +184,9 @@ let get_server_error code params =
   try
     let error = Hashtbl.find Datamodel.errors code in
     (* There ought to be a bijection between parameters mentioned in
-       datamodel.ml and those in the exception but this is unchecked and 
+       datamodel.ml and those in the exception but this is unchecked and
        false in some cases, defined here. *)
-    let required = 
+    let required =
       if code = Api_errors.vms_failed_to_cooperate
       then List.map (fun _ -> "VM") params
       else error.Datamodel_types.err_params in
@@ -202,7 +202,7 @@ let get_server_error code params =
   with _ ->
     None
 
-let server_error (code: string) (params: string list) sock = 
+let server_error (code: string) (params: string list) sock =
   begin match get_server_error code params with
   | None ->
     marshal sock (Command (Error(code, List.map ref_convert params)));
@@ -211,7 +211,7 @@ let server_error (code: string) (params: string list) sock =
     List.iter (fun pv -> marshal sock (Command (PrintStderr (pv ^ "\n")))) l;
   end
 
-let user_says_yes fd = 
+let user_says_yes fd =
   marshal fd (Command (Print "Type 'yes' to continue"));
   marshal fd (Command (Prompt));
   let response = match unmarshal fd with
@@ -229,23 +229,23 @@ let user_says_yes fd =
   then marshal fd (Command (Print ("Aborted (you typed: '"^response^"')")));
   result
 
-type someone = 
+type someone =
 	| Master (** I want to talk to the master *)
 	| SpecificHost of API.ref_host (** I want to talk to [h] (who may be the master *)
 
-(** Return a uri prefix which will cause the CLI to talk to either the 
+(** Return a uri prefix which will cause the CLI to talk to either the
 	master or to a specific host (which may be the master). This will
 	work even when the management interface is disabled. *)
 let rec uri_of_someone rpc session_id = function
-	| Master -> 
+	| Master ->
 		(* See ocaml/xe-cli/newcli.ml:parse_url *)
-		""		
+		""
 	| SpecificHost h ->
 		let pool = List.hd (Client.Pool.get_all rpc session_id) in
 		let pool_master = Client.Pool.get_master rpc session_id pool in
-		if h = pool_master 
+		if h = pool_master
 		then uri_of_someone rpc session_id Master
-		else 
+		else
 			let address = Client.Host.get_address rpc session_id h in
 			"https://" ^ address
 

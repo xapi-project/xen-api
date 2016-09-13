@@ -14,7 +14,7 @@
 (** Use the API to register a set of default SRs with the server.
  * @group Storage
  *)
- 
+
 open Client
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -28,34 +28,34 @@ let plug_all_pbds __context =
   let result = ref true in
   List.iter
     (fun (self, pbd_record) ->
-      try 
+      try
 	if pbd_record.API.pBD_currently_attached
 	then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
 	else Xapi_pbd.plug ~__context ~self
-      with e -> 
+      with e ->
 	result := false;
 	error "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
     my_pbds;
-  !result 
+  !result
 
 let plug_unplugged_pbds __context =
   let my_pbds = Helpers.get_my_pbds __context in
   List.iter
     (fun (self, pbd_record) ->
-      try 
-	if pbd_record.API.pBD_currently_attached 
+      try
+	if pbd_record.API.pBD_currently_attached
 	then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
 	else Xapi_pbd.plug ~__context ~self
       with e -> debug "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
     my_pbds
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
-let maybe_create_pbd rpc session_id sr device_config me = 
+let maybe_create_pbd rpc session_id sr device_config me =
 	let pbds = Client.SR.get_PBDs rpc session_id sr in
 	let pbds = List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds in
 	(* Check not more than 1 pbd in the database *)
 	let pbds =
-		if List.length pbds > 1 
+		if List.length pbds > 1
 			then begin
 				(* shouldn't happen... delete all but first pbd to make db consistent again *)
 				List.iter (fun pbd->Client.PBD.destroy rpc session_id pbd) (List.tl pbds);
@@ -85,10 +85,10 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
     List.iter (fun s -> try ignore (maybe_create_pbd_for_shared_sr s) with _ -> ()) shared_sr_refs
   in
 
-  let other_config = 
+  let other_config =
     try
       let pool = Helpers.get_pool ~__context in
-      Db.Pool.get_other_config ~__context ~self:pool 
+      Db.Pool.get_other_config ~__context ~self:pool
     with _ -> []
   in
 
@@ -106,7 +106,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
     Xapi_alert.add ~msg:Api_messages.pbd_plug_failed_on_server_start ~cls:`Host ~obj_uuid ~body:"";
   end;
   Xapi_host_helpers.consider_enabling_host ~__context
-      
+
 
 let create_storage_localhost rpc session_id : unit =
   Server_helpers.exec_with_new_task "creating storage"

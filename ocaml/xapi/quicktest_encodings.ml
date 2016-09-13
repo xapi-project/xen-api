@@ -73,7 +73,7 @@ end
 
 (** A decoder that succeeds for all characters except the letter 'F'. *)
 module Selective_character_decoder = struct
-	let decode_character string index = 
+	let decode_character string index =
 		if string.[index] = 'F' then raise Decode_error else (0l, 1)
 end
 
@@ -446,7 +446,7 @@ module UTF8_codec = struct include UTF8_codec
 		"Tests decoding with valid continuation bytes."
 		begin fun () ->
 			List.iter
-				(fun (byte, value) -> 
+				(fun (byte, value) ->
 					assert_equal (decode_continuation_byte byte) value)
 				valid_continuation_byte_decodings
 		end

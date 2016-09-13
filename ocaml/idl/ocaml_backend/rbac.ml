@@ -22,20 +22,20 @@ let trackid session_id = (Context.trackid_of_session (Some session_id))
 (* From the Requirements:
 
 1) Since we rely on an external directory/authentication service, disabling this
-   external authentication effectively disables RBAC too. When disabled like 
-   this only the local root account can be used so the system "fails secure". 
+   external authentication effectively disables RBAC too. When disabled like
+   this only the local root account can be used so the system "fails secure".
    Given this we do not need any separate mechanism to enable/disable RBAC.
 
-2) At all times the RBAC policy will be applied; the license state will only 
+2) At all times the RBAC policy will be applied; the license state will only
    affect the Pool Administrator's ability to modify the subject -> role mapping.
 
 3) The local superuser (root) has the "Pool Admin" role.
-4) If a subject has no roles assigned then, authentication will fail with an 
+4) If a subject has no roles assigned then, authentication will fail with an
    error such as PERMISSION_DENIED.
 
-5) To guarantee the new role takes effect, the user should be logged out and 
+5) To guarantee the new role takes effect, the user should be logged out and
    forced to log back in again (requires "Logout active user connections" permission)
-   (So, there's no need to update the session immediately after modifying either the 
+   (So, there's no need to update the session immediately after modifying either the
    Subject.roles field or the Roles.subroles field, or for this function to
    immediately reflect any modifications in these fields without the user logging out
    and in again)
@@ -72,7 +72,7 @@ module Permission_set = Set.Make(String)
 (* This flag enables efficient look-up of the permission set *)
 let use_efficient_permission_set = true
 
-let permission_set permission_list = 
+let permission_set permission_list =
 	List.fold_left
 		(fun set r->Permission_set.add r set)
 		Permission_set.empty
@@ -126,13 +126,13 @@ let permission_of_action ?args ~keys _action =
 				((List.fold_left (fun ss s->ss^s^",") "" arg_keys))
 				((List.fold_left (fun ss s->ss^(Rpc.to_string s)^",") "" arg_values))
 			;
-			get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)	
+			get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)
 		end
 		else (* keys and values have the same length *)
 		let rec get_permission_name_of_keys arg_keys arg_values =
 			match arg_keys,arg_values with
 			|[],[]|_,[]|[],_-> (* this should never happen *)
-				begin 
+				begin
 					debug "DENYING access: no 'key' argument in the action %s" action;
 					get_keyERR_permission_name action "DENY_NOKEY" (* deny by default *)
 				end
@@ -145,7 +145,7 @@ let permission_of_action ?args ~keys _action =
 					| Rpc.String key_name_in_args ->
 					begin
 						(*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
-						try 
+						try
 						let key_name =
 							List.find
 							(fun key_name ->
@@ -177,7 +177,7 @@ let is_permission_in_session ~session_id ~permission ~session =
 	let find_log elem set = Permission_set.mem elem set in
 	if use_efficient_permission_set then
 	begin (* use efficient log look-up of permissions *)
-		let permission_tree = 
+		let permission_tree =
 			try Some(Hashtbl.find session_permissions_tbl session_id)
 			with Not_found -> begin
 					create_session_permissions_tbl
@@ -200,7 +200,7 @@ let is_access_allowed ~__context ~session_id ~permission =
 	then true
 
 	(* normal user session *)
-	else 
+	else
 	let session = DB_Action.Session.get_record ~__context ~self:session_id in
 	(* the root user can always execute anything *)
 	if session.API.session_is_local_superuser
@@ -280,16 +280,16 @@ let has_permission_name ~__context ~permission =
 let has_permission ~__context ~permission =
 	has_permission_name ~__context ~permission:permission.role_name_label
 
-let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="check") 
+let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="check")
 		?args ~fn session_id action =
 	let task_desc = task_desc^":"^action in
 	Server_helpers.exec_with_new_task task_desc
-		(fun __context -> 
+		(fun __context ->
 			check ~extra_dmsg ~extra_msg ~__context ?args ~fn session_id action
 		)
 
 (* used by xapi_http.ml to decide if rbac checks should be applied *)
 let is_rbac_enabled_for_http_action http_action_name =
-	not 
+	not
 		(List.mem http_action_name Datamodel.public_http_actions_with_no_rbac_check)
 

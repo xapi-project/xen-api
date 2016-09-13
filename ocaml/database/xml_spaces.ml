@@ -57,7 +57,7 @@ let map2_unlikely f s =
 		incr i;
 	done;
 	(* process the last character *)
-	if !i = length_s - 1 
+	if !i = length_s - 1
 	then aux s.[!i] None;
 	if !changed then begin
 		Buffer.add_substring buf s !m (String.length s - !m);
@@ -70,7 +70,7 @@ let protect_fn = function
 	| '\t',       _  -> Expand  (protect_char, 't' )
 	| '\n',       _  -> Expand  (protect_char, 'n' )
 	| '\r',       _  -> Expand  (protect_char, 'r' )
-	|   c,        _ when c = protect_char -> 
+	|   c,        _ when c = protect_char ->
 	                    Expand (protect_char, protect_char)
 	|   _ ,       _  -> No_change
 
@@ -84,4 +84,4 @@ let unprotect_fn = function
 	| _ ,      _                      -> No_change
 
 let protect = map2_unlikely protect_fn
-let unprotect = map2_unlikely unprotect_fn 
+let unprotect = map2_unlikely unprotect_fn

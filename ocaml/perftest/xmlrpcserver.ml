@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* 
+(*
  * extremely basic HTTP XMLRPC server
  *)
 
@@ -28,7 +28,7 @@ module Json = struct
   let xmlrpc_to_json x = ""
 end
 
-let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist 
+let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist
 let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.emergency_calls
 
 let counter = ref 0
@@ -40,9 +40,9 @@ let callback1 is_json req fd body xml =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket, and the call *isn't* session.login_with_password, then forward *)
-  if !Xapi_globs.slave_emergency_mode && (not (List.mem call emergency_call_list)) 
+  if !Xapi_globs.slave_emergency_mode && (not (List.mem call emergency_call_list))
   then raise !Xapi_globs.emergency_mode_error;
-  if ((not (Pool_role.is_master ()))  && (Context.is_unix_socket fd) && (not (List.mem call whitelist))) 
+  if ((not (Pool_role.is_master ()))  && (Context.is_unix_socket fd) && (not (List.mem call whitelist)))
   then
   Printf.printf "would forward\n"
 (*
@@ -69,11 +69,11 @@ let callback req bio =
   let xml = Xml.parse_string body in
   try
     let response = Xml.to_bigbuffer (callback1 false req fd (Some body) xml) in
-    Http_svr.response_fct req ~hdrs:[ "Content-Type: text/xml" ] fd (Bigbuffer.length response) 
-      (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s)))) 
-  with 
+    Http_svr.response_fct req ~hdrs:[ "Content-Type: text/xml" ] fd (Bigbuffer.length response)
+      (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s))))
+  with
   | (Api_errors.Server_error (err, params)) ->
-      Http_svr.response_str req ~hdrs:[ "Content-Type: text/xml" ] fd 
+      Http_svr.response_str req ~hdrs:[ "Content-Type: text/xml" ] fd
         (Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Failure(err, params))))
 
 

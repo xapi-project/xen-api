@@ -67,7 +67,7 @@ let _ =
       "-filterinternal",
       Arg.Bool (fun x -> filterinternal := x),
       "Filter internal fields and messages";
-      
+
       "-gendebug",
       Arg.Unit (fun _ -> set_gendebug ()),
       "Add debugging code to generated output";

@@ -90,7 +90,7 @@ val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call ->
     each of [pbd] to match the state of the storage layer. *)
 val resynchronise_pbds: __context:Context.t -> pbds:API.ref_PBD list -> unit
 
-(** [refresh_local_vdi_activations __context] updates the VDI.sm_config fields to 
+(** [refresh_local_vdi_activations __context] updates the VDI.sm_config fields to
     match the state stored within the storage layer. *)
 val refresh_local_vdi_activations: __context:Context.t -> unit
 
@@ -122,9 +122,9 @@ val success_task : Storage_interface.debug_info -> Storage_interface.Task.id -> 
 
 val wait_for_task : Storage_interface.debug_info -> Storage_interface.Task.id -> Storage_interface.Task.id
 
-val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info 
+val vdi_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.vdi_info
 
-val mirror_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.Mirror.id 
+val mirror_of_task : Storage_interface.debug_info -> Storage_interface.Task.t -> Storage_interface.Mirror.id
 
 val register_task : Context.t -> Storage_interface.Task.id -> Storage_interface.Task.id
 

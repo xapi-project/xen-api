@@ -30,24 +30,24 @@ let check ~intra_pool_only ~session_id =
   Server_helpers.exec_with_new_task ~quiet:true "session_check"
     (fun __context ->
        (* First see if this is a "local" session *)
-       if is_local_session __context session_id 
+       if is_local_session __context session_id
        then () (* debug "Session is in the local database" *)
        else
 	 (* Assuming we're in master mode *)
 	 (try
 	    let pool = Db_actions.DB_Action.Session.get_pool ~__context ~self:session_id in
-	    
+
 	    (* If the session is not a pool login, but this call is only supported for pool logins then fail *)
 	    if (not pool) && intra_pool_only then
 	      raise (Api_errors.Server_error (Api_errors.internal_error,["Internal API call attempted with non-pool (external) session"]));
-	    
+
 	    (* If the session isn't a pool login, and we're a slave, fail *)
 	    if (not pool) && (not (Pool_role.is_master ())) then raise Non_master_login_on_slave;
-	    
+
 	    if (Pool_role.is_master ()) then
 	      Db_actions.DB_Action.Session.set_last_active ~__context ~self:session_id
 		~value:(Stdext.Date.of_float (Unix.time()))
-	  with 
+	  with
 	  | Db_exn.DBCache_NotFound (_, tblname, reference) ->
 	      debug "Session check failed: missing reference; tbl = %s, ref = %s" tblname reference;
 	      raise (Api_errors.Server_error (Api_errors.session_invalid,[reference]))

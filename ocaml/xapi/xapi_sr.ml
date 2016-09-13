@@ -325,7 +325,7 @@ let destroy  ~__context ~sr =
 	let oc = Db.SR.get_other_config ~__context ~self:sr in
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
-	
+
 	(* raise exception if SR is being used as local_cache_sr *)
 	let all_hosts = Db.Host.get_all ~__context in
 	List.iter
@@ -340,7 +340,7 @@ let destroy  ~__context ~sr =
 		else [] in
 
 	Storage_access.destroy_sr ~__context ~sr ~and_vdis:vdis_to_destroy;
-	
+
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
@@ -396,7 +396,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		if StringMap.mem loc db_vdi_map
 		then fst (StringMap.find loc db_vdi_map)
 		else Ref.null in
-		
+
 	let get_is_tools_iso vdi =
 		List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
 

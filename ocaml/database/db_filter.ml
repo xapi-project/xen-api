@@ -22,7 +22,7 @@ let string_of_val = function
   | Field x -> "Field " ^ x
   | Literal x -> "Literal " ^ x
 
-let rec string_of_expr = 
+let rec string_of_expr =
   let binexpr name a b = Printf.sprintf "%s (%s, %s)" name (string_of_expr a) (string_of_expr b) in
   let binval name a b = Printf.sprintf "%s (%s, %s)" name (string_of_val a) (string_of_val b) in
   function
@@ -85,9 +85,9 @@ let rec xml_of_expr e =
     | Eq(a,b) -> XMLRPC.To.array [XMLRPC.To.string "eq"; xml_of_val a; xml_of_val b]
 
 
-(** Evaluate a predicate over a database row represented by a function 
+(** Evaluate a predicate over a database row represented by a function
     'lookup_val' which knows how to return the contents of fields. *)
-let eval_expr (lookup_val: _val -> string) = 
+let eval_expr (lookup_val: _val -> string) =
   let compare f _a _b = f (lookup_val _a) (lookup_val _b) in
   let rec f = function
     | True -> true
@@ -101,7 +101,7 @@ let eval_expr (lookup_val: _val -> string) =
 exception Expression_error of (string * exn)
 
 (* A simple parser for the expression language: *)
-let expr_of_string x = try 
+let expr_of_string x = try
 	 Db_filter_parse.exprstr Db_filter_lex.lexer
 	   (Lexing.from_string x)
   with e -> raise (Expression_error (x, e))

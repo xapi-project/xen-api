@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Manage the lifecycle of HA metadata VDI 
+(** Manage the lifecycle of HA metadata VDI
  * @group High Availability (HA)
  *)
 
@@ -23,11 +23,11 @@ open Stdext
 open Listext
 open Xstringext
 
-let create ~__context ~sr = 
+let create ~__context ~sr =
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        Client.VDI.create ~rpc ~session_id
-	 ~name_label:"Metadata for HA" 
+	 ~name_label:"Metadata for HA"
 	 ~name_description:"Used for master failover"
          ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log
          ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
@@ -35,9 +35,9 @@ let create ~__context ~sr =
 
 (** Return a reference to a valid metadata VDI in the given SR.
     This function prefers to reuse existing VDIs to avoid leaking the VDI when HA is disabled without statefile access. *)
-let find_or_create ~__context ~sr = 
+let find_or_create ~__context ~sr =
   match
-  List.filter 
+  List.filter
     (fun self -> true
        && (Db.VDI.get_type ~__context ~self = `redo_log)
        && (Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size))
@@ -50,11 +50,11 @@ let find_or_create ~__context ~sr =
 	create ~__context ~sr
 
 
-let list_existing () = 
-  List.filter (fun x -> x.Static_vdis.reason = Xapi_globs.ha_metadata_vdi_reason) (Static_vdis.list ()) 
+let list_existing () =
+  List.filter (fun x -> x.Static_vdis.reason = Xapi_globs.ha_metadata_vdi_reason) (Static_vdis.list ())
 
 (** Detach all statefiles attached with reason, to clear stale state *)
-let detach_existing ~__context = 
+let detach_existing ~__context =
   let vdis = list_existing() in
   List.iter (fun x -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:x.Static_vdis.uuid) vdis
 
@@ -67,7 +67,7 @@ let deactivate_and_detach_existing ~__context =
 open Pervasiveext
 
 (** Attempt to flush the database to the metadata VDI *)
-let flush_database ~__context log = 
+let flush_database ~__context log =
   try
     Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ())) log
   with _ -> false

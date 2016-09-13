@@ -14,8 +14,8 @@
 (* Util to test various aspects of the new control stack *)
 
 (* Tests:
- * 
- * powerstate - cycle through various power states of the vms 
+ *
+ * powerstate - cycle through various power states of the vms
  * disk       - add and remove disks lots while vm is down
  * vif        - add and remove vifs lots while vm is down
  * param      - set and reset parameters, making sure things are consistent
@@ -32,7 +32,7 @@ let alltests = [
   ("param",Tests.param);
   ("cd",Tests.cd_guest_verified);
 (*  ("net", Tests.offline_network); *)]
-   
+
 let _ =
   let tests = ref "" in
   let vms = ref "" in
@@ -44,7 +44,7 @@ let _ =
   ("-a",Arg.Set all,"Run all the tests") ]
     (fun _ -> raise (Failure "Invalid argument! (try -help for help)"))
     "VM testing utility";
-  let cli : Util.t_cli = Util.cli_onhost in 
+  let cli : Util.t_cli = Util.cli_onhost in
   let version = Cliops.get_version cli in
   let short_version = Cliops.get_short_version cli in
   let tests = Parsers.explode !tests ',' in
@@ -53,8 +53,8 @@ let _ =
   let vms = Parsers.explode vms ',' in
   let vms = List.map (fun vm -> Cliops.get_uuid cli vm) vms in
   (try
-      List.iter 
-	(fun test -> 
+      List.iter
+	(fun test ->
 	  let testfn = (List.assoc test alltests) cli in
 	  List.iter (fun vm -> if not !Tests.fatal_error then testfn vm) vms) tests;
     with _ -> ());
@@ -63,6 +63,6 @@ let _ =
   Testlog.output_txt "test_log.txt";
   Testlog.output_xenrt "test_log.xml"
 
-   
-    
-      
+
+
+

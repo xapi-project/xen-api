@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = 
+type t =
 	| In_memory of Db_cache_types.Database.t ref ref
 	| Remote
 

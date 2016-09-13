@@ -27,7 +27,7 @@ let initialise_db_connections dbs =
     (fun () ->
      List.iter (fun dbconn->Hashtbl.replace db_conn_locks dbconn (Mutex.create())) dbs);
   db_connections := dbs
-    
+
 let read_db_connections() = !db_connections
 
 let with_db_conn_lock db_conn f =

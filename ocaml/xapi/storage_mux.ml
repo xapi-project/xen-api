@@ -77,7 +77,7 @@ let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, try SMSuccess (f sr pl
 
 let success = function | SMSuccess _ -> true | _ -> false
 
-let string_of_sm_result f = function 
+let string_of_sm_result f = function
 	| SMSuccess x -> Printf.sprintf "Success: %s" (f x)
 	| SMFailure e -> Printf.sprintf "Failure: %s" (Printexc.to_string e)
 
@@ -147,7 +147,7 @@ module Mux = struct
 		let stat_vdi context ~dbg ~sr ~vdi =
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.DP.stat_vdi ~dbg ~sr ~vdi
-			
+
 	end
 	module SR = struct
 		include Storage_skeleton.SR
@@ -178,7 +178,7 @@ module Mux = struct
 		let list context ~dbg =
 			List.fold_left (fun acc (sr, list) -> match list with SMSuccess l -> l @ acc | x -> acc) [] (multicast (fun sr rpc ->
 				let module C = Client(struct let rpc = of_sr sr end) in
-				C.SR.list ~dbg)) 
+				C.SR.list ~dbg))
 		let reset context ~dbg ~sr = assert false
 		let update_snapshot_info_src context = Storage_migrate.update_snapshot_info_src
 		let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
@@ -288,20 +288,20 @@ module Mux = struct
 			let receive_start context = Storage_migrate.receive_start
 			let receive_finalize context = Storage_migrate.receive_finalize
 			let receive_cancel context = Storage_migrate.receive_cancel
-		end	
+		end
 	end
 
 	module Policy = struct
 		let get_backend_vm context ~dbg ~vm ~sr ~vdi =
 			if not(Hashtbl.mem plugins sr) then begin
 				error "No registered plugin for sr = %s" sr;
-				raise (No_storage_plugin_for_sr sr)				
+				raise (No_storage_plugin_for_sr sr)
 			end else (Hashtbl.find plugins sr).backend_domain
 	end
 
 	module TASK = struct
 		let stat context ~dbg ~task = assert false
-		let cancel context ~dbg ~task = assert false				
+		let cancel context ~dbg ~task = assert false
 		let destroy context ~dbg ~task = assert false
 		let list context ~dbg = assert false
     end

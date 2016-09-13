@@ -12,13 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 open Stdext
-    
+
 (** Internally, a reference is simply a string. *)
 type 'a t = string
 
 let ref_prefix = "OpaqueRef:"
 
-let make () = 
+let make () =
   let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
   ref_prefix ^ uuid
 
@@ -34,17 +34,17 @@ let of_string x = x
 (* a dummy reference is a reference of an object which is not in database *)
 let dummy_sep = '|'
 let dummy_prefix = "DummyRef:"
-  
+
 open Xstringext
 
 let make_dummy task_name =
   let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-  dummy_prefix ^ String.of_char dummy_sep ^ uuid ^ String.of_char dummy_sep ^ task_name 
+  dummy_prefix ^ String.of_char dummy_sep ^ uuid ^ String.of_char dummy_sep ^ task_name
 
 let is_dummy x =
   String.startswith dummy_prefix x
-  
-let name_of_dummy x = 
+
+let name_of_dummy x =
   match String.split ~limit:3 dummy_sep x with
     | [_;_;name] -> name
     | l -> failwith (Printf.sprintf "Ref.name_of_dummy: %s is not a valid dummy reference (%i)" x (List.length l))

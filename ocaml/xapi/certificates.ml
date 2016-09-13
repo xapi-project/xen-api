@@ -93,7 +93,7 @@ let raise_does_not_exist is_cert n =
 let raise_corrupt is_cert n =
   raise_server_error n
     (if is_cert then certificate_corrupt else crl_corrupt)
-    
+
 let raise_library_corrupt () =
   raise (Server_error (certificate_library_corrupt, []))
 
@@ -217,7 +217,7 @@ let sync_certs is_cert ~__context master_certs host =
          Client.Host.crl_uninstall rpc session_id host c)
       ~__context master_certs host
 
-let sync_certs_all_hosts is_cert ~__context master_certs hosts_but_master = 
+let sync_certs_all_hosts is_cert ~__context master_certs hosts_but_master =
   let exn = ref None in
   List.iter
     (fun host ->

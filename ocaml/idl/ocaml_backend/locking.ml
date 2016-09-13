@@ -26,15 +26,15 @@ module Client = Gen_client
 open DT
 
 (** For a particular operation, decide which locks are required *)
-let of_message (obj: obj) (x: message) = 
+let of_message (obj: obj) (x: message) =
   let this_class = obj.DT.name in
   let self = [ this_class, Client._self ] in
   let session = [ DM._session, Client._session_id ] in
 
-  (* Take all the arguments of type Ref x, select those which are part of 
+  (* Take all the arguments of type Ref x, select those which are part of
      a relationship (associated with a foreign Set(Ref _) and compute the
      list of foreign objects to lock *)
-  let from_ref_relationships (x: obj) = 
+  let from_ref_relationships (x: obj) =
     let fields = DU.fields_of_obj x in
     let consider = function
 	| { DT.ty = DT.Ref obj; field_name = field_name } as arg ->
@@ -47,7 +47,7 @@ let of_message (obj: obj) (x: message) =
 		if fld'.DT.field_has_effect
 		then [ class', OU.ocaml_of_record_field arg.full_name ]
 		else []
-	      with Failure(_) -> [] 
+	      with Failure(_) -> []
 	    end
 	| _ -> [] in
       List.concat (List.map consider fields) in
@@ -60,17 +60,17 @@ let of_message (obj: obj) (x: message) =
 	 Set(Ref x) types, the magic is in the constructor of the other
 	 end of the relation *)
       []
-  | FromField(_, { DT.field_has_effect = true }) -> 
+  | FromField(_, { DT.field_has_effect = true }) ->
       self
-  | FromObject(Make) -> 
+  | FromObject(Make) ->
       (* Lock this instance and, for any Ref x argument where it corresponds to the
-	 'N' side of a 1-N relationship and where the '1' side field has 
+	 'N' side of a 1-N relationship and where the '1' side field has
 	 field_has_effect = true.
          Example: creating a VBD with a VM ref *)
       from_ref_relationships obj (* NB self doesn't exist yet *)
   | FromObject(Delete) ->
       (* Lock this instance and, for any Ref x field which is in a relationship,
-	 lock those other objects if they have field_has_effect = true 
+	 lock those other objects if they have field_has_effect = true
 	 Example: deleting a VBD
 	 (Note: deleting a VM containing a Set(Ref VBD) won't cause a side-effect
           on the VBD because we currently ban fields of type Ref _ having

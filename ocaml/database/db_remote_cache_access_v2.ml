@@ -18,13 +18,13 @@ open Db_rpc_common_v2
 open Db_exn
 
 (** Convert a marshalled Request Rpc.t into a marshalled Response Rpc.t *)
-let process_rpc (req: Rpc.t) = 
+let process_rpc (req: Rpc.t) =
 	let module DB = (Db_cache_impl : Db_interface.DB_ACCESS) in
 	let t = Db_backend.make () in
 	Response.rpc_of_t
 		(try
 			match Request.t_of_rpc req with
-				| Request.Get_table_from_ref x -> 
+				| Request.Get_table_from_ref x ->
 					Response.Get_table_from_ref (DB.get_table_from_ref t x)
 				| Request.Is_valid_ref x ->
 					Response.Is_valid_ref (DB.is_valid_ref t x)
@@ -55,7 +55,7 @@ let process_rpc (req: Rpc.t) =
 					Response.Read_records_where (DB.read_records_where t a b)
 				| Request.Process_structured_field (a, b, c, d, e) ->
 					Response.Process_structured_field (DB.process_structured_field t a b c d e)
-		with 
+		with
 			| DBCache_NotFound (x,y,z) ->
 				Response.Dbcache_notfound (x, y, z)
 			| Duplicate_key (w,x,y,z) ->
@@ -68,7 +68,7 @@ let process_rpc (req: Rpc.t) =
 				Response.Too_many_values (x, y, z)
 
 		)
-		
+
 let handler req bio _ =
 	let fd = Buf_io.fd_of bio in (* fd only used for writing *)
 	let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in

@@ -20,7 +20,7 @@ let explode str c =
     try
       let i = String.index_from str start c in
       inner (i+1) ((String.sub str start (i-start))::cur)
-    with 
+    with
       Not_found -> (String.sub str start (String.length str - start))::cur
   in List.rev (inner 0 [])
 
@@ -53,14 +53,14 @@ let parse_record ls =
   in
   inner ls []
 
-let parse ls = 
+let parse ls =
    let rec inner ls cur =
-     match ls with 
+     match ls with
        [] -> cur
-     | records -> 
+     | records ->
         let (record,rest) = parse_record ls in
         inner rest (record::cur)
-   in 
+   in
    inner ls []
 
 
@@ -90,7 +90,7 @@ let parse_ipconfig ls =
   let colon = String.index ipline ':' in
   let ipaddr = zap_whitespace (String.sub ipline (colon+1) (String.length ipline - colon - 1)) in
   ipaddr
-  
+
 
 (* Extract the ip address from a linux guest - done on guest now*)
 let parse_ifconfig ls =
@@ -98,15 +98,15 @@ let parse_ifconfig ls =
     zap_whitespace (List.hd ls)
   with
     _ -> raise (Failure "Failed to parse IP address")
-    
+
 
 (* Try to parse it as a windows ipconfig output first, if not, a linux type *)
 let parse_ip ls =
-  try 
+  try
     parse_ipconfig ls
-  with 
+  with
     _ -> parse_ifconfig ls
 
 
 
-      
+

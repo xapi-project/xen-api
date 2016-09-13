@@ -27,7 +27,7 @@ module IntSet = Set.Make(struct type t=int let compare=compare end)
 
 (* A fixed set of standard keys are placed in the PV_drivers_version map.
    NB each key is annotated with whether it appears in windows and/or linux *)
-let pv_drivers_version = 
+let pv_drivers_version =
   [ "drivers/xenevtchn",          "xenevtchn";   (* windows *)
     "drivers/xenvbd",             "xenvbd";      (* windows *)
     "drivers/xennet",             "xennet";      (* windows *)
@@ -39,7 +39,7 @@ let pv_drivers_version =
   ]
 
 (* A fixed set of standard keys placed in the os_version map. *)
-let os_version = 
+let os_version =
   [ "data/os_name",               "name";        (* linux + windows *)
     "data/os_uname",              "uname";       (* linux *)
     "data/os_distro",             "distro";      (* linux + windows *)
@@ -49,7 +49,7 @@ let os_version =
     "attr/os/spminor",            "spminor";     (* windows *)
   ]
 
-let memory = 
+let memory =
   [ "data/meminfo_free", "free";
     "data/meminfo_total", "total"
   ]
@@ -102,7 +102,7 @@ let networks path (list: string -> string list) =
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
    "feature-sysrq" *)
-let other all_control = 
+let other all_control =
   List.map (fun x -> "control/" ^ x, x) all_control
 
 (* There are two memory keys: data/meminfo_free and data/meminfo_total. These are *)
@@ -129,7 +129,7 @@ let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
 (** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
-    and 'list' reads a directory from xenstore. Both are relative to the guest's 
+    and 'list' reads a directory from xenstore. Both are relative to the guest's
     domainpath. *)
 let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
   let all_control = list "control" in
@@ -146,7 +146,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let ts = match lookup "data/ts" with
   	| Some value -> ["data-ts",value]
   	| None -> [] in
-  	
+
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
   and device_id = to_map device_id
@@ -157,7 +157,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
   let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
 
-  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
+  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
   debug "Number of entries in hashtbl: %d" num; *)
 
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
@@ -171,12 +171,12 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   let (
 	  guest_metrics_cached
   ) = Mutex.execute mutex (fun () -> try
-	  Hashtbl.find cache domid 
-  with _ -> 
+	  Hashtbl.find cache domid
+  with _ ->
 	  (* Make sure our cached idea of whether the domain is live or not is correct *)
 	  let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
 	  let live = true
-		  && Db.is_valid_ref __context vm_guest_metrics 
+		  && Db.is_valid_ref __context vm_guest_metrics
 		  && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
 	  if live then
 		  dead_domains := IntSet.remove domid !dead_domains
@@ -204,11 +204,11 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
       Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
 
       (* We update only if any actual data has changed *)
-      if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version 
+      if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version
 	   ||
 	   guest_metrics_cached.os_version <> os_version
 	   ||
-	   guest_metrics_cached.networks <> networks 
+	   guest_metrics_cached.networks <> networks
 	   ||
 	   guest_metrics_cached.other <> other
      ||
@@ -220,19 +220,19 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
 (*	   ||
 	   guest_metrics_cached.memory <> memory)*)
-      then 
+      then
 	begin
-     	  let gm = 
+     	  let gm =
 	    let existing = Db.VM.get_guest_metrics ~__context ~self in
 	    if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
 	    then existing
-	    else 
+	    else
 	      (* if it doesn't exist, make a fresh one *)
 	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
 		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
 		~pV_drivers_detected:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
-	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
+	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref;
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
 		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
 		  info "Received initial update from guest agent in VM %s; os_version = [ %s]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl pv_drivers_version) (sl networks);
@@ -259,9 +259,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  end;
 (*	  if(guest_metrics_cached.memory <> memory) then
 	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
-	  
+
 	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
-	  
+
     if(guest_metrics_cached.device_id <> device_id) then begin
       if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
         let value = List.assoc Xapi_globs.device_id_key_name device_id in
@@ -297,7 +297,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	    || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
 	  then begin
 	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
-	  end;	  
+	  end;
 	end (* else debug "Ignored spurious guest agent update" *)
   end
 

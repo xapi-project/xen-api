@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group Command-Line Interface (CLI)
  *)
 
@@ -26,14 +26,14 @@ let prefix = "XenSource thin CLI protocol"
 (** Command sent by the server to the client.
     If the command is "Save" then the server waits for "OK" from the client
     and then streams a list of data chunks to the client. *)
-type command = 
+type command =
     | Print of string
     | Debug of string                     (* debug message to optionally display *)
     | Load of string                      (* filename *)
     | HttpGet of string * string          (* filename * path *)
     | HttpPut of string * string          (* filename * path *)
 	| HttpConnect of string               (* path *)
-    | Prompt                              (* request the user enter some text *) 
+    | Prompt                              (* request the user enter some text *)
     | Exit of int                         (* exit with a success or failure code *)
     | Error of string * string list       (* code params *)
     | PrintStderr of string               (* print something to stderr *)
@@ -41,18 +41,18 @@ type command =
 (** In response to a server command, the client sends one of these.
     If the command was "Load" or "Prompt" then the client sends a list
     of data chunks. *)
-type response = 
+type response =
 	| OK
 	| Wait
 	| Failed
 
 (** When streaming binary data, send in chunks with a known length and a
     special End marker at the end. *)
-type blob_header = 
+type blob_header =
     | Chunk of int32
     | End
 
-type message = 
+type message =
     | Command of command
     | Response of response
     | Blob of blob_header
@@ -89,10 +89,10 @@ let string_of_message = function
 (*****************************************************************************)
 (* Marshal/Unmarshal primitives                                              *)
 
-let marshal_int32 x = 
+let marshal_int32 x =
   let (>>) a b = Int32.shift_right_logical a b
   and (&&) a b = Int32.logand a b in
-  let a = (x >> 0) && 0xffl 
+  let a = (x >> 0) && 0xffl
   and b = (x >> 8) && 0xffl
   and c = (x >> 16) && 0xffl
   and d = (x >> 24) && 0xffl in
@@ -107,37 +107,37 @@ let marshal_int x = marshal_int32 (Int32.of_int x)
 
 let marshal_string x = marshal_int (String.length x) ^ x
 
-let marshal_list f x = 
+let marshal_list f x =
   marshal_int (List.length x) ^ (String.concat "" (List.map f x))
 
 type context = string * int (* offset *)
 
-let unmarshal_int32 (s, offset) = 
+let unmarshal_int32 (s, offset) =
   let (<<<) a b = Int32.shift_left a b
   and (|||) a b = Int32.logor a b in
-  let a = Int32.of_int (int_of_char (s.[offset + 0])) 
-  and b = Int32.of_int (int_of_char (s.[offset + 1])) 
-  and c = Int32.of_int (int_of_char (s.[offset + 2])) 
+  let a = Int32.of_int (int_of_char (s.[offset + 0]))
+  and b = Int32.of_int (int_of_char (s.[offset + 1]))
+  and c = Int32.of_int (int_of_char (s.[offset + 2]))
   and d = Int32.of_int (int_of_char (s.[offset + 3])) in
   (a <<< 0) ||| (b <<< 8) ||| (c <<< 16) ||| (d <<< 24), (s, offset + 4)
 
-let unmarshal_int pos = 
+let unmarshal_int pos =
   let x, pos = unmarshal_int32 pos in
   Int32.to_int x, pos
 
-let unmarshal_string pos = 
+let unmarshal_string pos =
   let len, (s, offset) = unmarshal_int pos in
   String.sub s offset len, (s, offset + len)
 
-let unmarshal_list pos f = 
+let unmarshal_list pos f =
   let len, pos = unmarshal_int pos in
   let rec loop pos acc = function
     | 0 -> List.rev acc, pos
-    | n -> 
+    | n ->
 	let item, pos = f pos in
 	loop pos (item :: acc) (n - 1) in
   loop pos [] len
-  
+
 
 (*****************************************************************************)
 (* Marshal/Unmarshal higher-level messages                                   *)
@@ -157,8 +157,8 @@ let marshal_command = function
   | PrintStderr x -> marshal_int 16 ^ (marshal_string x)
 
 exception Unknown_tag of string * int
-  
-let unmarshal_command pos = 
+
+let unmarshal_command pos =
   let tag, pos = unmarshal_int pos in match tag with
     | 0 -> let body, pos = unmarshal_string pos in Print body, pos
     | 15 -> let body, pos = unmarshal_string pos in Debug body, pos
@@ -188,7 +188,7 @@ let marshal_response = function
 	| Wait    -> marshal_int 18
   | Failed  -> marshal_int 6
 
-let unmarshal_response pos = 
+let unmarshal_response pos =
   let tag, pos = unmarshal_int pos in match tag with
 	  | 5 -> OK, pos
 	  | 18 -> Wait, pos
@@ -199,7 +199,7 @@ let marshal_blob_header = function
   | Chunk x -> marshal_int 7 ^ (marshal_int32 x)
   | End     -> marshal_int 8
 
-let unmarshal_blob_header pos = 
+let unmarshal_blob_header pos =
   let tag, pos = unmarshal_int pos in match tag with
     | 7 -> let body, pos = unmarshal_int32 pos in Chunk body, pos
     | 8 -> End, pos
@@ -208,20 +208,20 @@ let unmarshal_blob_header pos =
 let marshal_message = function
   | Command x  -> marshal_int 9 ^ (marshal_command x)
   | Response x -> marshal_int 10 ^ (marshal_response x)
-  | Blob x     -> marshal_int 11 ^ (marshal_blob_header x) 
+  | Blob x     -> marshal_int 11 ^ (marshal_blob_header x)
 
-let write_string (fd: Unix.file_descr) buf = 
+let write_string (fd: Unix.file_descr) buf =
   Stdext.Unixext.really_write fd buf 0 (String.length buf)
 
 (** Marshal a message to a file descriptor prefixing it with total header length *)
-let marshal (fd: Unix.file_descr) x = 
+let marshal (fd: Unix.file_descr) x =
   let payload = marshal_message x in
   write_string fd (marshal_int (String.length payload));
   write_string fd payload
 
 exception Unmarshal_failure of exn * string
 
-let unmarshal_message pos = 
+let unmarshal_message pos =
   let tag, pos = unmarshal_int pos in match tag with
     | 9 -> let body, pos = unmarshal_command pos in Command body, pos
     | 10 -> let body, pos = unmarshal_response pos in Response body, pos
@@ -242,7 +242,7 @@ let unmarshal (fd: Unix.file_descr) =
 		fst (unmarshal_message (body, 0))
 	with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
 
-let marshal_protocol (fd: Unix.file_descr) = 
+let marshal_protocol (fd: Unix.file_descr) =
   write_string fd (prefix ^ (marshal_int major) ^ (marshal_int minor))
 
 exception Protocol_mismatch of string
@@ -271,17 +271,17 @@ let unmarshal_protocol (fd: Unix.file_descr) =
 (*****************************************************************************)
 (* Marshal/Unmarshal unit test                                               *)
 
-let marshal_unmarshal (a: message) = 
+let marshal_unmarshal (a: message) =
   let x = marshal_message a in
   let b, (s, offset) = unmarshal_message (x, 0) in
-  if a <> b 
-  then failwith (Printf.sprintf "marshal_unmarshal failure: %s <> %s" 
+  if a <> b
+  then failwith (Printf.sprintf "marshal_unmarshal failure: %s <> %s"
 		   (string_of_message a) (string_of_message b));
   if String.length x <> offset
   then failwith (Printf.sprintf "Failed to consume all data in marshal_unmarshal %s (length=%d offset=%d)"
 		   (string_of_message a) (String.length x) offset)
 
-let examples = 
+let examples =
   [ Command (Print "Hello there");
     Command (Debug "this is debug output");
     Command (Load "ova.xml");

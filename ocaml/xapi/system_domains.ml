@@ -47,7 +47,7 @@ let set_is_system_domain ~__context ~self ~value =
 		) ()
 
 (** If a VM is a driver domain then it hosts backends for either disk or network
-    devices. We link PBD.other_config:storage_driver_domain_key to 
+    devices. We link PBD.other_config:storage_driver_domain_key to
     VM.other_config:storage_driver_domain_key and we ensure the VM is marked as
     a system domain. *)
 let storage_driver_domain_key = "storage_driver_domain"
@@ -137,9 +137,9 @@ let wait_for ?(timeout=120.) f =
 	let success = ref false in
 	while not(!finished) do
 		let remaining = timeout -. (Unix.gettimeofday () -. start) in
-		if remaining < 0. 
+		if remaining < 0.
 		then finished := true
-		else 
+		else
 			try
 				if f () then begin
 					success := true;

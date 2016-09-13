@@ -32,7 +32,7 @@ type upgrade_rule = {
 }
 
 (** Apply all the rules needed for the previous_version *)
-let apply_upgrade_rules ~__context rules previous_version = 
+let apply_upgrade_rules ~__context rules previous_version =
   debug "Looking for database upgrade rules:";
   let required_rules = List.filter (fun r -> r.version previous_version) rules in
   List.iter
@@ -126,7 +126,7 @@ let upgrade_wlb_configuration = {
 		(* get a Secret reference that makes sense, if there is no password ("")
 		   then use null, otherwise convert if clear-text and else keep what's
 		   there *)
-		let wlb_passwd_ref = 
+		let wlb_passwd_ref =
 			let old_wlb_pwd = Ref.string_of
 				(Db.Pool.get_wlb_password ~__context ~self:pool) in
 			if old_wlb_pwd = ""
@@ -156,15 +156,15 @@ properties to safe defaults to avoid triggering something bad.
 		{- t.dynamic_min := s.target}}}
 }
 *)
-let upgrade_vm_memory_for_dmc = { 
+let upgrade_vm_memory_for_dmc = {
 	description = "Upgrading VM memory fields for DMC";
     version = (fun x -> x <= george);
-    fn = 
+    fn =
 		fun ~__context ->
 			debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
 			let module VMC = Vm_memory_constraints.Vm_memory_constraints in
-			
-			let update_vm (vm_ref, vm_rec) = 
+
+			let update_vm (vm_ref, vm_rec) =
 				if vm_rec.API.vM_is_control_domain then begin
 					let target = vm_rec.API.vM_memory_target in
 					debug "VM %s (%s) dynamic_{min,max} <- %Ld"
@@ -189,13 +189,13 @@ let upgrade_vm_memory_for_dmc = {
 					Db.VM.set_memory_dynamic_min ~__context ~self:vm_ref ~value:safe_constraints.VMC.dynamic_min;
 					Db.VM.set_memory_target ~__context ~self:vm_ref ~value:safe_constraints.VMC.target;
 					Db.VM.set_memory_dynamic_max ~__context ~self:vm_ref ~value:safe_constraints.VMC.dynamic_max;
-					
+
 					Db.VM.set_memory_static_max ~__context ~self:vm_ref ~value:safe_constraints.VMC.static_max;
 				end in
 			List.iter update_vm (Db.VM.get_all_records ~__context)
 }
 
-(* GEORGE OEM -> BODIE/MNR *)	
+(* GEORGE OEM -> BODIE/MNR *)
 let upgrade_bios_strings = {
     description = "Upgrading VM BIOS strings";
     version = (fun x -> x <= george);
@@ -207,7 +207,7 @@ let upgrade_bios_strings = {
 					let line = input_line ic in
 					match Xapi_inventory.parse_inventory_entry line with
 						| Some (k, v) when k = "OEM_MANUFACTURER" -> Some v
-						| Some _ -> find_oem_manufacturer () 
+						| Some _ -> find_oem_manufacturer ()
 						| None -> None
 				in
 				Pervasiveext.finally (find_oem_manufacturer) (fun () -> close_in ic)

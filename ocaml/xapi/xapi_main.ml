@@ -31,7 +31,7 @@ let _ =
 
   Stdext.Unixext.pidfile_write "/var/run/xapi.pid";
 
-  (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go 
+  (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go
      (in the unlikely event that there are any ;) *)
   Stdext.Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700;
   Unix.chdir (Filename.concat "/var/lib/xcp" "debug");

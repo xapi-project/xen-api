@@ -255,7 +255,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 						true
 					with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
 				end) protected_vms in
-			
+
 			(* Check for impediments before attempting to perform pool_migrate *)
 			List.iter
 				(fun (vm, _) ->
@@ -671,10 +671,10 @@ let destroy ~__context ~self =
 
 let declare_dead ~__context ~host =
 	precheck_destroy_declare_dead ~__context ~self:host "declare_dead";
-	
+
 	let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self:host in
 
-	Helpers.call_api_functions ~__context (fun rpc session_id -> 
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		List.iter (fun vm -> Client.Client.VM.power_state_reset rpc session_id vm) my_regular_vms);
 
 	Db.Host.set_enabled ~__context ~self:host ~value:false;
@@ -750,7 +750,7 @@ let syslog_reconfigure ~__context ~host =
 		| _ ->
 			"--remote="^destination
 	in
-	  
+
 	let args = [| !Xapi_globs.xe_syslog_reconfigure; flag |] in
 	ignore (Unixext.spawnvp args.(0) args)
 
@@ -1551,7 +1551,7 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
 
 	(* PIF -> bridge option: None means "dangling PIF" *)
 	let pif_to_bridge =
-		(* Create a list pairing each PIF with the bridge for the network 
+		(* Create a list pairing each PIF with the bridge for the network
 		   that it is on *)
 		List.map (fun (pif, pif_r) ->
 			let net = pif_r.API.pIF_network in
@@ -1588,7 +1588,7 @@ let migrate_receive ~__context ~host ~network ~options =
 	 	~rbac_permissions:session_rec.API.session_rbac_permissions in
 	let new_session_id = (Ref.string_of new_session_id) in
 	let pifs = Db.Network.get_PIFs ~__context ~self:network in
-	let pif = 
+	let pif =
 		try List.find (fun x -> host = Db.PIF.get_host ~__context ~self:x) pifs
 		with Not_found ->
 			raise (Api_errors.Server_error(Api_errors.host_cannot_attach_network,[Ref.string_of host; Ref.string_of network]))

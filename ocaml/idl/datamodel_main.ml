@@ -19,14 +19,14 @@ open Dm_api
 (* right now this file returns all fields if -all set, otherwise it returns
    fields that have z1 set in release.internal *)
 
-let _ = 
+let _ =
   let dot_mode = ref false
   and latex_mode = ref false
   and dtd_mode = ref false
   and closed = ref false (* shows release_closed *)
   and all = ref false (* shows release_impl as well *)
   and dirname = ref "" in
-    
+
     Arg.parse [ "-dot", Arg.Set dot_mode, "output dot graph";
 		"-latex", Arg.Set latex_mode, "output latex document";
 		"-dtd", Arg.Set dtd_mode, "output XML DTD";
@@ -36,20 +36,20 @@ let _ =
       (fun x -> dirname := x)
       "compile XenSource API datamodel specification";
     let all_modes = [ !dot_mode; !latex_mode; !dtd_mode ] in
-      
+
     let num_modes_set = List.length (List.filter (fun x->x) all_modes) in
-      
+
       if num_modes_set = 0 then failwith "No mode set on the commandline";
       if num_modes_set > 1 then failwith "More than one mode on the commandline";
 
       let oss_filter api =
 	filter
-	  (fun _ -> true) (fun field -> List.mem "3.0.3" field.release.opensource) 
+	  (fun _ -> true) (fun field -> List.mem "3.0.3" field.release.opensource)
 	  (fun message -> List.mem "3.0.3" message.msg_release.opensource)
 	  api in
       let closed_filter api =
 	filter
-	  (fun _ -> true) (fun field -> List.mem "closed" field.release.internal) 
+	  (fun _ -> true) (fun field -> List.mem "closed" field.release.internal)
 	  (fun message -> List.mem "closed" message.msg_release.internal)
 	  api in
 
@@ -77,7 +77,7 @@ let _ =
 
 	if !dtd_mode then begin
 	    let api = filter (fun _ -> true)
-	      (fun field -> field.qualifier <> DynamicRO) 
+	      (fun field -> field.qualifier <> DynamicRO)
 	      (fun _ -> true)
 	      api in
 	      List.iter print_endline (Dtd_backend.of_objs api);

@@ -44,7 +44,7 @@ let info_from_raw_result ?(separate=false) file result : info list =
         [ (file,resultname,subtest), floats ]
     | _ -> []
 
-let floats_from_file fname = 
+let floats_from_file fname =
   let floats = ref [] in
   Unixext.readfile_line (fun line -> floats := float_of_string (String.strip String.isspace line) :: !floats) fname;
   !floats
@@ -58,7 +58,7 @@ let get_info ?(separate=false) files : info list =
 	merge_infos (List.flatten (List.map aux files))
 
 let short_info_to_string ((file,result,subtest) : short_info) =
-  Printf.sprintf "%s.%s.%s" result subtest file 
+  Printf.sprintf "%s.%s.%s" result subtest file
 
 let short_info_to_title ((_,_,subtest) : short_info) = subtest
 

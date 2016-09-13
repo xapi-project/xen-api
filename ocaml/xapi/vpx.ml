@@ -9,8 +9,8 @@ type importInfo = { sRuuid:string }
 type jobInfo = {source:serverInfo; sourceVmUUID:string; sourceVmName:string; importInfo:importInfo}
 type dateTime = Stdext.Date.iso8601
 type jobInstance = {
-	id:string; jobName:string; jobDesc:string ; xenServerName:string; 
-	sRName:string; createdTime:dateTime; startTime:dateTime; 
+	id:string; jobName:string; jobDesc:string ; xenServerName:string;
+	sRName:string; createdTime:dateTime; startTime:dateTime;
 	completedTime:dateTime; errorString:string; compressedBytesRead:int64;
 	uncompressedBytesWritten:int64; stateDesc:string;
 	percentComplete:int64; state:jobState; clientIpEndPoint:string; jobInfo:jobInfo
@@ -247,9 +247,9 @@ let array_of_jobInstances_of_rpc lr =
 	let l = array_of_rpc lr "JobInstance" in
 	List.map (fun r -> jobInstance_of_rpc r) l
 
-let vpxrpc ip call = 
+let vpxrpc ip call =
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), ip, 443) in
 (*	debug "call = %s" (Xmlrpc.string_of_call call); *)
-	XMLRPC_protocol.rpc ~transport:transport 
+	XMLRPC_protocol.rpc ~transport:transport
 		~http:(xmlrpc ~version:"1.0" "/") call

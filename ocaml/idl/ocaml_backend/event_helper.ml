@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type event_record = 
+type event_record =
     | Session of          [`Session ] Ref.t * API.session_t option
     | Task of             [`task ] Ref.t * API.task_t option
     | Event of            [`Event] Ref.t * API.event_t option
@@ -23,7 +23,7 @@ type event_record =
     | Host_metrics of     [`host_metrics] Ref.t * API.host_metrics_t option
     | Host_cpu of         [`host_cpu] Ref.t * API.host_cpu_t option
     | Network of          [`network] Ref.t * API.network_t option
-    | VIF of              [`VIF] Ref.t * API.vIF_t option 
+    | VIF of              [`VIF] Ref.t * API.vIF_t option
     | VIF_metrics of      [`VIF_metrics] Ref.t * API.vIF_metrics_t option
     | PIF of              [`PIF] Ref.t * API.pIF_t option
     | PIF_metrics of      [`PIF_metrics] Ref.t * API.pIF_metrics_t option
@@ -42,10 +42,10 @@ type event_record =
     | VMPP of             [`VMPP] Ref.t * API.vMPP_t option
 
 let maybe f x =
-    match x with 
+    match x with
 		| Some x -> Some (f x)
 		| None -> None
-			
+
 let record_of_event ev =
 	let rpc = ev.Event_types.snapshot in
     match ev.Event_types.ty with
@@ -77,4 +77,4 @@ let record_of_event ev =
 		| "secret" ->           Secret (Ref.of_string ev.Event_types.reference, maybe (API.secret_t_of_rpc) rpc)
 		| "vmpp" ->             VMPP (Ref.of_string ev.Event_types.reference, maybe (API.vMPP_t_of_rpc) rpc)
 		| _ -> failwith "unknown event type"
-			  
+

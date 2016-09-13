@@ -76,7 +76,7 @@ val db_introduce :
   managed:bool ->
   properties:(string * string) list ->
   [ `PIF ] Ref.t
-  
+
 (** Perform a database delete of the PIF record on the pool master. *)
 val db_forget : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 
@@ -114,14 +114,14 @@ val reconfigure_ip :
   self:API.ref_PIF ->
   mode:[`DHCP | `None | `Static] ->
   iP:string -> netmask:string -> gateway:string -> dNS:string -> unit
-  
+
 (** Change the IPv6 configuration of a PIF *)
 val reconfigure_ipv6 :
   __context:Context.t ->
   self:API.ref_PIF ->
   mode:[ `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string -> gateway:string -> dNS:string -> unit
-  
+
 (** Change the primary address type between IPv4 and IPv6 *)
 val set_primary_address_type :
   __context:Context.t ->
@@ -201,7 +201,7 @@ val pool_introduce :
   vLAN_master_of:[ `VLAN ] Ref.t ->
   management:bool ->
   other_config:(string * string) list ->
-  disallow_unplug:bool -> 
+  disallow_unplug:bool ->
   ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
   iPv6:string list ->
   ipv6_gateway:string ->
@@ -231,11 +231,11 @@ val introduce_internal :
   ?disallow_unplug:bool ->
   unit ->
   [ `PIF ] Ref.t
-  
+
 (** Brings down the network interface and removes the PIF object. *)
 val forget_internal :
   t:tables -> __context:Context.t -> self:API.ref_PIF -> unit
-  
+
 (** Look over all this host's PIFs and reset the management flag.
  *  The management interface is ultimately defined by the inventory file,
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
@@ -246,12 +246,12 @@ val update_management_flags :
     start of day code. These are the PIFs on the localhost that are not bond slaves.
     For PIFs that have [disallow_unplug] set to true, and the management interface, will
     actually be brought up ahead of time by the init scripts, so we don't have to plug them in.
-    These are written to the xensource-inventory file when HA is enabled so that HA can bring up 
+    These are written to the xensource-inventory file when HA is enabled so that HA can bring up
     interfaces required by storage NICs etc. (these interface are not filtered out at the moment).
  *)
 val calculate_pifs_required_at_start_of_day :
   __context:Context.t -> ('b Ref.t * API.pIF_t) list
-  
+
 (** Attempt to bring up (plug) the required PIFs when the host starts up.
  *  Uses {!calculate_pifs_required_at_start_of_day}. *)
 val start_of_day_best_effort_bring_up : unit -> unit
@@ -268,15 +268,15 @@ val assert_no_vlans : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 (** Ensure the PIF is not the management interface. *)
 val assert_not_management_pif :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure the PIF is not the management interface if the host is a pool slave. *)
 val assert_not_slave_management_pif :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure neither HA nor the general redo-log are enabled. *)
 val assert_no_protection_enabled :
   __context:Context.t -> self:[ `PIF ] Ref.t -> unit
-  
+
 (** Ensure the Network attached to the given PIF has not VIFs on it
  *  belonging to VMs that are protected by HA. *)
 val abort_if_network_attached_to_protected_vms :

@@ -1338,7 +1338,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					(Db.VM.get_name_label ~__context ~self:vm)
 			in
 			let (name, priority) = Api_messages.vm_shutdown in
-			(try ignore(Xapi_message.create ~__context ~name 
+			(try ignore(Xapi_message.create ~__context ~name
 				~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
 
 		let clean_reboot ~__context ~vm =
@@ -2981,7 +2981,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) in
 			tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
-		let set_primary_address_type ~__context ~self ~primary_address_type = 
+		let set_primary_address_type ~__context ~self ~primary_address_type =
 			info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
 				(pif_uuid ~__context self)
 				(Record_util.primary_address_type_to_string primary_address_type);

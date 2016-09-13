@@ -41,12 +41,12 @@ let from_rpc ?(ignore=false) arg =
 	Printf.sprintf "let %s%s = %s_of_rpc %s_rpc in" (if ignore then "_" else "") binding converter binding
 
 let read_msg_parameter msg_parameter =
-  from_rpc 
- 
+  from_rpc
+
 let debug msg args =
   if !enable_debugging
-  then "D.debug \""^(String.escaped msg)^"\" " ^ (String.concat " " args) ^ ";" else "" 
-    
+  then "D.debug \""^(String.escaped msg)^"\" " ^ (String.concat " " args) ^ ";" else ""
+
 let has_default_args args =
   let arg_has_default arg =
     match arg.DT.param_default with
@@ -66,7 +66,7 @@ let count_mandatory_message_parameters (msg: message) =
     | [] -> 0
     | head::tail -> ((match head.param_default with
                       | None -> 1
-                      | Some x -> 0) + 
+                      | Some x -> 0) +
                      (count_mandatory_parameters tail))
   in count_mandatory_parameters msg.msg_params
 
@@ -76,14 +76,14 @@ let operation (obj: obj) (x: message) =
   let msg_params_without_default_values = List.filter (fun p -> p.DT.param_default=None) msg_params in
 
   let msg_without_default_values = {x with DT.msg_params=msg_params_without_default_values} in
-  
+
   let all_args = Client.args_of_message obj x in
 
   let args_without_default_values = Client.args_of_message obj msg_without_default_values in
-  
+
   (* Constructors use a <struct> on the wire *)
-  let is_ctor = x.msg_tag = FromObject(Make) && Client.use_structure_in_ctor in    
-    
+  let is_ctor = x.msg_tag = FromObject(Make) && Client.use_structure_in_ctor in
+
   (* Result marshaller converts the result to a string for the Task table *)
   let result_marshaller = match x.msg_custom_marshaller, x.msg_result with
     | true, _ -> "(fun x -> x)"
@@ -98,7 +98,7 @@ let operation (obj: obj) (x: message) =
   let wire_name = DU.wire_name ~sync:true obj x in
   let alternative_wire_name = DU.alternative_wire_name ~sync:true obj x in
 
-  let orig_string_args = 
+  let orig_string_args =
 	  if is_ctor then [O.string_of_param Client.session;"__structure"]
 	  else List.map O.string_of_param args_without_default_values in
 
@@ -130,9 +130,9 @@ let operation (obj: obj) (x: message) =
       String.concat "\n"
       ("let __structure = match __structure_rpc with Dict d -> d | _ -> failwith \"bad __structure\" in" ::
 	 (List.map of_field fields)) in
-    
+
   (* impl_fn = something like "VM.make ~__context" *)
-  let impl_fn = 
+  let impl_fn =
     (* filter out the session_id *)
     let args_without_session = List.filter (function O.Named("session_id", _) -> false | _ -> true) all_args in
       Printf.sprintf "%s.%s %s %s"
@@ -140,9 +140,9 @@ let operation (obj: obj) (x: message) =
 	x.msg_name
 	("~__context:" ^ Gen_common.context_with_correct_database)
 	(String.concat "" (List.map (fun arg -> " ~" ^ (O.string_of_param arg)) args_without_session)) in
-        
+
   let has_async = Client.has_async x in
-    
+
   let comments = List.concat [
 			       if Gen_empty_custom.operation_requires_side_effect x
 			       then [ "(* has side-effect (with locks and no automatic DB action) *)" ]
@@ -199,7 +199,7 @@ let operation (obj: obj) (x: message) =
 	)
 	(add_counts 1 msg_params_with_default_values))
   in
-  
+
   let may_be_side_effecting msg =
     match msg.msg_tag with
 	FromField (Setter, _ ) | FromField (Add, _) | FromField(Remove, _) -> true
@@ -207,7 +207,7 @@ let operation (obj: obj) (x: message) =
       | FromObject Make | FromObject Delete | FromObject (Private Copy) -> true
       | FromObject _ -> false
       | Custom -> true in
-    
+
 		let session_check_exp =
 			if x.msg_session
 				then [ "Session_check.check " ^ (string_of_bool x.msg_pool_internal) ^ " session_id;" ]
@@ -252,7 +252,7 @@ let operation (obj: obj) (x: message) =
 				[
 					Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (rbac __context (fun()-> (%s.%s) )) in" _forward impl_fn
 				]
-			else 
+			else
 				[
 					Printf.sprintf "%s \"%s\";"
 					(if may_be_side_effecting x then "ApiLogSideEffect.debug" else "ApiLogRead.debug")
@@ -286,13 +286,13 @@ let operation (obj: obj) (x: message) =
 
 (* ------------------------------------------------------------------------------------------
     Code to generate whole module
-   ------------------------------------------------------------------------------------------ *)      
+   ------------------------------------------------------------------------------------------ *)
 
 let gen_module api : O.Module.t =
   (* For testing purposes the ocaml client and server are kept in sync *)
   let api = Client.client_api ~sync:true api in
   let obj (obj: obj) = List.map (operation obj) obj.messages in
-  let all_objs = Dm_api.objects_of_api api in      
+  let all_objs = Dm_api.objects_of_api api in
 
   O.Module.make
     ~name:module_name
@@ -308,14 +308,14 @@ let gen_module api : O.Module.t =
       O.Module.Let (
 	O.Let.make
 	  ~name: "dispatch_call"
-	  ~params: [ O.Anon(Some "http_req", "Http.Request.t"); 
+	  ~params: [ O.Anon(Some "http_req", "Http.Request.t");
 		     O.Anon(Some "fd", "Unix.file_descr");
 		     O.Anon(Some "call", "Rpc.call") ]
 	  ~ty: "response"
 	  ~body: (
-	    [ 
+	    [
 	      "let __call, __params = call.Rpc.name, call.Rpc.params in";
-          "List.iter (fun p -> let s = Rpc.to_string p in if not (Stdext.Encodings.UTF8_XML.is_valid s) then"; 
+          "List.iter (fun p -> let s = Rpc.to_string p in if not (Stdext.Encodings.UTF8_XML.is_valid s) then";
           "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid UTF-8 string in parameter\"; s])))  __params;";
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
@@ -331,7 +331,7 @@ let gen_module api : O.Module.t =
 	    ] @ (List.flatten (List.map obj all_objs)) @ [
 		"| \"system.listMethods\" -> ";
 		"  success (rpc_of_string_set [" ] @
-		begin 
+		begin
 		  let objmsgs obj = List.map (fun msg -> Printf.sprintf "\"%s\";" (DU.wire_name ~sync:true obj msg)) obj.messages in
 		  let allmsg = List.map (fun obj -> String.concat "" (objmsgs obj)) all_objs in
 		  allmsg
@@ -364,7 +364,7 @@ let gen_module api : O.Module.t =
 			       O.Let.make
 				 ~name: "dispatch"
 				 ~params: [
-					    O.Anon(Some "http_req", "Http.Request.t"); 
+					    O.Anon(Some "http_req", "Http.Request.t");
 					    O.Anon(Some "fd", "Unix.file_descr");
 					    O.Anon(Some "body", "string")
 					  ]

@@ -50,7 +50,7 @@ let run_command_with_timeout cmd timeout =
   let ic = Unix.open_process_in cmd in
   let f = Unix.descr_of_in_channel ic in
   let (a,b,c) = (Unix.select [f] [] [] timeout) in
-  if List.length a = 0 
+  if List.length a = 0
   then
     (log Log.Debug "Command timed out";
      ignore_int (Sys.command "killall nc");
@@ -60,7 +60,7 @@ let run_command_with_timeout cmd timeout =
     let read_str () =
       try
 	while true do
-	  result := (input_line ic) :: (!result) 
+	  result := (input_line ic) :: (!result)
 	done
       with _ -> () in
     let _ = read_str() in
@@ -110,7 +110,7 @@ let cli_offhost_with_pwf ?dolog pwf cmd params =
 let cli_offhost ?dolog cmd params =
   cli_offhost_with_pwd ?dolog password cmd params
 
-  
+
 
 (* Misc util funcs *)
 
@@ -119,7 +119,7 @@ let grep lines patt =
   List.filter (fun l -> try ignore(Str.search_forward regex l 0); true with _ -> false) lines
 
 
-			  
 
 
-    
+
+

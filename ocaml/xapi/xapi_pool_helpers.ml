@@ -46,7 +46,7 @@ let valid_operations ~__context record _ref' =
 			set_errors Api_errors.ha_disable_in_progress [] [ `ha_enable ];
 			set_errors Api_errors.ha_disable_in_progress [] [ `ha_disable ]
 		end;
-	
+
 	(* HA disable cannot run if HA is already disabled on a pool *)
 	(* HA enable cannot run if HA is already enabled on a pool *)
 	let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) in
@@ -54,7 +54,7 @@ let valid_operations ~__context record _ref' =
 		set_errors Api_errors.ha_is_enabled [] [ `ha_enable ]
 	else
 		set_errors Api_errors.ha_not_enabled [] [ `ha_disable ];
-	
+
 	table
 
 let throw_error table op =

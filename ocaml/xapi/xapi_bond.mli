@@ -14,9 +14,9 @@
 (** Module that defines API functions for Bond objects
  * @group Networking
  *)
- 
+
 (**
-A host can have multiple network interfaces. These can be used to physically separate networks. However, multiple interfaces can also be {i bonded} together to form a single high-throughput interface. 
+A host can have multiple network interfaces. These can be used to physically separate networks. However, multiple interfaces can also be {i bonded} together to form a single high-throughput interface.
 {ul
 {- The PIFs that are bonded together are called {i slaves}.}
 {- The datamodel has a {i Bond} object that joins the slaves.}
@@ -25,7 +25,7 @@ A host can have multiple network interfaces. These can be used to physically sep
 }
 *)
 
-(** Create a PIF to represent the bond master and a Bond record to represent the bond. 
+(** Create a PIF to represent the bond master and a Bond record to represent the bond.
  *  Return a reference to the bond record. The given network must not have any local
  *  PIFs on it yet.
  *)

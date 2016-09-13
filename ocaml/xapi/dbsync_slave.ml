@@ -47,14 +47,14 @@ let create_localhost ~__context info =
   let me = try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None in
   (* me = None on firstboot only *)
   if me = None
-  then 
-    let (_: API.ref_host) = 
-      Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname ~name_description:"" 
-	~hostname:info.hostname ~address:ip 
-	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
+  then
+    let (_: API.ref_host) =
+      Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname ~name_description:""
+	~hostname:info.hostname ~address:ip
+	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[]
 	~license_params:[] ~edition:"" ~license_server:["address", "localhost"; "port", "27000"]
 	~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:info.ssl_legacy
-    in ()		
+    in ()
 
 (* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
@@ -102,7 +102,7 @@ let refresh_localhost_info ~__context info =
     Db.Host.remove_from_other_config ~__context ~self:host ~key:boot_time_key;
     Db.Host.add_to_other_config ~__context ~self:host ~key:boot_time_key ~value:boot_time_value;
 
-    let agent_start_key = "agent_start_time" in 
+    let agent_start_key = "agent_start_time" in
     let agent_start_time = string_of_float (Unix.time ()) in
 
     Db.Host.remove_from_other_config ~__context ~self:host ~key:agent_start_key;
@@ -158,7 +158,7 @@ let record_host_memory_properties ~__context =
 			(*    appears as free memory but can't be used in practice.  *)
 			let obvious_overhead_memory_bytes =
 				total_memory_bytes -- boot_memory_bytes in
-			let nonobvious_overhead_memory_kib = 
+			let nonobvious_overhead_memory_kib =
 				try
 					Memory_client.Client.get_host_reserved_memory "dbsync"
 				with e ->
@@ -196,7 +196,7 @@ let test_uniqueness_doesnt_kill_us ~__context =
 (** Make sure the PIF we're using as a management interface is marked as attached
     otherwise we might blow it away by accident *)
 (* CA-23803:
- * As well as marking the management interface as attached, mark any other important 
+ * As well as marking the management interface as attached, mark any other important
  * interface (defined by what is brought up before xapi starts) as attached too.
  * For example, this will prevent needless glitches in storage interfaces.
  *)
@@ -229,13 +229,13 @@ let update_env __context sync_keys =
     let task_id = Context.get_task_id __context in
     Db.Task.remove_from_other_config ~__context ~self:task_id ~key:"sync_operation";
     Db.Task.add_to_other_config ~__context ~self:task_id ~key:"sync_operation" ~value:key;
-    let skip_sync = 
+    let skip_sync =
       try
 	List.assoc key sync_keys = Xapi_globs.sync_switch_off
       with _ -> false
     in
     let disabled_in_config_file = List.mem key !Xapi_globs.disable_dbsync_for in
-    begin 
+    begin
       if (not skip_sync) && (not disabled_in_config_file)
       then (debug "Sync: %s" key; f ())
       else debug "Skipping sync keyed: %s" key
@@ -248,15 +248,15 @@ let update_env __context sync_keys =
   let info = Create_misc.read_localhost_info () in
 
   (* create localhost record if doesn't already exist *)
-  switched_sync Xapi_globs.sync_create_localhost (fun () -> 
+  switched_sync Xapi_globs.sync_create_localhost (fun () ->
     debug "creating localhost";
-    create_localhost ~__context info; 
+    create_localhost ~__context info;
   );
 
   (* record who we are in xapi_globs *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 
-  switched_sync Xapi_globs.sync_set_cache_sr (fun () -> 
+  switched_sync Xapi_globs.sync_set_cache_sr (fun () ->
     try
       let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
       let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
@@ -265,7 +265,7 @@ let update_env __context sync_keys =
     with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
   );
 
-  switched_sync Xapi_globs.sync_load_rrd (fun () -> 
+  switched_sync Xapi_globs.sync_load_rrd (fun () ->
     (* Load the host rrd *)
     Rrdd_proxy.Deprecated.load_rrd ~__context
       ~uuid:(Helpers.get_localhost_uuid ())
@@ -312,12 +312,12 @@ let update_env __context sync_keys =
     debug "checking patch status";
     Xapi_pool_patch.update_db ~__context
   );
-  
+
   switched_sync Xapi_globs.sync_bios_strings (fun () ->
     debug "get BIOS strings on startup";
 		let current_bios_strings = Bios_strings.get_host_bios_strings ~__context in
 		let db_host_bios_strings = Db.Host.get_bios_strings ~__context ~self:localhost in
-		
+
 		if current_bios_strings <> db_host_bios_strings then
 			begin
 				debug "BIOS strings obtained from the host and that present in DB are different. Updating BIOS strings in xapi-db.";
@@ -334,7 +334,7 @@ let update_env __context sync_keys =
 		Xapi_host.sync_display ~__context ~host:localhost
 	);
 
-  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
+  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () ->
     refresh_localhost_info ~__context info;
   );
 

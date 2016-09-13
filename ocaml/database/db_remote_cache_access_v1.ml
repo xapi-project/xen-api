@@ -1,32 +1,32 @@
 
 open Stdext.Threadext
-	
+
 module DBCacheRemoteListener = struct
 	open Db_rpc_common_v1
 	open Db_action_helper
 	open Db_cache
 	open Db_exn
-		
+
 	exception DBCacheListenerInvalidMessageReceived
 	exception DBCacheListenerUnknownMessageName of string
-		
+
 	module D = Debug.Make(struct let name = "db_server" end)
 	open D
-	
+
 	let ctr_mutex = Mutex.create()
 	let calls_processed = ref 0
 	let total_recv_len = ref 0
 	let total_transmit_len = ref 0
-		
+
 	(* Performance counters for debugging *)
 	let update_lengths msg resp =
 		Mutex.lock ctr_mutex;
 		total_transmit_len := (!total_transmit_len) + (String.length (Xml.to_string_fmt resp));
 		total_recv_len := (!total_recv_len) + (String.length (Xml.to_string_fmt msg));
 		Mutex.unlock ctr_mutex
-			
+
 	let success xml =
-		let resp = 
+		let resp =
 			XMLRPC.To.array
 				[XMLRPC.To.string "success";
 				xml] in
@@ -34,7 +34,7 @@ module DBCacheRemoteListener = struct
 		(* let s = Xml.to_string_fmt resp  in *)
 		(* debug "Resp [Len = %d]: %s" (String.length s) s; *)
 		resp
-			
+
 	let failure exn_name xml =
 		let resp =
 			XMLRPC.To.array
@@ -44,9 +44,9 @@ module DBCacheRemoteListener = struct
 					xml]] in
 		(* update_lengths xml resp; *)
 		resp
-			
+
 	module DBCache : Db_interface.DB_ACCESS = Db_cache_impl
-		
+
 	(** Unmarshals the request, calls the DBCache function and marshals the result.
 		Note that, although the messages still contain the pool_secret for historical reasons,
 		access has already been applied by the RBAC code in Xapi_http.add_handler. *)
@@ -129,4 +129,4 @@ let handler req bio _ =
 	let reply_xml = DBCacheRemoteListener.process_xmlrpc body_xml in
 	let response = Xml.to_bigbuffer reply_xml in
 	Http_svr.response_fct req fd (Stdext.Bigbuffer.length response)
-		(fun fd -> Stdext.Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s)))) 
+		(fun fd -> Stdext.Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s))))

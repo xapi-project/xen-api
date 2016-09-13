@@ -41,10 +41,10 @@ let overrides = [
 	"event_operation",(
 		"let rpc_of_event_operation x = match x with | `add -> Rpc.String \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"^
 			"let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ -> failwith \"Unmarshalling error\"");
-	
+
 ]
-			
-		
+
+
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
 let gen_non_record_type highapi tys =
 	let rec aux accu = function
@@ -58,9 +58,9 @@ let gen_non_record_type highapi tys =
 		| DT.Set (DT.Record _)    :: t -> aux accu t
 		| DT.Set (DT.Enum (n,_) as e) as ty :: t ->
 		    aux (sprintf "type %s = %s list with rpc" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
-		| ty                      :: t -> 
+		| ty                      :: t ->
 			let alias = OU.alias_of_ty ty in
-			if List.mem_assoc alias overrides 
+			if List.mem_assoc alias overrides
 			then aux ((sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty) (List.assoc alias overrides))::accu) t
 			else aux (sprintf "type %s = %s with rpc" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
 	aux [] tys
@@ -76,17 +76,17 @@ let gen_record_type ~with_module highapi tys =
 			let field fld = OU.ocaml_of_record_field (obj_name :: fld.DT.full_name) in
 			let map_fields fn = String.concat "; " (List.map (fun field -> fn field) all_fields) in
 			let regular_def fld = sprintf "%s : %s" (field fld) (OU.alias_of_ty fld.DT.ty) in
-			
-			let make_of_field fld = 
+
+			let make_of_field fld =
 				sprintf "\"%s\",rpc_of_%s x.%s" (String.concat "_" fld.DT.full_name)
 					(OU.alias_of_ty fld.DT.ty) (OU.ocaml_of_record_field (obj_name :: fld.DT.full_name))
 			in
 
 			let make_to_field fld =
-				sprintf "%s = %s_of_rpc (List.assoc \"%s\" x)" (field fld) (OU.alias_of_ty fld.DT.ty) 
+				sprintf "%s = %s_of_rpc (List.assoc \"%s\" x)" (field fld) (OU.alias_of_ty fld.DT.ty)
 					(String.concat "_" fld.DT.full_name)
 			in
-				
+
 			let type_t = sprintf "type %s_t = { %s }" obj_name (map_fields regular_def) in
 			let others = if not with_module then
 				[]
@@ -104,7 +104,7 @@ let gen_record_type ~with_module highapi tys =
 let gen_client highapi =
 	List.iter (List.iter print)
 		(List.between [""] [
-			 [ 
+			 [
 				 "open API";
 				 "open Rpc";
 				 "module type RPC = sig val rpc: Rpc.t -> Rpc.t end";
@@ -114,14 +114,14 @@ let gen_client highapi =
 			 ];
 		         O.Module.strings_of (Gen_client.gen_module highapi);
 			 [ "module Id = struct type 'a t = 'a let bind x f = f x let return x = x end";
-			   "module Client = ClientF(Id)" ]      
+			   "module Client = ClientF(Id)" ]
 		])
 
 let add_set_enums types =
 	List.concat (
 		List.map (fun ty ->
-			match ty with 
-				| DT.Enum _ -> 
+			match ty with
+				| DT.Enum _ ->
 					if List.exists (fun ty2 -> ty2 = DT.Set ty) types then [ty] else [DT.Set ty; ty]
 				| _ -> [ty]) types)
 
@@ -139,7 +139,7 @@ let gen_client_types highapi =
 			]; [
 				"include Rpc";
 				"type string_list = string list with rpc";
-			]; [ 
+			]; [
 				"module Ref = struct";
 				"  include Ref";
 				"  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)";
@@ -156,12 +156,12 @@ let gen_client_types highapi =
 				"let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\""
 			];
 			gen_non_record_type highapi all_types;
-            gen_record_type ~with_module:true highapi all_types; 
+            gen_record_type ~with_module:true highapi all_types;
 			O.Signature.strings_of (Gen_client.gen_signature highapi);
 			[ "module Legacy = struct";
 			  "open XMLRPC";
 			  "module D=Debug.Make(struct let name=\"legacy_marshallers\" end)";
-			  "open D" ]; 
+			  "open D" ];
 			GenOCaml.gen_of_xmlrpc highapi all_types;
             GenOCaml.gen_to_xmlrpc highapi all_types;
 			["end"];

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make(struct let name="xapi" end) 
+module D = Debug.Make(struct let name="xapi" end)
 open D
 
 (* Dummy MAC used by the VLAN *)
@@ -83,7 +83,7 @@ let destroy ~__context ~self =
 		debug "untagged PIF uuid = %s" (Db.PIF.get_uuid ~__context ~self:untagged_PIF);
 		(* Side-effect of this is to destroy any VLAN object *)
 		Xapi_pif.assert_not_in_bond ~__context ~self:untagged_PIF;
-		Xapi_pif.assert_not_slave_management_pif ~__context ~self:untagged_PIF; 
+		Xapi_pif.assert_not_slave_management_pif ~__context ~self:untagged_PIF;
 		Xapi_pif.assert_no_protection_enabled ~__context ~self:untagged_PIF;
 
 		if Db.PIF.get_VLAN ~__context ~self:untagged_PIF < 0L then

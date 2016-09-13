@@ -39,8 +39,8 @@
     +  Looking for an ampersand, and sending data.
     +  Found an ampersand, so looking for the ending semicolon.
 
-  If the response does not contain an <XmlDataSet> node, then it's most 
-  likely a WLB error response.  We parse these using the normal XML parser, 
+  If the response does not contain an <XmlDataSet> node, then it's most
+  likely a WLB error response.  We parse these using the normal XML parser,
   through the routines in Workload_balancing.  (Error responses are never
   large.)
 
@@ -87,7 +87,7 @@
       </ExecuteReportResponse>
     </s:Body>
   </s:Envelope>
-  
+
  *)
 
 open Printf
@@ -196,25 +196,25 @@ let trim_and_send method_name (start_str, end_str) recv_sock send_sock =
             if n > 0 then
               pump()
             else if !recv_state != 3 then
-              (* if in state 1 we are still looking for the opening tag of the data set, expect xml to be valid 
+              (* if in state 1 we are still looking for the opening tag of the data set, expect xml to be valid
                  if in state 2 we are still looking for the closing tag of the data set,  expect xml to be truncated *)
               let rec_data = (Buffer.contents recv_buf) in
-              if !recv_state = 1 then 
-                begin 
-                  try 
+              if !recv_state = 1 then
+                begin
+                  try
                     let xml_data = Xml.parse_string rec_data in
-                    Workload_balancing.parse_result_code 
+                    Workload_balancing.parse_result_code
                       method_name
                       (Workload_balancing.retrieve_inner_xml method_name xml_data true)
                       "Failed to detect end of XML, data could be truncated"
-                      rec_data 
+                      rec_data
                       true
-                  with 
-                    | Xml.Error err -> 
+                  with
+                    | Xml.Error err ->
                         Workload_balancing.raise_malformed_response' method_name (Xml.error err) rec_data
                 end
               else
-                Workload_balancing.raise_malformed_response' method_name "Expected data is truncated." rec_data    
+                Workload_balancing.raise_malformed_response' method_name "Expected data is truncated." rec_data
        end
   in
     pump()

@@ -70,23 +70,23 @@ module Make = functor(V: VAL) -> struct
 	let add generation key v =
                 let stat = Stat.make generation in
                 StringMap.add key { stat; v }
-	let find key map = (StringMap.find key map).v 
+	let find key map = (StringMap.find key map).v
 	let mem = StringMap.mem
 	let iter f = StringMap.iter (fun key x -> f key x.v)
 	let remove _ = StringMap.remove
 	let touch generation key default row =
                 let default = { stat = Stat.make generation; v = default } in
                 StringMap.update key default (fun x -> { x with stat = { x.stat with Stat.modified=generation } }) row
-	let update generation key default f row = 
+	let update generation key default f row =
                 let default = { stat = Stat.make generation; v = default } in
                 let updatefn () = StringMap.update key default (fun x -> { stat = { x.stat with Stat.modified=generation }; v=f x.v}) row in
-		if mem key row 
+		if mem key row
 		then
 			let old = find key row in
 			let newv = f old in
-			if newv == old 
-			then row 
-			else updatefn ()				
+			if newv == old
+			then row
+			else updatefn ()
 		else
 			updatefn ()
 	let fold_over_recent since f t initial = StringMap.fold (fun x y z -> if y.stat.Stat.modified > since then f x y.stat y.v z else z) t initial
@@ -375,11 +375,11 @@ let get_field tblname objref fldname db =
           raise (DBCache_NotFound ("missing row", tblname, objref))
 
 let unsafe_set_field g tblname objref fldname newval =
-	(Database.update 
+	(Database.update
 	++ (TableSet.update g tblname Table.empty)
 	++ (Table.update g objref Row.empty)
 	++ (Row.update g fldname (Schema.Value.String "")))
-		(fun _ -> newval) 
+		(fun _ -> newval)
 
 let update_one_to_many g tblname objref f db =
 	if not (is_valid tblname objref db) then db else
@@ -413,7 +413,7 @@ let set_field tblname objref fldname newval db =
 	let need_other_table_update =
 		let schema = Database.schema db in
 		match (Schema.one_to_many tblname schema, Schema.many_to_many tblname schema) with
-			| [],[] -> 
+			| [],[] ->
 				false
 			| o2m,m2m ->
 				List.exists (fun (fld,tbl,otherfld) -> fld = fldname) o2m
@@ -422,10 +422,10 @@ let set_field tblname objref fldname newval db =
 
 	if need_other_table_update then begin
 		let g = Manifest.generation (Database.manifest db) in
-		(Database.increment 
+		(Database.increment
 		 ++ (update_one_to_many g tblname objref add_to_set)
 		 ++ (update_many_to_many g tblname objref add_to_set)
-		 ++ ((Database.update 
+		 ++ ((Database.update
 			  ++ (TableSet.update g tblname Table.empty)
 			  ++ (Table.update g objref Row.empty)
 			  ++ (Row.update g fldname (Schema.Value.String ""))) (fun _ -> newval))
@@ -433,8 +433,8 @@ let set_field tblname objref fldname newval db =
 		 ++ (update_many_to_many g tblname objref remove_from_set)) db
 	end else begin
 		let g = Manifest.generation (Database.manifest db) in
-		(Database.increment 
-		 ++ ((Database.update 
+		(Database.increment
+		 ++ ((Database.update
 			 ++ (TableSet.update g tblname Table.empty)
 			 ++ (Table.update g objref Row.empty)
 			 ++ (Row.update g fldname (Schema.Value.String "")))

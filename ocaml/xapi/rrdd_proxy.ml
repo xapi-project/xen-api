@@ -238,7 +238,7 @@ module Deprecated = struct
 		with _ -> 0
 
 	let load_rrd ~__context ~uuid =
-		let master_address = try Some (Pool_role.get_master_address ()) with _ -> None in 
+		let master_address = try Some (Pool_role.get_master_address ()) with _ -> None in
 		let timescale = get_timescale ~__context in
 		log_and_ignore_exn (fun () -> Rrdd.Deprecated.load_rrd ~uuid ~master_address ~timescale)
 end

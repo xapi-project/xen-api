@@ -54,7 +54,7 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
 (* nice triple negative ;) *)
 let assert_pif_disallow_unplug_not_set ~__context pif =
   if (Db.PIF.get_disallow_unplug ~__context ~self:pif) then
-    raise (Api_errors.Server_error(Api_errors.pif_does_not_allow_unplug, [ Ref.string_of pif ]))    
+    raise (Api_errors.Server_error(Api_errors.pif_does_not_allow_unplug, [ Ref.string_of pif ]))
 
 let get_local_pifs ~__context ~network ~host =
 	(* There should be at most one local PIF by construction *)

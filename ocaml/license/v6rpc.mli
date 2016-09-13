@@ -26,7 +26,7 @@ module type V6api =
 		val get_version : string -> string
 		(* () -> version *)
 		val reopen_logs : unit -> bool
-	end  
+	end
 
 (** RPC handler module *)
 module V6process : functor (V : V6api) ->
